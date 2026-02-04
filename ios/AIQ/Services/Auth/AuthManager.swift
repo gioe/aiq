@@ -159,16 +159,22 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         // Unregister device token first
         await deviceTokenManager.unregisterDeviceToken()
 
+        var logoutFailed = false
         do {
             try await authService.logout()
         } catch {
+            logoutFailed = true
             let errorDesc = error.localizedDescription
             logger.warning("Logout request failed: \(errorDesc, privacy: .public)")
         }
 
         let elapsed = CFAbsoluteTimeGetCurrent() - startTime
         signposter.endInterval("Auth.Logout", state)
-        logger.info("Logout completed in \(elapsed, format: .fixed(precision: 2))s")
+        if logoutFailed {
+            logger.info("Logout completed locally in \(elapsed, format: .fixed(precision: 2))s (API call failed)")
+        } else {
+            logger.info("Logout completed in \(elapsed, format: .fixed(precision: 2))s")
+        }
 
         isAuthenticated = false
         currentUser = nil
