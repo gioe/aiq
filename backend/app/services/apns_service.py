@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 
 from aioapns import APNs, NotificationRequest, PushType
 
+from app.core.analytics import AnalyticsTracker
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -109,6 +110,7 @@ class APNsService:
         badge: Optional[int] = None,
         sound: Optional[str] = "default",
         data: Optional[Dict] = None,
+        notification_type: Optional[str] = None,
     ) -> bool:
         """
         Send a push notification to a single device.
@@ -120,6 +122,7 @@ class APNsService:
             badge: Optional badge count to display on app icon
             sound: Notification sound (default: "default", None for silent)
             data: Optional custom data payload
+            notification_type: Type identifier for analytics tracking (e.g. "logout_all", "test_reminder")
 
         Returns:
             True if notification was sent successfully, False otherwise
@@ -127,6 +130,8 @@ class APNsService:
         if not self._client:
             logger.error("APNs client not connected. Call connect() first.")
             return False
+
+        token_prefix = device_token[:8] if device_token else None
 
         try:
             # Build the notification payload
@@ -159,20 +164,34 @@ class APNsService:
             # Send the notification
             await self._client.send_notification(request)
 
-            logger.info(
-                f"Successfully sent notification to device: {device_token[:8]}..."
-            )
+            logger.info(f"Successfully sent notification to device: {token_prefix}...")
+
+            if notification_type:
+                AnalyticsTracker.track_notification_sent(
+                    notification_type=notification_type,
+                    device_token_prefix=token_prefix,
+                )
+
             return True
 
         except Exception as e:
             logger.error(
-                f"Failed to send notification to device {device_token[:8]}...: {str(e)}"
+                f"Failed to send notification to device {token_prefix}...: {str(e)}"
             )
+
+            if notification_type:
+                AnalyticsTracker.track_notification_failed(
+                    notification_type=notification_type,
+                    error=str(e),
+                    device_token_prefix=token_prefix,
+                )
+
             return False
 
     async def send_batch_notifications(
         self,
         notifications: List[Dict],
+        notification_type: Optional[str] = None,
     ) -> Dict[str, int]:
         """
         Send notifications to multiple devices.
@@ -185,6 +204,7 @@ class APNsService:
                 - badge (int, optional): Badge count
                 - sound (str, optional): Notification sound
                 - data (dict, optional): Custom data payload
+            notification_type: Type identifier for analytics tracking
 
         Returns:
             Dictionary with counts: {"success": X, "failed": Y}
@@ -197,6 +217,7 @@ class APNsService:
         failed_count = 0
 
         # Send notifications concurrently
+        # Individual send_notification calls handle per-notification analytics
         tasks = []
         for notification in notifications:
             task = self.send_notification(
@@ -206,6 +227,7 @@ class APNsService:
                 badge=notification.get("badge"),
                 sound=notification.get("sound", "default"),
                 data=notification.get("data"),
+                notification_type=notification_type,
             )
             tasks.append(task)
 
@@ -257,6 +279,7 @@ async def send_test_reminder_notification(
             body=body,
             badge=1,
             data={"type": "test_reminder"},
+            notification_type="test_reminder",
         )
 
         return result
@@ -291,6 +314,7 @@ async def send_logout_all_notification(device_token: str) -> bool:
             body=body,
             sound="default",
             data={"type": "logout_all", "deep_link": "aiq://login"},
+            notification_type="logout_all",
         )
 
         return result

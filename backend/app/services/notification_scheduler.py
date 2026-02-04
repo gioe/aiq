@@ -407,7 +407,9 @@ class NotificationScheduler:
         apns_service = APNsService()
         try:
             await apns_service.connect()
-            results = await apns_service.send_batch_notifications(notifications)
+            results = await apns_service.send_batch_notifications(
+                notifications, notification_type="test_reminder"
+            )
 
             return {
                 "total": len(notifications),
@@ -512,7 +514,9 @@ class NotificationScheduler:
         apns_service = APNsService()
         try:
             await apns_service.connect()
-            results = await apns_service.send_batch_notifications(notifications)
+            results = await apns_service.send_batch_notifications(
+                notifications, notification_type="day_30_reminder"
+            )
 
             # Mark all users as having received the notification to prevent duplicates
             # We mark all users even if some individual sends failed, because:
