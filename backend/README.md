@@ -13,6 +13,8 @@ pip install -r requirements.txt
 alembic upgrade head
 ```
 
+> **Note:** Rate limiting is enabled by default. During local development, you may want to set `RATE_LIMIT_ENABLED=False` in your `.env` file to avoid hitting limits (e.g., 5 login attempts per 5 minutes).
+
 Start the server:
 ```bash
 cd backend
