@@ -77,8 +77,31 @@ class TestAPNsServiceDeliveryTracking:
     """Tests for analytics tracking in APNsService.send_notification."""
 
     @pytest.mark.asyncio
-    async def test_send_notification_tracks_success(self):
-        """Test that successful send emits NOTIFICATION_SENT event."""
+    async def test_send_notification_tracks_success_with_user_id(self):
+        """Test that successful send emits NOTIFICATION_SENT with user_id."""
+        service = APNsService()
+        mock_client = AsyncMock()
+        service._client = mock_client
+
+        with patch.object(AnalyticsTracker, "track_notification_sent") as mock_sent:
+            result = await service.send_notification(
+                device_token="abc123def456gh",
+                title="Test",
+                body="Test body",
+                notification_type="logout_all",
+                user_id=42,
+            )
+
+            assert result is True
+            mock_sent.assert_called_once_with(
+                notification_type="logout_all",
+                user_id=42,
+                device_token_prefix="abc123de",
+            )
+
+    @pytest.mark.asyncio
+    async def test_send_notification_tracks_success_without_user_id(self):
+        """Test that successful send emits NOTIFICATION_SENT with user_id=None."""
         service = APNsService()
         mock_client = AsyncMock()
         service._client = mock_client
@@ -94,12 +117,13 @@ class TestAPNsServiceDeliveryTracking:
             assert result is True
             mock_sent.assert_called_once_with(
                 notification_type="logout_all",
+                user_id=None,
                 device_token_prefix="abc123de",
             )
 
     @pytest.mark.asyncio
-    async def test_send_notification_tracks_failure(self):
-        """Test that failed send emits NOTIFICATION_FAILED event."""
+    async def test_send_notification_tracks_failure_with_user_id(self):
+        """Test that failed send emits NOTIFICATION_FAILED with user_id."""
         service = APNsService()
         mock_client = AsyncMock()
         mock_client.send_notification.side_effect = Exception("APNs error")
@@ -111,12 +135,14 @@ class TestAPNsServiceDeliveryTracking:
                 title="Test",
                 body="Test body",
                 notification_type="test_reminder",
+                user_id=7,
             )
 
             assert result is False
             mock_failed.assert_called_once_with(
                 notification_type="test_reminder",
                 error="APNs error",
+                user_id=7,
                 device_token_prefix="abc123de",
             )
 
@@ -135,7 +161,6 @@ class TestAPNsServiceDeliveryTracking:
                     device_token="abc123def456gh",
                     title="Test",
                     body="Test body",
-                    # notification_type not provided
                 )
 
                 assert result is True
@@ -172,8 +197,8 @@ class TestBatchNotificationDeliveryTracking:
         service._client = mock_client
 
         notifications = [
-            {"device_token": "token1aaa", "title": "T1", "body": "B1"},
-            {"device_token": "token2bbb", "title": "T2", "body": "B2"},
+            {"device_token": "token1aaa", "title": "T1", "body": "B1", "user_id": 1},
+            {"device_token": "token2bbb", "title": "T2", "body": "B2", "user_id": 2},
         ]
 
         with patch.object(AnalyticsTracker, "track_notification_sent") as mock_sent:
@@ -184,6 +209,28 @@ class TestBatchNotificationDeliveryTracking:
             assert result["success"] == 2
             assert result["failed"] == 0
             assert mock_sent.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_batch_notifications_pass_user_id(self):
+        """Test that batch send passes user_id from notification dict to analytics."""
+        service = APNsService()
+        mock_client = AsyncMock()
+        service._client = mock_client
+
+        notifications = [
+            {"device_token": "token1aaa", "title": "T1", "body": "B1", "user_id": 99},
+        ]
+
+        with patch.object(AnalyticsTracker, "track_notification_sent") as mock_sent:
+            await service.send_batch_notifications(
+                notifications, notification_type="test_reminder"
+            )
+
+            mock_sent.assert_called_once_with(
+                notification_type="test_reminder",
+                user_id=99,
+                device_token_prefix="token1aa",
+            )
 
     @pytest.mark.asyncio
     async def test_batch_notifications_track_mixed_outcomes(self):
@@ -219,8 +266,78 @@ class TestConvenienceFunctionTracking:
     """Tests for analytics tracking in convenience functions."""
 
     @pytest.mark.asyncio
-    async def test_send_logout_all_notification_tracks_delivery(self, tmp_path):
-        """Test that send_logout_all_notification tracks delivery."""
+    async def test_send_logout_all_notification_tracks_with_user_id(self, tmp_path):
+        """Test that send_logout_all_notification passes user_id to analytics."""
+        key_file = tmp_path / "test_key.p8"
+        key_file.write_text("fake key content")
+
+        with patch("app.services.apns_service.settings") as mock_settings:
+            mock_settings.APNS_KEY_ID = "KEY"
+            mock_settings.APNS_TEAM_ID = "TEAM"
+            mock_settings.APNS_BUNDLE_ID = "com.app"
+            mock_settings.APNS_KEY_PATH = str(key_file)
+            mock_settings.APNS_USE_SANDBOX = True
+
+            with patch("app.services.apns_service.APNs") as mock_apns:
+                mock_apns_instance = AsyncMock()
+                mock_apns.return_value = mock_apns_instance
+
+                with patch.object(
+                    AnalyticsTracker, "track_notification_sent"
+                ) as mock_sent:
+                    result = await send_logout_all_notification(
+                        device_token="test_token_abc123",
+                        user_id=42,
+                    )
+
+                    assert result is True
+                    mock_sent.assert_called_once_with(
+                        notification_type="logout_all",
+                        user_id=42,
+                        device_token_prefix="test_tok",
+                    )
+
+    @pytest.mark.asyncio
+    async def test_send_logout_all_notification_tracks_failure_with_user_id(
+        self, tmp_path
+    ):
+        """Test that send_logout_all_notification tracks failure with user_id."""
+        key_file = tmp_path / "test_key.p8"
+        key_file.write_text("fake key content")
+
+        with patch("app.services.apns_service.settings") as mock_settings:
+            mock_settings.APNS_KEY_ID = "KEY"
+            mock_settings.APNS_TEAM_ID = "TEAM"
+            mock_settings.APNS_BUNDLE_ID = "com.app"
+            mock_settings.APNS_KEY_PATH = str(key_file)
+            mock_settings.APNS_USE_SANDBOX = True
+
+            with patch("app.services.apns_service.APNs") as mock_apns:
+                mock_apns_instance = AsyncMock()
+                mock_apns_instance.send_notification.side_effect = Exception(
+                    "Connection refused"
+                )
+                mock_apns.return_value = mock_apns_instance
+
+                with patch.object(
+                    AnalyticsTracker, "track_notification_failed"
+                ) as mock_failed:
+                    result = await send_logout_all_notification(
+                        device_token="test_token_abc123",
+                        user_id=42,
+                    )
+
+                    assert result is False
+                    mock_failed.assert_called_once_with(
+                        notification_type="logout_all",
+                        error="Connection refused",
+                        user_id=42,
+                        device_token_prefix="test_tok",
+                    )
+
+    @pytest.mark.asyncio
+    async def test_send_logout_all_without_user_id(self, tmp_path):
+        """Test that send_logout_all_notification works without user_id (backward compat)."""
         key_file = tmp_path / "test_key.p8"
         key_file.write_text("fake key content")
 
@@ -245,40 +362,7 @@ class TestConvenienceFunctionTracking:
                     assert result is True
                     mock_sent.assert_called_once_with(
                         notification_type="logout_all",
-                        device_token_prefix="test_tok",
-                    )
-
-    @pytest.mark.asyncio
-    async def test_send_logout_all_notification_tracks_failure(self, tmp_path):
-        """Test that send_logout_all_notification tracks failure."""
-        key_file = tmp_path / "test_key.p8"
-        key_file.write_text("fake key content")
-
-        with patch("app.services.apns_service.settings") as mock_settings:
-            mock_settings.APNS_KEY_ID = "KEY"
-            mock_settings.APNS_TEAM_ID = "TEAM"
-            mock_settings.APNS_BUNDLE_ID = "com.app"
-            mock_settings.APNS_KEY_PATH = str(key_file)
-            mock_settings.APNS_USE_SANDBOX = True
-
-            with patch("app.services.apns_service.APNs") as mock_apns:
-                mock_apns_instance = AsyncMock()
-                mock_apns_instance.send_notification.side_effect = Exception(
-                    "Connection refused"
-                )
-                mock_apns.return_value = mock_apns_instance
-
-                with patch.object(
-                    AnalyticsTracker, "track_notification_failed"
-                ) as mock_failed:
-                    result = await send_logout_all_notification(
-                        device_token="test_token_abc123"
-                    )
-
-                    assert result is False
-                    mock_failed.assert_called_once_with(
-                        notification_type="logout_all",
-                        error="Connection refused",
+                        user_id=None,
                         device_token_prefix="test_tok",
                     )
 
@@ -309,5 +393,6 @@ class TestConvenienceFunctionTracking:
                     assert result is True
                     mock_sent.assert_called_once_with(
                         notification_type="test_reminder",
+                        user_id=None,
                         device_token_prefix="test_tok",
                     )

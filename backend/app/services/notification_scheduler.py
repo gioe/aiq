@@ -400,6 +400,7 @@ class NotificationScheduler:
                         "user_id": str(user.id),
                         "deep_link": deep_link,
                     },
+                    "user_id": user.id,
                 }
             )
 
@@ -499,6 +500,7 @@ class NotificationScheduler:
                         "days_until_next_test": 60,
                         "deep_link": deep_link,
                     },
+                    "user_id": user.id,
                 }
             )
 

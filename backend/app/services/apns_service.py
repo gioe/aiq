@@ -111,6 +111,7 @@ class APNsService:
         sound: Optional[str] = "default",
         data: Optional[Dict] = None,
         notification_type: Optional[str] = None,
+        user_id: Optional[int] = None,
     ) -> bool:
         """
         Send a push notification to a single device.
@@ -123,6 +124,7 @@ class APNsService:
             sound: Notification sound (default: "default", None for silent)
             data: Optional custom data payload
             notification_type: Type identifier for analytics tracking (e.g. "logout_all", "test_reminder")
+            user_id: Optional user ID for analytics tracking
 
         Returns:
             True if notification was sent successfully, False otherwise
@@ -169,6 +171,7 @@ class APNsService:
             if notification_type:
                 AnalyticsTracker.track_notification_sent(
                     notification_type=notification_type,
+                    user_id=user_id,
                     device_token_prefix=token_prefix,
                 )
 
@@ -183,6 +186,7 @@ class APNsService:
                 AnalyticsTracker.track_notification_failed(
                     notification_type=notification_type,
                     error=str(e),
+                    user_id=user_id,
                     device_token_prefix=token_prefix,
                 )
 
@@ -228,6 +232,7 @@ class APNsService:
                 sound=notification.get("sound", "default"),
                 data=notification.get("data"),
                 notification_type=notification_type,
+                user_id=notification.get("user_id"),
             )
             tasks.append(task)
 
@@ -288,7 +293,9 @@ async def send_test_reminder_notification(
         await service.disconnect()
 
 
-async def send_logout_all_notification(device_token: str) -> bool:
+async def send_logout_all_notification(
+    device_token: str, user_id: Optional[int] = None
+) -> bool:
     """
     Send a security alert notification when all devices are logged out.
 
@@ -296,6 +303,7 @@ async def send_logout_all_notification(device_token: str) -> bool:
 
     Args:
         device_token: The device's APNs token
+        user_id: Optional user ID for analytics tracking
 
     Returns:
         True if notification was sent successfully, False otherwise
@@ -315,6 +323,7 @@ async def send_logout_all_notification(device_token: str) -> bool:
             sound="default",
             data={"type": "logout_all", "deep_link": "aiq://login"},
             notification_type="logout_all",
+            user_id=user_id,
         )
 
         return result

@@ -562,7 +562,10 @@ class TestLogoutAllPushNotification:
             assert response.status_code == 204
 
             # BackgroundTasks should have invoked the notification function
-            mock_send.assert_called_once_with("fake_device_token_abc123")
+            mock_send.assert_called_once_with(
+                "fake_device_token_abc123",
+                user_id=user.id,
+            )
 
         db.close()
 
