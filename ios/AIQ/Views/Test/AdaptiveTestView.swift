@@ -19,16 +19,11 @@ struct AdaptiveTestView: View {
     @State private var warningBannerDismissed = false
     @State private var showTimeExpiredAlert = false
     @State private var isAutoSubmitting = false
-
-    /// The session ID to resume (if any)
-    private let sessionId: Int?
+    @State private var cachedAdministeredDomains: Set<QuestionType> = []
 
     /// Creates an AdaptiveTestView with the specified service container
-    /// - Parameters:
-    ///   - sessionId: Optional session ID to resume an existing test session
-    ///   - serviceContainer: Container for resolving dependencies. Defaults to the shared container.
-    init(sessionId: Int? = nil, serviceContainer: ServiceContainer = .shared) {
-        self.sessionId = sessionId
+    /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
+    init(serviceContainer: ServiceContainer = .shared) {
         let vm = ViewModelFactory.makeTestTakingViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
     }
@@ -114,6 +109,12 @@ struct AdaptiveTestView: View {
                 handleTimerExpiration()
             }
         }
+        .onChange(of: viewModel.questions.count) { _ in
+            // Update cached domains when new questions are delivered
+            cachedAdministeredDomains = Set(
+                viewModel.questions.compactMap(\.questionTypeEnum)
+            )
+        }
         .accessibilityIdentifier(AccessibilityIdentifiers.AdaptiveTestView.container)
     }
 
@@ -140,7 +141,7 @@ struct AdaptiveTestView: View {
                 itemsAdministered: viewModel.itemsAdministered,
                 estimatedTotal: Constants.Test.maxAdaptiveItems,
                 progress: viewModel.progress,
-                administeredDomains: administeredDomains
+                administeredDomains: cachedAdministeredDomains
             )
 
             ScrollView {
@@ -326,7 +327,7 @@ struct AdaptiveTestView: View {
         await viewModel.submitAnswerAndGetNext()
     }
 
-    /// Handles timer expiration by locking answers, showing alert, and auto-submitting
+    /// Handles timer expiration by locking answers, auto-submitting, then showing alert
     private func handleTimerExpiration() {
         // Prevent multiple auto-submits
         guard !isAutoSubmitting else { return }
@@ -335,12 +336,12 @@ struct AdaptiveTestView: View {
         // Immediately lock answers to prevent race conditions
         viewModel.lockAnswers()
 
-        // Show the "Time's Up" alert
-        showTimeExpiredAlert = true
-
-        // Auto-submit the test
+        // Auto-submit first, then show alert and navigate
         Task {
             await viewModel.submitTestForTimeout()
+
+            // Show alert after submission completes to avoid confusing intermediate states
+            showTimeExpiredAlert = true
 
             // Navigate to results after submission
             if let result = viewModel.testResult {
@@ -355,17 +356,6 @@ struct AdaptiveTestView: View {
         } else {
             router.pop()
         }
-    }
-
-    /// Extract which domains have been administered based on questions delivered
-    private var administeredDomains: Set<QuestionType> {
-        var domains = Set<QuestionType>()
-        for question in viewModel.questions {
-            if let type = question.questionTypeEnum {
-                domains.insert(type)
-            }
-        }
-        return domains
     }
 }
 
