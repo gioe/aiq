@@ -301,6 +301,14 @@ async def send_logout_all_notification(
 
     This is a convenience function for sending the logout-all security notification.
 
+    The notification includes ``deep_link: aiq://login`` in its payload. Note that the
+    iOS app does not currently handle the ``aiq://login`` deep link explicitly — it
+    parses as invalid and shows an error toast if the user taps the notification.
+    However, this has no functional impact because the logout-all operation already
+    invalidates all session tokens, which forces the app back to the login/welcome
+    screen via the normal auth flow. Older app versions that predate deep link support
+    will simply ignore the ``deep_link`` field in the notification payload entirely.
+
     Args:
         device_token: The device's APNs token
         user_id: Optional user ID for analytics tracking

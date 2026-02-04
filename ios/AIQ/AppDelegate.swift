@@ -202,6 +202,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             // This notification is designed to be silent for provisional authorization users
             // Navigation will be handled when user taps the notification
 
+        case "logout_all":
+            // Security alert: all sessions logged out. The payload includes deep_link: aiq://login,
+            // but the app does not explicitly handle this deep link. This is acceptable because the
+            // logout-all operation invalidates session tokens, which naturally returns the user to
+            // the welcome/login screen via the auth flow. The notification tap handler in
+            // MainTabView will attempt to parse the deep link and show an error toast, but the
+            // user will already be on the login screen by then.
+            print("Logout-all security notification received")
+
         default:
             print("Unknown notification type: \(notificationType)")
         }
