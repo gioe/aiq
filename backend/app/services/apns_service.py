@@ -336,5 +336,11 @@ async def send_logout_all_notification(
 
         return result
 
+    except Exception:
+        logger.exception(
+            f"Failed to send logout-all notification (user_id={user_id}, device_token_prefix={device_token[:8] if device_token else None})"
+        )
+        return False
+
     finally:
         await service.disconnect()

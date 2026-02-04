@@ -653,3 +653,38 @@ class TestLogoutAllPushNotification:
             assert response.status_code == 204
 
         db.close()
+
+    def test_logout_all_logs_notification_error(self, client, test_user):
+        """Test that errors from send_logout_all_notification are logged."""
+        login_data = {
+            "email": test_user["email"],
+            "password": test_user["password"],
+        }
+        response = client.post("/v1/auth/login", json=login_data)
+        assert response.status_code == 200
+        tokens = response.json()
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+        from app.models import get_db, User
+
+        db = next(get_db())
+        user = db.query(User).filter(User.email == test_user["email"]).first()
+        user.notification_enabled = True
+        user.apns_device_token = "fake_device_token_abc123"
+        db.commit()
+
+        with patch(
+            "app.services.apns_service.APNsService.connect"
+        ) as mock_connect, patch("app.services.apns_service.logger") as mock_logger:
+            mock_connect.side_effect = ValueError("APNS_KEY_ID is required")
+
+            response = client.post("/v1/auth/logout-all", headers=headers)
+            assert response.status_code == 204
+
+            mock_logger.exception.assert_called_once()
+            call_args = mock_logger.exception.call_args[0][0]
+            assert "Failed to send logout-all notification" in call_args
+            assert f"user_id={user.id}" in call_args
+            assert "device_token_prefix=fake_dev" in call_args
+
+        db.close()
