@@ -533,3 +533,120 @@ class TestLogoutAllDatabaseErrors:
 
                 # Rollback should have been called
                 assert mock_rollback.called
+
+
+class TestLogoutAllPushNotification:
+    """Tests for push notification behavior on logout-all."""
+
+    def test_logout_all_sends_notification_when_enabled(self, client, test_user):
+        """Test that logout-all schedules push notification when user has it enabled."""
+        login_data = {
+            "email": test_user["email"],
+            "password": test_user["password"],
+        }
+        response = client.post("/v1/auth/login", json=login_data)
+        assert response.status_code == 200
+        tokens = response.json()
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+        from app.models import get_db, User
+
+        db = next(get_db())
+        user = db.query(User).filter(User.email == test_user["email"]).first()
+        user.notification_enabled = True
+        user.apns_device_token = "fake_device_token_abc123"
+        db.commit()
+
+        with patch("app.api.v1.auth.send_logout_all_notification") as mock_send:
+            response = client.post("/v1/auth/logout-all", headers=headers)
+            assert response.status_code == 204
+
+            # BackgroundTasks should have invoked the notification function
+            mock_send.assert_called_once_with("fake_device_token_abc123")
+
+        db.close()
+
+    def test_logout_all_skips_notification_when_disabled(self, client, test_user):
+        """Test that logout-all does not send notification when notifications are disabled."""
+        login_data = {
+            "email": test_user["email"],
+            "password": test_user["password"],
+        }
+        response = client.post("/v1/auth/login", json=login_data)
+        assert response.status_code == 200
+        tokens = response.json()
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+        from app.models import get_db, User
+
+        db = next(get_db())
+        user = db.query(User).filter(User.email == test_user["email"]).first()
+        user.notification_enabled = False
+        user.apns_device_token = "fake_device_token_abc123"
+        db.commit()
+
+        with patch("app.api.v1.auth.send_logout_all_notification") as mock_send:
+            response = client.post("/v1/auth/logout-all", headers=headers)
+            assert response.status_code == 204
+
+            mock_send.assert_not_called()
+
+        db.close()
+
+    def test_logout_all_skips_notification_when_no_device_token(
+        self, client, test_user
+    ):
+        """Test that logout-all does not send notification when no device token is set."""
+        login_data = {
+            "email": test_user["email"],
+            "password": test_user["password"],
+        }
+        response = client.post("/v1/auth/login", json=login_data)
+        assert response.status_code == 200
+        tokens = response.json()
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+        from app.models import get_db, User
+
+        db = next(get_db())
+        user = db.query(User).filter(User.email == test_user["email"]).first()
+        user.notification_enabled = True
+        user.apns_device_token = None
+        db.commit()
+
+        with patch("app.api.v1.auth.send_logout_all_notification") as mock_send:
+            response = client.post("/v1/auth/logout-all", headers=headers)
+            assert response.status_code == 204
+
+            mock_send.assert_not_called()
+
+        db.close()
+
+    def test_logout_all_succeeds_when_notification_fails(self, client, test_user):
+        """Test that logout-all succeeds even when push notification fails."""
+        login_data = {
+            "email": test_user["email"],
+            "password": test_user["password"],
+        }
+        response = client.post("/v1/auth/login", json=login_data)
+        assert response.status_code == 200
+        tokens = response.json()
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+        from app.models import get_db, User
+
+        db = next(get_db())
+        user = db.query(User).filter(User.email == test_user["email"]).first()
+        user.notification_enabled = True
+        user.apns_device_token = "fake_device_token_abc123"
+        db.commit()
+
+        with patch("app.api.v1.auth.send_logout_all_notification") as mock_send:
+            # Simulate notification failure
+            mock_send.side_effect = Exception("APNs connection failed")
+
+            response = client.post("/v1/auth/logout-all", headers=headers)
+            # Logout should still succeed despite notification failure
+            assert response.status_code == 204
+
+        db.close()

@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from app.core.datetime_utils import utc_now
 
-from fastapi import APIRouter, Body, Depends, Request, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -47,6 +47,7 @@ from app.core.error_responses import (
     raise_server_error,
     raise_bad_request,
 )
+from app.services.apns_service import send_logout_all_notification
 from app.core.security_audit import (
     SecurityAuditLogger,
     SecurityEventType,
@@ -420,6 +421,7 @@ def logout_user(
 @router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
 def logout_all_devices(
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
@@ -488,6 +490,13 @@ def logout_all_devices(
         user_id=int(current_user.id),
         properties={"logout_all": True},
     )
+
+    # Send push notification after response is sent (fire-and-forget)
+    if current_user.notification_enabled and current_user.apns_device_token:
+        background_tasks.add_task(
+            send_logout_all_notification,
+            current_user.apns_device_token,
+        )
 
     return None
 
