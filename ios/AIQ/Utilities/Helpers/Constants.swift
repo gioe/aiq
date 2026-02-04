@@ -63,6 +63,10 @@ enum Constants {
         /// Calibrated for statistical reliability while minimizing test fatigue
         static let defaultQuestionCount: Int = 25
 
+        /// Maximum number of items in an adaptive (CAT) test session
+        /// Matches the backend's MAX_ITEMS safety limit in the CAT engine
+        static let maxAdaptiveItems: Int = 15
+
         /// Progress validity duration in seconds (24 hours)
         /// Saved test progress is only valid if saved within this time window
         static let progressValidityDuration: TimeInterval = 24 * 60 * 60

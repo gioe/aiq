@@ -131,8 +131,8 @@ class TestTakingViewModel: BaseViewModel {
     var progress: Double {
         guard !questions.isEmpty else { return 0 }
         if isAdaptiveTest {
-            // Adaptive: progress based on items administered vs max items (15)
-            return min(Double(itemsAdministered) / 15.0, 1.0)
+            // Adaptive: progress based on items administered vs max items
+            return min(Double(itemsAdministered) / Double(Constants.Test.maxAdaptiveItems), 1.0)
         }
         return Double(currentQuestionIndex + 1) / Double(questions.count)
     }
@@ -476,7 +476,8 @@ class TestTakingViewModel: BaseViewModel {
         )
 
         handleError(contextualError, context: .submitTest) { [weak self] in
-            await self?.submitAnswerAndGetNext()
+            guard let self, !self.isTestCompleted, isAdaptiveTest else { return }
+            await submitAnswerAndGetNext()
         }
 
         #if DEBUG

@@ -293,8 +293,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         // Given
         await setupAdaptiveTestInProgress(sessionId: 5009, questionId: 1)
 
-        // Then - 1 item out of max 15
-        XCTAssertEqual(sut.progress, 1.0 / 15.0, accuracy: 0.001)
+        // Then - 1 item out of max adaptive items
+        XCTAssertEqual(sut.progress, 1.0 / Double(Constants.Test.maxAdaptiveItems), accuracy: 0.001)
     }
 
     func testIsLastQuestion_AlwaysFalseInAdaptiveMode() async {
