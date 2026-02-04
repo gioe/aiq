@@ -193,12 +193,20 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         isLoading = true
         authError = nil
 
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("Auth.DeleteAccount", id: signpostID)
+        let startTime = CFAbsoluteTimeGetCurrent()
+
         do {
             // Unregister device token first
             await deviceTokenManager.unregisterDeviceToken()
 
             // Call the delete account endpoint
             try await authService.deleteAccount()
+
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Auth.DeleteAccount", state)
+            logger.info("Account deletion completed in \(elapsed, format: .fixed(precision: 2))s")
 
             // Clear authentication state
             isAuthenticated = false
@@ -212,6 +220,13 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             // Clear all cached data
             await DataCache.shared.clearAll()
         } catch {
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Auth.DeleteAccount", state)
+            let errorDesc = error.localizedDescription
+            logger.warning(
+                "Delete account failed after \(elapsed, format: .fixed(precision: 2))s: \(errorDesc, privacy: .public)"
+            )
+
             let contextualError = ContextualError(
                 error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .deleteAccount
