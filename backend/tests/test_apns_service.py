@@ -515,8 +515,10 @@ class TestSendLogoutAllNotification:
                 mock_apns_instance.send_notification.assert_called_once()
                 call_args = mock_apns_instance.send_notification.call_args
                 request = call_args[0][0]
+                assert request.device_token == "test_token_123"
                 assert request.message["aps"]["alert"]["title"] == "Security Alert"
                 assert "logged out" in request.message["aps"]["alert"]["body"]
+                assert request.message["aps"]["sound"] == "default"
                 assert request.message["type"] == "logout_all"
                 assert request.message["deep_link"] == "aiq://login"
 
