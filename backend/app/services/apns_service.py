@@ -290,6 +290,12 @@ async def send_test_reminder_notification(
 
         return result
 
+    except Exception:
+        logger.exception(
+            f"Failed to send test reminder notification (device_token_prefix={device_token[:12] if device_token else None})"
+        )
+        return False
+
     finally:
         await service.disconnect()
 
