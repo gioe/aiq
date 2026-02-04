@@ -41,6 +41,10 @@ enum DeepLinkError: LocalizedError {
 ///
 /// Deep links can come from URL schemes (aiq://) or universal links (https://aiq.app/...).
 /// This enum represents the structured navigation destination after parsing.
+///
+/// Note: The backend sends `aiq://login` in logout-all notifications, but there is no `.login`
+/// case here. The URL parses as `.invalid`. See the "Known Unhandled Deep Links" section in
+/// `DeepLinkHandler` documentation for details on why this is acceptable.
 enum DeepLink: Equatable {
     /// View specific test results by result ID
     case testResults(id: Int)
@@ -138,6 +142,16 @@ protocol DeepLinkHandlerProtocol {
 /// - `https://dev.aiq.app/test/results/{id}` - View specific test results (development)
 /// - `https://dev.aiq.app/test/resume/{sessionId}` - Resume a test session (development)
 /// - `https://dev.aiq.app/settings` - Open settings (development)
+///
+/// ## Known Unhandled Deep Links
+///
+/// The following deep links are sent by the backend but not yet handled by this parser:
+/// - `aiq://login` - Sent in logout-all security notifications (see `send_logout_all_notification`
+///   in the backend `apns_service.py`). Currently parses as `.invalid` because "login" is not a
+///   recognized route. When a user taps a logout-all notification, the app shows an error toast
+///   instead of navigating to the login screen. This is acceptable for now because logout-all
+///   already forces the user back to the welcome/login screen by invalidating their session tokens.
+///   A future implementation could add a `.login` case to `DeepLink` for explicit navigation.
 ///
 /// ## Query Parameters and Fragments
 /// Query parameters and URL fragments are ignored during parsing. The handler routes
@@ -260,6 +274,10 @@ struct DeepLinkHandler: DeepLinkHandlerProtocol {
             return parseTestRoute(pathComponents: pathComponents, originalURL: originalURL)
         case "settings":
             return parseSettingsRoute(pathComponents: pathComponents, originalURL: originalURL)
+        // Note: "login" is not handled here. The backend sends aiq://login in logout-all
+        // notifications, but the app doesn't need to navigate explicitly because logout-all
+        // already invalidates session tokens, returning the user to the welcome screen.
+        // If explicit login navigation is needed in the future, add: case "login": return .login
         default:
             recordInvalidDeepLink(.unrecognizedRoute(route: host, url: originalURL.absoluteString))
             return .invalid

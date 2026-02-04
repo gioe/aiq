@@ -107,6 +107,12 @@ struct MainTabView: View {
     // MARK: - Notification Tap Handling
 
     /// Handle notification tap and check if upgrade prompt should be shown
+    ///
+    /// For logout_all notifications, the payload contains `deep_link: aiq://login` which is not
+    /// a recognized deep link route. `DeepLinkHandler.parse` will return `.invalid`, and the
+    /// navigation service will log a warning without navigating. This is acceptable because the
+    /// logout-all operation already invalidates session tokens, forcing the user to the login
+    /// screen via the normal auth flow.
     private func handleNotificationTap(_ notification: Notification) {
         // Extract notification type
         let notificationType = notification.userInfo?["type"] as? String ?? "unknown"
