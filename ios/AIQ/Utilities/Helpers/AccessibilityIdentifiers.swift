@@ -228,4 +228,23 @@ enum AccessibilityIdentifiers {
         static let descriptionTextField = "feedbackView.descriptionTextField"
         static let submitButton = "feedbackView.submitButton"
     }
+
+    // MARK: - Adaptive Test View
+
+    enum AdaptiveTestView {
+        static let container = "adaptiveTestView.container"
+        static let progressHeader = "adaptiveTestView.progressHeader"
+        static let itemCountLabel = "adaptiveTestView.itemCountLabel"
+        static let progressBar = "adaptiveTestView.progressBar"
+        static let domainIndicator = "adaptiveTestView.domainIndicator"
+        static let loadingNextQuestion = "adaptiveTestView.loadingNextQuestion"
+        static let submitAndContinueButton = "adaptiveTestView.submitAndContinueButton"
+        static let exitButton = "adaptiveTestView.exitButton"
+        static let loadingOverlay = "adaptiveTestView.loadingOverlay"
+
+        /// Generate identifier for domain icon for specific domain
+        static func domainIcon(for domain: String) -> String {
+            "adaptiveTestView.domainIcon.\(domain)"
+        }
+    }
 }
