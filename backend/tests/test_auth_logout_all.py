@@ -539,7 +539,7 @@ class TestLogoutAllPushNotification:
     """Tests for push notification behavior on logout-all."""
 
     def test_logout_all_sends_notification_when_enabled(self, client, test_user):
-        """Test that logout-all spawns a notification thread when user has notifications enabled."""
+        """Test that logout-all schedules push notification when user has it enabled."""
         login_data = {
             "email": test_user["email"],
             "password": test_user["password"],
@@ -557,15 +557,12 @@ class TestLogoutAllPushNotification:
         user.apns_device_token = "fake_device_token_abc123"
         db.commit()
 
-        with patch("app.api.v1.auth.threading") as mock_threading:
-            mock_thread = mock_threading.Thread.return_value
+        with patch("app.api.v1.auth.send_logout_all_notification") as mock_send:
             response = client.post("/v1/auth/logout-all", headers=headers)
             assert response.status_code == 204
 
-            # A daemon thread should have been created and started
-            mock_threading.Thread.assert_called_once()
-            assert mock_threading.Thread.call_args[1]["daemon"] is True
-            mock_thread.start.assert_called_once()
+            # BackgroundTasks should have invoked the notification function
+            mock_send.assert_called_once_with("fake_device_token_abc123")
 
         db.close()
 
@@ -588,12 +585,11 @@ class TestLogoutAllPushNotification:
         user.apns_device_token = "fake_device_token_abc123"
         db.commit()
 
-        with patch("app.api.v1.auth.threading") as mock_threading:
+        with patch("app.api.v1.auth.send_logout_all_notification") as mock_send:
             response = client.post("/v1/auth/logout-all", headers=headers)
             assert response.status_code == 204
 
-            # No thread should have been created
-            mock_threading.Thread.assert_not_called()
+            mock_send.assert_not_called()
 
         db.close()
 
@@ -618,11 +614,11 @@ class TestLogoutAllPushNotification:
         user.apns_device_token = None
         db.commit()
 
-        with patch("app.api.v1.auth.threading") as mock_threading:
+        with patch("app.api.v1.auth.send_logout_all_notification") as mock_send:
             response = client.post("/v1/auth/logout-all", headers=headers)
             assert response.status_code == 204
 
-            mock_threading.Thread.assert_not_called()
+            mock_send.assert_not_called()
 
         db.close()
 
@@ -645,10 +641,9 @@ class TestLogoutAllPushNotification:
         user.apns_device_token = "fake_device_token_abc123"
         db.commit()
 
-        with patch("app.api.v1.auth.threading") as mock_threading:
-            # Simulate thread.start() raising an exception
-            mock_thread = mock_threading.Thread.return_value
-            mock_thread.start.side_effect = RuntimeError("Thread creation failed")
+        with patch("app.api.v1.auth.send_logout_all_notification") as mock_send:
+            # Simulate notification failure
+            mock_send.side_effect = Exception("APNs connection failed")
 
             response = client.post("/v1/auth/logout-all", headers=headers)
             # Logout should still succeed despite notification failure

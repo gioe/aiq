@@ -1,14 +1,12 @@
 """
 Authentication endpoints for user registration and login.
 """
-import asyncio
 import logging
 import secrets
-import threading
 from datetime import datetime, timedelta, timezone
 from app.core.datetime_utils import utc_now
 
-from fastapi import APIRouter, Body, Depends, Request, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -423,6 +421,7 @@ def logout_user(
 @router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
 def logout_all_devices(
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
@@ -492,27 +491,12 @@ def logout_all_devices(
         properties={"logout_all": True},
     )
 
-    # Send push notification if enabled (fire-and-forget via background thread)
+    # Send push notification after response is sent (fire-and-forget)
     if current_user.notification_enabled and current_user.apns_device_token:
-        device_token = current_user.apns_device_token
-        user_id = current_user.id
-
-        def _send_notification():
-            try:
-                asyncio.run(send_logout_all_notification(device_token))
-                logger.info(f"Sent logout-all notification to user {user_id}")
-            except Exception as e:
-                logger.warning(
-                    f"Failed to send logout-all notification for user {user_id}: {e}"
-                )
-
-        try:
-            thread = threading.Thread(target=_send_notification, daemon=True)
-            thread.start()
-        except Exception as e:
-            logger.warning(
-                f"Failed to start logout-all notification thread for user {user_id}: {e}"
-            )
+        background_tasks.add_task(
+            send_logout_all_notification,
+            current_user.apns_device_token,
+        )
 
     return None
 
