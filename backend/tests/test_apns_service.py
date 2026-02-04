@@ -489,6 +489,72 @@ class TestSendLogoutAllNotification:
     """Tests for the send_logout_all_notification convenience function."""
 
     @pytest.mark.asyncio
+    async def test_send_logout_all_success(self, tmp_path):
+        """Test successful send_logout_all_notification sends correct payload and disconnects."""
+        key_file = tmp_path / "test_key.p8"
+        key_file.write_text("fake key content")
+
+        with patch("app.services.apns_service.settings") as mock_settings:
+            mock_settings.APNS_KEY_ID = "KEY"
+            mock_settings.APNS_TEAM_ID = "TEAM"
+            mock_settings.APNS_BUNDLE_ID = "com.app"
+            mock_settings.APNS_KEY_PATH = str(key_file)
+            mock_settings.APNS_USE_SANDBOX = True
+
+            with patch("app.services.apns_service.APNs") as mock_apns:
+                mock_apns_instance = AsyncMock()
+                mock_apns.return_value = mock_apns_instance
+
+                result = await send_logout_all_notification(
+                    device_token="test_token_123", user_id=42
+                )
+
+                assert result is True
+
+                # Verify notification was sent with correct payload
+                mock_apns_instance.send_notification.assert_called_once()
+                call_args = mock_apns_instance.send_notification.call_args
+                request = call_args[0][0]
+                assert request.device_token == "test_token_123"
+                assert request.message["aps"]["alert"]["title"] == "Security Alert"
+                assert "logged out" in request.message["aps"]["alert"]["body"]
+                assert request.message["aps"]["sound"] == "default"
+                assert request.message["type"] == "logout_all"
+                assert request.message["deep_link"] == "aiq://login"
+
+                # Verify disconnect was called
+                mock_apns_instance.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_send_logout_all_disconnect_on_error(self, tmp_path):
+        """Test that disconnect is called even when sending fails."""
+        key_file = tmp_path / "test_key.p8"
+        key_file.write_text("fake key content")
+
+        with patch("app.services.apns_service.settings") as mock_settings:
+            mock_settings.APNS_KEY_ID = "KEY"
+            mock_settings.APNS_TEAM_ID = "TEAM"
+            mock_settings.APNS_BUNDLE_ID = "com.app"
+            mock_settings.APNS_KEY_PATH = str(key_file)
+            mock_settings.APNS_USE_SANDBOX = True
+
+            with patch("app.services.apns_service.APNs") as mock_apns:
+                mock_apns_instance = AsyncMock()
+                mock_apns_instance.send_notification.side_effect = Exception(
+                    "APNs error"
+                )
+                mock_apns.return_value = mock_apns_instance
+
+                result = await send_logout_all_notification(
+                    device_token="test_token_123", user_id=42
+                )
+
+                assert result is False
+
+                # Verify close was still called despite the error
+                mock_apns_instance.close.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_send_logout_all_logs_exception_on_connect_error(self, tmp_path):
         """Test that send_logout_all_notification logs exceptions with logger.exception when connect fails."""
         key_file = tmp_path / "test_key.p8"
