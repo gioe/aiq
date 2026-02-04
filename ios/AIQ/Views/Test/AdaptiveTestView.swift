@@ -110,10 +110,11 @@ struct AdaptiveTestView: View {
             }
         }
         .onChange(of: viewModel.questions.count) { _ in
-            // Update cached domains when new questions are delivered
-            cachedAdministeredDomains = Set(
-                viewModel.questions.compactMap(\.questionTypeEnum)
-            )
+            // Incrementally add the latest question's domain to the cache
+            if let lastQuestion = viewModel.questions.last,
+               let domain = lastQuestion.questionTypeEnum {
+                cachedAdministeredDomains.insert(domain)
+            }
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.AdaptiveTestView.container)
     }
@@ -233,17 +234,51 @@ struct AdaptiveTestView: View {
     // MARK: - Submit Bar
 
     private var submitBar: some View {
-        PrimaryButton(
-            title: "Submit & Continue",
-            action: {
-                Task {
-                    await submitAnswerAndGetNext()
+        VStack(spacing: 8) {
+            // Error display when API call fails
+            if let error = viewModel.error {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text(error.localizedDescription)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                    Spacer()
+                    if viewModel.canRetry {
+                        Button("Retry") {
+                            Task { await viewModel.retry() }
+                        }
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    }
+                    Button {
+                        viewModel.clearError()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
                 }
-            },
-            isLoading: viewModel.isLoadingNextQuestion,
-            isDisabled: viewModel.currentAnswer.isEmpty || viewModel.isLocked,
-            accessibilityId: AccessibilityIdentifiers.AdaptiveTestView.submitAndContinueButton
-        )
+                .padding(.horizontal)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Error: \(error.localizedDescription)")
+            }
+
+            PrimaryButton(
+                title: "Submit & Continue",
+                action: {
+                    Task {
+                        await submitAnswerAndGetNext()
+                    }
+                },
+                isLoading: viewModel.isLoadingNextQuestion,
+                isDisabled: viewModel.currentAnswer.isEmpty
+                    || viewModel.isLocked
+                    || isAutoSubmitting,
+                accessibilityId: AccessibilityIdentifiers.AdaptiveTestView.submitAndContinueButton
+            )
+        }
     }
 
     // MARK: - Test Completed
@@ -324,6 +359,8 @@ struct AdaptiveTestView: View {
     }
 
     private func submitAnswerAndGetNext() async {
+        // Prevent submission if timer has triggered auto-submit
+        guard !isAutoSubmitting, !viewModel.isSubmitting else { return }
         await viewModel.submitAnswerAndGetNext()
     }
 
