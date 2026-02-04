@@ -180,7 +180,7 @@ def _get_user_or_401(db: Session, user_id: int) -> User:
     Raises:
         HTTPException: 401 if user not found
     """
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.get(User, user_id)
     if user is None:
         raise_unauthorized(ErrorMessages.USER_NOT_FOUND_AUTH)
     return user

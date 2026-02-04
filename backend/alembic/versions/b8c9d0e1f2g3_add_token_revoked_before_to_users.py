@@ -28,15 +28,15 @@ def upgrade() -> None:
     # Partial index: only indexes rows where the column is NOT NULL,
     # keeping the index small since most users won't have an active revocation epoch.
     # Falls back to a regular index on SQLite (which doesn't support partial indexes).
-    try:
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
         op.create_index(
             "ix_users_token_revoked_before",
             "users",
             ["token_revoked_before"],
             postgresql_where=sa.text("token_revoked_before IS NOT NULL"),
         )
-    except Exception:
-        # SQLite doesn't support partial indexes; create a regular index
+    else:
         op.create_index(
             "ix_users_token_revoked_before",
             "users",
