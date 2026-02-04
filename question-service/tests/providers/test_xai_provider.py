@@ -35,9 +35,9 @@ class TestXAIProvider:
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
 
-        provider = XAIProvider(api_key=mock_xai_api_key, model="grok-beta")
+        provider = XAIProvider(api_key=mock_xai_api_key, model="grok-3")
 
-        assert provider.model == "grok-beta"
+        assert provider.model == "grok-3"
 
     @patch("app.providers.xai_provider.OpenAI")
     def test_get_provider_name(self, mock_openai_class, mock_xai_api_key):
@@ -460,11 +460,11 @@ class TestXAIProvider:
 
         mock_client.chat.completions.create.return_value = mock_response
 
-        provider = XAIProvider(api_key=mock_xai_api_key, model="grok-beta")
+        provider = XAIProvider(api_key=mock_xai_api_key, model="grok-3")
         provider.generate_completion(sample_prompt)
 
         call_args = mock_client.chat.completions.create.call_args
-        assert call_args.kwargs["model"] == "grok-beta"
+        assert call_args.kwargs["model"] == "grok-3"
 
     @patch("app.providers.xai_provider.OpenAI")
     def test_generate_structured_completion_empty_response(
@@ -527,7 +527,6 @@ class TestXAIProvider:
         assert len(models) > 0
         assert "grok-4" in models
         assert "grok-3" in models
-        assert "grok-beta" in models
 
     @patch("app.providers.xai_provider.OpenAI")
     def test_validate_model_known(self, mock_openai_class, mock_xai_api_key):
@@ -539,7 +538,6 @@ class TestXAIProvider:
 
         assert provider.validate_model("grok-4") is True
         assert provider.validate_model("grok-3") is True
-        assert provider.validate_model("grok-beta") is True
 
     @patch("app.providers.xai_provider.OpenAI")
     def test_validate_model_unknown(self, mock_openai_class, mock_xai_api_key):

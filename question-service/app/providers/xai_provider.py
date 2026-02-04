@@ -28,7 +28,7 @@ class XAIProvider(BaseLLMProvider):
 
         Args:
             api_key: xAI API key (starts with "xai-")
-            model: Model identifier (e.g., "grok-4", "grok-beta")
+            model: Model identifier (e.g., "grok-4", "grok-3")
         """
         self.api_key = api_key
         self.model = model
@@ -581,15 +581,13 @@ class XAIProvider(BaseLLMProvider):
             List of model identifiers
 
         Note:
-            Current xAI models (as of January 2026):
-            - grok-4: Latest flagship model with exceptional math performance
+            Current xAI models (as of February 2026):
+            - grok-4: Latest flagship model with exceptional math performance (alias for latest stable version)
             - grok-3: Previous generation flagship
-            - grok-beta: Beta model for early access features
         """
         return [
             "grok-4",
             "grok-3",
-            "grok-beta",
         ]
 
     def fetch_available_models(self) -> list[str]:

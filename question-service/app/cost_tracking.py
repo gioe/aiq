@@ -89,7 +89,6 @@ MODEL_PRICING: Dict[str, Dict[str, float]] = {
     "gemini-1.0-pro": {"input": 0.50, "output": 1.50},
     # xAI pricing (per 1M tokens) - estimates
     "grok-4": {"input": 5.00, "output": 15.00},
-    "grok-beta": {"input": 5.00, "output": 15.00},
 }
 
 # Default pricing for unknown models (conservative estimate)
