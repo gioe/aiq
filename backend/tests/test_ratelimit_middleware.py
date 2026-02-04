@@ -513,3 +513,55 @@ class TestGetUserIdentifierSecurity:
         result = get_user_identifier(request)
 
         assert result == "ip:10.0.0.50"
+
+
+class TestRateLimitToggleIntegration:
+    """
+    Integration tests for the RATE_LIMIT_ENABLED toggle in create_application().
+
+    Unlike unit tests above that use a synthetic test app, these tests exercise
+    the actual app factory to verify the settings toggle controls whether rate
+    limiting middleware is registered.
+    """
+
+    def _create_app_with_settings(self, enabled: bool, limit: int = 2) -> "FastAPI":
+        """Create the real app with patched rate limit settings."""
+        from unittest.mock import patch
+
+        from app.main import create_application
+
+        with (
+            patch("app.main.settings.RATE_LIMIT_ENABLED", enabled),
+            patch("app.main.settings.RATE_LIMIT_DEFAULT_LIMIT", limit),
+            patch("app.main.settings.RATE_LIMIT_DEFAULT_WINDOW", 60),
+            patch("app.main.settings.RATE_LIMIT_STRATEGY", "token_bucket"),
+            patch("app.main.settings.RATE_LIMIT_STORAGE", "memory"),
+        ):
+            return create_application()
+
+    def test_rate_limiting_enforced_when_enabled(self):
+        """Requests exceeding the limit return 429 when RATE_LIMIT_ENABLED=True."""
+        app = self._create_app_with_settings(enabled=True, limit=2)
+        client = TestClient(app)
+
+        # First 2 requests should succeed
+        for _ in range(2):
+            response = client.get("/v1/health")
+            assert response.status_code == 200
+            assert "X-RateLimit-Limit" in response.headers
+
+        # 3rd request should be rate limited
+        response = client.get("/v1/health")
+        assert response.status_code == 429
+        assert response.json()["error"] == "rate_limit_exceeded"
+
+    def test_rate_limiting_bypassed_when_disabled(self):
+        """No requests are rate-limited when RATE_LIMIT_ENABLED=False."""
+        app = self._create_app_with_settings(enabled=False)
+        client = TestClient(app)
+
+        # Make many more requests than the limit — none should be blocked
+        for _ in range(20):
+            response = client.get("/v1/health")
+            assert response.status_code == 200
+            assert "X-RateLimit-Limit" not in response.headers
