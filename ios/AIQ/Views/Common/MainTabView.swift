@@ -240,6 +240,8 @@ private struct DashboardTabNavigationView: View {
         switch route {
         case let .testTaking(sessionId):
             TestTakingView(sessionId: sessionId)
+        case .adaptiveTestTaking:
+            AdaptiveTestView()
         case let .testResults(result, isFirstTest):
             TestResultsView(
                 result: result,

@@ -88,6 +88,7 @@ struct DashboardView: View {
                         questionsAnswered: viewModel.activeSessionQuestionsAnswered,
                         onResume: {
                             viewModel.trackTestResumed()
+                            // Resume always uses fixed-form TestTakingView
                             router.push(.testTaking())
                         },
                         onAbandon: {
@@ -327,7 +328,14 @@ struct DashboardView: View {
 
             // Action button
             Button {
-                router.push(.testTaking())
+                // Smart routing: resume always uses fixed-form, new tests respect feature flag
+                if viewModel.hasActiveTest {
+                    router.push(.testTaking())
+                } else if Constants.Features.adaptiveTesting {
+                    router.push(.adaptiveTestTaking)
+                } else {
+                    router.push(.testTaking())
+                }
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Image(systemName: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile")
@@ -387,6 +395,7 @@ struct DashboardView: View {
                         session: activeSession,
                         questionsAnswered: viewModel.activeSessionQuestionsAnswered,
                         onResume: {
+                            // Resume always uses fixed-form TestTakingView
                             router.push(.testTaking())
                         },
                         onAbandon: {
@@ -407,7 +416,14 @@ struct DashboardView: View {
                         """,
                     actionTitle: viewModel.hasActiveTest ? "Resume Test in Progress" : "Start Your First Test",
                     action: {
-                        router.push(.testTaking())
+                        // Smart routing: resume always uses fixed-form, new tests respect feature flag
+                        if viewModel.hasActiveTest {
+                            router.push(.testTaking())
+                        } else if Constants.Features.adaptiveTesting {
+                            router.push(.adaptiveTestTaking)
+                        } else {
+                            router.push(.testTaking())
+                        }
                     }
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
