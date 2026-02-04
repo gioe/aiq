@@ -1,6 +1,7 @@
 """
 Authentication endpoints for user registration and login.
 """
+import asyncio
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -47,6 +48,7 @@ from app.core.error_responses import (
     raise_server_error,
     raise_bad_request,
 )
+from app.services.apns_service import send_logout_all_notification
 from app.core.security_audit import (
     SecurityAuditLogger,
     SecurityEventType,
@@ -488,6 +490,16 @@ def logout_all_devices(
         user_id=int(current_user.id),
         properties={"logout_all": True},
     )
+
+    # Send push notification if enabled (best-effort, non-blocking)
+    if current_user.notification_enabled and current_user.apns_device_token:
+        try:
+            asyncio.run(send_logout_all_notification(current_user.apns_device_token))
+            logger.info(f"Sent logout-all notification to user {current_user.id}")
+        except Exception:
+            logger.warning(
+                f"Failed to send logout-all notification for user {current_user.id}"
+            )
 
     return None
 

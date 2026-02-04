@@ -263,3 +263,37 @@ async def send_test_reminder_notification(
 
     finally:
         await service.disconnect()
+
+
+async def send_logout_all_notification(device_token: str) -> bool:
+    """
+    Send a security alert notification when all devices are logged out.
+
+    This is a convenience function for sending the logout-all security notification.
+
+    Args:
+        device_token: The device's APNs token
+
+    Returns:
+        True if notification was sent successfully, False otherwise
+    """
+    service = APNsService()
+
+    try:
+        await service.connect()
+
+        title = "Security Alert"
+        body = "All sessions have been logged out. If this wasn't you, please change your password immediately."
+
+        result = await service.send_notification(
+            device_token=device_token,
+            title=title,
+            body=body,
+            sound="default",
+            data={"type": "logout_all", "deep_link": "aiq://login"},
+        )
+
+        return result
+
+    finally:
+        await service.disconnect()
