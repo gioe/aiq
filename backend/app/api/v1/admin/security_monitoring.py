@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utc_now
-from app.core.security_monitoring import get_logout_all_stats
+from app.core.security_monitoring import MAX_PAGE_SIZE, get_logout_all_stats
 from app.models import get_db
 from app.schemas.security_monitoring import LogoutAllStatsResponse, TimeRange
 
@@ -53,8 +53,8 @@ async def get_logout_all_events(
     page_size: int = Query(
         100,
         ge=1,
-        le=500,
-        description="Number of events per page (max 500)",
+        le=MAX_PAGE_SIZE,
+        description=f"Number of events per page (max {MAX_PAGE_SIZE})",
     ),
     db: Session = Depends(get_db),
     _: bool = Depends(verify_admin_token),
@@ -85,6 +85,5 @@ async def get_logout_all_events(
             time_range=TimeRange(start=now, end=now),
             page=page,
             page_size=page_size,
-            total_matching=0,
             error="Failed to retrieve logout-all statistics. Please try again later.",
         )

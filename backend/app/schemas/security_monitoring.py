@@ -70,7 +70,7 @@ class LogoutAllStatsResponse(BaseModel):
     users_with_correlated_resets: int = Field(
         ...,
         ge=0,
-        description="Users whose logout-all was within 24h of a password reset",
+        description="Users on this page whose logout-all was within 24h of a password reset",
     )
     time_range: TimeRange = Field(
         ...,
@@ -90,11 +90,6 @@ class LogoutAllStatsResponse(BaseModel):
         ge=1,
         le=500,
         description="Number of events per page",
-    )
-    total_matching: int = Field(
-        ...,
-        ge=0,
-        description="Total number of matching events (same as total_events, for clarity)",
     )
     error: Optional[str] = Field(
         default=None,

@@ -43,11 +43,12 @@ def get_logout_all_stats(
         db: Database session.
         days: Number of days to look back (0 means all time).
         page: Page number (1-indexed).
-        page_size: Number of events per page (max 500).
+        page_size: Number of events per page (clamped to MAX_PAGE_SIZE).
 
     Returns:
         LogoutAllStatsResponse with aggregate stats and per-user details.
     """
+    page_size = min(page_size, MAX_PAGE_SIZE)
     now = utc_now()
 
     if days > 0:
@@ -78,7 +79,6 @@ def get_logout_all_stats(
             events=[],
             page=page,
             page_size=page_size,
-            total_matching=0,
         )
 
     # Calculate offset for pagination
@@ -107,7 +107,6 @@ def get_logout_all_stats(
             events=[],
             page=page,
             page_size=page_size,
-            total_matching=total_events,
         )
 
     # Batch-load all password resets for affected users (avoids N+1 queries)
@@ -164,5 +163,4 @@ def get_logout_all_stats(
         events=events,
         page=page,
         page_size=page_size,
-        total_matching=total_events,
     )

@@ -93,7 +93,6 @@ class TestLogoutAllEventsEmpty:
         assert data["error"] is None
         assert data["page"] == 1
         assert data["page_size"] == 100
-        assert data["total_matching"] == 0
 
     @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_users_without_logout_all(
@@ -137,7 +136,6 @@ class TestLogoutAllEventsBasic:
         assert event["correlated_resets"] == []
         assert data["page"] == 1
         assert data["page_size"] == 100
-        assert data["total_matching"] == 1
 
     @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_multiple_users_logout_all(
@@ -448,7 +446,6 @@ class TestLogoutAllEventsPagination:
         assert data["page_size"] == 2
         assert len(data["events"]) == 2
         assert data["total_events"] == 5
-        assert data["total_matching"] == 5
 
     @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_page_navigation(
