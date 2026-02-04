@@ -205,6 +205,7 @@
 		B2313C5B760D0E7C05315E20 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 86A53269857A08973A0D5568 /* SwiftUI.framework */; };
 		B49B611951512301F45C3352 /* Number+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F2255B6B96DB4C8037F564 /* Number+Extensions.swift */; };
 		B66D0F9F3256F38A6FE512A8 /* UITestMockNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DDBE2C07CB038DC1DA1E453 /* UITestMockNotificationService.swift */; };
+		B7623286D50D88B5F00934E8 /* AdaptiveTestTakingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1EBD3CA1F81A974E0F00C5D /* AdaptiveTestTakingViewModelTests.swift */; };
 		B7B6DD5EAC718D8EA6D96B99 /* DifficultyBadgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5B06BA013E990ABEEDA78DD /* DifficultyBadgeTests.swift */; };
 		B83538BBB489F288C2F863FF /* TrustKit.plist in Resources */ = {isa = PBXBuildFile; fileRef = 07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */; };
 		B86CFCC15797CE1A4D9F86FB /* IconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACBB6507E5BA9BEF64ADEB4 /* IconButton.swift */; };
@@ -554,6 +555,7 @@
 		DF12F610A34FC4A061178E1F /* NotificationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsViewModel.swift; sourceTree = "<group>"; };
 		DF5B8A34B8E1B21F40EBA913 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		E0E53B92DB66E6A74B9995B7 /* PerformanceInsightsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PerformanceInsightsTests.swift; sourceTree = "<group>"; };
+		E1EBD3CA1F81A974E0F00C5D /* AdaptiveTestTakingViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AdaptiveTestTakingViewModelTests.swift; sourceTree = "<group>"; };
 		E1F0819F7737B8ED98D8E3EA /* TabNavigationIsolationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TabNavigationIsolationTests.swift; sourceTree = "<group>"; };
 		E294BF06EFF3C44AE3D9A7DA /* ServiceConfigurationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceConfigurationTests.swift; sourceTree = "<group>"; };
 		E32836E4C5FF9CA1853060FC /* NumberExtensionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NumberExtensionsTests.swift; sourceTree = "<group>"; };
@@ -763,6 +765,7 @@
 				1060D68A34C714AEE7BAB31E /* SettingsViewModelTests.swift */,
 				B0B3F3BBD693AFDD1B7D9D28 /* NetworkMonitorObserverTests.swift */,
 				5967D9C64B6BBDFB1D3C205F /* ToastManagerObserverTests.swift */,
+				E1EBD3CA1F81A974E0F00C5D /* AdaptiveTestTakingViewModelTests.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -1499,6 +1502,7 @@
 				7570040A0B34C412374133EF /* DeepLinkNavigationServiceTests.swift in Sources */,
 				06D0B80EA19118F877CE5B54 /* MockDeepLinkHandler.swift in Sources */,
 				CF1450DC01D4A2844B320030 /* DeepLinkNavigationIntegrationTests.swift in Sources */,
+				B7623286D50D88B5F00934E8 /* AdaptiveTestTakingViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

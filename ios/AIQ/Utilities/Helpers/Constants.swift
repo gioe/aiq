@@ -152,6 +152,18 @@ enum Constants {
         static let minRequiredPins: Int = 2
     }
 
+    // MARK: - Feature Flags
+
+    /// Feature flags for gating unreleased functionality
+    enum Features {
+        /// Adaptive (CAT) test delivery
+        /// When false, the app always uses the fixed-form test flow.
+        /// When true, the app calls /v1/test/start?adaptive=true and uses
+        /// question-by-question delivery via /v1/test/next.
+        /// The backend independently gates this via the `adaptive` query parameter.
+        static var adaptiveTesting: Bool = false
+    }
+
     // MARK: - Background Refresh Constants
 
     /// Background refresh task configuration

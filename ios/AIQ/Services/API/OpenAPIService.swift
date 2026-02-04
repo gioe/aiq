@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import AIQAPIClient
 import Foundation
 import HTTPTypes
@@ -49,6 +50,10 @@ protocol OpenAPIServiceProtocol: Sendable {
     func getTestResults(resultId: Int) async throws -> Components.Schemas.TestResultResponse
     func getTestHistory(limit: Int?, offset: Int?) async throws -> PaginatedTestHistoryResponse
     func getActiveTest() async throws -> Components.Schemas.TestSessionStatusResponse?
+    func startAdaptiveTest() async throws -> Components.Schemas.StartTestResponse
+    // swiftlint:disable:next line_length
+    func submitAdaptiveResponse(sessionId: Int, questionId: Int, userAnswer: String, timeSpentSeconds: Int?) async throws -> Components.Schemas.AdaptiveNextResponse
+    func getTestProgress(sessionId: Int) async throws -> Components.Schemas.TestProgressResponse
 
     // MARK: - Notifications
 
@@ -69,6 +74,7 @@ protocol OpenAPIServiceProtocol: Sendable {
 
 // MARK: - Implementation
 
+// swiftlint:disable type_body_length
 /// OpenAPI service implementation that wraps the generated client.
 ///
 /// This class is marked `@unchecked Sendable` because:
@@ -504,6 +510,88 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         }
     }
 
+    func startAdaptiveTest() async throws -> Components.Schemas.StartTestResponse {
+        do {
+            let response = try await client.startTestV1TestStartPost(query: .init(adaptive: true))
+
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(startResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return startResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
+        }
+    }
+
+    // swiftlint:disable:next line_length
+    func submitAdaptiveResponse(sessionId: Int, questionId: Int, userAnswer: String, timeSpentSeconds: Int?) async throws -> Components.Schemas.AdaptiveNextResponse {
+        do {
+            let response = try await client.submitAdaptiveResponseV1TestNextPost(
+                body: .json(
+                    Components.Schemas.AdaptiveResponseRequest(
+                        questionId: questionId,
+                        sessionId: sessionId,
+                        timeSpentSeconds: timeSpentSeconds,
+                        userAnswer: userAnswer
+                    )
+                )
+            )
+
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(nextResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return nextResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
+        }
+    }
+
+    func getTestProgress(sessionId: Int) async throws -> Components.Schemas.TestProgressResponse {
+        do {
+            let response = try await client.getTestProgressV1TestProgressGet(query: .init(sessionId: sessionId))
+
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(progressResponse) = okResponse.body else {
+                    throw APIError.invalidResponse
+                }
+                return progressResponse
+
+            case .unprocessableContent:
+                throw APIError.unprocessableEntity(message: "Validation failed")
+
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw mapToAPIError(error)
+        }
+    }
+
     // MARK: - Notifications
 
     func registerDevice(deviceToken: String) async throws {
@@ -601,6 +689,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     // MARK: - Feedback
 
+    // swiftlint:disable:next cyclomatic_complexity
     func submitFeedback(_ feedback: Feedback) async throws -> FeedbackSubmitResponse {
         let categorySchema: Components.Schemas.FeedbackCategorySchema = switch feedback.category {
         case .bugReport:
@@ -746,3 +835,5 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         }
     }
 }
+
+// swiftlint:enable type_body_length
