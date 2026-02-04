@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import os
 
 /// Manages authentication state for the entire app
 @MainActor
@@ -21,6 +22,8 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     var authErrorPublisher: Published<Error?>.Publisher { $authError }
 
     private let authService: AuthServiceProtocol
+    private let logger = Logger(subsystem: "com.aiq.app", category: "AuthManager")
+    private let signposter = OSSignposter(subsystem: "com.aiq.app", category: "Registration")
 
     /// Factory closure for creating DeviceTokenManager - using lazy initialization
     /// to break circular dependency with NotificationManager
@@ -60,6 +63,10 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         isLoading = true
         authError = nil
 
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("Registration", id: signpostID)
+        let startTime = CFAbsoluteTimeGetCurrent()
+
         do {
             let response = try await authService.register(
                 email: email,
@@ -72,6 +79,10 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
                 region: region
             )
 
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Registration", state)
+            logger.info("Registration completed in \(elapsed, format: .fixed(precision: 2))s")
+
             isAuthenticated = true
             currentUser = response.user
             isLoading = false
@@ -79,6 +90,13 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             // Track analytics
             AnalyticsService.shared.trackUserRegistered(email: email)
         } catch {
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Registration", state)
+            let errorDesc = error.localizedDescription
+            logger.warning(
+                "Registration failed after \(elapsed, format: .fixed(precision: 2))s: \(errorDesc, privacy: .public)"
+            )
+
             let contextualError = ContextualError(
                 error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .register
