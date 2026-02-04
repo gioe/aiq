@@ -1,3 +1,4 @@
+import AIQAPIClient
 import Combine
 import Foundation
 import UIKit
@@ -20,6 +21,23 @@ class TestTakingViewModel: BaseViewModel {
     @Published var testResult: SubmittedTestResult?
     /// When true, prevents further answer modifications (used when timer expires)
     @Published private(set) var isLocked: Bool = false
+
+    // MARK: - Adaptive Test Properties
+
+    /// Whether this test session uses adaptive (CAT) delivery
+    @Published private(set) var isAdaptiveTest: Bool = false
+
+    /// Current ability estimate from the CAT engine (theta scale)
+    @Published private(set) var currentTheta: Double?
+
+    /// Current standard error of the ability estimate
+    @Published private(set) var currentSE: Double?
+
+    /// Number of items administered so far in the adaptive test
+    @Published private(set) var itemsAdministered: Int = 0
+
+    /// Whether we're waiting for the next adaptive question from the server
+    @Published private(set) var isLoadingNextQuestion: Bool = false
 
     // MARK: - Time Tracking Properties
 
@@ -91,7 +109,10 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     var isLastQuestion: Bool {
-        currentQuestionIndex == questions.count - 1
+        if isAdaptiveTest {
+            return false // In adaptive mode, we never know if it's the last question
+        }
+        return currentQuestionIndex == questions.count - 1
     }
 
     var answeredCount: Int {
@@ -99,11 +120,20 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     var allQuestionsAnswered: Bool {
-        answeredCount == questions.count
+        if isAdaptiveTest {
+            // In adaptive mode, check if current question is answered
+            guard let question = currentQuestion else { return false }
+            return userAnswers[question.id]?.isEmpty == false
+        }
+        return answeredCount == questions.count
     }
 
     var progress: Double {
         guard !questions.isEmpty else { return 0 }
+        if isAdaptiveTest {
+            // Adaptive: progress based on items administered vs max items
+            return min(Double(itemsAdministered) / Double(Constants.Test.maxAdaptiveItems), 1.0)
+        }
         return Double(currentQuestionIndex + 1) / Double(questions.count)
     }
 
@@ -309,6 +339,159 @@ class TestTakingViewModel: BaseViewModel {
                 print("[WARN] [TestTakingViewModel] Failed to fetch test count: \(error.localizedDescription)")
             #endif
         }
+    }
+
+    // MARK: - Adaptive Test Management
+
+    /// Starts an adaptive (CAT) test session.
+    /// Gated by `Constants.Features.adaptiveTesting` — does nothing when the flag is off.
+    func startAdaptiveTest() async {
+        guard Constants.Features.adaptiveTesting else {
+            #if DEBUG
+                print("[TestTakingViewModel] Adaptive testing is disabled via feature flag")
+            #endif
+            return
+        }
+
+        setLoading(true)
+        clearError()
+
+        await fetchTestCountAtStart()
+
+        do {
+            let response = try await apiService.startAdaptiveTest()
+            handleAdaptiveTestStartSuccess(response: response)
+        } catch let error as APIError {
+            #if DEBUG
+                print("[TestTakingViewModel] APIError in startAdaptiveTest: \(error)")
+            #endif
+            handleTestStartError(error, questionCount: Constants.Test.defaultQuestionCount)
+        } catch {
+            #if DEBUG
+                print("[TestTakingViewModel] Generic error in startAdaptiveTest: \(error)")
+            #endif
+            handleGenericTestStartError(error, questionCount: Constants.Test.defaultQuestionCount)
+        }
+    }
+
+    private func handleAdaptiveTestStartSuccess(response: StartTestResponse) {
+        isAdaptiveTest = true
+        testSession = response.session
+        questions = response.questions
+        currentQuestionIndex = 0
+        userAnswers.removeAll()
+        stimulusSeen.removeAll()
+        isTestCompleted = false
+
+        // Extract adaptive-specific fields
+        currentTheta = response.currentTheta
+        currentSE = response.currentSe
+        itemsAdministered = response.questions.count
+
+        // Initialize time tracking
+        resetTimeTracking()
+        startQuestionTiming()
+
+        AnalyticsService.shared.trackTestStarted(
+            sessionId: response.session.id,
+            questionCount: response.questions.count
+        )
+
+        setLoading(false)
+    }
+
+    /// Submits the current answer and retrieves the next adaptive question.
+    /// If the CAT engine determines the test is complete, handles test completion.
+    func submitAnswerAndGetNext() async {
+        guard isAdaptiveTest else { return }
+        guard let session = testSession,
+              let question = currentQuestion,
+              let answer = userAnswers[question.id], !answer.isEmpty else {
+            return
+        }
+
+        recordCurrentQuestionTime()
+        isLoadingNextQuestion = true
+        clearError()
+
+        let timeSpent = questionTimeSpent[question.id]
+
+        do {
+            let response = try await apiService.submitAdaptiveResponse(
+                sessionId: session.id,
+                questionId: question.id,
+                userAnswer: answer,
+                timeSpentSeconds: timeSpent
+            )
+
+            handleAdaptiveResponseSuccess(response)
+        } catch {
+            handleAdaptiveResponseError(error)
+        }
+    }
+
+    private func handleAdaptiveResponseSuccess(_ response: Components.Schemas.AdaptiveNextResponse) {
+        currentTheta = response.currentTheta
+        currentSE = response.currentSe
+        itemsAdministered = response.itemsAdministered
+
+        if response.testComplete ?? false {
+            handleAdaptiveTestCompletion(response)
+        } else if let nextQuestion = response.nextQuestion?.value1 {
+            questions.append(nextQuestion)
+            currentQuestionIndex = questions.count - 1
+            startQuestionTiming()
+            updateAnsweredIndices()
+        }
+
+        isLoadingNextQuestion = false
+    }
+
+    private func handleAdaptiveTestCompletion(_ response: Components.Schemas.AdaptiveNextResponse) {
+        clearSavedProgress()
+        isTestCompleted = true
+        isLoadingNextQuestion = false
+
+        if let session = testSession {
+            AnalyticsService.shared.trackTestCompleted(
+                sessionId: session.id,
+                iqScore: 0,
+                durationSeconds: 0,
+                accuracy: 0
+            )
+        }
+
+        #if DEBUG
+            // swiftlint:disable:next line_length
+            print("[CAT] Adaptive test completed. Items: \(response.itemsAdministered), Reason: \(response.stoppingReason ?? "unknown")")
+        #endif
+    }
+
+    private func handleAdaptiveResponseError(_ error: Error) {
+        isLoadingNextQuestion = false
+
+        let contextualError = ContextualError(
+            error: error as? APIError ?? .unknown(message: error.localizedDescription),
+            operation: .submitTest
+        )
+
+        handleError(contextualError, context: .submitTest) { [weak self] in
+            guard let self, !self.isTestCompleted, isAdaptiveTest else { return }
+            await submitAnswerAndGetNext()
+        }
+
+        #if DEBUG
+            print("[ERROR] Failed to submit adaptive response: \(error)")
+        #endif
+    }
+
+    /// Resets adaptive-specific state
+    private func resetAdaptiveState() {
+        isAdaptiveTest = false
+        currentTheta = nil
+        currentSE = nil
+        itemsAdministered = 0
+        isLoadingNextQuestion = false
     }
 
     /// Resume an active test session
@@ -664,6 +847,7 @@ class TestTakingViewModel: BaseViewModel {
         testResult = nil
         error = nil
         resetTimeTracking()
+        resetAdaptiveState()
     }
 
     // MARK: - Local Storage

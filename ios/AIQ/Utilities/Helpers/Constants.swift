@@ -63,6 +63,10 @@ enum Constants {
         /// Calibrated for statistical reliability while minimizing test fatigue
         static let defaultQuestionCount: Int = 25
 
+        /// Maximum number of items in an adaptive (CAT) test session
+        /// Matches the backend's MAX_ITEMS safety limit in the CAT engine
+        static let maxAdaptiveItems: Int = 15
+
         /// Progress validity duration in seconds (24 hours)
         /// Saved test progress is only valid if saved within this time window
         static let progressValidityDuration: TimeInterval = 24 * 60 * 60
@@ -150,6 +154,18 @@ enum Constants {
         /// (primary + backup) to avoid lockouts during certificate rotation
         /// See: ios/docs/security/CERTIFICATE-PINNING.md
         static let minRequiredPins: Int = 2
+    }
+
+    // MARK: - Feature Flags
+
+    /// Feature flags for gating unreleased functionality
+    enum Features {
+        /// Adaptive (CAT) test delivery
+        /// When false, the app always uses the fixed-form test flow.
+        /// When true, the app calls /v1/test/start?adaptive=true and uses
+        /// question-by-question delivery via /v1/test/next.
+        /// The backend independently gates this via the `adaptive` query parameter.
+        static var adaptiveTesting: Bool = false
     }
 
     // MARK: - Background Refresh Constants

@@ -163,6 +163,46 @@ import Foundation
             }
         }
 
+        // MARK: - Adaptive Test Management
+
+        func startAdaptiveTest() async throws -> StartTestResponse {
+            try throwIfNetworkError()
+            let firstQuestion = UITestMockData.sampleQuestions[0]
+            return StartTestResponse(
+                currentSe: 1.0,
+                currentTheta: 0.0,
+                questions: [firstQuestion],
+                session: UITestMockData.newSession,
+                totalQuestions: 1
+            )
+        }
+
+        // swiftlint:disable:next line_length
+        func submitAdaptiveResponse(sessionId _: Int, questionId _: Int, userAnswer _: String, timeSpentSeconds _: Int?) async throws -> Components.Schemas.AdaptiveNextResponse {
+            try throwIfNetworkError()
+            return Components.Schemas.AdaptiveNextResponse(
+                currentSe: 0.5,
+                currentTheta: 0.5,
+                itemsAdministered: 2,
+                nextQuestion: .init(value1: UITestMockData.sampleQuestions[1]),
+                testComplete: false
+            )
+        }
+
+        func getTestProgress(sessionId _: Int) async throws -> Components.Schemas.TestProgressResponse {
+            try throwIfNetworkError()
+            return Components.Schemas.TestProgressResponse(
+                currentSe: 0.5,
+                domainCoverage: .init(additionalProperties: ["logic": 1]),
+                elapsedSeconds: 60,
+                estimatedItemsRemaining: 13,
+                itemsAdministered: 2,
+                sessionId: 100,
+                totalDomainsCovered: 1,
+                totalItemsMax: 15
+            )
+        }
+
         // MARK: - Notifications
 
         func registerDevice(deviceToken _: String) async throws {

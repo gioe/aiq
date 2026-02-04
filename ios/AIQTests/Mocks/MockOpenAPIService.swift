@@ -22,6 +22,9 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private(set) var getTestResultsCalled = false
     private(set) var getTestHistoryCalled = false
     private(set) var getActiveTestCalled = false
+    private(set) var startAdaptiveTestCalled = false
+    private(set) var submitAdaptiveResponseCalled = false
+    private(set) var getTestProgressCalled = false
     private(set) var registerDeviceCalled = false
     private(set) var unregisterDeviceCalled = false
     private(set) var updateNotificationPreferencesCalled = false
@@ -51,6 +54,11 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private(set) var lastFeedback: Feedback?
     private(set) var lastAccessToken: String?
     private(set) var lastRefreshToken: String?
+    private(set) var lastAdaptiveResponseSessionId: Int?
+    private(set) var lastAdaptiveResponseQuestionId: Int?
+    private(set) var lastAdaptiveResponseUserAnswer: String?
+    private(set) var lastAdaptiveResponseTimeSpent: Int?
+    private(set) var lastGetTestProgressSessionId: Int?
 
     // MARK: - Call Counts
 
@@ -83,6 +91,12 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     var getTestHistoryError: Error?
     var getActiveTestResponse: TestSessionStatusResponse?
     var getActiveTestError: Error?
+    var startAdaptiveTestResponse: StartTestResponse?
+    var startAdaptiveTestError: Error?
+    var submitAdaptiveResponseResponse: Components.Schemas.AdaptiveNextResponse?
+    var submitAdaptiveResponseError: Error?
+    var getTestProgressResponse: Components.Schemas.TestProgressResponse?
+    var getTestProgressError: Error?
     var registerDeviceError: Error?
     var unregisterDeviceError: Error?
     var updateNotificationPreferencesError: Error?
@@ -256,6 +270,45 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         return getActiveTestResponse
     }
 
+    func startAdaptiveTest() async throws -> StartTestResponse {
+        startAdaptiveTestCalled = true
+        if let error = startAdaptiveTestError { throw error }
+        guard let response = startAdaptiveTestResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "startAdaptiveTestResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    // swiftlint:disable:next line_length
+    func submitAdaptiveResponse(sessionId: Int, questionId: Int, userAnswer: String, timeSpentSeconds: Int?) async throws -> Components.Schemas.AdaptiveNextResponse {
+        submitAdaptiveResponseCalled = true
+        lastAdaptiveResponseSessionId = sessionId
+        lastAdaptiveResponseQuestionId = questionId
+        lastAdaptiveResponseUserAnswer = userAnswer
+        lastAdaptiveResponseTimeSpent = timeSpentSeconds
+        if let error = submitAdaptiveResponseError { throw error }
+        guard let response = submitAdaptiveResponseResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "submitAdaptiveResponseResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    func getTestProgress(sessionId: Int) async throws -> Components.Schemas.TestProgressResponse {
+        getTestProgressCalled = true
+        lastGetTestProgressSessionId = sessionId
+        if let error = getTestProgressError { throw error }
+        guard let response = getTestProgressResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "getTestProgressResponse not configured"
+            ])
+        }
+        return response
+    }
+
     // MARK: - Notifications
 
     func registerDevice(deviceToken: String) async throws {
@@ -340,6 +393,9 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         getTestResultsCalled = false
         getTestHistoryCalled = false
         getActiveTestCalled = false
+        startAdaptiveTestCalled = false
+        submitAdaptiveResponseCalled = false
+        getTestProgressCalled = false
         registerDeviceCalled = false
         unregisterDeviceCalled = false
         updateNotificationPreferencesCalled = false
@@ -367,6 +423,11 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         lastFeedback = nil
         lastAccessToken = nil
         lastRefreshToken = nil
+        lastAdaptiveResponseSessionId = nil
+        lastAdaptiveResponseQuestionId = nil
+        lastAdaptiveResponseUserAnswer = nil
+        lastAdaptiveResponseTimeSpent = nil
+        lastGetTestProgressSessionId = nil
 
         getTestHistoryCallCount = 0
         abandonTestCallCount = 0
@@ -395,6 +456,12 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         getTestHistoryError = nil
         getActiveTestResponse = nil
         getActiveTestError = nil
+        startAdaptiveTestResponse = nil
+        startAdaptiveTestError = nil
+        submitAdaptiveResponseResponse = nil
+        submitAdaptiveResponseError = nil
+        getTestProgressResponse = nil
+        getTestProgressError = nil
         registerDeviceError = nil
         unregisterDeviceError = nil
         updateNotificationPreferencesError = nil
