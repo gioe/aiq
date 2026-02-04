@@ -13,6 +13,10 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Prefix length for device tokens in analytics and log messages.
+# 12 hex characters provide sufficient uniqueness while avoiding PII concerns.
+DEVICE_TOKEN_PREFIX_LENGTH = 12
+
 
 class APNsService:
     """
@@ -133,7 +137,9 @@ class APNsService:
             logger.error("APNs client not connected. Call connect() first.")
             return False
 
-        token_prefix = device_token[:12] if device_token else None
+        token_prefix = (
+            device_token[:DEVICE_TOKEN_PREFIX_LENGTH] if device_token else None
+        )
 
         try:
             # Build the notification payload
@@ -292,7 +298,7 @@ async def send_test_reminder_notification(
 
     except Exception:
         logger.exception(
-            f"Failed to send test reminder notification (device_token_prefix={device_token[:12] if device_token else None})"
+            f"Failed to send test reminder notification (device_token_prefix={device_token[:DEVICE_TOKEN_PREFIX_LENGTH] if device_token else None})"
         )
         return False
 
@@ -345,7 +351,7 @@ async def send_logout_all_notification(
 
     except Exception:
         logger.exception(
-            f"Failed to send logout-all notification (user_id={user_id}, device_token_prefix={device_token[:12] if device_token else None})"
+            f"Failed to send logout-all notification (user_id={user_id}, device_token_prefix={device_token[:DEVICE_TOKEN_PREFIX_LENGTH] if device_token else None})"
         )
         return False
 
