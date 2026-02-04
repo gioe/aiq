@@ -186,6 +186,7 @@ class APNsService:
                 AnalyticsTracker.track_notification_failed(
                     notification_type=notification_type,
                     error=str(e),
+                    error_type=type(e).__name__,
                     user_id=user_id,
                     device_token_prefix=token_prefix,
                 )
