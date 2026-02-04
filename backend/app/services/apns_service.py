@@ -13,6 +13,8 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Prefix length for device tokens in analytics and log messages.
+# 12 hex characters provide sufficient uniqueness while avoiding PII concerns.
 DEVICE_TOKEN_PREFIX_LENGTH = 12
 
 
