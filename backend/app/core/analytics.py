@@ -229,6 +229,40 @@ class AnalyticsTracker:
         )
 
     @staticmethod
+    def track_notification_sent(
+        notification_type: str,
+        user_id: Optional[int] = None,
+        device_token_prefix: Optional[str] = None,
+    ) -> None:
+        """Track successful notification delivery."""
+        AnalyticsTracker.track_event(
+            EventType.NOTIFICATION_SENT,
+            user_id=user_id,
+            properties={
+                "notification_type": notification_type,
+                "device_token_prefix": device_token_prefix,
+            },
+        )
+
+    @staticmethod
+    def track_notification_failed(
+        notification_type: str,
+        error: Optional[str] = None,
+        user_id: Optional[int] = None,
+        device_token_prefix: Optional[str] = None,
+    ) -> None:
+        """Track failed notification delivery."""
+        AnalyticsTracker.track_event(
+            EventType.NOTIFICATION_FAILED,
+            user_id=user_id,
+            properties={
+                "notification_type": notification_type,
+                "error": error,
+                "device_token_prefix": device_token_prefix,
+            },
+        )
+
+    @staticmethod
     def track_rate_limit_exceeded(
         user_identifier: str, endpoint: str, limit: int
     ) -> None:

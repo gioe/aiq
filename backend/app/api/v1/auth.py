@@ -496,6 +496,7 @@ def logout_all_devices(
         background_tasks.add_task(
             send_logout_all_notification,
             current_user.apns_device_token,
+            user_id=int(current_user.id),
         )
 
     return None
