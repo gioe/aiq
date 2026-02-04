@@ -60,7 +60,7 @@ class LogoutAllStatsResponse(BaseModel):
     total_events: int = Field(
         ...,
         ge=0,
-        description="Total number of logout-all events in the time range",
+        description="Total number of logout-all events in the time range (before pagination)",
     )
     unique_users: int = Field(
         ...,
@@ -78,7 +78,23 @@ class LogoutAllStatsResponse(BaseModel):
     )
     events: List[UserLogoutAllSummary] = Field(
         default_factory=list,
-        description="Per-user logout-all event details",
+        description="Per-user logout-all event details (paginated)",
+    )
+    page: int = Field(
+        ...,
+        ge=1,
+        description="Current page number (1-indexed)",
+    )
+    page_size: int = Field(
+        ...,
+        ge=1,
+        le=500,
+        description="Number of events per page",
+    )
+    total_matching: int = Field(
+        ...,
+        ge=0,
+        description="Total number of matching events (same as total_events, for clarity)",
     )
     error: Optional[str] = Field(
         default=None,

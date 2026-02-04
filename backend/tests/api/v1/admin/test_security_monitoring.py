@@ -91,6 +91,9 @@ class TestLogoutAllEventsEmpty:
         assert data["users_with_correlated_resets"] == 0
         assert data["events"] == []
         assert data["error"] is None
+        assert data["page"] == 1
+        assert data["page_size"] == 100
+        assert data["total_matching"] == 0
 
     @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_users_without_logout_all(
@@ -132,6 +135,9 @@ class TestLogoutAllEventsBasic:
         assert event["user_id"] == user.id
         assert event["password_resets_in_window"] == 0
         assert event["correlated_resets"] == []
+        assert data["page"] == 1
+        assert data["page_size"] == 100
+        assert data["total_matching"] == 1
 
     @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_multiple_users_logout_all(
@@ -401,6 +407,242 @@ class TestLogoutAllPasswordResetCorrelation:
         assert response.json()["events"][0]["password_resets_in_window"] == 1
 
 
+class TestLogoutAllEventsPagination:
+    """Tests for pagination functionality."""
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_default_pagination_params(
+        self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
+    ):
+        """Default pagination is page=1, page_size=100."""
+        _create_user(
+            db_session,
+            "user@example.com",
+            token_revoked_before=FROZEN_NOW - timedelta(days=1),
+        )
+
+        response = client.get(ENDPOINT, headers=admin_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 1
+        assert data["page_size"] == 100
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_custom_page_size(
+        self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
+    ):
+        """Custom page_size is respected."""
+        for i in range(5):
+            _create_user(
+                db_session,
+                f"user{i}@example.com",
+                token_revoked_before=FROZEN_NOW - timedelta(days=i + 1),
+            )
+
+        response = client.get(ENDPOINT, headers=admin_headers, params={"page_size": 2})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 1
+        assert data["page_size"] == 2
+        assert len(data["events"]) == 2
+        assert data["total_events"] == 5
+        assert data["total_matching"] == 5
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_page_navigation(
+        self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
+    ):
+        """Can navigate through pages of results."""
+        # Create 5 users
+        for i in range(5):
+            _create_user(
+                db_session,
+                f"user{i}@example.com",
+                token_revoked_before=FROZEN_NOW - timedelta(days=i + 1),
+            )
+
+        # Get page 1 with page_size=2
+        response_page1 = client.get(
+            ENDPOINT, headers=admin_headers, params={"page": 1, "page_size": 2}
+        )
+        data_page1 = response_page1.json()
+
+        assert data_page1["page"] == 1
+        assert len(data_page1["events"]) == 2
+        assert data_page1["total_events"] == 5
+
+        # Get page 2
+        response_page2 = client.get(
+            ENDPOINT, headers=admin_headers, params={"page": 2, "page_size": 2}
+        )
+        data_page2 = response_page2.json()
+
+        assert data_page2["page"] == 2
+        assert len(data_page2["events"]) == 2
+
+        # Get page 3 (last page with only 1 event)
+        response_page3 = client.get(
+            ENDPOINT, headers=admin_headers, params={"page": 3, "page_size": 2}
+        )
+        data_page3 = response_page3.json()
+
+        assert data_page3["page"] == 3
+        assert len(data_page3["events"]) == 1
+
+        # Verify no duplicate events across pages
+        page1_ids = {e["user_id"] for e in data_page1["events"]}
+        page2_ids = {e["user_id"] for e in data_page2["events"]}
+        page3_ids = {e["user_id"] for e in data_page3["events"]}
+
+        assert len(page1_ids & page2_ids) == 0
+        assert len(page1_ids & page3_ids) == 0
+        assert len(page2_ids & page3_ids) == 0
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_page_beyond_results(
+        self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
+    ):
+        """Requesting a page beyond available results returns empty events."""
+        _create_user(
+            db_session,
+            "user@example.com",
+            token_revoked_before=FROZEN_NOW - timedelta(days=1),
+        )
+
+        response = client.get(
+            ENDPOINT, headers=admin_headers, params={"page": 10, "page_size": 100}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 10
+        assert data["total_events"] == 1
+        assert len(data["events"]) == 0
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_max_page_size_enforced(
+        self, _mock_now, client: TestClient, admin_headers: dict
+    ):
+        """Page size cannot exceed 500."""
+        response = client.get(
+            ENDPOINT, headers=admin_headers, params={"page_size": 1000}
+        )
+
+        assert response.status_code == 422
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_min_page_size_enforced(
+        self, _mock_now, client: TestClient, admin_headers: dict
+    ):
+        """Page size must be at least 1."""
+        response = client.get(ENDPOINT, headers=admin_headers, params={"page_size": 0})
+
+        assert response.status_code == 422
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_min_page_enforced(
+        self, _mock_now, client: TestClient, admin_headers: dict
+    ):
+        """Page must be at least 1."""
+        response = client.get(ENDPOINT, headers=admin_headers, params={"page": 0})
+
+        assert response.status_code == 422
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_pagination_with_time_range_filter(
+        self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
+    ):
+        """Pagination works correctly with time range filtering."""
+        # Create events: 3 recent (within 7d), 2 old (outside 7d)
+        for i in range(3):
+            _create_user(
+                db_session,
+                f"recent{i}@example.com",
+                token_revoked_before=FROZEN_NOW - timedelta(days=i + 1),
+            )
+        for i in range(2):
+            _create_user(
+                db_session,
+                f"old{i}@example.com",
+                token_revoked_before=FROZEN_NOW - timedelta(days=10 + i),
+            )
+
+        response = client.get(
+            ENDPOINT,
+            headers=admin_headers,
+            params={"time_range": "7d", "page": 1, "page_size": 2},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_events"] == 3
+        assert len(data["events"]) == 2
+        assert data["page"] == 1
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_pagination_preserves_order(
+        self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
+    ):
+        """Events are ordered by logout_all_at descending across pages."""
+        # Create users with specific timestamps
+        timestamps = [
+            FROZEN_NOW - timedelta(days=1),
+            FROZEN_NOW - timedelta(days=2),
+            FROZEN_NOW - timedelta(days=3),
+            FROZEN_NOW - timedelta(days=4),
+        ]
+
+        for i, ts in enumerate(timestamps):
+            _create_user(db_session, f"user{i}@example.com", token_revoked_before=ts)
+
+        # Get first page (2 events)
+        response = client.get(
+            ENDPOINT, headers=admin_headers, params={"page": 1, "page_size": 2}
+        )
+        data = response.json()
+
+        # Should get most recent events first
+        assert len(data["events"]) == 2
+        event1_time = datetime.fromisoformat(
+            data["events"][0]["logout_all_at"].replace("Z", "+00:00")
+        )
+        event2_time = datetime.fromisoformat(
+            data["events"][1]["logout_all_at"].replace("Z", "+00:00")
+        )
+        assert event1_time > event2_time
+
+    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    def test_pagination_with_password_reset_correlation(
+        self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
+    ):
+        """Password reset correlation works correctly with pagination."""
+        # Create users with correlated resets
+        for i in range(3):
+            revoked_at = FROZEN_NOW - timedelta(days=i + 1)
+            user = _create_user(
+                db_session,
+                f"user{i}@example.com",
+                token_revoked_before=revoked_at,
+            )
+            # Add password reset within correlation window
+            _create_password_reset(
+                db_session, user.id, created_at=revoked_at + timedelta(minutes=10)
+            )
+
+        response = client.get(
+            ENDPOINT, headers=admin_headers, params={"page": 1, "page_size": 2}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["users_with_correlated_resets"] == 2  # Only for page 1
+        assert len(data["events"]) == 2
+        for event in data["events"]:
+            assert event["password_resets_in_window"] == 1
+
+
 class TestLogoutAllEventsErrorHandling:
     """Tests for error handling."""
 
@@ -419,3 +661,5 @@ class TestLogoutAllEventsErrorHandling:
         assert data["error"] is not None
         # Verify internal details are not leaked
         assert "connection refused" not in data["error"]
+        assert data["page"] == 1
+        assert data["page_size"] == 100

@@ -28,17 +28,22 @@ logger = logging.getLogger(__name__)
 # Correlation window: password resets within 24 hours of a logout-all event
 CORRELATION_WINDOW_HOURS = 24
 
-# Maximum number of logout-all events to return per query
-MAX_LOGOUT_EVENTS = 500
+# Default pagination settings
+DEFAULT_PAGE_SIZE = 100
+MAX_PAGE_SIZE = 500
 
 
-def get_logout_all_stats(db: Session, days: int) -> LogoutAllStatsResponse:
+def get_logout_all_stats(
+    db: Session, days: int, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE
+) -> LogoutAllStatsResponse:
     """
     Query logout-all events and correlate with password resets.
 
     Args:
         db: Database session.
         days: Number of days to look back (0 means all time).
+        page: Page number (1-indexed).
+        page_size: Number of events per page (max 500).
 
     Returns:
         LogoutAllStatsResponse with aggregate stats and per-user details.
@@ -51,7 +56,35 @@ def get_logout_all_stats(db: Session, days: int) -> LogoutAllStatsResponse:
         # All time: use a far-past date
         start = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
-    # Query users who have triggered logout-all within the time range
+    # Query total count of users who have triggered logout-all within the time range
+    total_count_query = db.query(User.id).filter(
+        User.token_revoked_before.isnot(None),
+        User.token_revoked_before >= start,
+    )
+    total_events = total_count_query.count()
+
+    logger.debug(
+        "Found %d users with logout-all events in the last %d days",
+        total_events,
+        days,
+    )
+
+    if total_events == 0:
+        return LogoutAllStatsResponse(
+            total_events=0,
+            unique_users=0,
+            users_with_correlated_resets=0,
+            time_range=TimeRange(start=start, end=now),
+            events=[],
+            page=page,
+            page_size=page_size,
+            total_matching=0,
+        )
+
+    # Calculate offset for pagination
+    offset = (page - 1) * page_size
+
+    # Query paginated users who have triggered logout-all within the time range
     logout_users = (
         db.query(User.id, User.token_revoked_before)
         .filter(
@@ -59,23 +92,22 @@ def get_logout_all_stats(db: Session, days: int) -> LogoutAllStatsResponse:
             User.token_revoked_before >= start,
         )
         .order_by(User.token_revoked_before.desc())
-        .limit(MAX_LOGOUT_EVENTS)
+        .limit(page_size)
+        .offset(offset)
         .all()
     )
 
-    logger.debug(
-        "Found %d users with logout-all events in the last %d days",
-        len(logout_users),
-        days,
-    )
-
     if not logout_users:
+        # Page is beyond available data
         return LogoutAllStatsResponse(
-            total_events=0,
-            unique_users=0,
+            total_events=total_events,
+            unique_users=total_events,
             users_with_correlated_resets=0,
             time_range=TimeRange(start=start, end=now),
             events=[],
+            page=page,
+            page_size=page_size,
+            total_matching=total_events,
         )
 
     # Batch-load all password resets for affected users (avoids N+1 queries)
@@ -124,12 +156,13 @@ def get_logout_all_stats(db: Session, days: int) -> LogoutAllStatsResponse:
             )
         )
 
-    total_events = len(events)
-
     return LogoutAllStatsResponse(
         total_events=total_events,
         unique_users=total_events,
         users_with_correlated_resets=users_with_resets,
         time_range=TimeRange(start=start, end=now),
         events=events,
+        page=page,
+        page_size=page_size,
+        total_matching=total_events,
     )
