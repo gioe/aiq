@@ -111,6 +111,14 @@ class User(Base):
         nullable=True
     )  # Timestamp when Day 30 reminder was sent (Phase 2.2 deduplication)
 
+    # Token revocation epoch for "logout from all devices" functionality
+    token_revoked_before: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True
+    )  # Timestamp before which all tokens are considered revoked
+    # When set, any token with iat (issued-at) < token_revoked_before is rejected
+    # Used by POST /v1/auth/logout-all to invalidate all existing user tokens
+    # NULL = no revocation epoch (tokens valid according to normal expiration)
+
     # Demographic data for norming study (P13-001)
     # All fields are optional to ensure privacy and voluntary participation
     birth_year: Mapped[Optional[int]] = mapped_column(
