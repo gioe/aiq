@@ -60,10 +60,12 @@ def _create_token(
         Encoded JWT token string
     """
     to_encode = data.copy()
-    expire = utc_now() + (expires_delta or default_expires)
+    now = utc_now()
+    expire = now + (expires_delta or default_expires)
     # Add JTI (JWT ID) for token blacklist support
     jti = str(uuid.uuid4())
-    to_encode.update({"exp": expire, "type": token_type, "jti": jti})
+    # Add iat (issued-at) for user-level revocation epoch checking
+    to_encode.update({"exp": expire, "iat": now, "type": token_type, "jti": jti})
     return jwt.encode(
         to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
     )

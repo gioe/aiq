@@ -417,6 +417,81 @@ def logout_user(
     return None
 
 
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+def logout_all_devices(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    """
+    Logout from all devices by invalidating all existing tokens.
+
+    Sets a user-level revocation epoch that invalidates all tokens issued before
+    this moment. Also blacklists the current access token for immediate effect.
+
+    This is useful when:
+    - User suspects their account has been compromised
+    - User loses a device
+    - User wants to force logout from all active sessions
+    - User changes password (optional policy)
+
+    Args:
+        request: FastAPI request object for IP extraction
+        current_user: Current authenticated user
+        credentials: Token credentials for blacklisting current token
+        db: Database session
+
+    Returns:
+        No content (204)
+    """
+    client_ip = get_client_ip_from_request(request)
+
+    # Blacklist the current access token FIRST for immediate revocation.
+    # This prevents a race condition where the token could still be used
+    # between setting the epoch and the blacklist taking effect.
+    _revoke_token(
+        token=credentials.credentials,
+        token_type="access",
+        user_id=current_user.id,
+        client_ip=client_ip,
+    )
+
+    # Set revocation epoch to current time.
+    # This will cause all tokens with iat < this time to be rejected,
+    # covering all other active sessions beyond the current token.
+    try:
+        current_user.token_revoked_before = utc_now()
+        db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(
+            f"Database error during logout-all for user {current_user.id}: {e}"
+        )
+        raise_server_error(ErrorMessages.GENERIC_SERVER_ERROR)
+
+    logger.info(
+        f"User {current_user.id} set token revocation epoch, "
+        f"invalidating all existing tokens"
+    )
+
+    # Log security event
+    security_logger.log_token_revoked(
+        ip=client_ip,
+        token_jti=None,  # We're revoking all tokens, not just one JTI
+        user_id=str(current_user.id),
+    )
+
+    # Track analytics event
+    AnalyticsTracker.track_event(
+        EventType.USER_LOGOUT,
+        user_id=int(current_user.id),
+        properties={"logout_all": True},
+    )
+
+    return None
+
+
 # Password reset token configuration
 PASSWORD_RESET_TOKEN_BYTES = 32  # 32 bytes = 256 bits of entropy for security
 PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 30  # Token expiration in minutes

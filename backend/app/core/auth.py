@@ -2,6 +2,7 @@
 FastAPI authentication dependencies.
 """
 import logging
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
 from fastapi import Depends, HTTPException, Request
@@ -31,6 +32,7 @@ def _decode_and_validate_token(
     token: str,
     expected_type: TokenType,
     request: Optional[Request] = None,
+    db: Optional[Session] = None,
 ) -> int:
     """
     Decode and validate a JWT token, returning the user_id.
@@ -39,6 +41,7 @@ def _decode_and_validate_token(
         token: The JWT token string
         expected_type: Expected token type ("access" or "refresh")
         request: Optional request object for IP extraction in security logging
+        db: Optional database session for user-level revocation check
 
     Returns:
         The user_id from the token payload
@@ -113,6 +116,53 @@ def _decode_and_validate_token(
             )
         raise_unauthorized(ErrorMessages.INVALID_TOKEN_PAYLOAD)
 
+    # Check user-level revocation epoch (logout-all)
+    # Only perform this check if we have DB access
+    if db is not None:
+        user = db.get(User, user_id)
+        if user and user.token_revoked_before:
+            from app.core.datetime_utils import ensure_timezone_aware
+
+            revoked_before = ensure_timezone_aware(user.token_revoked_before)
+            token_iat = payload.get("iat")
+
+            if token_iat is None:
+                # Tokens without iat cannot be verified against revocation epoch
+                # Reject as a security precaution
+                logger.warning(
+                    "Token missing iat claim for user %s with active revocation epoch",
+                    user_id,
+                )
+                if request:
+                    client_ip = get_client_ip_from_request(request)
+                    security_logger.log_token_validation_failure(
+                        reason="missing_iat_with_revocation_epoch",
+                        ip=client_ip,
+                        token_jti=jti,
+                    )
+                raise_unauthorized(ErrorMessages.TOKEN_REVOKED)
+
+            # JWT iat is a Unix timestamp (seconds since epoch)
+            token_issued_at = datetime.fromtimestamp(token_iat, tz=timezone.utc)
+
+            # If token was issued before the revocation epoch, reject it
+            if token_issued_at < revoked_before:
+                logger.warning(
+                    "Token issued before revocation epoch for user %s. "
+                    "Token iat: %s, revoked_before: %s",
+                    user_id,
+                    token_issued_at,
+                    revoked_before,
+                )
+                if request:
+                    client_ip = get_client_ip_from_request(request)
+                    security_logger.log_token_validation_failure(
+                        reason="token_revoked_by_logout_all",
+                        ip=client_ip,
+                        token_jti=jti,
+                    )
+                raise_unauthorized(ErrorMessages.TOKEN_REVOKED)
+
     return user_id
 
 
@@ -130,7 +180,7 @@ def _get_user_or_401(db: Session, user_id: int) -> User:
     Raises:
         HTTPException: 401 if user not found
     """
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.get(User, user_id)
     if user is None:
         raise_unauthorized(ErrorMessages.USER_NOT_FOUND_AUTH)
     return user
@@ -155,7 +205,7 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    user_id = _decode_and_validate_token(credentials.credentials, "access", request)
+    user_id = _decode_and_validate_token(credentials.credentials, "access", request, db)
     return _get_user_or_401(db, user_id)
 
 
@@ -180,7 +230,9 @@ async def get_current_user_from_refresh_token(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    user_id = _decode_and_validate_token(credentials.credentials, "refresh", request)
+    user_id = _decode_and_validate_token(
+        credentials.credentials, "refresh", request, db
+    )
     return _get_user_or_401(db, user_id)
 
 
@@ -210,7 +262,9 @@ async def get_current_user_optional(
         return None
 
     try:
-        user_id = _decode_and_validate_token(credentials.credentials, "access", request)
+        user_id = _decode_and_validate_token(
+            credentials.credentials, "access", request, db
+        )
         user = db.query(User).filter(User.id == user_id).first()
         return user
     except HTTPException:
