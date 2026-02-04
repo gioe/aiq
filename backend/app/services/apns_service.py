@@ -133,7 +133,7 @@ class APNsService:
             logger.error("APNs client not connected. Call connect() first.")
             return False
 
-        token_prefix = device_token[:8] if device_token else None
+        token_prefix = device_token[:12] if device_token else None
 
         try:
             # Build the notification payload
@@ -338,7 +338,7 @@ async def send_logout_all_notification(
 
     except Exception:
         logger.exception(
-            f"Failed to send logout-all notification (user_id={user_id}, device_token_prefix={device_token[:8] if device_token else None})"
+            f"Failed to send logout-all notification (user_id={user_id}, device_token_prefix={device_token[:12] if device_token else None})"
         )
         return False
 

@@ -685,6 +685,6 @@ class TestLogoutAllPushNotification:
             call_args = mock_logger.exception.call_args[0][0]
             assert "Failed to send logout-all notification" in call_args
             assert f"user_id={user.id}" in call_args
-            assert "device_token_prefix=fake_dev" in call_args
+            assert "device_token_prefix=fake_device_" in call_args
 
         db.close()

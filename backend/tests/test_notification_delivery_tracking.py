@@ -96,7 +96,7 @@ class TestAPNsServiceDeliveryTracking:
             mock_sent.assert_called_once_with(
                 notification_type="logout_all",
                 user_id=42,
-                device_token_prefix="abc123de",
+                device_token_prefix="abc123def456",  # pragma: allowlist secret
             )
 
     @pytest.mark.asyncio
@@ -118,7 +118,7 @@ class TestAPNsServiceDeliveryTracking:
             mock_sent.assert_called_once_with(
                 notification_type="logout_all",
                 user_id=None,
-                device_token_prefix="abc123de",
+                device_token_prefix="abc123def456",  # pragma: allowlist secret
             )
 
     @pytest.mark.asyncio
@@ -143,7 +143,7 @@ class TestAPNsServiceDeliveryTracking:
                 notification_type="test_reminder",
                 error="APNs error",
                 user_id=7,
-                device_token_prefix="abc123de",
+                device_token_prefix="abc123def456",  # pragma: allowlist secret
             )
 
     @pytest.mark.asyncio
@@ -229,7 +229,7 @@ class TestBatchNotificationDeliveryTracking:
             mock_sent.assert_called_once_with(
                 notification_type="test_reminder",
                 user_id=99,
-                device_token_prefix="token1aa",
+                device_token_prefix="token1aaa",
             )
 
     @pytest.mark.asyncio
@@ -294,7 +294,7 @@ class TestConvenienceFunctionTracking:
                     mock_sent.assert_called_once_with(
                         notification_type="logout_all",
                         user_id=42,
-                        device_token_prefix="test_tok",
+                        device_token_prefix="test_token_a",
                     )
 
     @pytest.mark.asyncio
@@ -332,7 +332,7 @@ class TestConvenienceFunctionTracking:
                         notification_type="logout_all",
                         error="Connection refused",
                         user_id=42,
-                        device_token_prefix="test_tok",
+                        device_token_prefix="test_token_a",
                     )
 
     @pytest.mark.asyncio
@@ -363,7 +363,7 @@ class TestConvenienceFunctionTracking:
                     mock_sent.assert_called_once_with(
                         notification_type="logout_all",
                         user_id=None,
-                        device_token_prefix="test_tok",
+                        device_token_prefix="test_token_a",
                     )
 
     @pytest.mark.asyncio
@@ -394,5 +394,5 @@ class TestConvenienceFunctionTracking:
                     mock_sent.assert_called_once_with(
                         notification_type="test_reminder",
                         user_id=None,
-                        device_token_prefix="test_tok",
+                        device_token_prefix="test_token_a",
                     )
