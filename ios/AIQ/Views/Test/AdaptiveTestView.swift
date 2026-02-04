@@ -92,7 +92,10 @@ struct AdaptiveTestView: View {
         }
         .alert("Time's Up!", isPresented: $showTimeExpiredAlert) {
             Button("OK") {
-                // Alert dismissed - auto-submit happens automatically
+                // Navigate to results when user dismisses the alert
+                if let result = viewModel.testResult {
+                    router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
+                }
             }
         } message: {
             Text(
@@ -115,6 +118,9 @@ struct AdaptiveTestView: View {
                let domain = lastQuestion.questionTypeEnum {
                 cachedAdministeredDomains.insert(domain)
             }
+        }
+        .onDisappear {
+            timerManager.stop()
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.AdaptiveTestView.container)
     }
@@ -275,7 +281,8 @@ struct AdaptiveTestView: View {
                 isLoading: viewModel.isLoadingNextQuestion,
                 isDisabled: viewModel.currentAnswer.isEmpty
                     || viewModel.isLocked
-                    || isAutoSubmitting,
+                    || isAutoSubmitting
+                    || viewModel.isLoadingNextQuestion,
                 accessibilityId: AccessibilityIdentifiers.AdaptiveTestView.submitAndContinueButton
             )
         }
@@ -373,17 +380,12 @@ struct AdaptiveTestView: View {
         // Immediately lock answers to prevent race conditions
         viewModel.lockAnswers()
 
-        // Auto-submit first, then show alert and navigate
+        // Auto-submit first, then show alert (navigation happens on alert dismissal)
         Task {
             await viewModel.submitTestForTimeout()
 
-            // Show alert after submission completes to avoid confusing intermediate states
+            // Show alert after submission completes; navigation is handled by the alert's OK action
             showTimeExpiredAlert = true
-
-            // Navigate to results after submission
-            if let result = viewModel.testResult {
-                router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
-            }
         }
     }
 
