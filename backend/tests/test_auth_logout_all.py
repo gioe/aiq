@@ -4,13 +4,27 @@ Integration tests for POST /v1/auth/logout-all endpoint.
 Tests user-level token revocation via revocation epoch approach.
 """
 import pytest
+from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from unittest.mock import patch
-import time
 
 from app.main import app
 from app.core.token_blacklist import get_token_blacklist, init_token_blacklist
-from app.core.datetime_utils import utc_now
+
+
+class MockClock:
+    """Deterministic clock for testing. Replaces time.sleep with instant time advancement."""
+
+    def __init__(self):
+        """Initialize clock at current UTC time."""
+        self._current = datetime.now(timezone.utc)
+
+    def __call__(self):
+        return self._current
+
+    def advance(self, seconds: float = 1.0):
+        """Advance the mock clock by the given number of seconds."""
+        self._current += timedelta(seconds=seconds)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -30,6 +44,23 @@ def init_blacklist():
 def client():
     """Create a test client."""
     return TestClient(app)
+
+
+@pytest.fixture
+def mock_clock():
+    """Provide a deterministic mock clock that patches utc_now across all modules.
+
+    Use mock_clock.advance(seconds=N) instead of time.sleep(N) to move
+    the clock forward instantly.
+    """
+    clock = MockClock()
+    with (
+        patch("app.core.datetime_utils.utc_now", clock),
+        patch("app.core.security.utc_now", clock),
+        patch("app.api.v1.auth.utc_now", clock),
+        patch("app.models.models.utc_now", clock),
+    ):
+        yield clock
 
 
 @pytest.fixture
@@ -88,7 +119,9 @@ class TestLogoutAllBasicFunctionality:
         assert response.status_code == 401
         assert "revoked" in response.json()["detail"].lower()
 
-    def test_logout_all_invalidates_all_existing_tokens(self, client, test_user):
+    def test_logout_all_invalidates_all_existing_tokens(
+        self, client, test_user, mock_clock
+    ):
         """Test that logout-all invalidates all existing tokens."""
         # Create multiple sessions by logging in multiple times
         login_data = {
@@ -102,7 +135,9 @@ class TestLogoutAllBasicFunctionality:
             response = client.post("/v1/auth/login", json=login_data)
             assert response.status_code == 200
             sessions.append(response.json())
-            time.sleep(0.5)  # Delay to ensure different iat values on CI
+            mock_clock.advance(
+                seconds=1
+            )  # Advance clock to ensure different iat values
 
         # Verify all tokens work before logout-all
         for session in sessions:
@@ -124,7 +159,7 @@ class TestLogoutAllBasicFunctionality:
             ), f"Session {i} should be revoked after logout-all"
             assert "revoked" in response.json()["detail"].lower()
 
-    def test_logout_all_allows_new_tokens(self, client, test_user):
+    def test_logout_all_allows_new_tokens(self, client, test_user, mock_clock):
         """Test that logout-all allows new tokens to be created."""
         access_token = test_user["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -137,10 +172,8 @@ class TestLogoutAllBasicFunctionality:
         response = client.get("/v1/user/profile", headers=headers)
         assert response.status_code == 401
 
-        # Small delay to ensure new token iat is after logout_all epoch
-        # This prevents edge case where token creation happens in same microsecond
-        # Use longer delay for reliability on slower CI systems
-        time.sleep(1.0)
+        # Advance clock to ensure new token iat is after logout_all epoch
+        mock_clock.advance(seconds=2)
 
         # Login again to get new tokens
         login_data = {
@@ -180,7 +213,9 @@ class TestLogoutAllRefreshTokens:
         assert response.status_code == 401
         assert "revoked" in response.json()["detail"].lower()
 
-    def test_logout_all_with_multiple_refresh_tokens(self, client, test_user):
+    def test_logout_all_with_multiple_refresh_tokens(
+        self, client, test_user, mock_clock
+    ):
         """Test logout-all with multiple refresh token pairs."""
         # Create multiple sessions
         login_data = {
@@ -193,7 +228,9 @@ class TestLogoutAllRefreshTokens:
             response = client.post("/v1/auth/login", json=login_data)
             assert response.status_code == 200
             sessions.append(response.json())
-            time.sleep(0.5)
+            mock_clock.advance(
+                seconds=1
+            )  # Advance clock to ensure different iat values
 
         # Verify all refresh tokens work
         for session in sessions:
@@ -341,10 +378,9 @@ class TestLogoutAllTokenValidation:
         response = client.get("/v1/user/profile", headers=headers)
         assert response.status_code == 401
 
-    def test_new_tokens_have_iat_after_epoch(self, client, test_user):
+    def test_new_tokens_have_iat_after_epoch(self, client, test_user, mock_clock):
         """Test that tokens created after logout-all have iat > revocation epoch."""
         from app.core.security import decode_token
-        from datetime import datetime, timezone
 
         access_token = test_user["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -352,11 +388,11 @@ class TestLogoutAllTokenValidation:
         # Logout from all devices
         response = client.post("/v1/auth/logout-all", headers=headers)
         assert response.status_code == 204
-        # Truncate to seconds to match JWT iat precision (integer seconds)
-        logout_all_time = utc_now().replace(microsecond=0)
+        # Record the logout time (mock_clock returns current mock time)
+        logout_all_time = mock_clock().replace(microsecond=0)
 
-        # Delay to ensure new token iat is in a later second than the epoch
-        time.sleep(1.5)
+        # Advance clock to ensure new token iat is in a later second than the epoch
+        mock_clock.advance(seconds=2)
 
         # Login again
         login_data = {
@@ -381,10 +417,11 @@ class TestLogoutAllTokenValidation:
         response = client.get("/v1/user/profile", headers=new_headers)
         assert response.status_code == 200
 
-    def test_tokens_without_iat_rejected_with_revocation_epoch(self, client, test_user):
+    def test_tokens_without_iat_rejected_with_revocation_epoch(
+        self, client, test_user, mock_clock
+    ):
         """Test that tokens without iat are rejected when revocation epoch is set."""
         import uuid
-        from datetime import timedelta
         from jose import jwt
         from app.core.config import settings
 
@@ -395,8 +432,8 @@ class TestLogoutAllTokenValidation:
         response = client.post("/v1/auth/logout-all", headers=headers)
         assert response.status_code == 204
 
-        # Small delay to ensure new token would have iat after epoch
-        time.sleep(0.5)
+        # Advance clock to ensure new token would have iat after epoch
+        mock_clock.advance(seconds=1)
 
         # Login to find out the user_id
         login_data = {
@@ -413,7 +450,7 @@ class TestLogoutAllTokenValidation:
             "user_id": user_id,
             "email": test_user["email"],
             "type": "access",
-            "exp": utc_now() + timedelta(hours=1),
+            "exp": mock_clock() + timedelta(hours=1),
             "jti": str(uuid.uuid4()),
             # Deliberately no "iat" claim
         }
