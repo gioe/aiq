@@ -52,6 +52,10 @@ enum Route: Hashable, Equatable {
     /// - Parameter sessionId: Optional session ID to resume via deep link. Defaults to nil (start new test).
     case testTaking(sessionId: Int? = nil)
 
+    /// Adaptive test taking screen (starts new adaptive CAT test)
+    /// No parameters - adaptive tests don't support resume by sessionId
+    case adaptiveTestTaking
+
     /// Test results screen showing the completed test results
     case testResults(result: SubmittedTestResult, isFirstTest: Bool = false)
 
@@ -84,6 +88,8 @@ enum Route: Hashable, Equatable {
             true
         case let (.testTaking(lhsSessionId), .testTaking(rhsSessionId)):
             lhsSessionId == rhsSessionId
+        case (.adaptiveTestTaking, .adaptiveTestTaking):
+            true
         case let (.testResults(lhsResult, lhsFirst), .testResults(rhsResult, rhsFirst)):
             lhsResult.id == rhsResult.id && lhsFirst == rhsFirst
         case let (.testDetail(lhsResult, lhsAvg), .testDetail(rhsResult, rhsAvg)):
@@ -110,6 +116,8 @@ enum Route: Hashable, Equatable {
         case let .testTaking(sessionId):
             hasher.combine("testTaking")
             hasher.combine(sessionId)
+        case .adaptiveTestTaking:
+            hasher.combine("adaptiveTestTaking")
         case let .testResults(result, isFirstTest):
             hasher.combine("testResults")
             hasher.combine(result.id)

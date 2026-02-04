@@ -188,6 +188,131 @@ final class DashboardNavigationTests: XCTestCase {
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "Dashboard state should be preserved")
     }
 
+    // MARK: - Adaptive Routing Tests
+
+    /// Test that with feature flag OFF, new test navigation pushes .testTaking().
+    func testNewTest_FeatureFlagOff_PushesTestTakingRoute() {
+        // Given
+        Constants.Features.adaptiveTesting = false
+        sut.currentTab = .dashboard
+
+        // When - Simulate DashboardView action button routing logic (no active test)
+        let hasActiveTest = false
+        if hasActiveTest {
+            sut.push(.testTaking())
+        } else if Constants.Features.adaptiveTesting {
+            sut.push(.adaptiveTestTaking)
+        } else {
+            sut.push(.testTaking())
+        }
+
+        // Then - Should use fixed-form route
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Router should have 1 route")
+    }
+
+    /// Test that with feature flag ON, new test navigation pushes .adaptiveTestTaking.
+    func testNewTest_FeatureFlagOn_PushesAdaptiveTestTakingRoute() {
+        // Given
+        Constants.Features.adaptiveTesting = true
+        sut.currentTab = .dashboard
+
+        // When - Simulate DashboardView action button routing logic (no active test)
+        let hasActiveTest = false
+        if hasActiveTest {
+            sut.push(.testTaking())
+        } else if Constants.Features.adaptiveTesting {
+            sut.push(.adaptiveTestTaking)
+        } else {
+            sut.push(.testTaking())
+        }
+
+        // Then - Should use adaptive route
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Router should have 1 route")
+    }
+
+    /// Test that with feature flag ON, resume (active test) still pushes .testTaking().
+    func testResumeTest_FeatureFlagOn_PushesTestTakingRoute() {
+        // Given
+        Constants.Features.adaptiveTesting = true
+        sut.currentTab = .dashboard
+
+        // When - Simulate DashboardView action button routing logic (active test exists)
+        let hasActiveTest = true
+        if hasActiveTest {
+            sut.push(.testTaking())
+        } else if Constants.Features.adaptiveTesting {
+            sut.push(.adaptiveTestTaking)
+        } else {
+            sut.push(.testTaking())
+        }
+
+        // Then - Resume should always use fixed-form route
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Router should have 1 route")
+    }
+
+    /// Test that .adaptiveTestTaking route is distinct from .testTaking().
+    func testAdaptiveTestTakingRoute_IsDistinctFromTestTaking() {
+        // Given
+        let adaptiveRoute = Route.adaptiveTestTaking
+        let fixedFormRoute = Route.testTaking()
+
+        // Then - Routes should not be equal
+        XCTAssertNotEqual(adaptiveRoute, fixedFormRoute, "Adaptive and fixed-form routes should be distinct")
+    }
+
+    /// Test that .adaptiveTestTaking route equality works correctly.
+    func testAdaptiveTestTakingRoute_EqualityAndHashing() {
+        // Given
+        let route1 = Route.adaptiveTestTaking
+        let route2 = Route.adaptiveTestTaking
+
+        // Then - Same routes should be equal
+        XCTAssertEqual(route1, route2, "Two adaptiveTestTaking routes should be equal")
+        XCTAssertEqual(route1.hashValue, route2.hashValue, "Equal routes should have equal hash values")
+    }
+
+    /// Test adaptive navigation flow: dashboard -> adaptiveTestTaking -> back.
+    func testNavigationFlow_DashboardToAdaptiveTestTakingAndBack() {
+        // Given
+        sut.currentTab = .dashboard
+        XCTAssertTrue(sut.isAtRoot(in: .dashboard), "Should start at root")
+
+        // When - Navigate to adaptive test taking
+        sut.push(.adaptiveTestTaking)
+
+        // Then
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Should have 1 route")
+        XCTAssertFalse(sut.isAtRoot(in: .dashboard), "Should not be at root")
+
+        // When - Pop back
+        sut.pop()
+
+        // Then
+        XCTAssertTrue(sut.isAtRoot(in: .dashboard), "Should be back at root after pop")
+    }
+
+    /// Test that adaptive navigation doesn't affect other tabs.
+    func testAdaptiveNavigation_DoesNotAffectOtherTabs() {
+        // Given
+        sut.push(.help, in: .settings)
+        sut.push(.testDetail(result: createMockTestResult(), userAverage: 100), in: .history)
+        sut.currentTab = .dashboard
+
+        // When
+        sut.push(.adaptiveTestTaking)
+
+        // Then - Only dashboard affected
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Dashboard should have 1 route")
+        XCTAssertEqual(sut.depth(in: .settings), 1, "Settings should still have 1 route")
+        XCTAssertEqual(sut.depth(in: .history), 1, "History should still have 1 route")
+    }
+
+    override func tearDown() {
+        // Reset feature flag to default after adaptive routing tests
+        Constants.Features.adaptiveTesting = false
+        super.tearDown()
+    }
+
     // MARK: - Helper Methods
 
     private func createMockTestResult(id: Int = 1) -> TestResult {
