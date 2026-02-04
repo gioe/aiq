@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utc_now
-from app.core.security_monitoring import get_logout_all_stats
+from app.core.security_monitoring import MAX_PAGE_SIZE, get_logout_all_stats
 from app.models import get_db
 from app.schemas.security_monitoring import LogoutAllStatsResponse, TimeRange
 
@@ -45,6 +45,17 @@ async def get_logout_all_events(
         TimeRangeOption.THIRTY_DAYS,
         description="Time range for the query: 7d, 30d, 90d, or all",
     ),
+    page: int = Query(
+        1,
+        ge=1,
+        description="Page number (1-indexed)",
+    ),
+    page_size: int = Query(
+        100,
+        ge=1,
+        le=MAX_PAGE_SIZE,
+        description=f"Number of events per page (max {MAX_PAGE_SIZE})",
+    ),
     db: Session = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
@@ -54,6 +65,8 @@ async def get_logout_all_events(
     Returns aggregate statistics and per-user breakdowns of logout-all events,
     including correlation with password reset activity within a 24-hour window.
 
+    Supports pagination to access all events beyond the default page size.
+
     Note: Only the most recent logout-all event per user is tracked (the
     ``token_revoked_before`` column is overwritten on each invocation).
 
@@ -61,7 +74,7 @@ async def get_logout_all_events(
     """
     try:
         days = _TIME_RANGE_DAYS[time_range]
-        return get_logout_all_stats(db, days=days)
+        return get_logout_all_stats(db, days=days, page=page, page_size=page_size)
     except Exception as e:
         logger.exception("Failed to get logout-all stats: %s", e)
         now = utc_now()
@@ -70,5 +83,7 @@ async def get_logout_all_events(
             unique_users=0,
             users_with_correlated_resets=0,
             time_range=TimeRange(start=now, end=now),
+            page=page,
+            page_size=page_size,
             error="Failed to retrieve logout-all statistics. Please try again later.",
         )
