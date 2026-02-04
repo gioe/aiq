@@ -44,8 +44,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Rate Limiting
-    # IMPORTANT: Set to True in production via .env file
-    RATE_LIMIT_ENABLED: bool = False
+    # Enabled by default to protect all deployments. Set to False via .env for local development if needed.
+    RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_STRATEGY: Literal[
         "token_bucket", "sliding_window", "fixed_window"
     ] = "token_bucket"

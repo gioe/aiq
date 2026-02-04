@@ -110,7 +110,7 @@ git push origin main
 
 ### Step 6: Verify Rate Limiting
 
-**Important**: Rate limiting must be enabled in production to prevent abuse. It's disabled by default (`RATE_LIMIT_ENABLED=False`) to simplify local development, but should **always** be enabled in production environments.
+**Note**: Rate limiting is enabled by default (`RATE_LIMIT_ENABLED=True`) to protect all deployments. You can disable it for local development by setting `RATE_LIMIT_ENABLED=False` in your `.env` file.
 
 1. **Check rate limit headers** on any rate-limited API response:
    ```bash
@@ -448,7 +448,7 @@ Railway dashboard → Project → **"Usage"** tab
 - [ ] Generated secure bcrypt hash for `ADMIN_PASSWORD_HASH`
 - [ ] Set `ENV=production` and `DEBUG=False`
 - [ ] Configured appropriate `CORS_ORIGINS` (not `*` in production)
-- [ ] **Enabled rate limiting** (`RATE_LIMIT_ENABLED=True`) - see [Step 6: Verify Rate Limiting](#step-6-verify-rate-limiting)
+- [ ] **Verified rate limiting is active** (enabled by default) - see [Step 6: Verify Rate Limiting](#step-6-verify-rate-limiting)
 - [ ] Database backups enabled (automatic with Railway PostgreSQL)
 - [ ] HTTPS enabled (automatic with Railway)
 
