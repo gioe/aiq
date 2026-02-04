@@ -20,6 +20,7 @@ Submodules:
     - notifications: Push notification management (Day 30 reminders)
     - shadow_cat: Shadow CAT testing results and statistics
     - token_blacklist: Token blacklist statistics for monitoring
+    - security_monitoring: Logout-all event monitoring and password reset correlation
 """
 from fastapi import APIRouter
 
@@ -37,6 +38,7 @@ from . import (
     irt_calibration,
     notifications,
     reliability,
+    security_monitoring,
     shadow_cat,
     token_blacklist,
     validity,
@@ -124,5 +126,10 @@ router.include_router(
 
 router.include_router(
     token_blacklist.router,
+    tags=["Admin - Security"],
+)
+
+router.include_router(
+    security_monitoring.router,
     tags=["Admin - Security"],
 )
