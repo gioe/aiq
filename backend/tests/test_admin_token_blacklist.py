@@ -24,7 +24,7 @@ class TestTokenBlacklistStats:
         """Test successful stats retrieval with in-memory storage."""
         # Mock the blacklist instance
         mock_blacklist = MagicMock(spec=TokenBlacklist)
-        mock_blacklist._use_redis = False
+        mock_blacklist.storage_type = "memory"
         mock_blacklist.get_stats.return_value = {
             "total_keys": 42,
             "active_keys": 38,
@@ -57,7 +57,7 @@ class TestTokenBlacklistStats:
         """Test successful stats retrieval with Redis storage."""
         # Mock the blacklist instance
         mock_blacklist = MagicMock(spec=TokenBlacklist)
-        mock_blacklist._use_redis = True
+        mock_blacklist.storage_type = "redis"
         mock_blacklist.get_stats.return_value = {
             "total_keys": 156,
             "connected": True,
@@ -87,7 +87,7 @@ class TestTokenBlacklistStats:
         """Test stats retrieval when blacklist has revoked tokens."""
         # Mock the blacklist instance
         mock_blacklist = MagicMock(spec=TokenBlacklist)
-        mock_blacklist._use_redis = False
+        mock_blacklist.storage_type = "memory"
         mock_blacklist.get_stats.return_value = {
             "total_keys": 5,
             "active_keys": 5,
@@ -153,7 +153,7 @@ class TestTokenBlacklistStats:
         """Test that endpoint handles get_stats() exceptions gracefully."""
         # Mock the blacklist instance to raise exception in get_stats
         mock_blacklist = MagicMock(spec=TokenBlacklist)
-        mock_blacklist._use_redis = False
+        mock_blacklist.storage_type = "memory"
         mock_blacklist.get_stats.side_effect = Exception("Storage error occurred")
         mock_get_blacklist.return_value = mock_blacklist
 
@@ -176,7 +176,7 @@ class TestTokenBlacklistStats:
         """Test stats retrieval when blacklist is empty."""
         # Mock the blacklist instance
         mock_blacklist = MagicMock(spec=TokenBlacklist)
-        mock_blacklist._use_redis = False
+        mock_blacklist.storage_type = "memory"
         mock_blacklist.get_stats.return_value = {
             "total_keys": 0,
             "active_keys": 0,
@@ -205,7 +205,7 @@ class TestTokenBlacklistStats:
         """Test stats retrieval when Redis is disconnected."""
         # Mock the blacklist instance
         mock_blacklist = MagicMock(spec=TokenBlacklist)
-        mock_blacklist._use_redis = True
+        mock_blacklist.storage_type = "redis"
         mock_blacklist.get_stats.return_value = {
             "total_keys": 0,
             "connected": False,

@@ -91,6 +91,11 @@ class TokenBlacklist:
             )
             logger.info("Token blacklist using in-memory storage")
 
+    @property
+    def storage_type(self) -> str:
+        """Return the storage backend type: 'redis' or 'memory'."""
+        return "redis" if self._use_redis else "memory"
+
     def revoke_token(self, jti: str, expires_at: datetime) -> bool:
         """
         Add a token to the blacklist.
