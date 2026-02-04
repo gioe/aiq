@@ -88,7 +88,12 @@ struct AdaptiveTestView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("You have \(viewModel.answeredCount) unsaved answers. Are you sure you want to exit?")
+            let count = viewModel.answeredCount
+            let suffix = count == 1 ? "" : "s"
+            Text(
+                "You have completed \(count) question\(suffix). " +
+                    "Exiting will end your test. Are you sure?"
+            )
         }
         .alert("Time's Up!", isPresented: $showTimeExpiredAlert) {
             Button("OK") {
@@ -113,7 +118,9 @@ struct AdaptiveTestView: View {
             }
         }
         .onChange(of: viewModel.questions.count) { _ in
-            // Incrementally add the latest question's domain to the cache
+            // Incrementally add the latest question's domain to the cache.
+            // In adaptive mode, questions are always appended one at a time
+            // via submitAnswerAndGetNext(), so checking only the last item is safe.
             if let lastQuestion = viewModel.questions.last,
                let domain = lastQuestion.questionTypeEnum {
                 cachedAdministeredDomains.insert(domain)
@@ -366,7 +373,8 @@ struct AdaptiveTestView: View {
     }
 
     private func submitAnswerAndGetNext() async {
-        // Prevent submission if timer has triggered auto-submit
+        // Guard against concurrent submissions: prevents race condition between
+        // user-initiated submit and timer-triggered auto-submit
         guard !isAutoSubmitting, !viewModel.isSubmitting else { return }
         await viewModel.submitAnswerAndGetNext()
     }
