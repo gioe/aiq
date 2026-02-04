@@ -23,7 +23,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
 
     private let authService: AuthServiceProtocol
     private let logger = Logger(subsystem: "com.aiq.app", category: "AuthManager")
-    private let signposter = OSSignposter(subsystem: "com.aiq.app", category: "Registration")
+    private let signposter = OSSignposter(subsystem: "com.aiq.app", category: "Auth")
 
     /// Factory closure for creating DeviceTokenManager - using lazy initialization
     /// to break circular dependency with NotificationManager
@@ -64,7 +64,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         authError = nil
 
         let signpostID = signposter.makeSignpostID()
-        let state = signposter.beginInterval("Registration", id: signpostID)
+        let state = signposter.beginInterval("Auth.Register", id: signpostID)
         let startTime = CFAbsoluteTimeGetCurrent()
 
         do {
@@ -80,7 +80,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             )
 
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
-            signposter.endInterval("Registration", state)
+            signposter.endInterval("Auth.Register", state)
             logger.info("Registration completed in \(elapsed, format: .fixed(precision: 2))s")
 
             isAuthenticated = true
@@ -91,7 +91,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             AnalyticsService.shared.trackUserRegistered(email: email)
         } catch {
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
-            signposter.endInterval("Registration", state)
+            signposter.endInterval("Auth.Register", state)
             let errorDesc = error.localizedDescription
             logger.warning(
                 "Registration failed after \(elapsed, format: .fixed(precision: 2))s: \(errorDesc, privacy: .public)"
@@ -111,8 +111,16 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         isLoading = true
         authError = nil
 
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("Auth.Login", id: signpostID)
+        let startTime = CFAbsoluteTimeGetCurrent()
+
         do {
             let response = try await authService.login(email: email, password: password)
+
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Auth.Login", state)
+            logger.info("Login completed in \(elapsed, format: .fixed(precision: 2))s")
 
             isAuthenticated = true
             currentUser = response.user
@@ -121,6 +129,13 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             // Track analytics
             AnalyticsService.shared.trackUserLogin(email: email)
         } catch {
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Auth.Login", state)
+            let errorDesc = error.localizedDescription
+            logger.warning(
+                "Login failed after \(elapsed, format: .fixed(precision: 2))s: \(errorDesc, privacy: .public)"
+            )
+
             let contextualError = ContextualError(
                 error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .login
@@ -137,17 +152,23 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     func logout() async {
         isLoading = true
 
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("Auth.Logout", id: signpostID)
+        let startTime = CFAbsoluteTimeGetCurrent()
+
         // Unregister device token first
         await deviceTokenManager.unregisterDeviceToken()
 
         do {
             try await authService.logout()
         } catch {
-            // Log error but don't fail logout - silently continue
-            #if DEBUG
-                print("[WARN] Logout error: \(error.localizedDescription)")
-            #endif
+            let errorDesc = error.localizedDescription
+            logger.warning("Logout request failed: \(errorDesc, privacy: .public)")
         }
+
+        let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+        signposter.endInterval("Auth.Logout", state)
+        logger.info("Logout completed in \(elapsed, format: .fixed(precision: 2))s")
 
         isAuthenticated = false
         currentUser = nil
@@ -196,10 +217,26 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     }
 
     func refreshToken() async throws {
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("Auth.TokenRefresh", id: signpostID)
+        let startTime = CFAbsoluteTimeGetCurrent()
+
         do {
             let response = try await authService.refreshToken()
+
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Auth.TokenRefresh", state)
+            logger.info("Token refresh completed in \(elapsed, format: .fixed(precision: 2))s")
+
             currentUser = response.user
         } catch {
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Auth.TokenRefresh", state)
+            let errorDesc = error.localizedDescription
+            logger.warning(
+                "Token refresh failed after \(elapsed, format: .fixed(precision: 2))s: \(errorDesc, privacy: .public)"
+            )
+
             // Token refresh failed - logout user
             await logout()
             throw error
