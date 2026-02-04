@@ -47,13 +47,19 @@ class TestCountNewResponses:
         db_session.add(user)
         db_session.flush()
 
-        q = Question(
+        q1 = Question(
             question_text="Q1",
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="A",
         )
-        db_session.add(q)
+        q2 = Question(
+            question_text="Q1b",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="A",
+        )
+        db_session.add_all([q1, q2])
         db_session.flush()
 
         # Completed, fixed-form session with 2 responses
@@ -65,7 +71,7 @@ class TestCountNewResponses:
         db_session.add(session)
         db_session.flush()
 
-        for _ in range(2):
+        for q in [q1, q2]:
             r = Response(
                 test_session_id=session.id,
                 user_id=user.id,
