@@ -4,7 +4,11 @@ Tests for the Apple Push Notification service (APNs) integration.
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.services.apns_service import APNsService, send_test_reminder_notification
+from app.services.apns_service import (
+    APNsService,
+    send_logout_all_notification,
+    send_test_reminder_notification,
+)
 
 
 class TestAPNsService:
@@ -478,4 +482,34 @@ class TestSendTestReminderNotification:
                     assert result is False
                     mock_logger.exception.assert_called_once_with(
                         "Failed to send test reminder notification (device_token_prefix=test_token_1)"
+                    )
+
+
+class TestSendLogoutAllNotification:
+    """Tests for the send_logout_all_notification convenience function."""
+
+    @pytest.mark.asyncio
+    async def test_send_logout_all_logs_exception_on_connect_error(self, tmp_path):
+        """Test that send_logout_all_notification logs exceptions with logger.exception when connect fails."""
+        key_file = tmp_path / "test_key.p8"
+        key_file.write_text("fake key content")
+
+        with patch("app.services.apns_service.settings") as mock_settings:
+            mock_settings.APNS_KEY_ID = "KEY"
+            mock_settings.APNS_TEAM_ID = "TEAM"
+            mock_settings.APNS_BUNDLE_ID = "com.app"
+            mock_settings.APNS_KEY_PATH = str(key_file)
+            mock_settings.APNS_USE_SANDBOX = True
+
+            with patch("app.services.apns_service.APNs") as mock_apns:
+                mock_apns.side_effect = Exception("Connection failed")
+
+                with patch("app.services.apns_service.logger") as mock_logger:
+                    result = await send_logout_all_notification(
+                        device_token="test_token_123", user_id=42
+                    )
+
+                    assert result is False
+                    mock_logger.exception.assert_called_once_with(
+                        "Failed to send logout-all notification (user_id=42, device_token_prefix=test_token_1)"
                     )
