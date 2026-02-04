@@ -488,6 +488,15 @@ class Response(Base):
     user: Mapped["User"] = relationship(back_populates="responses")
     question: Mapped["Question"] = relationship(back_populates="responses")
 
+    # Unique constraint to prevent duplicate submissions
+    __table_args__ = (
+        UniqueConstraint(
+            "test_session_id",
+            "question_id",
+            name="uq_response_session_question",
+        ),
+    )
+
 
 class TestResult(Base):
     """Test result model for aggregated test scores."""

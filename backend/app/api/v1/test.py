@@ -936,7 +936,14 @@ def submit_adaptive_response(
     )
     db.add(user_question)
 
-    db.commit()
+    # Commit the response and next question marker
+    # IntegrityError catch is a safety net for race conditions that bypass
+    # the app-level check (lines 793-804)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise_conflict(ErrorMessages.duplicate_response(request.question_id))
 
     next_question_response = question_to_response(
         next_question, include_explanation=False
@@ -1815,9 +1822,18 @@ def submit_test(
     db.add(test_result)
 
     # Step 8: Commit all changes
-    db.commit()
-    db.refresh(test_session)
-    db.refresh(test_result)
+    # IntegrityError catch is a safety net for race conditions in batch submissions
+    try:
+        db.commit()
+        db.refresh(test_session)
+        db.refresh(test_result)
+    except IntegrityError:
+        db.rollback()
+        # If we hit a duplicate response in batch submission, return 409
+        # The error message won't specify which question, but this is a rare edge case
+        raise_conflict(
+            "A response has already been submitted for one or more questions in this session."
+        )
 
     # Step 9: Run post-submission updates (non-critical)
     _run_post_submission_updates(

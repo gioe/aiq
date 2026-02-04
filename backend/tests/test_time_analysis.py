@@ -270,7 +270,14 @@ class TestAnalyzeResponseTimes:
         self, db_session, test_user, test_questions
     ):
         """Test that sessions with >20% rapid responses get multiple_rapid_responses flag."""
-        from app.models.models import Response, TestSession, TestStatus
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
 
         session = TestSession(
             user_id=test_user.id,
@@ -279,13 +286,27 @@ class TestAnalyzeResponseTimes:
         db_session.add(session)
         db_session.commit()
 
+        # Create 10 unique questions for 10 responses
+        extra_questions = []
+        for i in range(10):
+            q = Question(
+                question_text=f"Rapid test q{i}",
+                question_type=QuestionType.PATTERN,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="A",
+                is_active=True,
+            )
+            extra_questions.append(q)
+        db_session.add_all(extra_questions)
+        db_session.flush()
+
         # Add 10 responses, 3 too fast (30% > 20% threshold)
         time_values = [1, 2, 1, 30, 30, 30, 30, 30, 30, 30]  # 3 rapid, 7 normal
         for i, time_val in enumerate(time_values):
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
-                question_id=test_questions[i % len(test_questions)].id,
+                question_id=extra_questions[i].id,
                 user_answer="test",
                 is_correct=True,
                 time_spent_seconds=time_val,
@@ -301,7 +322,14 @@ class TestAnalyzeResponseTimes:
 
     def test_flags_multiple_extended_times(self, db_session, test_user, test_questions):
         """Test that sessions with >10% extended times get multiple_extended_times flag."""
-        from app.models.models import Response, TestSession, TestStatus
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
 
         session = TestSession(
             user_id=test_user.id,
@@ -310,13 +338,27 @@ class TestAnalyzeResponseTimes:
         db_session.add(session)
         db_session.commit()
 
+        # Create 10 unique questions for 10 responses
+        extra_questions = []
+        for i in range(10):
+            q = Question(
+                question_text=f"Extended test q{i}",
+                question_type=QuestionType.PATTERN,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="A",
+                is_active=True,
+            )
+            extra_questions.append(q)
+        db_session.add_all(extra_questions)
+        db_session.flush()
+
         # Add 10 responses, 2 too slow (20% > 10% threshold)
         time_values = [30, 30, 30, 30, 30, 30, 30, 30, 305, 310]  # 8 normal, 2 extended
         for i, time_val in enumerate(time_values):
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
-                question_id=test_questions[i % len(test_questions)].id,
+                question_id=extra_questions[i].id,
                 user_answer="test",
                 is_correct=True,
                 time_spent_seconds=time_val,
@@ -333,7 +375,14 @@ class TestAnalyzeResponseTimes:
         self, db_session, test_user, test_questions
     ):
         """Test that >3 extended responses triggers validity concern."""
-        from app.models.models import Response, TestSession, TestStatus
+        from app.models.models import (
+            Response,
+            TestSession,
+            TestStatus,
+            Question,
+            QuestionType,
+            DifficultyLevel,
+        )
 
         session = TestSession(
             user_id=test_user.id,
@@ -342,13 +391,27 @@ class TestAnalyzeResponseTimes:
         db_session.add(session)
         db_session.commit()
 
+        # Create 20 unique questions for 20 responses
+        extra_questions = []
+        for i in range(20):
+            q = Question(
+                question_text=f"Validity test q{i}",
+                question_type=QuestionType.PATTERN,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="A",
+                is_active=True,
+            )
+            extra_questions.append(q)
+        db_session.add_all(extra_questions)
+        db_session.flush()
+
         # Add 20 responses, 4 too slow (>3 triggers validity concern regardless of %)
         time_values = [30] * 16 + [305, 310, 315, 320]  # 16 normal, 4 extended
         for i, time_val in enumerate(time_values):
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
-                question_id=test_questions[i % len(test_questions)].id,
+                question_id=extra_questions[i].id,
                 user_answer="test",
                 is_correct=True,
                 time_spent_seconds=time_val,
@@ -707,22 +770,21 @@ class TestAnalyzeSpeedAccuracy:
         """Test analysis with mixed correct/incorrect responses."""
         from app.models.models import Response, TestSession, TestStatus
 
-        # Create a test session
-        session = TestSession(
-            user_id=test_user.id,
-            status=TestStatus.COMPLETED,
-        )
-        db_session.add(session)
-        db_session.commit()
-
         question = test_questions[0]
 
         # Create responses: correct ones faster, incorrect ones slower
         # This should give "faster_correct" interpretation
+        # Each response needs its own session to satisfy unique constraint
         correct_times = [10, 15, 12, 14, 11]  # Mean ~12.4
         incorrect_times = [25, 30, 28, 35, 27]  # Mean ~29
 
         for t in correct_times:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -734,6 +796,12 @@ class TestAnalyzeSpeedAccuracy:
             db_session.add(response)
 
         for t in incorrect_times:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -763,20 +831,20 @@ class TestAnalyzeSpeedAccuracy:
         """Test when correct responders are slower."""
         from app.models.models import Response, TestSession, TestStatus
 
-        session = TestSession(
-            user_id=test_user.id,
-            status=TestStatus.COMPLETED,
-        )
-        db_session.add(session)
-        db_session.commit()
-
         question = test_questions[0]
 
         # Correct responses are slower (thoughtful consideration)
+        # Each response needs its own session to satisfy unique constraint
         correct_times = [45, 50, 55, 48, 52]  # Mean ~50
         incorrect_times = [15, 20, 18, 22, 17]  # Mean ~18.4
 
         for t in correct_times:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -788,6 +856,12 @@ class TestAnalyzeSpeedAccuracy:
             db_session.add(response)
 
         for t in incorrect_times:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -811,20 +885,20 @@ class TestAnalyzeSpeedAccuracy:
         """Test when there's no meaningful difference in response times."""
         from app.models.models import Response, TestSession, TestStatus
 
-        session = TestSession(
-            user_id=test_user.id,
-            status=TestStatus.COMPLETED,
-        )
-        db_session.add(session)
-        db_session.commit()
-
         question = test_questions[0]
 
         # Similar times for correct and incorrect
+        # Each response needs its own session to satisfy unique constraint
         correct_times = [30, 32, 31, 29, 33]  # Mean ~31
         incorrect_times = [31, 30, 32, 28, 34]  # Mean ~31
 
         for t in correct_times:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -836,6 +910,12 @@ class TestAnalyzeSpeedAccuracy:
             db_session.add(response)
 
         for t in incorrect_times:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -859,17 +939,16 @@ class TestAnalyzeSpeedAccuracy:
         """Test with only correct responses."""
         from app.models.models import Response, TestSession, TestStatus
 
-        session = TestSession(
-            user_id=test_user.id,
-            status=TestStatus.COMPLETED,
-        )
-        db_session.add(session)
-        db_session.commit()
-
         question = test_questions[0]
 
-        # Only correct responses
+        # Only correct responses - each in its own session
         for t in [20, 25, 30]:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -898,17 +977,16 @@ class TestAnalyzeSpeedAccuracy:
         """Test with only incorrect responses."""
         from app.models.models import Response, TestSession, TestStatus
 
-        session = TestSession(
-            user_id=test_user.id,
-            status=TestStatus.COMPLETED,
-        )
-        db_session.add(session)
-        db_session.commit()
-
         question = test_questions[0]
 
-        # Only incorrect responses
+        # Only incorrect responses - each in its own session
         for t in [20, 25, 30]:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -937,17 +1015,16 @@ class TestAnalyzeSpeedAccuracy:
         """Test that responses without time data are excluded."""
         from app.models.models import Response, TestSession, TestStatus
 
-        session = TestSession(
-            user_id=test_user.id,
-            status=TestStatus.COMPLETED,
-        )
-        db_session.add(session)
-        db_session.commit()
-
         question = test_questions[0]
 
-        # Responses with time data
+        # Responses with time data - each in its own session
         for t in [20, 25, 30]:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -958,8 +1035,14 @@ class TestAnalyzeSpeedAccuracy:
             )
             db_session.add(response)
 
-        # Responses without time data (should be excluded)
+        # Responses without time data (should be excluded) - each in its own session
         for _ in range(5):
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -1633,15 +1716,14 @@ class TestGetResponseTimePercentiles:
         db_session.add(question)
         db_session.commit()
 
-        session = TestSession(
-            user_id=test_user.id,
-            status=TestStatus.COMPLETED,
-        )
-        db_session.add(session)
-        db_session.commit()
-
-        # Add 5 responses
+        # Add 5 responses - each in its own session
         for t in [10, 20, 30, 40, 50]:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             db_session.add(
                 Response(
                     test_session_id=session.id,
@@ -1706,15 +1788,14 @@ class TestGetResponseTimePercentiles:
         db_session.add_all([pattern_easy, logic_hard])
         db_session.commit()
 
-        session = TestSession(
-            user_id=test_user.id,
-            status=TestStatus.COMPLETED,
-        )
-        db_session.add(session)
-        db_session.commit()
-
-        # Pattern easy: times 10-50
+        # Pattern easy: times 10-50, each in its own session
         for t in [10, 20, 30, 40, 50]:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             db_session.add(
                 Response(
                     test_session_id=session.id,
@@ -1726,8 +1807,14 @@ class TestGetResponseTimePercentiles:
                 )
             )
 
-        # Logic hard: times 30-70
+        # Logic hard: times 30-70, each in its own session
         for t in [30, 40, 50, 60, 70]:
+            session = TestSession(
+                user_id=test_user.id,
+                status=TestStatus.COMPLETED,
+            )
+            db_session.add(session)
+            db_session.flush()
             db_session.add(
                 Response(
                     test_session_id=session.id,

@@ -481,14 +481,20 @@ class TestDeleteUserAccount:
             TestStatus,
         )
 
-        # Create a question
-        question = Question(
-            question_text="Test question",
+        # Create two questions
+        question1 = Question(
+            question_text="Test question 1",
             question_type=QuestionType.PATTERN,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="A",
         )
-        db_session.add(question)
+        question2 = Question(
+            question_text="Test question 2",
+            question_type=QuestionType.PATTERN,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="B",
+        )
+        db_session.add_all([question1, question2])
         db_session.commit()
 
         # Create test session and responses
@@ -501,14 +507,14 @@ class TestDeleteUserAccount:
         response1 = Response(
             test_session_id=session.id,
             user_id=test_user.id,
-            question_id=question.id,
+            question_id=question1.id,
             user_answer="A",
             is_correct=True,
         )
         response2 = Response(
             test_session_id=session.id,
             user_id=test_user.id,
-            question_id=question.id,
+            question_id=question2.id,
             user_answer="B",
             is_correct=False,
         )
