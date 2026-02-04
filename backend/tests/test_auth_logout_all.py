@@ -352,10 +352,11 @@ class TestLogoutAllTokenValidation:
         # Logout from all devices
         response = client.post("/v1/auth/logout-all", headers=headers)
         assert response.status_code == 204
-        logout_all_time = utc_now()
+        # Truncate to seconds to match JWT iat precision (integer seconds)
+        logout_all_time = utc_now().replace(microsecond=0)
 
-        # Small delay to ensure new token iat is after logout_all
-        time.sleep(0.5)
+        # Delay to ensure new token iat is in a later second than the epoch
+        time.sleep(1.5)
 
         # Login again
         login_data = {
@@ -371,7 +372,7 @@ class TestLogoutAllTokenValidation:
         assert new_payload is not None
         assert "iat" in new_payload
 
-        # New token's iat should be after logout_all_time
+        # New token's iat (integer seconds) should be after logout_all_time
         new_iat = datetime.fromtimestamp(new_payload["iat"], tz=timezone.utc)
         assert new_iat > logout_all_time
 

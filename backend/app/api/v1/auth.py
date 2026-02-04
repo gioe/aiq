@@ -447,8 +447,19 @@ def logout_all_devices(
     """
     client_ip = get_client_ip_from_request(request)
 
-    # Set revocation epoch to current time
-    # This will cause all tokens with iat < this time to be rejected
+    # Blacklist the current access token FIRST for immediate revocation.
+    # This prevents a race condition where the token could still be used
+    # between setting the epoch and the blacklist taking effect.
+    _revoke_token(
+        token=credentials.credentials,
+        token_type="access",
+        user_id=current_user.id,
+        client_ip=client_ip,
+    )
+
+    # Set revocation epoch to current time.
+    # This will cause all tokens with iat < this time to be rejected,
+    # covering all other active sessions beyond the current token.
     try:
         current_user.token_revoked_before = utc_now()
         db.commit()
@@ -462,15 +473,6 @@ def logout_all_devices(
     logger.info(
         f"User {current_user.id} set token revocation epoch, "
         f"invalidating all existing tokens"
-    )
-
-    # Also blacklist the current access token for immediate effect
-    # This ensures the current token is revoked before the DB change propagates
-    _revoke_token(
-        token=credentials.credentials,
-        token_type="access",
-        user_id=current_user.id,
-        client_ip=client_ip,
     )
 
     # Log security event
