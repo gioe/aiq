@@ -26,7 +26,7 @@ async def get_token_blacklist_stats(
     """
     try:
         blacklist = get_token_blacklist()
-        storage_type = "redis" if blacklist._use_redis else "memory"
+        storage_type = blacklist.storage_type
         stats = blacklist.get_stats()
 
         return TokenBlacklistStatsResponse(

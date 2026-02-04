@@ -20,12 +20,12 @@ class TestTokenBlacklist:
         """Test blacklist initializes with in-memory storage when no Redis URL provided."""
         blacklist = TokenBlacklist(redis_url=None)
         assert blacklist._storage is not None
-        assert not blacklist._use_redis
+        assert blacklist.storage_type == "memory"
 
     def test_init_with_redis_storage_unavailable(self):
         """Test blacklist falls back to in-memory when Redis is unavailable."""
         # Mock Redis to be unavailable
-        with patch("app.ratelimit.storage.RedisStorage") as MockRedisStorage:
+        with patch("app.core.token_blacklist.RedisStorage") as MockRedisStorage:
             mock_storage = Mock()
             mock_storage.is_connected.return_value = False
             MockRedisStorage.return_value = mock_storage
@@ -34,7 +34,7 @@ class TestTokenBlacklist:
 
             # Should fall back to in-memory storage
             assert blacklist._storage is not None
-            assert not blacklist._use_redis
+            assert blacklist.storage_type == "memory"
 
     def test_init_with_redis_import_error(self):
         """Test blacklist falls back to in-memory when redis-py not installed."""
@@ -268,12 +268,12 @@ class TestTokenBlacklistIntegration:
 
         # Note: This doesn't require an actual Redis server
         # because we're just testing initialization logic
-        with patch("app.ratelimit.storage.RedisStorage") as MockRedisStorage:
+        with patch("app.core.token_blacklist.RedisStorage") as MockRedisStorage:
             mock_storage = Mock()
             mock_storage.is_connected.return_value = True
             MockRedisStorage.return_value = mock_storage
 
             blacklist = TokenBlacklist(redis_url="redis://localhost:6379/0")
 
-            assert blacklist._use_redis is True
+            assert blacklist.storage_type == "redis"
             MockRedisStorage.assert_called_once()
