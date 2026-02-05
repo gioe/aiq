@@ -319,6 +319,20 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - Routing Helpers
+
+    /// Determines the correct test route based on active session and feature flags
+    /// - Returns: Resume always routes to fixed-form test; new tests respect adaptive testing flag
+    private func navigateToTest() {
+        if viewModel.hasActiveTest {
+            router.push(.testTaking())
+        } else if Constants.Features.adaptiveTesting {
+            router.push(.adaptiveTestTaking)
+        } else {
+            router.push(.testTaking())
+        }
+    }
+
     // MARK: - Action Button
 
     private var actionButton: some View {
@@ -328,14 +342,7 @@ struct DashboardView: View {
 
             // Action button
             Button {
-                // Smart routing: resume always uses fixed-form, new tests respect feature flag
-                if viewModel.hasActiveTest {
-                    router.push(.testTaking())
-                } else if Constants.Features.adaptiveTesting {
-                    router.push(.adaptiveTestTaking)
-                } else {
-                    router.push(.testTaking())
-                }
+                navigateToTest()
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Image(systemName: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile")
@@ -416,14 +423,7 @@ struct DashboardView: View {
                         """,
                     actionTitle: viewModel.hasActiveTest ? "Resume Test in Progress" : "Start Your First Test",
                     action: {
-                        // Smart routing: resume always uses fixed-form, new tests respect feature flag
-                        if viewModel.hasActiveTest {
-                            router.push(.testTaking())
-                        } else if Constants.Features.adaptiveTesting {
-                            router.push(.adaptiveTestTaking)
-                        } else {
-                            router.push(.testTaking())
-                        }
+                        navigateToTest()
                     }
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
