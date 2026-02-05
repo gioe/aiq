@@ -19,6 +19,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.v1.api import api_router
 from app.core.config import settings
+from app.tracing import setup_tracing, shutdown_tracing
 
 from app.core.analytics import AnalyticsTracker
 from app.core.logging_config import setup_logging
@@ -190,9 +191,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.token_blacklist = token_blacklist
     logger.info("Token blacklist initialized")
 
+    setup_tracing(app)
+
     yield
 
     # Shutdown
+    shutdown_tracing()
+
     stats = process_registry.get_stats()
     if stats["running"] > 0:
         logger.info(

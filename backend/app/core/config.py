@@ -137,6 +137,18 @@ class Settings(BaseSettings):
         description="Sentry traces sample rate (0.0-1.0, 0.1 = 10% of transactions)",
     )
 
+    # OpenTelemetry Distributed Tracing
+    OTEL_ENABLED: bool = False
+    OTEL_SERVICE_NAME: str = "aiq-backend"
+    OTEL_EXPORTER: Literal["console", "otlp", "none"] = "console"
+    OTEL_OTLP_ENDPOINT: str = "http://localhost:4317"
+    OTEL_TRACES_SAMPLE_RATE: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Trace sample rate (0.0-1.0, 1.0 = 100%)",
+    )
+
     # Email/SMTP Settings (for feedback notifications)
     # NOTE: Email functionality is not yet implemented - these are placeholder settings
     SMTP_HOST: str = Field(
