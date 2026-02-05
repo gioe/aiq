@@ -34,19 +34,19 @@ class TestNotificationScheduler:
         expected = last_test + timedelta(days=settings.TEST_CADENCE_DAYS)
         assert next_test == expected
 
-    def test_get_users_due_for_test_no_users(self, db_session: Session):
+    async def test_get_users_due_for_test_no_users(self, db_session: Session):
         """Test with no users in database."""
         users = get_users_due_for_test(db_session)
         assert users == []
 
-    def test_get_users_due_for_test_user_without_device_token(
+    async def test_get_users_due_for_test_user_without_device_token(
         self, db_session: Session, test_user: User
     ):
         """Test that users without device tokens are not included."""
         # User has no device token
         test_user.notification_enabled = True
         test_user.apns_device_token = None
-        db_session.commit()
+        await db_session.commit()
 
         # Create a test result 6 months ago
         from app.models import TestResult as TestResultModel
@@ -61,18 +61,18 @@ class TestNotificationScheduler:
             completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         users = get_users_due_for_test(db_session)
         assert len(users) == 0
 
-    def test_get_users_due_for_test_user_with_notifications_disabled(
+    async def test_get_users_due_for_test_user_with_notifications_disabled(
         self, db_session: Session, test_user: User
     ):
         """Test that users with notifications disabled are not included."""
         test_user.notification_enabled = False
         test_user.apns_device_token = "test-token"
-        db_session.commit()
+        await db_session.commit()
 
         # Create a test result 6 months ago
         from app.models import TestResult as TestResultModel
@@ -87,18 +87,18 @@ class TestNotificationScheduler:
             completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         users = get_users_due_for_test(db_session)
         assert len(users) == 0
 
-    def test_get_users_due_for_test_valid_user(
+    async def test_get_users_due_for_test_valid_user(
         self, db_session: Session, test_user: User
     ):
         """Test that a valid user due for test is included."""
         test_user.notification_enabled = True
         test_user.apns_device_token = "valid-device-token"
-        db_session.commit()
+        await db_session.commit()
 
         # Create a test result exactly TEST_CADENCE_DAYS ago
         from app.models import TestResult as TestResultModel
@@ -113,19 +113,19 @@ class TestNotificationScheduler:
             completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         users = get_users_due_for_test(db_session)
         assert len(users) == 1
         assert users[0].id == test_user.id
 
-    def test_get_users_due_for_test_not_yet_due(
+    async def test_get_users_due_for_test_not_yet_due(
         self, db_session: Session, test_user: User
     ):
         """Test that users not yet due for test are excluded."""
         test_user.notification_enabled = True
         test_user.apns_device_token = "valid-device-token"
-        db_session.commit()
+        await db_session.commit()
 
         # Create a test result only 30 days ago (not yet 6 months)
         from app.models import TestResult as TestResultModel
@@ -140,28 +140,28 @@ class TestNotificationScheduler:
             completed_at=utc_now() - timedelta(days=30),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         users = get_users_due_for_test(db_session)
         assert len(users) == 0
 
-    def test_get_users_never_tested(self, db_session: Session, test_user: User):
+    async def test_get_users_never_tested(self, db_session: Session, test_user: User):
         """Test getting users who have never taken a test."""
         test_user.notification_enabled = True
         test_user.apns_device_token = "valid-device-token"
-        db_session.commit()
+        await db_session.commit()
 
         users = get_users_never_tested(db_session)
         assert len(users) == 1
         assert users[0].id == test_user.id
 
-    def test_get_users_never_tested_excludes_tested_users(
+    async def test_get_users_never_tested_excludes_tested_users(
         self, db_session: Session, test_user: User
     ):
         """Test that users who have taken tests are excluded."""
         test_user.notification_enabled = True
         test_user.apns_device_token = "valid-device-token"
-        db_session.commit()
+        await db_session.commit()
 
         # Create a test result
         from app.models import TestResult as TestResultModel
@@ -176,19 +176,19 @@ class TestNotificationScheduler:
             completed_at=utc_now(),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         users = get_users_never_tested(db_session)
         assert len(users) == 0
 
-    def test_notification_scheduler_get_users_to_notify(
+    async def test_notification_scheduler_get_users_to_notify(
         self, db_session: Session, test_user: User
     ):
         """Test NotificationScheduler.get_users_to_notify()."""
         # Set up user
         test_user.notification_enabled = True
         test_user.apns_device_token = "valid-device-token"
-        db_session.commit()
+        await db_session.commit()
 
         # Create a test result 6 months ago
         from app.models import TestResult as TestResultModel
@@ -203,7 +203,7 @@ class TestNotificationScheduler:
             completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         scheduler = NotificationScheduler(db_session)
         users = scheduler.get_users_to_notify(include_never_tested=False)
@@ -211,7 +211,7 @@ class TestNotificationScheduler:
         assert len(users) == 1
         assert users[0].id == test_user.id
 
-    def test_notification_scheduler_is_user_due_for_test_true(
+    async def test_notification_scheduler_is_user_due_for_test_true(
         self, db_session: Session, test_user: User
     ):
         """Test is_user_due_for_test returns True when due."""
@@ -228,14 +228,14 @@ class TestNotificationScheduler:
             completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         scheduler = NotificationScheduler(db_session)
         is_due = scheduler.is_user_due_for_test(test_user.id)
 
         assert is_due is True
 
-    def test_notification_scheduler_is_user_due_for_test_false(
+    async def test_notification_scheduler_is_user_due_for_test_false(
         self, db_session: Session, test_user: User
     ):
         """Test is_user_due_for_test returns False when not due."""
@@ -252,14 +252,14 @@ class TestNotificationScheduler:
             completed_at=utc_now() - timedelta(days=30),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         scheduler = NotificationScheduler(db_session)
         is_due = scheduler.is_user_due_for_test(test_user.id)
 
         assert is_due is False
 
-    def test_notification_scheduler_is_user_due_for_test_never_tested(
+    async def test_notification_scheduler_is_user_due_for_test_never_tested(
         self, db_session: Session, test_user: User
     ):
         """Test is_user_due_for_test returns True for users who never tested."""
@@ -268,7 +268,7 @@ class TestNotificationScheduler:
 
         assert is_due is True
 
-    def test_notification_scheduler_get_next_test_date_for_user(
+    async def test_notification_scheduler_get_next_test_date_for_user(
         self, db_session: Session, test_user: User
     ):
         """Test getting next test date for a user."""
@@ -288,7 +288,7 @@ class TestNotificationScheduler:
             completed_at=completed_at,
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         scheduler = NotificationScheduler(db_session)
         next_date = scheduler.get_next_test_date_for_user(test_user.id)
@@ -296,7 +296,7 @@ class TestNotificationScheduler:
         expected = completed_at + timedelta(days=settings.TEST_CADENCE_DAYS)
         assert next_date == expected
 
-    def test_notification_scheduler_get_next_test_date_for_never_tested_user(
+    async def test_notification_scheduler_get_next_test_date_for_never_tested_user(
         self, db_session: Session, test_user: User
     ):
         """Test getting next test date for user who never tested."""
@@ -328,12 +328,14 @@ class TestDeepLinkGeneration:
 class TestNotificationPayloadFormatting:
     """Test notification payload formatting."""
 
-    def test_notification_payload_structure(self, db_session: Session, test_user: User):
+    async def test_notification_payload_structure(
+        self, db_session: Session, test_user: User
+    ):
         """Test that notification payloads are correctly formatted."""
         test_user.notification_enabled = True
         test_user.apns_device_token = "test-device-token"
         test_user.first_name = "John"
-        db_session.commit()
+        await db_session.commit()
 
         # Create a test result 6 months ago
         from app.models import TestResult as TestResultModel
@@ -348,7 +350,7 @@ class TestNotificationPayloadFormatting:
             completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         scheduler = NotificationScheduler(db_session)
         users = scheduler.get_users_to_notify()
@@ -384,14 +386,14 @@ class TestNotificationPayloadFormatting:
             notification["data"]["deep_link"] == f"aiq://test/results/{test_result.id}"
         )
 
-    def test_notification_payload_includes_deep_link(
+    async def test_notification_payload_includes_deep_link(
         self, db_session: Session, test_user: User
     ):
         """Test that notification payloads include deep_link field with result ID."""
         test_user.notification_enabled = True
         test_user.apns_device_token = "test-device-token"
         test_user.first_name = "Jane"
-        db_session.commit()
+        await db_session.commit()
 
         # Create a test result 6 months ago
         from app.models import TestResult as TestResultModel
@@ -406,7 +408,7 @@ class TestNotificationPayloadFormatting:
             completed_at=utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS),
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         # The deep link should point to the user's last test result
         expected_deep_link = f"aiq://test/results/{test_result.id}"

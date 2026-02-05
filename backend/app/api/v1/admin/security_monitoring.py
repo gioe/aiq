@@ -7,7 +7,7 @@ password resets for security analysis. TASK-959.
 from enum import Enum
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.core.security_monitoring import MAX_PAGE_SIZE, get_logout_all_stats
@@ -56,7 +56,7 @@ async def get_logout_all_events(
         le=MAX_PAGE_SIZE,
         description=f"Number of events per page (max {MAX_PAGE_SIZE})",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -74,7 +74,7 @@ async def get_logout_all_events(
     """
     try:
         days = _TIME_RANGE_DAYS[time_range]
-        return get_logout_all_stats(db, days=days, page=page, page_size=page_size)
+        return await get_logout_all_stats(db, days=days, page=page, page_size=page_size)
     except Exception as e:
         logger.exception("Failed to get logout-all stats: %s", e)
         now = utc_now()

@@ -17,7 +17,7 @@ from app.models.models import QuestionType, DifficultyLevel
 class TestStimulusInUnseenQuestionsEndpoint:
     """Tests for stimulus field in GET /v1/questions/unseen responses."""
 
-    def test_stimulus_field_present_in_response(
+    async def test_stimulus_field_present_in_response(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that stimulus field is always present in question responses."""
@@ -33,9 +33,11 @@ class TestStimulusInUnseenQuestionsEndpoint:
             stimulus=None,
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get("/v1/questions/unseen?count=1", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=1", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -49,7 +51,7 @@ class TestStimulusInUnseenQuestionsEndpoint:
                 q["stimulus"] is None
             ), "Non-memory question should have null stimulus"
 
-    def test_memory_question_returns_non_null_stimulus(
+    async def test_memory_question_returns_non_null_stimulus(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that memory questions return their stimulus content (non-null)."""
@@ -68,9 +70,11 @@ class TestStimulusInUnseenQuestionsEndpoint:
             stimulus=stimulus_content,
         )
         db_session.add(memory_question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -87,7 +91,7 @@ class TestStimulusInUnseenQuestionsEndpoint:
         ), "Memory question should have non-null stimulus"
         assert memory_q["stimulus"] == stimulus_content, "Stimulus content should match"
 
-    def test_non_memory_question_returns_null_stimulus(
+    async def test_non_memory_question_returns_null_stimulus(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that non-memory questions return stimulus as null."""
@@ -131,9 +135,11 @@ class TestStimulusInUnseenQuestionsEndpoint:
         ]
         for q in non_memory_questions:
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -145,7 +151,7 @@ class TestStimulusInUnseenQuestionsEndpoint:
                     q["stimulus"] is None
                 ), f"{q['question_type']} question should have null stimulus"
 
-    def test_mixed_memory_and_non_memory_questions(
+    async def test_mixed_memory_and_non_memory_questions(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that a mix of memory and non-memory questions have correct stimulus values."""
@@ -177,9 +183,11 @@ class TestStimulusInUnseenQuestionsEndpoint:
 
         db_session.add(memory_q)
         db_session.add(math_q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -208,7 +216,7 @@ class TestStimulusInUnseenQuestionsEndpoint:
 class TestStimulusInTestStartEndpoint:
     """Tests for stimulus field in POST /v1/test/start responses."""
 
-    def test_stimulus_field_present_in_test_start_response(
+    async def test_stimulus_field_present_in_test_start_response(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that stimulus field is present in test start response."""
@@ -228,9 +236,11 @@ class TestStimulusInTestStartEndpoint:
         ]
         for q in questions:
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post("/v1/test/start?question_count=3", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=3", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -241,7 +251,7 @@ class TestStimulusInTestStartEndpoint:
                 "stimulus" in q
             ), "stimulus field must be present in test start response"
 
-    def test_memory_question_stimulus_in_test_start(
+    async def test_memory_question_stimulus_in_test_start(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that memory questions have non-null stimulus in test start response."""
@@ -258,9 +268,11 @@ class TestStimulusInTestStartEndpoint:
             stimulus=stimulus_content,
         )
         db_session.add(memory_question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post("/v1/test/start?question_count=1", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=1", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -269,7 +281,7 @@ class TestStimulusInTestStartEndpoint:
         question = data["questions"][0]
         assert question["stimulus"] == stimulus_content
 
-    def test_test_with_mixed_question_types_has_correct_stimulus(
+    async def test_test_with_mixed_question_types_has_correct_stimulus(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that a test with mixed question types returns correct stimulus values."""
@@ -304,9 +316,11 @@ class TestStimulusInTestStartEndpoint:
 
         db_session.add(memory_q)
         db_session.add(logic_q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -325,7 +339,7 @@ class TestStimulusInTestStartEndpoint:
 class TestStimulusFieldIntegrity:
     """Tests for stimulus field data integrity across API operations."""
 
-    def test_stimulus_content_preserved_exactly(
+    async def test_stimulus_content_preserved_exactly(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that stimulus content is preserved exactly as stored."""
@@ -348,9 +362,11 @@ Note: Pay attention to colors!"""
             stimulus=stimulus_content,
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -362,7 +378,7 @@ Note: Pay attention to colors!"""
         # Verify stimulus content is exactly preserved
         assert memory_qs[0]["stimulus"] == stimulus_content
 
-    def test_empty_string_stimulus_vs_null_stimulus(
+    async def test_empty_string_stimulus_vs_null_stimulus(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that empty string stimulus is distinguished from null stimulus."""
@@ -392,9 +408,11 @@ Note: Pay attention to colors!"""
 
         db_session.add(q_empty)
         db_session.add(q_null)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -409,7 +427,7 @@ Note: Pay attention to colors!"""
         if "Question with null stimulus" in questions_by_text:
             assert questions_by_text["Question with null stimulus"]["stimulus"] is None
 
-    def test_long_stimulus_content_preserved(
+    async def test_long_stimulus_content_preserved(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that long stimulus content is fully preserved."""
@@ -432,9 +450,11 @@ Note: Pay attention to colors!"""
             stimulus=long_stimulus,
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()

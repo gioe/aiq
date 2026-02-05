@@ -18,8 +18,8 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict
 
 import girth
 import numpy as np
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Question, Response, TestSession, TestStatus
 
@@ -322,8 +322,8 @@ def calibrate_questions_2pl(
     return results
 
 
-def build_priors_from_ctt(
-    db: Session,
+async def build_priors_from_ctt(
+    db: AsyncSession,
     question_ids: List[int],
 ) -> Tuple[Dict[int, float], Dict[int, float]]:
     """
@@ -345,15 +345,13 @@ def build_priors_from_ctt(
         CalibrationError: If database query fails.
     """
     try:
-        questions = (
-            db.query(
-                Question.id,
-                Question.empirical_difficulty,
-                Question.discrimination,
-            )
-            .filter(Question.id.in_(question_ids))
-            .all()
-        )
+        questions_stmt = select(
+            Question.id,
+            Question.empirical_difficulty,
+            Question.discrimination,
+        ).filter(Question.id.in_(question_ids))
+        result = await db.execute(questions_stmt)
+        questions = result.all()
 
         prior_difficulties: Dict[int, float] = {}
         prior_discriminations: Dict[int, float] = {}
@@ -390,8 +388,8 @@ def build_priors_from_ctt(
         ) from e
 
 
-def run_calibration_job(
-    db: Session,
+async def run_calibration_job(
+    db: AsyncSession,
     question_ids: Optional[List[int]] = None,
     min_responses: int = MIN_RESPONSES_FOR_CALIBRATION,
     bootstrap_se: bool = True,
@@ -426,8 +424,8 @@ def run_calibration_job(
         )
 
         # Step 1: Find eligible questions
-        response_counts_query = (
-            db.query(
+        response_counts_stmt = (
+            select(
                 Response.question_id,
                 func.count(Response.id).label("response_count"),
             )
@@ -442,11 +440,12 @@ def run_calibration_job(
         )
 
         if question_ids is not None:
-            response_counts_query = response_counts_query.filter(
+            response_counts_stmt = response_counts_stmt.filter(
                 Response.question_id.in_(question_ids)
             )
 
-        response_counts = response_counts_query.all()
+        result = await db.execute(response_counts_stmt)
+        response_counts = result.all()
         eligible_ids = [row.question_id for row in response_counts]
         count_by_id: Dict[int, int] = {
             row.question_id: row.response_count for row in response_counts
@@ -467,8 +466,8 @@ def run_calibration_job(
         logger.info(f"Found {len(eligible_ids)} eligible questions for calibration")
 
         # Step 2: Extract response data from completed, fixed-form tests
-        response_rows = (
-            db.query(
+        response_rows_stmt = (
+            select(
                 Response.user_id,
                 Response.question_id,
                 Response.is_correct,
@@ -480,8 +479,9 @@ def run_calibration_job(
                 Response.question_id.in_(eligible_ids),
                 Response.is_correct.isnot(None),
             )
-            .all()
         )
+        result = await db.execute(response_rows_stmt)
+        response_rows = result.all()
 
         response_dicts = [
             {
@@ -510,12 +510,11 @@ def run_calibration_job(
         skipped_count = 0
 
         question_ids_to_update = list(calibration_results.keys())
-        questions_map = {
-            q.id: q
-            for q in db.query(Question)
-            .filter(Question.id.in_(question_ids_to_update))
-            .all()
-        }
+        questions_stmt = select(Question).filter(
+            Question.id.in_(question_ids_to_update)
+        )
+        result = await db.execute(questions_stmt)
+        questions_map = {q.id: q for q in result.scalars().all()}
 
         for qid, params in calibration_results.items():
             question = questions_map.get(qid)
@@ -532,7 +531,7 @@ def run_calibration_job(
             question.irt_calibration_n = count_by_id.get(qid, 0)
             calibrated_count += 1
 
-        db.commit()
+        await db.commit()
 
         # Step 5: Summary statistics
         difficulties = [r["difficulty"] for r in calibration_results.values()]
@@ -560,7 +559,7 @@ def run_calibration_job(
     except CalibrationError:
         raise
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.exception("Calibration job failed")
         raise CalibrationError(
             "Calibration job failed",
@@ -569,8 +568,8 @@ def run_calibration_job(
         ) from e
 
 
-def validate_calibration(
-    db: Session,
+async def validate_calibration(
+    db: AsyncSession,
     question_ids: Optional[List[int]] = None,
 ) -> ValidationReport:
     """
@@ -592,15 +591,16 @@ def validate_calibration(
         CalibrationError: If database query fails.
     """
     try:
-        query = db.query(Question).filter(
+        stmt = select(Question).filter(
             Question.irt_difficulty.isnot(None),
             Question.empirical_difficulty.isnot(None),
         )
 
         if question_ids is not None:
-            query = query.filter(Question.id.in_(question_ids))
+            stmt = stmt.filter(Question.id.in_(question_ids))
 
-        questions = query.all()
+        result = await db.execute(stmt)
+        questions = result.scalars().all()
 
         if len(questions) < MIN_ITEMS_FOR_VALIDATION:
             return {

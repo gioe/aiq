@@ -1,9 +1,11 @@
+from sqlalchemy import select
+
 """
 Tests for POST /v1/test/next adaptive (CAT) endpoint (TASK-879).
 """
 
 
-def _create_calibrated_item_pool(db_session, count_per_domain=3):
+async def _create_calibrated_item_pool(db_session, count_per_domain=3):
     """Create a pool of IRT-calibrated questions across all 6 domains.
 
     Returns list of created Question objects.
@@ -36,16 +38,16 @@ def _create_calibrated_item_pool(db_session, count_per_domain=3):
             db_session.add(q)
             questions.append(q)
 
-    db_session.commit()
+    await db_session.commit()
     for q in questions:
-        db_session.refresh(q)
+        await db_session.refresh(q)
 
     return questions
 
 
-def _start_adaptive_session(client, auth_headers):
+async def _start_adaptive_session(client, auth_headers):
     """Helper to start an adaptive session and return (session_id, first_question)."""
-    response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+    response = await client.post("/v1/test/start?adaptive=true", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     session_id = data["session"]["id"]
@@ -56,14 +58,14 @@ def _start_adaptive_session(client, auth_headers):
 class TestAdaptiveNextEndpoint:
     """Tests for POST /v1/test/next endpoint."""
 
-    def test_submit_response_and_get_next_question(
+    async def test_submit_response_and_get_next_question(
         self, client, auth_headers, db_session
     ):
         """Test submitting a correct answer returns the next question."""
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -89,12 +91,12 @@ class TestAdaptiveNextEndpoint:
         # Next question should be different from first
         assert data["next_question"]["id"] != first_question["id"]
 
-    def test_submit_incorrect_answer(self, client, auth_headers, db_session):
+    async def test_submit_incorrect_answer(self, client, auth_headers, db_session):
         """Test submitting an incorrect answer still returns next question."""
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -111,15 +113,17 @@ class TestAdaptiveNextEndpoint:
         assert data["next_question"] is not None
         assert data["items_administered"] == 1
 
-    def test_theta_history_updated(self, client, auth_headers, db_session, test_user):
+    async def test_theta_history_updated(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Test that theta_history is updated in the database after each response."""
         from app.models import TestSession
 
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
         # Submit first response
-        client.post(
+        await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -132,24 +136,26 @@ class TestAdaptiveNextEndpoint:
 
         # Check theta_history in database
         db_session.expire_all()
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _qresult = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+
+        session = _qresult.scalars().first()
 
         assert session.theta_history is not None
         assert len(session.theta_history) == 1
         assert isinstance(session.theta_history[0], float)
 
-    def test_response_stored_in_database(
+    async def test_response_stored_in_database(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that Response record is stored correctly."""
         from app.models.models import Response
 
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
-        client.post(
+        await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -160,29 +166,35 @@ class TestAdaptiveNextEndpoint:
             headers=auth_headers,
         )
 
+        # Store user id before expire_all() to avoid lazy-load in async context
+        expected_user_id = test_user.id
         db_session.expire_all()
-        stored = (
-            db_session.query(Response)
-            .filter(
+        _qresult = await db_session.execute(
+            select(Response).filter(
                 Response.test_session_id == session_id,
                 Response.question_id == first_question["id"],
             )
-            .first()
         )
+
+        stored = _qresult.scalars().first()
 
         assert stored is not None
         assert stored.user_answer == "A"
         assert stored.is_correct is True
         assert stored.time_spent_seconds == 45
-        assert stored.user_id == test_user.id
+        assert stored.user_id == expected_user_id
 
-    def test_multiple_responses_advance_test(self, client, auth_headers, db_session):
+    async def test_multiple_responses_advance_test(
+        self, client, auth_headers, db_session
+    ):
         """Test submitting multiple responses advances items_administered."""
-        _create_calibrated_item_pool(db_session)
-        session_id, current_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, current_question = await _start_adaptive_session(
+            client, auth_headers
+        )
 
         for i in range(3):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/next",
                 json={
                     "session_id": session_id,
@@ -206,11 +218,11 @@ class TestAdaptiveNextEndpoint:
 class TestAdaptiveNextValidation:
     """Tests for validation logic in POST /v1/test/next."""
 
-    def test_session_not_found(self, client, auth_headers, db_session):
+    async def test_session_not_found(self, client, auth_headers, db_session):
         """Test 404 when session doesn't exist."""
-        _create_calibrated_item_pool(db_session)
+        await _create_calibrated_item_pool(db_session)
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": 99999,
@@ -223,13 +235,13 @@ class TestAdaptiveNextValidation:
         assert response.status_code == 404
         assert "Test session not found" in response.json()["detail"]
 
-    def test_session_not_owned_by_user(self, client, auth_headers, db_session):
+    async def test_session_not_owned_by_user(self, client, auth_headers, db_session):
         """Test 403 when session belongs to different user."""
         from app.models import User, TestSession
         from app.models.models import TestStatus
         from app.core.datetime_utils import utc_now
 
-        _create_calibrated_item_pool(db_session)
+        await _create_calibrated_item_pool(db_session)
 
         # Create another user's session
         other_user = User(
@@ -239,7 +251,7 @@ class TestAdaptiveNextValidation:
             last_name="User",
         )
         db_session.add(other_user)
-        db_session.commit()
+        await db_session.commit()
 
         other_session = TestSession(
             user_id=other_user.id,
@@ -249,9 +261,9 @@ class TestAdaptiveNextValidation:
             theta_history=[],
         )
         db_session.add(other_session)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": other_session.id,
@@ -263,19 +275,19 @@ class TestAdaptiveNextValidation:
 
         assert response.status_code == 403
 
-    def test_session_not_adaptive(
+    async def test_session_not_adaptive(
         self, client, auth_headers, db_session, test_user, test_questions
     ):
         """Test 400 when session is not adaptive (fixed-form)."""
         # Start a fixed-form session
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
         )
         assert start_response.status_code == 200
         session_id = start_response.json()["session"]["id"]
         question_id = start_response.json()["questions"][0]["id"]
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -288,7 +300,7 @@ class TestAdaptiveNextValidation:
         assert response.status_code == 400
         assert "adaptive" in response.json()["detail"].lower()
 
-    def test_session_already_completed(
+    async def test_session_already_completed(
         self, client, auth_headers, db_session, test_user
     ):
         """Test 400 when session is already completed."""
@@ -296,7 +308,7 @@ class TestAdaptiveNextValidation:
         from app.models.models import TestStatus
         from app.core.datetime_utils import utc_now
 
-        _create_calibrated_item_pool(db_session)
+        await _create_calibrated_item_pool(db_session)
 
         session = TestSession(
             user_id=test_user.id,
@@ -307,9 +319,9 @@ class TestAdaptiveNextValidation:
             theta_history=[0.5],
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session.id,
@@ -322,16 +334,17 @@ class TestAdaptiveNextValidation:
         assert response.status_code == 400
         assert "already completed" in response.json()["detail"].lower()
 
-    def test_question_not_served(self, client, auth_headers, db_session):
+    async def test_question_not_served(self, client, auth_headers, db_session):
         """Test 400 when question was not served in this session."""
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
         # Try to answer a question that wasn't served
         # Use a question ID that exists but wasn't selected
         from app.models import Question
 
-        all_questions = db_session.query(Question).all()
+        _result_0 = await db_session.execute(select(Question))
+        all_questions = _result_0.scalars().all()
         unserved_id = None
         for q in all_questions:
             if q.id != first_question["id"]:
@@ -340,7 +353,7 @@ class TestAdaptiveNextValidation:
 
         assert unserved_id is not None
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -353,13 +366,13 @@ class TestAdaptiveNextValidation:
         assert response.status_code == 400
         assert "not served" in response.json()["detail"].lower()
 
-    def test_duplicate_response_rejected(self, client, auth_headers, db_session):
+    async def test_duplicate_response_rejected(self, client, auth_headers, db_session):
         """Test 409 when answering the same question twice."""
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
         # Submit first response (succeeds)
-        response1 = client.post(
+        response1 = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -371,7 +384,7 @@ class TestAdaptiveNextValidation:
         assert response1.status_code == 200
 
         # Submit duplicate response (should fail)
-        response2 = client.post(
+        response2 = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -384,12 +397,12 @@ class TestAdaptiveNextValidation:
         assert response2.status_code == 409
         assert "already been submitted" in response2.json()["detail"].lower()
 
-    def test_empty_answer_rejected(self, client, auth_headers, db_session):
+    async def test_empty_answer_rejected(self, client, auth_headers, db_session):
         """Test 400 when user_answer is empty."""
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -401,9 +414,9 @@ class TestAdaptiveNextValidation:
 
         assert response.status_code == 400
 
-    def test_unauthenticated_request(self, client, db_session):
+    async def test_unauthenticated_request(self, client, db_session):
         """Test error when no auth headers provided."""
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": 1,
@@ -418,20 +431,22 @@ class TestAdaptiveNextValidation:
 class TestAdaptiveNextCompletion:
     """Tests for test completion flow in POST /v1/test/next."""
 
-    def test_test_completes_at_max_items(
+    async def test_test_completes_at_max_items(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that the test completes when max items (15) is reached."""
         # Create a large item pool (need > 15 items)
-        _create_calibrated_item_pool(db_session, count_per_domain=5)
+        await _create_calibrated_item_pool(db_session, count_per_domain=5)
 
-        session_id, current_question = _start_adaptive_session(client, auth_headers)
+        session_id, current_question = await _start_adaptive_session(
+            client, auth_headers
+        )
 
         completed = False
         items_answered = 0
 
         for _ in range(20):  # Safety limit
-            response = client.post(
+            response = await client.post(
                 "/v1/test/next",
                 json={
                     "session_id": session_id,
@@ -468,18 +483,20 @@ class TestAdaptiveNextCompletion:
         assert completed, "Test should have completed within 15 items"
         assert items_answered <= 15
 
-    def test_completion_creates_test_result(
+    async def test_completion_creates_test_result(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that completing an adaptive test creates a TestResult record."""
         from app.models.models import TestResult, TestSession
 
-        _create_calibrated_item_pool(db_session, count_per_domain=5)
-        session_id, current_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session, count_per_domain=5)
+        session_id, current_question = await _start_adaptive_session(
+            client, auth_headers
+        )
 
         # Drive the test to completion
         for _ in range(20):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/next",
                 json={
                     "session_id": session_id,
@@ -496,11 +513,11 @@ class TestAdaptiveNextCompletion:
 
         # Verify TestResult in database
         db_session.expire_all()
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _qresult = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+
+        test_result = _qresult.scalars().first()
 
         assert test_result is not None
         assert test_result.iq_score > 0
@@ -509,26 +526,30 @@ class TestAdaptiveNextCompletion:
         assert test_result.theta_se is not None
 
         # Verify session is completed
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _qresult = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+
+        session = _qresult.scalars().first()
         assert session.status.value == "completed"
         assert session.completed_at is not None
         assert session.final_theta is not None
         assert session.final_se is not None
         assert session.stopping_reason is not None
 
-    def test_completion_result_has_confidence_interval(
+    async def test_completion_result_has_confidence_interval(
         self, client, auth_headers, db_session
     ):
         """Test that the completion result includes confidence interval data."""
-        _create_calibrated_item_pool(db_session, count_per_domain=5)
-        session_id, current_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session, count_per_domain=5)
+        session_id, current_question = await _start_adaptive_session(
+            client, auth_headers
+        )
 
         # Drive to completion
         final_data = None
         for _ in range(20):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/next",
                 json={
                     "session_id": session_id,
@@ -554,17 +575,19 @@ class TestAdaptiveNextCompletion:
         assert ci["upper"] >= result["iq_score"]
         assert ci["standard_error"] > 0
 
-    def test_item_pool_exhausted_forces_completion(
+    async def test_item_pool_exhausted_forces_completion(
         self, client, auth_headers, db_session
     ):
         """Test that test completes gracefully when item pool is exhausted."""
         # Create a very small pool (6 items = 1 per domain, fewer than MIN_ITEMS=8)
-        _create_calibrated_item_pool(db_session, count_per_domain=1)
-        session_id, current_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session, count_per_domain=1)
+        session_id, current_question = await _start_adaptive_session(
+            client, auth_headers
+        )
 
         final_data = None
         for _ in range(10):  # Safety limit
-            response = client.post(
+            response = await client.post(
                 "/v1/test/next",
                 json={
                     "session_id": session_id,
@@ -586,15 +609,19 @@ class TestAdaptiveNextCompletion:
         assert final_data["result"] is not None
         assert final_data["result"]["iq_score"] > 0
 
-    def test_cannot_submit_after_completion(self, client, auth_headers, db_session):
+    async def test_cannot_submit_after_completion(
+        self, client, auth_headers, db_session
+    ):
         """Test that submitting after test completion returns error."""
-        _create_calibrated_item_pool(db_session, count_per_domain=5)
-        session_id, current_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session, count_per_domain=5)
+        session_id, current_question = await _start_adaptive_session(
+            client, auth_headers
+        )
 
         # Drive to completion, capturing last question before completion
         last_question_before = None
         for _ in range(20):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/next",
                 json={
                     "session_id": session_id,
@@ -611,7 +638,7 @@ class TestAdaptiveNextCompletion:
             current_question = data["next_question"]
 
         # Try to submit another response after completion
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -630,12 +657,12 @@ class TestAdaptiveNextCompletion:
 class TestAdaptiveNextTimeSpent:
     """Tests for time_spent_seconds handling."""
 
-    def test_time_spent_optional(self, client, auth_headers, db_session):
+    async def test_time_spent_optional(self, client, auth_headers, db_session):
         """Test that time_spent_seconds is optional."""
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -648,14 +675,14 @@ class TestAdaptiveNextTimeSpent:
 
         assert response.status_code == 200
 
-    def test_time_spent_stored(self, client, auth_headers, db_session, test_user):
+    async def test_time_spent_stored(self, client, auth_headers, db_session, test_user):
         """Test that time_spent_seconds is stored in the Response record."""
         from app.models.models import Response
 
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
-        client.post(
+        await client.post(
             "/v1/test/next",
             json={
                 "session_id": session_id,
@@ -667,13 +694,13 @@ class TestAdaptiveNextTimeSpent:
         )
 
         db_session.expire_all()
-        stored = (
-            db_session.query(Response)
-            .filter(
+        _qresult = await db_session.execute(
+            select(Response).filter(
                 Response.test_session_id == session_id,
             )
-            .first()
         )
+
+        stored = _qresult.scalars().first()
 
         assert stored is not None
         assert stored.time_spent_seconds == 42

@@ -30,7 +30,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import (
     TestSession,
@@ -174,8 +175,8 @@ def _get_consecutive_test_pairs_from_data(
     return pairs
 
 
-def _get_consecutive_test_pairs(
-    db: Session,
+async def _get_consecutive_test_pairs(
+    db: AsyncSession,
     min_interval_days: int = 7,
     max_interval_days: int = 180,
     data_loader: Optional["ReliabilityDataLoader"] = None,
@@ -202,7 +203,7 @@ def _get_consecutive_test_pairs(
     # Get data from loader or query database directly (RE-FI-020)
     if data_loader is not None:
         # Use preloaded data to reduce database round trips
-        test_retest_data = data_loader.get_test_retest_data()
+        test_retest_data = await data_loader.get_test_retest_data()
         return _get_consecutive_test_pairs_from_data(
             test_retest_data["test_results"],
             min_interval_days,
@@ -212,8 +213,8 @@ def _get_consecutive_test_pairs(
     # Fall back to direct database query (original behavior)
     # Query users with their completed test results ordered by completion time
     # We need: user_id, iq_score, completed_at from TestResult joined with TestSession
-    results = (
-        db.query(
+    results_stmt = (
+        select(
             TestResult.user_id,
             TestResult.iq_score,
             TestResult.completed_at,
@@ -221,8 +222,9 @@ def _get_consecutive_test_pairs(
         .join(TestSession, TestResult.test_session_id == TestSession.id)
         .filter(TestSession.status == TestStatus.COMPLETED)
         .order_by(TestResult.user_id, TestResult.completed_at)
-        .all()
     )
+    result = await db.execute(results_stmt)
+    results = result.all()
 
     if not results:
         return []
@@ -258,8 +260,8 @@ def _get_consecutive_test_pairs(
     return pairs
 
 
-def calculate_test_retest_reliability(
-    db: Session,
+async def calculate_test_retest_reliability(
+    db: AsyncSession,
     min_interval_days: int = 7,
     max_interval_days: int = 180,
     min_pairs: int = MIN_RETEST_PAIRS,
@@ -319,7 +321,7 @@ def calculate_test_retest_reliability(
     }
 
     # Get consecutive test pairs (RE-FI-020: pass data_loader if provided)
-    pairs = _get_consecutive_test_pairs(
+    pairs = await _get_consecutive_test_pairs(
         db, min_interval_days, max_interval_days, data_loader=data_loader
     )
     result["num_retest_pairs"] = len(pairs)

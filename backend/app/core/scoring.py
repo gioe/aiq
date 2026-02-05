@@ -44,10 +44,11 @@ import math
 from typing import Protocol, List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
+from sqlalchemy import func as sa_func, select
 from scipy.stats import norm
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+    from sqlalchemy.ext.asyncio import AsyncSession
     from app.models.models import Response, Question
 
 logger = logging.getLogger(__name__)
@@ -743,7 +744,7 @@ def calculate_confidence_interval(
     return (lower_bound, upper_bound)
 
 
-def get_cached_reliability(db: "Session") -> Optional[float]:
+async def get_cached_reliability(db: "AsyncSession") -> Optional[float]:
     """
     Retrieve Cronbach's alpha from the reliability system with caching.
 
@@ -791,7 +792,7 @@ def get_cached_reliability(db: "Session") -> Optional[float]:
 
     try:
         # Get reliability report (uses caching internally)
-        report = get_reliability_report(db)
+        report = await get_reliability_report(db)
 
         # Extract Cronbach's alpha from internal consistency section
         internal_consistency = report.get("internal_consistency", {})
@@ -848,7 +849,7 @@ class ReliabilityCheckResult:
     can_calculate_ci: bool  # Whether CI calculation should proceed
 
 
-def check_reliability_for_sem(db: "Session") -> ReliabilityCheckResult:
+async def check_reliability_for_sem(db: "AsyncSession") -> ReliabilityCheckResult:
     """
     Check if reliability data is sufficient for meaningful SEM calculation.
 
@@ -882,7 +883,7 @@ def check_reliability_for_sem(db: "Session") -> ReliabilityCheckResult:
     from app.core.reliability import get_reliability_report
 
     try:
-        report = get_reliability_report(db)
+        report = await get_reliability_report(db)
         internal_consistency = report.get("internal_consistency", {})
         alpha = internal_consistency.get("cronbachs_alpha")
 
@@ -1032,8 +1033,8 @@ class BackfillResult:
     error_count: int  # Results that failed to update
 
 
-def backfill_confidence_intervals(
-    db: "Session",
+async def backfill_confidence_intervals(
+    db: "AsyncSession",
     dry_run: bool = True,
     batch_size: int = 100,
 ) -> BackfillResult:
@@ -1063,11 +1064,11 @@ def backfill_confidence_intervals(
 
     Examples:
         >>> # First, preview what would be changed (dry run)
-        >>> result = backfill_confidence_intervals(db, dry_run=True)
+        >>> result = await backfill_confidence_intervals(db, dry_run=True)
         >>> print(f"Would update {result.updated_count} results")
 
         >>> # If preview looks good, perform the actual backfill
-        >>> result = backfill_confidence_intervals(db, dry_run=False)
+        >>> result = await backfill_confidence_intervals(db, dry_run=False)
         >>> print(f"Updated {result.updated_count} results")
 
     Note:
@@ -1084,23 +1085,28 @@ def backfill_confidence_intervals(
     from app.models.models import TestResult
 
     # Check if reliability is sufficient for CI calculation
-    reliability = get_cached_reliability(db)
+    reliability = await get_cached_reliability(db)
 
     # Get count statistics first
-    total_results = db.query(TestResult).count()
-    eligible_results = (
-        db.query(TestResult).filter(TestResult.iq_score.isnot(None)).count()
+    total_results_q = await db.execute(select(sa_func.count()).select_from(TestResult))
+    total_results = total_results_q.scalar()
+    eligible_results_q = await db.execute(
+        select(sa_func.count())
+        .select_from(TestResult)
+        .filter(TestResult.iq_score.isnot(None))
     )
-    already_populated = (
-        db.query(TestResult)
+    eligible_results = eligible_results_q.scalar()
+    already_populated_q = await db.execute(
+        select(sa_func.count())
+        .select_from(TestResult)
         .filter(
             TestResult.iq_score.isnot(None),
             TestResult.standard_error.isnot(None),
             TestResult.ci_lower.isnot(None),
             TestResult.ci_upper.isnot(None),
         )
-        .count()
     )
+    already_populated = already_populated_q.scalar()
 
     # If reliability is insufficient, we can't backfill
     if reliability is None:
@@ -1121,15 +1127,14 @@ def backfill_confidence_intervals(
     sem = calculate_sem(reliability)
 
     # Query results that need backfilling
-    results_to_update = (
-        db.query(TestResult)
-        .filter(
+    results_to_update_q = await db.execute(
+        select(TestResult).filter(
             TestResult.iq_score.isnot(None),
             # Only update where CI is NULL (not already populated)
             TestResult.standard_error.is_(None),
         )
-        .all()
     )
+    results_to_update = results_to_update_q.scalars().all()
 
     updated_count = 0
     error_count = 0
@@ -1152,7 +1157,7 @@ def backfill_confidence_intervals(
 
             # Commit in batches
             if not dry_run and (i + 1) % batch_size == 0:
-                db.commit()
+                await db.commit()
                 logger.info(
                     f"Backfill progress: {i + 1}/{len(results_to_update)} results updated"
                 )
@@ -1163,7 +1168,7 @@ def backfill_confidence_intervals(
 
     # Final commit for remaining records
     if not dry_run and updated_count > 0:
-        db.commit()
+        await db.commit()
 
     action = "Would update" if dry_run else "Updated"
     logger.info(

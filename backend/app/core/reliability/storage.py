@@ -29,7 +29,8 @@ import logging
 from datetime import timedelta
 from typing import Dict, List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.models.models import ReliabilityMetric
@@ -38,8 +39,8 @@ from ._constants import MetricTypeLiteral, VALID_METRIC_TYPES
 logger = logging.getLogger(__name__)
 
 
-def store_reliability_metric(
-    db: Session,
+async def store_reliability_metric(
+    db: AsyncSession,
     metric_type: MetricTypeLiteral,
     value: float,
     sample_size: int,
@@ -103,15 +104,15 @@ def store_reliability_metric(
     db.add(metric)
 
     if commit:
-        db.commit()
-        db.refresh(metric)
+        await db.commit()
+        await db.refresh(metric)
         logger.info(
             f"Stored reliability metric: type={metric_type}, value={value:.4f}, "
             f"sample_size={sample_size}, id={metric.id}"
         )
     else:
         # Flush to get the id without committing the transaction
-        db.flush()
+        await db.flush()
         logger.info(
             f"Added reliability metric (uncommitted): type={metric_type}, "
             f"value={value:.4f}, sample_size={sample_size}, id={metric.id}"
@@ -120,8 +121,8 @@ def store_reliability_metric(
     return metric
 
 
-def get_reliability_history(
-    db: Session,
+async def get_reliability_history(
+    db: AsyncSession,
     metric_type: Optional[MetricTypeLiteral] = None,
     days: int = 90,
 ) -> List[Dict]:
@@ -159,19 +160,20 @@ def get_reliability_history(
     cutoff_date = utc_now() - timedelta(days=days)
 
     # Build query
-    query = db.query(ReliabilityMetric).filter(
+    stmt = select(ReliabilityMetric).filter(
         ReliabilityMetric.calculated_at >= cutoff_date
     )
 
     # Apply metric type filter if specified
     if metric_type is not None:
-        query = query.filter(ReliabilityMetric.metric_type == metric_type)
+        stmt = stmt.filter(ReliabilityMetric.metric_type == metric_type)
 
     # Order by most recent first
-    query = query.order_by(ReliabilityMetric.calculated_at.desc())
+    stmt = stmt.order_by(ReliabilityMetric.calculated_at.desc())
 
     # Execute query and transform to dicts
-    metrics = query.all()
+    result = await db.execute(stmt)
+    metrics = result.scalars().all()
 
     result = [
         {

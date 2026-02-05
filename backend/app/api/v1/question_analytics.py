@@ -5,7 +5,7 @@ Provides endpoints for viewing question statistics, identifying problematic
 questions, and monitoring test quality.
 """
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List
 
 from app.models import get_db
@@ -19,9 +19,9 @@ router = APIRouter()
 
 
 @router.get("/questions/{question_id}/statistics")
-def get_question_stats(
+async def get_question_stats(
     question_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Dict:
     """
     Get performance statistics for a specific question.
@@ -58,18 +58,18 @@ def get_question_stats(
         - discrimination: item-total correlation (-1.0 to 1.0, higher = better)
         - has_sufficient_data: true if response_count >= 30
     """
-    return get_question_statistics(db, question_id)
+    return await get_question_statistics(db, question_id)
 
 
 @router.get("/questions/statistics")
-def get_all_questions_stats(
+async def get_all_questions_stats(
     min_responses: int = Query(
         default=0,
         ge=0,
         le=1000,
         description="Minimum response count to include",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> List[Dict]:
     """
     Get performance statistics for all questions.
@@ -106,18 +106,18 @@ def get_all_questions_stats(
         - Identify which questions have sufficient calibration data
         - Compare empirical vs assigned difficulty levels
     """
-    return get_all_question_statistics(db, min_responses)
+    return await get_all_question_statistics(db, min_responses)
 
 
 @router.get("/questions/problematic")
-def get_problematic_questions(
+async def get_problematic_questions(
     min_responses: int = Query(
         default=30,
         ge=2,
         le=1000,
         description="Minimum responses required to flag as problematic",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Dict[str, List[Dict]]:
     """
     Identify questions with poor psychometric properties.
@@ -171,4 +171,4 @@ def get_problematic_questions(
         - Too easy/hard questions provide little information and should be reviewed
         - Poor discrimination questions don't help separate high/low performers
     """
-    return identify_problematic_questions(db, min_responses)
+    return await identify_problematic_questions(db, min_responses)

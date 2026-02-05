@@ -16,6 +16,8 @@ import pytest
 from unittest.mock import patch
 from datetime import timedelta
 
+from sqlalchemy import func, select
+
 from app.core.datetime_utils import utc_now
 
 from app.core.cache import get_cache
@@ -31,6 +33,7 @@ from app.models.models import (
     ReliabilityMetric,
 )
 from app.core.security import hash_password
+from sqlalchemy import select
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +50,7 @@ def admin_token_headers():
     return {"X-Admin-Token": "test-admin-token"}
 
 
-def create_test_questions(db_session, count=20):
+async def create_test_questions(db_session, count=20):
     """Helper to create test questions."""
     questions = []
     for i in range(count):
@@ -64,13 +67,15 @@ def create_test_questions(db_session, count=20):
         )
         db_session.add(question)
         questions.append(question)
-    db_session.commit()
+    await db_session.commit()
     for q in questions:
-        db_session.refresh(q)
+        await db_session.refresh(q)
     return questions
 
 
-def create_test_sessions_with_responses(db_session, user, questions, num_sessions=10):
+async def create_test_sessions_with_responses(
+    db_session, user, questions, num_sessions=10
+):
     """Helper to create test sessions with responses."""
     sessions = []
     base_time = utc_now()
@@ -82,7 +87,7 @@ def create_test_sessions_with_responses(db_session, user, questions, num_session
             started_at=base_time - timedelta(days=i),
         )
         db_session.add(session)
-        db_session.flush()
+        await db_session.flush()
 
         # Add responses (alternating correct/incorrect for variance)
         for j, question in enumerate(questions):
@@ -111,12 +116,12 @@ def create_test_sessions_with_responses(db_session, user, questions, num_session
 
         sessions.append(session)
 
-    db_session.commit()
+    await db_session.commit()
     return sessions
 
 
 @pytest.fixture
-def test_user(db_session):
+async def test_user(db_session):
     """Create a test user."""
     user = User(
         email="reliability_test@example.com",
@@ -126,8 +131,8 @@ def test_user(db_session):
         notification_enabled=False,
     )
     db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
 
 
@@ -135,11 +140,11 @@ class TestReliabilityEndpoint:
     """Tests for GET /v1/admin/reliability endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_returns_insufficient_data_gracefully(
+    async def test_returns_insufficient_data_gracefully(
         self, client, db_session, admin_token_headers
     ):
         """Test endpoint returns proper response with insufficient data."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -179,32 +184,32 @@ class TestReliabilityEndpoint:
         assert "data_collection" in categories
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_requires_admin_token(self, client, db_session):
+    async def test_requires_admin_token(self, client, db_session):
         """Test endpoint requires valid admin token."""
         # No token
-        response = client.get("/v1/admin/reliability")
+        response = await client.get("/v1/admin/reliability")
         assert response.status_code == 422  # Missing required header
 
         # Invalid token
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers={"X-Admin-Token": "wrong-token"},
         )
         assert response.status_code == 401
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_min_sessions_parameter(
+    async def test_min_sessions_parameter(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test min_sessions query parameter works correctly."""
         # Create some test data (less than default 100)
-        questions = create_test_questions(db_session, count=10)
-        create_test_sessions_with_responses(
+        questions = await create_test_questions(db_session, count=10)
+        await create_test_sessions_with_responses(
             db_session, test_user, questions, num_sessions=5
         )
 
         # With default min_sessions=100, should report insufficient data
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -215,7 +220,7 @@ class TestReliabilityEndpoint:
 
         # With lower min_sessions=10 (the new minimum), should calculate (but may still
         # have issues due to insufficient data for this test's 5 sessions)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 10, "store_metrics": False},
@@ -226,18 +231,18 @@ class TestReliabilityEndpoint:
         assert data["internal_consistency"]["num_sessions"] >= 0
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_min_retest_pairs_parameter(
+    async def test_min_retest_pairs_parameter(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test min_retest_pairs query parameter works correctly."""
         # Create test data with one user who has multiple tests
-        questions = create_test_questions(db_session, count=10)
-        create_test_sessions_with_responses(
+        questions = await create_test_questions(db_session, count=10)
+        await create_test_sessions_with_responses(
             db_session, test_user, questions, num_sessions=5
         )
 
         # With high min_retest_pairs, should report insufficient data
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_retest_pairs": 100, "store_metrics": False},
@@ -247,21 +252,22 @@ class TestReliabilityEndpoint:
         assert data["test_retest"]["correlation"] is None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_store_metrics_true_persists_data(
+    async def test_store_metrics_true_persists_data(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test that store_metrics=true persists calculated metrics."""
         # Create sufficient test data for at least one metric to calculate
-        questions = create_test_questions(db_session, count=15)
-        create_test_sessions_with_responses(
+        questions = await create_test_questions(db_session, count=15)
+        await create_test_sessions_with_responses(
             db_session, test_user, questions, num_sessions=15
         )
 
         # Count existing metrics
-        existing_metrics = db_session.query(ReliabilityMetric).count()
+        _result_0 = await db_session.execute(select(ReliabilityMetric))
+        existing_metrics = len(_result_0.scalars().all())
 
         # Make request with store_metrics=true and minimum allowed thresholds
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={
@@ -273,26 +279,28 @@ class TestReliabilityEndpoint:
         assert response.status_code == 200
 
         # Check if metrics were stored (should be >= existing since we may have calculated some)
-        new_metrics_count = db_session.query(ReliabilityMetric).count()
+        _result_1 = await db_session.execute(select(ReliabilityMetric))
+        new_metrics_count = len(_result_1.scalars().all())
         # At least no error occurred - actual storage depends on calculations succeeding
         assert new_metrics_count >= existing_metrics
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_store_metrics_false_no_persistence(
+    async def test_store_metrics_false_no_persistence(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test that store_metrics=false does not persist metrics."""
         # Create test data
-        questions = create_test_questions(db_session, count=15)
-        create_test_sessions_with_responses(
+        questions = await create_test_questions(db_session, count=15)
+        await create_test_sessions_with_responses(
             db_session, test_user, questions, num_sessions=15
         )
 
         # Count existing metrics
-        existing_metrics = db_session.query(ReliabilityMetric).count()
+        _result_2 = await db_session.execute(select(ReliabilityMetric))
+        existing_metrics = len(_result_2.scalars().all())
 
         # Make request with store_metrics=false and minimum allowed thresholds
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={
@@ -304,13 +312,16 @@ class TestReliabilityEndpoint:
         assert response.status_code == 200
 
         # Count should not increase
-        new_metrics_count = db_session.query(ReliabilityMetric).count()
+        _result_3 = await db_session.execute(select(ReliabilityMetric))
+        new_metrics_count = len(_result_3.scalars().all())
         assert new_metrics_count == existing_metrics
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_response_schema_structure(self, client, db_session, admin_token_headers):
+    async def test_response_schema_structure(
+        self, client, db_session, admin_token_headers
+    ):
         """Test response matches expected schema structure."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -373,10 +384,10 @@ class TestReliabilityEndpoint:
             assert rec["priority"] in ["high", "medium", "low"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_parameter_validation(self, client, db_session, admin_token_headers):
+    async def test_parameter_validation(self, client, db_session, admin_token_headers):
         """Test query parameter validation."""
         # min_sessions must be >= 10
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 9},
@@ -384,17 +395,17 @@ class TestReliabilityEndpoint:
         assert response.status_code == 422  # Validation error
 
         # min_retest_pairs must be >= 10
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_retest_pairs": 9},
         )
         assert response.status_code == 422  # Validation error
 
-    def test_admin_token_not_configured(self, client, db_session):
+    async def test_admin_token_not_configured(self, client, db_session):
         """Test handling when admin token is not configured on server."""
         with patch("app.core.config.settings.ADMIN_TOKEN", None):
-            response = client.get(
+            response = await client.get(
                 "/v1/admin/reliability",
                 headers={"X-Admin-Token": "any-token"},
             )
@@ -402,11 +413,11 @@ class TestReliabilityEndpoint:
             assert "not configured" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_last_calculated_timestamp_present(
+    async def test_last_calculated_timestamp_present(
         self, client, db_session, admin_token_headers
     ):
         """Test that last_calculated timestamps are returned."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -424,11 +435,11 @@ class TestReliabilityHistoryEndpoint:
     """Tests for GET /v1/admin/reliability/history endpoint (RE-009)."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_returns_empty_history_when_no_metrics(
+    async def test_returns_empty_history_when_no_metrics(
         self, client, db_session, admin_token_headers
     ):
         """Test endpoint returns empty list when no metrics stored."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
         )
@@ -442,21 +453,23 @@ class TestReliabilityHistoryEndpoint:
         assert data["total_count"] == 0
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_requires_admin_token(self, client, db_session):
+    async def test_requires_admin_token(self, client, db_session):
         """Test endpoint requires valid admin token."""
         # No token
-        response = client.get("/v1/admin/reliability/history")
+        response = await client.get("/v1/admin/reliability/history")
         assert response.status_code == 422  # Missing required header
 
         # Invalid token
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers={"X-Admin-Token": "wrong-token"},
         )
         assert response.status_code == 401
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_returns_stored_metrics(self, client, db_session, admin_token_headers):
+    async def test_returns_stored_metrics(
+        self, client, db_session, admin_token_headers
+    ):
         """Test endpoint returns previously stored metrics."""
         # Create some reliability metrics directly
         now = utc_now()
@@ -493,9 +506,9 @@ class TestReliabilityHistoryEndpoint:
                 details=m["details"],
             )
             db_session.add(metric)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
         )
@@ -521,7 +534,9 @@ class TestReliabilityHistoryEndpoint:
         assert data["metrics"][2]["metric_type"] == "split_half"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_filters_by_metric_type(self, client, db_session, admin_token_headers):
+    async def test_filters_by_metric_type(
+        self, client, db_session, admin_token_headers
+    ):
         """Test filtering by metric_type parameter."""
         # Create metrics of different types
         now = utc_now()
@@ -537,10 +552,10 @@ class TestReliabilityHistoryEndpoint:
                     details={"interpretation": "good"},
                 )
                 db_session.add(metric)
-        db_session.commit()
+        await db_session.commit()
 
         # Filter for just cronbachs_alpha
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
             params={"metric_type": "cronbachs_alpha"},
@@ -554,7 +569,7 @@ class TestReliabilityHistoryEndpoint:
             assert metric["metric_type"] == "cronbachs_alpha"
 
         # Filter for test_retest
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
             params={"metric_type": "test_retest"},
@@ -568,7 +583,7 @@ class TestReliabilityHistoryEndpoint:
             assert metric["metric_type"] == "test_retest"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_filters_by_days(self, client, db_session, admin_token_headers):
+    async def test_filters_by_days(self, client, db_session, admin_token_headers):
         """Test filtering by days parameter."""
         now = utc_now()
 
@@ -584,10 +599,10 @@ class TestReliabilityHistoryEndpoint:
                 details={"interpretation": "good"},
             )
             db_session.add(metric)
-        db_session.commit()
+        await db_session.commit()
 
         # Get last 30 days - should include ages 5 and 25
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
             params={"days": 30},
@@ -600,7 +615,7 @@ class TestReliabilityHistoryEndpoint:
         assert data["total_count"] == 2
 
         # Get last 90 days - should include ages 5, 25, 50
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
             params={"days": 90},
@@ -613,10 +628,12 @@ class TestReliabilityHistoryEndpoint:
         assert data["total_count"] == 3
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_days_parameter_validation(self, client, db_session, admin_token_headers):
+    async def test_days_parameter_validation(
+        self, client, db_session, admin_token_headers
+    ):
         """Test days parameter validation (1-365)."""
         # days must be >= 1
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
             params={"days": 0},
@@ -624,7 +641,7 @@ class TestReliabilityHistoryEndpoint:
         assert response.status_code == 422  # Validation error
 
         # days must be <= 365
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
             params={"days": 400},
@@ -632,7 +649,7 @@ class TestReliabilityHistoryEndpoint:
         assert response.status_code == 422  # Validation error
 
         # Valid days=1 should work
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
             params={"days": 1},
@@ -640,7 +657,7 @@ class TestReliabilityHistoryEndpoint:
         assert response.status_code == 200
 
         # Valid days=365 should work
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
             params={"days": 365},
@@ -648,7 +665,9 @@ class TestReliabilityHistoryEndpoint:
         assert response.status_code == 200
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_response_schema_structure(self, client, db_session, admin_token_headers):
+    async def test_response_schema_structure(
+        self, client, db_session, admin_token_headers
+    ):
         """Test response matches expected schema structure."""
         now = utc_now()
         metric = ReliabilityMetric(
@@ -663,9 +682,9 @@ class TestReliabilityHistoryEndpoint:
             },
         )
         db_session.add(metric)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
         )
@@ -689,10 +708,10 @@ class TestReliabilityHistoryEndpoint:
         # Validate metric_type is valid
         assert item["metric_type"] in ["cronbachs_alpha", "test_retest", "split_half"]
 
-    def test_admin_token_not_configured(self, client, db_session):
+    async def test_admin_token_not_configured(self, client, db_session):
         """Test handling when admin token is not configured on server."""
         with patch("app.core.config.settings.ADMIN_TOKEN", None):
-            response = client.get(
+            response = await client.get(
                 "/v1/admin/reliability/history",
                 headers={"X-Admin-Token": "any-token"},
             )
@@ -700,7 +719,7 @@ class TestReliabilityHistoryEndpoint:
             assert "not configured" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_combines_metric_type_and_days_filters(
+    async def test_combines_metric_type_and_days_filters(
         self, client, db_session, admin_token_headers
     ):
         """Test combining metric_type and days filters."""
@@ -729,10 +748,10 @@ class TestReliabilityHistoryEndpoint:
             details={},
         )
         db_session.add_all([old_alpha, new_alpha, new_retest])
-        db_session.commit()
+        await db_session.commit()
 
         # Filter for cronbachs_alpha in last 30 days
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability/history",
             headers=admin_token_headers,
             params={"metric_type": "cronbachs_alpha", "days": 30},
@@ -758,12 +777,12 @@ class TestReliabilityReportCaching:
     """
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_cache_used_when_store_metrics_false(
+    async def test_cache_used_when_store_metrics_false(
         self, client, db_session, admin_token_headers
     ):
         """Test that cached results are returned when store_metrics=false."""
         # First request - should populate cache
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -773,7 +792,7 @@ class TestReliabilityReportCaching:
         timestamp1 = data1["internal_consistency"]["last_calculated"]
 
         # Second request should return cached result with same timestamp
-        response2 = client.get(
+        response2 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -786,14 +805,14 @@ class TestReliabilityReportCaching:
         assert timestamp1 == timestamp2
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_cache_bypassed_when_store_metrics_true(
+    async def test_cache_bypassed_when_store_metrics_true(
         self, client, db_session, admin_token_headers
     ):
         """Test that cache is bypassed when store_metrics=true."""
         import time
 
         # First request with store_metrics=false to populate cache
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -805,7 +824,7 @@ class TestReliabilityReportCaching:
         time.sleep(0.5)
 
         # Request with store_metrics=true should bypass cache and recalculate
-        response2 = client.get(
+        response2 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": True},
@@ -817,12 +836,12 @@ class TestReliabilityReportCaching:
         assert timestamp1 != timestamp2
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_different_parameters_use_different_cache_keys(
+    async def test_different_parameters_use_different_cache_keys(
         self, client, db_session, admin_token_headers
     ):
         """Test that different min_sessions/min_retest_pairs use different cache keys."""
         # Request with default parameters
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False, "min_sessions": 100},
@@ -831,7 +850,7 @@ class TestReliabilityReportCaching:
 
         # Request with different min_sessions should succeed independently
         # (uses different cache key)
-        response2 = client.get(
+        response2 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False, "min_sessions": 50},
@@ -843,12 +862,14 @@ class TestReliabilityReportCaching:
         assert "internal_consistency" in response2.json()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_cache_invalidation_works(self, client, db_session, admin_token_headers):
+    async def test_cache_invalidation_works(
+        self, client, db_session, admin_token_headers
+    ):
         """Test that cache can be invalidated."""
         from app.core.reliability import invalidate_reliability_report_cache
 
         # First request to populate cache
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -864,7 +885,7 @@ class TestReliabilityReportCaching:
 
         # Delay to ensure different timestamp (0.5s for CI runner reliability)
         time.sleep(0.5)
-        response2 = client.get(
+        response2 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -876,12 +897,12 @@ class TestReliabilityReportCaching:
         assert timestamp1 != timestamp2
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_cache_does_not_affect_response_structure(
+    async def test_cache_does_not_affect_response_structure(
         self, client, db_session, admin_token_headers
     ):
         """Test that cached responses maintain the same structure as fresh responses."""
         # First request (fresh)
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -890,7 +911,7 @@ class TestReliabilityReportCaching:
         data1 = response1.json()
 
         # Second request (cached)
-        response2 = client.get(
+        response2 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False},
@@ -922,7 +943,7 @@ class TestRandomizedDataPatterns:
     """
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_high_variance_random_responses(
+    async def test_high_variance_random_responses(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test with high variance random response patterns.
@@ -934,7 +955,7 @@ class TestRandomizedDataPatterns:
 
         random.seed(42)  # Fixed seed for reproducibility
 
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 20 sessions with random responses (high variance)
@@ -945,7 +966,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             # Random responses with ~50% probability
             correct_count = 0
@@ -974,10 +995,10 @@ class TestRandomizedDataPatterns:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Request reliability report
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 10, "store_metrics": False},
@@ -994,7 +1015,7 @@ class TestRandomizedDataPatterns:
         assert "overall_status" in data
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_bimodal_score_distribution(
+    async def test_bimodal_score_distribution(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test with bimodal score distribution (some very high, some very low).
@@ -1006,7 +1027,7 @@ class TestRandomizedDataPatterns:
 
         random.seed(123)  # Fixed seed for reproducibility
 
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 20 sessions with bimodal distribution
@@ -1017,7 +1038,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             # Bimodal: first 10 sessions get ~90% correct, last 10 get ~20% correct
             high_performer = i < 10
@@ -1050,10 +1071,10 @@ class TestRandomizedDataPatterns:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Request reliability report
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 10, "store_metrics": False},
@@ -1069,7 +1090,7 @@ class TestRandomizedDataPatterns:
         assert "cronbachs_alpha" in data["internal_consistency"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_low_variance_nearly_identical_responses(
+    async def test_low_variance_nearly_identical_responses(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test with low variance responses (almost everyone answers the same).
@@ -1077,7 +1098,7 @@ class TestRandomizedDataPatterns:
         This is an edge case where nearly all sessions have identical response
         patterns, which can cause issues with variance calculations.
         """
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 15 sessions with nearly identical responses
@@ -1089,7 +1110,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             correct_count = 0
             for j, question in enumerate(questions):
@@ -1124,10 +1145,10 @@ class TestRandomizedDataPatterns:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Request reliability report
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 10, "store_metrics": False},
@@ -1141,7 +1162,7 @@ class TestRandomizedDataPatterns:
         assert data["internal_consistency"]["num_sessions"] >= 10
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_zero_variance_all_same_responses(
+    async def test_zero_variance_all_same_responses(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test edge case where all sessions have exactly the same responses.
@@ -1156,7 +1177,7 @@ class TestRandomizedDataPatterns:
         3. Set meets_threshold to False (cannot meet threshold with undefined alpha)
         4. Include an appropriate error or recommendation
         """
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 15 sessions with EXACTLY identical responses
@@ -1167,7 +1188,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             # Same pattern for everyone: first 10 correct, last 5 wrong
             for j, question in enumerate(questions):
@@ -1192,10 +1213,10 @@ class TestRandomizedDataPatterns:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Request reliability report
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 10, "store_metrics": False},
@@ -1231,7 +1252,7 @@ class TestRandomizedDataPatterns:
         )
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_skewed_difficulty_easy_items_only(
+    async def test_skewed_difficulty_easy_items_only(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test with skewed difficulty where most items are answered correctly.
@@ -1256,7 +1277,7 @@ class TestRandomizedDataPatterns:
 
         random.seed(456)
 
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 35 sessions where almost everyone gets almost everything right
@@ -1268,7 +1289,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             correct_count = 0
             for question in questions:
@@ -1296,9 +1317,9 @@ class TestRandomizedDataPatterns:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 10, "store_metrics": False},
@@ -1336,7 +1357,7 @@ class TestRandomizedDataPatterns:
         # This is expected psychometric behavior, not a bug
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_skewed_difficulty_hard_items_only(
+    async def test_skewed_difficulty_hard_items_only(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test with skewed difficulty where most items are answered incorrectly.
@@ -1348,7 +1369,7 @@ class TestRandomizedDataPatterns:
 
         random.seed(789)
 
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 20 sessions where almost everyone gets almost everything wrong
@@ -1359,7 +1380,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             correct_count = 0
             for question in questions:
@@ -1387,9 +1408,9 @@ class TestRandomizedDataPatterns:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 10, "store_metrics": False},
@@ -1404,7 +1425,7 @@ class TestRandomizedDataPatterns:
         assert "cronbachs_alpha" in data["internal_consistency"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_enum_validation_questionable_unacceptable_interpretations(
+    async def test_enum_validation_questionable_unacceptable_interpretations(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Regression test for ReliabilityInterpretation enum values (RE-FI-034).
@@ -1426,7 +1447,7 @@ class TestRandomizedDataPatterns:
 
         random.seed(20241217)  # Fixed seed for reproducibility
 
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create data with near-random response patterns that lack consistency
@@ -1442,7 +1463,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             correct_count = 0
             for j, question in enumerate(questions):
@@ -1483,11 +1504,11 @@ class TestRandomizedDataPatterns:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
         # This is the critical test: the endpoint should return 200 OK
         # even when interpretation is "questionable" or "unacceptable"
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 10, "store_metrics": False},
@@ -1542,7 +1563,7 @@ class TestRandomizedDataPatterns:
         ), "If alpha is calculated, interpretation should be provided"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_mixed_item_difficulty_realistic(
+    async def test_mixed_item_difficulty_realistic(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test with realistic mixed item difficulty (some easy, some hard).
@@ -1554,7 +1575,7 @@ class TestRandomizedDataPatterns:
 
         random.seed(999)
 
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Assign difficulty to each question (success probability)
@@ -1585,7 +1606,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             # Person ability modifier (some test-takers are better than others)
             ability_modifier = random.gauss(0, 0.15)  # Normal distribution
@@ -1621,9 +1642,9 @@ class TestRandomizedDataPatterns:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 15, "store_metrics": False},
@@ -1641,7 +1662,7 @@ class TestRandomizedDataPatterns:
             assert -1.0 <= alpha <= 1.0  # Alpha should be in valid range
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_random_noise_with_some_structure(
+    async def test_random_noise_with_some_structure(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test with random noise layered on structured responses.
@@ -1653,7 +1674,7 @@ class TestRandomizedDataPatterns:
 
         random.seed(2024)
 
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 30 sessions with structured + noisy responses
@@ -1664,7 +1685,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             # Base ability level for this session (varies across sessions)
             base_ability = 0.3 + (i / 30) * 0.5  # Ranges from 0.3 to 0.8
@@ -1705,9 +1726,9 @@ class TestRandomizedDataPatterns:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 20, "store_metrics": False},
@@ -1723,7 +1744,7 @@ class TestRandomizedDataPatterns:
             assert -1.0 <= alpha <= 1.0
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_extreme_outlier_session(
+    async def test_extreme_outlier_session(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test with one extreme outlier session among normal ones.
@@ -1736,7 +1757,7 @@ class TestRandomizedDataPatterns:
 
         random.seed(555)
 
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 19 normal sessions
@@ -1747,7 +1768,7 @@ class TestRandomizedDataPatterns:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             correct_count = 0
             for question in questions:
@@ -1782,7 +1803,7 @@ class TestRandomizedDataPatterns:
             started_at=base_time - timedelta(days=20),
         )
         db_session.add(outlier_session)
-        db_session.flush()
+        await db_session.flush()
 
         for question in questions:
             response = Response(
@@ -1804,9 +1825,9 @@ class TestRandomizedDataPatterns:
             completed_at=base_time - timedelta(days=20),
         )
         db_session.add(result)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 15, "store_metrics": False},
@@ -1831,7 +1852,7 @@ class TestLargeDatasetPerformance:
     """
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_large_dataset_10000_sessions(
+    async def test_large_dataset_10000_sessions(
         self, client, db_session, admin_token_headers
     ):
         """Test reliability calculation performance with 10,000+ sessions.
@@ -1849,7 +1870,7 @@ class TestLargeDatasetPerformance:
         random.seed(42)  # Fixed seed for reproducibility
 
         # Create 15 questions
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         question_ids = [q.id for q in questions]
 
         # Create a single user for all sessions (simplifies test)
@@ -1861,8 +1882,8 @@ class TestLargeDatasetPerformance:
             notification_enabled=False,
         )
         db_session.add(user)
-        db_session.commit()
-        db_session.refresh(user)
+        await db_session.commit()
+        await db_session.refresh(user)
 
         # Create 10,000 sessions using bulk inserts for efficiency
         NUM_SESSIONS = 10000
@@ -1882,16 +1903,16 @@ class TestLargeDatasetPerformance:
                     started_at=base_time - timedelta(hours=i),
                 )
                 db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             # Get the session IDs from this batch
-            batch_sessions = (
-                db_session.query(TestSession)
+            _qresult = await db_session.execute(
+                select(TestSession)
                 .filter(TestSession.user_id == user.id)
                 .order_by(TestSession.id.desc())
                 .limit(batch_end - batch_start)
-                .all()
             )
+            batch_sessions = _qresult.scalars().all()
 
             # Create responses and results for each session
             for session in batch_sessions:
@@ -1921,14 +1942,17 @@ class TestLargeDatasetPerformance:
                 )
                 db_session.add(result)
 
-            db_session.commit()
+            await db_session.commit()
 
         setup_time = time.time() - start_setup
 
         # Verify data was created
-        session_count = (
-            db_session.query(TestSession).filter(TestSession.user_id == user.id).count()
+        _qresult = await db_session.execute(
+            select(func.count())
+            .select_from(TestSession)
+            .filter(TestSession.user_id == user.id)
         )
+        session_count = _qresult.scalar()
         assert (
             session_count == NUM_SESSIONS
         ), f"Expected {NUM_SESSIONS} sessions, got {session_count}"
@@ -1936,7 +1960,7 @@ class TestLargeDatasetPerformance:
         # Now test the reliability endpoint performance
         start_request = time.time()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 100, "store_metrics": False},
@@ -1977,7 +2001,7 @@ class TestLargeDatasetPerformance:
             )
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_concurrent_request_handling(
+    async def test_concurrent_request_handling(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test that concurrent requests to reliability endpoint are handled correctly.
@@ -1994,7 +2018,7 @@ class TestLargeDatasetPerformance:
         random.seed(123)
 
         # Create test data (smaller dataset for concurrent test)
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 50 sessions for reasonable test data
@@ -2005,7 +2029,7 @@ class TestLargeDatasetPerformance:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             correct_count = 0
             for j, question in enumerate(questions):
@@ -2032,11 +2056,11 @@ class TestLargeDatasetPerformance:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
-        def make_request():
+        async def make_request():
             """Helper function to make a reliability endpoint request."""
-            return client.get(
+            return await client.get(
                 "/v1/admin/reliability",
                 headers=admin_token_headers,
                 params={"min_sessions": 10, "store_metrics": False},
@@ -2098,7 +2122,7 @@ class TestLargeDatasetPerformance:
         print(f"  Unique timestamps: {len(unique_timestamps)}")
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_all_users_identical_scores_zero_variance(
+    async def test_all_users_identical_scores_zero_variance(
         self, client, db_session, admin_token_headers
     ):
         """Test edge case where all users have exactly identical IQ scores.
@@ -2107,7 +2131,7 @@ class TestLargeDatasetPerformance:
         division by zero or undefined values in reliability calculations.
         This tests that the endpoint handles this gracefully.
         """
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create multiple users, each with exactly the same score
@@ -2123,7 +2147,7 @@ class TestLargeDatasetPerformance:
                 notification_enabled=False,
             )
             db_session.add(user)
-            db_session.flush()
+            await db_session.flush()
 
             session = TestSession(
                 user_id=user.id,
@@ -2131,7 +2155,7 @@ class TestLargeDatasetPerformance:
                 started_at=base_time - timedelta(days=u),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             # All users answer exactly the same way (first 10 correct, last 5 wrong)
             for j, question in enumerate(questions):
@@ -2157,15 +2181,16 @@ class TestLargeDatasetPerformance:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Verify scores are identical
-        scores = db_session.query(TestResult.iq_score).all()
+        _result_4 = await db_session.execute(select(TestResult.iq_score))
+        scores = _result_4.scalars().all()
         unique_scores = set(s[0] for s in scores)
         assert len(unique_scores) == 1, f"Expected 1 unique score, got {unique_scores}"
 
         # Request reliability report
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 10, "store_metrics": False},
@@ -2200,7 +2225,7 @@ class TestLargeDatasetPerformance:
         print(f"  Overall status: {data['overall_status']}")
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_large_dataset_with_many_questions(
+    async def test_large_dataset_with_many_questions(
         self, client, db_session, admin_token_headers
     ):
         """Test performance with large number of questions (50+).
@@ -2217,7 +2242,7 @@ class TestLargeDatasetPerformance:
 
         # Create 50 questions (larger than typical 15-20)
         NUM_QUESTIONS = 50
-        questions = create_test_questions(db_session, count=NUM_QUESTIONS)
+        questions = await create_test_questions(db_session, count=NUM_QUESTIONS)
         question_ids = [q.id for q in questions]
 
         # Create test user
@@ -2229,8 +2254,8 @@ class TestLargeDatasetPerformance:
             notification_enabled=False,
         )
         db_session.add(user)
-        db_session.commit()
-        db_session.refresh(user)
+        await db_session.commit()
+        await db_session.refresh(user)
 
         # Create 200 sessions with 50 questions each = 10,000 responses
         NUM_SESSIONS = 200
@@ -2243,7 +2268,7 @@ class TestLargeDatasetPerformance:
                 started_at=base_time - timedelta(hours=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             correct_count = 0
             for j, qid in enumerate(question_ids):
@@ -2274,14 +2299,14 @@ class TestLargeDatasetPerformance:
 
             # Commit in batches to avoid memory issues
             if i % 50 == 0:
-                db_session.commit()
+                await db_session.commit()
 
-        db_session.commit()
+        await db_session.commit()
 
         # Test reliability endpoint
         start_time = time.time()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"min_sessions": 50, "store_metrics": False},
@@ -2311,7 +2336,7 @@ class TestLargeDatasetPerformance:
         assert request_time < 30, f"Request took {request_time:.2f}s, expected < 30s"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_stress_test_rapid_sequential_requests(
+    async def test_stress_test_rapid_sequential_requests(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Stress test with rapid sequential requests.
@@ -2325,7 +2350,7 @@ class TestLargeDatasetPerformance:
         random.seed(456)
 
         # Create test data
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create 30 sessions
@@ -2336,7 +2361,7 @@ class TestLargeDatasetPerformance:
                 started_at=base_time - timedelta(days=i),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             correct_count = 0
             for j, question in enumerate(questions):
@@ -2363,7 +2388,7 @@ class TestLargeDatasetPerformance:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Make rapid sequential requests
         NUM_REQUESTS = 50
@@ -2373,7 +2398,7 @@ class TestLargeDatasetPerformance:
         for i in range(NUM_REQUESTS):
             start = time.time()
             try:
-                response = client.get(
+                response = await client.get(
                     "/v1/admin/reliability",
                     headers=admin_token_headers,
                     params={"min_sessions": 10, "store_metrics": False},
@@ -2411,7 +2436,7 @@ class TestAutomaticCacheInvalidation:
     """
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_cache_invalidated_on_test_submit(
+    async def test_cache_invalidated_on_test_submit(
         self, client, db_session, admin_token_headers
     ):
         """Test that submitting a test invalidates the reliability cache.
@@ -2434,13 +2459,13 @@ class TestAutomaticCacheInvalidation:
             notification_enabled=False,
         )
         db_session.add(user)
-        db_session.flush()
+        await db_session.flush()
         auth_headers = {
             "Authorization": f"Bearer {create_access_token({'user_id': user.id})}"
         }
 
         # Create test questions
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create existing sessions for baseline reliability data
@@ -2451,7 +2476,7 @@ class TestAutomaticCacheInvalidation:
                 started_at=base_time - timedelta(days=i + 200),  # Old sessions
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             for j, question in enumerate(questions):
                 is_correct = (i + j) % 2 == 0
@@ -2477,10 +2502,10 @@ class TestAutomaticCacheInvalidation:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
         # First reliability request - populate cache
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False, "min_sessions": 10},
@@ -2489,7 +2514,7 @@ class TestAutomaticCacheInvalidation:
         timestamp1 = response1.json()["internal_consistency"]["last_calculated"]
 
         # Second request should hit cache (same timestamp)
-        response2 = client.get(
+        response2 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False, "min_sessions": 10},
@@ -2505,7 +2530,7 @@ class TestAutomaticCacheInvalidation:
             started_at=utc_now(),
         )
         db_session.add(new_session)
-        db_session.flush()
+        await db_session.flush()
 
         # Mark questions as seen for this session
         for question in questions[:3]:
@@ -2516,14 +2541,14 @@ class TestAutomaticCacheInvalidation:
                 seen_at=utc_now(),
             )
             db_session.add(user_question)
-        db_session.commit()
-        db_session.refresh(new_session)
+        await db_session.commit()
+        await db_session.refresh(new_session)
 
         # Delay to ensure different timestamp (0.5s for CI runner reliability)
         time.sleep(0.5)
 
         # Submit the test via the endpoint (this should invalidate the cache)
-        submit_response = client.post(
+        submit_response = await client.post(
             "/v1/test/submit",
             headers=auth_headers,
             json={
@@ -2555,7 +2580,7 @@ class TestAutomaticCacheInvalidation:
         time.sleep(0.5)
 
         # Third reliability request should get fresh calculation (cache invalidated)
-        response3 = client.get(
+        response3 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False, "min_sessions": 10},
@@ -2570,7 +2595,7 @@ class TestAutomaticCacheInvalidation:
         )
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_cache_invalidation_function_called_on_submit(
+    async def test_cache_invalidation_function_called_on_submit(
         self, client, db_session, admin_token_headers
     ):
         """Test that invalidate_reliability_report_cache() is called when test is submitted.
@@ -2589,13 +2614,13 @@ class TestAutomaticCacheInvalidation:
             notification_enabled=False,
         )
         db_session.add(user)
-        db_session.flush()
+        await db_session.flush()
         auth_headers = {
             "Authorization": f"Bearer {create_access_token({'user_id': user.id})}"
         }
 
         # Create test questions
-        questions = create_test_questions(db_session, count=5)
+        questions = await create_test_questions(db_session, count=5)
 
         # Create an in-progress session
         session = TestSession(
@@ -2604,7 +2629,7 @@ class TestAutomaticCacheInvalidation:
             started_at=utc_now(),
         )
         db_session.add(session)
-        db_session.flush()
+        await db_session.flush()
 
         # Mark questions as seen
         for question in questions[:2]:
@@ -2615,15 +2640,15 @@ class TestAutomaticCacheInvalidation:
                 seen_at=utc_now(),
             )
             db_session.add(user_question)
-        db_session.commit()
-        db_session.refresh(session)
+        await db_session.commit()
+        await db_session.refresh(session)
 
         # Mock the cache invalidation function to verify it's called
         with patch(
             "app.api.v1.test.invalidate_reliability_report_cache"
         ) as mock_invalidate:
             # Submit the test
-            submit_response = client.post(
+            submit_response = await client.post(
                 "/v1/test/submit",
                 headers=auth_headers,
                 json={
@@ -2650,7 +2675,7 @@ class TestAutomaticCacheInvalidation:
             mock_invalidate.assert_called_once()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_new_test_data_reflected_in_reliability_after_invalidation(
+    async def test_new_test_data_reflected_in_reliability_after_invalidation(
         self, client, db_session, admin_token_headers
     ):
         """Test that new test data affects reliability metrics after cache invalidation.
@@ -2672,13 +2697,13 @@ class TestAutomaticCacheInvalidation:
             notification_enabled=False,
         )
         db_session.add(user)
-        db_session.flush()
+        await db_session.flush()
         auth_headers = {
             "Authorization": f"Bearer {create_access_token({'user_id': user.id})}"
         }
 
         # Create test questions
-        questions = create_test_questions(db_session, count=15)
+        questions = await create_test_questions(db_session, count=15)
         base_time = utc_now()
 
         # Create initial sessions (20 sessions)
@@ -2690,7 +2715,7 @@ class TestAutomaticCacheInvalidation:
                 started_at=base_time - timedelta(days=i + 200),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             for j, question in enumerate(questions):
                 is_correct = (i + j) % 2 == 0
@@ -2716,10 +2741,10 @@ class TestAutomaticCacheInvalidation:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Get initial reliability report
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False, "min_sessions": 10},
@@ -2734,7 +2759,7 @@ class TestAutomaticCacheInvalidation:
             started_at=utc_now(),
         )
         db_session.add(new_session)
-        db_session.flush()
+        await db_session.flush()
 
         # Mark questions as seen for new session
         for question in questions:
@@ -2745,11 +2770,11 @@ class TestAutomaticCacheInvalidation:
                 seen_at=utc_now(),
             )
             db_session.add(user_question)
-        db_session.commit()
-        db_session.refresh(new_session)
+        await db_session.commit()
+        await db_session.refresh(new_session)
 
         # Submit the new test
-        submit_response = client.post(
+        submit_response = await client.post(
             "/v1/test/submit",
             headers=auth_headers,
             json={
@@ -2763,7 +2788,7 @@ class TestAutomaticCacheInvalidation:
         assert submit_response.status_code == 200
 
         # Get reliability report again - should show increased session count
-        response2 = client.get(
+        response2 = await client.get(
             "/v1/admin/reliability",
             headers=admin_token_headers,
             params={"store_metrics": False, "min_sessions": 10},

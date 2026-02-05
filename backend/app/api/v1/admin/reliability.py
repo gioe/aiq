@@ -7,7 +7,7 @@ Cronbach's alpha, test-retest reliability, and split-half reliability.
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.error_responses import ErrorMessages, raise_server_error
 from app.core.reliability import (
@@ -40,7 +40,7 @@ router = APIRouter()
     },
 )
 async def get_reliability_report_endpoint(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
     min_sessions: int = Query(
         default=100,
@@ -92,7 +92,7 @@ async def get_reliability_report_endpoint(
         # Generate the reliability report (RE-FI-019)
         # When store_metrics=True, bypass cache to ensure fresh data is stored
         # When store_metrics=False, use cache to avoid expensive recalculation
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db=db,
             min_sessions=min_sessions,
             min_retest_pairs=min_retest_pairs,
@@ -106,7 +106,7 @@ async def get_reliability_report_endpoint(
                 # Store Cronbach's alpha if calculated
                 alpha = report["internal_consistency"].get("cronbachs_alpha")
                 if alpha is not None:
-                    store_reliability_metric(
+                    await store_reliability_metric(
                         db=db,
                         metric_type="cronbachs_alpha",
                         value=alpha,
@@ -127,7 +127,7 @@ async def get_reliability_report_endpoint(
                 # Store test-retest reliability if calculated
                 test_retest_r = report["test_retest"].get("correlation")
                 if test_retest_r is not None:
-                    store_reliability_metric(
+                    await store_reliability_metric(
                         db=db,
                         metric_type="test_retest",
                         value=test_retest_r,
@@ -151,7 +151,7 @@ async def get_reliability_report_endpoint(
                 # Store split-half reliability if calculated
                 spearman_brown = report["split_half"].get("spearman_brown")
                 if spearman_brown is not None:
-                    store_reliability_metric(
+                    await store_reliability_metric(
                         db=db,
                         metric_type="split_half",
                         value=spearman_brown,
@@ -170,7 +170,7 @@ async def get_reliability_report_endpoint(
                     )
             except Exception as e:
                 # Log error but don't fail the request - still return the calculated report
-                db.rollback()
+                await db.rollback()
                 logger.error(f"Failed to store reliability metrics: {str(e)}")
 
         # Build response using Pydantic models
@@ -230,7 +230,7 @@ async def get_reliability_report_endpoint(
     },
 )
 async def get_reliability_history_endpoint(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
     metric_type: Optional[MetricTypeLiteral] = Query(
         default=None,
@@ -265,7 +265,7 @@ async def get_reliability_history_endpoint(
     try:
         # Get historical metrics using the core function.
         # metric_type is already validated by FastAPI via Literal type annotation.
-        metrics = get_reliability_history(
+        metrics = await get_reliability_history(
             db=db,
             metric_type=metric_type,
             days=days,

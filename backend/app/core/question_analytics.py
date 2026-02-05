@@ -15,7 +15,8 @@ Metrics calculated:
 """
 # mypy: disable-error-code="dict-item"
 import logging
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import Dict, List
 import statistics
 
@@ -180,7 +181,9 @@ def calculate_point_biserial_correlation(
     return r_pb
 
 
-def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
+async def update_question_statistics(
+    db: AsyncSession, session_id: int
+) -> Dict[int, Dict]:
     """
     Update empirical statistics for all questions in a completed test session.
 
@@ -221,12 +224,12 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
         IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 390-420
     """
     # Get all responses from this session to know which questions to update
-    session_responses = (
-        db.query(Response.question_id)
+    _result = await db.execute(
+        select(Response.question_id)
         .filter(Response.test_session_id == session_id)
         .distinct()
-        .all()
     )
+    session_responses = _result.all()
 
     question_ids = [r.question_id for r in session_responses]
 
@@ -238,11 +241,12 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
 
     for question_id in question_ids:
         # Get all responses for this question across all users/sessions
-        all_responses = (
-            db.query(Response.is_correct, Response.user_id, Response.test_session_id)
-            .filter(Response.question_id == question_id)
-            .all()
+        _result = await db.execute(
+            select(
+                Response.is_correct, Response.user_id, Response.test_session_id
+            ).filter(Response.question_id == question_id)
         )
+        all_responses = _result.all()
 
         response_count = len(all_responses)
 
@@ -266,11 +270,12 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
 
             for response in all_responses:
                 # Get the test result for this session
-                test_result = (
-                    db.query(TestResult.correct_answers)
-                    .filter(TestResult.test_session_id == response.test_session_id)
-                    .first()
+                _result = await db.execute(
+                    select(TestResult.correct_answers).filter(
+                        TestResult.test_session_id == response.test_session_id
+                    )
                 )
+                test_result = _result.first()
 
                 if test_result:
                     item_scores.append(1 if response.is_correct else 0)
@@ -284,8 +289,8 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
                 )
 
         # Update question statistics
-        question = db.query(Question).filter(Question.id == question_id).first()
-
+        _result = await db.execute(select(Question).filter(Question.id == question_id))
+        question = _result.scalars().first()
         if question:
             question.empirical_difficulty = empirical_difficulty
             question.discrimination = discrimination
@@ -349,7 +354,7 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
             }
 
     # Commit all question updates
-    db.commit()
+    await db.commit()
 
     logger.info(
         f"Updated statistics for {len(results)} questions from session {session_id}"
@@ -361,7 +366,7 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
     return results
 
 
-def get_question_statistics(db: Session, question_id: int) -> Dict:
+async def get_question_statistics(db: AsyncSession, question_id: int) -> Dict:
     """
     Get current performance statistics for a question.
 
@@ -379,8 +384,8 @@ def get_question_statistics(db: Session, question_id: int) -> Dict:
             "has_sufficient_data": bool
         }
     """
-    question = db.query(Question).filter(Question.id == question_id).first()
-
+    _result = await db.execute(select(Question).filter(Question.id == question_id))
+    question = _result.scalars().first()
     if not question:
         return {
             "question_id": question_id,
@@ -405,7 +410,9 @@ def get_question_statistics(db: Session, question_id: int) -> Dict:
     }
 
 
-def get_all_question_statistics(db: Session, min_responses: int = 0) -> List[Dict]:
+async def get_all_question_statistics(
+    db: AsyncSession, min_responses: int = 0
+) -> List[Dict]:
     """
     Get performance statistics for all questions.
 
@@ -416,9 +423,10 @@ def get_all_question_statistics(db: Session, min_responses: int = 0) -> List[Dic
     Returns:
         List of dictionaries with question statistics, ordered by response count DESC
     """
-    query = db.query(Question).filter(Question.response_count >= min_responses)
+    query = select(Question).filter(Question.response_count >= min_responses)
 
-    questions = query.order_by(Question.response_count.desc()).all()
+    _result = await db.execute(query.order_by(Question.response_count.desc()))
+    questions = _result.scalars().all()
 
     results = []
     for question in questions:
@@ -442,8 +450,8 @@ def get_all_question_statistics(db: Session, min_responses: int = 0) -> List[Dic
     return results
 
 
-def identify_problematic_questions(
-    db: Session, min_responses: int = 30
+async def identify_problematic_questions(
+    db: AsyncSession, min_responses: int = 30
 ) -> Dict[str, List[Dict]]:
     """
     Identify questions with poor psychometric properties.
@@ -472,14 +480,13 @@ def identify_problematic_questions(
         IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 425-455
     """
     # Get all questions with sufficient data
-    questions = (
-        db.query(Question)
-        .filter(
+    _result = await db.execute(
+        select(Question).filter(
             Question.response_count >= min_responses,
             Question.is_active == True,  # noqa: E712
         )
-        .all()
     )
+    questions = _result.scalars().all()
 
     results = {
         "too_easy": [],
@@ -635,8 +642,8 @@ def _is_within_range(
 DEFAULT_BATCH_SIZE = 1000
 
 
-def validate_difficulty_labels(
-    db: Session,
+async def validate_difficulty_labels(
+    db: AsyncSession,
     min_responses: int = 100,
     batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> Dict[str, List[Dict]]:
@@ -707,14 +714,14 @@ def validate_difficulty_labels(
 
     while True:
         # Fetch one batch of questions, ordered by id for deterministic pagination
-        questions = (
-            db.query(Question)
+        _result = await db.execute(
+            select(Question)
             .filter(Question.is_active == True)  # noqa: E712
             .order_by(Question.id)
             .offset(offset)
             .limit(batch_size)
-            .all()
         )
+        questions = _result.scalars().all()
 
         # Exit loop when no more questions
         if not questions:
@@ -822,8 +829,8 @@ SEVERITY_ORDER = {"minor": 0, "major": 1, "severe": 2}
 # =============================================================================
 
 
-def auto_flag_problematic_questions(
-    db: Session,
+async def auto_flag_problematic_questions(
+    db: AsyncSession,
     min_responses: int = 50,
     discrimination_threshold: float = 0.0,
 ) -> List[Dict]:
@@ -865,17 +872,16 @@ def auto_flag_problematic_questions(
     # 2. Have negative discrimination (< discrimination_threshold)
     # 3. Are not already flagged (quality_flag == "normal")
     # 4. Have a calculated discrimination value (not NULL)
-    questions_to_flag = (
-        db.query(Question)
-        .filter(
+    _result = await db.execute(
+        select(Question).filter(
             Question.response_count >= min_responses,
             Question.discrimination < discrimination_threshold,
             Question.discrimination.isnot(None),  # Must have discrimination data
             Question.quality_flag == "normal",  # Not already flagged
             Question.is_active == True,  # noqa: E712
         )
-        .all()
     )
+    questions_to_flag = _result.scalars().all()
 
     flagged_questions = []
     now = utc_now()
@@ -907,7 +913,7 @@ def auto_flag_problematic_questions(
 
     # Commit changes if any questions were flagged
     if flagged_questions:
-        db.commit()
+        await db.commit()
         logger.info(
             f"Auto-flagged {len(flagged_questions)} questions with "
             f"discrimination < {discrimination_threshold}"
@@ -916,8 +922,8 @@ def auto_flag_problematic_questions(
     return flagged_questions
 
 
-def recalibrate_questions(
-    db: Session,
+async def recalibrate_questions(
+    db: AsyncSession,
     min_responses: int = 100,
     question_ids: Optional[List[int]] = None,
     severity_threshold: str = "major",
@@ -986,7 +992,7 @@ def recalibrate_questions(
     threshold_level = SEVERITY_ORDER[severity_threshold]
 
     # Get validation results
-    validation_results = validate_difficulty_labels(db, min_responses)
+    validation_results = await validate_difficulty_labels(db, min_responses)
 
     results: Dict[str, Any] = {
         "recalibrated": [],
@@ -1049,7 +1055,10 @@ def recalibrate_questions(
         if not dry_run:
             # Perform the actual recalibration
             try:
-                question = db.query(Question).filter(Question.id == question_id).first()
+                _result = await db.execute(
+                    select(Question).filter(Question.id == question_id)
+                )
+                question = _result.scalars().first()
                 if question:
                     # Preserve original difficulty if this is the first recalibration
                     if question.original_difficulty_level is None:
@@ -1130,12 +1139,12 @@ def recalibrate_questions(
     # Commit changes if not dry run
     if not dry_run and results["total_recalibrated"] > 0:
         try:
-            db.commit()
+            await db.commit()
             logger.info(
                 f"Recalibration complete: {results['total_recalibrated']} questions updated"
             )
         except Exception as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Failed to commit recalibration changes: {e}")
             raise RuntimeError(
                 f"Recalibration failed during commit: {e}. "

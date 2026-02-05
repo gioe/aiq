@@ -1,3 +1,5 @@
+from sqlalchemy import select
+
 """
 Tests for question serving endpoints.
 """
@@ -6,9 +8,13 @@ Tests for question serving endpoints.
 class TestGetUnseenQuestions:
     """Tests for the GET /v1/questions/unseen endpoint."""
 
-    def test_get_unseen_questions_success(self, client, auth_headers, test_questions):
+    async def test_get_unseen_questions_success(
+        self, client, auth_headers, test_questions
+    ):
         """Test successfully fetching unseen questions."""
-        response = client.get("/v1/questions/unseen?count=3", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=3", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -36,11 +42,11 @@ class TestGetUnseenQuestions:
         # Verify explanation is not returned before submission
         assert question["explanation"] is None
 
-    def test_get_unseen_questions_default_count(
+    async def test_get_unseen_questions_default_count(
         self, client, auth_headers, test_questions
     ):
         """Test fetching unseen questions with default count."""
-        response = client.get("/v1/questions/unseen", headers=auth_headers)
+        response = await client.get("/v1/questions/unseen", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -50,11 +56,13 @@ class TestGetUnseenQuestions:
         assert data["total_count"] == 4  # Only 4 active questions available
         assert len(data["questions"]) == 4
 
-    def test_get_unseen_questions_filters_inactive(
+    async def test_get_unseen_questions_filters_inactive(
         self, client, auth_headers, test_questions
     ):
         """Test that inactive questions are not returned."""
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -66,14 +74,16 @@ class TestGetUnseenQuestions:
         question_texts = [q["question_text"] for q in data["questions"]]
         assert "Inactive question - should not appear" not in question_texts
 
-    def test_get_unseen_questions_excludes_seen(
+    async def test_get_unseen_questions_excludes_seen(
         self, client, auth_headers, test_questions, mark_questions_seen
     ):
         """Test that questions already seen by user are excluded."""
         # Mark first two questions as seen (indices 0 and 1)
-        mark_questions_seen([0, 1])
+        await mark_questions_seen([0, 1])
 
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -91,14 +101,14 @@ class TestGetUnseenQuestions:
         assert test_questions[2].id in returned_ids
         assert test_questions[3].id in returned_ids
 
-    def test_get_unseen_questions_all_seen(
+    async def test_get_unseen_questions_all_seen(
         self, client, auth_headers, test_questions, mark_questions_seen
     ):
         """Test response when all active questions have been seen."""
         # Mark all active questions as seen (indices 0, 1, 2, 3)
-        mark_questions_seen([0, 1, 2, 3])
+        await mark_questions_seen([0, 1, 2, 3])
 
-        response = client.get("/v1/questions/unseen", headers=auth_headers)
+        response = await client.get("/v1/questions/unseen", headers=auth_headers)
 
         # Should return 404 when no unseen questions are available
         assert response.status_code == 404
@@ -106,44 +116,52 @@ class TestGetUnseenQuestions:
         assert "detail" in data
         assert "No unseen questions available" in data["detail"]
 
-    def test_get_unseen_questions_count_validation(
+    async def test_get_unseen_questions_count_validation(
         self, client, auth_headers, test_questions
     ):
         """Test count parameter validation."""
         # Test count = 0 (below minimum)
-        response = client.get("/v1/questions/unseen?count=0", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=0", headers=auth_headers
+        )
         assert response.status_code == 422  # Validation error
 
         # Test count = 101 (above maximum)
-        response = client.get("/v1/questions/unseen?count=101", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=101", headers=auth_headers
+        )
         assert response.status_code == 422  # Validation error
 
         # Test count = 1 (valid minimum)
-        response = client.get("/v1/questions/unseen?count=1", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=1", headers=auth_headers
+        )
         assert response.status_code == 200
         assert response.json()["total_count"] == 1
 
         # Test count = 100 (valid maximum)
-        response = client.get("/v1/questions/unseen?count=100", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=100", headers=auth_headers
+        )
         assert response.status_code == 200
         # Should return 4 (all available active questions)
         assert response.json()["total_count"] == 4
 
-    def test_get_unseen_questions_requires_auth(self, client, test_questions):
+    async def test_get_unseen_questions_requires_auth(self, client, test_questions):
         """Test that endpoint requires authentication."""
-        response = client.get("/v1/questions/unseen")
+        response = await client.get("/v1/questions/unseen")
 
         # Should return 401 or 403 for missing authentication
         assert response.status_code in [401, 403]
 
-    def test_get_unseen_questions_invalid_token(self, client, test_questions):
+    async def test_get_unseen_questions_invalid_token(self, client, test_questions):
         """Test that endpoint rejects invalid token."""
         headers = {"Authorization": "Bearer invalid_token_here"}
-        response = client.get("/v1/questions/unseen", headers=headers)
+        response = await client.get("/v1/questions/unseen", headers=headers)
 
         assert response.status_code == 401  # Unauthorized
 
-    def test_get_unseen_questions_multiple_users(
+    async def test_get_unseen_questions_multiple_users(
         self, client, db_session, test_questions, mark_questions_seen
     ):
         """Test that seen questions are tracked per-user."""
@@ -158,25 +176,25 @@ class TestGetUnseenQuestions:
             last_name="Two",
         )
         db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
+        await db_session.commit()
+        await db_session.refresh(user2)
 
         # Mark questions as seen for first user
-        mark_questions_seen([0, 1])
+        await mark_questions_seen([0, 1])
 
         # Mark questions as seen for first user (need to get test_user from fixture)
         # Get test user ID from the database
         from app.models import User as UserModel
 
-        test_user = (
-            db_session.query(UserModel)
-            .filter(UserModel.email == "test@example.com")
-            .first()
+        _result = await db_session.execute(
+            select(UserModel).filter(UserModel.email == "test@example.com")
         )
+
+        test_user = _result.scalars().first()
 
         # First user should see only 2 unseen questions
         user1_token = create_access_token({"user_id": test_user.id})
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/questions/unseen?count=10",
             headers={"Authorization": f"Bearer {user1_token}"},
         )
@@ -185,18 +203,20 @@ class TestGetUnseenQuestions:
 
         # Second user should see all 4 active questions
         user2_token = create_access_token({"user_id": user2.id})
-        response2 = client.get(
+        response2 = await client.get(
             "/v1/questions/unseen?count=10",
             headers={"Authorization": f"Bearer {user2_token}"},
         )
         assert response2.status_code == 200
         assert response2.json()["total_count"] == 4
 
-    def test_get_unseen_questions_response_format(
+    async def test_get_unseen_questions_response_format(
         self, client, auth_headers, test_questions
     ):
         """Test that response format matches schema."""
-        response = client.get("/v1/questions/unseen?count=1", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=1", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -219,11 +239,13 @@ class TestGetUnseenQuestions:
             question["answer_options"], list
         )
 
-    def test_get_unseen_questions_question_types(
+    async def test_get_unseen_questions_question_types(
         self, client, auth_headers, test_questions
     ):
         """Test that various question types are returned correctly."""
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -237,11 +259,13 @@ class TestGetUnseenQuestions:
         assert "math" in question_types
         assert "verbal" in question_types
 
-    def test_get_unseen_questions_difficulty_levels(
+    async def test_get_unseen_questions_difficulty_levels(
         self, client, auth_headers, test_questions
     ):
         """Test that various difficulty levels are returned correctly."""
-        response = client.get("/v1/questions/unseen?count=10", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=10", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()

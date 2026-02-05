@@ -14,6 +14,7 @@ from datetime import datetime
 
 import numpy as np
 import pytest
+import pytest_asyncio
 
 from app.core.cat.calibration import (
     FIT_GOOD,
@@ -265,7 +266,7 @@ class TestCalibrateQuestions2PL:
 class TestBuildPriorsFromCTT:
     """Tests for the build_priors_from_ctt function."""
 
-    def test_logit_transformation(self, db_session):
+    async def test_logit_transformation(self, db_session):
         """Empirical difficulty should transform to logit scale correctly."""
         # Easy item: p=0.80 -> b = -1.386
         q1 = Question(
@@ -301,9 +302,9 @@ class TestBuildPriorsFromCTT:
             is_active=True,
         )
         db_session.add_all([q1, q2, q3])
-        db_session.commit()
+        await db_session.commit()
 
-        prior_diffs, prior_discs = build_priors_from_ctt(
+        prior_diffs, prior_discs = await build_priors_from_ctt(
             db_session, [q1.id, q2.id, q3.id]
         )
 
@@ -321,7 +322,7 @@ class TestBuildPriorsFromCTT:
         assert prior_discs[q2.id] == pytest.approx(0.30)
         assert prior_discs[q3.id] == pytest.approx(0.50)
 
-    def test_missing_ctt_metrics(self, db_session):
+    async def test_missing_ctt_metrics(self, db_session):
         """Questions without CTT metrics should be excluded from priors."""
         q = Question(
             question_text="New question",
@@ -334,14 +335,14 @@ class TestBuildPriorsFromCTT:
             is_active=True,
         )
         db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        prior_diffs, prior_discs = build_priors_from_ctt(db_session, [q.id])
+        prior_diffs, prior_discs = await build_priors_from_ctt(db_session, [q.id])
 
         assert q.id not in prior_diffs
         assert q.id not in prior_discs
 
-    def test_negative_discrimination_excluded(self, db_session):
+    async def test_negative_discrimination_excluded(self, db_session):
         """Negative CTT discrimination should not produce a prior."""
         q = Question(
             question_text="Bad discriminator",
@@ -354,14 +355,14 @@ class TestBuildPriorsFromCTT:
             is_active=True,
         )
         db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        prior_diffs, prior_discs = build_priors_from_ctt(db_session, [q.id])
+        prior_diffs, prior_discs = await build_priors_from_ctt(db_session, [q.id])
 
         assert q.id in prior_diffs  # Difficulty prior still valid
         assert q.id not in prior_discs  # Negative discrimination excluded
 
-    def test_extreme_p_values_clamped(self, db_session):
+    async def test_extreme_p_values_clamped(self, db_session):
         """P-values near 0 or 1 should be clamped to avoid log(0)."""
         q_easy = Question(
             question_text="Nearly impossible to fail",
@@ -384,9 +385,9 @@ class TestBuildPriorsFromCTT:
             is_active=True,
         )
         db_session.add_all([q_easy, q_hard])
-        db_session.commit()
+        await db_session.commit()
 
-        prior_diffs, _ = build_priors_from_ctt(db_session, [q_easy.id, q_hard.id])
+        prior_diffs, _ = await build_priors_from_ctt(db_session, [q_easy.id, q_hard.id])
 
         # Should produce finite values (clamped)
         assert np.isfinite(prior_diffs[q_easy.id])
@@ -399,8 +400,8 @@ class TestBuildPriorsFromCTT:
 class TestRunCalibrationJob:
     """Tests for the full calibration pipeline."""
 
-    @pytest.fixture
-    def calibration_data(self, db_session):
+    @pytest_asyncio.fixture
+    async def calibration_data(self, db_session):
         """Set up a realistic calibration scenario with questions, users, and responses."""
         test_password_hash = "hash"  # pragma: allowlist secret
 
@@ -410,7 +411,7 @@ class TestRunCalibrationJob:
             for i in range(50)
         ]
         db_session.add_all(users)
-        db_session.flush()
+        await db_session.flush()
 
         # Create questions with CTT stats
         questions = []
@@ -435,7 +436,7 @@ class TestRunCalibrationJob:
             questions.append(q)
 
         db_session.add_all(questions)
-        db_session.flush()
+        await db_session.flush()
 
         # Create test sessions and responses
         theta = rng.standard_normal(50)
@@ -447,7 +448,7 @@ class TestRunCalibrationJob:
                 completed_at=datetime(2026, 1, 15, 12, 0, 0),
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             for q_idx, question in enumerate(questions):
                 p = 1.0 / (
@@ -464,7 +465,7 @@ class TestRunCalibrationJob:
                 )
                 db_session.add(response)
 
-        db_session.commit()
+        await db_session.commit()
         return {
             "questions": questions,
             "users": users,
@@ -472,9 +473,9 @@ class TestRunCalibrationJob:
             "true_b": true_b,
         }
 
-    def test_full_pipeline(self, db_session, calibration_data):
+    async def test_full_pipeline(self, db_session, calibration_data):
         """Full calibration job should update IRT parameters in database."""
-        result = run_calibration_job(
+        result = await run_calibration_job(
             db=db_session,
             min_responses=10,
             bootstrap_se=False,
@@ -486,7 +487,7 @@ class TestRunCalibrationJob:
 
         # Verify database was updated with plausible values
         for q in calibration_data["questions"]:
-            db_session.refresh(q)
+            await db_session.refresh(q)
             assert q.irt_difficulty is not None
             assert q.irt_discrimination is not None
             assert q.irt_discrimination > 0, "Discrimination should be positive"
@@ -502,22 +503,22 @@ class TestRunCalibrationJob:
             corr_b > 0.80
         ), f"Pipeline difficulty recovery correlation {corr_b:.3f} < 0.80"
 
-    def test_min_responses_filter(self, db_session, calibration_data):
+    async def test_min_responses_filter(self, db_session, calibration_data):
         """High min_responses should filter out items with fewer responses."""
-        result = run_calibration_job(
+        result = await run_calibration_job(
             db=db_session,
             min_responses=999,
             bootstrap_se=False,
         )
         assert result["calibrated"] == 0
 
-    def test_specific_question_ids(self, db_session, calibration_data):
+    async def test_specific_question_ids(self, db_session, calibration_data):
         """Specifying question_ids should limit calibration scope."""
         subset = [
             calibration_data["questions"][0].id,
             calibration_data["questions"][1].id,
         ]
-        result = run_calibration_job(
+        result = await run_calibration_job(
             db=db_session,
             question_ids=subset,
             min_responses=10,
@@ -525,7 +526,7 @@ class TestRunCalibrationJob:
         )
         assert result["calibrated"] == 2
 
-    def test_excludes_adaptive_sessions(self, db_session, calibration_data):
+    async def test_excludes_adaptive_sessions(self, db_session, calibration_data):
         """Responses from adaptive (CAT) sessions should be excluded."""
         # Add an adaptive session with many responses
         user = calibration_data["users"][0]
@@ -536,7 +537,7 @@ class TestRunCalibrationJob:
             completed_at=datetime(2026, 1, 20, 12, 0, 0),
         )
         db_session.add(adaptive_session)
-        db_session.flush()
+        await db_session.flush()
 
         for q in calibration_data["questions"]:
             resp = Response(
@@ -548,10 +549,10 @@ class TestRunCalibrationJob:
                 answered_at=datetime(2026, 1, 20, 12, 0, 0),
             )
             db_session.add(resp)
-        db_session.commit()
+        await db_session.commit()
 
         # Calibration should still work (adaptive responses excluded)
-        result = run_calibration_job(
+        result = await run_calibration_job(
             db=db_session,
             min_responses=10,
             bootstrap_se=False,
@@ -562,7 +563,7 @@ class TestRunCalibrationJob:
 class TestValidateCalibration:
     """Tests for the validate_calibration function."""
 
-    def test_good_fit(self, db_session):
+    async def test_good_fit(self, db_session):
         """Well-calibrated items should show good fit."""
         # Create items with consistent IRT and empirical difficulty
         for i in range(20):
@@ -587,9 +588,9 @@ class TestValidateCalibration:
                 is_active=True,
             )
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        result = validate_calibration(db_session)
+        result = await validate_calibration(db_session)
 
         assert result["n_items"] == 20
         assert result["correlation_irt_empirical"] > 0.80
@@ -597,7 +598,7 @@ class TestValidateCalibration:
         assert result["mean_se_difficulty"] == pytest.approx(0.20)
         assert result["mean_se_discrimination"] == pytest.approx(0.15)
 
-    def test_insufficient_items(self, db_session):
+    async def test_insufficient_items(self, db_session):
         """Fewer than 3 items should return insufficient message."""
         q = Question(
             question_text="Lonely question",
@@ -610,14 +611,14 @@ class TestValidateCalibration:
             is_active=True,
         )
         db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        result = validate_calibration(db_session)
+        result = await validate_calibration(db_session)
 
         assert result["n_items"] == 1
         assert result["interpretation"] == FIT_INSUFFICIENT
 
-    def test_question_id_filter(self, db_session):
+    async def test_question_id_filter(self, db_session):
         """Should only validate specified question IDs."""
         questions = []
         for i in range(10):
@@ -636,9 +637,9 @@ class TestValidateCalibration:
             )
             questions.append(q)
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
         subset_ids = [questions[0].id, questions[1].id, questions[2].id]
-        result = validate_calibration(db_session, question_ids=subset_ids)
+        result = await validate_calibration(db_session, question_ids=subset_ids)
 
         assert result["n_items"] == 3

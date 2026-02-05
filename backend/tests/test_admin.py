@@ -2,6 +2,7 @@
 Tests for admin API endpoints.
 """
 import pytest
+from sqlalchemy import select
 from unittest.mock import patch
 
 from app.core.cache import get_cache
@@ -87,11 +88,11 @@ class TestCreateGenerationRun:
     """Tests for POST /v1/admin/generation-runs endpoint."""
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_create_generation_run_success(
+    async def test_create_generation_run_success(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test successful creation of a generation run record."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
@@ -105,11 +106,10 @@ class TestCreateGenerationRun:
         assert "recorded successfully" in data["message"]
 
         # Verify the record was created in the database
-        db_run = (
-            db_session.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == data["id"])
-            .first()
+        _result = await db_session.execute(
+            select(QuestionGenerationRun).filter(QuestionGenerationRun.id == data["id"])
         )
+        db_run = _result.scalars().first()
         assert db_run is not None
         assert db_run.status == GenerationRunStatus.SUCCESS
         assert db_run.questions_requested == 50
@@ -123,7 +123,7 @@ class TestCreateGenerationRun:
         assert "openai" in db_run.provider_metrics
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_create_generation_run_minimal_data(
+    async def test_create_generation_run_minimal_data(
         self, client, db_session, service_key_headers
     ):
         """Test creation with minimal required fields only."""
@@ -133,7 +133,7 @@ class TestCreateGenerationRun:
             "questions_requested": 50,
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=minimal_data,
             headers=service_key_headers,
@@ -144,11 +144,10 @@ class TestCreateGenerationRun:
         assert data["status"] == "running"
 
         # Verify defaults were applied
-        db_run = (
-            db_session.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == data["id"])
-            .first()
+        _result = await db_session.execute(
+            select(QuestionGenerationRun).filter(QuestionGenerationRun.id == data["id"])
         )
+        db_run = _result.scalars().first()
         assert db_run is not None
         assert db_run.status == GenerationRunStatus.RUNNING
         assert db_run.questions_generated == 0
@@ -157,7 +156,7 @@ class TestCreateGenerationRun:
         assert db_run.completed_at is None
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_create_generation_run_failed_status(
+    async def test_create_generation_run_failed_status(
         self, client, db_session, service_key_headers
     ):
         """Test creation with failed status."""
@@ -176,7 +175,7 @@ class TestCreateGenerationRun:
             },
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=failed_data,
             headers=service_key_headers,
@@ -186,18 +185,18 @@ class TestCreateGenerationRun:
         data = response.json()
         assert data["status"] == "failed"
 
-        db_run = (
-            db_session.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == data["id"])
-            .first()
+        _result = await db_session.execute(
+            select(QuestionGenerationRun).filter(QuestionGenerationRun.id == data["id"])
         )
+
+        db_run = _result.scalars().first()
         assert db_run is not None
         assert db_run.status == GenerationRunStatus.FAILED
         assert db_run.exit_code == 1
         assert db_run.total_errors == 5
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_create_generation_run_partial_failure_status(
+    async def test_create_generation_run_partial_failure_status(
         self, client, db_session, service_key_headers
     ):
         """Test creation with partial_failure status."""
@@ -213,7 +212,7 @@ class TestCreateGenerationRun:
             "total_errors": 10,
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=partial_data,
             headers=service_key_headers,
@@ -223,17 +222,19 @@ class TestCreateGenerationRun:
         data = response.json()
         assert data["status"] == "partial_failure"
 
-        db_run = (
-            db_session.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == data["id"])
-            .first()
+        _result = await db_session.execute(
+            select(QuestionGenerationRun).filter(QuestionGenerationRun.id == data["id"])
         )
+
+        db_run = _result.scalars().first()
         assert db_run is not None
         assert db_run.status == GenerationRunStatus.PARTIAL_FAILURE
 
-    def test_create_generation_run_no_auth(self, client, valid_generation_run_data):
+    async def test_create_generation_run_no_auth(
+        self, client, valid_generation_run_data
+    ):
         """Test that request without service key is rejected."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
         )
@@ -241,11 +242,11 @@ class TestCreateGenerationRun:
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_create_generation_run_invalid_auth(
+    async def test_create_generation_run_invalid_auth(
         self, client, valid_generation_run_data
     ):
         """Test that request with invalid service key is rejected."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers={"X-Service-Key": "wrong-key"},
@@ -255,11 +256,11 @@ class TestCreateGenerationRun:
         assert "Invalid service API key" in response.json()["detail"]
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "")
-    def test_create_generation_run_key_not_configured(
+    async def test_create_generation_run_key_not_configured(
         self, client, valid_generation_run_data, service_key_headers
     ):
         """Test error when service key is not configured on server."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
@@ -269,7 +270,9 @@ class TestCreateGenerationRun:
         assert "not configured" in response.json()["detail"]
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_create_generation_run_invalid_status(self, client, service_key_headers):
+    async def test_create_generation_run_invalid_status(
+        self, client, service_key_headers
+    ):
         """Test that invalid status value is rejected."""
         invalid_data = {
             "started_at": "2024-12-05T10:00:00Z",
@@ -277,7 +280,7 @@ class TestCreateGenerationRun:
             "questions_requested": 50,
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=invalid_data,
             headers=service_key_headers,
@@ -286,7 +289,7 @@ class TestCreateGenerationRun:
         assert response.status_code == 422  # Validation error
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_create_generation_run_missing_required_field(
+    async def test_create_generation_run_missing_required_field(
         self, client, service_key_headers
     ):
         """Test that missing required fields are rejected."""
@@ -296,7 +299,7 @@ class TestCreateGenerationRun:
             # Missing questions_requested
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=incomplete_data,
             headers=service_key_headers,
@@ -305,11 +308,11 @@ class TestCreateGenerationRun:
         assert response.status_code == 422  # Validation error
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_create_generation_run_jsonb_fields_stored_correctly(
+    async def test_create_generation_run_jsonb_fields_stored_correctly(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test that JSONB fields are stored and retrieved correctly."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
@@ -318,11 +321,11 @@ class TestCreateGenerationRun:
         assert response.status_code == 201
         data = response.json()
 
-        db_run = (
-            db_session.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == data["id"])
-            .first()
+        _result = await db_session.execute(
+            select(QuestionGenerationRun).filter(QuestionGenerationRun.id == data["id"])
         )
+
+        db_run = _result.scalars().first()
 
         # Verify provider_metrics
         assert db_run.provider_metrics["openai"]["generated"] == 25
@@ -342,11 +345,11 @@ class TestCreateGenerationRun:
         assert db_run.error_summary["critical_count"] == 0
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_create_generation_run_timestamps_stored_correctly(
+    async def test_create_generation_run_timestamps_stored_correctly(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test that timestamps are stored correctly."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
@@ -355,11 +358,11 @@ class TestCreateGenerationRun:
         assert response.status_code == 201
         data = response.json()
 
-        db_run = (
-            db_session.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == data["id"])
-            .first()
+        _result = await db_session.execute(
+            select(QuestionGenerationRun).filter(QuestionGenerationRun.id == data["id"])
         )
+
+        db_run = _result.scalars().first()
 
         assert db_run.started_at is not None
         assert db_run.completed_at is not None
@@ -371,9 +374,11 @@ class TestListGenerationRuns:
     """Tests for GET /v1/admin/generation-runs endpoint."""
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_empty(self, client, db_session, service_key_headers):
+    async def test_list_generation_runs_empty(
+        self, client, db_session, service_key_headers
+    ):
         """Test listing runs when no runs exist."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs",
             headers=service_key_headers,
         )
@@ -387,18 +392,18 @@ class TestListGenerationRuns:
         assert data["total_pages"] == 0
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_with_data(
+    async def test_list_generation_runs_with_data(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test listing runs returns data correctly."""
         # Create a run first
-        client.post(
+        await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
         )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs",
             headers=service_key_headers,
         )
@@ -426,7 +431,7 @@ class TestListGenerationRuns:
         assert "error_summary" not in run
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_pagination(
+    async def test_list_generation_runs_pagination(
         self, client, db_session, service_key_headers
     ):
         """Test pagination works correctly."""
@@ -437,14 +442,14 @@ class TestListGenerationRuns:
                 "status": "success",
                 "questions_requested": 50 + i,
             }
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
         # Test page 1 with page_size=2
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?page=1&page_size=2",
             headers=service_key_headers,
         )
@@ -458,7 +463,7 @@ class TestListGenerationRuns:
         assert data["total_pages"] == 3
 
         # Test page 3 with page_size=2 (should have 1 item)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?page=3&page_size=2",
             headers=service_key_headers,
         )
@@ -469,7 +474,7 @@ class TestListGenerationRuns:
         assert data["page"] == 3
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_filter_by_status(
+    async def test_list_generation_runs_filter_by_status(
         self, client, db_session, service_key_headers
     ):
         """Test filtering by status."""
@@ -480,14 +485,14 @@ class TestListGenerationRuns:
                 "status": status,
                 "questions_requested": 50,
             }
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
         # Filter by success
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?status=success",
             headers=service_key_headers,
         )
@@ -499,7 +504,7 @@ class TestListGenerationRuns:
             assert run["status"] == "success"
 
         # Filter by failed
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?status=failed",
             headers=service_key_headers,
         )
@@ -510,7 +515,7 @@ class TestListGenerationRuns:
         assert data["runs"][0]["status"] == "failed"
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_filter_by_environment(
+    async def test_list_generation_runs_filter_by_environment(
         self, client, db_session, service_key_headers
     ):
         """Test filtering by environment."""
@@ -522,14 +527,14 @@ class TestListGenerationRuns:
                 "questions_requested": 50,
                 "environment": env,
             }
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
         # Filter by production
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?environment=production",
             headers=service_key_headers,
         )
@@ -541,7 +546,7 @@ class TestListGenerationRuns:
             assert run["environment"] == "production"
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_filter_by_date_range(
+    async def test_list_generation_runs_filter_by_date_range(
         self, client, db_session, service_key_headers
     ):
         """Test filtering by date range."""
@@ -558,14 +563,14 @@ class TestListGenerationRuns:
                 "status": "success",
                 "questions_requested": 50,
             }
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
         # Filter by date range (should include Dec 3, 5)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?start_date=2024-12-02T00:00:00Z&end_date=2024-12-06T00:00:00Z",
             headers=service_key_headers,
         )
@@ -575,7 +580,7 @@ class TestListGenerationRuns:
         assert data["total"] == 2
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_filter_by_success_rate(
+    async def test_list_generation_runs_filter_by_success_rate(
         self, client, db_session, service_key_headers
     ):
         """Test filtering by success rate range."""
@@ -587,14 +592,14 @@ class TestListGenerationRuns:
                 "questions_requested": 50,
                 "overall_success_rate": rate,
             }
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
         # Filter by min success rate
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?min_success_rate=0.8",
             headers=service_key_headers,
         )
@@ -606,7 +611,7 @@ class TestListGenerationRuns:
             assert run["overall_success_rate"] >= 0.8
 
         # Filter by max success rate
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?max_success_rate=0.7",
             headers=service_key_headers,
         )
@@ -618,7 +623,7 @@ class TestListGenerationRuns:
             assert run["overall_success_rate"] <= 0.7
 
         # Filter by both min and max
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?min_success_rate=0.6&max_success_rate=0.9",
             headers=service_key_headers,
         )
@@ -630,7 +635,7 @@ class TestListGenerationRuns:
             assert 0.6 <= run["overall_success_rate"] <= 0.9
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_sorting(
+    async def test_list_generation_runs_sorting(
         self, client, db_session, service_key_headers
     ):
         """Test sorting by different fields."""
@@ -655,14 +660,14 @@ class TestListGenerationRuns:
         for run_data in runs_data:
             run_data["status"] = "success"
             run_data["questions_requested"] = 50
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
         # Sort by started_at descending (default)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs",
             headers=service_key_headers,
         )
@@ -672,7 +677,7 @@ class TestListGenerationRuns:
         assert data["runs"][1]["started_at"] > data["runs"][2]["started_at"]
 
         # Sort by started_at ascending
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?sort_by=started_at&sort_order=asc",
             headers=service_key_headers,
         )
@@ -682,7 +687,7 @@ class TestListGenerationRuns:
         assert data["runs"][1]["started_at"] < data["runs"][2]["started_at"]
 
         # Sort by duration_seconds descending
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?sort_by=duration_seconds&sort_order=desc",
             headers=service_key_headers,
         )
@@ -693,7 +698,7 @@ class TestListGenerationRuns:
         assert data["runs"][2]["duration_seconds"] == pytest.approx(100.0)
 
         # Sort by overall_success_rate ascending
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?sort_by=overall_success_rate&sort_order=asc",
             headers=service_key_headers,
         )
@@ -704,7 +709,7 @@ class TestListGenerationRuns:
         assert data["runs"][2]["overall_success_rate"] == pytest.approx(0.9)
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_combined_filters(
+    async def test_list_generation_runs_combined_filters(
         self, client, db_session, service_key_headers
     ):
         """Test combining multiple filters."""
@@ -734,14 +739,14 @@ class TestListGenerationRuns:
         for i, run_data in enumerate(runs_data):
             run_data["started_at"] = f"2024-12-0{i+1}T10:00:00Z"
             run_data["questions_requested"] = 50
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
         # Filter: status=success, environment=production, min_success_rate=0.7
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?status=success&environment=production&min_success_rate=0.7",
             headers=service_key_headers,
         )
@@ -754,15 +759,15 @@ class TestListGenerationRuns:
         assert run["environment"] == "production"
         assert run["overall_success_rate"] >= 0.7
 
-    def test_list_generation_runs_no_auth(self, client):
+    async def test_list_generation_runs_no_auth(self, client):
         """Test that request without service key is rejected."""
-        response = client.get("/v1/admin/generation-runs")
+        response = await client.get("/v1/admin/generation-runs")
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_invalid_auth(self, client):
+    async def test_list_generation_runs_invalid_auth(self, client):
         """Test that request with invalid service key is rejected."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs",
             headers={"X-Service-Key": "wrong-key"},
         )
@@ -770,53 +775,57 @@ class TestListGenerationRuns:
         assert "Invalid service API key" in response.json()["detail"]
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_invalid_page(self, client, service_key_headers):
+    async def test_list_generation_runs_invalid_page(self, client, service_key_headers):
         """Test validation of page parameter."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?page=0",
             headers=service_key_headers,
         )
         assert response.status_code == 422  # Validation error
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_invalid_page_size(self, client, service_key_headers):
+    async def test_list_generation_runs_invalid_page_size(
+        self, client, service_key_headers
+    ):
         """Test validation of page_size parameter."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?page_size=101",
             headers=service_key_headers,
         )
         assert response.status_code == 422  # Validation error
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_invalid_sort_by(self, client, service_key_headers):
+    async def test_list_generation_runs_invalid_sort_by(
+        self, client, service_key_headers
+    ):
         """Test validation of sort_by parameter."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?sort_by=invalid_field",
             headers=service_key_headers,
         )
         assert response.status_code == 422  # Validation error
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_invalid_success_rate(
+    async def test_list_generation_runs_invalid_success_rate(
         self, client, service_key_headers
     ):
         """Test validation of success rate range parameters."""
         # Invalid min_success_rate (> 1.0)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?min_success_rate=1.5",
             headers=service_key_headers,
         )
         assert response.status_code == 422
 
         # Invalid min_success_rate (< 0.0)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?min_success_rate=-0.1",
             headers=service_key_headers,
         )
         assert response.status_code == 422
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_list_generation_runs_page_beyond_data(
+    async def test_list_generation_runs_page_beyond_data(
         self, client, db_session, service_key_headers
     ):
         """Test requesting a page beyond available data."""
@@ -827,14 +836,14 @@ class TestListGenerationRuns:
                 "status": "success",
                 "questions_requested": 50,
             }
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
         # Request page 10
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs?page=10",
             headers=service_key_headers,
         )
@@ -851,12 +860,12 @@ class TestGetGenerationRun:
     """Tests for GET /v1/admin/generation-runs/{id} endpoint."""
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_generation_run_success(
+    async def test_get_generation_run_success(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test successfully retrieving a single generation run."""
         # Create a run first
-        create_response = client.post(
+        create_response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
@@ -865,7 +874,7 @@ class TestGetGenerationRun:
         run_id = create_response.json()["id"]
 
         # Retrieve the run
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers=service_key_headers,
         )
@@ -898,12 +907,12 @@ class TestGetGenerationRun:
         assert data["min_judge_score_threshold"] == pytest.approx(0.7)
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_generation_run_pipeline_losses(
+    async def test_get_generation_run_pipeline_losses(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test that pipeline loss metrics are computed correctly."""
         # Create a run first
-        create_response = client.post(
+        create_response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
@@ -911,7 +920,7 @@ class TestGetGenerationRun:
         run_id = create_response.json()["id"]
 
         # Retrieve the run
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers=service_key_headers,
         )
@@ -955,7 +964,7 @@ class TestGetGenerationRun:
         assert losses["insertion_loss_pct"] == pytest.approx(0.0)  # 0/43 * 100
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_generation_run_pipeline_losses_with_zeros(
+    async def test_get_generation_run_pipeline_losses_with_zeros(
         self, client, db_session, service_key_headers
     ):
         """Test pipeline loss computation handles zero values correctly."""
@@ -966,7 +975,7 @@ class TestGetGenerationRun:
             "questions_requested": 50,
         }
 
-        create_response = client.post(
+        create_response = await client.post(
             "/v1/admin/generation-runs",
             json=minimal_data,
             headers=service_key_headers,
@@ -974,7 +983,7 @@ class TestGetGenerationRun:
         run_id = create_response.json()["id"]
 
         # Retrieve the run
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers=service_key_headers,
         )
@@ -996,9 +1005,9 @@ class TestGetGenerationRun:
         assert losses["insertion_loss_pct"] is None
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_generation_run_not_found(self, client, service_key_headers):
+    async def test_get_generation_run_not_found(self, client, service_key_headers):
         """Test that 404 is returned for non-existent run."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/99999",
             headers=service_key_headers,
         )
@@ -1006,15 +1015,15 @@ class TestGetGenerationRun:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
 
-    def test_get_generation_run_no_auth(self, client):
+    async def test_get_generation_run_no_auth(self, client):
         """Test that request without service key is rejected."""
-        response = client.get("/v1/admin/generation-runs/1")
+        response = await client.get("/v1/admin/generation-runs/1")
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_generation_run_invalid_auth(self, client):
+    async def test_get_generation_run_invalid_auth(self, client):
         """Test that request with invalid service key is rejected."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/1",
             headers={"X-Service-Key": "wrong-key"},
         )
@@ -1022,12 +1031,12 @@ class TestGetGenerationRun:
         assert "Invalid service API key" in response.json()["detail"]
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_generation_run_all_fields_present(
+    async def test_get_generation_run_all_fields_present(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test that all expected fields are present in the response."""
         # Create a run
-        create_response = client.post(
+        create_response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
@@ -1035,7 +1044,7 @@ class TestGetGenerationRun:
         run_id = create_response.json()["id"]
 
         # Retrieve the run
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers=service_key_headers,
         )
@@ -1088,7 +1097,7 @@ class TestGetGenerationRun:
             assert field in data, f"Expected field '{field}' not in response"
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_generation_run_failed_status(
+    async def test_get_generation_run_failed_status(
         self, client, db_session, service_key_headers
     ):
         """Test retrieving a run with failed status."""
@@ -1103,14 +1112,14 @@ class TestGetGenerationRun:
             "total_errors": 5,
         }
 
-        create_response = client.post(
+        create_response = await client.post(
             "/v1/admin/generation-runs",
             json=failed_data,
             headers=service_key_headers,
         )
         run_id = create_response.json()["id"]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers=service_key_headers,
         )
@@ -1127,7 +1136,7 @@ class TestGetGenerationRun:
         assert losses["total_loss"] == 50
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_generation_run_partial_failure_status(
+    async def test_get_generation_run_partial_failure_status(
         self, client, db_session, service_key_headers
     ):
         """Test retrieving a run with partial_failure status."""
@@ -1147,14 +1156,14 @@ class TestGetGenerationRun:
             "total_errors": 10,
         }
 
-        create_response = client.post(
+        create_response = await client.post(
             "/v1/admin/generation-runs",
             json=partial_data,
             headers=service_key_headers,
         )
         run_id = create_response.json()["id"]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers=service_key_headers,
         )
@@ -1178,9 +1187,11 @@ class TestGetGenerationRunStats:
     """Tests for GET /v1/admin/generation-runs/stats endpoint."""
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_empty_period(self, client, db_session, service_key_headers):
+    async def test_get_stats_empty_period(
+        self, client, db_session, service_key_headers
+    ):
         """Test getting stats when no runs exist in the period."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1205,18 +1216,18 @@ class TestGetGenerationRunStats:
         assert data["approval_rate_trend"] is None
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_with_data(
+    async def test_get_stats_with_data(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test getting stats with run data."""
         # Create a run within the period
-        client.post(
+        await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
         )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1243,7 +1254,9 @@ class TestGetGenerationRunStats:
         assert data["total_errors"] == 4
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_multiple_runs(self, client, db_session, service_key_headers):
+    async def test_get_stats_multiple_runs(
+        self, client, db_session, service_key_headers
+    ):
         """Test stats aggregation with multiple runs."""
         # Create runs with different statuses and values
         runs_data = [
@@ -1316,13 +1329,13 @@ class TestGetGenerationRunStats:
         ]
 
         for run_data in runs_data:
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1371,7 +1384,7 @@ class TestGetGenerationRunStats:
         assert data["avg_api_calls_per_question"] == expected_avg_api_per_q
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_provider_summary(
+    async def test_get_stats_provider_summary(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test that provider summary is correctly aggregated."""
@@ -1391,18 +1404,18 @@ class TestGetGenerationRunStats:
             "google": {"generated": 10, "api_calls": 25, "failures": 1},
         }
 
-        client.post(
+        await client.post(
             "/v1/admin/generation-runs",
             json=run1,
             headers=service_key_headers,
         )
-        client.post(
+        await client.post(
             "/v1/admin/generation-runs",
             json=run2,
             headers=service_key_headers,
         )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1440,7 +1453,9 @@ class TestGetGenerationRunStats:
         )
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_trend_improving(self, client, db_session, service_key_headers):
+    async def test_get_stats_trend_improving(
+        self, client, db_session, service_key_headers
+    ):
         """Test trend detection when metrics are improving."""
         # Create runs with improving success rates
         runs_data = [
@@ -1475,13 +1490,13 @@ class TestGetGenerationRunStats:
         ]
 
         for run_data in runs_data:
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1496,7 +1511,9 @@ class TestGetGenerationRunStats:
         assert data["approval_rate_trend"] == "improving"
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_trend_declining(self, client, db_session, service_key_headers):
+    async def test_get_stats_trend_declining(
+        self, client, db_session, service_key_headers
+    ):
         """Test trend detection when metrics are declining."""
         # Create runs with declining success rates
         runs_data = [
@@ -1531,13 +1548,13 @@ class TestGetGenerationRunStats:
         ]
 
         for run_data in runs_data:
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1552,7 +1569,9 @@ class TestGetGenerationRunStats:
         assert data["approval_rate_trend"] == "declining"
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_trend_stable(self, client, db_session, service_key_headers):
+    async def test_get_stats_trend_stable(
+        self, client, db_session, service_key_headers
+    ):
         """Test trend detection when metrics are stable."""
         # Create runs with stable success rates
         runs_data = [
@@ -1587,13 +1606,13 @@ class TestGetGenerationRunStats:
         ]
 
         for run_data in runs_data:
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1608,7 +1627,7 @@ class TestGetGenerationRunStats:
         assert data["approval_rate_trend"] == "stable"
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_environment_filter(
+    async def test_get_stats_environment_filter(
         self, client, db_session, service_key_headers
     ):
         """Test filtering stats by environment."""
@@ -1623,14 +1642,14 @@ class TestGetGenerationRunStats:
                     "overall_success_rate": 0.9 if env == "production" else 0.8,
                     "environment": env,
                 }
-                client.post(
+                await client.post(
                     "/v1/admin/generation-runs",
                     json=run_data,
                     headers=service_key_headers,
                 )
 
         # Get stats for production only
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z&environment=production",
             headers=service_key_headers,
         )
@@ -1643,7 +1662,7 @@ class TestGetGenerationRunStats:
         assert data["avg_overall_success_rate"] == pytest.approx(0.9)
 
         # Get stats for staging only
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z&environment=staging",
             headers=service_key_headers,
         )
@@ -1656,7 +1675,9 @@ class TestGetGenerationRunStats:
         assert data["avg_overall_success_rate"] == pytest.approx(0.8)
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_date_range_filter(self, client, db_session, service_key_headers):
+    async def test_get_stats_date_range_filter(
+        self, client, db_session, service_key_headers
+    ):
         """Test that date range correctly filters runs."""
         # Create runs on different dates
         dates = [
@@ -1673,13 +1694,13 @@ class TestGetGenerationRunStats:
                 "questions_requested": 50,
                 "questions_inserted": 45,
             }
-            client.post(
+            await client.post(
                 "/v1/admin/generation-runs",
                 json=run_data,
                 headers=service_key_headers,
             )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1692,7 +1713,7 @@ class TestGetGenerationRunStats:
         assert data["total_questions_inserted"] == 90  # 45 * 2
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_single_run_no_trends(
+    async def test_get_stats_single_run_no_trends(
         self, client, db_session, service_key_headers
     ):
         """Test that trends are None with a single run (can't compute trend)."""
@@ -1704,13 +1725,13 @@ class TestGetGenerationRunStats:
             "approval_rate": 0.85,
         }
 
-        client.post(
+        await client.post(
             "/v1/admin/generation-runs",
             json=run_data,
             headers=service_key_headers,
         )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1723,17 +1744,17 @@ class TestGetGenerationRunStats:
         assert data["success_rate_trend"] is None
         assert data["approval_rate_trend"] is None
 
-    def test_get_stats_no_auth(self, client):
+    async def test_get_stats_no_auth(self, client):
         """Test that request without service key is rejected."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z"
         )
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_invalid_auth(self, client):
+    async def test_get_stats_invalid_auth(self, client):
         """Test that request with invalid service key is rejected."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers={"X-Service-Key": "wrong-key"},
         )
@@ -1741,41 +1762,41 @@ class TestGetGenerationRunStats:
         assert "Invalid service API key" in response.json()["detail"]
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_missing_required_params(self, client, service_key_headers):
+    async def test_get_stats_missing_required_params(self, client, service_key_headers):
         """Test that missing required parameters returns 422."""
         # Missing both dates
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats",
             headers=service_key_headers,
         )
         assert response.status_code == 422
 
         # Missing end_date
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z",
             headers=service_key_headers,
         )
         assert response.status_code == 422
 
         # Missing start_date
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
         assert response.status_code == 422
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_get_stats_all_fields_present(
+    async def test_get_stats_all_fields_present(
         self, client, db_session, service_key_headers, valid_generation_run_data
     ):
         """Test that all expected fields are present in the response."""
-        client.post(
+        await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers=service_key_headers,
         )
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/stats?start_date=2024-12-01T00:00:00Z&end_date=2024-12-31T23:59:59Z",
             headers=service_key_headers,
         )
@@ -1825,7 +1846,7 @@ def admin_token_headers():
 
 
 @pytest.fixture
-def calibration_test_questions(db_session):
+async def calibration_test_questions(db_session):
     """
     Create questions with various empirical difficulty levels for testing
     calibration health endpoint.
@@ -1939,10 +1960,10 @@ def calibration_test_questions(db_session):
 
     for q in questions:
         db_session.add(q)
-    db_session.commit()
+    await db_session.commit()
 
     for q in questions:
-        db_session.refresh(q)
+        await db_session.refresh(q)
 
     return questions
 
@@ -1951,11 +1972,11 @@ class TestCalibrationHealth:
     """Tests for GET /v1/admin/questions/calibration-health endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_success(
+    async def test_calibration_health_success(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test successful retrieval of calibration health."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health",
             headers=admin_token_headers,
         )
@@ -1975,11 +1996,11 @@ class TestCalibrationHealth:
         assert data["summary"]["total_questions_with_data"] == 6
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_severity_breakdown(
+    async def test_calibration_health_severity_breakdown(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test severity breakdown is correctly calculated."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health",
             headers=admin_token_headers,
         )
@@ -1996,11 +2017,11 @@ class TestCalibrationHealth:
         assert data["by_severity"]["minor"] == 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_difficulty_breakdown(
+    async def test_calibration_health_difficulty_breakdown(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test difficulty breakdown is correctly calculated."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health",
             headers=admin_token_headers,
         )
@@ -2020,11 +2041,11 @@ class TestCalibrationHealth:
         assert data["by_difficulty"]["hard"]["miscalibrated"] == 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_worst_offenders(
+    async def test_calibration_health_worst_offenders(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test worst offenders are correctly identified and sorted."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health",
             headers=admin_token_headers,
         )
@@ -2053,12 +2074,12 @@ class TestCalibrationHealth:
             assert "severity" in offender
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_custom_min_responses(
+    async def test_calibration_health_custom_min_responses(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test that min_responses parameter works correctly."""
         # With min_responses=50, should include the "insufficient data" question
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health?min_responses=50",
             headers=admin_token_headers,
         )
@@ -2070,11 +2091,11 @@ class TestCalibrationHealth:
         assert data["summary"]["total_questions_with_data"] == 7
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_empty_database(
+    async def test_calibration_health_empty_database(
         self, client, db_session, admin_token_headers
     ):
         """Test calibration health with no questions."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health",
             headers=admin_token_headers,
         )
@@ -2089,15 +2110,15 @@ class TestCalibrationHealth:
         assert data["summary"]["miscalibration_rate"] == pytest.approx(0.0)
         assert data["worst_offenders"] == []
 
-    def test_calibration_health_no_auth(self, client):
+    async def test_calibration_health_no_auth(self, client):
         """Test that request without admin token is rejected."""
-        response = client.get("/v1/admin/questions/calibration-health")
+        response = await client.get("/v1/admin/questions/calibration-health")
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_invalid_auth(self, client):
+    async def test_calibration_health_invalid_auth(self, client):
         """Test that request with invalid admin token is rejected."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health",
             headers={"X-Admin-Token": "wrong-token"},
         )
@@ -2105,9 +2126,11 @@ class TestCalibrationHealth:
         assert "Invalid admin token" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "")
-    def test_calibration_health_token_not_configured(self, client, admin_token_headers):
+    async def test_calibration_health_token_not_configured(
+        self, client, admin_token_headers
+    ):
         """Test error when admin token is not configured on server."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health",
             headers=admin_token_headers,
         )
@@ -2115,30 +2138,30 @@ class TestCalibrationHealth:
         assert "not configured" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_invalid_min_responses(
+    async def test_calibration_health_invalid_min_responses(
         self, client, admin_token_headers
     ):
         """Test validation of min_responses parameter."""
         # Below minimum (1)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health?min_responses=0",
             headers=admin_token_headers,
         )
         assert response.status_code == 422
 
         # Above maximum (1000)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health?min_responses=1001",
             headers=admin_token_headers,
         )
         assert response.status_code == 422
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_miscalibration_rate(
+    async def test_calibration_health_miscalibration_rate(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test that miscalibration rate is correctly calculated."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health",
             headers=admin_token_headers,
         )
@@ -2150,7 +2173,7 @@ class TestCalibrationHealth:
         assert data["summary"]["miscalibration_rate"] == pytest.approx(0.5)
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calibration_health_all_calibrated(
+    async def test_calibration_health_all_calibrated(
         self, client, db_session, admin_token_headers
     ):
         """Test when all questions are correctly calibrated."""
@@ -2175,9 +2198,9 @@ class TestCalibrationHealth:
                 empirical_difficulty=p_value,
             )
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/calibration-health",
             headers=admin_token_headers,
         )
@@ -2195,11 +2218,11 @@ class TestRecalibrateQuestions:
     """Tests for POST /v1/admin/questions/recalibrate endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_dry_run_success(
+    async def test_recalibrate_dry_run_success(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test dry run recalibration returns preview without changes."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": True,
@@ -2241,7 +2264,7 @@ class TestRecalibrateQuestions:
 
         # Verify database NOT changed (dry run)
         for q in calibration_test_questions:
-            db_session.refresh(q)
+            await db_session.refresh(q)
         # Find the severe miscalibrated question
         severe_question = next(
             (
@@ -2255,11 +2278,11 @@ class TestRecalibrateQuestions:
         assert severe_question.difficulty_level == DifficultyLevel.HARD  # Unchanged
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_commit_success(
+    async def test_recalibrate_commit_success(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test actual recalibration with dry_run=false commits changes."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": False,
@@ -2280,7 +2303,7 @@ class TestRecalibrateQuestions:
 
         # Verify database WAS changed
         for q in calibration_test_questions:
-            db_session.refresh(q)
+            await db_session.refresh(q)
 
         # Find the severe miscalibrated question
         severe_question = next(
@@ -2314,11 +2337,11 @@ class TestRecalibrateQuestions:
         )  # Preserved
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_severity_threshold_minor(
+    async def test_recalibrate_severity_threshold_minor(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test recalibration with minor threshold includes more questions."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": True,
@@ -2335,11 +2358,11 @@ class TestRecalibrateQuestions:
         assert data["total_recalibrated"] == 3
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_severity_threshold_severe(
+    async def test_recalibrate_severity_threshold_severe(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test recalibration with severe threshold only includes severe."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": True,
@@ -2357,7 +2380,7 @@ class TestRecalibrateQuestions:
         assert data["recalibrated"][0]["severity"] == "severe"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_specific_question_ids(
+    async def test_recalibrate_specific_question_ids(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test recalibration limited to specific question IDs."""
@@ -2371,7 +2394,7 @@ class TestRecalibrateQuestions:
             None,
         )
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": True,
@@ -2396,11 +2419,11 @@ class TestRecalibrateQuestions:
         assert len(skipped_not_in_ids) >= 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_min_responses_filter(
+    async def test_recalibrate_min_responses_filter(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test recalibration respects min_responses threshold."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": True,
@@ -2419,11 +2442,11 @@ class TestRecalibrateQuestions:
         assert data["total_recalibrated"] == 2
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_skipped_reasons(
+    async def test_recalibrate_skipped_reasons(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test that skipped questions have correct reasons."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": True,
@@ -2449,9 +2472,11 @@ class TestRecalibrateQuestions:
         assert "insufficient_data" in skip_reasons
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_empty_database(self, client, db_session, admin_token_headers):
+    async def test_recalibrate_empty_database(
+        self, client, db_session, admin_token_headers
+    ):
         """Test recalibration with no questions."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": True,
@@ -2469,7 +2494,9 @@ class TestRecalibrateQuestions:
         assert data["skipped"] == []
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_all_calibrated(self, client, db_session, admin_token_headers):
+    async def test_recalibrate_all_calibrated(
+        self, client, db_session, admin_token_headers
+    ):
         """Test recalibration when all questions are correctly calibrated."""
         # Create only correctly calibrated questions
         for i, (difficulty, p_value) in enumerate(
@@ -2492,9 +2519,9 @@ class TestRecalibrateQuestions:
                 empirical_difficulty=p_value,
             )
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": True,
@@ -2513,18 +2540,18 @@ class TestRecalibrateQuestions:
         assert len(data["skipped"]) == 3
         assert all(q["reason"] == "correctly_calibrated" for q in data["skipped"])
 
-    def test_recalibrate_no_auth(self, client):
+    async def test_recalibrate_no_auth(self, client):
         """Test that request without admin token is rejected."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={"dry_run": True},
         )
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_invalid_auth(self, client):
+    async def test_recalibrate_invalid_auth(self, client):
         """Test that request with invalid admin token is rejected."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={"dry_run": True},
             headers={"X-Admin-Token": "wrong-token"},
@@ -2533,9 +2560,9 @@ class TestRecalibrateQuestions:
         assert "Invalid admin token" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "")
-    def test_recalibrate_token_not_configured(self, client, admin_token_headers):
+    async def test_recalibrate_token_not_configured(self, client, admin_token_headers):
         """Test error when admin token is not configured on server."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={"dry_run": True},
             headers=admin_token_headers,
@@ -2544,10 +2571,10 @@ class TestRecalibrateQuestions:
         assert "not configured" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_invalid_min_responses(self, client, admin_token_headers):
+    async def test_recalibrate_invalid_min_responses(self, client, admin_token_headers):
         """Test validation of min_responses parameter."""
         # Below minimum (1)
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={"dry_run": True, "min_responses": 0},
             headers=admin_token_headers,
@@ -2555,7 +2582,7 @@ class TestRecalibrateQuestions:
         assert response.status_code == 422
 
         # Above maximum (1000)
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={"dry_run": True, "min_responses": 1001},
             headers=admin_token_headers,
@@ -2563,9 +2590,11 @@ class TestRecalibrateQuestions:
         assert response.status_code == 422
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_invalid_severity_threshold(self, client, admin_token_headers):
+    async def test_recalibrate_invalid_severity_threshold(
+        self, client, admin_token_headers
+    ):
         """Test validation of severity_threshold parameter."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={"dry_run": True, "severity_threshold": "invalid"},
             headers=admin_token_headers,
@@ -2573,12 +2602,12 @@ class TestRecalibrateQuestions:
         assert response.status_code == 422
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_default_values(
+    async def test_recalibrate_default_values(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test that default values work correctly."""
         # Send minimal request (defaults should apply)
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={},  # Use all defaults
             headers=admin_token_headers,
@@ -2593,7 +2622,7 @@ class TestRecalibrateQuestions:
         assert data["total_recalibrated"] == 2
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_preserves_original_difficulty(
+    async def test_recalibrate_preserves_original_difficulty(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test that original difficulty is preserved on first recalibration."""
@@ -2609,7 +2638,7 @@ class TestRecalibrateQuestions:
         assert severe_question.original_difficulty_level is None  # Not set yet
 
         # Perform actual recalibration
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": False,
@@ -2623,17 +2652,17 @@ class TestRecalibrateQuestions:
         assert response.status_code == 200
 
         # Refresh and verify
-        db_session.refresh(severe_question)
+        await db_session.refresh(severe_question)
         assert severe_question.original_difficulty_level == DifficultyLevel.HARD
         assert severe_question.difficulty_level == DifficultyLevel.EASY
         assert severe_question.difficulty_recalibrated_at is not None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_recalibrate_response_format(
+    async def test_recalibrate_response_format(
         self, client, db_session, admin_token_headers, calibration_test_questions
     ):
         """Test that response format matches schema exactly."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/questions/recalibrate",
             json={
                 "dry_run": True,
@@ -2672,7 +2701,7 @@ class TestRecalibrateQuestions:
 
 
 @pytest.fixture
-def distractor_analysis_question(db_session):
+async def distractor_analysis_question(db_session):
     """Create a question with distractor stats for testing."""
     from app.models.models import Question, QuestionType, DifficultyLevel
 
@@ -2696,13 +2725,13 @@ def distractor_analysis_question(db_session):
         is_active=True,
     )
     db_session.add(question)
-    db_session.commit()
-    db_session.refresh(question)
+    await db_session.commit()
+    await db_session.refresh(question)
     return question
 
 
 @pytest.fixture
-def distractor_insufficient_data_question(db_session):
+async def distractor_insufficient_data_question(db_session):
     """Create a question with insufficient distractor stats for testing."""
     from app.models.models import Question, QuestionType, DifficultyLevel
 
@@ -2724,13 +2753,13 @@ def distractor_insufficient_data_question(db_session):
         is_active=True,
     )
     db_session.add(question)
-    db_session.commit()
-    db_session.refresh(question)
+    await db_session.commit()
+    await db_session.refresh(question)
     return question
 
 
 @pytest.fixture
-def free_response_question(db_session):
+async def free_response_question(db_session):
     """Create a free-response question (no answer_options) for testing."""
     from app.models.models import Question, QuestionType, DifficultyLevel
 
@@ -2743,8 +2772,8 @@ def free_response_question(db_session):
         is_active=True,
     )
     db_session.add(question)
-    db_session.commit()
-    db_session.refresh(question)
+    await db_session.commit()
+    await db_session.refresh(question)
     return question
 
 
@@ -2752,11 +2781,11 @@ class TestDistractorAnalysisEndpoint:
     """Tests for GET /v1/admin/questions/{id}/distractor-analysis endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_analysis_success(
+    async def test_distractor_analysis_success(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test successful distractor analysis with full data."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
             headers=admin_token_headers,
         )
@@ -2788,11 +2817,11 @@ class TestDistractorAnalysisEndpoint:
         assert isinstance(data["recommendations"], list)
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_analysis_options_detail(
+    async def test_distractor_analysis_options_detail(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test that option analysis contains correct details."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
             headers=admin_token_headers,
         )
@@ -2818,7 +2847,7 @@ class TestDistractorAnalysisEndpoint:
         assert option_c["selection_rate"] < 0.02  # Less than 2% threshold
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_analysis_insufficient_data(
+    async def test_distractor_analysis_insufficient_data(
         self,
         client,
         db_session,
@@ -2826,7 +2855,7 @@ class TestDistractorAnalysisEndpoint:
         distractor_insufficient_data_question,
     ):
         """Test distractor analysis with insufficient data returns proper response."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{distractor_insufficient_data_question.id}/distractor-analysis",
             headers=admin_token_headers,
         )
@@ -2844,9 +2873,11 @@ class TestDistractorAnalysisEndpoint:
         assert "Insufficient data" in data["recommendations"][0]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_analysis_question_not_found(self, client, admin_token_headers):
+    async def test_distractor_analysis_question_not_found(
+        self, client, admin_token_headers
+    ):
         """Test 404 response when question doesn't exist."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/99999/distractor-analysis",
             headers=admin_token_headers,
         )
@@ -2855,11 +2886,11 @@ class TestDistractorAnalysisEndpoint:
         assert "not found" in response.json()["detail"].lower()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_analysis_free_response_question(
+    async def test_distractor_analysis_free_response_question(
         self, client, db_session, admin_token_headers, free_response_question
     ):
         """Test 400 response for free-response questions."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{free_response_question.id}/distractor-analysis",
             headers=admin_token_headers,
         )
@@ -2867,20 +2898,22 @@ class TestDistractorAnalysisEndpoint:
         assert response.status_code == 400
         assert "not a multiple-choice" in response.json()["detail"].lower()
 
-    def test_distractor_analysis_no_auth(self, client, distractor_analysis_question):
+    async def test_distractor_analysis_no_auth(
+        self, client, distractor_analysis_question
+    ):
         """Test that request without admin token is rejected."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis"
         )
 
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_analysis_invalid_token(
+    async def test_distractor_analysis_invalid_token(
         self, client, distractor_analysis_question
     ):
         """Test that request with invalid admin token is rejected."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
             headers={"X-Admin-Token": "wrong-token"},
         )
@@ -2889,11 +2922,11 @@ class TestDistractorAnalysisEndpoint:
         assert "Invalid admin token" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "")
-    def test_distractor_analysis_token_not_configured(
+    async def test_distractor_analysis_token_not_configured(
         self, client, admin_token_headers, distractor_analysis_question
     ):
         """Test error when admin token is not configured on server."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
             headers=admin_token_headers,
         )
@@ -2901,12 +2934,12 @@ class TestDistractorAnalysisEndpoint:
         assert response.status_code == 500
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_analysis_custom_min_responses(
+    async def test_distractor_analysis_custom_min_responses(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test that min_responses parameter is respected."""
         # Request with high threshold that the question won't meet
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis"
             "?min_responses=500",
             headers=admin_token_headers,
@@ -2921,11 +2954,11 @@ class TestDistractorAnalysisEndpoint:
         assert "500" in data["recommendations"][0]  # The threshold is mentioned
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_analysis_response_schema(
+    async def test_distractor_analysis_response_schema(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test that response matches the expected schema exactly."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
             headers=admin_token_headers,
         )
@@ -2975,11 +3008,11 @@ class TestDistractorAnalysisEndpoint:
             assert field in data["summary"], f"Missing summary field: {field}"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_analysis_status_values(
+    async def test_distractor_analysis_status_values(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test that status values are valid enum values."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{distractor_analysis_question.id}/distractor-analysis",
             headers=admin_token_headers,
         )
@@ -3008,11 +3041,11 @@ class TestDistractorSummaryEndpoint:
     """Tests for GET /v1/admin/questions/distractor-summary endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_success(
+    async def test_distractor_summary_success(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test successful bulk distractor summary retrieval."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary",
             headers=admin_token_headers,
         )
@@ -3037,11 +3070,11 @@ class TestDistractorSummaryEndpoint:
             assert field in data, f"Missing required field: {field}"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_response_schema(
+    async def test_distractor_summary_response_schema(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test that response matches expected schema structure."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary",
             headers=admin_token_headers,
         )
@@ -3077,11 +3110,11 @@ class TestDistractorSummaryEndpoint:
         assert 0.0 <= data["inverted_rate"] <= 1.0
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_includes_analyzed_question(
+    async def test_distractor_summary_includes_analyzed_question(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test that the fixture question appears in the summary."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?min_responses=50",
             headers=admin_token_headers,
         )
@@ -3094,11 +3127,11 @@ class TestDistractorSummaryEndpoint:
         assert data["total_questions_analyzed"] >= 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_worst_offenders_structure(
+    async def test_distractor_summary_worst_offenders_structure(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test worst offenders list structure."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary",
             headers=admin_token_headers,
         )
@@ -3132,12 +3165,12 @@ class TestDistractorSummaryEndpoint:
             assert isinstance(offender["effective_option_count"], (int, float))
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_with_question_type_filter(
+    async def test_distractor_summary_with_question_type_filter(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test filtering by question type."""
         # Filter by the type of the fixture question
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?question_type=pattern",
             headers=admin_token_headers,
         )
@@ -3150,12 +3183,12 @@ class TestDistractorSummaryEndpoint:
         assert "by_question_type" in data
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_with_min_responses_filter(
+    async def test_distractor_summary_with_min_responses_filter(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test filtering by minimum response count."""
         # High threshold - fixture has 200 responses
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?min_responses=500",
             headers=admin_token_headers,
         )
@@ -3168,16 +3201,16 @@ class TestDistractorSummaryEndpoint:
         assert data["questions_below_threshold"] >= 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_without_auth(self, client, db_session):
+    async def test_distractor_summary_without_auth(self, client, db_session):
         """Test that endpoint requires admin authentication."""
-        response = client.get("/v1/admin/questions/distractor-summary")
+        response = await client.get("/v1/admin/questions/distractor-summary")
 
         assert response.status_code == 422  # Missing header
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_invalid_auth(self, client, db_session):
+    async def test_distractor_summary_invalid_auth(self, client, db_session):
         """Test that endpoint rejects invalid admin token."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary",
             headers={"X-Admin-Token": "wrong-token"},
         )
@@ -3185,13 +3218,13 @@ class TestDistractorSummaryEndpoint:
         assert response.status_code == 401
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_empty_dataset(
+    async def test_distractor_summary_empty_dataset(
         self, client, db_session, admin_token_headers
     ):
         """Test behavior with no questions meeting threshold."""
         # Use high threshold (max allowed is 1000) to ensure no questions qualify
         # The fixture has 200 responses so 1000 will exclude it
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?min_responses=1000",
             headers=admin_token_headers,
         )
@@ -3210,12 +3243,12 @@ class TestDistractorSummaryEndpoint:
         assert data["avg_effective_option_count"] is None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_invalid_question_type(
+    async def test_distractor_summary_invalid_question_type(
         self, client, db_session, admin_token_headers
     ):
         """Test behavior with invalid question type filter."""
         # Invalid question type should be handled gracefully
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?question_type=invalid_type",
             headers=admin_token_headers,
         )
@@ -3226,11 +3259,11 @@ class TestDistractorSummaryEndpoint:
         assert "total_questions_analyzed" in data
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_distractor_summary_totals_consistent(
+    async def test_distractor_summary_totals_consistent(
         self, client, db_session, admin_token_headers, distractor_analysis_question
     ):
         """Test that breakdown totals are consistent with overall totals."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary",
             headers=admin_token_headers,
         )
@@ -3261,7 +3294,7 @@ class TestDistractorSummaryEndpoint:
 
 
 @pytest.fixture
-def validity_test_session(db_session, test_user, test_questions):
+async def validity_test_session(db_session, test_user, test_questions):
     """
     Create a test session with stored validity data for testing the
     session validity endpoint.
@@ -3277,7 +3310,7 @@ def validity_test_session(db_session, test_user, test_questions):
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
-    db_session.flush()  # Get the session ID
+    await db_session.flush()  # Get the session ID
 
     # Create some responses
     for i, question in enumerate(test_questions[:5]):
@@ -3304,14 +3337,14 @@ def validity_test_session(db_session, test_user, test_questions):
         validity_checked_at=utc_now(),
     )
     db_session.add(test_result)
-    db_session.commit()
-    db_session.refresh(test_session)
+    await db_session.commit()
+    await db_session.refresh(test_session)
 
     return test_session
 
 
 @pytest.fixture
-def suspect_validity_test_session(db_session, test_user, test_questions):
+async def suspect_validity_test_session(db_session, test_user, test_questions):
     """
     Create a test session with suspect validity status and flags.
     """
@@ -3326,7 +3359,7 @@ def suspect_validity_test_session(db_session, test_user, test_questions):
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
-    db_session.flush()
+    await db_session.flush()
 
     # Create responses with suspicious timing (rapid responses)
     for i, question in enumerate(test_questions[:5]):
@@ -3361,14 +3394,14 @@ def suspect_validity_test_session(db_session, test_user, test_questions):
         validity_checked_at=utc_now(),
     )
     db_session.add(test_result)
-    db_session.commit()
-    db_session.refresh(test_session)
+    await db_session.commit()
+    await db_session.refresh(test_session)
 
     return test_session
 
 
 @pytest.fixture
-def unchecked_validity_test_session(db_session, test_user, test_questions):
+async def unchecked_validity_test_session(db_session, test_user, test_questions):
     """
     Create a test session without validity data (simulates pre-CD-007 sessions).
     """
@@ -3383,7 +3416,7 @@ def unchecked_validity_test_session(db_session, test_user, test_questions):
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
-    db_session.flush()
+    await db_session.flush()
 
     # Create responses
     for i, question in enumerate(test_questions[:5]):
@@ -3410,8 +3443,8 @@ def unchecked_validity_test_session(db_session, test_user, test_questions):
         validity_checked_at=None,  # Key: not checked yet
     )
     db_session.add(test_result)
-    db_session.commit()
-    db_session.refresh(test_session)
+    await db_session.commit()
+    await db_session.refresh(test_session)
 
     return test_session
 
@@ -3420,11 +3453,11 @@ class TestSessionValidityEndpoint:
     """Tests for GET /v1/admin/sessions/{session_id}/validity endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_get_session_validity_with_stored_data(
+    async def test_get_session_validity_with_stored_data(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
         """Test getting validity for a session with stored validity data."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/sessions/{validity_test_session.id}/validity",
             headers=admin_token_headers,
         )
@@ -3442,11 +3475,11 @@ class TestSessionValidityEndpoint:
         assert data["validity_checked_at"] is not None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_get_session_validity_with_suspect_status(
+    async def test_get_session_validity_with_suspect_status(
         self, client, db_session, admin_token_headers, suspect_validity_test_session
     ):
         """Test getting validity for a session with suspect status and flags."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/sessions/{suspect_validity_test_session.id}/validity",
             headers=admin_token_headers,
         )
@@ -3465,11 +3498,11 @@ class TestSessionValidityEndpoint:
         assert data["flag_details"][0]["source"] == "time_check"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_get_session_validity_on_demand(
+    async def test_get_session_validity_on_demand(
         self, client, db_session, admin_token_headers, unchecked_validity_test_session
     ):
         """Test on-demand validity analysis for sessions without stored data."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/sessions/{unchecked_validity_test_session.id}/validity",
             headers=admin_token_headers,
         )
@@ -3493,11 +3526,11 @@ class TestSessionValidityEndpoint:
         assert data["validity_checked_at"] is None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_get_session_validity_not_found(
+    async def test_get_session_validity_not_found(
         self, client, db_session, admin_token_headers
     ):
         """Test getting validity for a non-existent session."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/sessions/999999/validity",
             headers=admin_token_headers,
         )
@@ -3506,18 +3539,18 @@ class TestSessionValidityEndpoint:
         assert "not found" in response.json()["detail"].lower()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_get_session_validity_requires_auth(self, client, db_session):
+    async def test_get_session_validity_requires_auth(self, client, db_session):
         """Test that the endpoint requires admin authentication."""
-        response = client.get("/v1/admin/sessions/1/validity")
+        response = await client.get("/v1/admin/sessions/1/validity")
 
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_get_session_validity_invalid_token(
+    async def test_get_session_validity_invalid_token(
         self, client, db_session, validity_test_session
     ):
         """Test that the endpoint rejects invalid admin tokens."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/sessions/{validity_test_session.id}/validity",
             headers={"X-Admin-Token": "invalid-token"},
         )
@@ -3526,11 +3559,11 @@ class TestSessionValidityEndpoint:
         assert "invalid" in response.json()["detail"].lower()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", None)
-    def test_get_session_validity_token_not_configured(
+    async def test_get_session_validity_token_not_configured(
         self, client, db_session, admin_token_headers
     ):
         """Test behavior when admin token is not configured on server."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/sessions/1/validity",
             headers=admin_token_headers,
         )
@@ -3539,11 +3572,11 @@ class TestSessionValidityEndpoint:
         assert "not configured" in response.json()["detail"].lower()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_get_session_validity_response_schema(
+    async def test_get_session_validity_response_schema(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
         """Test that the response matches the expected schema."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/sessions/{validity_test_session.id}/validity",
             headers=admin_token_headers,
         )
@@ -3585,9 +3618,9 @@ class TestValiditySummaryReport:
     """Tests for GET /v1/admin/validity-report endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_empty(self, client, db_session, admin_token_headers):
+    async def test_validity_report_empty(self, client, db_session, admin_token_headers):
         """Test validity report with no test sessions."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3617,7 +3650,7 @@ class TestValiditySummaryReport:
         assert data["action_needed"] == []
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_with_data(
+    async def test_validity_report_with_data(
         self,
         client,
         db_session,
@@ -3626,7 +3659,7 @@ class TestValiditySummaryReport:
         suspect_validity_test_session,
     ):
         """Test validity report with sessions having different validity statuses."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3652,11 +3685,11 @@ class TestValiditySummaryReport:
         assert "multiple_rapid_responses" in suspect_session["flags"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_custom_days(
+    async def test_validity_report_custom_days(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
         """Test validity report with custom days parameter."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report?days=7",
             headers=admin_token_headers,
         )
@@ -3668,7 +3701,7 @@ class TestValiditySummaryReport:
         assert data["period_days"] == 7
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_status_filter(
+    async def test_validity_report_status_filter(
         self,
         client,
         db_session,
@@ -3678,7 +3711,7 @@ class TestValiditySummaryReport:
     ):
         """Test validity report with status filter."""
         # Filter by valid status only
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report?status=valid",
             headers=admin_token_headers,
         )
@@ -3693,11 +3726,11 @@ class TestValiditySummaryReport:
         assert data["summary"]["total_sessions_analyzed"] == 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_flag_breakdown(
+    async def test_validity_report_flag_breakdown(
         self, client, db_session, admin_token_headers, suspect_validity_test_session
     ):
         """Test that flag type breakdown is correctly calculated."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3720,7 +3753,7 @@ class TestValiditySummaryReport:
         assert by_flag_type["multiple_rapid_responses"] == 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_trend_calculation(
+    async def test_validity_report_trend_calculation(
         self,
         client,
         db_session,
@@ -3729,7 +3762,7 @@ class TestValiditySummaryReport:
         suspect_validity_test_session,
     ):
         """Test that trend calculation works correctly."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3755,7 +3788,7 @@ class TestValiditySummaryReport:
         assert 0.0 <= trends["suspect_rate_30d"] <= 1.0
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_action_needed_sorted(
+    async def test_validity_report_action_needed_sorted(
         self,
         client,
         db_session,
@@ -3763,7 +3796,7 @@ class TestValiditySummaryReport:
         suspect_validity_test_session,
     ):
         """Test that action_needed is sorted by severity score."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3781,11 +3814,11 @@ class TestValiditySummaryReport:
                 )
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_session_needing_review_structure(
+    async def test_validity_report_session_needing_review_structure(
         self, client, db_session, admin_token_headers, suspect_validity_test_session
     ):
         """Test structure of sessions needing review."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3812,16 +3845,16 @@ class TestValiditySummaryReport:
         assert isinstance(session["severity_score"], int)
         assert isinstance(session["flags"], list)
 
-    def test_validity_report_no_auth(self, client, db_session):
+    async def test_validity_report_no_auth(self, client, db_session):
         """Test that endpoint requires admin authentication."""
-        response = client.get("/v1/admin/validity-report")
+        response = await client.get("/v1/admin/validity-report")
 
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_invalid_auth(self, client, db_session):
+    async def test_validity_report_invalid_auth(self, client, db_session):
         """Test that endpoint rejects invalid admin token."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers={"X-Admin-Token": "wrong-token"},
         )
@@ -3830,11 +3863,11 @@ class TestValiditySummaryReport:
         assert "Invalid admin token" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "")
-    def test_validity_report_token_not_configured(
+    async def test_validity_report_token_not_configured(
         self, client, db_session, admin_token_headers
     ):
         """Test error when admin token is not configured on server."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3843,30 +3876,30 @@ class TestValiditySummaryReport:
         assert "not configured" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_invalid_days_parameter(
+    async def test_validity_report_invalid_days_parameter(
         self, client, db_session, admin_token_headers
     ):
         """Test validation of days parameter."""
         # Below minimum (1)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report?days=0",
             headers=admin_token_headers,
         )
         assert response.status_code == 422
 
         # Above maximum (365)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report?days=366",
             headers=admin_token_headers,
         )
         assert response.status_code == 422
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_response_schema(
+    async def test_validity_report_response_schema(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
         """Test that response matches the expected schema."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3908,11 +3941,11 @@ class TestValiditySummaryReport:
             assert field in data["trends"], f"Missing trends field: {field}"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_excludes_valid_from_action_needed(
+    async def test_validity_report_excludes_valid_from_action_needed(
         self, client, db_session, admin_token_headers, validity_test_session
     ):
         """Test that valid sessions are not included in action_needed."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3926,7 +3959,7 @@ class TestValiditySummaryReport:
             assert session["validity_status"] != "valid"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_validity_report_action_needed_limit(
+    async def test_validity_report_action_needed_limit(
         self, client, db_session, admin_token_headers, test_user, test_questions
     ):
         """Test that action_needed is limited to 50 sessions."""
@@ -3942,7 +3975,7 @@ class TestValiditySummaryReport:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             result = TestResult(
                 test_session_id=session.id,
@@ -3959,9 +3992,9 @@ class TestValiditySummaryReport:
             )
             db_session.add(result)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/validity-report",
             headers=admin_token_headers,
         )
@@ -3987,25 +4020,25 @@ class TestFactorAnalysisEndpoint:
         return {"X-Admin-Token": "test-admin-token"}
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_factor_analysis_requires_auth(self, client):
+    async def test_factor_analysis_requires_auth(self, client):
         """Test that factor analysis endpoint requires admin token."""
         # No headers
-        response = client.get("/v1/admin/analytics/factor-analysis")
+        response = await client.get("/v1/admin/analytics/factor-analysis")
         assert response.status_code == 422  # Missing header
 
         # Wrong header
-        response = client.get(
+        response = await client.get(
             "/v1/admin/analytics/factor-analysis",
             headers={"X-Admin-Token": "wrong-token"},
         )
         assert response.status_code == 401
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_factor_analysis_insufficient_data_no_sessions(
+    async def test_factor_analysis_insufficient_data_no_sessions(
         self, client, db_session, admin_token_headers
     ):
         """Test error response when no completed sessions exist."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/analytics/factor-analysis",
             headers=admin_token_headers,
         )
@@ -4019,7 +4052,7 @@ class TestFactorAnalysisEndpoint:
         assert detail["minimum_required"] == 500
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_factor_analysis_insufficient_sample_below_500(
+    async def test_factor_analysis_insufficient_sample_below_500(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test error response when sample size is below 500."""
@@ -4046,7 +4079,7 @@ class TestFactorAnalysisEndpoint:
             )
             db_session.add(q)
             questions.append(q)
-        db_session.flush()
+        await db_session.flush()
 
         # Create 100 completed test sessions (below the 500 minimum)
         for i in range(100):
@@ -4057,7 +4090,7 @@ class TestFactorAnalysisEndpoint:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             # Add responses for each question
             for q in questions:
@@ -4071,10 +4104,10 @@ class TestFactorAnalysisEndpoint:
                 )
                 db_session.add(resp)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Use min_responses_per_question=10 to ensure our questions are included
-        response = client.get(
+        response = await client.get(
             "/v1/admin/analytics/factor-analysis?min_responses_per_question=10",
             headers=admin_token_headers,
         )
@@ -4089,7 +4122,7 @@ class TestFactorAnalysisEndpoint:
         assert "400" in detail["recommendation"]  # Should mention ~400 more needed
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_factor_analysis_success_with_sufficient_data(
+    async def test_factor_analysis_success_with_sufficient_data(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test successful factor analysis with 500+ completed sessions."""
@@ -4126,7 +4159,7 @@ class TestFactorAnalysisEndpoint:
                 )
                 db_session.add(q)
                 questions.append(q)
-        db_session.flush()
+        await db_session.flush()
 
         # Create 550 completed test sessions
         random.seed(42)  # For reproducibility
@@ -4138,7 +4171,7 @@ class TestFactorAnalysisEndpoint:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             # Add responses for each question with some variance
             for q in questions:
@@ -4155,11 +4188,11 @@ class TestFactorAnalysisEndpoint:
                 )
                 db_session.add(resp)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Use max_responses=0 to disable limit for comprehensive analysis
         # (test creates 550 sessions × 60 questions = 33,000 responses)
-        response = client.get(
+        response = await client.get(
             "/v1/admin/analytics/factor-analysis?max_responses=0",
             headers=admin_token_headers,
         )
@@ -4202,7 +4235,7 @@ class TestFactorAnalysisEndpoint:
             assert rec["severity"] in ["info", "warning", "critical"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_factor_analysis_custom_min_responses(
+    async def test_factor_analysis_custom_min_responses(
         self, client, db_session, admin_token_headers, test_user
     ):
         """Test factor analysis with custom min_responses_per_question parameter."""
@@ -4230,7 +4263,7 @@ class TestFactorAnalysisEndpoint:
             )
             db_session.add(q)
             questions.append(q)
-        db_session.flush()
+        await db_session.flush()
 
         # Create 600 sessions
         random.seed(42)
@@ -4242,7 +4275,7 @@ class TestFactorAnalysisEndpoint:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
 
             for q in questions:
                 is_correct = random.random() < 0.6
@@ -4256,10 +4289,10 @@ class TestFactorAnalysisEndpoint:
                 )
                 db_session.add(resp)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Request with custom min_responses_per_question
-        response = client.get(
+        response = await client.get(
             "/v1/admin/analytics/factor-analysis?min_responses_per_question=50",
             headers=admin_token_headers,
         )
@@ -4269,19 +4302,19 @@ class TestFactorAnalysisEndpoint:
         assert data["sample_size"] >= 500
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_factor_analysis_min_responses_validation(
+    async def test_factor_analysis_min_responses_validation(
         self, client, admin_token_headers
     ):
         """Test that min_responses_per_question has proper validation."""
         # Too low
-        response = client.get(
+        response = await client.get(
             "/v1/admin/analytics/factor-analysis?min_responses_per_question=5",
             headers=admin_token_headers,
         )
         assert response.status_code == 422
 
         # Too high
-        response = client.get(
+        response = await client.get(
             "/v1/admin/analytics/factor-analysis?min_responses_per_question=500",
             headers=admin_token_headers,
         )
@@ -4297,7 +4330,7 @@ class TestDiscriminationReportEndpoint:
     """Tests for GET /v1/admin/questions/discrimination-report endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_report_success(
+    async def test_discrimination_report_success(
         self, client, db_session, admin_token_headers
     ):
         """Test successful retrieval of discrimination report."""
@@ -4315,9 +4348,9 @@ class TestDiscriminationReportEndpoint:
                 quality_flag="normal",
             )
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -4351,7 +4384,7 @@ class TestDiscriminationReportEndpoint:
         assert len(action_needed["monitor"]) == 1  # very_poor discrimination
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_report_empty_pool(
+    async def test_discrimination_report_empty_pool(
         self, client, db_session, admin_token_headers
     ):
         """Test discrimination report with no questions meeting criteria."""
@@ -4368,9 +4401,9 @@ class TestDiscriminationReportEndpoint:
             quality_flag="normal",
         )
         db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -4380,7 +4413,7 @@ class TestDiscriminationReportEndpoint:
         assert data["summary"]["total_questions_with_data"] == 0
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_report_min_responses_filter(
+    async def test_discrimination_report_min_responses_filter(
         self, client, db_session, admin_token_headers
     ):
         """Test that min_responses parameter filters correctly."""
@@ -4398,10 +4431,10 @@ class TestDiscriminationReportEndpoint:
                 quality_flag="normal",
             )
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
         # With min_responses=30, should get 2 questions
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -4409,7 +4442,7 @@ class TestDiscriminationReportEndpoint:
         assert response.json()["summary"]["total_questions_with_data"] == 2
 
         # With min_responses=75, should get only 1 question
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=75",
             headers=admin_token_headers,
         )
@@ -4417,23 +4450,23 @@ class TestDiscriminationReportEndpoint:
         assert response.json()["summary"]["total_questions_with_data"] == 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_report_requires_admin_token(self, client):
+    async def test_discrimination_report_requires_admin_token(self, client):
         """Test that endpoint requires admin authentication."""
-        response = client.get("/v1/admin/questions/discrimination-report")
+        response = await client.get("/v1/admin/questions/discrimination-report")
         assert response.status_code == 422  # Missing header
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/discrimination-report",
             headers={"X-Admin-Token": "wrong-token"},
         )
         assert response.status_code == 401
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "")
-    def test_discrimination_report_admin_token_not_configured(
+    async def test_discrimination_report_admin_token_not_configured(
         self, client, admin_token_headers
     ):
         """Test endpoint when admin token is not configured."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/discrimination-report",
             headers=admin_token_headers,
         )
@@ -4441,7 +4474,7 @@ class TestDiscriminationReportEndpoint:
         assert "not configured" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_report_by_difficulty_breakdown(
+    async def test_discrimination_report_by_difficulty_breakdown(
         self, client, db_session, admin_token_headers
     ):
         """Test discrimination breakdown by difficulty level."""
@@ -4463,9 +4496,9 @@ class TestDiscriminationReportEndpoint:
                 quality_flag="normal",
             )
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -4485,7 +4518,7 @@ class TestDiscriminationDetailEndpoint:
     """Tests for GET /v1/admin/questions/{id}/discrimination-detail endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_detail_success(
+    async def test_discrimination_detail_success(
         self, client, db_session, admin_token_headers
     ):
         """Test successful retrieval of discrimination detail for a question."""
@@ -4501,9 +4534,9 @@ class TestDiscriminationDetailEndpoint:
             quality_flag="normal",
         )
         db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{q.id}/discrimination-detail",
             headers=admin_token_headers,
         )
@@ -4522,11 +4555,11 @@ class TestDiscriminationDetailEndpoint:
         assert "history" in data
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_detail_question_not_found(
+    async def test_discrimination_detail_question_not_found(
         self, client, admin_token_headers
     ):
         """Test 404 response for non-existent question."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/99999/discrimination-detail",
             headers=admin_token_headers,
         )
@@ -4535,7 +4568,7 @@ class TestDiscriminationDetailEndpoint:
         assert "not found" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_detail_no_discrimination_data(
+    async def test_discrimination_detail_no_discrimination_data(
         self, client, db_session, admin_token_headers
     ):
         """Test detail response when question has no discrimination data."""
@@ -4551,9 +4584,9 @@ class TestDiscriminationDetailEndpoint:
             quality_flag="normal",
         )
         db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{q.id}/discrimination-detail",
             headers=admin_token_headers,
         )
@@ -4567,19 +4600,19 @@ class TestDiscriminationDetailEndpoint:
         assert data["percentile_rank"] is None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_detail_requires_admin_token(self, client):
+    async def test_discrimination_detail_requires_admin_token(self, client):
         """Test that endpoint requires admin authentication."""
-        response = client.get("/v1/admin/questions/1/discrimination-detail")
+        response = await client.get("/v1/admin/questions/1/discrimination-detail")
         assert response.status_code == 422  # Missing header
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/1/discrimination-detail",
             headers={"X-Admin-Token": "wrong-token"},
         )
         assert response.status_code == 401
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_detail_quality_tiers(
+    async def test_discrimination_detail_quality_tiers(
         self, client, db_session, admin_token_headers
     ):
         """Test all quality tier classifications are returned correctly."""
@@ -4608,11 +4641,11 @@ class TestDiscriminationDetailEndpoint:
             )
             db_session.add(q)
             questions.append((q, expected_tier))
-        db_session.commit()
+        await db_session.commit()
 
         # Verify each question's quality tier classification
         for q, expected_tier in questions:
-            response = client.get(
+            response = await client.get(
                 f"/v1/admin/questions/{q.id}/discrimination-detail",
                 headers=admin_token_headers,
             )
@@ -4621,7 +4654,7 @@ class TestDiscriminationDetailEndpoint:
             assert response.json()["quality_tier"] == expected_tier
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_discrimination_detail_comparison_to_averages(
+    async def test_discrimination_detail_comparison_to_averages(
         self, client, db_session, admin_token_headers
     ):
         """Test comparison fields show above/below/at correctly."""
@@ -4639,14 +4672,15 @@ class TestDiscriminationDetailEndpoint:
                 quality_flag="normal",
             )
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
         # Get detail for the high-discrimination question (0.40)
-        high_q = (
-            db_session.query(Question).filter(Question.discrimination == 0.40).first()
+        _result = await db_session.execute(
+            select(Question).filter(Question.discrimination == 0.40)
         )
+        high_q = _result.scalars().first()
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{high_q.id}/discrimination-detail",
             headers=admin_token_headers,
         )
@@ -4660,7 +4694,7 @@ class TestDiscriminationDetailEndpoint:
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.api.v1.admin.discrimination.get_question_discrimination_detail")
-    def test_discrimination_detail_invalid_tier_value_handled_gracefully(
+    async def test_discrimination_detail_invalid_tier_value_handled_gracefully(
         self, mock_get_detail, client, admin_token_headers
     ):
         """Test that invalid quality_tier value is handled gracefully (IDA-F007).
@@ -4682,7 +4716,7 @@ class TestDiscriminationDetailEndpoint:
             "history": [],
         }
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/123/discrimination-detail",
             headers=admin_token_headers,
         )
@@ -4701,7 +4735,7 @@ class TestQualityFlagManagementEndpoint:
     """Tests for PATCH /v1/admin/questions/{question_id}/quality-flag endpoint (IDA-010)."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_to_under_review(
+    async def test_update_quality_flag_to_under_review(
         self, client, db_session, admin_token_headers
     ):
         """Test successfully setting quality flag to under_review."""
@@ -4716,9 +4750,9 @@ class TestQualityFlagManagementEndpoint:
             quality_flag="normal",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={
@@ -4737,7 +4771,7 @@ class TestQualityFlagManagementEndpoint:
         assert "updated_at" in data
 
         # Verify database was updated
-        db_session.refresh(question)
+        await db_session.refresh(question)
         assert question.quality_flag == "under_review"
         assert (
             question.quality_flag_reason
@@ -4746,7 +4780,7 @@ class TestQualityFlagManagementEndpoint:
         assert question.quality_flag_updated_at is not None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_to_deactivated_with_reason(
+    async def test_update_quality_flag_to_deactivated_with_reason(
         self, client, db_session, admin_token_headers
     ):
         """Test successfully setting quality flag to deactivated with required reason."""
@@ -4760,9 +4794,9 @@ class TestQualityFlagManagementEndpoint:
             quality_flag="under_review",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={
@@ -4779,7 +4813,7 @@ class TestQualityFlagManagementEndpoint:
         assert data["reason"] == "Confirmed ambiguous wording after admin review"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_deactivated_requires_reason(
+    async def test_update_quality_flag_deactivated_requires_reason(
         self, client, db_session, admin_token_headers
     ):
         """Test that setting quality flag to deactivated without reason fails."""
@@ -4793,9 +4827,9 @@ class TestQualityFlagManagementEndpoint:
             quality_flag="normal",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={
@@ -4808,7 +4842,7 @@ class TestQualityFlagManagementEndpoint:
         assert "Reason is required" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_back_to_normal(
+    async def test_update_quality_flag_back_to_normal(
         self, client, db_session, admin_token_headers
     ):
         """Test returning a flagged question back to normal status."""
@@ -4823,9 +4857,9 @@ class TestQualityFlagManagementEndpoint:
             quality_flag_reason="Investigating low discrimination",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={
@@ -4841,7 +4875,7 @@ class TestQualityFlagManagementEndpoint:
         assert data["new_flag"] == "normal"
 
         # Verify reason is updated
-        db_session.refresh(question)
+        await db_session.refresh(question)
         assert question.quality_flag == "normal"
         assert (
             question.quality_flag_reason
@@ -4849,9 +4883,11 @@ class TestQualityFlagManagementEndpoint:
         )
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_question_not_found(self, client, admin_token_headers):
+    async def test_update_quality_flag_question_not_found(
+        self, client, admin_token_headers
+    ):
         """Test that 404 is returned for non-existent question."""
-        response = client.patch(
+        response = await client.patch(
             "/v1/admin/questions/999999/quality-flag",
             headers=admin_token_headers,
             json={
@@ -4863,7 +4899,7 @@ class TestQualityFlagManagementEndpoint:
         assert "not found" in response.json()["detail"].lower()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_requires_admin_token(self, client, db_session):
+    async def test_update_quality_flag_requires_admin_token(self, client, db_session):
         """Test that endpoint requires admin token authentication."""
         question = Question(
             question_text="Question for auth test",
@@ -4875,10 +4911,10 @@ class TestQualityFlagManagementEndpoint:
             quality_flag="normal",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
         # No admin token header
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             json={"quality_flag": "under_review"},
         )
@@ -4886,7 +4922,7 @@ class TestQualityFlagManagementEndpoint:
         assert response.status_code == 422  # Missing header
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_invalid_token(self, client, db_session):
+    async def test_update_quality_flag_invalid_token(self, client, db_session):
         """Test that invalid admin token is rejected."""
         question = Question(
             question_text="Question for invalid token test",
@@ -4898,9 +4934,9 @@ class TestQualityFlagManagementEndpoint:
             quality_flag="normal",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers={"X-Admin-Token": "wrong-token"},
             json={"quality_flag": "under_review"},
@@ -4910,7 +4946,7 @@ class TestQualityFlagManagementEndpoint:
         assert "Invalid admin token" in response.json()["detail"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_invalid_flag_value(
+    async def test_update_quality_flag_invalid_flag_value(
         self, client, db_session, admin_token_headers
     ):
         """Test that invalid quality flag values are rejected."""
@@ -4924,9 +4960,9 @@ class TestQualityFlagManagementEndpoint:
             quality_flag="normal",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={
@@ -4937,7 +4973,7 @@ class TestQualityFlagManagementEndpoint:
         assert response.status_code == 422  # Pydantic validation error
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_under_review_without_reason(
+    async def test_update_quality_flag_under_review_without_reason(
         self, client, db_session, admin_token_headers
     ):
         """Test that under_review can be set without reason (reason is optional)."""
@@ -4951,9 +4987,9 @@ class TestQualityFlagManagementEndpoint:
             quality_flag="normal",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={
@@ -4969,7 +5005,7 @@ class TestQualityFlagManagementEndpoint:
         assert data["reason"] is None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_update_quality_flag_persists_timestamp(
+    async def test_update_quality_flag_persists_timestamp(
         self, client, db_session, admin_token_headers
     ):
         """Test that quality_flag_updated_at timestamp is properly set."""
@@ -4984,9 +5020,9 @@ class TestQualityFlagManagementEndpoint:
             quality_flag_updated_at=None,  # No previous timestamp
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={
@@ -4998,7 +5034,7 @@ class TestQualityFlagManagementEndpoint:
         assert response.status_code == 200
 
         # Verify timestamp was set
-        db_session.refresh(question)
+        await db_session.refresh(question)
         assert question.quality_flag_updated_at is not None
 
         # Verify response contains ISO formatted timestamp
@@ -5016,7 +5052,7 @@ class TestDiscriminationReportCacheInvalidation:
     """
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_quality_flag_update_invalidates_report_cache(
+    async def test_quality_flag_update_invalidates_report_cache(
         self, client, db_session, admin_token_headers
     ):
         """Test that updating quality flag invalidates discrimination report cache.
@@ -5044,10 +5080,10 @@ class TestDiscriminationReportCacheInvalidation:
             quality_flag="normal",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
         # Step 1: Get initial discrimination report (this caches the result)
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -5065,7 +5101,7 @@ class TestDiscriminationReportCacheInvalidation:
         assert question_in_review["quality_flag"] == "normal"
 
         # Step 2: Update the quality flag via API (should invalidate cache)
-        response2 = client.patch(
+        response2 = await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={
@@ -5077,7 +5113,7 @@ class TestDiscriminationReportCacheInvalidation:
         assert response2.json()["new_flag"] == "under_review"
 
         # Step 3: Get discrimination report again (should be fresh, not cached)
-        response3 = client.get(
+        response3 = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -5102,7 +5138,7 @@ class TestDiscriminationReportCacheInvalidation:
         )
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_quality_flag_deactivation_updates_report_counts(
+    async def test_quality_flag_deactivation_updates_report_counts(
         self, client, db_session, admin_token_headers
     ):
         """Test that deactivating a question updates summary counts after cache invalidation.
@@ -5139,10 +5175,10 @@ class TestDiscriminationReportCacheInvalidation:
             quality_flag="normal",
         )
         db_session.add_all([question1, question2])
-        db_session.commit()
+        await db_session.commit()
 
         # Step 1: Get initial report (caches result)
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -5151,7 +5187,7 @@ class TestDiscriminationReportCacheInvalidation:
         assert initial_total >= 2, "Should have at least 2 questions in initial report"
 
         # Step 2: Deactivate one question via API
-        response2 = client.patch(
+        response2 = await client.patch(
             f"/v1/admin/questions/{question1.id}/quality-flag",
             headers=admin_token_headers,
             json={
@@ -5162,7 +5198,7 @@ class TestDiscriminationReportCacheInvalidation:
         assert response2.status_code == 200
 
         # Step 3: Get fresh report after cache invalidation
-        response3 = client.get(
+        response3 = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -5188,7 +5224,7 @@ class TestDiscriminationReportCacheInvalidation:
         assert data3["summary"]["total_questions_with_data"] >= 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_multiple_quality_flag_updates_invalidate_cache_each_time(
+    async def test_multiple_quality_flag_updates_invalidate_cache_each_time(
         self, client, db_session, admin_token_headers
     ):
         """Test that multiple quality flag updates each invalidate the cache.
@@ -5208,10 +5244,10 @@ class TestDiscriminationReportCacheInvalidation:
             quality_flag="normal",
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
         # Get initial report
-        response1 = client.get(
+        response1 = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -5227,13 +5263,13 @@ class TestDiscriminationReportCacheInvalidation:
         assert flag1 == "normal"
 
         # First update: normal -> under_review
-        client.patch(
+        await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={"quality_flag": "under_review", "reason": "First update"},
         )
 
-        response2 = client.get(
+        response2 = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -5250,13 +5286,13 @@ class TestDiscriminationReportCacheInvalidation:
         ), f"First cache invalidation failed: expected 'under_review', got '{flag2}'"
 
         # Second update: under_review -> normal
-        client.patch(
+        await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={"quality_flag": "normal"},
         )
 
-        response3 = client.get(
+        response3 = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -5273,13 +5309,13 @@ class TestDiscriminationReportCacheInvalidation:
         ), f"Second cache invalidation failed: expected 'normal', got '{flag3}'"
 
         # Third update: normal -> deactivated
-        client.patch(
+        await client.patch(
             f"/v1/admin/questions/{question.id}/quality-flag",
             headers=admin_token_headers,
             json={"quality_flag": "deactivated", "reason": "Third update"},
         )
 
-        response4 = client.get(
+        response4 = await client.get(
             "/v1/admin/questions/discrimination-report?min_responses=30",
             headers=admin_token_headers,
         )
@@ -5300,9 +5336,9 @@ class TestConstantTimeTokenComparison:
     """Tests verifying constant-time comparison is used for security tokens (BCQ-007)."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_verify_admin_token_accepts_valid_token(self, client, db_session):
+    async def test_verify_admin_token_accepts_valid_token(self, client, db_session):
         """Test that verify_admin_token accepts correct token."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/discrimination-report",
             headers={"X-Admin-Token": "test-admin-token"},
         )
@@ -5310,9 +5346,9 @@ class TestConstantTimeTokenComparison:
         assert response.status_code != 401
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_verify_admin_token_rejects_invalid_token(self, client, db_session):
+    async def test_verify_admin_token_rejects_invalid_token(self, client, db_session):
         """Test that verify_admin_token rejects incorrect token."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/discrimination-report",
             headers={"X-Admin-Token": "wrong-token"},
         )
@@ -5320,11 +5356,11 @@ class TestConstantTimeTokenComparison:
         assert "Invalid admin token" in response.json()["detail"]
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_verify_service_key_accepts_valid_key(
+    async def test_verify_service_key_accepts_valid_key(
         self, client, db_session, valid_generation_run_data
     ):
         """Test that verify_service_key accepts correct key."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers={"X-Service-Key": "test-service-key"},
@@ -5333,11 +5369,11 @@ class TestConstantTimeTokenComparison:
         assert response.status_code != 401
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_verify_service_key_rejects_invalid_key(
+    async def test_verify_service_key_rejects_invalid_key(
         self, client, valid_generation_run_data
     ):
         """Test that verify_service_key rejects incorrect key."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=valid_generation_run_data,
             headers={"X-Service-Key": "wrong-key"},

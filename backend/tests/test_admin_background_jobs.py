@@ -12,17 +12,20 @@ import subprocess
 import sys
 
 import pytest
-from fastapi.testclient import TestClient
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
 
 from app.core.config import settings
 from app.core.process_registry import process_registry
 from app.main import app
 
 
-@pytest.fixture
-def client():
-    """Create a test client."""
-    return TestClient(app)
+@pytest_asyncio.fixture
+async def client():
+    """Create an async test client."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as test_client:
+        yield test_client
 
 
 @pytest.fixture
@@ -57,9 +60,9 @@ def clean_registry():
 class TestBackgroundJobsListEndpoint:
     """Tests for GET /v1/admin/background-jobs endpoint."""
 
-    def test_list_jobs_empty(self, client, admin_headers, clean_registry):
+    async def test_list_jobs_empty(self, client, admin_headers, clean_registry):
         """Test listing jobs when no jobs are registered."""
-        response = client.get("/v1/admin/background-jobs", headers=admin_headers)
+        response = await client.get("/v1/admin/background-jobs", headers=admin_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -69,7 +72,9 @@ class TestBackgroundJobsListEndpoint:
         assert data["completed"] == 0
         assert data["failed"] == 0
 
-    def test_list_jobs_with_running_job(self, client, admin_headers, clean_registry):
+    async def test_list_jobs_with_running_job(
+        self, client, admin_headers, clean_registry
+    ):
         """Test listing jobs with a running job."""
         # Create a subprocess that sleeps
         process = subprocess.Popen(
@@ -87,7 +92,9 @@ class TestBackgroundJobsListEndpoint:
                 metadata={"test": True},
             )
 
-            response = client.get("/v1/admin/background-jobs", headers=admin_headers)
+            response = await client.get(
+                "/v1/admin/background-jobs", headers=admin_headers
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -101,7 +108,9 @@ class TestBackgroundJobsListEndpoint:
             process.terminate()
             process.wait()
 
-    def test_list_jobs_filter_by_status(self, client, admin_headers, clean_registry):
+    async def test_list_jobs_filter_by_status(
+        self, client, admin_headers, clean_registry
+    ):
         """Test filtering jobs by status."""
         # Create one completed and one running job
         completed_process = subprocess.Popen(
@@ -123,7 +132,7 @@ class TestBackgroundJobsListEndpoint:
             completed_process.wait()
 
             # Filter by running status
-            response = client.get(
+            response = await client.get(
                 "/v1/admin/background-jobs?status=running",
                 headers=admin_headers,
             )
@@ -136,7 +145,9 @@ class TestBackgroundJobsListEndpoint:
             running_process.terminate()
             running_process.wait()
 
-    def test_list_jobs_filter_by_type(self, client, admin_headers, clean_registry):
+    async def test_list_jobs_filter_by_type(
+        self, client, admin_headers, clean_registry
+    ):
         """Test filtering jobs by job type."""
         process1 = subprocess.Popen(
             [sys.executable, "-c", "import time; time.sleep(60)"],
@@ -154,7 +165,7 @@ class TestBackgroundJobsListEndpoint:
             clean_registry.register(process=process2, job_type="type_b")
 
             # Filter by type_a
-            response = client.get(
+            response = await client.get(
                 "/v1/admin/background-jobs?job_type=type_a",
                 headers=admin_headers,
             )
@@ -169,9 +180,11 @@ class TestBackgroundJobsListEndpoint:
             process1.wait()
             process2.wait()
 
-    def test_list_jobs_invalid_status(self, client, admin_headers, clean_registry):
+    async def test_list_jobs_invalid_status(
+        self, client, admin_headers, clean_registry
+    ):
         """Test listing jobs with invalid status filter."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/background-jobs?status=invalid",
             headers=admin_headers,
         )
@@ -179,14 +192,14 @@ class TestBackgroundJobsListEndpoint:
         assert response.status_code == 400
         assert "Invalid status" in response.json()["detail"]
 
-    def test_list_jobs_unauthorized(self, client, clean_registry):
+    async def test_list_jobs_unauthorized(self, client, clean_registry):
         """Test listing jobs without admin token.
 
         The endpoint returns 422 (Unprocessable Entity) when the X-Admin-Token
         header is missing, because FastAPI validates required headers before
         the endpoint is called.
         """
-        response = client.get("/v1/admin/background-jobs")
+        response = await client.get("/v1/admin/background-jobs")
         # 422 is returned when the required X-Admin-Token header is missing
         assert response.status_code in (401, 403, 422)
 
@@ -194,9 +207,11 @@ class TestBackgroundJobsListEndpoint:
 class TestBackgroundJobsStatsEndpoint:
     """Tests for GET /v1/admin/background-jobs/stats endpoint."""
 
-    def test_get_stats_empty(self, client, admin_headers, clean_registry):
+    async def test_get_stats_empty(self, client, admin_headers, clean_registry):
         """Test getting stats when no jobs are registered."""
-        response = client.get("/v1/admin/background-jobs/stats", headers=admin_headers)
+        response = await client.get(
+            "/v1/admin/background-jobs/stats", headers=admin_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -206,7 +221,7 @@ class TestBackgroundJobsStatsEndpoint:
         assert data["failed"] == 0
         assert data["terminated"] == 0
 
-    def test_get_stats_with_jobs(self, client, admin_headers, clean_registry):
+    async def test_get_stats_with_jobs(self, client, admin_headers, clean_registry):
         """Test getting stats with various job statuses."""
         # Create jobs with different outcomes
         completed = subprocess.Popen(
@@ -234,7 +249,7 @@ class TestBackgroundJobsStatsEndpoint:
             completed.wait()
             failed.wait()
 
-            response = client.get(
+            response = await client.get(
                 "/v1/admin/background-jobs/stats",
                 headers=admin_headers,
             )
@@ -253,7 +268,7 @@ class TestBackgroundJobsStatsEndpoint:
 class TestBackgroundJobDetailEndpoint:
     """Tests for GET /v1/admin/background-jobs/{job_id} endpoint."""
 
-    def test_get_job_detail(self, client, admin_headers, clean_registry):
+    async def test_get_job_detail(self, client, admin_headers, clean_registry):
         """Test getting details of a specific job."""
         process = subprocess.Popen(
             [sys.executable, "-c", "import time; time.sleep(60)"],
@@ -270,7 +285,7 @@ class TestBackgroundJobDetailEndpoint:
                 metadata={"key": "value"},
             )
 
-            response = client.get(
+            response = await client.get(
                 f"/v1/admin/background-jobs/{job_info.job_id}",
                 headers=admin_headers,
             )
@@ -287,9 +302,9 @@ class TestBackgroundJobDetailEndpoint:
             process.terminate()
             process.wait()
 
-    def test_get_job_not_found(self, client, admin_headers, clean_registry):
+    async def test_get_job_not_found(self, client, admin_headers, clean_registry):
         """Test getting a non-existent job."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/background-jobs/nonexistent_job_id",
             headers=admin_headers,
         )
@@ -301,7 +316,7 @@ class TestBackgroundJobDetailEndpoint:
 class TestBackgroundJobTerminateEndpoint:
     """Tests for DELETE /v1/admin/background-jobs/{job_id} endpoint."""
 
-    def test_terminate_running_job(self, client, admin_headers, clean_registry):
+    async def test_terminate_running_job(self, client, admin_headers, clean_registry):
         """Test terminating a running job."""
         process = subprocess.Popen(
             [sys.executable, "-c", "import time; time.sleep(60)"],
@@ -311,7 +326,7 @@ class TestBackgroundJobTerminateEndpoint:
 
         job_info = clean_registry.register(process=process, job_type="test_job")
 
-        response = client.delete(
+        response = await client.delete(
             f"/v1/admin/background-jobs/{job_info.job_id}",
             headers=admin_headers,
         )
@@ -324,7 +339,7 @@ class TestBackgroundJobTerminateEndpoint:
         # Wait for process to actually terminate
         process.wait(timeout=5)
 
-    def test_terminate_job_force(self, client, admin_headers, clean_registry):
+    async def test_terminate_job_force(self, client, admin_headers, clean_registry):
         """Test force killing a job."""
         process = subprocess.Popen(
             [sys.executable, "-c", "import time; time.sleep(60)"],
@@ -334,7 +349,7 @@ class TestBackgroundJobTerminateEndpoint:
 
         job_info = clean_registry.register(process=process, job_type="test_job")
 
-        response = client.delete(
+        response = await client.delete(
             f"/v1/admin/background-jobs/{job_info.job_id}?force=true",
             headers=admin_headers,
         )
@@ -346,16 +361,18 @@ class TestBackgroundJobTerminateEndpoint:
         # Wait for process to actually terminate
         process.wait(timeout=5)
 
-    def test_terminate_nonexistent_job(self, client, admin_headers, clean_registry):
+    async def test_terminate_nonexistent_job(
+        self, client, admin_headers, clean_registry
+    ):
         """Test terminating a non-existent job."""
-        response = client.delete(
+        response = await client.delete(
             "/v1/admin/background-jobs/nonexistent_job_id",
             headers=admin_headers,
         )
 
         assert response.status_code == 404
 
-    def test_terminate_finished_job(self, client, admin_headers, clean_registry):
+    async def test_terminate_finished_job(self, client, admin_headers, clean_registry):
         """Test terminating an already finished job."""
         process = subprocess.Popen(
             [sys.executable, "-c", "print('done')"],
@@ -368,7 +385,7 @@ class TestBackgroundJobTerminateEndpoint:
         # Wait for process to complete
         process.wait()
 
-        response = client.delete(
+        response = await client.delete(
             f"/v1/admin/background-jobs/{job_info.job_id}",
             headers=admin_headers,
         )
@@ -380,7 +397,7 @@ class TestBackgroundJobTerminateEndpoint:
 class TestBackgroundJobCleanupEndpoint:
     """Tests for POST /v1/admin/background-jobs/cleanup endpoint."""
 
-    def test_cleanup_finished_jobs(self, client, admin_headers, clean_registry):
+    async def test_cleanup_finished_jobs(self, client, admin_headers, clean_registry):
         """Test cleaning up finished jobs."""
         # Create a process that finishes quickly
         process = subprocess.Popen(
@@ -395,11 +412,11 @@ class TestBackgroundJobCleanupEndpoint:
         process.wait()
 
         # Verify job is in registry
-        response = client.get("/v1/admin/background-jobs", headers=admin_headers)
+        response = await client.get("/v1/admin/background-jobs", headers=admin_headers)
         assert len(response.json()["jobs"]) == 1
 
         # Cleanup
-        response = client.post(
+        response = await client.post(
             "/v1/admin/background-jobs/cleanup",
             headers=admin_headers,
         )
@@ -409,12 +426,14 @@ class TestBackgroundJobCleanupEndpoint:
         assert data["cleaned_count"] == 1
 
         # Verify registry is empty
-        response = client.get("/v1/admin/background-jobs", headers=admin_headers)
+        response = await client.get("/v1/admin/background-jobs", headers=admin_headers)
         assert len(response.json()["jobs"]) == 0
 
-    def test_cleanup_no_finished_jobs(self, client, admin_headers, clean_registry):
+    async def test_cleanup_no_finished_jobs(
+        self, client, admin_headers, clean_registry
+    ):
         """Test cleanup when there are no finished jobs."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/background-jobs/cleanup",
             headers=admin_headers,
         )
@@ -427,7 +446,9 @@ class TestBackgroundJobCleanupEndpoint:
 class TestLegacyQuestionGenerationStatusEndpoint:
     """Tests for the legacy GET /v1/admin/question-generation-status/{job_id} endpoint."""
 
-    def test_status_by_registry_job_id(self, client, admin_headers, clean_registry):
+    async def test_status_by_registry_job_id(
+        self, client, admin_headers, clean_registry
+    ):
         """Test getting status by registry job ID."""
         process = subprocess.Popen(
             [sys.executable, "-c", "import time; time.sleep(60)"],
@@ -438,7 +459,7 @@ class TestLegacyQuestionGenerationStatusEndpoint:
         try:
             job_info = clean_registry.register(process=process, job_type="test_job")
 
-            response = client.get(
+            response = await client.get(
                 f"/v1/admin/question-generation-status/{job_info.job_id}",
                 headers=admin_headers,
             )
@@ -452,7 +473,7 @@ class TestLegacyQuestionGenerationStatusEndpoint:
             process.terminate()
             process.wait()
 
-    def test_status_by_pid(self, client, admin_headers, clean_registry):
+    async def test_status_by_pid(self, client, admin_headers, clean_registry):
         """Test getting status by PID (legacy behavior)."""
         process = subprocess.Popen(
             [sys.executable, "-c", "import time; time.sleep(60)"],
@@ -465,7 +486,7 @@ class TestLegacyQuestionGenerationStatusEndpoint:
             clean_registry.register(process=process, job_type="test_job")
 
             # Query by PID instead of job_id
-            response = client.get(
+            response = await client.get(
                 f"/v1/admin/question-generation-status/{process.pid}",
                 headers=admin_headers,
             )
@@ -478,9 +499,9 @@ class TestLegacyQuestionGenerationStatusEndpoint:
             process.terminate()
             process.wait()
 
-    def test_status_invalid_job_id(self, client, admin_headers, clean_registry):
+    async def test_status_invalid_job_id(self, client, admin_headers, clean_registry):
         """Test getting status with invalid job ID."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/question-generation-status/not_a_number_or_valid_id",
             headers=admin_headers,
         )

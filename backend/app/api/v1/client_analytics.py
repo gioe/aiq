@@ -5,7 +5,7 @@ Provides endpoint for iOS and other clients to submit analytics events
 for user behavior tracking, performance monitoring, and product insights.
 """
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import logging
 
@@ -15,17 +15,17 @@ from app.schemas.client_analytics import (
     AnalyticsEventsResponse,
 )
 from app.core.auth import get_current_user_optional
-from app.core.db_error_handling import handle_db_error
+from app.core.db_error_handling import async_handle_db_error
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.post("/events", response_model=AnalyticsEventsResponse)
-def submit_analytics_events(
+async def submit_analytics_events(
     batch: AnalyticsEventsBatch,
     current_user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Submit a batch of analytics events from the client.
@@ -62,7 +62,7 @@ def submit_analytics_events(
     user_id = current_user.id if current_user else None
 
     events_saved = 0
-    with handle_db_error(db, "submit analytics events"):
+    async with async_handle_db_error(db, "submit analytics events"):
         for event in batch.events:
             db_event = ClientAnalyticsEvent(
                 event_name=event.event_name,
@@ -76,7 +76,7 @@ def submit_analytics_events(
             db.add(db_event)
             events_saved += 1
 
-        db.commit()
+        await db.commit()
 
     logger.info(
         f"Received {events_saved} analytics events from "

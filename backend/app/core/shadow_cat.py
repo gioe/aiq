@@ -11,8 +11,8 @@ import logging
 import time
 from typing import Any, List, Optional
 
-from sqlalchemy import and_
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cat.engine import CATSessionManager
 from app.core.datetime_utils import utc_now
@@ -31,7 +31,9 @@ MIN_CALIBRATED_ITEMS = CATSessionManager.MIN_ITEMS
 logger = logging.getLogger(__name__)
 
 
-def run_shadow_cat(db: Session, session_id: int) -> Optional[ShadowCATResult]:
+async def run_shadow_cat(
+    db: AsyncSession, session_id: int
+) -> Optional[ShadowCATResult]:
     """Run shadow CAT retrospectively on a completed fixed-form test.
 
     Fetches the test session's responses with their IRT parameters,
@@ -50,7 +52,7 @@ def run_shadow_cat(db: Session, session_id: int) -> Optional[ShadowCATResult]:
 
     try:
         # 1. Fetch and validate test session
-        test_session = db.get(TestSession, session_id)
+        test_session = await db.get(TestSession, session_id)
         if test_session is None:
             logger.warning(f"Shadow CAT: session {session_id} not found")
             return None
@@ -62,21 +64,21 @@ def run_shadow_cat(db: Session, session_id: int) -> Optional[ShadowCATResult]:
             return None
 
         # 2. Check for existing shadow result (idempotency)
-        existing = (
-            db.query(ShadowCATResult)
-            .filter(ShadowCATResult.test_session_id == session_id)
-            .first()
+        existing_stmt = select(ShadowCATResult).filter(
+            ShadowCATResult.test_session_id == session_id
         )
+        result = await db.execute(existing_stmt)
+        existing = result.scalars().first()
         if existing is not None:
             logger.debug(f"Shadow CAT: session {session_id} already has shadow result")
             return existing
 
         # 3. Fetch actual IQ from test result
-        test_result = (
-            db.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        test_result_stmt = select(TestResult).filter(
+            TestResult.test_session_id == session_id
         )
+        result = await db.execute(test_result_stmt)
+        test_result = result.scalars().first()
         if test_result is None:
             logger.warning(f"Shadow CAT: no test result for session {session_id}")
             return None
@@ -84,7 +86,7 @@ def run_shadow_cat(db: Session, session_id: int) -> Optional[ShadowCATResult]:
         actual_iq = test_result.iq_score
 
         # 4. Fetch responses with IRT parameters, ordered by answered_at
-        responses_with_irt = _fetch_calibrated_responses(db, session_id)
+        responses_with_irt = await _fetch_calibrated_responses(db, session_id)
 
         if len(responses_with_irt) < MIN_CALIBRATED_ITEMS:
             logger.info(
@@ -108,7 +110,7 @@ def run_shadow_cat(db: Session, session_id: int) -> Optional[ShadowCATResult]:
 
         # 7. Store result
         db.add(shadow_result)
-        db.commit()
+        await db.commit()
 
         logger.info(
             f"Shadow CAT: session {session_id} completed - "
@@ -127,13 +129,13 @@ def run_shadow_cat(db: Session, session_id: int) -> Optional[ShadowCATResult]:
             exc_info=True,
         )
         try:
-            db.rollback()
+            await db.rollback()
         except Exception:
             pass
         return None
 
 
-def _fetch_calibrated_responses(db: Session, session_id: int) -> List[Any]:
+async def _fetch_calibrated_responses(db: AsyncSession, session_id: int) -> List[Any]:
     """Fetch responses with calibrated IRT parameters, ordered by answered_at.
 
     Returns only responses whose questions have both irt_difficulty and
@@ -141,8 +143,8 @@ def _fetch_calibrated_responses(db: Session, session_id: int) -> List[Any]:
 
     Each result is a Row of (Response, Question).
     """
-    return (
-        db.query(Response, Question)
+    stmt = (
+        select(Response, Question)
         .join(Question, Response.question_id == Question.id)
         .filter(
             and_(
@@ -152,8 +154,9 @@ def _fetch_calibrated_responses(db: Session, session_id: int) -> List[Any]:
             )
         )
         .order_by(Response.answered_at)
-        .all()
     )
+    result = await db.execute(stmt)
+    return result.all()
 
 
 def _execute_shadow_cat(

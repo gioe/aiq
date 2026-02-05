@@ -8,8 +8,8 @@ accelerate IRT calibration data collection. Anchor items are a curated subset
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.core.error_responses import ErrorMessages, raise_not_found
@@ -44,7 +44,7 @@ async def list_anchor_items(
         None,
         description="Filter by question type (e.g., 'pattern', 'logic')",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     """
@@ -56,14 +56,14 @@ async def list_anchor_items(
     Requires X-Admin-Token header.
     """
     # Build base query for anchor items
-    query = db.query(Question).filter(Question.is_anchor.is_(True))
+    stmt = select(Question).filter(Question.is_anchor.is_(True))
 
     if domain:
-        query = query.filter(Question.question_type == domain)
+        stmt = stmt.filter(Question.question_type == domain)
 
-    anchor_questions = query.order_by(
-        Question.question_type, Question.difficulty_level
-    ).all()
+    stmt = stmt.order_by(Question.question_type, Question.difficulty_level)
+    result = await db.execute(stmt)
+    anchor_questions = result.scalars().all()
 
     # Build items list
     items = [
@@ -80,8 +80,9 @@ async def list_anchor_items(
     ]
 
     # Build domain summaries from all anchors (ignoring domain filter for summaries)
-    all_anchors_query = db.query(Question).filter(Question.is_anchor.is_(True))
-    all_anchors = all_anchors_query.all()
+    all_anchors_stmt = select(Question).filter(Question.is_anchor.is_(True))
+    all_anchors_result = await db.execute(all_anchors_stmt)
+    all_anchors = all_anchors_result.scalars().all()
 
     domain_data: Dict[str, Dict[str, Any]] = {}
     for q in all_anchors:
@@ -138,7 +139,7 @@ async def list_anchor_items(
 async def toggle_anchor(
     question_id: int,
     request: AnchorToggleRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     """
@@ -149,7 +150,8 @@ async def toggle_anchor(
 
     Requires X-Admin-Token header.
     """
-    question = db.query(Question).filter(Question.id == question_id).first()
+    result = await db.execute(select(Question).filter(Question.id == question_id))
+    question = result.scalars().first()
     if not question:
         raise_not_found(ErrorMessages.question_not_found(question_id))
 
@@ -162,8 +164,8 @@ async def toggle_anchor(
     else:
         question.anchor_designated_at = None
 
-    db.commit()
-    db.refresh(question)
+    await db.commit()
+    await db.refresh(question)
 
     logger.info(
         f"Anchor designation updated for question {question_id}: "
@@ -193,7 +195,7 @@ async def auto_select_anchors(
         le=1.0,
         description="Minimum discrimination threshold for eligibility",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     """
@@ -207,17 +209,17 @@ async def auto_select_anchors(
     Requires X-Admin-Token header.
     """
     # Count and clear existing anchors
-    existing_count = (
-        db.query(func.count(Question.id)).filter(Question.is_anchor.is_(True)).scalar()
+    count_result = await db.execute(
+        select(func.count(Question.id)).filter(Question.is_anchor.is_(True))
     )
+    existing_count = count_result.scalar()
 
     if not dry_run:
-        db.query(Question).filter(Question.is_anchor.is_(True)).update(
-            {
-                Question.is_anchor: False,
-                Question.anchor_designated_at: None,
-            }
-        )
+        clear_stmt = select(Question).filter(Question.is_anchor.is_(True))
+        clear_result = await db.execute(clear_stmt)
+        for question in clear_result.scalars():
+            question.is_anchor = False
+            question.anchor_designated_at = None
 
     now = utc_now()
     total_selected = 0
@@ -232,8 +234,8 @@ async def auto_select_anchors(
 
         for difficulty in DifficultyLevel:
             # Query eligible questions for this domain x difficulty
-            eligible = (
-                db.query(Question)
+            eligible_stmt = (
+                select(Question)
                 .filter(
                     Question.question_type == q_type,
                     Question.difficulty_level == difficulty,
@@ -244,8 +246,9 @@ async def auto_select_anchors(
                 )
                 .order_by(Question.discrimination.desc())
                 .limit(ANCHORS_PER_DIFFICULTY_PER_DOMAIN)
-                .all()
             )
+            eligible_result = await db.execute(eligible_stmt)
+            eligible = eligible_result.scalars().all()
 
             count = len(eligible)
             if not dry_run:
@@ -283,7 +286,7 @@ async def auto_select_anchors(
         )
 
     if not dry_run:
-        db.commit()
+        await db.commit()
 
     logger.info(
         f"Anchor auto-select {'(dry run) ' if dry_run else ''}"

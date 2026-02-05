@@ -9,8 +9,8 @@ import logging
 from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.error_responses import raise_server_error, ErrorMessages
 from app.models import (
@@ -104,7 +104,7 @@ async def get_calibration_status(
         le=10000,
         description="Minimum responses per item for calibration readiness (default: 50)",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -154,26 +154,25 @@ async def get_calibration_status(
     """
     try:
         # 1. Count total completed tests
-        total_tests = (
-            db.query(func.count(TestSession.id))
-            .filter(TestSession.status == TestStatus.COMPLETED)
-            .scalar()
-            or 0
+        total_tests_result = await db.execute(
+            select(func.count(TestSession.id)).filter(
+                TestSession.status == TestStatus.COMPLETED
+            )
         )
+        total_tests = total_tests_result.scalar() or 0
 
         # 2. Count total responses from completed sessions
-        total_responses = (
-            db.query(func.count(Response.id))
+        total_responses_result = await db.execute(
+            select(func.count(Response.id))
             .join(TestSession, Response.test_session_id == TestSession.id)
             .filter(TestSession.status == TestStatus.COMPLETED)
-            .scalar()
-            or 0
         )
+        total_responses = total_responses_result.scalar() or 0
 
         # 3. Get per-item response counts (only active, normal quality items)
         # Use the response_count column already stored on the Question model
-        item_stats_raw = (
-            db.query(
+        item_stats_stmt = (
+            select(
                 Question.id,
                 Question.question_type,
                 Question.difficulty_level,
@@ -187,8 +186,9 @@ async def get_calibration_status(
             )
             .order_by(Question.id)
             .limit(MAX_ITEMS_LIMIT)
-            .all()
         )
+        item_stats_result = await db.execute(item_stats_stmt)
+        item_stats_raw = item_stats_result.all()
 
         # 4. Build item statistics list
         item_stats: List[ItemCalibrationStats] = []

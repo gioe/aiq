@@ -25,7 +25,7 @@ Reference:
 import logging
 from typing import Dict, List
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.core.datetime_utils import utc_now
@@ -446,8 +446,8 @@ def _create_error_result(error_message: str) -> Dict:
     }
 
 
-def get_reliability_report(
-    db: Session,
+async def get_reliability_report(
+    db: AsyncSession,
     min_sessions: int = 100,
     min_retest_pairs: int = 30,
     use_cache: bool = True,
@@ -516,7 +516,7 @@ def get_reliability_report(
     data_loader = ReliabilityDataLoader(db)
 
     try:
-        alpha_result = calculate_cronbachs_alpha(
+        alpha_result = await calculate_cronbachs_alpha(
             db, min_sessions=min_sessions, data_loader=data_loader
         )
     except Exception as e:
@@ -534,7 +534,7 @@ def get_reliability_report(
         }
 
     try:
-        test_retest_result = calculate_test_retest_reliability(
+        test_retest_result = await calculate_test_retest_reliability(
             db, min_pairs=min_retest_pairs, data_loader=data_loader
         )
     except Exception as e:
@@ -556,7 +556,7 @@ def get_reliability_report(
         )
 
     try:
-        split_half_result = calculate_split_half_reliability(
+        split_half_result = await calculate_split_half_reliability(
             db, min_sessions=min_sessions, data_loader=data_loader
         )
     except Exception as e:

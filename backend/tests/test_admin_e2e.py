@@ -10,6 +10,7 @@ RunReporter and the backend admin API, ensuring that:
 Task: QGT-014
 """
 import pytest
+from sqlalchemy import select
 from unittest.mock import patch
 
 from app.models import QuestionGenerationRun, GenerationRunStatus
@@ -201,7 +202,7 @@ class RunReporterSimulator:
             "triggered_by": triggered_by,
         }
 
-    def report_run(
+    async def report_run(
         self,
         summary: dict,
         exit_code: int,
@@ -222,7 +223,7 @@ class RunReporterSimulator:
             min_judge_score_threshold=min_judge_score_threshold,
         )
 
-        response = self.test_client.post(
+        response = await self.test_client.post(
             "/v1/admin/generation-runs",
             json=payload,
             headers={"X-Service-Key": self.service_key},
@@ -239,7 +240,7 @@ class TestEndToEndRunReporting:
     """
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_successful_run_reporting(
+    async def test_e2e_successful_run_reporting(
         self, client, db_session, complete_metrics_summary
     ):
         """
@@ -249,7 +250,7 @@ class TestEndToEndRunReporting:
         # Simulate question-service reporting a run
         reporter = RunReporterSimulator(client, "test-service-key")
 
-        response = reporter.report_run(
+        response = await reporter.report_run(
             summary=complete_metrics_summary,
             exit_code=0,
             environment="production",
@@ -267,11 +268,10 @@ class TestEndToEndRunReporting:
         assert data["status"] == "success"
 
         # Step 2: Verify the run was persisted correctly to database
-        db_run = (
-            db_session.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == run_id)
-            .first()
+        _result = await db_session.execute(
+            select(QuestionGenerationRun).filter(QuestionGenerationRun.id == run_id)
         )
+        db_run = _result.scalars().first()
         assert db_run is not None
         assert db_run.status == GenerationRunStatus.SUCCESS
         assert db_run.exit_code == 0
@@ -293,7 +293,7 @@ class TestEndToEndRunReporting:
         assert db_run.error_summary["by_category"]["rate_limit"] == 1
 
         # Step 3: Verify API retrieval returns correct data
-        get_response = client.get(
+        get_response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers={"X-Service-Key": "test-service-key"},
         )
@@ -310,7 +310,7 @@ class TestEndToEndRunReporting:
         assert get_data["pipeline_losses"]["total_loss"] == 8  # 50 - 42
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_failed_run_reporting(self, client, db_session):
+    async def test_e2e_failed_run_reporting(self, client, db_session):
         """
         Test E2E flow for a failed run: verify all failure metrics are captured.
         """
@@ -364,7 +364,7 @@ class TestEndToEndRunReporting:
         }
 
         reporter = RunReporterSimulator(client, "test-service-key")
-        response = reporter.report_run(
+        response = await reporter.report_run(
             summary=failed_summary,
             exit_code=2,  # No questions generated
             environment="production",
@@ -375,11 +375,10 @@ class TestEndToEndRunReporting:
         run_id = response.json()["id"]
 
         # Verify database state
-        db_run = (
-            db_session.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == run_id)
-            .first()
+        _result = await db_session.execute(
+            select(QuestionGenerationRun).filter(QuestionGenerationRun.id == run_id)
         )
+        db_run = _result.scalars().first()
         assert db_run.status == GenerationRunStatus.FAILED
         assert db_run.exit_code == 2
         assert db_run.questions_generated == 0
@@ -387,7 +386,7 @@ class TestEndToEndRunReporting:
         assert db_run.total_errors == 50
 
         # Verify API returns failed run correctly
-        get_response = client.get(
+        get_response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers={"X-Service-Key": "test-service-key"},
         )
@@ -397,7 +396,7 @@ class TestEndToEndRunReporting:
         assert get_data["pipeline_losses"]["total_loss"] == 50
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_partial_failure_run_reporting(self, client, db_session):
+    async def test_e2e_partial_failure_run_reporting(self, client, db_session):
         """
         Test E2E flow for partial failure: some questions succeeded.
         """
@@ -453,7 +452,7 @@ class TestEndToEndRunReporting:
         }
 
         reporter = RunReporterSimulator(client, "test-service-key")
-        response = reporter.report_run(
+        response = await reporter.report_run(
             summary=partial_summary,
             exit_code=3,  # Partial failure
             environment="staging",
@@ -464,17 +463,16 @@ class TestEndToEndRunReporting:
         run_id = response.json()["id"]
 
         # Verify database
-        db_run = (
-            db_session.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == run_id)
-            .first()
+        _result = await db_session.execute(
+            select(QuestionGenerationRun).filter(QuestionGenerationRun.id == run_id)
         )
+        db_run = _result.scalars().first()
         assert db_run.status == GenerationRunStatus.PARTIAL_FAILURE
         assert db_run.questions_inserted == 22
         assert db_run.total_errors == 20
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_multiple_runs_and_stats(
+    async def test_e2e_multiple_runs_and_stats(
         self, client, db_session, complete_metrics_summary
     ):
         """
@@ -513,7 +511,7 @@ class TestEndToEndRunReporting:
 
         run_ids = []
         for run_data in runs_to_report:
-            response = reporter.report_run(
+            response = await reporter.report_run(
                 summary=run_data["summary"],
                 exit_code=run_data["exit_code"],
                 environment=run_data["environment"],
@@ -523,7 +521,7 @@ class TestEndToEndRunReporting:
             run_ids.append(response.json()["id"])
 
         # Verify stats endpoint aggregates correctly
-        stats_response = client.get(
+        stats_response = await client.get(
             "/v1/admin/generation-runs/stats"
             "?start_date=2024-12-01T00:00:00Z"
             "&end_date=2024-12-31T23:59:59Z",
@@ -542,7 +540,7 @@ class TestEndToEndRunReporting:
         assert "openai" in stats["provider_summary"]
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_list_endpoint_returns_reported_runs(
+    async def test_e2e_list_endpoint_returns_reported_runs(
         self, client, db_session, complete_metrics_summary
     ):
         """
@@ -560,7 +558,7 @@ class TestEndToEndRunReporting:
                     "duration_seconds": 300.0 + i * 10,
                 },
             }
-            response = reporter.report_run(
+            response = await reporter.report_run(
                 summary=modified_summary,
                 exit_code=0,
                 environment="production",
@@ -568,7 +566,7 @@ class TestEndToEndRunReporting:
             assert response.status_code == 201
 
         # List all runs
-        list_response = client.get(
+        list_response = await client.get(
             "/v1/admin/generation-runs",
             headers={"X-Service-Key": "test-service-key"},
         )
@@ -582,7 +580,7 @@ class TestEndToEndRunReporting:
         assert list_data["runs"][0]["started_at"] > list_data["runs"][1]["started_at"]
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_provider_metrics_correctly_aggregated(
+    async def test_e2e_provider_metrics_correctly_aggregated(
         self, client, db_session, complete_metrics_summary
     ):
         """
@@ -590,7 +588,7 @@ class TestEndToEndRunReporting:
         """
         reporter = RunReporterSimulator(client, "test-service-key")
 
-        response = reporter.report_run(
+        response = await reporter.report_run(
             summary=complete_metrics_summary,
             exit_code=0,
             environment="production",
@@ -600,7 +598,7 @@ class TestEndToEndRunReporting:
         run_id = response.json()["id"]
 
         # Verify via API
-        get_response = client.get(
+        get_response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers={"X-Service-Key": "test-service-key"},
         )
@@ -617,7 +615,7 @@ class TestEndToEndRunReporting:
         assert provider_metrics["anthropic"]["api_calls"] == 45
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_pipeline_losses_calculated_correctly(
+    async def test_e2e_pipeline_losses_calculated_correctly(
         self, client, db_session, complete_metrics_summary
     ):
         """
@@ -625,7 +623,7 @@ class TestEndToEndRunReporting:
         """
         reporter = RunReporterSimulator(client, "test-service-key")
 
-        response = reporter.report_run(
+        response = await reporter.report_run(
             summary=complete_metrics_summary,
             exit_code=0,
             environment="production",
@@ -634,7 +632,7 @@ class TestEndToEndRunReporting:
         run_id = response.json()["id"]
 
         # Get detailed run with pipeline losses
-        get_response = client.get(
+        get_response = await client.get(
             f"/v1/admin/generation-runs/{run_id}",
             headers={"X-Service-Key": "test-service-key"},
         )
@@ -659,12 +657,14 @@ class TestEndToEndFilteringAndSorting:
     """E2E tests for filtering and sorting functionality."""
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_filter_by_status(self, client, db_session, complete_metrics_summary):
+    async def test_e2e_filter_by_status(
+        self, client, db_session, complete_metrics_summary
+    ):
         """Test filtering runs by status after reporting."""
         reporter = RunReporterSimulator(client, "test-service-key")
 
         # Report success run
-        reporter.report_run(
+        await reporter.report_run(
             summary=complete_metrics_summary,
             exit_code=0,
             environment="production",
@@ -687,14 +687,14 @@ class TestEndToEndFilteringAndSorting:
                 "total_errors": 50,
             },
         }
-        reporter.report_run(
+        await reporter.report_run(
             summary=failed_summary,
             exit_code=2,
             environment="production",
         )
 
         # Filter by success
-        success_response = client.get(
+        success_response = await client.get(
             "/v1/admin/generation-runs?status=success",
             headers={"X-Service-Key": "test-service-key"},
         )
@@ -703,7 +703,7 @@ class TestEndToEndFilteringAndSorting:
         assert success_response.json()["runs"][0]["status"] == "success"
 
         # Filter by failed
-        failed_response = client.get(
+        failed_response = await client.get(
             "/v1/admin/generation-runs?status=failed",
             headers={"X-Service-Key": "test-service-key"},
         )
@@ -712,14 +712,14 @@ class TestEndToEndFilteringAndSorting:
         assert failed_response.json()["runs"][0]["status"] == "failed"
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_filter_by_environment(
+    async def test_e2e_filter_by_environment(
         self, client, db_session, complete_metrics_summary
     ):
         """Test filtering runs by environment after reporting."""
         reporter = RunReporterSimulator(client, "test-service-key")
 
         # Report to production
-        reporter.report_run(
+        await reporter.report_run(
             summary=complete_metrics_summary,
             exit_code=0,
             environment="production",
@@ -734,14 +734,14 @@ class TestEndToEndFilteringAndSorting:
                 "duration_seconds": 300.0,
             },
         }
-        reporter.report_run(
+        await reporter.report_run(
             summary=staging_summary,
             exit_code=0,
             environment="staging",
         )
 
         # Filter by production
-        prod_response = client.get(
+        prod_response = await client.get(
             "/v1/admin/generation-runs?environment=production",
             headers={"X-Service-Key": "test-service-key"},
         )
@@ -754,11 +754,11 @@ class TestEndToEndErrorHandling:
     """E2E tests for error handling in the complete flow."""
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_invalid_service_key(self, client, complete_metrics_summary):
+    async def test_e2e_invalid_service_key(self, client, complete_metrics_summary):
         """Test that invalid service key is rejected."""
         reporter = RunReporterSimulator(client, "wrong-key")
 
-        response = reporter.report_run(
+        response = await reporter.report_run(
             summary=complete_metrics_summary,
             exit_code=0,
             environment="production",
@@ -768,7 +768,7 @@ class TestEndToEndErrorHandling:
         assert "Invalid service API key" in response.json()["detail"]
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_missing_required_fields(self, client):
+    async def test_e2e_missing_required_fields(self, client):
         """Test that missing required fields are rejected."""
         # Send incomplete payload directly
         incomplete_payload = {
@@ -777,7 +777,7 @@ class TestEndToEndErrorHandling:
             # Missing questions_requested
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/generation-runs",
             json=incomplete_payload,
             headers={"X-Service-Key": "test-service-key"},
@@ -786,9 +786,9 @@ class TestEndToEndErrorHandling:
         assert response.status_code == 422  # Validation error
 
     @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
-    def test_e2e_get_nonexistent_run(self, client):
+    async def test_e2e_get_nonexistent_run(self, client):
         """Test retrieving a non-existent run returns 404."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/generation-runs/99999",
             headers={"X-Service-Key": "test-service-key"},
         )

@@ -11,7 +11,7 @@ Based on:
 import logging
 import random
 from collections.abc import Sequence
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 
 from app.models import Question, UserQuestion
@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 MIN_ANCHORS_PER_DOMAIN = 1
 
 
-def _select_anchor_items(
-    db: Session, user_id: int, seen_question_ids: Sequence[int]
+async def _select_anchor_items(
+    db: AsyncSession, user_id: int, seen_question_ids: Sequence[int]
 ) -> dict[QuestionType, list[Question]]:
     """
     Select anchor items for each cognitive domain.
@@ -55,7 +55,7 @@ def _select_anchor_items(
 
     for question_type in all_question_types:
         # Query for unseen anchor items of this type
-        query = db.query(Question).filter(
+        stmt = select(Question).filter(
             Question.is_anchor == True,  # noqa: E712
             Question.is_active == True,  # noqa: E712
             Question.quality_flag == "normal",
@@ -65,13 +65,15 @@ def _select_anchor_items(
         )
 
         if seen_question_ids:
-            query = query.filter(~Question.id.in_(seen_question_ids))
+            stmt = stmt.filter(~Question.id.in_(seen_question_ids))
 
         # Order by discrimination descending (prefer high-discrimination anchors)
-        query = query.order_by(Question.discrimination.desc().nullslast())
+        stmt = stmt.order_by(Question.discrimination.desc().nullslast())
 
         # Get up to MIN_ANCHORS_PER_DOMAIN anchor items
-        anchors = query.limit(MIN_ANCHORS_PER_DOMAIN).all()
+        stmt = stmt.limit(MIN_ANCHORS_PER_DOMAIN)
+        result = await db.execute(stmt)
+        anchors = result.scalars().all()
 
         if len(anchors) < MIN_ANCHORS_PER_DOMAIN:
             logger.warning(
@@ -85,8 +87,8 @@ def _select_anchor_items(
     return anchor_items
 
 
-def select_stratified_questions(
-    db: Session, user_id: int, total_count: int
+async def select_stratified_questions(
+    db: AsyncSession, user_id: int, total_count: int
 ) -> tuple[list[Question], dict]:
     """
     Select questions using stratified sampling to ensure balanced test composition.
@@ -129,14 +131,15 @@ def select_stratified_questions(
     3. Fall back gracefully if insufficient questions in specific strata
     """
     # Get list of seen question IDs for this user
-    seen_question_ids_query = select(UserQuestion.question_id).where(
+    seen_question_ids_stmt = select(UserQuestion.question_id).where(
         UserQuestion.user_id == user_id
     )
-    seen_question_ids = db.execute(seen_question_ids_query).scalars().all()
+    result = await db.execute(seen_question_ids_stmt)
+    seen_question_ids = result.scalars().all()
 
     # Pre-select anchor items for IRT calibration (TASK-850)
     # Each domain should have at least MIN_ANCHORS_PER_DOMAIN anchor items
-    anchor_items_by_type = _select_anchor_items(db, user_id, seen_question_ids)
+    anchor_items_by_type = await _select_anchor_items(db, user_id, seen_question_ids)
     selected_questions: list[Question] = []
 
     # Count anchors per difficulty level so we can reduce difficulty targets
@@ -246,7 +249,7 @@ def select_stratified_questions(
             # Query for unseen questions of this difficulty and type
             # Excludes flagged questions (IDA-005)
             # Excludes negative discrimination and prefers high discrimination (IDA-006)
-            query = db.query(Question).filter(
+            stmt = select(Question).filter(
                 Question.is_active == True,  # noqa: E712
                 Question.quality_flag == "normal",  # IDA-005: Exclude flagged
                 Question.difficulty_level == difficulty,
@@ -261,13 +264,15 @@ def select_stratified_questions(
             all_excluded_ids = excluded_ids + already_selected_ids
 
             if all_excluded_ids:
-                query = query.filter(~Question.id.in_(all_excluded_ids))
+                stmt = stmt.filter(~Question.id.in_(all_excluded_ids))
 
             # IDA-006: Order by discrimination descending (NULLs last)
             # This prefers high-discrimination questions when available
-            query = query.order_by(Question.discrimination.desc().nullslast())
+            stmt = stmt.order_by(Question.discrimination.desc().nullslast())
 
-            questions = query.limit(domain_count).all()
+            stmt = stmt.limit(domain_count)
+            result = await db.execute(stmt)
+            questions = result.scalars().all()
 
             difficulty_questions.extend(questions)
 
@@ -279,7 +284,7 @@ def select_stratified_questions(
             all_excluded = all_selected_ids + difficulty_question_ids
             additional_needed = target_count - len(difficulty_questions)
 
-            additional_query = db.query(Question).filter(
+            additional_stmt = select(Question).filter(
                 Question.is_active == True,  # noqa: E712
                 Question.quality_flag == "normal",  # IDA-005: Exclude flagged
                 Question.difficulty_level == difficulty,
@@ -289,20 +294,18 @@ def select_stratified_questions(
 
             if seen_question_ids:
                 combined_ids = list(seen_question_ids) + all_excluded
-                additional_query = additional_query.filter(
-                    ~Question.id.in_(combined_ids)
-                )
+                additional_stmt = additional_stmt.filter(~Question.id.in_(combined_ids))
             else:
-                additional_query = additional_query.filter(
-                    ~Question.id.in_(all_excluded)
-                )
+                additional_stmt = additional_stmt.filter(~Question.id.in_(all_excluded))
 
             # IDA-006: Order by discrimination descending (NULLs last)
-            additional_query = additional_query.order_by(
+            additional_stmt = additional_stmt.order_by(
                 Question.discrimination.desc().nullslast()
             )
 
-            additional_questions = additional_query.limit(additional_needed).all()
+            additional_stmt = additional_stmt.limit(additional_needed)
+            result = await db.execute(additional_stmt)
+            additional_questions = result.scalars().all()
 
             # IDA-006: Log warning when falling back to difficulty-level selection
             if additional_questions:
@@ -341,7 +344,7 @@ def select_stratified_questions(
         already_selected_ids = [q.id for q in selected_questions]
         still_needed = total_count - len(selected_questions)
 
-        fallback_query = db.query(Question).filter(
+        fallback_stmt = select(Question).filter(
             Question.is_active == True,  # noqa: E712
             Question.quality_flag == "normal",  # IDA-005: Exclude flagged
             # IDA-006: Exclude negative discrimination, allow NULL
@@ -350,18 +353,18 @@ def select_stratified_questions(
 
         if seen_question_ids:
             combined_ids = list(seen_question_ids) + already_selected_ids
-            fallback_query = fallback_query.filter(~Question.id.in_(combined_ids))
+            fallback_stmt = fallback_stmt.filter(~Question.id.in_(combined_ids))
         else:
-            fallback_query = fallback_query.filter(
-                ~Question.id.in_(already_selected_ids)
-            )
+            fallback_stmt = fallback_stmt.filter(~Question.id.in_(already_selected_ids))
 
         # IDA-006: Order by discrimination descending (NULLs last)
-        fallback_query = fallback_query.order_by(
+        fallback_stmt = fallback_stmt.order_by(
             Question.discrimination.desc().nullslast()
         )
 
-        fallback_questions = fallback_query.limit(still_needed).all()
+        fallback_stmt = fallback_stmt.limit(still_needed)
+        result = await db.execute(fallback_stmt)
+        fallback_questions = result.scalars().all()
 
         # IDA-006: Log warning when using final fallback
         if fallback_questions:

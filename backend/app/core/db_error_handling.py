@@ -54,12 +54,13 @@ Reference:
 """
 
 import logging
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from functools import wraps
-from typing import Any, Callable, Generator, Optional, TypeVar
+from typing import Any, AsyncGenerator, Callable, Generator, Optional, TypeVar
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 
@@ -231,6 +232,94 @@ def handle_db_error(
         raise HTTPException(status_code=status_code, detail=detail)
     except (SQLAlchemyError, Exception) as e:
         db.rollback()
+
+        # Format the error detail message
+        if detail_template:
+            detail = detail_template.format(operation_name=operation_name, error=str(e))
+        else:
+            detail = f"Failed to {operation_name}: {str(e)}"
+
+        # Log the error with context
+        logger.log(
+            log_level,
+            f"Database error during {operation_name}: {e}",
+            exc_info=True,
+        )
+
+        raise HTTPException(status_code=status_code, detail=detail)
+
+
+@asynccontextmanager
+async def async_handle_db_error(
+    db: AsyncSession,
+    operation_name: str,
+    *,
+    reraise_http_exceptions: bool = True,
+    status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
+    detail_template: Optional[str] = None,
+    log_level: int = logging.ERROR,
+) -> AsyncGenerator[None, None]:
+    """Async context manager for handling database errors consistently.
+
+    This is the async version of handle_db_error, designed for use with
+    AsyncSession from sqlalchemy.ext.asyncio. All database operations
+    (rollback, commit, etc.) are awaited.
+
+    Args:
+        db: The SQLAlchemy async database session to rollback on error.
+        operation_name: Human-readable name of the operation for error messages
+            and logging (e.g., "register device token", "update preferences").
+        reraise_http_exceptions: If True (default), HTTPExceptions raised within
+            the context are re-raised without modification. Set to False to
+            wrap all exceptions.
+        status_code: HTTP status code to use in the raised HTTPException.
+            Defaults to 500 Internal Server Error.
+        detail_template: Optional custom template for the error detail message.
+            If provided, should contain {operation_name} and optionally {error}.
+            Defaults to "Failed to {operation_name}: {error}".
+        log_level: Logging level for error messages. Defaults to logging.ERROR.
+
+    Yields:
+        None - the context manager is used for its side effects only.
+
+    Raises:
+        HTTPException: On any exception (except HTTPException if reraise_http_exceptions
+            is True), with the session rolled back.
+
+    Example:
+        >>> async with async_handle_db_error(db, "update user settings"):
+        ...     user.theme = "dark"
+        ...     await db.commit()
+        ...     await db.refresh(user)
+    """
+    try:
+        yield
+    except HTTPException as e:
+        if reraise_http_exceptions:
+            raise
+        # When not reraising, treat HTTPException like any other error:
+        # rollback, log, and wrap in new HTTPException with configured status
+        await db.rollback()
+
+        # Format error detail using the original exception's detail
+        if detail_template:
+            detail = detail_template.format(
+                operation_name=operation_name, error=e.detail
+            )
+        else:
+            detail = f"Failed to {operation_name}: {e.detail}"
+
+        # Log with context
+        logger.log(
+            log_level,
+            f"Database error during {operation_name}: {e.detail}",
+            exc_info=True,
+        )
+
+        # Raise new HTTPException with configured status code
+        raise HTTPException(status_code=status_code, detail=detail)
+    except (SQLAlchemyError, Exception) as e:
+        await db.rollback()
 
         # Format the error detail message
         if detail_template:

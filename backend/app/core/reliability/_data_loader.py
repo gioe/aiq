@@ -14,8 +14,8 @@ import logging
 from datetime import datetime
 from typing import List, Optional, Tuple, TypedDict
 
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
 
 from app.models.models import (
     Response,
@@ -61,7 +61,7 @@ class ReliabilityDataLoader:
         docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-FI-020)
     """
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         """
         Initialize the data loader.
 
@@ -72,7 +72,7 @@ class ReliabilityDataLoader:
         self._response_data: Optional[ReliabilityResponseData] = None
         self._test_retest_data: Optional[ReliabilityTestRetestData] = None
 
-    def get_response_data(self) -> ReliabilityResponseData:
+    async def get_response_data(self) -> ReliabilityResponseData:
         """
         Get response data for Cronbach's alpha and split-half calculations.
 
@@ -93,16 +93,16 @@ class ReliabilityDataLoader:
             return self._response_data
 
         # Count completed sessions
-        completed_sessions_count = (
-            self._db.query(func.count(TestSession.id))
-            .filter(TestSession.status == TestStatus.COMPLETED)
-            .scalar()
-        ) or 0
+        completed_sessions_stmt = select(func.count(TestSession.id)).filter(
+            TestSession.status == TestStatus.COMPLETED
+        )
+        result = await self._db.execute(completed_sessions_stmt)
+        completed_sessions_count = result.scalar() or 0
 
         # Get all responses from completed sessions
         # Include Response.id for ordering in split-half calculation
-        responses_query = (
-            self._db.query(
+        responses_stmt = (
+            select(
                 Response.test_session_id,
                 Response.question_id,
                 Response.is_correct,
@@ -110,8 +110,9 @@ class ReliabilityDataLoader:
             )
             .join(TestSession, Response.test_session_id == TestSession.id)
             .filter(TestSession.status == TestStatus.COMPLETED)
-            .all()
         )
+        result = await self._db.execute(responses_stmt)
+        responses_query = result.all()
 
         # Convert to list of tuples for consistent typing
         # Include response_id for split-half ordering
@@ -132,7 +133,7 @@ class ReliabilityDataLoader:
 
         return self._response_data
 
-    def get_test_retest_data(self) -> ReliabilityTestRetestData:
+    async def get_test_retest_data(self) -> ReliabilityTestRetestData:
         """
         Get test result data for test-retest reliability calculations.
 
@@ -149,8 +150,8 @@ class ReliabilityDataLoader:
             return self._test_retest_data
 
         # Get all completed test results ordered by user and time
-        results_query = (
-            self._db.query(
+        results_stmt = (
+            select(
                 TestResult.user_id,
                 TestResult.iq_score,
                 TestResult.completed_at,
@@ -158,8 +159,9 @@ class ReliabilityDataLoader:
             .join(TestSession, TestResult.test_session_id == TestSession.id)
             .filter(TestSession.status == TestStatus.COMPLETED)
             .order_by(TestResult.user_id, TestResult.completed_at)
-            .all()
         )
+        result = await self._db.execute(results_stmt)
+        results_query = result.all()
 
         # Convert to list of tuples for consistent typing
         test_results = [(r.user_id, r.iq_score, r.completed_at) for r in results_query]
@@ -175,7 +177,7 @@ class ReliabilityDataLoader:
 
         return self._test_retest_data
 
-    def preload_all(self) -> None:
+    async def preload_all(self) -> None:
         """
         Preload all data for reliability calculations.
 
@@ -183,6 +185,6 @@ class ReliabilityDataLoader:
         Use this when you know you'll need both datasets to avoid interleaved
         queries.
         """
-        self.get_response_data()
-        self.get_test_retest_data()
+        await self.get_response_data()
+        await self.get_test_retest_data()
         logger.debug("ReliabilityDataLoader: Preloaded all reliability data")

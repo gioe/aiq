@@ -8,7 +8,9 @@ from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from app.core.datetime_utils import utc_now
 from app.core.db_error_handling import handle_db_error
@@ -129,11 +131,11 @@ def _build_validity_response_from_stored_data(
     )
 
 
-def _run_validity_analysis_on_demand(
+async def _run_validity_analysis_on_demand(
     session_id: int,
     test_session: TestSession,
     test_result: Optional[TestResult],
-    db: Session,
+    db: AsyncSession,
 ) -> SessionValidityResponse:
     """
     Run validity analysis on-demand for sessions without stored validity data.
@@ -151,7 +153,10 @@ def _run_validity_analysis_on_demand(
         SessionValidityResponse with fresh analysis results
     """
     # Get responses for this session
-    responses = db.query(Response).filter(Response.test_session_id == session_id).all()
+    _result = await db.execute(
+        select(Response).filter(Response.test_session_id == session_id)
+    )
+    responses = _result.scalars().all()
 
     if not responses:
         # Session with no responses - return empty validity
@@ -170,7 +175,8 @@ def _run_validity_analysis_on_demand(
 
     # Get questions for difficulty data
     question_ids = [r.question_id for r in responses]
-    questions = db.query(Question).filter(Question.id.in_(question_ids)).all()
+    _result = await db.execute(select(Question).filter(Question.id.in_(question_ids)))
+    questions = _result.scalars().all()
     questions_dict = {q.id: q for q in questions}
 
     # Calculate correct count for person-fit analysis
@@ -310,7 +316,7 @@ def _run_validity_analysis_on_demand(
 )
 async def get_session_validity(
     session_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -361,9 +367,10 @@ async def get_session_validity(
     """
     try:
         # Get test session
-        test_session = (
-            db.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        test_session = _result.scalars().first()
 
         if test_session is None:
             raise HTTPException(
@@ -372,11 +379,10 @@ async def get_session_validity(
             )
 
         # Get test result (which contains stored validity data)
-        test_result = (
-            db.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
 
         # Check if we need to run validity analysis on-demand
         # This handles sessions completed before CD-007 was implemented
@@ -390,7 +396,7 @@ async def get_session_validity(
             )
         else:
             # Run validity analysis on-demand
-            return _run_validity_analysis_on_demand(
+            return await _run_validity_analysis_on_demand(
                 session_id=session_id,
                 test_session=test_session,
                 test_result=test_result,
@@ -421,7 +427,7 @@ async def get_validity_report(
         None,
         description="Filter by validity status (valid, suspect, invalid)",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -478,7 +484,7 @@ async def get_validity_report(
         # Build base query for test results with validity data in the period
         # Use joinedload to eagerly load TestSession for in-memory filtering
         base_query = (
-            db.query(TestResult)
+            select(TestResult)
             .options(joinedload(TestResult.test_session))
             .join(TestSession, TestResult.test_session_id == TestSession.id)
             .filter(TestSession.completed_at >= period_start)
@@ -490,7 +496,8 @@ async def get_validity_report(
             base_query = base_query.filter(TestResult.validity_status == status.value)
 
         # Get all test results in the period
-        results = base_query.all()
+        _result = await db.execute(base_query)
+        results = _result.scalars().unique().all()
 
         # Calculate status counts
         total_sessions = len(results)
@@ -669,7 +676,7 @@ async def get_validity_report(
 async def override_session_validity(
     session_id: int,
     request: ValidityOverrideRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -721,9 +728,10 @@ async def override_session_validity(
     """
     with handle_db_error(db, "override session validity"):
         # Get test session
-        test_session = (
-            db.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        test_session = _result.scalars().first()
 
         if test_session is None:
             raise HTTPException(
@@ -732,11 +740,10 @@ async def override_session_validity(
             )
 
         # Get test result
-        test_result = (
-            db.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
 
         if test_result is None:
             raise HTTPException(
@@ -762,8 +769,8 @@ async def override_session_validity(
         test_result.validity_overridden_by = admin_placeholder_id
 
         # Commit changes
-        db.commit()
-        db.refresh(test_result)
+        await db.commit()
+        await db.refresh(test_result)
 
         # Log the override action for security monitoring
         logger.info(

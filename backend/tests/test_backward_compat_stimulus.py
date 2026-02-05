@@ -17,12 +17,13 @@ from app.models import Question, TestSession
 from app.models.models import QuestionType, DifficultyLevel, TestStatus
 from app.core.question_utils import question_to_response
 from app.schemas.questions import QuestionResponse
+from sqlalchemy import select
 
 
 class TestDatabaseLayerBackwardCompatibility:
     """Tests for database-level backward compatibility with NULL stimulus."""
 
-    def test_create_question_without_stimulus(self, db_session):
+    async def test_create_question_without_stimulus(self, db_session):
         """Test that a Question can be created with stimulus=None."""
         question = Question(
             question_text="What is 2 + 2?",
@@ -38,15 +39,15 @@ class TestDatabaseLayerBackwardCompatibility:
         )
 
         db_session.add(question)
-        db_session.commit()
-        db_session.refresh(question)
+        await db_session.commit()
+        await db_session.refresh(question)
 
         # Verify question was created successfully
         assert question.id is not None
         assert question.stimulus is None
         assert question.question_text == "What is 2 + 2?"
 
-    def test_query_question_with_null_stimulus(self, db_session):
+    async def test_query_question_with_null_stimulus(self, db_session):
         """Test that questions with NULL stimulus can be queried from database."""
         # Create question without stimulus
         question = Question(
@@ -60,20 +61,20 @@ class TestDatabaseLayerBackwardCompatibility:
             stimulus=None,
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
         # Query the question back
-        retrieved = (
-            db_session.query(Question)
-            .filter(Question.question_text == "Pattern: 1, 2, 3, ?")
-            .first()
+        _qresult = await db_session.execute(
+            select(Question).filter(Question.question_text == "Pattern: 1, 2, 3, ?")
         )
+
+        retrieved = _qresult.scalars().first()
 
         assert retrieved is not None
         assert retrieved.stimulus is None
         assert retrieved.question_text == "Pattern: 1, 2, 3, ?"
 
-    def test_filter_questions_regardless_of_stimulus_value(self, db_session):
+    async def test_filter_questions_regardless_of_stimulus_value(self, db_session):
         """Test that querying questions works regardless of stimulus value."""
         # Create one question without stimulus
         q1 = Question(
@@ -101,12 +102,13 @@ class TestDatabaseLayerBackwardCompatibility:
 
         db_session.add(q1)
         db_session.add(q2)
-        db_session.commit()
+        await db_session.commit()
 
         # Query all active questions
-        questions = (
-            db_session.query(Question).filter(Question.is_active.is_(True)).all()
+        _qresult = await db_session.execute(
+            select(Question).filter(Question.is_active.is_(True))
         )
+        questions = _qresult.scalars().all()
 
         # Both questions should be returned
         assert len(questions) >= 2
@@ -118,7 +120,7 @@ class TestDatabaseLayerBackwardCompatibility:
 class TestQuestionUtilityBackwardCompatibility:
     """Tests for question_to_response() utility handling NULL stimulus."""
 
-    def test_question_to_response_with_null_stimulus(self, db_session):
+    async def test_question_to_response_with_null_stimulus(self, db_session):
         """Test that question_to_response() handles questions with NULL stimulus."""
         question = Question(
             question_text="What is the capital of France?",
@@ -132,8 +134,8 @@ class TestQuestionUtilityBackwardCompatibility:
             stimulus=None,
         )
         db_session.add(question)
-        db_session.commit()
-        db_session.refresh(question)
+        await db_session.commit()
+        await db_session.refresh(question)
 
         # Convert to response
         response = question_to_response(question, include_explanation=False)
@@ -150,7 +152,7 @@ class TestQuestionUtilityBackwardCompatibility:
         # Questions without stimulus return stimulus=None
         assert response.stimulus is None
 
-    def test_question_to_response_preserves_none_stimulus(self, db_session):
+    async def test_question_to_response_preserves_none_stimulus(self, db_session):
         """Test that QuestionResponse schema correctly handles missing stimulus field."""
         question = Question(
             question_text="Which shape comes next?",
@@ -168,8 +170,8 @@ class TestQuestionUtilityBackwardCompatibility:
             stimulus=None,
         )
         db_session.add(question)
-        db_session.commit()
-        db_session.refresh(question)
+        await db_session.commit()
+        await db_session.refresh(question)
 
         # Convert to response (doesn't include stimulus)
         response = question_to_response(question, include_explanation=False)
@@ -241,7 +243,7 @@ class TestQuestionResponseSchemaBackwardCompatibility:
 class TestAPIEndpointBackwardCompatibility:
     """Tests for API endpoints serving questions without stimulus."""
 
-    def test_unseen_questions_endpoint_with_no_stimulus(
+    async def test_unseen_questions_endpoint_with_no_stimulus(
         self, client, auth_headers, db_session, test_user
     ):
         """Test /v1/questions/unseen returns questions correctly when they have no stimulus."""
@@ -270,10 +272,12 @@ class TestAPIEndpointBackwardCompatibility:
         ]
         for q in questions:
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
         # Request unseen questions
-        response = client.get("/v1/questions/unseen?count=2", headers=auth_headers)
+        response = await client.get(
+            "/v1/questions/unseen?count=2", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -289,7 +293,7 @@ class TestAPIEndpointBackwardCompatibility:
             assert "question_text" in question
             assert "correct_answer" not in question  # Should not be exposed
 
-    def test_start_test_endpoint_with_no_stimulus(
+    async def test_start_test_endpoint_with_no_stimulus(
         self, client, auth_headers, db_session, test_user
     ):
         """Test /v1/test/start works correctly with questions that have no stimulus."""
@@ -309,10 +313,12 @@ class TestAPIEndpointBackwardCompatibility:
         ]
         for q in questions:
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
         # Start a test
-        response = client.post("/v1/test/start?question_count=3", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=3", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -328,7 +334,7 @@ class TestAPIEndpointBackwardCompatibility:
             assert question["stimulus"] is None
             assert "question_text" in question
 
-    def test_mixed_stimulus_questions_in_same_test(
+    async def test_mixed_stimulus_questions_in_same_test(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that a test can contain both questions with and without stimulus.
@@ -362,10 +368,12 @@ class TestAPIEndpointBackwardCompatibility:
         ]
         for q in questions:
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
         # Start a test
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -388,7 +396,7 @@ class TestAPIEndpointBackwardCompatibility:
 class TestEndToEndBackwardCompatibility:
     """End-to-end tests for complete test flow with no-stimulus questions."""
 
-    def test_complete_test_flow_with_no_stimulus_questions(
+    async def test_complete_test_flow_with_no_stimulus_questions(
         self, client, auth_headers, db_session, test_user
     ):
         """Test complete test flow from start to submit with questions lacking stimulus."""
@@ -409,12 +417,12 @@ class TestEndToEndBackwardCompatibility:
         ]
         for q in questions:
             db_session.add(q)
-        db_session.commit()
-        db_session.flush()
+        await db_session.commit()
+        await db_session.flush()
         # question_ids are assigned by the database, we'll use returned_questions below
 
         # Step 1: Start test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -434,7 +442,7 @@ class TestEndToEndBackwardCompatibility:
             for q in returned_questions
         ]
 
-        submit_response = client.post(
+        submit_response = await client.post(
             "/v1/test/submit",
             json={"session_id": session_id, "responses": responses},
             headers=auth_headers,
@@ -447,11 +455,14 @@ class TestEndToEndBackwardCompatibility:
         assert result_data["result"]["correct_answers"] == 3
 
         # Step 3: Verify test session was marked as completed
-        session = db_session.query(TestSession).filter_by(id=session_id).first()
+        _result_0 = await db_session.execute(
+            select(TestSession).filter_by(id=session_id)
+        )
+        session = _result_0.scalars().first()
         assert session is not None
         assert session.status == TestStatus.COMPLETED
 
-    def test_submit_response_works_for_questions_without_stimulus(
+    async def test_submit_response_works_for_questions_without_stimulus(
         self, client, auth_headers, db_session, test_user
     ):
         """Test that submitting responses works correctly for questions without stimulus.
@@ -475,11 +486,11 @@ class TestEndToEndBackwardCompatibility:
             stimulus=None,
         )
         db_session.add(question)
-        db_session.commit()
-        db_session.refresh(question)
+        await db_session.commit()
+        await db_session.refresh(question)
 
         # Start test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=1", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -491,7 +502,7 @@ class TestEndToEndBackwardCompatibility:
         assert start_response.json()["questions"][0]["stimulus"] is None
 
         # Submit response
-        submit_response = client.post(
+        submit_response = await client.post(
             "/v1/test/submit",
             json={
                 "session_id": session_id,

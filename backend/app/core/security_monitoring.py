@@ -12,7 +12,8 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
 from app.models.models import PasswordResetToken, User
@@ -33,8 +34,8 @@ DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
 
 
-def get_logout_all_stats(
-    db: Session, days: int, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE
+async def get_logout_all_stats(
+    db: AsyncSession, days: int, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE
 ) -> LogoutAllStatsResponse:
     """
     Query logout-all events and correlate with password resets.
@@ -58,11 +59,12 @@ def get_logout_all_stats(
         start = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
     # Query total count of users who have triggered logout-all within the time range
-    total_count_query = db.query(User.id).filter(
+    total_count_stmt = select(func.count(User.id)).filter(
         User.token_revoked_before.isnot(None),
         User.token_revoked_before >= start,
     )
-    total_events = total_count_query.count()
+    result = await db.execute(total_count_stmt)
+    total_events = result.scalar() or 0
 
     logger.debug(
         "Found %d users with logout-all events in the last %d days",
@@ -85,8 +87,8 @@ def get_logout_all_stats(
     offset = (page - 1) * page_size
 
     # Query paginated users who have triggered logout-all within the time range
-    logout_users = (
-        db.query(User.id, User.token_revoked_before)
+    logout_users_stmt = (
+        select(User.id, User.token_revoked_before)
         .filter(
             User.token_revoked_before.isnot(None),
             User.token_revoked_before >= start,
@@ -94,8 +96,9 @@ def get_logout_all_stats(
         .order_by(User.token_revoked_before.desc())
         .limit(page_size)
         .offset(offset)
-        .all()
     )
+    result = await db.execute(logout_users_stmt)
+    logout_users = result.all()
 
     if not logout_users:
         # Page is beyond available data
@@ -111,11 +114,11 @@ def get_logout_all_stats(
 
     # Batch-load all password resets for affected users (avoids N+1 queries)
     user_ids = [uid for uid, _ in logout_users]
-    all_resets = (
-        db.query(PasswordResetToken.user_id, PasswordResetToken.created_at)
-        .filter(PasswordResetToken.user_id.in_(user_ids))
-        .all()
-    )
+    all_resets_stmt = select(
+        PasswordResetToken.user_id, PasswordResetToken.created_at
+    ).filter(PasswordResetToken.user_id.in_(user_ids))
+    result = await db.execute(all_resets_stmt)
+    all_resets = result.all()
 
     resets_by_user: dict[int, list[datetime]] = defaultdict(list)
     for uid, created_at in all_resets:

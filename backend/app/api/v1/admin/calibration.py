@@ -14,7 +14,7 @@ See docs/methodology/METHODOLOGY.md Section 5.3 for psychometric context.
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.question_analytics import (
     recalibrate_questions,
@@ -51,7 +51,7 @@ async def get_calibration_health(
         le=1000,
         description="Minimum responses required for reliable validation",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -96,7 +96,7 @@ async def get_calibration_health(
     """
     try:
         # Get validation results from core function
-        validation_results = validate_difficulty_labels(db, min_responses)
+        validation_results = await validate_difficulty_labels(db, min_responses)
 
         # Extract lists
         miscalibrated = validation_results["miscalibrated"]
@@ -218,7 +218,7 @@ async def get_calibration_health(
 )
 async def recalibrate_difficulty_labels(
     request: RecalibrationRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -274,7 +274,7 @@ async def recalibrate_difficulty_labels(
     """
     try:
         # Call core recalibration function
-        results = recalibrate_questions(
+        results = await recalibrate_questions(
             db=db,
             min_responses=request.min_responses,
             question_ids=request.question_ids,

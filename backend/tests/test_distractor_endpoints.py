@@ -41,7 +41,7 @@ def admin_headers():
 
 
 @pytest.fixture
-def integration_test_user(db_session):
+async def integration_test_user(db_session):
     """Create a test user for integration tests."""
     user = User(
         email="integration_test@example.com",
@@ -51,13 +51,13 @@ def integration_test_user(db_session):
         notification_enabled=False,
     )
     db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
 
 
 @pytest.fixture
-def integration_mc_question(db_session):
+async def integration_mc_question(db_session):
     """Create a multiple-choice question for integration testing."""
     question = Question(
         question_text="What is 2 + 2?",
@@ -73,13 +73,13 @@ def integration_mc_question(db_session):
         is_active=True,
     )
     db_session.add(question)
-    db_session.commit()
-    db_session.refresh(question)
+    await db_session.commit()
+    await db_session.refresh(question)
     return question
 
 
 @pytest.fixture
-def integration_questions_with_responses(db_session, integration_test_user):
+async def integration_questions_with_responses(db_session, integration_test_user):
     """
     Create multiple questions with simulated response patterns.
 
@@ -107,9 +107,9 @@ def integration_questions_with_responses(db_session, integration_test_user):
         db_session.add(q)
         questions.append(q)
 
-    db_session.commit()
+    await db_session.commit()
     for q in questions:
-        db_session.refresh(q)
+        await db_session.refresh(q)
 
     # Create test session
     test_session = TestSession(
@@ -117,8 +117,8 @@ def integration_questions_with_responses(db_session, integration_test_user):
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
-    db_session.commit()
-    db_session.refresh(test_session)
+    await db_session.commit()
+    await db_session.refresh(test_session)
 
     # Simulate responses for question 1 (Q0):
     # - B (correct): 60 responses
@@ -168,11 +168,11 @@ def integration_questions_with_responses(db_session, integration_test_user):
         for _ in range(count):
             update_distractor_stats(db_session, questions[2].id, answer)
 
-    db_session.commit()
+    await db_session.commit()
 
     # Refresh to get updated distractor_stats
     for q in questions:
-        db_session.refresh(q)
+        await db_session.refresh(q)
 
     return {
         "questions": questions,
@@ -181,7 +181,7 @@ def integration_questions_with_responses(db_session, integration_test_user):
 
 
 @pytest.fixture
-def integration_question_with_quartiles(db_session, integration_test_user):
+async def integration_question_with_quartiles(db_session, integration_test_user):
     """
     Create a question with simulated quartile data for discrimination testing.
 
@@ -201,8 +201,8 @@ def integration_question_with_quartiles(db_session, integration_test_user):
         is_active=True,
     )
     db_session.add(question)
-    db_session.commit()
-    db_session.refresh(question)
+    await db_session.commit()
+    await db_session.refresh(question)
 
     # Simulate 100 responses with quartile data:
     # Total: 100 responses with 25 top quartile, 25 bottom quartile
@@ -232,8 +232,8 @@ def integration_question_with_quartiles(db_session, integration_test_user):
         for _ in range(bottom_q):
             update_distractor_quartile_stats(db_session, question.id, answer, False)
 
-    db_session.commit()
-    db_session.refresh(question)
+    await db_session.commit()
+    await db_session.refresh(question)
 
     return question
 
@@ -247,14 +247,14 @@ class TestSingleQuestionDistractorAnalysisIntegration:
     """Integration tests for GET /v1/admin/questions/{id}/distractor-analysis."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_analysis_with_simulated_responses(
+    async def test_analysis_with_simulated_responses(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Test distractor analysis with responses simulated through the update flow."""
         questions = integration_questions_with_responses["questions"]
         q0 = questions[0]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{q0.id}/distractor-analysis",
             headers=admin_headers,
         )
@@ -298,13 +298,13 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         assert option_d["status"] == "functioning"  # Exactly 5% = functioning threshold
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_analysis_with_quartile_data(
+    async def test_analysis_with_quartile_data(
         self, client, db_session, admin_headers, integration_question_with_quartiles
     ):
         """Test distractor analysis includes discrimination data when quartiles are set."""
         question = integration_question_with_quartiles
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{question.id}/distractor-analysis",
             headers=admin_headers,
         )
@@ -329,14 +329,14 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         assert option_b["top_quartile_rate"] > option_b["bottom_quartile_rate"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_analysis_insufficient_responses(
+    async def test_analysis_insufficient_responses(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Test analysis returns insufficient data for low-response questions."""
         questions = integration_questions_with_responses["questions"]
         q2 = questions[2]  # Only 30 responses
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{q2.id}/distractor-analysis?min_responses=50",
             headers=admin_headers,
         )
@@ -350,9 +350,9 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         assert "Insufficient data" in data["recommendations"][0]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_analysis_question_not_found(self, client, admin_headers):
+    async def test_analysis_question_not_found(self, client, admin_headers):
         """Test 404 response for non-existent question."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/999999/distractor-analysis",
             headers=admin_headers,
         )
@@ -361,7 +361,9 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         assert "not found" in response.json()["detail"].lower()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_analysis_free_response_question(self, client, db_session, admin_headers):
+    async def test_analysis_free_response_question(
+        self, client, db_session, admin_headers
+    ):
         """Test 400 response for free-response questions (no answer_options)."""
         # Create a free-response question
         question = Question(
@@ -373,10 +375,10 @@ class TestSingleQuestionDistractorAnalysisIntegration:
             is_active=True,
         )
         db_session.add(question)
-        db_session.commit()
-        db_session.refresh(question)
+        await db_session.commit()
+        await db_session.refresh(question)
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{question.id}/distractor-analysis",
             headers=admin_headers,
         )
@@ -384,9 +386,9 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         assert response.status_code == 400
         assert "not a multiple-choice" in response.json()["detail"].lower()
 
-    def test_analysis_requires_auth(self, client, integration_mc_question):
+    async def test_analysis_requires_auth(self, client, integration_mc_question):
         """Test that endpoint requires admin authentication."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{integration_mc_question.id}/distractor-analysis"
         )
 
@@ -394,9 +396,9 @@ class TestSingleQuestionDistractorAnalysisIntegration:
         assert response.status_code == 422
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_analysis_invalid_token(self, client, integration_mc_question):
+    async def test_analysis_invalid_token(self, client, integration_mc_question):
         """Test that endpoint rejects invalid admin token."""
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{integration_mc_question.id}/distractor-analysis",
             headers={"X-Admin-Token": "invalid-token"},
         )
@@ -414,11 +416,11 @@ class TestBulkDistractorSummaryIntegration:
     """Integration tests for GET /v1/admin/questions/distractor-summary."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_summary_with_multiple_questions(
+    async def test_summary_with_multiple_questions(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Test bulk summary includes questions with sufficient responses."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?min_responses=50",
             headers=admin_headers,
         )
@@ -442,12 +444,12 @@ class TestBulkDistractorSummaryIntegration:
         assert "avg_effective_option_count" in data
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_summary_by_question_type_filter(
+    async def test_summary_by_question_type_filter(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Test filtering summary by question type."""
         # Filter by math type - Q0 is math
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?question_type=math&min_responses=50",
             headers=admin_headers,
         )
@@ -459,11 +461,11 @@ class TestBulkDistractorSummaryIntegration:
         assert data["total_questions_analyzed"] >= 1
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_summary_empty_with_high_threshold(
+    async def test_summary_empty_with_high_threshold(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Test summary returns empty when threshold is too high."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?min_responses=1000",
             headers=admin_headers,
         )
@@ -478,11 +480,11 @@ class TestBulkDistractorSummaryIntegration:
         assert data["avg_effective_option_count"] is None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_summary_worst_offenders_structure(
+    async def test_summary_worst_offenders_structure(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Test that worst offenders list has correct structure."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?min_responses=50",
             headers=admin_headers,
         )
@@ -505,11 +507,11 @@ class TestBulkDistractorSummaryIntegration:
             assert "effective_option_count" in offender
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_summary_by_question_type_breakdown(
+    async def test_summary_by_question_type_breakdown(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Test that by_question_type breakdown is properly structured."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?min_responses=50",
             headers=admin_headers,
         )
@@ -529,11 +531,11 @@ class TestBulkDistractorSummaryIntegration:
             assert "avg_effective_options" in by_type[qt]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_summary_nf_count_breakdown(
+    async def test_summary_nf_count_breakdown(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Test that by_non_functioning_count breakdown is properly structured."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?min_responses=50",
             headers=admin_headers,
         )
@@ -556,17 +558,17 @@ class TestBulkDistractorSummaryIntegration:
         )
         assert nf_sum == data["total_questions_analyzed"]
 
-    def test_summary_requires_auth(self, client):
+    async def test_summary_requires_auth(self, client):
         """Test that endpoint requires admin authentication."""
-        response = client.get("/v1/admin/questions/distractor-summary")
+        response = await client.get("/v1/admin/questions/distractor-summary")
 
         # Missing header returns 422
         assert response.status_code == 422
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_summary_invalid_token(self, client):
+    async def test_summary_invalid_token(self, client):
         """Test that endpoint rejects invalid admin token."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary",
             headers={"X-Admin-Token": "invalid-token"},
         )
@@ -583,13 +585,13 @@ class TestDistractorEndpointSchemas:
     """Tests to verify response schemas match expected format."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_single_analysis_response_fields(
+    async def test_single_analysis_response_fields(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Verify all expected fields are present in single analysis response."""
         questions = integration_questions_with_responses["questions"]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{questions[0].id}/distractor-analysis",
             headers=admin_headers,
         )
@@ -645,11 +647,11 @@ class TestDistractorEndpointSchemas:
             assert field in data["summary"], f"Missing summary field: {field}"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_bulk_summary_response_fields(
+    async def test_bulk_summary_response_fields(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Verify all expected fields are present in bulk summary response."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/questions/distractor-summary?min_responses=50",
             headers=admin_headers,
         )
@@ -687,13 +689,13 @@ class TestKnownDataPatterns:
     """Tests that verify analysis correctly identifies known data patterns."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_identifies_correct_answer(
+    async def test_identifies_correct_answer(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Verify correct answer is properly identified in analysis."""
         questions = integration_questions_with_responses["questions"]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{questions[0].id}/distractor-analysis",
             headers=admin_headers,
         )
@@ -707,13 +709,13 @@ class TestKnownDataPatterns:
         assert correct_options[0]["option_key"] == "B"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_calculates_selection_rates(
+    async def test_calculates_selection_rates(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Verify selection rates are calculated correctly from known data."""
         questions = integration_questions_with_responses["questions"]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{questions[0].id}/distractor-analysis",
             headers=admin_headers,
         )
@@ -731,13 +733,13 @@ class TestKnownDataPatterns:
         assert options_by_key["D"]["selection_rate"] == pytest.approx(0.05)
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_effective_option_count_calculation(
+    async def test_effective_option_count_calculation(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Verify effective option count is calculated correctly."""
         questions = integration_questions_with_responses["questions"]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{questions[0].id}/distractor-analysis",
             headers=admin_headers,
         )
@@ -756,13 +758,13 @@ class TestKnownDataPatterns:
         assert eff_count < 3.0  # Skewed distribution = lower effective count
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_guessing_probability_calculation(
+    async def test_guessing_probability_calculation(
         self, client, db_session, admin_headers, integration_questions_with_responses
     ):
         """Verify guessing probability is calculated from effective option count."""
         questions = integration_questions_with_responses["questions"]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/questions/{questions[0].id}/distractor-analysis",
             headers=admin_headers,
         )

@@ -10,6 +10,7 @@ Tests cover:
 import random
 
 import pytest
+import pytest_asyncio
 
 from app.core.config import settings
 from app.core.datetime_utils import utc_now
@@ -25,19 +26,21 @@ from app.models.models import (
 from tests.conftest import TestingSessionLocal, engine  # noqa: F401
 
 
-@pytest.fixture(scope="function")
-def db():
-    Base.metadata.create_all(bind=engine)
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
+@pytest_asyncio.fixture(scope="function")
+async def db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async with TestingSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture
-def user(db):
+@pytest_asyncio.fixture
+async def user(db):
     u = User(
         email="validation-test@test.com",
         password_hash=hash_password("testpass123"),
@@ -45,8 +48,8 @@ def user(db):
         last_name="Tester",
     )
     db.add(u)
-    db.commit()
-    db.refresh(u)
+    await db.commit()
+    await db.refresh(u)
     return u
 
 
@@ -55,7 +58,7 @@ def admin_headers():
     return {"X-Admin-Token": settings.ADMIN_TOKEN}
 
 
-def _create_passing_shadow_results(db, user, n=30):
+async def _create_passing_shadow_results(db, user, n=30):
     """Create n shadow CAT results that should pass all validation criteria."""
     rng = random.Random(42)
     results = []
@@ -68,8 +71,8 @@ def _create_passing_shadow_results(db, user, n=30):
             completed_at=utc_now(),
         )
         db.add(session)
-        db.commit()
-        db.refresh(session)
+        await db.commit()
+        await db.refresh(session)
 
         actual_iq = 80 + int(i * (60 / n))
         noise = rng.gauss(0, 2)
@@ -102,19 +105,19 @@ def _create_passing_shadow_results(db, user, n=30):
         db.add(shadow)
         results.append(shadow)
 
-    db.commit()
+    await db.commit()
     for r in results:
-        db.refresh(r)
+        await db.refresh(r)
     return results
 
 
 class TestShadowCATValidation:
     """Tests for GET /admin/shadow-cat/validation (TASK-877)."""
 
-    def test_validation_with_passing_data(self, db, client, user, admin_headers):
-        _create_passing_shadow_results(db, user, n=30)
+    async def test_validation_with_passing_data(self, db, client, user, admin_headers):
+        await _create_passing_shadow_results(db, user, n=30)
 
-        resp = client.get(
+        resp = await client.get(
             "/v1/admin/shadow-cat/validation",
             headers=admin_headers,
         )
@@ -161,12 +164,12 @@ class TestShadowCATValidation:
         assert "all_criteria_pass" in data
         assert "notes" in data
 
-    def test_validation_criteria_results_structure(
+    async def test_validation_criteria_results_structure(
         self, db, client, user, admin_headers
     ):
-        _create_passing_shadow_results(db, user, n=30)
+        await _create_passing_shadow_results(db, user, n=30)
 
-        resp = client.get(
+        resp = await client.get(
             "/v1/admin/shadow-cat/validation",
             headers=admin_headers,
         )
@@ -180,8 +183,8 @@ class TestShadowCATValidation:
             assert "observed_value" in cr
             assert "passed" in cr
 
-    def test_validation_empty(self, client, admin_headers):
-        resp = client.get(
+    async def test_validation_empty(self, client, admin_headers):
+        resp = await client.get(
             "/v1/admin/shadow-cat/validation",
             headers=admin_headers,
         )
@@ -192,7 +195,7 @@ class TestShadowCATValidation:
         assert data["all_criteria_pass"] is False
         assert data["recommendation"] == "ITERATE"
 
-    def test_validation_content_violations(self, db, client, user, admin_headers):
+    async def test_validation_content_violations(self, db, client, user, admin_headers):
         """Create results where some sessions have missing domains."""
         rng = random.Random(99)
 
@@ -204,8 +207,8 @@ class TestShadowCATValidation:
                 completed_at=utc_now(),
             )
             db.add(session)
-            db.commit()
-            db.refresh(session)
+            await db.commit()
+            await db.refresh(session)
 
             actual_iq = 90 + i * 2
             shadow_iq_val = actual_iq + rng.randint(-2, 2)
@@ -242,9 +245,9 @@ class TestShadowCATValidation:
                 executed_at=utc_now(),
             )
             db.add(shadow)
-        db.commit()
+        await db.commit()
 
-        resp = client.get(
+        resp = await client.get(
             "/v1/admin/shadow-cat/validation",
             headers=admin_headers,
         )
@@ -253,10 +256,10 @@ class TestShadowCATValidation:
         assert data["content_violation_rate"] == pytest.approx(0.2, abs=0.01)
         assert data["criterion_3_pass"] is False
 
-    def test_validation_quintile_analysis(self, db, client, user, admin_headers):
-        _create_passing_shadow_results(db, user, n=30)
+    async def test_validation_quintile_analysis(self, db, client, user, admin_headers):
+        await _create_passing_shadow_results(db, user, n=30)
 
-        resp = client.get(
+        resp = await client.get(
             "/v1/admin/shadow-cat/validation",
             headers=admin_headers,
         )
@@ -272,10 +275,12 @@ class TestShadowCATValidation:
             assert "mean_bias" in q
             assert "rmse" in q
 
-    def test_validation_test_length_distribution(self, db, client, user, admin_headers):
-        _create_passing_shadow_results(db, user, n=30)
+    async def test_validation_test_length_distribution(
+        self, db, client, user, admin_headers
+    ):
+        await _create_passing_shadow_results(db, user, n=30)
 
-        resp = client.get(
+        resp = await client.get(
             "/v1/admin/shadow-cat/validation",
             headers=admin_headers,
         )
@@ -288,6 +293,6 @@ class TestShadowCATValidation:
         assert data["test_length_min"] <= data["median_test_length"]
         assert data["test_length_max"] >= data["median_test_length"]
 
-    def test_requires_auth(self, client):
-        resp = client.get("/v1/admin/shadow-cat/validation")
+    async def test_requires_auth(self, client):
+        resp = await client.get("/v1/admin/shadow-cat/validation")
         assert resp.status_code == 422

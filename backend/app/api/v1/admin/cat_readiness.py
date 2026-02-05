@@ -6,7 +6,7 @@ has enough well-calibrated IRT items to support Computerized Adaptive Testing.
 CAT activates only when all 6 domains meet the configured thresholds.
 """
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cat.readiness import evaluate_cat_readiness, serialize_readiness_result
 from app.core.datetime_utils import utc_now
@@ -43,7 +43,7 @@ def _build_response_from_config(config: dict) -> CATReadinessResponse:
     response_model=CATReadinessResponse,
 )
 async def get_cat_readiness(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -60,7 +60,7 @@ async def get_cat_readiness(
           -H "X-Admin-Token: token"
         ```
     """
-    config = get_cat_readiness_status(db)
+    config = await get_cat_readiness_status(db)
 
     if config is None:
         # Never evaluated — return default state
@@ -88,7 +88,7 @@ async def get_cat_readiness(
     response_model=CATReadinessResponse,
 )
 async def evaluate_readiness(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -106,12 +106,12 @@ async def evaluate_readiness(
           -H "X-Admin-Token: token"
         ```
     """
-    result = evaluate_cat_readiness(db)
+    result = await evaluate_cat_readiness(db)
 
     now = utc_now()
 
     config_value = serialize_readiness_result(result, now)
-    set_cat_readiness(db, config_value)
+    await set_cat_readiness(db, config_value)
 
     logger.info(
         f"CAT readiness evaluation completed: "

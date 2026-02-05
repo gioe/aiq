@@ -11,17 +11,20 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
 
 from app.core.cat.calibration_runner import calibration_runner
 from app.core.config import settings
 from app.main import app
 
 
-@pytest.fixture
-def client():
-    """Create a test client."""
-    return TestClient(app)
+@pytest_asyncio.fixture
+async def client():
+    """Create an async test client."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as test_client:
+        yield test_client
 
 
 @pytest.fixture
@@ -53,15 +56,17 @@ def clean_calibration_runner():
 class TestTriggerCalibrationEndpoint:
     """Tests for POST /v1/admin/calibration/run endpoint."""
 
-    def test_trigger_calibration_requires_auth(self, client, clean_calibration_runner):
+    async def test_trigger_calibration_requires_auth(
+        self, client, clean_calibration_runner
+    ):
         """Test that triggering calibration without auth token fails."""
-        response = client.post("/v1/admin/calibration/run")
+        response = await client.post("/v1/admin/calibration/run")
         # 422 is returned when the required X-Admin-Token header is missing
         assert response.status_code in (401, 403, 422)
 
     @patch("app.core.cat.calibration_runner.SessionLocal")
     @patch("app.core.cat.calibration_runner.run_calibration_job")
-    def test_trigger_calibration_returns_job_id(
+    async def test_trigger_calibration_returns_job_id(
         self,
         mock_run_calibration,
         mock_session_local,
@@ -80,7 +85,7 @@ class TestTriggerCalibrationEndpoint:
         }
         mock_session_local.return_value = MagicMock()
 
-        response = client.post("/v1/admin/calibration/run", headers=admin_headers)
+        response = await client.post("/v1/admin/calibration/run", headers=admin_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -91,7 +96,7 @@ class TestTriggerCalibrationEndpoint:
 
     @patch("app.core.cat.calibration_runner.SessionLocal")
     @patch("app.core.cat.calibration_runner.run_calibration_job")
-    def test_concurrent_calibration_returns_429(
+    async def test_concurrent_calibration_returns_429(
         self,
         mock_run_calibration,
         mock_session_local,
@@ -119,7 +124,9 @@ class TestTriggerCalibrationEndpoint:
         mock_session_local.return_value = MagicMock()
 
         # Start first job
-        response1 = client.post("/v1/admin/calibration/run", headers=admin_headers)
+        response1 = await client.post(
+            "/v1/admin/calibration/run", headers=admin_headers
+        )
         assert response1.status_code == 200
 
         # Wait for the job to actually start
@@ -128,7 +135,9 @@ class TestTriggerCalibrationEndpoint:
 
         try:
             # Try to start second job - should fail with 429
-            response2 = client.post("/v1/admin/calibration/run", headers=admin_headers)
+            response2 = await client.post(
+                "/v1/admin/calibration/run", headers=admin_headers
+            )
             assert response2.status_code == 429
             assert "already running" in response2.json()["detail"]
         finally:
@@ -138,7 +147,7 @@ class TestTriggerCalibrationEndpoint:
 
     @patch("app.core.cat.calibration_runner.SessionLocal")
     @patch("app.core.cat.calibration_runner.run_calibration_job")
-    def test_trigger_with_custom_params(
+    async def test_trigger_with_custom_params(
         self,
         mock_run_calibration,
         mock_session_local,
@@ -163,7 +172,7 @@ class TestTriggerCalibrationEndpoint:
             "bootstrap_se": False,
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/calibration/run",
             headers=admin_headers,
             json=request_data,
@@ -181,11 +190,11 @@ class TestTriggerCalibrationEndpoint:
 class TestCalibrationStatusEndpoint:
     """Tests for GET /v1/admin/calibration/status/{job_id} endpoint."""
 
-    def test_status_unknown_job_returns_404(
+    async def test_status_unknown_job_returns_404(
         self, client, admin_headers, clean_calibration_runner
     ):
         """Test getting status of unknown job returns 404."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration/status/nonexistent_job_id",
             headers=admin_headers,
         )
@@ -193,15 +202,15 @@ class TestCalibrationStatusEndpoint:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
 
-    def test_status_requires_auth(self, client, clean_calibration_runner):
+    async def test_status_requires_auth(self, client, clean_calibration_runner):
         """Test that getting status without auth token fails."""
-        response = client.get("/v1/admin/calibration/status/some_job_id")
+        response = await client.get("/v1/admin/calibration/status/some_job_id")
         # 422 is returned when the required X-Admin-Token header is missing
         assert response.status_code in (401, 403, 422)
 
     @patch("app.core.cat.calibration_runner.SessionLocal")
     @patch("app.core.cat.calibration_runner.run_calibration_job")
-    def test_completed_job_shows_results(
+    async def test_completed_job_shows_results(
         self,
         mock_run_calibration,
         mock_session_local,
@@ -221,7 +230,7 @@ class TestCalibrationStatusEndpoint:
         mock_session_local.return_value = MagicMock()
 
         # Start job
-        response = client.post("/v1/admin/calibration/run", headers=admin_headers)
+        response = await client.post("/v1/admin/calibration/run", headers=admin_headers)
         assert response.status_code == 200
         job_id = response.json()["job_id"]
 
@@ -229,7 +238,7 @@ class TestCalibrationStatusEndpoint:
         time.sleep(0.5)
 
         # Check status
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/calibration/status/{job_id}",
             headers=admin_headers,
         )
@@ -248,7 +257,7 @@ class TestCalibrationStatusEndpoint:
 
     @patch("app.core.cat.calibration_runner.SessionLocal")
     @patch("app.core.cat.calibration_runner.run_calibration_job")
-    def test_running_job_shows_status(
+    async def test_running_job_shows_status(
         self,
         mock_run_calibration,
         mock_session_local,
@@ -274,7 +283,7 @@ class TestCalibrationStatusEndpoint:
         mock_session_local.return_value = MagicMock()
 
         # Start job
-        response = client.post("/v1/admin/calibration/run", headers=admin_headers)
+        response = await client.post("/v1/admin/calibration/run", headers=admin_headers)
         assert response.status_code == 200
         job_id = response.json()["job_id"]
 
@@ -283,7 +292,7 @@ class TestCalibrationStatusEndpoint:
 
         try:
             # Check status while running
-            response = client.get(
+            response = await client.get(
                 f"/v1/admin/calibration/status/{job_id}",
                 headers=admin_headers,
             )
@@ -302,7 +311,7 @@ class TestCalibrationStatusEndpoint:
 
     @patch("app.core.cat.calibration_runner.SessionLocal")
     @patch("app.core.cat.calibration_runner.run_calibration_job")
-    def test_failed_job_shows_error(
+    async def test_failed_job_shows_error(
         self,
         mock_run_calibration,
         mock_session_local,
@@ -321,7 +330,7 @@ class TestCalibrationStatusEndpoint:
         mock_session_local.return_value = MagicMock()
 
         # Start job
-        response = client.post("/v1/admin/calibration/run", headers=admin_headers)
+        response = await client.post("/v1/admin/calibration/run", headers=admin_headers)
         assert response.status_code == 200
         job_id = response.json()["job_id"]
 
@@ -329,7 +338,7 @@ class TestCalibrationStatusEndpoint:
         time.sleep(0.5)
 
         # Check status
-        response = client.get(
+        response = await client.get(
             f"/v1/admin/calibration/status/{job_id}",
             headers=admin_headers,
         )

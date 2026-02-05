@@ -8,7 +8,7 @@ from app.core.cat.engine import CATSessionManager
 CAT_MAX_ITEMS = CATSessionManager.MAX_ITEMS
 
 
-def _create_calibrated_item_pool(db_session, count_per_domain=3):
+async def _create_calibrated_item_pool(db_session, count_per_domain=3):
     """Create a pool of IRT-calibrated questions across all 6 domains.
 
     Returns list of created Question objects.
@@ -41,16 +41,16 @@ def _create_calibrated_item_pool(db_session, count_per_domain=3):
             db_session.add(q)
             questions.append(q)
 
-    db_session.commit()
+    await db_session.commit()
     for q in questions:
-        db_session.refresh(q)
+        await db_session.refresh(q)
 
     return questions
 
 
-def _start_adaptive_session(client, auth_headers):
+async def _start_adaptive_session(client, auth_headers):
     """Helper to start an adaptive session and return (session_id, first_question)."""
-    response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+    response = await client.post("/v1/test/start?adaptive=true", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     session_id = data["session"]["id"]
@@ -58,9 +58,9 @@ def _start_adaptive_session(client, auth_headers):
     return session_id, first_question
 
 
-def _submit_response(client, auth_headers, session_id, question_id, answer="A"):
+async def _submit_response(client, auth_headers, session_id, question_id, answer="A"):
     """Helper to submit a single adaptive response and return response data."""
-    response = client.post(
+    response = await client.post(
         "/v1/test/next",
         json={
             "session_id": session_id,
@@ -77,17 +77,17 @@ def _submit_response(client, auth_headers, session_id, question_id, answer="A"):
 class TestGetProgressEndpoint:
     """Tests for GET /v1/test/progress endpoint."""
 
-    def test_returns_correct_fields_after_one_item(
+    async def test_returns_correct_fields_after_one_item(
         self, client, auth_headers, db_session
     ):
         """Test progress endpoint returns all expected fields after one response."""
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
         # Submit one response
-        _submit_response(client, auth_headers, session_id, first_question["id"])
+        await _submit_response(client, auth_headers, session_id, first_question["id"])
 
-        response = client.get(
+        response = await client.get(
             f"/v1/test/progress?session_id={session_id}",
             headers=auth_headers,
         )
@@ -108,12 +108,12 @@ class TestGetProgressEndpoint:
         assert data["current_se"] > 0.0
         assert data["current_se"] < 1.0
 
-    def test_progress_with_zero_items(self, client, auth_headers, db_session):
+    async def test_progress_with_zero_items(self, client, auth_headers, db_session):
         """Test progress before any responses are submitted."""
-        _create_calibrated_item_pool(db_session)
-        session_id, _ = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, _ = await _start_adaptive_session(client, auth_headers)
 
-        response = client.get(
+        response = await client.get(
             f"/v1/test/progress?session_id={session_id}",
             headers=auth_headers,
         )
@@ -128,17 +128,21 @@ class TestGetProgressEndpoint:
         assert data["total_domains_covered"] == 0
         assert data["elapsed_seconds"] >= 0
 
-    def test_items_administered_increments(self, client, auth_headers, db_session):
+    async def test_items_administered_increments(
+        self, client, auth_headers, db_session
+    ):
         """Test that items_administered increments with each submitted response."""
-        _create_calibrated_item_pool(db_session, count_per_domain=5)
-        session_id, current_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session, count_per_domain=5)
+        session_id, current_question = await _start_adaptive_session(
+            client, auth_headers
+        )
 
         for expected_count in range(1, 4):
-            next_data = _submit_response(
+            next_data = await _submit_response(
                 client, auth_headers, session_id, current_question["id"]
             )
 
-            progress = client.get(
+            progress = await client.get(
                 f"/v1/test/progress?session_id={session_id}",
                 headers=auth_headers,
             )
@@ -151,21 +155,25 @@ class TestGetProgressEndpoint:
                 break
             current_question = next_data["next_question"]
 
-    def test_domain_coverage_tracks_correctly(self, client, auth_headers, db_session):
+    async def test_domain_coverage_tracks_correctly(
+        self, client, auth_headers, db_session
+    ):
         """Test that domain_coverage accumulates items per domain."""
-        _create_calibrated_item_pool(db_session, count_per_domain=5)
-        session_id, current_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session, count_per_domain=5)
+        session_id, current_question = await _start_adaptive_session(
+            client, auth_headers
+        )
 
         # Submit 3 responses
         for _ in range(3):
-            next_data = _submit_response(
+            next_data = await _submit_response(
                 client, auth_headers, session_id, current_question["id"]
             )
             if next_data["test_complete"]:
                 break
             current_question = next_data["next_question"]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/test/progress?session_id={session_id}",
             headers=auth_headers,
         )
@@ -179,14 +187,14 @@ class TestGetProgressEndpoint:
         covered = sum(1 for v in data["domain_coverage"].values() if v > 0)
         assert data["total_domains_covered"] == covered
 
-    def test_does_not_expose_raw_theta(self, client, auth_headers, db_session):
+    async def test_does_not_expose_raw_theta(self, client, auth_headers, db_session):
         """Test that raw theta (ability estimate) is NOT in the response."""
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
 
-        _submit_response(client, auth_headers, session_id, first_question["id"])
+        await _submit_response(client, auth_headers, session_id, first_question["id"])
 
-        response = client.get(
+        response = await client.get(
             f"/v1/test/progress?session_id={session_id}",
             headers=auth_headers,
         )
@@ -213,12 +221,14 @@ class TestGetProgressEndpoint:
         assert "theta_estimate" not in data
         assert "current_theta" not in data
 
-    def test_elapsed_seconds_is_non_negative(self, client, auth_headers, db_session):
+    async def test_elapsed_seconds_is_non_negative(
+        self, client, auth_headers, db_session
+    ):
         """Test that elapsed_seconds is a non-negative integer."""
-        _create_calibrated_item_pool(db_session)
-        session_id, _ = _start_adaptive_session(client, auth_headers)
+        await _create_calibrated_item_pool(db_session)
+        session_id, _ = await _start_adaptive_session(client, auth_headers)
 
-        response = client.get(
+        response = await client.get(
             f"/v1/test/progress?session_id={session_id}",
             headers=auth_headers,
         )
@@ -227,16 +237,16 @@ class TestGetProgressEndpoint:
         assert isinstance(data["elapsed_seconds"], int)
         assert data["elapsed_seconds"] >= 0
 
-    def test_progress_is_idempotent(self, client, auth_headers, db_session):
+    async def test_progress_is_idempotent(self, client, auth_headers, db_session):
         """Test that consecutive calls without state changes return identical results."""
-        _create_calibrated_item_pool(db_session)
-        session_id, first_question = _start_adaptive_session(client, auth_headers)
-        _submit_response(client, auth_headers, session_id, first_question["id"])
+        await _create_calibrated_item_pool(db_session)
+        session_id, first_question = await _start_adaptive_session(client, auth_headers)
+        await _submit_response(client, auth_headers, session_id, first_question["id"])
 
-        resp1 = client.get(
+        resp1 = await client.get(
             f"/v1/test/progress?session_id={session_id}", headers=auth_headers
         )
-        resp2 = client.get(
+        resp2 = await client.get(
             f"/v1/test/progress?session_id={session_id}", headers=auth_headers
         )
 
@@ -253,9 +263,9 @@ class TestGetProgressEndpoint:
 class TestGetProgressValidation:
     """Tests for validation and error handling in GET /v1/test/progress."""
 
-    def test_session_not_found(self, client, auth_headers):
+    async def test_session_not_found(self, client, auth_headers):
         """Test 404 when session doesn't exist."""
-        response = client.get(
+        response = await client.get(
             "/v1/test/progress?session_id=99999",
             headers=auth_headers,
         )
@@ -263,7 +273,7 @@ class TestGetProgressValidation:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    def test_session_not_owned_by_user(self, client, auth_headers, db_session):
+    async def test_session_not_owned_by_user(self, client, auth_headers, db_session):
         """Test 403 when session belongs to another user."""
         from app.models import User, TestSession
         from app.models.models import TestStatus
@@ -277,7 +287,7 @@ class TestGetProgressValidation:
             last_name="User",
         )
         db_session.add(other_user)
-        db_session.commit()
+        await db_session.commit()
 
         other_session = TestSession(
             user_id=other_user.id,
@@ -287,16 +297,18 @@ class TestGetProgressValidation:
             theta_history=[],
         )
         db_session.add(other_session)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             f"/v1/test/progress?session_id={other_session.id}",
             headers=auth_headers,
         )
 
         assert response.status_code == 403
 
-    def test_session_not_in_progress(self, client, auth_headers, db_session, test_user):
+    async def test_session_not_in_progress(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Test 400 when session is completed."""
         from app.models import TestSession
         from app.models.models import TestStatus
@@ -311,9 +323,9 @@ class TestGetProgressValidation:
             theta_history=[0.5],
         )
         db_session.add(completed_session)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             f"/v1/test/progress?session_id={completed_session.id}",
             headers=auth_headers,
         )
@@ -321,7 +333,7 @@ class TestGetProgressValidation:
         assert response.status_code == 400
         assert "already completed" in response.json()["detail"].lower()
 
-    def test_session_abandoned(self, client, auth_headers, db_session, test_user):
+    async def test_session_abandoned(self, client, auth_headers, db_session, test_user):
         """Test 400 when session is abandoned."""
         from app.models import TestSession
         from app.models.models import TestStatus
@@ -335,26 +347,26 @@ class TestGetProgressValidation:
             theta_history=[],
         )
         db_session.add(abandoned_session)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             f"/v1/test/progress?session_id={abandoned_session.id}",
             headers=auth_headers,
         )
 
         assert response.status_code == 400
 
-    def test_session_not_adaptive(
+    async def test_session_not_adaptive(
         self, client, auth_headers, db_session, test_questions
     ):
         """Test 400 when session is fixed-form (not adaptive)."""
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
         )
         assert start_response.status_code == 200
         session_id = start_response.json()["session"]["id"]
 
-        response = client.get(
+        response = await client.get(
             f"/v1/test/progress?session_id={session_id}",
             headers=auth_headers,
         )
@@ -362,14 +374,14 @@ class TestGetProgressValidation:
         assert response.status_code == 400
         assert "adaptive" in response.json()["detail"].lower()
 
-    def test_unauthenticated_request(self, client, db_session):
+    async def test_unauthenticated_request(self, client, db_session):
         """Test error when no auth headers provided."""
-        response = client.get("/v1/test/progress?session_id=1")
+        response = await client.get("/v1/test/progress?session_id=1")
         assert response.status_code in (401, 403)
 
-    def test_missing_session_id_parameter(self, client, auth_headers):
+    async def test_missing_session_id_parameter(self, client, auth_headers):
         """Test 422 when session_id query param is missing."""
-        response = client.get(
+        response = await client.get(
             "/v1/test/progress",
             headers=auth_headers,
         )

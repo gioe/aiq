@@ -34,8 +34,8 @@ import logging
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
 
 from app.models.models import (
     Response,
@@ -109,8 +109,8 @@ def _apply_spearman_brown_correction(r_half: float) -> float:
     return max(-1.0, min(1.0, r_full))
 
 
-def calculate_split_half_reliability(
-    db: Session,
+async def calculate_split_half_reliability(
+    db: AsyncSession,
     min_sessions: int = 100,
     data_loader: Optional["ReliabilityDataLoader"] = None,
 ) -> Dict:
@@ -170,16 +170,16 @@ def calculate_split_half_reliability(
     # Get data from loader or query database directly (RE-FI-020)
     if data_loader is not None:
         # Use preloaded data to reduce database round trips
-        response_data = data_loader.get_response_data()
+        response_data = await data_loader.get_response_data()
         completed_sessions_count = response_data["completed_sessions_count"]
         responses_raw = response_data["responses"]
     else:
         # Fall back to direct database queries (original behavior)
-        completed_sessions_count = (
-            db.query(func.count(TestSession.id))
-            .filter(TestSession.status == TestStatus.COMPLETED)
-            .scalar()
-        ) or 0
+        completed_sessions_stmt = select(func.count(TestSession.id)).filter(
+            TestSession.status == TestStatus.COMPLETED
+        )
+        result = await db.execute(completed_sessions_stmt)
+        completed_sessions_count = result.scalar() or 0
 
         responses_raw = None  # Will be loaded below if needed
 
@@ -201,8 +201,8 @@ def calculate_split_half_reliability(
     # Step 1: Get all responses from completed sessions with question order
     if responses_raw is None:
         # Load from database if not provided by data_loader
-        responses_query = (
-            db.query(
+        responses_stmt = (
+            select(
                 Response.test_session_id,
                 Response.question_id,
                 Response.is_correct,
@@ -210,8 +210,9 @@ def calculate_split_half_reliability(
             )
             .join(TestSession, Response.test_session_id == TestSession.id)
             .filter(TestSession.status == TestStatus.COMPLETED)
-            .all()
         )
+        result = await db.execute(responses_stmt)
+        responses_query = result.all()
         responses_raw = [
             (r.test_session_id, r.question_id, r.is_correct, r.id)
             for r in responses_query

@@ -10,8 +10,8 @@ Tests cover:
   prefers highest discrimination
 """
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     DifficultyLevel,
@@ -21,7 +21,7 @@ from app.models import (
 
 
 def _create_question(
-    db_session: Session,
+    db_session: AsyncSession,
     question_type: QuestionType,
     difficulty_level: DifficultyLevel,
     discrimination: float = None,
@@ -52,20 +52,20 @@ def _create_question(
 class TestListAnchorItems:
     """Tests for GET /v1/admin/anchor-items."""
 
-    def test_requires_admin_token(self, client: TestClient):
+    async def test_requires_admin_token(self, client: AsyncClient):
         """Endpoint requires admin token."""
-        response = client.get("/v1/admin/anchor-items")
+        response = await client.get("/v1/admin/anchor-items")
         assert response.status_code == 422  # Missing required header
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/anchor-items",
             headers={"X-Admin-Token": "invalid-token"},
         )
         assert response.status_code == 401
 
-    def test_empty_database(self, client: TestClient, admin_headers: dict):
+    async def test_empty_database(self, client: AsyncClient, admin_headers: dict):
         """Returns empty results when no anchors exist."""
-        response = client.get("/v1/admin/anchor-items", headers=admin_headers)
+        response = await client.get("/v1/admin/anchor-items", headers=admin_headers)
         assert response.status_code == 200
         data = response.json()
 
@@ -75,8 +75,8 @@ class TestListAnchorItems:
         assert data["domain_summaries"] == []
         assert data["items"] == []
 
-    def test_lists_only_anchors(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_lists_only_anchors(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Only returns questions where is_anchor=True."""
         _create_question(
@@ -103,9 +103,9 @@ class TestListAnchorItems:
             discrimination=0.50,
             response_count=120,
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get("/v1/admin/anchor-items", headers=admin_headers)
+        response = await client.get("/v1/admin/anchor-items", headers=admin_headers)
         assert response.status_code == 200
         data = response.json()
 
@@ -116,8 +116,8 @@ class TestListAnchorItems:
         assert all(item["is_anchor"] for item in data["items"])
         assert len(item_ids) == 2
 
-    def test_domain_filter(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_domain_filter(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Domain query parameter filters items correctly."""
         _create_question(
@@ -134,9 +134,9 @@ class TestListAnchorItems:
             is_anchor=True,
             discrimination=0.50,
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/anchor-items?domain=pattern", headers=admin_headers
         )
         assert response.status_code == 200
@@ -149,8 +149,8 @@ class TestListAnchorItems:
         # Domain summaries still show all domains (not filtered)
         assert data["total_anchors"] == 2
 
-    def test_domain_summary_accuracy(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_domain_summary_accuracy(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Domain summaries correctly aggregate difficulty counts and avg discrimination."""
         _create_question(
@@ -181,9 +181,9 @@ class TestListAnchorItems:
             is_anchor=True,
             discrimination=0.30,
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get("/v1/admin/anchor-items", headers=admin_headers)
+        response = await client.get("/v1/admin/anchor-items", headers=admin_headers)
         assert response.status_code == 200
         data = response.json()
 
@@ -201,32 +201,32 @@ class TestListAnchorItems:
 class TestToggleAnchor:
     """Tests for PATCH /v1/admin/questions/{question_id}/anchor."""
 
-    def test_requires_admin_token(self, client: TestClient):
+    async def test_requires_admin_token(self, client: AsyncClient):
         """Endpoint requires admin token."""
-        response = client.patch(
+        response = await client.patch(
             "/v1/admin/questions/1/anchor",
             json={"is_anchor": True},
         )
         assert response.status_code == 422
 
-        response = client.patch(
+        response = await client.patch(
             "/v1/admin/questions/1/anchor",
             json={"is_anchor": True},
             headers={"X-Admin-Token": "invalid-token"},
         )
         assert response.status_code == 401
 
-    def test_question_not_found(self, client: TestClient, admin_headers: dict):
+    async def test_question_not_found(self, client: AsyncClient, admin_headers: dict):
         """Returns 404 for non-existent question."""
-        response = client.patch(
+        response = await client.patch(
             "/v1/admin/questions/99999/anchor",
             json={"is_anchor": True},
             headers=admin_headers,
         )
         assert response.status_code == 404
 
-    def test_toggle_to_true(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_toggle_to_true(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Setting is_anchor=True sets the flag and timestamp."""
         q = _create_question(
@@ -234,10 +234,10 @@ class TestToggleAnchor:
             QuestionType.PATTERN,
             DifficultyLevel.EASY,
         )
-        db_session.commit()
-        db_session.refresh(q)
+        await db_session.commit()
+        await db_session.refresh(q)
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{q.id}/anchor",
             json={"is_anchor": True},
             headers=admin_headers,
@@ -250,8 +250,8 @@ class TestToggleAnchor:
         assert data["new_value"] is True
         assert data["anchor_designated_at"] is not None
 
-    def test_toggle_to_false(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_toggle_to_false(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Setting is_anchor=False clears the flag and timestamp."""
         from app.core.datetime_utils import utc_now
@@ -263,10 +263,10 @@ class TestToggleAnchor:
             is_anchor=True,
             anchor_designated_at=utc_now(),
         )
-        db_session.commit()
-        db_session.refresh(q)
+        await db_session.commit()
+        await db_session.refresh(q)
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{q.id}/anchor",
             json={"is_anchor": False},
             headers=admin_headers,
@@ -278,8 +278,8 @@ class TestToggleAnchor:
         assert data["new_value"] is False
         assert data["anchor_designated_at"] is None
 
-    def test_idempotent_toggle(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_idempotent_toggle(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Toggling to same value is idempotent."""
         q = _create_question(
@@ -288,10 +288,10 @@ class TestToggleAnchor:
             DifficultyLevel.EASY,
             is_anchor=False,
         )
-        db_session.commit()
-        db_session.refresh(q)
+        await db_session.commit()
+        await db_session.refresh(q)
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{q.id}/anchor",
             json={"is_anchor": False},
             headers=admin_headers,
@@ -302,8 +302,8 @@ class TestToggleAnchor:
         assert data["previous_value"] is False
         assert data["new_value"] is False
 
-    def test_response_structure(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_response_structure(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Response contains all expected fields."""
         q = _create_question(
@@ -311,10 +311,10 @@ class TestToggleAnchor:
             QuestionType.PATTERN,
             DifficultyLevel.EASY,
         )
-        db_session.commit()
-        db_session.refresh(q)
+        await db_session.commit()
+        await db_session.refresh(q)
 
-        response = client.patch(
+        response = await client.patch(
             f"/v1/admin/questions/{q.id}/anchor",
             json={"is_anchor": True},
             headers=admin_headers,
@@ -331,19 +331,19 @@ class TestToggleAnchor:
 class TestAutoSelectAnchors:
     """Tests for POST /v1/admin/anchor-items/auto-select."""
 
-    def test_requires_admin_token(self, client: TestClient):
+    async def test_requires_admin_token(self, client: AsyncClient):
         """Endpoint requires admin token."""
-        response = client.post("/v1/admin/anchor-items/auto-select")
+        response = await client.post("/v1/admin/anchor-items/auto-select")
         assert response.status_code == 422
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers={"X-Admin-Token": "invalid-token"},
         )
         assert response.status_code == 401
 
-    def test_balanced_selection(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_balanced_selection(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Selects up to 10 per difficulty per domain when enough candidates exist."""
         # Create 15 eligible questions per difficulty for math domain
@@ -358,9 +358,9 @@ class TestAutoSelectAnchors:
                     is_active=True,
                     quality_flag="normal",
                 )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers=admin_headers,
         )
@@ -375,8 +375,8 @@ class TestAutoSelectAnchors:
         assert math_result["hard_selected"] == 10
         assert math_result["shortfall"] == 0
 
-    def test_clears_existing_anchors(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_clears_existing_anchors(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Existing anchors are cleared before new selection."""
         from app.core.datetime_utils import utc_now
@@ -391,9 +391,9 @@ class TestAutoSelectAnchors:
             discrimination=0.10,  # Low discrimination - wouldn't be reselected
             response_count=50,
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers=admin_headers,
         )
@@ -404,8 +404,8 @@ class TestAutoSelectAnchors:
         # The old anchor with discrimination=0.10 shouldn't be re-selected
         # (below 0.30 threshold)
 
-    def test_respects_discrimination_threshold(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_respects_discrimination_threshold(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Only questions with discrimination >= threshold are selected."""
         # Below threshold
@@ -432,9 +432,9 @@ class TestAutoSelectAnchors:
             discrimination=0.50,
             response_count=100,
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers=admin_headers,
         )
@@ -445,8 +445,8 @@ class TestAutoSelectAnchors:
         # Only 2 eligible (discrimination >= 0.30)
         assert math_result["easy_selected"] == 2
 
-    def test_custom_discrimination_threshold(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_custom_discrimination_threshold(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Custom min_discrimination parameter overrides default threshold."""
         _create_question(
@@ -463,10 +463,10 @@ class TestAutoSelectAnchors:
             discrimination=0.15,
             response_count=100,
         )
-        db_session.commit()
+        await db_session.commit()
 
         # With default threshold (0.30), none qualify
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select?dry_run=true",
             headers=admin_headers,
         )
@@ -477,7 +477,7 @@ class TestAutoSelectAnchors:
         assert math_result["easy_selected"] == 0
 
         # With lower threshold (0.10), both qualify
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select?dry_run=true&min_discrimination=0.10",
             headers=admin_headers,
         )
@@ -487,8 +487,8 @@ class TestAutoSelectAnchors:
         )
         assert math_result["easy_selected"] == 2
 
-    def test_excludes_inactive_questions(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_excludes_inactive_questions(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Inactive questions are excluded from selection."""
         _create_question(
@@ -499,9 +499,9 @@ class TestAutoSelectAnchors:
             response_count=100,
             is_active=False,
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers=admin_headers,
         )
@@ -511,8 +511,8 @@ class TestAutoSelectAnchors:
         math_result = next(r for r in data["domain_results"] if r["domain"] == "math")
         assert math_result["easy_selected"] == 0
 
-    def test_excludes_flagged_questions(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_excludes_flagged_questions(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Questions with non-normal quality flags are excluded."""
         _create_question(
@@ -531,9 +531,9 @@ class TestAutoSelectAnchors:
             response_count=100,
             quality_flag="deactivated",
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers=admin_headers,
         )
@@ -543,8 +543,8 @@ class TestAutoSelectAnchors:
         math_result = next(r for r in data["domain_results"] if r["domain"] == "math")
         assert math_result["easy_selected"] == 0
 
-    def test_warns_on_shortfall(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_warns_on_shortfall(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Warnings generated when fewer candidates than target."""
         # Only 3 eligible for math/easy
@@ -556,9 +556,9 @@ class TestAutoSelectAnchors:
                 discrimination=0.40,
                 response_count=100,
             )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers=admin_headers,
         )
@@ -570,8 +570,8 @@ class TestAutoSelectAnchors:
         assert len(math_easy_warnings) == 1
         assert "shortfall of 7" in math_easy_warnings[0]
 
-    def test_dry_run_no_changes(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_dry_run_no_changes(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Dry run previews selection without persisting."""
         _create_question(
@@ -581,9 +581,9 @@ class TestAutoSelectAnchors:
             discrimination=0.50,
             response_count=100,
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select?dry_run=true",
             headers=admin_headers,
         )
@@ -595,12 +595,14 @@ class TestAutoSelectAnchors:
         assert math_result["easy_selected"] == 1
 
         # Verify no anchors were actually created
-        verify_response = client.get("/v1/admin/anchor-items", headers=admin_headers)
+        verify_response = await client.get(
+            "/v1/admin/anchor-items", headers=admin_headers
+        )
         assert verify_response.status_code == 200
         assert verify_response.json()["total_anchors"] == 0
 
-    def test_prefers_highest_discrimination(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_prefers_highest_discrimination(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """When more candidates than slots, highest discrimination wins."""
         # Create 3 candidates with different discrimination values for math/easy
@@ -625,29 +627,31 @@ class TestAutoSelectAnchors:
             discrimination=0.50,
             response_count=100,
         )
-        db_session.commit()
-        db_session.refresh(q_low)
-        db_session.refresh(q_high)
-        db_session.refresh(q_mid)
+        await db_session.commit()
+        await db_session.refresh(q_low)
+        await db_session.refresh(q_high)
+        await db_session.refresh(q_mid)
 
         # Use min_discrimination=0.30 to make all 3 eligible
         # Only need 10 per slot but we have 3, so all should be selected
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers=admin_headers,
         )
         assert response.status_code == 200
 
         # Verify all 3 are anchors (since 3 < 10 limit)
-        verify_response = client.get("/v1/admin/anchor-items", headers=admin_headers)
+        verify_response = await client.get(
+            "/v1/admin/anchor-items", headers=admin_headers
+        )
         assert verify_response.status_code == 200
         anchor_ids = {item["question_id"] for item in verify_response.json()["items"]}
         assert q_high.id in anchor_ids
         assert q_mid.id in anchor_ids
         assert q_low.id in anchor_ids
 
-    def test_excludes_null_discrimination(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_excludes_null_discrimination(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Questions with NULL discrimination are excluded."""
         _create_question(
@@ -657,9 +661,9 @@ class TestAutoSelectAnchors:
             discrimination=None,
             response_count=100,
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers=admin_headers,
         )
@@ -669,11 +673,11 @@ class TestAutoSelectAnchors:
         math_result = next(r for r in data["domain_results"] if r["domain"] == "math")
         assert math_result["easy_selected"] == 0
 
-    def test_response_structure(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_response_structure(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Response contains all expected fields."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/anchor-items/auto-select",
             headers=admin_headers,
         )

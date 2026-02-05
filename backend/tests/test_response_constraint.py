@@ -5,6 +5,7 @@ This test verifies that the database constraint prevents duplicate responses
 even if the app-level check is bypassed (e.g., due to race conditions).
 """
 import pytest
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from app.models.models import (
     Response,
@@ -21,7 +22,7 @@ from app.core.datetime_utils import utc_now
 class TestResponseUniqueConstraint:
     """Test database-level duplicate response prevention."""
 
-    def test_database_constraint_prevents_duplicate_response(self, db_session):
+    async def test_database_constraint_prevents_duplicate_response(self, db_session):
         """
         Test that the database constraint catches duplicate responses
         even if the application-level check is bypassed.
@@ -37,7 +38,7 @@ class TestResponseUniqueConstraint:
             last_name="User",
         )
         db_session.add(user)
-        db_session.flush()
+        await db_session.flush()
 
         # Create a question
         question = Question(
@@ -48,7 +49,7 @@ class TestResponseUniqueConstraint:
             is_active=True,
         )
         db_session.add(question)
-        db_session.flush()
+        await db_session.flush()
 
         # Create a test session
         test_session = TestSession(
@@ -58,7 +59,7 @@ class TestResponseUniqueConstraint:
             is_adaptive=False,
         )
         db_session.add(test_session)
-        db_session.flush()
+        await db_session.flush()
 
         # Create first response (should succeed)
         response1 = Response(
@@ -71,7 +72,7 @@ class TestResponseUniqueConstraint:
             time_spent_seconds=10,
         )
         db_session.add(response1)
-        db_session.commit()
+        await db_session.commit()
 
         # Attempt to create duplicate response (should fail at database level)
         response2 = Response(
@@ -87,12 +88,12 @@ class TestResponseUniqueConstraint:
 
         # The database constraint should raise IntegrityError on commit
         with pytest.raises(IntegrityError):
-            db_session.commit()
+            await db_session.commit()
 
         # Rollback to clean up
-        db_session.rollback()
+        await db_session.rollback()
 
-    def test_different_sessions_same_question_allowed(self, db_session):
+    async def test_different_sessions_same_question_allowed(self, db_session):
         """
         Test that the same question can be answered in different sessions
         by the same user (constraint is per-session).
@@ -105,7 +106,7 @@ class TestResponseUniqueConstraint:
             last_name="User2",
         )
         db_session.add(user)
-        db_session.flush()
+        await db_session.flush()
 
         # Create a question
         question = Question(
@@ -116,7 +117,7 @@ class TestResponseUniqueConstraint:
             is_active=True,
         )
         db_session.add(question)
-        db_session.flush()
+        await db_session.flush()
 
         # Create two test sessions
         session1 = TestSession(
@@ -133,7 +134,7 @@ class TestResponseUniqueConstraint:
         )
         db_session.add(session1)
         db_session.add(session2)
-        db_session.flush()
+        await db_session.flush()
 
         # Answer the same question in both sessions (should succeed)
         response1 = Response(
@@ -156,15 +157,16 @@ class TestResponseUniqueConstraint:
         )
         db_session.add(response1)
         db_session.add(response2)
-        db_session.commit()  # Should succeed - different sessions
+        await db_session.commit()  # Should succeed - different sessions
 
         # Verify both responses were created
-        responses = (
-            db_session.query(Response).filter(Response.question_id == question.id).all()
+        _qresult = await db_session.execute(
+            select(Response).filter(Response.question_id == question.id)
         )
+        responses = _qresult.scalars().all()
         assert len(responses) == 2
 
-    def test_same_session_different_questions_allowed(self, db_session):
+    async def test_same_session_different_questions_allowed(self, db_session):
         """
         Test that different questions can be answered in the same session
         (constraint is per-question per-session).
@@ -177,7 +179,7 @@ class TestResponseUniqueConstraint:
             last_name="User3",
         )
         db_session.add(user)
-        db_session.flush()
+        await db_session.flush()
 
         # Create two questions
         question1 = Question(
@@ -196,7 +198,7 @@ class TestResponseUniqueConstraint:
         )
         db_session.add(question1)
         db_session.add(question2)
-        db_session.flush()
+        await db_session.flush()
 
         # Create a test session
         test_session = TestSession(
@@ -206,7 +208,7 @@ class TestResponseUniqueConstraint:
             is_adaptive=False,
         )
         db_session.add(test_session)
-        db_session.flush()
+        await db_session.flush()
 
         # Answer both questions in the same session (should succeed)
         response1 = Response(
@@ -229,12 +231,11 @@ class TestResponseUniqueConstraint:
         )
         db_session.add(response1)
         db_session.add(response2)
-        db_session.commit()  # Should succeed - different questions
+        await db_session.commit()  # Should succeed - different questions
 
         # Verify both responses were created
-        responses = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == test_session.id)
-            .all()
+        _qresult = await db_session.execute(
+            select(Response).filter(Response.test_session_id == test_session.id)
         )
+        responses = _qresult.scalars().all()
         assert len(responses) == 2

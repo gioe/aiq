@@ -8,7 +8,8 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.core.discrimination_analysis import (
@@ -70,7 +71,7 @@ async def get_discrimination_report_endpoint(
         le=1000,
         description="Maximum items per action_needed list (immediate_review, monitor)",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -116,7 +117,7 @@ async def get_discrimination_report_endpoint(
         ```
     """
     try:
-        report_data = get_discrimination_report(
+        report_data = await get_discrimination_report(
             db, min_responses=min_responses, action_list_limit=action_list_limit
         )
 
@@ -157,7 +158,7 @@ async def get_discrimination_report_endpoint(
 )
 async def get_discrimination_detail_endpoint(
     question_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -197,7 +198,7 @@ async def get_discrimination_detail_endpoint(
         ```
     """
     try:
-        detail_data = get_question_discrimination_detail(db, question_id)
+        detail_data = await get_question_discrimination_detail(db, question_id)
 
         if detail_data is None:
             raise HTTPException(
@@ -252,7 +253,7 @@ async def get_discrimination_detail_endpoint(
 async def update_quality_flag(
     question_id: int,
     request: QualityFlagUpdateRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -303,7 +304,8 @@ async def update_quality_flag(
         )
 
     # Fetch the question
-    question = db.query(Question).filter(Question.id == question_id).first()
+    result = await db.execute(select(Question).filter(Question.id == question_id))
+    question = result.scalars().first()
     if not question:
         raise HTTPException(
             status_code=404,
@@ -319,8 +321,8 @@ async def update_quality_flag(
     question.quality_flag_reason = request.reason
     question.quality_flag_updated_at = update_time
 
-    db.commit()
-    db.refresh(question)
+    await db.commit()
+    await db.refresh(question)
 
     # Invalidate discrimination report cache since quality flag changed (IDA-F004)
     invalidate_discrimination_report_cache()

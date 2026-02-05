@@ -18,7 +18,7 @@ class TestTokenBlacklistStats:
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.api.v1.admin.token_blacklist.get_token_blacklist")
-    def test_stats_with_memory_storage_success(
+    async def test_stats_with_memory_storage_success(
         self, mock_get_blacklist, client, admin_headers
     ):
         """Test successful stats retrieval with in-memory storage."""
@@ -34,7 +34,7 @@ class TestTokenBlacklistStats:
         }
         mock_get_blacklist.return_value = mock_blacklist
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/token-blacklist/stats",
             headers=admin_headers,
         )
@@ -51,7 +51,7 @@ class TestTokenBlacklistStats:
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.api.v1.admin.token_blacklist.get_token_blacklist")
-    def test_stats_with_redis_storage_success(
+    async def test_stats_with_redis_storage_success(
         self, mock_get_blacklist, client, admin_headers
     ):
         """Test successful stats retrieval with Redis storage."""
@@ -67,7 +67,7 @@ class TestTokenBlacklistStats:
         }
         mock_get_blacklist.return_value = mock_blacklist
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/token-blacklist/stats",
             headers=admin_headers,
         )
@@ -83,7 +83,9 @@ class TestTokenBlacklistStats:
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.api.v1.admin.token_blacklist.get_token_blacklist")
-    def test_stats_with_revoked_tokens(self, mock_get_blacklist, client, admin_headers):
+    async def test_stats_with_revoked_tokens(
+        self, mock_get_blacklist, client, admin_headers
+    ):
         """Test stats retrieval when blacklist has revoked tokens."""
         # Mock the blacklist instance
         mock_blacklist = MagicMock(spec=TokenBlacklist)
@@ -97,7 +99,7 @@ class TestTokenBlacklistStats:
         }
         mock_get_blacklist.return_value = mock_blacklist
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/token-blacklist/stats",
             headers=admin_headers,
         )
@@ -109,16 +111,16 @@ class TestTokenBlacklistStats:
         assert data["active_keys"] == 5
         assert data["expired_keys"] == 0
 
-    def test_stats_requires_admin_token(self, client):
+    async def test_stats_requires_admin_token(self, client):
         """Test that stats endpoint requires admin authentication."""
-        response = client.get("/v1/admin/token-blacklist/stats")
+        response = await client.get("/v1/admin/token-blacklist/stats")
 
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_stats_rejects_invalid_token(self, client):
+    async def test_stats_rejects_invalid_token(self, client):
         """Test that stats endpoint rejects invalid admin token."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/token-blacklist/stats",
             headers={"X-Admin-Token": "invalid-token"},
         )
@@ -127,14 +129,14 @@ class TestTokenBlacklistStats:
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.api.v1.admin.token_blacklist.get_token_blacklist")
-    def test_stats_handles_runtime_error(
+    async def test_stats_handles_runtime_error(
         self, mock_get_blacklist, client, admin_headers
     ):
         """Test that endpoint handles errors gracefully (blacklist not initialized)."""
         # Mock get_token_blacklist to raise RuntimeError
         mock_get_blacklist.side_effect = RuntimeError("Token blacklist not initialized")
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/token-blacklist/stats",
             headers=admin_headers,
         )
@@ -147,7 +149,7 @@ class TestTokenBlacklistStats:
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.api.v1.admin.token_blacklist.get_token_blacklist")
-    def test_stats_handles_get_stats_exception(
+    async def test_stats_handles_get_stats_exception(
         self, mock_get_blacklist, client, admin_headers
     ):
         """Test that endpoint handles get_stats() exceptions gracefully."""
@@ -157,7 +159,7 @@ class TestTokenBlacklistStats:
         mock_blacklist.get_stats.side_effect = Exception("Storage error occurred")
         mock_get_blacklist.return_value = mock_blacklist
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/token-blacklist/stats",
             headers=admin_headers,
         )
@@ -170,7 +172,7 @@ class TestTokenBlacklistStats:
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.api.v1.admin.token_blacklist.get_token_blacklist")
-    def test_stats_with_empty_blacklist(
+    async def test_stats_with_empty_blacklist(
         self, mock_get_blacklist, client, admin_headers
     ):
         """Test stats retrieval when blacklist is empty."""
@@ -186,7 +188,7 @@ class TestTokenBlacklistStats:
         }
         mock_get_blacklist.return_value = mock_blacklist
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/token-blacklist/stats",
             headers=admin_headers,
         )
@@ -201,7 +203,9 @@ class TestTokenBlacklistStats:
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.api.v1.admin.token_blacklist.get_token_blacklist")
-    def test_stats_redis_disconnected(self, mock_get_blacklist, client, admin_headers):
+    async def test_stats_redis_disconnected(
+        self, mock_get_blacklist, client, admin_headers
+    ):
         """Test stats retrieval when Redis is disconnected."""
         # Mock the blacklist instance
         mock_blacklist = MagicMock(spec=TokenBlacklist)
@@ -213,7 +217,7 @@ class TestTokenBlacklistStats:
         }
         mock_get_blacklist.return_value = mock_blacklist
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/token-blacklist/stats",
             headers=admin_headers,
         )
