@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Main onboarding container view with page navigation
 /// Uses TabView for swipe-based page transitions
@@ -23,11 +22,6 @@ struct OnboardingContainerView: View {
     @StateObject private var viewModel = OnboardingViewModel()
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.dismiss) private var dismiss
-
-    // Reusable haptic generators (created once, reused throughout lifecycle)
-    private let lightImpactGenerator = UIImpactFeedbackGenerator(style: .light)
-    private let mediumImpactGenerator = UIImpactFeedbackGenerator(style: .medium)
-    private let notificationGenerator = UINotificationFeedbackGenerator()
 
     var body: some View {
         ZStack {
@@ -70,10 +64,8 @@ struct OnboardingContainerView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .onChange(of: viewModel.currentPage) { _ in
-                    // Haptic feedback on page change (respects Reduce Motion accessibility setting)
-                    if !reduceMotion {
-                        lightImpactGenerator.impactOccurred()
-                    }
+                    // Haptic feedback on page change (respects Reduce Motion via HapticManager)
+                    ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.light)
                 }
 
                 // Custom page indicator (scoped styling, no global UIPageControl modifications)
@@ -106,9 +98,7 @@ struct OnboardingContainerView: View {
         .accessibilityIdentifier(AccessibilityIdentifiers.OnboardingView.containerView)
         .onAppear {
             // Prepare haptic generators for reduced latency on first use
-            lightImpactGenerator.prepare()
-            mediumImpactGenerator.prepare()
-            notificationGenerator.prepare()
+            ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.prepare()
         }
     }
 
@@ -116,10 +106,8 @@ struct OnboardingContainerView: View {
 
     /// Handle Continue button tap
     private func handleContinue() {
-        // Haptic feedback (respects Reduce Motion accessibility setting)
-        if !reduceMotion {
-            mediumImpactGenerator.impactOccurred()
-        }
+        // Haptic feedback (respects Reduce Motion via HapticManager)
+        ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.medium)
 
         // Navigate to next page
         if reduceMotion {
@@ -133,10 +121,8 @@ struct OnboardingContainerView: View {
 
     /// Handle Skip button tap
     private func handleSkip() {
-        // Haptic feedback (respects Reduce Motion accessibility setting)
-        if !reduceMotion {
-            mediumImpactGenerator.impactOccurred()
-        }
+        // Haptic feedback (respects Reduce Motion via HapticManager)
+        ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.medium)
 
         // Skip onboarding
         if reduceMotion {
@@ -153,10 +139,8 @@ struct OnboardingContainerView: View {
 
     /// Handle Get Started button tap
     private func handleGetStarted() {
-        // Haptic feedback (respects Reduce Motion accessibility setting)
-        if !reduceMotion {
-            notificationGenerator.notificationOccurred(.success)
-        }
+        // Haptic feedback (respects Reduce Motion via HapticManager)
+        ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.success)
 
         // Complete onboarding
         if reduceMotion {
