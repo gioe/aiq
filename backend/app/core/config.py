@@ -137,7 +137,7 @@ class Settings(BaseSettings):
         description="Sentry traces sample rate (0.0-1.0, 0.1 = 10% of transactions)",
     )
 
-    # OpenTelemetry Distributed Tracing
+    # OpenTelemetry Distributed Tracing and Observability
     OTEL_ENABLED: bool = False
     OTEL_SERVICE_NAME: str = "aiq-backend"
     OTEL_EXPORTER: Literal["console", "otlp", "none"] = "console"
@@ -147,6 +147,16 @@ class Settings(BaseSettings):
         ge=0.0,
         le=1.0,
         description="Trace sample rate (0.0-1.0, 1.0 = 100%)",
+    )
+    # Metrics configuration
+    OTEL_METRICS_ENABLED: bool = False
+    OTEL_METRICS_EXPORT_INTERVAL_MILLIS: int = 60000  # 60 seconds
+    # Logs configuration
+    OTEL_LOGS_ENABLED: bool = False
+    # Grafana Cloud / OTLP authentication
+    OTEL_EXPORTER_OTLP_HEADERS: str = Field(
+        default="",
+        description="OTLP exporter headers (e.g., 'Authorization=Bearer <token>' for Grafana Cloud)",
     )
 
     # Email/SMTP Settings (for feedback notifications)

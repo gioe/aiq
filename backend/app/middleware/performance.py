@@ -8,6 +8,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from typing import Callable
 from app.core.analytics import AnalyticsTracker
+from app.observability import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,14 @@ class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
 
         # Add custom header with processing time
         response.headers["X-Process-Time"] = str(round(process_time, 4))
+
+        # Record OpenTelemetry metrics
+        metrics.record_http_request(
+            method=request.method,
+            path=str(request.url.path),
+            status_code=response.status_code,
+            duration=process_time,
+        )
 
         # Log slow requests and track analytics
         if process_time > self.slow_request_threshold:
