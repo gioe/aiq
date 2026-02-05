@@ -36,8 +36,8 @@ async def prometheus_metrics() -> Response:
     # Import here to avoid circular dependencies and allow graceful degradation
     try:
         from app.metrics.prometheus import get_prometheus_metrics_text
-    except ImportError:
-        logger.error("Prometheus exporter not available")
+    except (ImportError, AttributeError) as e:
+        logger.error(f"Prometheus exporter not available: {e}")
         return Response(
             content="# Prometheus metrics not available\n",
             media_type="text/plain; version=0.0.4",
@@ -65,7 +65,7 @@ async def prometheus_metrics() -> Response:
             media_type="text/plain; version=0.0.4",
         )
     except Exception as e:
-        logger.exception(f"Failed to generate Prometheus metrics: {e}")
+        logger.exception("Failed to generate Prometheus metrics")
         return Response(
             content=f"# Error generating metrics: {e}\n",
             media_type="text/plain; version=0.0.4",
