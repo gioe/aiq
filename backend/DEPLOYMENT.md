@@ -70,6 +70,20 @@ ADMIN_ENABLED=False
 ADMIN_USERNAME=admin
 # Generate password hash locally: python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your_password'))"
 ADMIN_PASSWORD_HASH=$2b$12$...your-bcrypt-hash...
+
+# OpenTelemetry Observability (optional)
+# Set OTEL_ENABLED=True to enable distributed tracing, metrics, and logs
+OTEL_ENABLED=False
+OTEL_SERVICE_NAME=aiq-backend
+OTEL_EXPORTER=otlp
+# For Grafana Cloud: https://otlp-gateway-<region>.grafana.net/otlp
+OTEL_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
+OTEL_TRACES_SAMPLE_RATE=0.1
+OTEL_METRICS_ENABLED=True
+OTEL_METRICS_EXPORT_INTERVAL_MILLIS=60000
+OTEL_LOGS_ENABLED=True
+# For Grafana Cloud authentication, set Authorization header with your API token
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <your-grafana-cloud-api-token>
 ```
 
 **Important**:
@@ -464,6 +478,90 @@ static let baseURL = "https://your-app.railway.app/v1"
 Get your Railway URL:
 ```bash
 railway domain
+```
+
+## OpenTelemetry Observability (Optional)
+
+OpenTelemetry provides distributed tracing, metrics, and logs export for monitoring application performance and debugging issues.
+
+### Grafana Cloud Setup
+
+1. **Create Grafana Cloud Account**
+   - Sign up at [grafana.com](https://grafana.com)
+   - Navigate to **Connections** → **Add new connection** → **OpenTelemetry**
+
+2. **Get OTLP Endpoint and API Token**
+   - Copy your OTLP endpoint (e.g., `https://otlp-gateway-prod-us-central-0.grafana.net/otlp`)
+   - Generate an API token with **MetricsPublisher** and **TracesPublisher** permissions
+
+3. **Configure Environment Variables**
+
+   In Railway, add these variables:
+   ```bash
+   OTEL_ENABLED=True
+   OTEL_SERVICE_NAME=aiq-backend
+   OTEL_EXPORTER=otlp
+   OTEL_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
+   OTEL_TRACES_SAMPLE_RATE=0.1
+   OTEL_METRICS_ENABLED=True
+   OTEL_METRICS_EXPORT_INTERVAL_MILLIS=60000
+   OTEL_LOGS_ENABLED=True
+   OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <your-grafana-cloud-api-token>
+   ```
+
+4. **Verify Data Flow**
+   - Deploy the updated configuration
+   - In Grafana Cloud, navigate to **Explore** → **Tempo** for traces
+   - Navigate to **Explore** → **Prometheus** for metrics
+   - Navigate to **Explore** → **Loki** for logs
+
+### Available Metrics
+
+The backend exports custom application metrics:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `http.server.requests` | Counter | Total HTTP requests by method, endpoint, and status |
+| `http.server.request.duration` | Histogram | Request latency distribution |
+| `db.query.duration` | Histogram | Database query performance |
+| `test.sessions.active` | UpDownCounter | Number of active test sessions |
+| `app.errors` | Counter | Application errors by type |
+
+### Sample Queries
+
+**HTTP Request Rate (Prometheus)**:
+```promql
+rate(http_server_requests_total{service_name="aiq-backend"}[5m])
+```
+
+**P95 Request Latency**:
+```promql
+histogram_quantile(0.95, rate(http_server_request_duration_bucket[5m]))
+```
+
+**Error Rate**:
+```promql
+rate(app_errors_total{service_name="aiq-backend"}[5m])
+```
+
+### Cost Considerations
+
+- **Development**: Set `OTEL_TRACES_SAMPLE_RATE=1.0` (100% sampling)
+- **Production**: Set `OTEL_TRACES_SAMPLE_RATE=0.1` (10% sampling) to control costs
+- Metrics are exported every 60 seconds by default (configurable via `OTEL_METRICS_EXPORT_INTERVAL_MILLIS`)
+
+### Disabling Observability
+
+To disable all observability features:
+```bash
+OTEL_ENABLED=False
+```
+
+Or disable specific components:
+```bash
+OTEL_ENABLED=True
+OTEL_METRICS_ENABLED=False  # Disable metrics only
+OTEL_LOGS_ENABLED=False     # Disable logs only
 ```
 
 ## Common Commands

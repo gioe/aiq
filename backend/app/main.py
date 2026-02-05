@@ -191,7 +191,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.token_blacklist = token_blacklist
     logger.info("Token blacklist initialized")
 
+    # Setup OpenTelemetry tracing, metrics, and logging
     setup_tracing(app)
+
+    # Initialize custom application metrics
+    from app.observability import metrics
+
+    metrics.initialize()
+    logger.info("Application metrics initialized")
 
     yield
 

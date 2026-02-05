@@ -7,6 +7,7 @@ import logging.config
 import sys
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from types import ModuleType
 from typing import Any, Dict, Optional
 
 from app.core.config import settings
@@ -18,6 +19,7 @@ request_id_context: ContextVar[Optional[str]] = ContextVar("request_id", default
 
 # Cache OpenTelemetry trace module at import time to avoid per-log-line overhead.
 # Set to None if the package is not installed, so we skip the OTel path entirely.
+_otel_trace: Optional[ModuleType]
 try:
     from opentelemetry import trace as _otel_trace
 except ImportError:
