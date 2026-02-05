@@ -158,8 +158,7 @@ struct InProgressTestCard: View {
             // Resume Button (Primary)
             Button {
                 // Haptic feedback for button tap
-                let impact = UIImpactFeedbackGenerator(style: .medium)
-                impact.impactOccurred()
+                ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.medium)
                 onResume()
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
@@ -195,8 +194,7 @@ struct InProgressTestCard: View {
             // Abandon Button (Secondary, Destructive)
             Button {
                 // Haptic feedback for destructive action
-                let notification = UINotificationFeedbackGenerator()
-                notification.notificationOccurred(.warning)
+                ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.warning)
                 showAbandonConfirmation = true
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
