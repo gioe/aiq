@@ -57,9 +57,13 @@ class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
         response.headers["X-Process-Time"] = str(round(process_time, 4))
 
         # Record OpenTelemetry metrics
+        # Use route template (e.g., "/v1/users/{user_id}") instead of actual path
+        # to avoid cardinality explosion in metrics
+        route = request.scope.get("route")
+        route_path = route.path if route else str(request.url.path)
         metrics.record_http_request(
             method=request.method,
-            path=str(request.url.path),
+            path=route_path,
             status_code=response.status_code,
             duration=process_time,
         )
