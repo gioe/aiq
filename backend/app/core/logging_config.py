@@ -16,6 +16,13 @@ from app.core.config import settings
 # within an async request context, enabling log correlation across services.
 request_id_context: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
 
+# Cache OpenTelemetry trace module at import time to avoid per-log-line overhead.
+# Set to None if the package is not installed, so we skip the OTel path entirely.
+try:
+    from opentelemetry import trace as _otel_trace
+except ImportError:
+    _otel_trace = None
+
 
 class JSONFormatter(logging.Formatter):
     """
@@ -39,6 +46,14 @@ class JSONFormatter(logging.Formatter):
         request_id = request_id_context.get()
         if request_id:
             log_entry["request_id"] = request_id
+
+        # Add OpenTelemetry trace_id and span_id if available
+        if _otel_trace is not None:
+            span = _otel_trace.get_current_span()
+            span_context = span.get_span_context()
+            if span_context.is_valid:
+                log_entry["trace_id"] = format(span_context.trace_id, "032x")
+                log_entry["span_id"] = format(span_context.span_id, "016x")
 
         # Add extra structured fields from record
         if hasattr(record, "method"):
