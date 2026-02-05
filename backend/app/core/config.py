@@ -151,6 +151,8 @@ class Settings(BaseSettings):
     # Metrics configuration
     OTEL_METRICS_ENABLED: bool = False
     OTEL_METRICS_EXPORT_INTERVAL_MILLIS: int = 60000  # 60 seconds
+    # Prometheus metrics endpoint
+    PROMETHEUS_METRICS_ENABLED: bool = False
     # Logs configuration
     OTEL_LOGS_ENABLED: bool = False
     # Grafana Cloud / OTLP authentication

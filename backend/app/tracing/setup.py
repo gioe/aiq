@@ -211,6 +211,15 @@ def _setup_metrics(resource: "Resource", otlp_headers: dict) -> None:
         f"(export_interval={settings.OTEL_METRICS_EXPORT_INTERVAL_MILLIS}ms)"
     )
 
+    # Initialize Prometheus exporter if enabled
+    if settings.PROMETHEUS_METRICS_ENABLED:
+        try:
+            from app.metrics.prometheus import initialize_prometheus_exporter
+
+            initialize_prometheus_exporter(meter_provider)
+        except Exception as e:
+            logger.warning(f"Failed to initialize Prometheus exporter: {e}")
+
 
 def _setup_logs(resource: "Resource", otlp_headers: dict) -> None:
     """

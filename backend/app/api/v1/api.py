@@ -13,6 +13,7 @@ from app.api.v1 import (
     client_analytics,
     admin,
     feedback,
+    metrics,
 )
 
 api_router = APIRouter()
@@ -34,3 +35,5 @@ api_router.include_router(
 )
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
+# Metrics endpoint (no prefix - accessible at /v1/metrics)
+api_router.include_router(metrics.router)

@@ -1,0 +1,191 @@
+# Prometheus Alerting Rules for AIQ Backend
+# Load this file by adding to prometheus.yml:
+#   rule_files:
+#     - 'prometheus-rules.yml'
+
+groups:
+  - name: aiq-backend-performance
+    interval: 30s
+    rules:
+      # High request latency
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.95, rate(http_server_request_duration_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High request latency on {{ $labels.http_route }}"
+          description: "95th percentile latency is {{ $value | humanizeDuration }} (threshold: 1s)"
+
+      # Very high request latency
+      - alert: VeryHighRequestLatency
+        expr: histogram_quantile(0.95, rate(http_server_request_duration_bucket[5m])) > 3.0
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Very high request latency on {{ $labels.http_route }}"
+          description: "95th percentile latency is {{ $value | humanizeDuration }} (threshold: 3s)"
+
+      # Slow database queries
+      - alert: SlowDatabaseQueries
+        expr: histogram_quantile(0.99, rate(db_query_duration_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries on {{ $labels.db_table }}"
+          description: "99th percentile query time is {{ $value | humanizeDuration }} (threshold: 500ms)"
+
+  - name: aiq-backend-errors
+    interval: 30s
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(app_errors[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanize }} errors/sec on {{ $labels.http_route }}"
+
+      # Critical error rate
+      - alert: CriticalErrorRate
+        expr: rate(app_errors[5m]) > 1.0
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Critical error rate detected"
+          description: "Error rate is {{ $value | humanize }} errors/sec on {{ $labels.http_route }}"
+
+      # High HTTP 5xx error rate
+      - alert: High5xxErrorRate
+        expr: rate(http_server_requests{http_status_code=~"5.."}[5m]) / rate(http_server_requests[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High rate of 5xx errors"
+          description: "{{ $value | humanizePercentage }} of requests are returning 5xx errors"
+
+      # High HTTP 4xx error rate (potential abuse or bad client)
+      - alert: High4xxErrorRate
+        expr: rate(http_server_requests{http_status_code=~"4.."}[5m]) / rate(http_server_requests[5m]) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High rate of 4xx errors"
+          description: "{{ $value | humanizePercentage }} of requests are returning 4xx errors"
+
+  - name: aiq-backend-business
+    interval: 1m
+    rules:
+      # Low test completion rate
+      - alert: LowTestCompletionRate
+        expr: rate(test_sessions_completed[1h]) / rate(test_sessions_started[1h]) < 0.70
+        for: 30m
+        labels:
+          severity: warning
+          component: testing
+        annotations:
+          summary: "Test completion rate is low"
+          description: "Only {{ $value | humanizePercentage }} of started tests are being completed"
+
+      # Very low test completion rate
+      - alert: VeryLowTestCompletionRate
+        expr: rate(test_sessions_completed[1h]) / rate(test_sessions_started[1h]) < 0.50
+        for: 15m
+        labels:
+          severity: critical
+          component: testing
+        annotations:
+          summary: "Test completion rate is critically low"
+          description: "Only {{ $value | humanizePercentage }} of started tests are being completed"
+
+      # High test abandonment rate
+      - alert: HighTestAbandonmentRate
+        expr: rate(test_sessions_abandoned[1h]) / rate(test_sessions_started[1h]) > 0.30
+        for: 30m
+        labels:
+          severity: warning
+          component: testing
+        annotations:
+          summary: "High test abandonment rate"
+          description: "{{ $value | humanizePercentage }} of tests are being abandoned"
+
+      # No tests started recently (potential system issue)
+      - alert: NoTestsStarted
+        expr: rate(test_sessions_started[30m]) == 0
+        for: 1h
+        labels:
+          severity: warning
+          component: testing
+        annotations:
+          summary: "No test sessions started recently"
+          description: "No tests have been started in the last hour (possible system issue or no active users)"
+
+      # No user registrations (potential issue with registration flow)
+      - alert: NoUserRegistrations
+        expr: rate(users_registrations[6h]) == 0
+        for: 12h
+        labels:
+          severity: info
+          component: auth
+        annotations:
+          summary: "No new user registrations"
+          description: "No users have registered in the last 12 hours"
+
+  - name: aiq-backend-availability
+    interval: 30s
+    rules:
+      # Backend is down (no metrics)
+      - alert: BackendDown
+        expr: up{job="aiq-backend-production"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "AIQ Backend is down"
+          description: "The backend service at {{ $labels.instance }} has been unreachable for 2 minutes"
+
+      # High request rate (potential DDoS or viral traffic)
+      - alert: UnusuallyHighTraffic
+        expr: rate(http_server_requests[5m]) > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Unusually high request rate"
+          description: "Request rate is {{ $value | humanize }} req/sec (investigate for DDoS or viral traffic)"
+
+# Recording rules for expensive queries
+  - name: aiq-backend-recordings
+    interval: 1m
+    rules:
+      # Pre-compute request rate per endpoint
+      - record: job:http_server_requests:rate5m
+        expr: rate(http_server_requests[5m])
+
+      # Pre-compute error rate
+      - record: job:app_errors:rate5m
+        expr: rate(app_errors[5m])
+
+      # Pre-compute test completion rate
+      - record: job:test_completion_rate:1h
+        expr: rate(test_sessions_completed[1h]) / rate(test_sessions_started[1h])
+
+      # Pre-compute 95th percentile latency
+      - record: job:http_server_request_duration:p95:5m
+        expr: histogram_quantile(0.95, rate(http_server_request_duration_bucket[5m]))
