@@ -6,9 +6,15 @@ import logging
 import sys
 from unittest.mock import MagicMock, patch
 
+import app.tracing.setup as tracing_setup
+
 
 class TestSetupTracing:
     """Tests for the setup_tracing() function."""
+
+    def setup_method(self):
+        """Reset global tracing state between tests."""
+        tracing_setup._tracer_provider = None
 
     def test_setup_tracing_disabled_by_default(self):
         """Test that setup_tracing is a no-op when OTEL_ENABLED=False."""
@@ -136,9 +142,47 @@ class TestSetupTracing:
                     assert "console exporter" in log_message
                     assert "50%" in log_message
 
+    def test_setup_tracing_idempotent(self):
+        """Test that calling setup_tracing twice logs warning and skips."""
+        with patch.dict(
+            sys.modules,
+            {
+                "opentelemetry": MagicMock(),
+                "opentelemetry.trace": MagicMock(),
+                "opentelemetry.sdk.trace": MagicMock(),
+                "opentelemetry.sdk.trace.export": MagicMock(),
+                "opentelemetry.sdk.trace.sampling": MagicMock(),
+                "opentelemetry.sdk.resources": MagicMock(),
+                "opentelemetry.instrumentation.fastapi": MagicMock(),
+                "opentelemetry.instrumentation.sqlalchemy": MagicMock(),
+            },
+        ):
+            with patch("app.tracing.setup.settings") as mock_settings:
+                mock_settings.OTEL_ENABLED = True
+                mock_settings.OTEL_SERVICE_NAME = "test-service"
+                mock_settings.OTEL_EXPORTER = "console"
+                mock_settings.OTEL_TRACES_SAMPLE_RATE = 1.0
+
+                with patch("app.tracing.setup.logger") as mock_logger:
+                    from app.tracing.setup import setup_tracing
+
+                    mock_app = MagicMock()
+
+                    setup_tracing(mock_app)
+                    mock_logger.reset_mock()
+
+                    setup_tracing(mock_app)
+                    mock_logger.warning.assert_called_once()
+                    log_message = mock_logger.warning.call_args[0][0]
+                    assert "already initialized" in log_message
+
 
 class TestShutdownTracing:
     """Tests for the shutdown_tracing() function."""
+
+    def setup_method(self):
+        """Reset global tracing state between tests."""
+        tracing_setup._tracer_provider = None
 
     def test_shutdown_tracing_without_setup(self):
         """Test that shutdown_tracing doesn't crash when called without setup."""

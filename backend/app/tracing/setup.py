@@ -29,6 +29,10 @@ def setup_tracing(app) -> None:
     if settings.OTEL_EXPORTER == "none":
         return
 
+    if _tracer_provider is not None:
+        logger.warning("OpenTelemetry already initialized, skipping")
+        return
+
     try:
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
