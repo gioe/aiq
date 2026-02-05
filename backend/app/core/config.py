@@ -156,6 +156,7 @@ class Settings(BaseSettings):
     # Grafana Cloud / OTLP authentication
     OTEL_EXPORTER_OTLP_HEADERS: str = Field(
         default="",
+        repr=False,
         description="OTLP exporter headers (e.g., 'Authorization=Bearer <token>' for Grafana Cloud)",
     )
 

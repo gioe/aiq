@@ -19,21 +19,26 @@ _meter_provider: Optional["MeterProvider"] = None
 _logger_provider: Optional["LoggerProvider"] = None
 
 
-def _parse_otlp_headers() -> dict:
+def _parse_otlp_headers() -> dict[str, str]:
     """
     Parse OTEL_EXPORTER_OTLP_HEADERS environment variable into a dictionary.
 
     Format: "key1=value1,key2=value2"
     Returns: {"key1": "value1", "key2": "value2"}
+
+    Note: Empty keys or values are skipped to avoid malformed headers.
     """
     if not settings.OTEL_EXPORTER_OTLP_HEADERS:
         return {}
 
-    headers = {}
+    headers: dict[str, str] = {}
     for pair in settings.OTEL_EXPORTER_OTLP_HEADERS.split(","):
         if "=" in pair:
             key, value = pair.split("=", 1)
-            headers[key.strip()] = value.strip()
+            key = key.strip()
+            value = value.strip()
+            if key and value:
+                headers[key] = value
     return headers
 
 

@@ -192,6 +192,12 @@ class ApplicationMetrics:
 
         Args:
             count: Current number of active test sessions
+
+        Note:
+            This metric uses an UpDownCounter which tracks deltas from the last
+            reported count. On process restart, the internal counter resets to 0,
+            which may cause a temporary drift in the reported value until the next
+            update. For accurate absolute values, query the database directly.
         """
         if not self._initialized:
             return
