@@ -12,15 +12,6 @@ final class HapticManagerTests: XCTestCase {
 
     // MARK: - Initialization Tests
 
-    func testSharedInstance_ReturnsSameInstance() {
-        // Given
-        let instance1 = HapticManager.shared
-        let instance2 = HapticManager.shared
-
-        // Then
-        XCTAssertTrue(instance1 === instance2, "Shared instance should return the same instance")
-    }
-
     func testInit_CreatesValidInstance() {
         // Then
         XCTAssertNotNil(sut, "HapticManager should initialize without errors")

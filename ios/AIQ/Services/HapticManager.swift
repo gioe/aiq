@@ -45,7 +45,7 @@ public protocol HapticManagerProtocol {
     func prepare()
 }
 
-/// Singleton manager for triggering haptic feedback throughout the app
+/// Manager for triggering haptic feedback throughout the app
 ///
 /// HapticManager provides a centralized way to trigger haptic feedback
 /// while automatically respecting system haptic settings. Generators are
@@ -53,27 +53,24 @@ public protocol HapticManagerProtocol {
 ///
 /// Usage:
 /// ```swift
+/// // Resolve from ServiceContainer
+/// let hapticManager = ServiceContainer.shared.resolve(HapticManagerProtocol.self)
+///
 /// // Trigger success haptic
-/// HapticManager.shared.trigger(.success)
+/// hapticManager?.trigger(.success)
 ///
 /// // Trigger selection haptic for UI interactions
-/// HapticManager.shared.trigger(.selection)
+/// hapticManager?.trigger(.selection)
 ///
 /// // Prepare generators before expected interaction
-/// HapticManager.shared.prepare()
+/// hapticManager?.prepare()
 /// ```
 ///
 /// Integration:
-/// HapticManager is registered in ServiceConfiguration and can be resolved
-/// via dependency injection or accessed through the shared singleton.
+/// HapticManager is registered in ServiceConfiguration and should be resolved
+/// via dependency injection from the ServiceContainer.
 @MainActor
 public class HapticManager: HapticManagerProtocol {
-    /// Shared singleton instance
-    ///
-    /// - Note: Prefer resolving `HapticManagerProtocol` from ServiceContainer for new code.
-    @available(*, deprecated, message: "Use ServiceContainer.shared.resolve(HapticManagerProtocol.self)")
-    public static let shared = HapticManager()
-
     /// Logger for haptic events
     private static let logger = Logger(subsystem: "com.aiq.app", category: "HapticManager")
 
@@ -95,8 +92,7 @@ public class HapticManager: HapticManagerProtocol {
     /// Internal initializer for dependency injection
     ///
     /// Used by ServiceConfiguration to create the instance owned by the container.
-    /// The `shared` singleton is retained for backward compatibility but new code
-    /// should resolve HapticManagerProtocol from the ServiceContainer.
+    /// Instances should be resolved via ServiceContainer.shared.resolve(HapticManagerProtocol.self).
     public init() {
         Self.logger.debug("HapticManager initialized")
         prepare()
