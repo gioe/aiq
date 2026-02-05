@@ -20,7 +20,8 @@ import logging
 import statistics
 from typing import Dict, List, Any, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.models.models import Response, Question, DifficultyLevel
 
@@ -67,7 +68,7 @@ EXTENDED_RESPONSE_VALIDITY_THRESHOLD = 3
 FASTER_INCORRECT_CORRELATION_THRESHOLD = -0.2
 
 
-def analyze_response_times(db: Session, session_id: int) -> Dict[str, Any]:
+async def analyze_response_times(db: AsyncSession, session_id: int) -> Dict[str, Any]:
     """
     Analyze response time patterns for a test session.
 
@@ -113,12 +114,12 @@ def analyze_response_times(db: Session, session_id: int) -> Dict[str, Any]:
         docs/methodology/plans/PLAN-TIME-STANDARDIZATION.md (TS-004)
     """
     # Get all responses for this session with their question data
-    responses = (
-        db.query(Response, Question)
+    _result = await db.execute(
+        select(Response, Question)
         .join(Question, Response.question_id == Question.id)
         .filter(Response.test_session_id == session_id)
-        .all()
     )
+    responses = _result.all()
 
     # Handle edge case: no responses
     if not responses:
@@ -351,7 +352,7 @@ MIN_CORRECT_FOR_COMPARISON = 2
 MIN_INCORRECT_FOR_COMPARISON = 2
 
 
-def analyze_speed_accuracy(db: Session, question_id: int) -> Dict[str, Any]:
+async def analyze_speed_accuracy(db: AsyncSession, question_id: int) -> Dict[str, Any]:
     """
     Analyze relationship between response time and correctness for a question.
 
@@ -397,14 +398,13 @@ def analyze_speed_accuracy(db: Session, question_id: int) -> Dict[str, Any]:
         docs/methodology/plans/PLAN-TIME-STANDARDIZATION.md (TS-006)
     """
     # Get all responses for this question with time data
-    responses = (
-        db.query(Response)
-        .filter(
+    _result = await db.execute(
+        select(Response).filter(
             Response.question_id == question_id,
             Response.time_spent_seconds.isnot(None),
         )
-        .all()
     )
+    responses = _result.scalars().all()
 
     # Handle edge case: no responses
     if not responses:
@@ -645,7 +645,7 @@ def _interpret_speed_accuracy(
 # =============================================================================
 
 
-def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
+async def get_aggregate_response_time_analytics(db: AsyncSession) -> Dict[str, Any]:
     """
     Calculate aggregate response time analytics across all completed test sessions.
 
@@ -702,24 +702,23 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
     # ==========================================================================
 
     # Count total completed sessions (single scalar query)
-    total_sessions: int = (
-        db.query(func.count(TestSession.id))
-        .filter(TestSession.status == TestStatus.COMPLETED)
-        .scalar()
-        or 0
+    _result = await db.execute(
+        select(func.count(TestSession.id)).filter(
+            TestSession.status == TestStatus.COMPLETED
+        )
     )
+    total_sessions: int = _result.scalar() or 0
 
     # Count total responses with time data from completed sessions
-    total_responses: int = (
-        db.query(func.count(Response.id))
+    _result = await db.execute(
+        select(func.count(Response.id))
         .join(TestSession, Response.test_session_id == TestSession.id)
         .filter(
             TestSession.status == TestStatus.COMPLETED,
             Response.time_spent_seconds.isnot(None),
         )
-        .scalar()
-        or 0
     )
+    total_responses: int = _result.scalar() or 0
 
     # Handle edge case: no data
     if total_sessions == 0 or total_responses == 0:
@@ -730,15 +729,15 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
     # Calculate overall mean per question using database aggregation
     # ==========================================================================
 
-    mean_per_question_result = (
-        db.query(func.avg(Response.time_spent_seconds))
+    _result = await db.execute(
+        select(func.avg(Response.time_spent_seconds))
         .join(TestSession, Response.test_session_id == TestSession.id)
         .filter(
             TestSession.status == TestStatus.COMPLETED,
             Response.time_spent_seconds.isnot(None),
         )
-        .scalar()
     )
+    mean_per_question_result = _result.scalar()
     mean_per_question: Optional[float] = (
         round(float(mean_per_question_result), 2) if mean_per_question_result else None
     )
@@ -750,8 +749,8 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
 
     # Get per-session total times (grouped aggregation is more efficient than
     # loading all individual responses)
-    session_duration_query = (
-        db.query(
+    _result = await db.execute(
+        select(
             Response.test_session_id,
             func.sum(Response.time_spent_seconds).label("total_time"),
         )
@@ -761,8 +760,8 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
             Response.time_spent_seconds.isnot(None),
         )
         .group_by(Response.test_session_id)
-        .all()
     )
+    session_duration_query = _result.all()
 
     session_durations = [
         row.total_time for row in session_duration_query if row.total_time
@@ -785,8 +784,8 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
     # Calculate statistics by difficulty level using database aggregation
     # ==========================================================================
 
-    difficulty_stats_query = (
-        db.query(
+    _result = await db.execute(
+        select(
             Question.difficulty_level,
             func.avg(Response.time_spent_seconds).label("mean_time"),
         )
@@ -797,8 +796,8 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
             Response.time_spent_seconds.isnot(None),
         )
         .group_by(Question.difficulty_level)
-        .all()
     )
+    difficulty_stats_query = _result.all()
 
     # Build difficulty stats from aggregated results
     difficulty_means: Dict[str, Optional[float]] = {
@@ -813,8 +812,8 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
 
     # For median by difficulty, we need to fetch the values grouped by difficulty
     # This is still more efficient than loading Response+Question for all rows
-    difficulty_times_query = (
-        db.query(
+    _result = await db.execute(
+        select(
             Question.difficulty_level,
             Response.time_spent_seconds,
         )
@@ -824,8 +823,8 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
             TestSession.status == TestStatus.COMPLETED,
             Response.time_spent_seconds.isnot(None),
         )
-        .all()
     )
+    difficulty_times_query = _result.all()
 
     difficulty_times: Dict[str, List[int]] = {"easy": [], "medium": [], "hard": []}
     for row in difficulty_times_query:
@@ -851,8 +850,8 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
     # Calculate statistics by question type using database aggregation
     # ==========================================================================
 
-    question_type_stats_query = (
-        db.query(
+    _result = await db.execute(
+        select(
             Question.question_type,
             func.avg(Response.time_spent_seconds).label("mean_time"),
         )
@@ -863,8 +862,8 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
             Response.time_spent_seconds.isnot(None),
         )
         .group_by(Question.question_type)
-        .all()
     )
+    question_type_stats_query = _result.all()
 
     # Build question type stats from aggregated results
     by_question_type: Dict[str, Dict[str, Optional[float]]] = {
@@ -888,15 +887,15 @@ def get_aggregate_response_time_analytics(db: Session) -> Dict[str, Any]:
     # ==========================================================================
 
     # Load only the flags column, not full TestResult objects
-    flags_query = (
-        db.query(TestResult.response_time_flags)
+    _result = await db.execute(
+        select(TestResult.response_time_flags)
         .join(TestSession, TestResult.test_session_id == TestSession.id)
         .filter(
             TestSession.status == TestStatus.COMPLETED,
             TestResult.response_time_flags.isnot(None),
         )
-        .all()
     )
+    flags_query = _result.all()
 
     sessions_with_rapid = 0
     sessions_with_extended = 0
@@ -1006,7 +1005,7 @@ def _compute_percentile_stats(times: List[int]) -> Dict[str, Any]:
     }
 
 
-def get_response_time_percentiles(db: Session) -> Dict[str, Any]:
+async def get_response_time_percentiles(db: AsyncSession) -> Dict[str, Any]:
     """
     Calculate response time percentile distributions grouped by question type
     and difficulty level.
@@ -1045,8 +1044,8 @@ def get_response_time_percentiles(db: Session) -> Dict[str, Any]:
     # Fetch response times with their question type and difficulty
     # from completed sessions only, with a safety LIMIT to prevent
     # unbounded memory usage at scale.
-    rows = (
-        db.query(
+    _result = await db.execute(
+        select(
             Question.question_type,
             Question.difficulty_level,
             Response.time_spent_seconds,
@@ -1059,8 +1058,8 @@ def get_response_time_percentiles(db: Session) -> Dict[str, Any]:
         )
         .order_by(Response.id)
         .limit(MAX_PERCENTILE_QUERY_ROWS)
-        .all()
     )
+    rows = _result.all()
 
     if not rows:
         logger.info("No response time data available for percentile analysis")

@@ -36,25 +36,25 @@ def with_admin_token(func):
 class TestWeightedScoringToggle:
     """Tests for weighted scoring toggle functionality."""
 
-    def test_default_weighted_scoring_disabled(self, db_session):
+    async def test_default_weighted_scoring_disabled(self, db_session):
         """Test that weighted scoring is disabled by default."""
         result = is_weighted_scoring_enabled(db_session)
         assert result is False
 
-    def test_enable_weighted_scoring(self, db_session):
+    async def test_enable_weighted_scoring(self, db_session):
         """Test enabling weighted scoring."""
         set_weighted_scoring_enabled(db_session, True)
         result = is_weighted_scoring_enabled(db_session)
         assert result is True
 
-    def test_disable_weighted_scoring(self, db_session):
+    async def test_disable_weighted_scoring(self, db_session):
         """Test disabling weighted scoring after enabling."""
         set_weighted_scoring_enabled(db_session, True)
         set_weighted_scoring_enabled(db_session, False)
         result = is_weighted_scoring_enabled(db_session)
         assert result is False
 
-    def test_toggle_weighted_scoring_multiple_times(self, db_session):
+    async def test_toggle_weighted_scoring_multiple_times(self, db_session):
         """Test toggling weighted scoring multiple times."""
         # Toggle on
         set_weighted_scoring_enabled(db_session, True)
@@ -72,12 +72,12 @@ class TestWeightedScoringToggle:
 class TestDomainWeightsConfig:
     """Tests for domain weights configuration."""
 
-    def test_default_no_domain_weights(self, db_session):
+    async def test_default_no_domain_weights(self, db_session):
         """Test that no domain weights are configured by default."""
         result = get_domain_weights(db_session)
         assert result is None
 
-    def test_set_domain_weights(self, db_session):
+    async def test_set_domain_weights(self, db_session):
         """Test setting domain weights."""
         weights = {
             "pattern": 0.20,
@@ -91,7 +91,7 @@ class TestDomainWeightsConfig:
         result = get_domain_weights(db_session)
         assert result == weights
 
-    def test_update_domain_weights(self, db_session):
+    async def test_update_domain_weights(self, db_session):
         """Test updating existing domain weights."""
         # Set initial weights
         initial_weights = {
@@ -118,7 +118,7 @@ class TestDomainWeightsConfig:
         result = get_domain_weights(db_session)
         assert result == updated_weights
 
-    def test_partial_domain_weights(self, db_session):
+    async def test_partial_domain_weights(self, db_session):
         """Test setting partial domain weights (not all domains)."""
         # Only set some domains
         partial_weights = {
@@ -133,7 +133,7 @@ class TestDomainWeightsConfig:
 class TestScoringWithToggle:
     """Tests for scoring behavior based on toggle state."""
 
-    def test_equal_weight_scoring_when_disabled(self, db_session):
+    async def test_equal_weight_scoring_when_disabled(self, db_session):
         """Test that equal weights are used when weighted scoring is disabled."""
         # Ensure weighted scoring is disabled
         set_weighted_scoring_enabled(db_session, False)
@@ -152,7 +152,7 @@ class TestScoringWithToggle:
         score_result = calculate_iq_score(correct_answers=10, total_questions=20)
         assert score_result.iq_score == 100  # 50% correct = IQ 100
 
-    def test_weighted_scoring_when_enabled_with_weights(self, db_session):
+    async def test_weighted_scoring_when_enabled_with_weights(self, db_session):
         """Test that weighted scoring is used when enabled and weights configured."""
         # Enable weighted scoring
         set_weighted_scoring_enabled(db_session, True)
@@ -179,7 +179,9 @@ class TestScoringWithToggle:
         score_result = calculate_weighted_iq_score(domain_scores, weights)
         assert score_result.iq_score == 108
 
-    def test_fallback_to_equal_weights_when_no_weights_configured(self, db_session):
+    async def test_fallback_to_equal_weights_when_no_weights_configured(
+        self, db_session
+    ):
         """Test fallback to equal weights when enabled but no weights configured."""
         # Enable weighted scoring
         set_weighted_scoring_enabled(db_session, True)
@@ -296,9 +298,11 @@ class TestWeightedScoringAdminEndpoints:
     """Tests for admin API endpoints for weighted scoring configuration."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_get_weighted_scoring_status_default(self, client, admin_token_header):
+    async def test_get_weighted_scoring_status_default(
+        self, client, admin_token_header
+    ):
         """Test getting default weighted scoring status."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/config/weighted-scoring",
             headers=admin_token_header,
         )
@@ -308,9 +312,11 @@ class TestWeightedScoringAdminEndpoints:
         assert data["domain_weights"] is None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_toggle_weighted_scoring_on(self, client, admin_token_header, db_session):
+    async def test_toggle_weighted_scoring_on(
+        self, client, admin_token_header, db_session
+    ):
         """Test enabling weighted scoring via API."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/config/weighted-scoring",
             headers=admin_token_header,
             json={"enabled": True},
@@ -321,17 +327,19 @@ class TestWeightedScoringAdminEndpoints:
         assert "enabled" in data["message"]
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_toggle_weighted_scoring_off(self, client, admin_token_header, db_session):
+    async def test_toggle_weighted_scoring_off(
+        self, client, admin_token_header, db_session
+    ):
         """Test disabling weighted scoring via API."""
         # First enable it
-        client.post(
+        await client.post(
             "/v1/admin/config/weighted-scoring",
             headers=admin_token_header,
             json={"enabled": True},
         )
 
         # Then disable it
-        response = client.post(
+        response = await client.post(
             "/v1/admin/config/weighted-scoring",
             headers=admin_token_header,
             json={"enabled": False},
@@ -341,18 +349,18 @@ class TestWeightedScoringAdminEndpoints:
         assert data["enabled"] is False
         assert "disabled" in data["message"]
 
-    def test_toggle_weighted_scoring_requires_admin_token(self, client):
+    async def test_toggle_weighted_scoring_requires_admin_token(self, client):
         """Test that toggling weighted scoring requires admin token."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/config/weighted-scoring",
             json={"enabled": True},
         )
         assert response.status_code == 422  # Missing required header
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_get_domain_weights_none(self, client, admin_token_header):
+    async def test_get_domain_weights_none(self, client, admin_token_header):
         """Test getting domain weights when none configured."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/config/domain-weights",
             headers=admin_token_header,
         )
@@ -361,7 +369,7 @@ class TestWeightedScoringAdminEndpoints:
         assert response.json() is None
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_set_domain_weights(self, client, admin_token_header, db_session):
+    async def test_set_domain_weights(self, client, admin_token_header, db_session):
         """Test setting domain weights via API."""
         weights = {
             "pattern": 0.20,
@@ -371,7 +379,7 @@ class TestWeightedScoringAdminEndpoints:
             "verbal": 0.15,
             "memory": 0.14,
         }
-        response = client.post(
+        response = await client.post(
             "/v1/admin/config/domain-weights",
             headers=admin_token_header,
             json={"weights": weights},
@@ -384,13 +392,13 @@ class TestWeightedScoringAdminEndpoints:
         )
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_set_invalid_domain_weights(self, client, admin_token_header):
+    async def test_set_invalid_domain_weights(self, client, admin_token_header):
         """Test setting weights with invalid domain name."""
         weights = {
             "invalid_domain": 0.50,
             "pattern": 0.50,
         }
-        response = client.post(
+        response = await client.post(
             "/v1/admin/config/domain-weights",
             headers=admin_token_header,
             json={"weights": weights},
@@ -399,13 +407,13 @@ class TestWeightedScoringAdminEndpoints:
         assert "invalid" in response.json()["detail"].lower()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_set_negative_domain_weights(self, client, admin_token_header):
+    async def test_set_negative_domain_weights(self, client, admin_token_header):
         """Test setting negative weights."""
         weights = {
             "pattern": -0.20,
             "logic": 0.80,
         }
-        response = client.post(
+        response = await client.post(
             "/v1/admin/config/domain-weights",
             headers=admin_token_header,
             json={"weights": weights},
@@ -414,7 +422,7 @@ class TestWeightedScoringAdminEndpoints:
         assert "negative" in response.json()["detail"].lower()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_set_weights_not_summing_to_one_warning(
+    async def test_set_weights_not_summing_to_one_warning(
         self, client, admin_token_header, db_session
     ):
         """Test that weights not summing to 1.0 shows a warning in message."""
@@ -422,7 +430,7 @@ class TestWeightedScoringAdminEndpoints:
             "pattern": 0.30,
             "logic": 0.20,
         }
-        response = client.post(
+        response = await client.post(
             "/v1/admin/config/domain-weights",
             headers=admin_token_header,
             json={"weights": weights},
@@ -437,15 +445,15 @@ class TestABComparisonEndpoint:
     """Tests for A/B comparison admin endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_ab_comparison_not_found(self, client, admin_token_header):
+    async def test_ab_comparison_not_found(self, client, admin_token_header):
         """Test A/B comparison for non-existent session."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/scoring/compare/99999",
             headers=admin_token_header,
         )
         assert response.status_code == 404
 
-    def test_ab_comparison_requires_admin_token(self, client):
+    async def test_ab_comparison_requires_admin_token(self, client):
         """Test that A/B comparison requires admin token."""
-        response = client.get("/v1/admin/scoring/compare/1")
+        response = await client.get("/v1/admin/scoring/compare/1")
         assert response.status_code == 422  # Missing required header

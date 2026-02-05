@@ -11,7 +11,7 @@ Tests cover:
 """
 from datetime import datetime
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cat.readiness import evaluate_cat_readiness
 from app.models.models import (
@@ -22,7 +22,7 @@ from app.models.models import (
 
 
 def _create_calibrated_question(
-    db_session: Session,
+    db_session: AsyncSession,
     question_type: QuestionType,
     irt_difficulty: float,
     irt_se_difficulty: float = 0.20,
@@ -51,7 +51,7 @@ def _create_calibrated_question(
 
 
 def _populate_domain_ready(
-    db_session: Session,
+    db_session: AsyncSession,
     question_type: QuestionType,
     easy_count: int = 10,
     medium_count: int = 15,
@@ -78,9 +78,9 @@ def _populate_domain_ready(
 class TestCATReadinessNoItems:
     """Tests with no calibrated items."""
 
-    def test_empty_database_not_ready(self, db_session: Session):
+    async def test_empty_database_not_ready(self, db_session: AsyncSession):
         """No calibrated items → globally not ready."""
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         assert result.is_globally_ready is False
         assert len(result.domains) == 6
@@ -89,7 +89,7 @@ class TestCATReadinessNoItems:
             assert domain.total_calibrated == 0
             assert domain.well_calibrated == 0
 
-    def test_uncalibrated_items_not_counted(self, db_session: Session):
+    async def test_uncalibrated_items_not_counted(self, db_session: AsyncSession):
         """Items without irt_calibrated_at are not counted."""
         # Create questions without IRT calibration
         for q_type in QuestionType:
@@ -107,9 +107,9 @@ class TestCATReadinessNoItems:
                     # No irt_calibrated_at, irt_se_difficulty, irt_se_discrimination
                 )
                 db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
         assert result.is_globally_ready is False
         for domain in result.domains:
             assert domain.total_calibrated == 0
@@ -119,15 +119,17 @@ class TestCATReadinessNoItems:
 class TestCATReadinessPartialDomains:
     """Tests with some domains ready."""
 
-    def test_five_of_six_domains_not_globally_ready(self, db_session: Session):
+    async def test_five_of_six_domains_not_globally_ready(
+        self, db_session: AsyncSession
+    ):
         """5/6 domains ready → globally not ready."""
         # Make 5 domains ready
         ready_types = list(QuestionType)[:5]
         for q_type in ready_types:
             _populate_domain_ready(db_session, q_type)
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         assert result.is_globally_ready is False
         ready_count = sum(1 for d in result.domains if d.is_ready)
@@ -138,21 +140,21 @@ class TestCATReadinessPartialDomains:
 class TestCATReadinessAllDomains:
     """Tests with all domains ready."""
 
-    def test_all_six_domains_globally_ready(self, db_session: Session):
+    async def test_all_six_domains_globally_ready(self, db_session: AsyncSession):
         """All 6 domains pass → globally ready."""
         for q_type in QuestionType:
             _populate_domain_ready(db_session, q_type)
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         assert result.is_globally_ready is True
         assert all(d.is_ready for d in result.domains)
         assert "6/6" in result.summary
 
-    def test_thresholds_in_result(self, db_session: Session):
+    async def test_thresholds_in_result(self, db_session: AsyncSession):
         """Result includes thresholds used for evaluation."""
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         assert "min_calibrated_items_per_domain" in result.thresholds
         assert "max_se_difficulty" in result.thresholds
@@ -163,7 +165,7 @@ class TestCATReadinessAllDomains:
 class TestCATReadinessSEFiltering:
     """Tests for SE-based item filtering."""
 
-    def test_high_se_difficulty_excluded(self, db_session: Session):
+    async def test_high_se_difficulty_excluded(self, db_session: AsyncSession):
         """Items with SE(difficulty) above threshold are excluded."""
         q_type = QuestionType.PATTERN
 
@@ -176,16 +178,16 @@ class TestCATReadinessSEFiltering:
                 irt_se_difficulty=0.60,  # Above threshold
                 irt_se_discrimination=0.15,
             )
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         pattern_domain = next(d for d in result.domains if d.domain == "pattern")
         assert pattern_domain.total_calibrated == 40
         assert pattern_domain.well_calibrated == 0
         assert pattern_domain.is_ready is False
 
-    def test_high_se_discrimination_excluded(self, db_session: Session):
+    async def test_high_se_discrimination_excluded(self, db_session: AsyncSession):
         """Items with SE(discrimination) above threshold are excluded."""
         q_type = QuestionType.LOGIC
 
@@ -198,16 +200,16 @@ class TestCATReadinessSEFiltering:
                 irt_se_difficulty=0.20,
                 irt_se_discrimination=0.40,  # Above threshold
             )
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         logic_domain = next(d for d in result.domains if d.domain == "logic")
         assert logic_domain.total_calibrated == 40
         assert logic_domain.well_calibrated == 0
         assert logic_domain.is_ready is False
 
-    def test_items_at_threshold_included(self, db_session: Session):
+    async def test_items_at_threshold_included(self, db_session: AsyncSession):
         """Items with SE exactly at threshold are included."""
         q_type = QuestionType.MATH
         _populate_domain_ready(db_session, q_type)
@@ -220,9 +222,9 @@ class TestCATReadinessSEFiltering:
             irt_se_difficulty=0.50,  # Exactly at threshold
             irt_se_discrimination=0.30,  # Exactly at threshold
         )
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         math_domain = next(d for d in result.domains if d.domain == "math")
         # 35 from _populate_domain_ready + 1 at threshold = 36
@@ -232,7 +234,7 @@ class TestCATReadinessSEFiltering:
 class TestCATReadinessDifficultyBands:
     """Tests for difficulty band coverage requirements."""
 
-    def test_missing_easy_band_not_ready(self, db_session: Session):
+    async def test_missing_easy_band_not_ready(self, db_session: AsyncSession):
         """Domain without enough easy items (b < -1.0) is not ready."""
         q_type = QuestionType.SPATIAL
 
@@ -245,16 +247,16 @@ class TestCATReadinessDifficultyBands:
             _create_calibrated_question(
                 db_session, q_type, irt_difficulty=1.5 + i * 0.1
             )
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         spatial_domain = next(d for d in result.domains if d.domain == "spatial")
         assert spatial_domain.is_ready is False
         assert spatial_domain.easy_count == 0
         assert any("easy" in r.lower() for r in spatial_domain.reasons)
 
-    def test_missing_hard_band_not_ready(self, db_session: Session):
+    async def test_missing_hard_band_not_ready(self, db_session: AsyncSession):
         """Domain without enough hard items (b > 1.0) is not ready."""
         q_type = QuestionType.VERBAL
 
@@ -267,9 +269,9 @@ class TestCATReadinessDifficultyBands:
             _create_calibrated_question(
                 db_session, q_type, irt_difficulty=-0.8 + i * 0.08
             )
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         verbal_domain = next(d for d in result.domains if d.domain == "verbal")
         assert verbal_domain.is_ready is False
@@ -280,7 +282,7 @@ class TestCATReadinessDifficultyBands:
 class TestCATReadinessItemExclusion:
     """Tests for inactive/flagged item exclusion."""
 
-    def test_inactive_items_excluded(self, db_session: Session):
+    async def test_inactive_items_excluded(self, db_session: AsyncSession):
         """Inactive items are not counted toward readiness."""
         q_type = QuestionType.MEMORY
 
@@ -291,15 +293,15 @@ class TestCATReadinessItemExclusion:
                 irt_difficulty=-2.0 + i * 0.1,
                 is_active=False,
             )
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         memory_domain = next(d for d in result.domains if d.domain == "memory")
         assert memory_domain.total_calibrated == 0
         assert memory_domain.well_calibrated == 0
 
-    def test_flagged_items_excluded(self, db_session: Session):
+    async def test_flagged_items_excluded(self, db_session: AsyncSession):
         """Items with non-normal quality flags are excluded."""
         q_type = QuestionType.PATTERN
 
@@ -317,9 +319,9 @@ class TestCATReadinessItemExclusion:
                 irt_difficulty=-2.0 + i * 0.1,
                 quality_flag="deactivated",
             )
-        db_session.commit()
+        await db_session.commit()
 
-        result = evaluate_cat_readiness(db_session)
+        result = await evaluate_cat_readiness(db_session)
 
         pattern_domain = next(d for d in result.domains if d.domain == "pattern")
         assert pattern_domain.total_calibrated == 0

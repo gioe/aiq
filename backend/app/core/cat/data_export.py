@@ -21,8 +21,8 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Mapping, Optional, Sequence, TypedDict
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Question, Response, TestSession, TestStatus
 
@@ -100,8 +100,8 @@ class CTTSummaryData(TypedDict):
     response_count: int
 
 
-def export_responses_for_calibration(
-    db: Session,
+async def export_responses_for_calibration(
+    db: AsyncSession,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     question_ids: Optional[List[int]] = None,
@@ -136,8 +136,8 @@ def export_responses_for_calibration(
         )
 
         # Build base query for responses from completed, fixed-form sessions
-        query = (
-            db.query(
+        stmt = (
+            select(
                 Response.user_id,
                 Response.question_id,
                 Response.is_correct,
@@ -152,15 +152,16 @@ def export_responses_for_calibration(
 
         # Apply date filters
         if start_date:
-            query = query.filter(TestSession.completed_at >= start_date)
+            stmt = stmt.filter(TestSession.completed_at >= start_date)
             logger.debug(f"Filtering responses after {start_date}")
 
         if end_date:
-            query = query.filter(TestSession.completed_at <= end_date)
+            stmt = stmt.filter(TestSession.completed_at <= end_date)
             logger.debug(f"Filtering responses before {end_date}")
 
         # Get all responses
-        responses = query.all()
+        result = await db.execute(stmt)
+        responses = result.all()
         logger.debug(f"Retrieved {len(responses)} total responses")
 
         # Count responses per question
@@ -239,8 +240,8 @@ def export_responses_for_calibration(
         ) from e
 
 
-def export_response_matrix(
-    db: Session,
+async def export_response_matrix(
+    db: AsyncSession,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     question_ids: Optional[List[int]] = None,
@@ -269,8 +270,8 @@ def export_response_matrix(
         logger.info("Starting response matrix export")
 
         # Build base query for responses from completed, fixed-form sessions
-        query = (
-            db.query(
+        stmt = (
+            select(
                 Response.user_id,
                 Response.question_id,
                 Response.is_correct,
@@ -281,11 +282,12 @@ def export_response_matrix(
         )
 
         if start_date:
-            query = query.filter(TestSession.completed_at >= start_date)
+            stmt = stmt.filter(TestSession.completed_at >= start_date)
         if end_date:
-            query = query.filter(TestSession.completed_at <= end_date)
+            stmt = stmt.filter(TestSession.completed_at <= end_date)
 
-        responses = query.all()
+        result = await db.execute(stmt)
+        responses = result.all()
 
         # Count responses per question and filter by min_responses
         question_response_counts: Dict[int, int] = {}
@@ -354,8 +356,8 @@ def export_response_matrix(
         ) from e
 
 
-def export_response_details(
-    db: Session,
+async def export_response_details(
+    db: AsyncSession,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     question_ids: Optional[List[int]] = None,
@@ -386,8 +388,8 @@ def export_response_details(
         logger.info(f"Starting response details export: format={output_format}")
 
         # Build query with question data from completed, fixed-form sessions
-        query = (
-            db.query(
+        stmt = (
+            select(
                 Response.user_id,
                 Response.question_id,
                 Response.is_correct,
@@ -404,11 +406,12 @@ def export_response_details(
         )
 
         if start_date:
-            query = query.filter(TestSession.completed_at >= start_date)
+            stmt = stmt.filter(TestSession.completed_at >= start_date)
         if end_date:
-            query = query.filter(TestSession.completed_at <= end_date)
+            stmt = stmt.filter(TestSession.completed_at <= end_date)
 
-        responses = query.all()
+        result = await db.execute(stmt)
+        responses = result.all()
 
         # Count responses per question and filter
         question_response_counts: Dict[int, int] = {}
@@ -476,8 +479,8 @@ def export_response_details(
         ) from e
 
 
-def export_ctt_summary(
-    db: Session,
+async def export_ctt_summary(
+    db: AsyncSession,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     question_ids: Optional[List[int]] = None,
@@ -506,8 +509,8 @@ def export_ctt_summary(
         logger.info("Starting CTT summary export")
 
         # Count responses per question from completed, fixed-form sessions
-        count_query = (
-            db.query(
+        count_stmt = (
+            select(
                 Response.question_id,
                 func.count(Response.id).label("response_count"),
             )
@@ -517,12 +520,13 @@ def export_ctt_summary(
         )
 
         if start_date:
-            count_query = count_query.filter(TestSession.completed_at >= start_date)
+            count_stmt = count_stmt.filter(TestSession.completed_at >= start_date)
         if end_date:
-            count_query = count_query.filter(TestSession.completed_at <= end_date)
+            count_stmt = count_stmt.filter(TestSession.completed_at <= end_date)
 
-        count_query = count_query.group_by(Response.question_id)
-        response_counts = count_query.all()
+        count_stmt = count_stmt.group_by(Response.question_id)
+        result = await db.execute(count_stmt)
+        response_counts = result.all()
 
         # Filter by min_responses
         eligible_question_ids = {
@@ -541,7 +545,7 @@ def export_ctt_summary(
             return ""
 
         # Get question details
-        questions_query = db.query(
+        questions_stmt = select(
             Question.id,
             Question.question_type,
             Question.difficulty_level,
@@ -550,7 +554,8 @@ def export_ctt_summary(
             Question.response_count,
         ).filter(Question.id.in_(list(eligible_question_ids)))
 
-        questions = questions_query.all()
+        result = await db.execute(questions_stmt)
+        questions = result.all()
 
         # Build count lookup
         count_lookup = {r.question_id: r.response_count for r in response_counts}

@@ -1,3 +1,5 @@
+from sqlalchemy import select, func
+
 """
 Tests for test session management endpoints.
 """
@@ -9,9 +11,11 @@ from datetime import datetime, timedelta
 class TestStartTest:
     """Tests for POST /v1/test/start endpoint."""
 
-    def test_start_test_success(self, client, auth_headers, test_questions):
+    async def test_start_test_success(self, client, auth_headers, test_questions):
         """Test successfully starting a new test session."""
-        response = client.post("/v1/test/start?question_count=3", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=3", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -71,9 +75,9 @@ class TestStartTest:
             active_question_ids
         ), "All returned questions should be from active question pool"
 
-    def test_start_test_default_count(self, client, auth_headers, test_questions):
+    async def test_start_test_default_count(self, client, auth_headers, test_questions):
         """Test starting test with default question count."""
-        response = client.post("/v1/test/start", headers=auth_headers)
+        response = await client.post("/v1/test/start", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -82,85 +86,98 @@ class TestStartTest:
         assert data["total_questions"] == 4
         assert len(data["questions"]) == 4
 
-    def test_start_test_marks_questions_as_seen(
+    async def test_start_test_marks_questions_as_seen(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that starting a test marks questions as seen."""
         from app.models import UserQuestion, User
 
         # Get test user
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Initially no questions are seen
-        seen_count = (
-            db_session.query(UserQuestion)
+        _result = await db_session.execute(
+            select(func.count())
+            .select_from(UserQuestion)
             .filter(UserQuestion.user_id == test_user.id)
-            .count()
         )
+        seen_count = _result.scalar()
         assert seen_count == 0
 
         # Start test with 3 questions
-        response = client.post("/v1/test/start?question_count=3", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=3", headers=auth_headers
+        )
         assert response.status_code == 200
 
         # Now 3 questions should be marked as seen
-        seen_count = (
-            db_session.query(UserQuestion)
+        _result = await db_session.execute(
+            select(func.count())
+            .select_from(UserQuestion)
             .filter(UserQuestion.user_id == test_user.id)
-            .count()
         )
+        seen_count = _result.scalar()
         assert seen_count == 3
 
-    def test_start_test_prevents_duplicate_active_session(
+    async def test_start_test_prevents_duplicate_active_session(
         self, client, auth_headers, test_questions
     ):
         """Test that user cannot start multiple active test sessions."""
         # Start first test
-        response1 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response1 = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response1.status_code == 200
         session1_id = response1.json()["session"]["id"]
 
         # Try to start second test while first is still active
-        response2 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response2 = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response2.status_code == 400
         assert "already has an active test session" in response2.json()["detail"]
         assert str(session1_id) in response2.json()["detail"]
 
-    def test_start_test_no_questions_available(
+    async def test_start_test_no_questions_available(
         self, client, auth_headers, test_questions, mark_questions_seen
     ):
         """Test starting test when all questions have been seen."""
         # Mark all active questions as seen (indices 0, 1, 2, 3)
-        mark_questions_seen([0, 1, 2, 3])
+        await mark_questions_seen([0, 1, 2, 3])
 
-        response = client.post("/v1/test/start", headers=auth_headers)
+        response = await client.post("/v1/test/start", headers=auth_headers)
 
         assert response.status_code == 404
         assert "No unseen questions available" in response.json()["detail"]
 
-    def test_start_test_requires_authentication(self, client, test_questions):
+    async def test_start_test_requires_authentication(self, client, test_questions):
         """Test that endpoint requires authentication."""
-        response = client.post("/v1/test/start")
+        response = await client.post("/v1/test/start")
         assert response.status_code in [401, 403]
 
-    def test_start_test_count_validation(
+    async def test_start_test_count_validation(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test question_count parameter validation."""
         # Test count = 0 (below minimum)
-        response = client.post("/v1/test/start?question_count=0", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=0", headers=auth_headers
+        )
         assert response.status_code == 422  # Validation error
 
         # Test count = 101 (above maximum)
-        response = client.post(
+        response = await client.post(
             "/v1/test/start?question_count=101", headers=auth_headers
         )
         assert response.status_code == 422  # Validation error
 
         # Test count = 1 (valid minimum)
-        response = client.post("/v1/test/start?question_count=1", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=1", headers=auth_headers
+        )
         assert response.status_code == 200
         session_id = response.json()["session"]["id"]
 
@@ -168,53 +185,59 @@ class TestStartTest:
         from app.models import TestSession
         from app.models.models import TestStatus
 
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        session = _result.scalars().first()
         session.status = TestStatus.COMPLETED
-        db_session.commit()
+        await db_session.commit()
 
         # Test count = 100 (valid maximum, but only 4 questions available)
         # Note: 1 question already seen from previous test
-        response = client.post(
+        response = await client.post(
             "/v1/test/start?question_count=100", headers=auth_headers
         )
         assert response.status_code == 200
         # Should return 3 questions (4 active - 1 already seen)
         assert response.json()["total_questions"] == 3
 
-    def test_start_test_creates_session_in_database(
+    async def test_start_test_creates_session_in_database(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that starting test creates TestSession record."""
         from app.models import TestSession, User
 
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Initially no sessions
-        session_count = (
-            db_session.query(TestSession)
+        _result = await db_session.execute(
+            select(func.count())
+            .select_from(TestSession)
             .filter(TestSession.user_id == test_user.id)
-            .count()
         )
+        session_count = _result.scalar()
         assert session_count == 0
 
         # Start test
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response.status_code == 200
         session_id = response.json()["session"]["id"]
 
         # Session should exist in database
-        test_session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        test_session = _result.scalars().first()
         assert test_session is not None
         assert test_session.user_id == test_user.id
         assert test_session.status.value == "in_progress"
 
-    def test_start_test_enforces_three_month_cadence(
+    async def test_start_test_enforces_three_month_cadence(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that users cannot start a new test within 3 months of last completed test."""
@@ -222,9 +245,10 @@ class TestStartTest:
         from app.models.models import TestStatus
         from datetime import datetime, timedelta
 
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create a completed test session from 30 days ago (within 3-month window)
         completed_session = TestSession(
@@ -234,10 +258,12 @@ class TestStartTest:
             completed_at=datetime.utcnow() - timedelta(days=30),
         )
         db_session.add(completed_session)
-        db_session.commit()
+        await db_session.commit()
 
         # Try to start a new test
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
 
         # Should be blocked
         assert response.status_code == 400
@@ -245,7 +271,7 @@ class TestStartTest:
         assert "90 days" in detail or "3 months" in detail
         assert "days remaining" in detail
 
-    def test_start_test_allows_test_after_three_months(
+    async def test_start_test_allows_test_after_three_months(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that users CAN start a new test after 3 months have passed."""
@@ -253,9 +279,10 @@ class TestStartTest:
         from app.models.models import TestStatus
         from datetime import datetime, timedelta
 
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Mark 2 questions as seen (simulate previous test from 91 days ago)
         old_seen_at = datetime.utcnow() - timedelta(days=91)
@@ -280,10 +307,12 @@ class TestStartTest:
             completed_at=datetime.utcnow() - timedelta(days=181),
         )
         db_session.add(completed_session)
-        db_session.commit()
+        await db_session.commit()
 
         # Try to start a new test (should succeed and get questions 2 and 3)
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
 
         # Should succeed
         assert response.status_code == 200
@@ -292,7 +321,7 @@ class TestStartTest:
         assert data["session"]["status"] == "in_progress"
         assert data["total_questions"] == 2  # Should get 2 unseen questions
 
-    def test_start_test_ignores_abandoned_sessions_for_cadence(
+    async def test_start_test_ignores_abandoned_sessions_for_cadence(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that abandoned sessions don't count toward 6-month cadence."""
@@ -300,9 +329,10 @@ class TestStartTest:
         from app.models.models import TestStatus
         from datetime import datetime, timedelta
 
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create an abandoned test session from 30 days ago
         abandoned_session = TestSession(
@@ -312,10 +342,12 @@ class TestStartTest:
             completed_at=datetime.utcnow() - timedelta(days=30),
         )
         db_session.add(abandoned_session)
-        db_session.commit()
+        await db_session.commit()
 
         # Try to start a new test
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
 
         # Should succeed (abandoned sessions don't count)
         assert response.status_code == 200
@@ -323,7 +355,7 @@ class TestStartTest:
         assert "session" in data
         assert data["session"]["status"] == "in_progress"
 
-    def test_concurrent_session_creation_returns_409(
+    async def test_concurrent_session_creation_returns_409(
         self, client, auth_headers, test_questions, db_session
     ):
         """
@@ -346,7 +378,9 @@ class TestStartTest:
         from sqlalchemy.exc import IntegrityError
 
         # Start a test session first to verify normal operation
-        response1 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response1 = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response1.status_code == 200
 
         # Complete the first session so the user can start another
@@ -354,14 +388,16 @@ class TestStartTest:
         from app.models.models import TestStatus
 
         session_id = response1.json()["session"]["id"]
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        session = _result.scalars().first()
         session.status = TestStatus.COMPLETED
-        db_session.commit()
+        await db_session.commit()
 
         # Get the user_id for later verification in log message
-        user = db_session.query(User).first()
+        _result = await db_session.execute(select(User))
+        user = _result.scalars().first()
         user_id = user.id
 
         # Now mock db.flush() to raise IntegrityError, simulating what
@@ -379,7 +415,7 @@ class TestStartTest:
             "flush",
             mock_flush_with_integrity_error,
         ), patch("app.api.v1.test.logger") as mock_logger:
-            response2 = client.post(
+            response2 = await client.post(
                 "/v1/test/start?question_count=2", headers=auth_headers
             )
 
@@ -399,10 +435,10 @@ class TestStartTest:
 class TestGetTestSession:
     """Tests for GET /v1/test/session/{session_id} endpoint."""
 
-    def test_get_test_session_success(self, client, auth_headers, test_questions):
+    async def test_get_test_session_success(self, client, auth_headers, test_questions):
         """Test successfully getting a test session."""
         # Start a test first
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -410,7 +446,9 @@ class TestGetTestSession:
         started_at = start_response.json()["session"]["started_at"]
 
         # Get the session
-        response = client.get(f"/v1/test/session/{session_id}", headers=auth_headers)
+        response = await client.get(
+            f"/v1/test/session/{session_id}", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -451,13 +489,13 @@ class TestGetTestSession:
             assert matching_q["question_type"] == start_q["question_type"]
             assert matching_q["difficulty_level"] == start_q["difficulty_level"]
 
-    def test_get_test_session_not_found(self, client, auth_headers):
+    async def test_get_test_session_not_found(self, client, auth_headers):
         """Test getting non-existent session."""
-        response = client.get("/v1/test/session/99999", headers=auth_headers)
+        response = await client.get("/v1/test/session/99999", headers=auth_headers)
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
 
-    def test_get_test_session_unauthorized_access(
+    async def test_get_test_session_unauthorized_access(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that users cannot access other users' sessions."""
@@ -473,8 +511,8 @@ class TestGetTestSession:
             last_name="Two",
         )
         db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
+        await db_session.commit()
+        await db_session.refresh(user2)
 
         # Create session for user2
         session = TestSession(
@@ -482,34 +520,38 @@ class TestGetTestSession:
             status=TestStatus.IN_PROGRESS,
         )
         db_session.add(session)
-        db_session.commit()
-        db_session.refresh(session)
+        await db_session.commit()
+        await db_session.refresh(session)
 
         # Try to access user2's session with user1's credentials
-        response = client.get(f"/v1/test/session/{session.id}", headers=auth_headers)
+        response = await client.get(
+            f"/v1/test/session/{session.id}", headers=auth_headers
+        )
 
         assert response.status_code == 403
         assert "Not authorized" in response.json()["detail"]
 
-    def test_get_test_session_requires_authentication(self, client):
+    async def test_get_test_session_requires_authentication(self, client):
         """Test that endpoint requires authentication."""
-        response = client.get("/v1/test/session/1")
+        response = await client.get("/v1/test/session/1")
         assert response.status_code in [401, 403]
 
 
 class TestGetActiveTestSession:
     """Tests for GET /v1/test/active endpoint."""
 
-    def test_get_active_session_exists(self, client, auth_headers, test_questions):
+    async def test_get_active_session_exists(
+        self, client, auth_headers, test_questions
+    ):
         """Test getting active session when one exists."""
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
 
         # Get active session
-        response = client.get("/v1/test/active", headers=auth_headers)
+        response = await client.get("/v1/test/active", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -518,20 +560,20 @@ class TestGetActiveTestSession:
         assert data["session"]["id"] == session_id
         assert data["session"]["status"] == "in_progress"
 
-    def test_get_active_session_none(self, client, auth_headers):
+    async def test_get_active_session_none(self, client, auth_headers):
         """Test getting active session when none exists."""
-        response = client.get("/v1/test/active", headers=auth_headers)
+        response = await client.get("/v1/test/active", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
         assert data is None
 
-    def test_get_active_session_requires_authentication(self, client):
+    async def test_get_active_session_requires_authentication(self, client):
         """Test that endpoint requires authentication."""
-        response = client.get("/v1/test/active")
+        response = await client.get("/v1/test/active")
         assert response.status_code in [401, 403]
 
-    def test_get_active_session_ignores_completed(
+    async def test_get_active_session_ignores_completed(
         self, client, auth_headers, db_session, test_questions
     ):
         """Test that completed sessions are not returned as active."""
@@ -540,9 +582,10 @@ class TestGetActiveTestSession:
         from datetime import datetime
 
         # Get test user
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create a completed session
         completed_session = TestSession(
@@ -552,15 +595,15 @@ class TestGetActiveTestSession:
             completed_at=datetime.utcnow(),
         )
         db_session.add(completed_session)
-        db_session.commit()
+        await db_session.commit()
 
         # Get active session (should be None)
-        response = client.get("/v1/test/active", headers=auth_headers)
+        response = await client.get("/v1/test/active", headers=auth_headers)
 
         assert response.status_code == 200
         assert response.json() is None
 
-    def test_get_active_session_ignores_abandoned(
+    async def test_get_active_session_ignores_abandoned(
         self, client, auth_headers, db_session, test_questions
     ):
         """Test that abandoned sessions are not returned as active."""
@@ -569,9 +612,10 @@ class TestGetActiveTestSession:
         from datetime import datetime
 
         # Get test user
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create an abandoned session
         db_session.add(
@@ -582,10 +626,10 @@ class TestGetActiveTestSession:
                 completed_at=datetime.utcnow(),
             )
         )
-        db_session.commit()
+        await db_session.commit()
 
         # Get active session (should be None)
-        response = client.get("/v1/test/active", headers=auth_headers)
+        response = await client.get("/v1/test/active", headers=auth_headers)
 
         assert response.status_code == 200
         assert response.json() is None
@@ -594,10 +638,10 @@ class TestGetActiveTestSession:
 class TestAbandonTest:
     """Tests for POST /v1/test/{session_id}/abandon endpoint."""
 
-    def test_abandon_test_success(self, client, auth_headers, test_questions):
+    async def test_abandon_test_success(self, client, auth_headers, test_questions):
         """Test successfully abandoning an in-progress test session."""
         # Start a test first
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -605,7 +649,9 @@ class TestAbandonTest:
         started_at = start_response.json()["session"]["started_at"]
 
         # Abandon the test
-        response = client.post(f"/v1/test/{session_id}/abandon", headers=auth_headers)
+        response = await client.post(
+            f"/v1/test/{session_id}/abandon", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -642,7 +688,7 @@ class TestAbandonTest:
         assert data["responses_saved"] == 0
         assert isinstance(data["responses_saved"], int)
 
-    def test_abandon_test_with_responses_saved(
+    async def test_abandon_test_with_responses_saved(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test abandoning test with some responses already saved."""
@@ -651,9 +697,10 @@ class TestAbandonTest:
         from datetime import datetime
 
         # Get test user
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create a test session
         session = TestSession(
@@ -661,8 +708,8 @@ class TestAbandonTest:
             status=TestStatus.IN_PROGRESS,
         )
         db_session.add(session)
-        db_session.commit()
-        db_session.refresh(session)
+        await db_session.commit()
+        await db_session.refresh(session)
 
         # Add some responses (simulating partial test completion)
         response1 = Response(
@@ -683,10 +730,12 @@ class TestAbandonTest:
         )
         db_session.add(response1)
         db_session.add(response2)
-        db_session.commit()
+        await db_session.commit()
 
         # Abandon the test
-        response = client.post(f"/v1/test/{session.id}/abandon", headers=auth_headers)
+        response = await client.post(
+            f"/v1/test/{session.id}/abandon", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -695,14 +744,14 @@ class TestAbandonTest:
         assert data["responses_saved"] == 2
         assert data["session"]["status"] == "abandoned"
 
-    def test_abandon_test_not_found(self, client, auth_headers):
+    async def test_abandon_test_not_found(self, client, auth_headers):
         """Test abandoning non-existent session."""
-        response = client.post("/v1/test/99999/abandon", headers=auth_headers)
+        response = await client.post("/v1/test/99999/abandon", headers=auth_headers)
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
 
-    def test_abandon_test_unauthorized_access(
+    async def test_abandon_test_unauthorized_access(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that users cannot abandon other users' sessions."""
@@ -718,8 +767,8 @@ class TestAbandonTest:
             last_name="Two",
         )
         db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
+        await db_session.commit()
+        await db_session.refresh(user2)
 
         # Create session for user2
         session = TestSession(
@@ -727,16 +776,18 @@ class TestAbandonTest:
             status=TestStatus.IN_PROGRESS,
         )
         db_session.add(session)
-        db_session.commit()
-        db_session.refresh(session)
+        await db_session.commit()
+        await db_session.refresh(session)
 
         # Try to abandon user2's session with user1's credentials
-        response = client.post(f"/v1/test/{session.id}/abandon", headers=auth_headers)
+        response = await client.post(
+            f"/v1/test/{session.id}/abandon", headers=auth_headers
+        )
 
         assert response.status_code == 403
         assert "Not authorized" in response.json()["detail"]
 
-    def test_abandon_test_already_completed(
+    async def test_abandon_test_already_completed(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that completed sessions cannot be abandoned."""
@@ -745,9 +796,10 @@ class TestAbandonTest:
         from datetime import datetime
 
         # Get test user
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create a completed session
         session = TestSession(
@@ -757,16 +809,18 @@ class TestAbandonTest:
             completed_at=datetime.utcnow(),
         )
         db_session.add(session)
-        db_session.commit()
-        db_session.refresh(session)
+        await db_session.commit()
+        await db_session.refresh(session)
 
         # Try to abandon completed session
-        response = client.post(f"/v1/test/{session.id}/abandon", headers=auth_headers)
+        response = await client.post(
+            f"/v1/test/{session.id}/abandon", headers=auth_headers
+        )
 
         assert response.status_code == 400
         assert "already completed" in response.json()["detail"]
 
-    def test_abandon_test_already_abandoned(
+    async def test_abandon_test_already_abandoned(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that abandoned sessions cannot be abandoned again."""
@@ -775,9 +829,10 @@ class TestAbandonTest:
         from datetime import datetime
 
         # Get test user
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create an abandoned session
         session = TestSession(
@@ -787,39 +842,41 @@ class TestAbandonTest:
             completed_at=datetime.utcnow(),
         )
         db_session.add(session)
-        db_session.commit()
-        db_session.refresh(session)
+        await db_session.commit()
+        await db_session.refresh(session)
 
         # Try to abandon already abandoned session
-        response = client.post(f"/v1/test/{session.id}/abandon", headers=auth_headers)
+        response = await client.post(
+            f"/v1/test/{session.id}/abandon", headers=auth_headers
+        )
 
         assert response.status_code == 400
         assert "already abandoned" in response.json()["detail"]
 
-    def test_abandon_test_requires_authentication(self, client, test_questions):
+    async def test_abandon_test_requires_authentication(self, client, test_questions):
         """Test that endpoint requires authentication."""
-        response = client.post("/v1/test/1/abandon")
+        response = await client.post("/v1/test/1/abandon")
         assert response.status_code in [401, 403]
 
-    def test_abandon_test_allows_new_session(
+    async def test_abandon_test_allows_new_session(
         self, client, auth_headers, test_questions
     ):
         """Test that user can start new test after abandoning."""
         # Start first test
-        start_response1 = client.post(
+        start_response1 = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response1.status_code == 200
         session_id1 = start_response1.json()["session"]["id"]
 
         # Abandon the test
-        abandon_response = client.post(
+        abandon_response = await client.post(
             f"/v1/test/{session_id1}/abandon", headers=auth_headers
         )
         assert abandon_response.status_code == 200
 
         # Should be able to start a new test now
-        start_response2 = client.post(
+        start_response2 = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response2.status_code == 200
@@ -832,14 +889,14 @@ class TestAbandonTest:
 class TestSubmitTestWithTimeData:
     """Integration tests for test submission with time data (TS-013)."""
 
-    def test_submit_with_time_data_stores_correctly(
+    async def test_submit_with_time_data_stores_correctly(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that time_spent_seconds is stored correctly for each response."""
         from app.models.models import Response
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -874,7 +931,9 @@ class TestSubmitTestWithTimeData:
             "responses": responses,
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -883,11 +942,10 @@ class TestSubmitTestWithTimeData:
         assert isinstance(data["responses_count"], int)
 
         # Verify time data was stored in the database
-        stored_responses = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == session_id)
-            .all()
+        _result = await db_session.execute(
+            select(Response).filter(Response.test_session_id == session_id)
         )
+        stored_responses = _result.scalars().all()
 
         assert len(stored_responses) == 3
 
@@ -913,14 +971,14 @@ class TestSubmitTestWithTimeData:
             # Verify answered_at timestamp is set
             assert resp.answered_at is not None
 
-    def test_submit_over_time_limit_sets_flag(
+    async def test_submit_over_time_limit_sets_flag(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that time_limit_exceeded flag is set correctly when client reports it."""
         from app.models import TestSession
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -948,26 +1006,29 @@ class TestSubmitTestWithTimeData:
             "time_limit_exceeded": True,  # Client reports time limit exceeded
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
         assert data["session"]["status"] == "completed"
 
         # Verify time_limit_exceeded flag was set in the database
-        test_session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        test_session = _result.scalars().first()
         assert test_session.time_limit_exceeded is True
 
-    def test_submit_with_anomalies_generates_flags(
+    async def test_submit_with_anomalies_generates_flags(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that response time anomalies are detected and stored in response_time_flags."""
         from app.models.models import TestResult
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1008,18 +1069,19 @@ class TestSubmitTestWithTimeData:
             "responses": responses,
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
         assert data["session"]["status"] == "completed"
 
         # Verify response_time_flags were stored in the test result
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
 
         assert test_result is not None
         assert test_result.response_time_flags is not None
@@ -1054,14 +1116,14 @@ class TestSubmitTestWithTimeData:
         api_flags = data["result"]["response_time_flags"]
         assert api_flags == flags  # Database and API response should match
 
-    def test_submit_without_time_data_backward_compatible(
+    async def test_submit_without_time_data_backward_compatible(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that test submission works without time data (backward compatibility)."""
         from app.models.models import Response, TestResult
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1089,7 +1151,9 @@ class TestSubmitTestWithTimeData:
             # No time_limit_exceeded
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         # Submission should succeed
         assert response.status_code == 200
@@ -1098,11 +1162,10 @@ class TestSubmitTestWithTimeData:
         assert data["responses_count"] == 2
 
         # Verify responses were stored with NULL time_spent_seconds
-        stored_responses = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == session_id)
-            .all()
+        _result = await db_session.execute(
+            select(Response).filter(Response.test_session_id == session_id)
         )
+        stored_responses = _result.scalars().all()
 
         assert len(stored_responses) == 2
         for resp in stored_responses:
@@ -1111,28 +1174,28 @@ class TestSubmitTestWithTimeData:
         # Verify TestSession doesn't have time_limit_exceeded set
         from app.models import TestSession
 
-        test_session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        test_session = _result.scalars().first()
         assert test_session.time_limit_exceeded is False
 
         # Verify TestResult was created (scoring should work without time data)
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result is not None
         assert test_result.iq_score is not None
 
-    def test_submit_mixed_time_data_handles_partial(
+    async def test_submit_mixed_time_data_handles_partial(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test submission with some questions having time data and some without."""
         from app.models.models import Response
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1164,7 +1227,9 @@ class TestSubmitTestWithTimeData:
             "responses": responses,
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         # Submission should succeed
         assert response.status_code == 200
@@ -1172,12 +1237,12 @@ class TestSubmitTestWithTimeData:
         assert data["session"]["status"] == "completed"
 
         # Verify responses were stored with correct time data
-        stored_responses = (
-            db_session.query(Response)
+        _result = await db_session.execute(
+            select(Response)
             .filter(Response.test_session_id == session_id)
             .order_by(Response.question_id)
-            .all()
         )
+        stored_responses = _result.scalars().all()
 
         assert len(stored_responses) == 3
 
@@ -1193,14 +1258,14 @@ class TestSubmitTestWithTimeData:
 class TestSubmitTestWithDomainScores:
     """Integration tests for test submission with domain score calculation (DW-003)."""
 
-    def test_submit_calculates_and_stores_domain_scores(
+    async def test_submit_calculates_and_stores_domain_scores(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that domain scores are calculated and persisted in TestResult."""
         from app.models.models import TestResult
 
         # Start a test with 4 questions (covers 4 domains: pattern, logic, math, verbal)
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1251,18 +1316,19 @@ class TestSubmitTestWithDomainScores:
             "responses": responses,
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
         assert data["session"]["status"] == "completed"
 
         # Verify domain scores were stored in the database
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
 
         assert test_result is not None
         assert test_result.domain_scores is not None
@@ -1302,14 +1368,14 @@ class TestSubmitTestWithDomainScores:
                     domain_scores[domain]["pct"] is None
                 ), f"Domain {domain} should have pct=None"
 
-    def test_submit_with_varying_question_distribution(
+    async def test_submit_with_varying_question_distribution(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test domain scores work correctly with varying question distribution."""
         from app.models.models import TestResult
 
         # Start a test with just 2 questions (only 2 domains will be covered)
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1332,16 +1398,17 @@ class TestSubmitTestWithDomainScores:
             "responses": responses,
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
 
         # Verify domain scores
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
 
         assert test_result.domain_scores is not None
         domain_scores = test_result.domain_scores
@@ -1363,12 +1430,12 @@ class TestSubmitTestWithDomainScores:
 class TestDomainPercentilesInAPIResponse:
     """Integration tests for domain percentiles in API response (DW-016)."""
 
-    def test_response_includes_strongest_weakest_domains(
+    async def test_response_includes_strongest_weakest_domains(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that API response includes strongest and weakest domain identification."""
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1405,7 +1472,9 @@ class TestDomainPercentilesInAPIResponse:
             "responses": responses,
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -1422,7 +1491,7 @@ class TestDomainPercentilesInAPIResponse:
             or result["weakest_domain"] is not None
         )
 
-    def test_response_domain_scores_includes_percentile_when_stats_configured(
+    async def test_response_domain_scores_includes_percentile_when_stats_configured(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that domain percentiles are included when population stats are configured."""
@@ -1440,7 +1509,7 @@ class TestDomainPercentilesInAPIResponse:
         set_domain_population_stats(db_session, population_stats)
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1462,7 +1531,9 @@ class TestDomainPercentilesInAPIResponse:
             "responses": responses,
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -1480,7 +1551,7 @@ class TestDomainPercentilesInAPIResponse:
                 assert scores["percentile"] is not None
                 assert 0 <= scores["percentile"] <= 100
 
-    def test_response_domain_percentiles_graceful_fallback_no_stats(
+    async def test_response_domain_percentiles_graceful_fallback_no_stats(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that domain percentiles gracefully fall back when no population stats."""
@@ -1490,7 +1561,7 @@ class TestDomainPercentilesInAPIResponse:
         delete_config(db_session, "domain_population_stats")
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1512,7 +1583,9 @@ class TestDomainPercentilesInAPIResponse:
             "responses": responses,
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -1523,7 +1596,7 @@ class TestDomainPercentilesInAPIResponse:
         assert "strongest_domain" in result
         assert "weakest_domain" in result
 
-    def test_get_result_includes_domain_percentiles(
+    async def test_get_result_includes_domain_percentiles(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that GET /test/results/{id} includes domain percentiles."""
@@ -1541,7 +1614,7 @@ class TestDomainPercentilesInAPIResponse:
         set_domain_population_stats(db_session, population_stats)
 
         # Start and complete a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1562,14 +1635,16 @@ class TestDomainPercentilesInAPIResponse:
             "responses": responses,
         }
 
-        submit_response = client.post(
+        submit_response = await client.post(
             "/v1/test/submit", json=submission, headers=auth_headers
         )
         assert submit_response.status_code == 200
         result_id = submit_response.json()["result"]["id"]
 
         # Now retrieve the result via GET endpoint
-        get_response = client.get(f"/v1/test/results/{result_id}", headers=auth_headers)
+        get_response = await client.get(
+            f"/v1/test/results/{result_id}", headers=auth_headers
+        )
         assert get_response.status_code == 200
         result = get_response.json()
 
@@ -1583,7 +1658,7 @@ class TestDomainPercentilesInAPIResponse:
             if scores["total"] > 0:
                 assert "percentile" in scores
 
-    def test_get_history_includes_domain_percentiles(
+    async def test_get_history_includes_domain_percentiles(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that GET /test/history includes domain percentiles for each result."""
@@ -1601,7 +1676,7 @@ class TestDomainPercentilesInAPIResponse:
         set_domain_population_stats(db_session, population_stats)
 
         # Start and complete a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1622,13 +1697,13 @@ class TestDomainPercentilesInAPIResponse:
             "responses": responses,
         }
 
-        submit_response = client.post(
+        submit_response = await client.post(
             "/v1/test/submit", json=submission, headers=auth_headers
         )
         assert submit_response.status_code == 200
 
         # Get history
-        history_response = client.get("/v1/test/history", headers=auth_headers)
+        history_response = await client.get("/v1/test/history", headers=auth_headers)
         assert history_response.status_code == 200
         history_data = history_response.json()
         history = history_data["results"]
@@ -1649,7 +1724,7 @@ class TestConfidenceIntervalIntegration:
     from test submission through API response and database storage.
     """
 
-    def test_submit_with_reliability_data_populates_ci(
+    async def test_submit_with_reliability_data_populates_ci(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that CI is populated when reliability data is available and meets threshold.
@@ -1663,7 +1738,7 @@ class TestConfidenceIntervalIntegration:
         from app.models.models import TestResult
 
         # Start a test first (before mocking)
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1688,7 +1763,7 @@ class TestConfidenceIntervalIntegration:
         # Mock get_cached_reliability to return the mock reliability value
         # This mocks at the API endpoint level where the function is called
         with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
 
@@ -1713,11 +1788,10 @@ class TestConfidenceIntervalIntegration:
         assert ci["lower"] < ci["upper"]
 
         # Verify database storage
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result is not None
         assert test_result.standard_error is not None
         assert test_result.ci_lower is not None
@@ -1725,7 +1799,7 @@ class TestConfidenceIntervalIntegration:
         assert test_result.ci_lower == ci["lower"]
         assert test_result.ci_upper == ci["upper"]
 
-    def test_submit_without_reliability_data_ci_is_null(
+    async def test_submit_without_reliability_data_ci_is_null(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that CI is null when reliability data is unavailable.
@@ -1738,7 +1812,7 @@ class TestConfidenceIntervalIntegration:
         from app.models.models import TestResult
 
         # Start a test first (before mocking)
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1762,7 +1836,7 @@ class TestConfidenceIntervalIntegration:
 
         # Mock get_cached_reliability to return None (insufficient data)
         with patch("app.api.v1.test.get_cached_reliability", return_value=None):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
 
@@ -1775,17 +1849,16 @@ class TestConfidenceIntervalIntegration:
         assert result["confidence_interval"] is None
 
         # Database fields should be null
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result is not None
         assert test_result.standard_error is None
         assert test_result.ci_lower is None
         assert test_result.ci_upper is None
 
-    def test_submit_with_low_reliability_ci_is_null(
+    async def test_submit_with_low_reliability_ci_is_null(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that CI is null when reliability is below threshold (< 0.60).
@@ -1801,7 +1874,7 @@ class TestConfidenceIntervalIntegration:
         from app.models.models import TestResult
 
         # Start a test first (before mocking)
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1826,7 +1899,7 @@ class TestConfidenceIntervalIntegration:
         # Mock get_cached_reliability to return None (simulating alpha < 0.60)
         # The actual threshold check happens inside get_cached_reliability
         with patch("app.api.v1.test.get_cached_reliability", return_value=None):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
 
@@ -1839,17 +1912,16 @@ class TestConfidenceIntervalIntegration:
         assert result["confidence_interval"] is None
 
         # Database fields should be null
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result is not None
         assert test_result.standard_error is None
         assert test_result.ci_lower is None
         assert test_result.ci_upper is None
 
-    def test_api_response_ci_structure(
+    async def test_api_response_ci_structure(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that API response includes correct CI structure with all required fields.
@@ -1861,7 +1933,7 @@ class TestConfidenceIntervalIntegration:
         from unittest.mock import patch
 
         # Start and complete a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1884,7 +1956,7 @@ class TestConfidenceIntervalIntegration:
 
         # Mock get_cached_reliability to return a good reliability value
         with patch("app.api.v1.test.get_cached_reliability", return_value=0.80):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
 
@@ -1908,7 +1980,7 @@ class TestConfidenceIntervalIntegration:
         assert ci["lower"] >= 40
         assert ci["upper"] <= 160
 
-    def test_ci_values_stored_correctly_in_database(
+    async def test_ci_values_stored_correctly_in_database(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that CI values are correctly stored in the database.
@@ -1922,7 +1994,7 @@ class TestConfidenceIntervalIntegration:
         from app.models.models import TestResult
 
         # Start and complete a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -1946,18 +2018,17 @@ class TestConfidenceIntervalIntegration:
         # Mock get_cached_reliability to return alpha = 0.80
         # Expected SEM = 15 * sqrt(1 - 0.80) = 15 * sqrt(0.20) ≈ 6.71
         with patch("app.api.v1.test.get_cached_reliability", return_value=0.80):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
 
         assert response.status_code == 200
 
         # Query database directly to verify storage
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
 
         assert test_result is not None
 
@@ -1980,13 +2051,13 @@ class TestConfidenceIntervalIntegration:
         actual_margin = (upper_margin + lower_margin) / 2
         assert actual_margin == pytest.approx(expected_margin, abs=1)
 
-    def test_submit_endpoint_returns_ci(
+    async def test_submit_endpoint_returns_ci(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that POST /v1/test/submit returns CI in the response."""
         from unittest.mock import patch
 
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -2004,7 +2075,7 @@ class TestConfidenceIntervalIntegration:
         submission = {"session_id": session_id, "responses": responses}
 
         with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
 
@@ -2017,14 +2088,14 @@ class TestConfidenceIntervalIntegration:
         assert result["confidence_interval"]["lower"] is not None
         assert result["confidence_interval"]["upper"] is not None
 
-    def test_results_endpoint_returns_ci(
+    async def test_results_endpoint_returns_ci(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that GET /v1/test/results/{id} returns CI in the response."""
         from unittest.mock import patch
 
         # Start and complete a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -2042,13 +2113,15 @@ class TestConfidenceIntervalIntegration:
         submission = {"session_id": session_id, "responses": responses}
 
         with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
-            submit_response = client.post(
+            submit_response = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
         result_id = submit_response.json()["result"]["id"]
 
         # Get result by ID
-        response = client.get(f"/v1/test/results/{result_id}", headers=auth_headers)
+        response = await client.get(
+            f"/v1/test/results/{result_id}", headers=auth_headers
+        )
 
         assert response.status_code == 200
         result = response.json()
@@ -2059,7 +2132,7 @@ class TestConfidenceIntervalIntegration:
         assert result["confidence_interval"]["lower"] is not None
         assert result["confidence_interval"]["upper"] is not None
 
-    def test_history_endpoint_returns_ci(
+    async def test_history_endpoint_returns_ci(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that GET /v1/test/history returns CI for each result."""
@@ -2067,7 +2140,7 @@ class TestConfidenceIntervalIntegration:
         from unittest.mock import patch
 
         # Start and complete a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -2085,10 +2158,10 @@ class TestConfidenceIntervalIntegration:
         submission = {"session_id": session_id, "responses": responses}
 
         with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
-            client.post("/v1/test/submit", json=submission, headers=auth_headers)
+            await client.post("/v1/test/submit", json=submission, headers=auth_headers)
 
         # Get history
-        response = client.get("/v1/test/history", headers=auth_headers)
+        response = await client.get("/v1/test/history", headers=auth_headers)
 
         assert response.status_code == 200
         history_data = response.json()
@@ -2107,7 +2180,7 @@ class TestConfidenceIntervalIntegration:
                     "confidence_level"
                 ] == pytest.approx(0.95)
 
-    def test_ci_null_in_all_endpoints_when_reliability_unavailable(
+    async def test_ci_null_in_all_endpoints_when_reliability_unavailable(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that CI is null across all endpoints when reliability is unavailable."""
@@ -2115,7 +2188,7 @@ class TestConfidenceIntervalIntegration:
         from unittest.mock import patch
 
         # Start and complete a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -2134,7 +2207,7 @@ class TestConfidenceIntervalIntegration:
 
         # 1. Check /submit endpoint - mock no reliability data
         with patch("app.api.v1.test.get_cached_reliability", return_value=None):
-            submit_response = client.post(
+            submit_response = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
         assert submit_response.status_code == 200
@@ -2142,14 +2215,14 @@ class TestConfidenceIntervalIntegration:
         result_id = submit_response.json()["result"]["id"]
 
         # 2. Check /results/{id} endpoint
-        results_response = client.get(
+        results_response = await client.get(
             f"/v1/test/results/{result_id}", headers=auth_headers
         )
         assert results_response.status_code == 200
         assert results_response.json()["confidence_interval"] is None
 
         # 3. Check /history endpoint
-        history_response = client.get("/v1/test/history", headers=auth_headers)
+        history_response = await client.get("/v1/test/history", headers=auth_headers)
         assert history_response.status_code == 200
         history_data = history_response.json()
         assert len(history_data["results"]) >= 1
@@ -2161,7 +2234,7 @@ class TestConfidenceIntervalIntegration:
         else:
             pytest.fail(f"Result {result_id} not found in history")
 
-    def test_ci_boundary_values_respected(
+    async def test_ci_boundary_values_respected(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that CI bounds respect the schema boundary values (40-160).
@@ -2172,7 +2245,7 @@ class TestConfidenceIntervalIntegration:
         from unittest.mock import patch
 
         # Start and complete a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -2191,7 +2264,7 @@ class TestConfidenceIntervalIntegration:
 
         # Mock high reliability for narrow CI
         with patch("app.api.v1.test.get_cached_reliability", return_value=0.90):
-            response = client.post(
+            response = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
 
@@ -2202,7 +2275,7 @@ class TestConfidenceIntervalIntegration:
         assert ci["lower"] >= 40, f"Lower bound {ci['lower']} is below minimum 40"
         assert ci["upper"] <= 160, f"Upper bound {ci['upper']} is above maximum 160"
 
-    def test_ci_width_decreases_with_higher_reliability(
+    async def test_ci_width_decreases_with_higher_reliability(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that CI width is narrower with higher reliability.
@@ -2214,7 +2287,7 @@ class TestConfidenceIntervalIntegration:
         from unittest.mock import patch
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -2233,7 +2306,7 @@ class TestConfidenceIntervalIntegration:
 
         # Test with low reliability (0.60) - should have wider CI
         with patch("app.api.v1.test.get_cached_reliability", return_value=0.60):
-            response_low = client.post(
+            response_low = await client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
 
@@ -2275,7 +2348,7 @@ class TestConfidenceIntervalIntegration:
 class TestGetTestSessionOr404:
     """Unit tests for get_test_session_or_404 helper function."""
 
-    def test_returns_session_when_found(self, db_session, test_user):
+    async def test_returns_session_when_found(self, db_session, test_user):
         """Test that helper returns session when it exists."""
         from app.api.v1.test import get_test_session_or_404
         from app.models import TestSession
@@ -2287,8 +2360,8 @@ class TestGetTestSessionOr404:
             status=TestStatus.IN_PROGRESS,
         )
         db_session.add(session)
-        db_session.commit()
-        db_session.refresh(session)
+        await db_session.commit()
+        await db_session.refresh(session)
 
         # Call helper - should return the session
         result = get_test_session_or_404(db_session, session.id)
@@ -2298,7 +2371,7 @@ class TestGetTestSessionOr404:
         assert result.user_id == test_user.id
         assert result.status == TestStatus.IN_PROGRESS
 
-    def test_raises_404_when_session_not_found(self, db_session):
+    async def test_raises_404_when_session_not_found(self, db_session):
         """Test that helper raises HTTPException with 404 when session doesn't exist."""
         from app.api.v1.test import get_test_session_or_404
         from fastapi import HTTPException
@@ -2311,7 +2384,7 @@ class TestGetTestSessionOr404:
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "Test session not found."
 
-    def test_error_message_is_consistent(self, db_session):
+    async def test_error_message_is_consistent(self, db_session):
         """Test that error message format is consistent."""
         from app.api.v1.test import get_test_session_or_404
         from fastapi import HTTPException
@@ -2326,7 +2399,7 @@ class TestGetTestSessionOr404:
             assert exc_info.value.status_code == 404
             assert exc_info.value.detail == "Test session not found."
 
-    def test_returns_session_regardless_of_status(self, db_session, test_user):
+    async def test_returns_session_regardless_of_status(self, db_session, test_user):
         """Test that helper returns sessions in any status (not just in_progress)."""
         from app.api.v1.test import get_test_session_or_404
         from app.models import TestSession
@@ -2347,8 +2420,8 @@ class TestGetTestSessionOr404:
                 completed_at=utc_now() if status != TestStatus.IN_PROGRESS else None,
             )
             db_session.add(session)
-            db_session.commit()
-            db_session.refresh(session)
+            await db_session.commit()
+            await db_session.refresh(session)
 
             # Helper should return session regardless of status
             result = get_test_session_or_404(db_session, session.id)
@@ -2367,7 +2440,7 @@ class TestBoundaryConditions:
     - Maximum concurrent sessions
     """
 
-    def test_start_test_exactly_at_cadence_boundary_succeeds(
+    async def test_start_test_exactly_at_cadence_boundary_succeeds(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that starting a test exactly 90 days after last completed test succeeds.
@@ -2385,9 +2458,10 @@ class TestBoundaryConditions:
         from app.models.models import TestStatus
 
         # Get test user
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create a completed test session exactly TEST_CADENCE_DAYS (90 days) ago
         # Using exactly 90 days, no extra hours
@@ -2399,10 +2473,12 @@ class TestBoundaryConditions:
             completed_at=completed_time,
         )
         db_session.add(completed_session)
-        db_session.commit()
+        await db_session.commit()
 
         # Try to start a new test - should succeed
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
 
         assert response.status_code == 200, (
             f"Expected 200 OK at exactly {settings.TEST_CADENCE_DAYS} days, "
@@ -2412,7 +2488,7 @@ class TestBoundaryConditions:
         assert "session" in data
         assert data["session"]["status"] == "in_progress"
 
-    def test_start_test_one_day_before_cadence_fails(
+    async def test_start_test_one_day_before_cadence_fails(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that starting a test 89 days after last completed test fails.
@@ -2430,9 +2506,10 @@ class TestBoundaryConditions:
         from app.models.models import TestStatus
 
         # Get test user
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create a completed test session exactly (TEST_CADENCE_DAYS - 1) days ago
         days_since_last = settings.TEST_CADENCE_DAYS - 1  # 89 days
@@ -2444,10 +2521,12 @@ class TestBoundaryConditions:
             completed_at=completed_time,
         )
         db_session.add(completed_session)
-        db_session.commit()
+        await db_session.commit()
 
         # Try to start a new test - should fail with 400
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
 
         assert response.status_code == 400, (
             f"Expected 400 Bad Request at {days_since_last} days, "
@@ -2463,7 +2542,7 @@ class TestBoundaryConditions:
             "1 day" in detail or "days remaining" in detail
         ), f"Error should mention days remaining: {detail}"
 
-    def test_submit_with_empty_response_list(
+    async def test_submit_with_empty_response_list(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that submitting a test with empty response list fails validation.
@@ -2472,7 +2551,7 @@ class TestBoundaryConditions:
         This tests the edge case where the client submits without answering any questions.
         """
         # Start a test first
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -2484,7 +2563,9 @@ class TestBoundaryConditions:
             "responses": [],  # Empty list
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         # Empty response list should be rejected with 422 (validation error)
         # or 400 (bad request)
@@ -2493,7 +2574,7 @@ class TestBoundaryConditions:
             422,
         ], f"Expected 400 or 422 for empty responses, got {response.status_code}"
 
-    def test_maximum_concurrent_sessions_is_one(
+    async def test_maximum_concurrent_sessions_is_one(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that maximum concurrent in_progress sessions is exactly 1.
@@ -2506,18 +2587,24 @@ class TestBoundaryConditions:
         This test verifies the application-level enforcement.
         """
         # Start first session
-        response1 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response1 = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response1.status_code == 200
         session1_id = response1.json()["session"]["id"]
 
         # Attempt to start second session - should be blocked
-        response2 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response2 = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response2.status_code == 400
         assert "already has an active test session" in response2.json()["detail"]
         assert str(session1_id) in response2.json()["detail"]
 
         # Attempt to start third session - still blocked (same session active)
-        response3 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response3 = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response3.status_code == 400
         assert str(session1_id) in response3.json()["detail"]
 
@@ -2525,19 +2612,22 @@ class TestBoundaryConditions:
         from app.models import TestSession
         from app.models.models import TestStatus
 
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session1_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session1_id)
         )
+        session = _result.scalars().first()
         session.status = TestStatus.COMPLETED
-        db_session.commit()
+        await db_session.commit()
 
         # Now we can start a new session
-        response4 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response4 = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response4.status_code == 200
         session2_id = response4.json()["session"]["id"]
         assert session2_id != session1_id
 
-    def test_cadence_boundary_with_timezone_edge_case(
+    async def test_cadence_boundary_with_timezone_edge_case(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test cadence boundary when completed_at is exactly at the cutoff with timezone.
@@ -2556,9 +2646,10 @@ class TestBoundaryConditions:
         from app.models import TestSession, User
         from app.models.models import TestStatus
 
-        test_user = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        _result = await db_session.execute(
+            select(User).filter(User.email == "test@example.com")
         )
+        test_user = _result.scalars().first()
 
         # Create session completed exactly at the cadence cutoff
         # The query is: TestSession.completed_at > cadence_cutoff
@@ -2576,12 +2667,14 @@ class TestBoundaryConditions:
             completed_at=cadence_cutoff,  # Exactly at cutoff
         )
         db_session.add(completed_session)
-        db_session.commit()
+        await db_session.commit()
 
         # The query checks: completed_at > cadence_cutoff
         # Since completed_at == cadence_cutoff, the condition is False
         # So no "recent" completed session is found, and test should be allowed
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
 
         assert response.status_code == 200, (
             f"Test at exactly cadence cutoff should succeed, "
@@ -2599,14 +2692,14 @@ class TestValueCorrectness:
     - Correct relationship between stored and returned values
     """
 
-    def test_correct_answers_scored_correctly(
+    async def test_correct_answers_scored_correctly(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that correct answers result in is_correct=True and proper scoring."""
         from app.models.models import Response, TestResult
 
         # Start a test with 4 questions
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -2626,16 +2719,17 @@ class TestValueCorrectness:
             responses.append({"question_id": q["id"], "user_answer": correct_answer})
 
         submission = {"session_id": session_id, "responses": responses}
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
 
         # Verify all responses are marked correct in database
-        stored_responses = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == session_id)
-            .all()
+        _result = await db_session.execute(
+            select(Response).filter(Response.test_session_id == session_id)
         )
+        stored_responses = _result.scalars().all()
         assert len(stored_responses) == 4
 
         for resp in stored_responses:
@@ -2646,25 +2740,24 @@ class TestValueCorrectness:
             )
 
         # Verify result has all answers correct
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result is not None
         assert (
             test_result.correct_answers == 4
         ), f"Expected 4 correct answers, got {test_result.correct_answers}"
         assert test_result.total_questions == 4
 
-    def test_incorrect_answers_scored_correctly(
+    async def test_incorrect_answers_scored_correctly(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that incorrect answers result in is_correct=False and proper scoring."""
         from app.models.models import Response, TestResult
 
         # Start a test with 4 questions
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -2688,16 +2781,17 @@ class TestValueCorrectness:
             responses.append({"question_id": q["id"], "user_answer": wrong_answer})
 
         submission = {"session_id": session_id, "responses": responses}
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
 
         # Verify all responses are marked incorrect in database
-        stored_responses = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == session_id)
-            .all()
+        _result = await db_session.execute(
+            select(Response).filter(Response.test_session_id == session_id)
         )
+        stored_responses = _result.scalars().all()
         assert len(stored_responses) == 4
 
         for resp in stored_responses:
@@ -2708,25 +2802,24 @@ class TestValueCorrectness:
             )
 
         # Verify result has no correct answers
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result is not None
         assert (
             test_result.correct_answers == 0
         ), f"Expected 0 correct answers, got {test_result.correct_answers}"
         assert test_result.total_questions == 4
 
-    def test_mixed_answers_scored_proportionally(
+    async def test_mixed_answers_scored_proportionally(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that mixed correct/incorrect answers result in proportional scoring."""
         from app.models.models import Response, TestResult
 
         # Start a test with 4 questions
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -2753,16 +2846,17 @@ class TestValueCorrectness:
                 responses.append({"question_id": q["id"], "user_answer": wrong_answer})
 
         submission = {"session_id": session_id, "responses": responses}
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
 
         # Verify is_correct matches our expectations
-        stored_responses = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == session_id)
-            .all()
+        _result = await db_session.execute(
+            select(Response).filter(Response.test_session_id == session_id)
         )
+        stored_responses = _result.scalars().all()
 
         # Count correct/incorrect
         correct_count = sum(1 for r in stored_responses if r.is_correct)
@@ -2772,25 +2866,24 @@ class TestValueCorrectness:
         assert incorrect_count == 2, f"Expected 2 incorrect, got {incorrect_count}"
 
         # Verify result has 2 correct answers (50%)
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result is not None
         assert (
             test_result.correct_answers == 2
         ), f"Expected 2 correct answers, got {test_result.correct_answers}"
         assert test_result.total_questions == 4
 
-    def test_response_count_matches_submitted_count(
+    async def test_response_count_matches_submitted_count(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that responses_count in API matches actual stored responses."""
         from app.models.models import Response
 
         # Start a test with 3 questions
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -2804,7 +2897,9 @@ class TestValueCorrectness:
         ]
 
         submission = {"session_id": session_id, "responses": responses}
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -2813,15 +2908,16 @@ class TestValueCorrectness:
         assert data["responses_count"] == 3
 
         # Verify database count matches
-        db_count = (
-            db_session.query(Response)
+        _result = await db_session.execute(
+            select(func.count())
+            .select_from(Response)
             .filter(Response.test_session_id == session_id)
-            .count()
         )
+        db_count = _result.scalar()
         assert db_count == 3
         assert db_count == data["responses_count"]
 
-    def test_session_status_enum_values_correct(
+    async def test_session_status_enum_values_correct(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that session status enum values are correctly represented in API."""
@@ -2829,7 +2925,7 @@ class TestValueCorrectness:
         from app.models.models import TestStatus
 
         # Start a test - should be "in_progress"
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -2839,9 +2935,10 @@ class TestValueCorrectness:
         assert start_response.json()["session"]["status"] == "in_progress"
 
         # Verify database has matching enum
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        session = _result.scalars().first()
         assert session.status == TestStatus.IN_PROGRESS
         assert session.status.value == "in_progress"
 
@@ -2852,7 +2949,7 @@ class TestValueCorrectness:
             for q in questions
         ]
         submission = {"session_id": session_id, "responses": responses}
-        submit_response = client.post(
+        submit_response = await client.post(
             "/v1/test/submit", json=submission, headers=auth_headers
         )
 
@@ -2860,18 +2957,18 @@ class TestValueCorrectness:
         assert submit_response.json()["session"]["status"] == "completed"
 
         # Verify database has matching enum
-        db_session.refresh(session)
+        await db_session.refresh(session)
         assert session.status == TestStatus.COMPLETED
         assert session.status.value == "completed"
 
-    def test_result_iq_score_within_valid_range(
+    async def test_result_iq_score_within_valid_range(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that IQ score is within the valid schema range (40-160)."""
         from app.models.models import TestResult
 
         # Start and complete a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -2884,7 +2981,9 @@ class TestValueCorrectness:
             for q in questions
         ]
         submission = {"session_id": session_id, "responses": responses}
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -2894,21 +2993,20 @@ class TestValueCorrectness:
         assert 40 <= iq_score <= 160, f"IQ score {iq_score} outside valid range 40-160"
 
         # Verify database value matches
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result.iq_score == iq_score
 
-    def test_domain_scores_sum_to_expected_totals(
+    async def test_domain_scores_sum_to_expected_totals(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that domain scores correct+incorrect equals total for each domain."""
         import pytest
 
         # Start a test with all 4 questions
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=4", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -2933,7 +3031,9 @@ class TestValueCorrectness:
                 responses.append({"question_id": q["id"], "user_answer": wrong_answer})
 
         submission = {"session_id": session_id, "responses": responses}
-        response = client.post("/v1/test/submit", json=submission, headers=auth_headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -2969,14 +3069,18 @@ class TestValueCorrectness:
 class TestAdaptiveSession:
     """Tests for is_adaptive flag on test sessions (TASK-835)."""
 
-    def test_default_session_not_adaptive(self, client, auth_headers, test_questions):
+    async def test_default_session_not_adaptive(
+        self, client, auth_headers, test_questions
+    ):
         """Default session (no CAT config) has is_adaptive=False."""
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response.status_code == 200
         session = response.json()["session"]
         assert session["is_adaptive"] is False
 
-    def test_cat_enabled_session_is_adaptive(
+    async def test_cat_enabled_session_is_adaptive(
         self, client, auth_headers, test_questions, db_session
     ):
         """Session has is_adaptive=True when CAT is enabled in SystemConfig."""
@@ -2984,12 +3088,14 @@ class TestAdaptiveSession:
 
         set_cat_readiness(db_session, {"enabled": True})
 
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response.status_code == 200
         session = response.json()["session"]
         assert session["is_adaptive"] is True
 
-    def test_is_adaptive_persisted_in_database(
+    async def test_is_adaptive_persisted_in_database(
         self, client, auth_headers, test_questions, db_session
     ):
         """is_adaptive flag is persisted in the database."""
@@ -2998,25 +3104,28 @@ class TestAdaptiveSession:
 
         set_cat_readiness(db_session, {"enabled": True})
 
-        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         assert response.status_code == 200
         session_id = response.json()["session"]["id"]
 
         db_session.expire_all()
-        test_session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        test_session = _result.scalars().first()
         assert test_session.is_adaptive is True
 
 
 class TestAdaptiveParameter:
     """Tests for adaptive parameter on POST /v1/test/start endpoint (TASK-878)."""
 
-    def test_adaptive_false_returns_all_questions(
+    async def test_adaptive_false_returns_all_questions(
         self, client, auth_headers, test_questions
     ):
         """Test adaptive=false returns all questions (fixed-form behavior)."""
-        response = client.post(
+        response = await client.post(
             "/v1/test/start?question_count=3&adaptive=false", headers=auth_headers
         )
 
@@ -3034,9 +3143,13 @@ class TestAdaptiveParameter:
         # Session should not be adaptive
         assert data["session"]["is_adaptive"] is False
 
-    def test_adaptive_default_is_false(self, client, auth_headers, test_questions):
+    async def test_adaptive_default_is_false(
+        self, client, auth_headers, test_questions
+    ):
         """Test that adaptive parameter defaults to false when not specified."""
-        response = client.post("/v1/test/start?question_count=3", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?question_count=3", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -3048,7 +3161,7 @@ class TestAdaptiveParameter:
         assert data.get("current_se") is None
         assert data["session"]["is_adaptive"] is False
 
-    def test_adaptive_true_returns_single_question(
+    async def test_adaptive_true_returns_single_question(
         self, client, auth_headers, db_session
     ):
         """Test adaptive=true returns single question with CAT fields."""
@@ -3091,9 +3204,11 @@ class TestAdaptiveParameter:
 
         for q in calibrated_questions:
             db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?adaptive=true", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -3111,7 +3226,7 @@ class TestAdaptiveParameter:
         # Session should be adaptive
         assert data["session"]["is_adaptive"] is True
 
-    def test_adaptive_true_initializes_theta_history(
+    async def test_adaptive_true_initializes_theta_history(
         self, client, auth_headers, db_session, test_user
     ):
         """Test adaptive=true initializes theta_history as empty array."""
@@ -3130,24 +3245,27 @@ class TestAdaptiveParameter:
             is_active=True,
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?adaptive=true", headers=auth_headers
+        )
 
         assert response.status_code == 200
         session_id = response.json()["session"]["id"]
 
         # Check database for theta_history initialization
         db_session.expire_all()
-        test_session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        test_session = _result.scalars().first()
 
         assert test_session.theta_history is not None
         assert test_session.theta_history == []
         assert test_session.is_adaptive is True
 
-    def test_adaptive_true_uses_prior_theta(
+    async def test_adaptive_true_uses_prior_theta(
         self, client, auth_headers, db_session, test_user
     ):
         """Test adaptive=true uses prior theta from previous session."""
@@ -3181,9 +3299,11 @@ class TestAdaptiveParameter:
             completed_at=old_date,
         )
         db_session.add(previous_session)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?adaptive=true", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -3191,18 +3311,20 @@ class TestAdaptiveParameter:
         # Current theta should be the prior from previous session
         assert data["current_theta"] == pytest.approx(0.75, abs=0.01)
 
-    def test_adaptive_true_no_calibrated_questions(
+    async def test_adaptive_true_no_calibrated_questions(
         self, client, auth_headers, test_questions
     ):
         """Test adaptive=true returns 404 when no calibrated questions available."""
         # test_questions fixture doesn't have IRT parameters
-        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?adaptive=true", headers=auth_headers
+        )
 
         assert response.status_code == 404
         data = response.json()
         assert "No unseen questions available" in data["detail"]
 
-    def test_adaptive_independent_of_system_cat_flag(
+    async def test_adaptive_independent_of_system_cat_flag(
         self, client, auth_headers, db_session, test_user
     ):
         """Test adaptive parameter works independently of is_cat_enabled system flag."""
@@ -3225,17 +3347,19 @@ class TestAdaptiveParameter:
             is_active=True,
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
         # Should still work with adaptive=true even though system CAT is disabled
-        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?adaptive=true", headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
         assert len(data["questions"]) == 1
         assert data["session"]["is_adaptive"] is True
 
-    def test_adaptive_true_marks_question_as_seen(
+    async def test_adaptive_true_marks_question_as_seen(
         self, client, auth_headers, db_session, test_user
     ):
         """Test adaptive=true marks the selected question as seen."""
@@ -3254,22 +3378,23 @@ class TestAdaptiveParameter:
             is_active=True,
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post("/v1/test/start?adaptive=true", headers=auth_headers)
+        response = await client.post(
+            "/v1/test/start?adaptive=true", headers=auth_headers
+        )
 
         assert response.status_code == 200
         question_id = response.json()["questions"][0]["id"]
 
         # Check that question is marked as seen
-        user_question = (
-            db_session.query(UserQuestion)
-            .filter(
+        _result = await db_session.execute(
+            select(UserQuestion).filter(
                 UserQuestion.user_id == test_user.id,
                 UserQuestion.question_id == question_id,
             )
-            .first()
         )
+        user_question = _result.scalars().first()
 
         assert user_question is not None
         assert user_question.seen_at is not None

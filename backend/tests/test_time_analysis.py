@@ -43,7 +43,7 @@ from app.core.time_analysis import (
 class TestAnalyzeResponseTimes:
     """Tests for the analyze_response_times function."""
 
-    def test_no_responses_returns_empty_analysis(self, db_session):
+    async def test_no_responses_returns_empty_analysis(self, db_session):
         """Test that no responses returns empty analysis with no_responses flag."""
         # Use a non-existent session ID
         result = analyze_response_times(db_session, session_id=99999)
@@ -60,7 +60,7 @@ class TestAnalyzeResponseTimes:
         assert result["rapid_response_count"] == 0
         assert result["extended_response_count"] == 0
 
-    def test_basic_time_statistics(self, db_session, test_user, test_questions):
+    async def test_basic_time_statistics(self, db_session, test_user, test_questions):
         """Test basic time statistics calculation (mean, median, std)."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -70,7 +70,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses with known time values
         # Times: 20, 30, 40, 50, 60 -> Mean: 40, Median: 40
@@ -85,7 +85,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=time_val,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -96,7 +96,9 @@ class TestAnalyzeResponseTimes:
         assert result["response_count"] == 5
         assert result["responses_without_time"] == 0
 
-    def test_detects_too_fast_responses(self, db_session, test_user, test_questions):
+    async def test_detects_too_fast_responses(
+        self, db_session, test_user, test_questions
+    ):
         """Test that responses under 3 seconds are flagged as too_fast."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -105,7 +107,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses - some too fast (<3s), some normal
         time_values = [
@@ -125,7 +127,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=time_val,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -145,7 +147,7 @@ class TestAnalyzeResponseTimes:
             assert "question_id" in anomaly
             assert "difficulty" in anomaly
 
-    def test_detects_too_fast_hard_questions(self, db_session, test_user):
+    async def test_detects_too_fast_hard_questions(self, db_session, test_user):
         """Test that hard questions answered in <5s are flagged as too_fast_hard."""
         from app.models.models import (
             Response,
@@ -165,14 +167,14 @@ class TestAnalyzeResponseTimes:
             is_active=True,
         )
         db_session.add(hard_question)
-        db_session.commit()
+        await db_session.commit()
 
         session = TestSession(
             user_id=test_user.id,
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Answer hard question in 4 seconds (>3 but <5 for hard questions)
         response = Response(
@@ -184,7 +186,7 @@ class TestAnalyzeResponseTimes:
             time_spent_seconds=4,  # Between MIN_RESPONSE_TIME and MIN_HARD_RESPONSE_TIME
         )
         db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -194,7 +196,9 @@ class TestAnalyzeResponseTimes:
         assert result["anomalies"][0]["anomaly_type"] == "too_fast_hard"
         assert result["anomalies"][0]["difficulty"] == "hard"
 
-    def test_detects_too_slow_responses(self, db_session, test_user, test_questions):
+    async def test_detects_too_slow_responses(
+        self, db_session, test_user, test_questions
+    ):
         """Test that responses over 5 minutes (300s) are flagged as too_slow."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -203,7 +207,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses - one too slow (>300s), others normal
         time_values = [30, 40, 50, 301, 350]  # Last two are too slow
@@ -217,7 +221,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=time_val,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -234,7 +238,7 @@ class TestAnalyzeResponseTimes:
         for anomaly in too_slow_anomalies:
             assert anomaly["time_seconds"] > MAX_RESPONSE_TIME_SECONDS
 
-    def test_flags_rushed_session(self, db_session, test_user, test_questions):
+    async def test_flags_rushed_session(self, db_session, test_user, test_questions):
         """Test that sessions with average time <15s are flagged as rushed."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -243,7 +247,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses with very fast times (all above 3s to avoid too_fast)
         # but averaging below 15s to trigger rushed_session flag
@@ -258,7 +262,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=time_val,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -266,7 +270,7 @@ class TestAnalyzeResponseTimes:
         assert result["validity_concern"] is True
         assert result["mean_time_per_question"] < MIN_AVERAGE_TIME_SECONDS
 
-    def test_flags_multiple_rapid_responses(
+    async def test_flags_multiple_rapid_responses(
         self, db_session, test_user, test_questions
     ):
         """Test that sessions with >20% rapid responses get multiple_rapid_responses flag."""
@@ -284,7 +288,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Create 10 unique questions for 10 responses
         extra_questions = []
@@ -298,7 +302,7 @@ class TestAnalyzeResponseTimes:
             )
             extra_questions.append(q)
         db_session.add_all(extra_questions)
-        db_session.flush()
+        await db_session.flush()
 
         # Add 10 responses, 3 too fast (30% > 20% threshold)
         time_values = [1, 2, 1, 30, 30, 30, 30, 30, 30, 30]  # 3 rapid, 7 normal
@@ -312,7 +316,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=time_val,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -320,7 +324,9 @@ class TestAnalyzeResponseTimes:
         assert "multiple_rapid_responses" in result["flags"]
         assert result["validity_concern"] is True
 
-    def test_flags_multiple_extended_times(self, db_session, test_user, test_questions):
+    async def test_flags_multiple_extended_times(
+        self, db_session, test_user, test_questions
+    ):
         """Test that sessions with >10% extended times get multiple_extended_times flag."""
         from app.models.models import (
             Response,
@@ -336,7 +342,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Create 10 unique questions for 10 responses
         extra_questions = []
@@ -350,7 +356,7 @@ class TestAnalyzeResponseTimes:
             )
             extra_questions.append(q)
         db_session.add_all(extra_questions)
-        db_session.flush()
+        await db_session.flush()
 
         # Add 10 responses, 2 too slow (20% > 10% threshold)
         time_values = [30, 30, 30, 30, 30, 30, 30, 30, 305, 310]  # 8 normal, 2 extended
@@ -364,14 +370,14 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=time_val,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
         assert result["extended_response_count"] == 2
         assert "multiple_extended_times" in result["flags"]
 
-    def test_validity_concern_with_many_extended(
+    async def test_validity_concern_with_many_extended(
         self, db_session, test_user, test_questions
     ):
         """Test that >3 extended responses triggers validity concern."""
@@ -389,7 +395,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Create 20 unique questions for 20 responses
         extra_questions = []
@@ -403,7 +409,7 @@ class TestAnalyzeResponseTimes:
             )
             extra_questions.append(q)
         db_session.add_all(extra_questions)
-        db_session.flush()
+        await db_session.flush()
 
         # Add 20 responses, 4 too slow (>3 triggers validity concern regardless of %)
         time_values = [30] * 16 + [305, 310, 315, 320]  # 16 normal, 4 extended
@@ -417,7 +423,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=time_val,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -425,7 +431,9 @@ class TestAnalyzeResponseTimes:
         # Validity concern because extended_count > 3
         assert result["validity_concern"] is True
 
-    def test_handles_missing_time_data(self, db_session, test_user, test_questions):
+    async def test_handles_missing_time_data(
+        self, db_session, test_user, test_questions
+    ):
         """Test analysis with some responses missing time data."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -434,7 +442,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add mix of responses with and without time data
         # 3 with time, 2 without
@@ -459,7 +467,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=None,  # No time data
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -469,7 +477,7 @@ class TestAnalyzeResponseTimes:
             30.0
         )  # Only from responses with time
 
-    def test_no_time_data_at_all(self, db_session, test_user, test_questions):
+    async def test_no_time_data_at_all(self, db_session, test_user, test_questions):
         """Test analysis when all responses are missing time data."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -478,7 +486,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses without time data
         for i in range(3):
@@ -491,7 +499,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=None,  # No time data
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -502,7 +510,9 @@ class TestAnalyzeResponseTimes:
         assert "no_time_data" in result["flags"]
         assert result["validity_concern"] is False
 
-    def test_flags_incomplete_time_data(self, db_session, test_user, test_questions):
+    async def test_flags_incomplete_time_data(
+        self, db_session, test_user, test_questions
+    ):
         """Test that >50% missing time data triggers incomplete_time_data flag."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -511,7 +521,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # 2 with time, 3 without (60% missing > 50% threshold)
         for i in range(2):
@@ -535,14 +545,14 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=None,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
         assert result["responses_without_time"] == 3
         assert "incomplete_time_data" in result["flags"]
 
-    def test_single_response_no_std(self, db_session, test_user, test_questions):
+    async def test_single_response_no_std(self, db_session, test_user, test_questions):
         """Test that single response doesn't calculate std deviation."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -551,7 +561,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Single response
         response = Response(
@@ -563,7 +573,7 @@ class TestAnalyzeResponseTimes:
             time_spent_seconds=30,
         )
         db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -574,7 +584,7 @@ class TestAnalyzeResponseTimes:
             result["std_time_per_question"] is None
         )  # Can't calculate std with 1 item
 
-    def test_z_score_calculation(self, db_session, test_user, test_questions):
+    async def test_z_score_calculation(self, db_session, test_user, test_questions):
         """Test that z-scores are calculated for anomalies when std is available."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -583,7 +593,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses with one outlier
         time_values = [30, 30, 30, 30, 1]  # Last one is a fast outlier
@@ -597,7 +607,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=time_val,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -608,7 +618,9 @@ class TestAnalyzeResponseTimes:
             result["anomalies"][0]["z_score"] < 0
         )  # Negative z-score for fast response
 
-    def test_exactly_threshold_values(self, db_session, test_user, test_questions):
+    async def test_exactly_threshold_values(
+        self, db_session, test_user, test_questions
+    ):
         """Test edge cases at exactly the threshold values."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -617,7 +629,7 @@ class TestAnalyzeResponseTimes:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Test exactly at MIN_RESPONSE_TIME_SECONDS (3)
         # and exactly at MAX_RESPONSE_TIME_SECONDS (300)
@@ -637,7 +649,7 @@ class TestAnalyzeResponseTimes:
                 time_spent_seconds=time_val,
             )
             db_session.add(response)
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_response_times(db_session, session_id=session.id)
 
@@ -750,7 +762,7 @@ class TestThresholdConstants:
 class TestAnalyzeSpeedAccuracy:
     """Tests for the analyze_speed_accuracy function."""
 
-    def test_no_responses_returns_empty_result(self, db_session):
+    async def test_no_responses_returns_empty_result(self, db_session):
         """Test that no responses returns empty analysis."""
         # Use a non-existent question ID
         result = analyze_speed_accuracy(db_session, question_id=99999)
@@ -764,7 +776,7 @@ class TestAnalyzeSpeedAccuracy:
         assert result["correlation"] is None
         assert result["interpretation"] == "insufficient_data"
 
-    def test_with_correct_and_incorrect_responses(
+    async def test_with_correct_and_incorrect_responses(
         self, db_session, test_user, test_questions
     ):
         """Test analysis with mixed correct/incorrect responses."""
@@ -784,7 +796,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -801,7 +813,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -812,7 +824,7 @@ class TestAnalyzeSpeedAccuracy:
             )
             db_session.add(response)
 
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_speed_accuracy(db_session, question_id=question.id)
 
@@ -827,7 +839,9 @@ class TestAnalyzeSpeedAccuracy:
         assert result["interpretation"] == "faster_correct"
         assert result["time_difference_seconds"] < 0  # Correct is faster
 
-    def test_slower_correct_interpretation(self, db_session, test_user, test_questions):
+    async def test_slower_correct_interpretation(
+        self, db_session, test_user, test_questions
+    ):
         """Test when correct responders are slower."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -844,7 +858,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -861,7 +875,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -872,14 +886,14 @@ class TestAnalyzeSpeedAccuracy:
             )
             db_session.add(response)
 
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_speed_accuracy(db_session, question_id=question.id)
 
         assert result["interpretation"] == "slower_correct"
         assert result["time_difference_seconds"] > 0  # Correct is slower
 
-    def test_no_relationship_interpretation(
+    async def test_no_relationship_interpretation(
         self, db_session, test_user, test_questions
     ):
         """Test when there's no meaningful difference in response times."""
@@ -898,7 +912,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -915,7 +929,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -926,14 +940,14 @@ class TestAnalyzeSpeedAccuracy:
             )
             db_session.add(response)
 
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_speed_accuracy(db_session, question_id=question.id)
 
         assert result["interpretation"] == "no_relationship"
         assert abs(result["time_difference_seconds"]) < 5  # Within threshold
 
-    def test_insufficient_data_only_correct(
+    async def test_insufficient_data_only_correct(
         self, db_session, test_user, test_questions
     ):
         """Test with only correct responses."""
@@ -948,7 +962,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -959,7 +973,7 @@ class TestAnalyzeSpeedAccuracy:
             )
             db_session.add(response)
 
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_speed_accuracy(db_session, question_id=question.id)
 
@@ -971,7 +985,7 @@ class TestAnalyzeSpeedAccuracy:
         assert result["correlation"] is None
         assert result["interpretation"] == "insufficient_data"
 
-    def test_insufficient_data_only_incorrect(
+    async def test_insufficient_data_only_incorrect(
         self, db_session, test_user, test_questions
     ):
         """Test with only incorrect responses."""
@@ -986,7 +1000,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -997,7 +1011,7 @@ class TestAnalyzeSpeedAccuracy:
             )
             db_session.add(response)
 
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_speed_accuracy(db_session, question_id=question.id)
 
@@ -1009,7 +1023,7 @@ class TestAnalyzeSpeedAccuracy:
         assert result["correlation"] is None
         assert result["interpretation"] == "insufficient_data"
 
-    def test_responses_without_time_data_excluded(
+    async def test_responses_without_time_data_excluded(
         self, db_session, test_user, test_questions
     ):
         """Test that responses without time data are excluded."""
@@ -1024,7 +1038,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -1042,7 +1056,7 @@ class TestAnalyzeSpeedAccuracy:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             response = Response(
                 test_session_id=session.id,
                 user_id=test_user.id,
@@ -1053,7 +1067,7 @@ class TestAnalyzeSpeedAccuracy:
             )
             db_session.add(response)
 
-        db_session.commit()
+        await db_session.commit()
 
         result = analyze_speed_accuracy(db_session, question_id=question.id)
 
@@ -1190,7 +1204,7 @@ class TestEmptySpeedAccuracyResult:
 class TestGetAggregateResponseTimeAnalytics:
     """Tests for the get_aggregate_response_time_analytics function."""
 
-    def test_no_data_returns_empty_analytics(self, db_session):
+    async def test_no_data_returns_empty_analytics(self, db_session):
         """Test that empty database returns empty analytics."""
         result = get_aggregate_response_time_analytics(db_session)
 
@@ -1203,7 +1217,7 @@ class TestGetAggregateResponseTimeAnalytics:
         assert result["anomaly_summary"]["sessions_with_extended_times"] == 0
         assert result["anomaly_summary"]["pct_flagged"] == pytest.approx(0.0)
 
-    def test_with_completed_sessions(self, db_session, test_user, test_questions):
+    async def test_with_completed_sessions(self, db_session, test_user, test_questions):
         """Test analytics with completed test sessions."""
         from app.models.models import (
             Response,
@@ -1218,7 +1232,7 @@ class TestGetAggregateResponseTimeAnalytics:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses with time data
         # Use different difficulties and types from test_questions
@@ -1249,7 +1263,7 @@ class TestGetAggregateResponseTimeAnalytics:
             },
         )
         db_session.add(test_result)
-        db_session.commit()
+        await db_session.commit()
 
         result = get_aggregate_response_time_analytics(db_session)
 
@@ -1262,7 +1276,7 @@ class TestGetAggregateResponseTimeAnalytics:
         )  # 120/4
         assert result["anomaly_summary"]["pct_flagged"] == pytest.approx(0.0)
 
-    def test_by_difficulty_breakdown(self, db_session, test_user):
+    async def test_by_difficulty_breakdown(self, db_session, test_user):
         """Test that difficulty breakdown is calculated correctly."""
         from app.models.models import (
             Response,
@@ -1296,7 +1310,7 @@ class TestGetAggregateResponseTimeAnalytics:
             is_active=True,
         )
         db_session.add_all([easy_q, medium_q, hard_q])
-        db_session.commit()
+        await db_session.commit()
 
         # Create a completed session
         session = TestSession(
@@ -1304,7 +1318,7 @@ class TestGetAggregateResponseTimeAnalytics:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses with specific times for each difficulty
         # Easy: 20s, Medium: 40s, Hard: 60s
@@ -1338,7 +1352,7 @@ class TestGetAggregateResponseTimeAnalytics:
                 time_spent_seconds=60,
             )
         )
-        db_session.commit()
+        await db_session.commit()
 
         result = get_aggregate_response_time_analytics(db_session)
 
@@ -1346,7 +1360,7 @@ class TestGetAggregateResponseTimeAnalytics:
         assert result["by_difficulty"]["medium"]["mean_seconds"] == pytest.approx(40.0)
         assert result["by_difficulty"]["hard"]["mean_seconds"] == pytest.approx(60.0)
 
-    def test_by_question_type_breakdown(self, db_session, test_user):
+    async def test_by_question_type_breakdown(self, db_session, test_user):
         """Test that question type breakdown is calculated correctly."""
         from app.models.models import (
             Response,
@@ -1380,7 +1394,7 @@ class TestGetAggregateResponseTimeAnalytics:
             is_active=True,
         )
         db_session.add_all([pattern_q, math_q, verbal_q])
-        db_session.commit()
+        await db_session.commit()
 
         # Create a completed session
         session = TestSession(
@@ -1388,7 +1402,7 @@ class TestGetAggregateResponseTimeAnalytics:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses with specific times for each type
         db_session.add(
@@ -1421,7 +1435,7 @@ class TestGetAggregateResponseTimeAnalytics:
                 time_spent_seconds=25,
             )
         )
-        db_session.commit()
+        await db_session.commit()
 
         result = get_aggregate_response_time_analytics(db_session)
 
@@ -1437,7 +1451,7 @@ class TestGetAggregateResponseTimeAnalytics:
         assert result["by_question_type"]["spatial"]["mean_seconds"] is None
         assert result["by_question_type"]["memory"]["mean_seconds"] is None
 
-    def test_anomaly_summary_counts_flagged_sessions(
+    async def test_anomaly_summary_counts_flagged_sessions(
         self, db_session, test_user, test_questions
     ):
         """Test that anomaly summary correctly counts flagged sessions."""
@@ -1452,7 +1466,7 @@ class TestGetAggregateResponseTimeAnalytics:
         session1 = TestSession(user_id=test_user.id, status=TestStatus.COMPLETED)
         session2 = TestSession(user_id=test_user.id, status=TestStatus.COMPLETED)
         db_session.add_all([session1, session2])
-        db_session.commit()
+        await db_session.commit()
 
         # Add responses to both sessions
         for session in [session1, session2]:
@@ -1493,7 +1507,7 @@ class TestGetAggregateResponseTimeAnalytics:
             },
         )
         db_session.add_all([result1, result2])
-        db_session.commit()
+        await db_session.commit()
 
         result = get_aggregate_response_time_analytics(db_session)
 
@@ -1503,7 +1517,9 @@ class TestGetAggregateResponseTimeAnalytics:
             50.0
         )  # 1 out of 2
 
-    def test_in_progress_sessions_excluded(self, db_session, test_user, test_questions):
+    async def test_in_progress_sessions_excluded(
+        self, db_session, test_user, test_questions
+    ):
         """Test that in-progress sessions are not included in analytics."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -1513,7 +1529,7 @@ class TestGetAggregateResponseTimeAnalytics:
             status=TestStatus.IN_PROGRESS,  # Not completed
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add a response
         db_session.add(
@@ -1526,7 +1542,7 @@ class TestGetAggregateResponseTimeAnalytics:
                 time_spent_seconds=30,
             )
         )
-        db_session.commit()
+        await db_session.commit()
 
         result = get_aggregate_response_time_analytics(db_session)
 
@@ -1534,7 +1550,7 @@ class TestGetAggregateResponseTimeAnalytics:
         assert result["total_sessions_analyzed"] == 0
         assert result["total_responses_analyzed"] == 0
 
-    def test_responses_without_time_excluded(
+    async def test_responses_without_time_excluded(
         self, db_session, test_user, test_questions
     ):
         """Test that responses without time data are excluded from time statistics."""
@@ -1545,7 +1561,7 @@ class TestGetAggregateResponseTimeAnalytics:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # Add one response with time, one without
         db_session.add(
@@ -1568,7 +1584,7 @@ class TestGetAggregateResponseTimeAnalytics:
                 time_spent_seconds=None,  # No time data
             )
         )
-        db_session.commit()
+        await db_session.commit()
 
         result = get_aggregate_response_time_analytics(db_session)
 
@@ -1684,7 +1700,7 @@ class TestComputePercentileStats:
 class TestGetResponseTimePercentiles:
     """Tests for the get_response_time_percentiles function."""
 
-    def test_no_data_returns_empty(self, db_session):
+    async def test_no_data_returns_empty(self, db_session):
         """Test that empty database returns empty percentile analytics."""
         result = get_response_time_percentiles(db_session)
 
@@ -1695,7 +1711,7 @@ class TestGetResponseTimePercentiles:
         assert result["overall"]["count"] == 0
         assert result["overall"]["mean_seconds"] is None
 
-    def test_single_type_single_difficulty(self, db_session, test_user):
+    async def test_single_type_single_difficulty(self, db_session, test_user):
         """Test with responses from one question type and difficulty."""
         from app.models.models import (
             Response,
@@ -1714,7 +1730,7 @@ class TestGetResponseTimePercentiles:
             is_active=True,
         )
         db_session.add(question)
-        db_session.commit()
+        await db_session.commit()
 
         # Add 5 responses - each in its own session
         for t in [10, 20, 30, 40, 50]:
@@ -1723,7 +1739,7 @@ class TestGetResponseTimePercentiles:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             db_session.add(
                 Response(
                     test_session_id=session.id,
@@ -1734,7 +1750,7 @@ class TestGetResponseTimePercentiles:
                     time_spent_seconds=t,
                 )
             )
-        db_session.commit()
+        await db_session.commit()
 
         result = get_response_time_percentiles(db_session)
 
@@ -1759,7 +1775,7 @@ class TestGetResponseTimePercentiles:
         assert result["overall"]["count"] == 5
         assert result["overall"]["mean_seconds"] == pytest.approx(30.0)
 
-    def test_multiple_types_and_difficulties(self, db_session, test_user):
+    async def test_multiple_types_and_difficulties(self, db_session, test_user):
         """Test with responses across multiple types and difficulties."""
         from app.models.models import (
             Response,
@@ -1786,7 +1802,7 @@ class TestGetResponseTimePercentiles:
             is_active=True,
         )
         db_session.add_all([pattern_easy, logic_hard])
-        db_session.commit()
+        await db_session.commit()
 
         # Pattern easy: times 10-50, each in its own session
         for t in [10, 20, 30, 40, 50]:
@@ -1795,7 +1811,7 @@ class TestGetResponseTimePercentiles:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             db_session.add(
                 Response(
                     test_session_id=session.id,
@@ -1814,7 +1830,7 @@ class TestGetResponseTimePercentiles:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(session)
-            db_session.flush()
+            await db_session.flush()
             db_session.add(
                 Response(
                     test_session_id=session.id,
@@ -1825,7 +1841,7 @@ class TestGetResponseTimePercentiles:
                     time_spent_seconds=t,
                 )
             )
-        db_session.commit()
+        await db_session.commit()
 
         result = get_response_time_percentiles(db_session)
 
@@ -1852,7 +1868,9 @@ class TestGetResponseTimePercentiles:
         assert result["overall"]["count"] == 10
         assert result["overall"]["mean_seconds"] == pytest.approx(40.0)
 
-    def test_excludes_in_progress_sessions(self, db_session, test_user, test_questions):
+    async def test_excludes_in_progress_sessions(
+        self, db_session, test_user, test_questions
+    ):
         """Test that in-progress sessions are excluded."""
         from app.models.models import Response, TestSession, TestStatus
 
@@ -1861,7 +1879,7 @@ class TestGetResponseTimePercentiles:
             status=TestStatus.IN_PROGRESS,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         db_session.add(
             Response(
@@ -1873,13 +1891,13 @@ class TestGetResponseTimePercentiles:
                 time_spent_seconds=30,
             )
         )
-        db_session.commit()
+        await db_session.commit()
 
         result = get_response_time_percentiles(db_session)
 
         assert result["total_responses_analyzed"] == 0
 
-    def test_excludes_responses_without_time(
+    async def test_excludes_responses_without_time(
         self, db_session, test_user, test_questions
     ):
         """Test that responses without time data are excluded."""
@@ -1890,7 +1908,7 @@ class TestGetResponseTimePercentiles:
             status=TestStatus.COMPLETED,
         )
         db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
         # One with time, one without
         db_session.add(
@@ -1913,7 +1931,7 @@ class TestGetResponseTimePercentiles:
                 time_spent_seconds=None,
             )
         )
-        db_session.commit()
+        await db_session.commit()
 
         result = get_response_time_percentiles(db_session)
 

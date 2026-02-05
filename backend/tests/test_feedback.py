@@ -4,6 +4,7 @@ Tests for feedback submission endpoints.
 import pytest
 from unittest.mock import patch, MagicMock
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import select
 
 from app.models import FeedbackSubmission
 from app.ratelimit.storage import InMemoryStorage
@@ -31,7 +32,7 @@ def clear_rate_limits():
 class TestFeedbackSubmissionSuccess:
     """Tests for successful feedback submission scenarios."""
 
-    def test_submit_feedback_without_authentication(self, client, db_session):
+    async def test_submit_feedback_without_authentication(self, client, db_session):
         """Test submitting feedback without authentication (anonymous user)."""
         feedback_data = {
             "name": "John Doe",
@@ -40,7 +41,7 @@ class TestFeedbackSubmissionSuccess:
             "description": "The app crashes when I try to submit my test results.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
@@ -54,11 +55,12 @@ class TestFeedbackSubmissionSuccess:
         )
 
         # Verify database record
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission is not None
         assert submission.name == "John Doe"
         assert submission.email == "john@example.com"
@@ -69,7 +71,7 @@ class TestFeedbackSubmissionSuccess:
         )
         assert submission.user_id is None  # No authentication
 
-    def test_submit_feedback_with_authentication(
+    async def test_submit_feedback_with_authentication(
         self, client, db_session, test_user, auth_headers
     ):
         """Test submitting feedback with authentication (user_id should be linked)."""
@@ -80,7 +82,7 @@ class TestFeedbackSubmissionSuccess:
             "description": "Please add dark mode support to the application.",
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/feedback/submit", json=feedback_data, headers=auth_headers
         )
 
@@ -92,18 +94,19 @@ class TestFeedbackSubmissionSuccess:
         assert "submission_id" in data
 
         # Verify database record includes user_id
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission is not None
         assert submission.user_id == test_user.id
         assert submission.name == "Test User"
         assert submission.email == "test@example.com"
         assert submission.category.value == "feature_request"
 
-    def test_submit_feedback_all_categories(self, client, db_session):
+    async def test_submit_feedback_all_categories(self, client, db_session):
         """Test submitting feedback for all supported categories."""
         categories = [
             "bug_report",
@@ -121,21 +124,24 @@ class TestFeedbackSubmissionSuccess:
                 "description": f"This is a test submission for {category} category.",
             }
 
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
 
             assert response.status_code == 201, f"Failed for category: {category}"
             data = response.json()
             assert data["success"] is True
 
             # Verify in database
-            submission = (
-                db_session.query(FeedbackSubmission)
-                .filter(FeedbackSubmission.id == data["submission_id"])
-                .first()
+            _result = await db_session.execute(
+                select(FeedbackSubmission).filter(
+                    FeedbackSubmission.id == data["submission_id"]
+                )
             )
+            submission = _result.scalars().first()
             assert submission.category.value == category
 
-    def test_submit_feedback_with_valid_long_description(self, client, db_session):
+    async def test_submit_feedback_with_valid_long_description(
+        self, client, db_session
+    ):
         """Test submitting feedback with a long but valid description (near 5000 char limit)."""
         long_description = "A" * 4995  # 4995 chars, well under 5000 limit
 
@@ -146,25 +152,26 @@ class TestFeedbackSubmissionSuccess:
             "description": long_description,
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
         assert data["success"] is True
 
         # Verify in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert len(submission.description) == 4995
 
 
 class TestFeedbackValidationErrors:
     """Tests for validation errors in feedback submission."""
 
-    def test_submit_feedback_missing_name(self, client):
+    async def test_submit_feedback_missing_name(self, client):
         """Test submitting feedback without name field."""
         feedback_data = {
             "email": "test@example.com",
@@ -172,11 +179,11 @@ class TestFeedbackValidationErrors:
             "description": "Missing name field in this submission.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_missing_email(self, client):
+    async def test_submit_feedback_missing_email(self, client):
         """Test submitting feedback without email field."""
         feedback_data = {
             "name": "John Doe",
@@ -184,11 +191,11 @@ class TestFeedbackValidationErrors:
             "description": "Missing email field in this submission.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_missing_category(self, client):
+    async def test_submit_feedback_missing_category(self, client):
         """Test submitting feedback without category field."""
         feedback_data = {
             "name": "John Doe",
@@ -196,11 +203,11 @@ class TestFeedbackValidationErrors:
             "description": "Missing category field in this submission.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_missing_description(self, client):
+    async def test_submit_feedback_missing_description(self, client):
         """Test submitting feedback without description field."""
         feedback_data = {
             "name": "John Doe",
@@ -208,11 +215,11 @@ class TestFeedbackValidationErrors:
             "category": "bug_report",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_invalid_email_format(self, client):
+    async def test_submit_feedback_invalid_email_format(self, client):
         """Test submitting feedback with invalid email format."""
         feedback_data = {
             "name": "John Doe",
@@ -221,11 +228,11 @@ class TestFeedbackValidationErrors:
             "description": "This submission has an invalid email format.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_description_too_short(self, client):
+    async def test_submit_feedback_description_too_short(self, client):
         """Test submitting feedback with description less than 10 characters."""
         feedback_data = {
             "name": "John Doe",
@@ -234,11 +241,11 @@ class TestFeedbackValidationErrors:
             "description": "Short",  # Only 5 characters
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_description_too_long(self, client):
+    async def test_submit_feedback_description_too_long(self, client):
         """Test submitting feedback with description exceeding 5000 characters."""
         feedback_data = {
             "name": "John Doe",
@@ -247,11 +254,11 @@ class TestFeedbackValidationErrors:
             "description": "A" * 5001,  # 5001 characters, exceeds limit
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_invalid_category(self, client):
+    async def test_submit_feedback_invalid_category(self, client):
         """Test submitting feedback with an invalid category value."""
         feedback_data = {
             "name": "John Doe",
@@ -260,11 +267,11 @@ class TestFeedbackValidationErrors:
             "description": "This submission has an invalid category.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_name_too_long(self, client):
+    async def test_submit_feedback_name_too_long(self, client):
         """Test submitting feedback with name exceeding 100 characters."""
         feedback_data = {
             "name": "A" * 101,  # 101 characters
@@ -273,11 +280,11 @@ class TestFeedbackValidationErrors:
             "description": "This submission has a name that is too long.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_empty_name(self, client):
+    async def test_submit_feedback_empty_name(self, client):
         """Test submitting feedback with empty name."""
         feedback_data = {
             "name": "",
@@ -286,11 +293,11 @@ class TestFeedbackValidationErrors:
             "description": "This submission has an empty name.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_submit_feedback_whitespace_only_name(self, client):
+    async def test_submit_feedback_whitespace_only_name(self, client):
         """Test submitting feedback with whitespace-only name."""
         feedback_data = {
             "name": "   ",
@@ -299,7 +306,7 @@ class TestFeedbackValidationErrors:
             "description": "This submission has a whitespace-only name.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 422  # Validation error
 
@@ -307,7 +314,7 @@ class TestFeedbackValidationErrors:
 class TestFeedbackRateLimiting:
     """Tests for rate limiting on feedback submissions."""
 
-    def test_rate_limit_allows_five_submissions(self, client, db_session):
+    async def test_rate_limit_allows_five_submissions(self, client, db_session):
         """Test that 5 submissions are allowed within the rate limit."""
         # Clear any existing rate limits by using unique client IP simulation
         # The test client uses testclient as the IP by default
@@ -320,13 +327,13 @@ class TestFeedbackRateLimiting:
                 "description": f"This is test submission number {i} within the rate limit.",
             }
 
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
 
             assert response.status_code == 201, f"Submission {i+1} should succeed"
             data = response.json()
             assert data["success"] is True
 
-    def test_rate_limit_blocks_sixth_submission(self, client):
+    async def test_rate_limit_blocks_sixth_submission(self, client):
         """Test that the 6th submission within the window returns 429 status."""
         # Submit 5 allowed requests
         for i in range(5):
@@ -336,7 +343,7 @@ class TestFeedbackRateLimiting:
                 "category": "bug_report",
                 "description": f"Rate limit test submission number {i}.",
             }
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
             assert response.status_code == 201
 
         # 6th request should be rate limited
@@ -347,7 +354,7 @@ class TestFeedbackRateLimiting:
             "description": "This submission should be rate limited.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 429  # Too Many Requests
         data = response.json()["detail"]
@@ -355,7 +362,7 @@ class TestFeedbackRateLimiting:
         assert "Too many feedback submissions" in data["message"]
         assert "retry_after" in data
 
-    def test_rate_limit_includes_retry_after_header(self, client):
+    async def test_rate_limit_includes_retry_after_header(self, client):
         """Test that rate limit response includes Retry-After header."""
         # Submit 5 allowed requests
         for i in range(5):
@@ -365,7 +372,7 @@ class TestFeedbackRateLimiting:
                 "category": "bug_report",
                 "description": f"Retry header test submission {i}.",
             }
-            client.post("/v1/feedback/submit", json=feedback_data)
+            await client.post("/v1/feedback/submit", json=feedback_data)
 
         # 6th request should include Retry-After header
         feedback_data = {
@@ -375,7 +382,7 @@ class TestFeedbackRateLimiting:
             "description": "Testing Retry-After header.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 429
         # The Retry-After header might not be set by TestClient or middleware
@@ -383,7 +390,7 @@ class TestFeedbackRateLimiting:
         data = response.json()["detail"]
         assert "retry_after" in data
 
-    def test_rate_limit_cannot_be_bypassed_with_spoofed_header(self, client):
+    async def test_rate_limit_cannot_be_bypassed_with_spoofed_header(self, client):
         """Test that spoofing X-Forwarded-For cannot bypass rate limiting (BTS-221)."""
         feedback_data_base = {
             "name": "Attacker",
@@ -396,7 +403,7 @@ class TestFeedbackRateLimiting:
         for i in range(5):
             feedback_data = feedback_data_base.copy()
             feedback_data["email"] = f"attacker{i}@example.com"
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
             assert response.status_code == 201
 
         # Try to bypass rate limit by spoofing X-Forwarded-For
@@ -413,7 +420,7 @@ class TestFeedbackRateLimiting:
 
         for spoofed_ip in spoofed_ips:
             headers = {"X-Forwarded-For": spoofed_ip}
-            response = client.post(
+            response = await client.post(
                 "/v1/feedback/submit", json=feedback_data, headers=headers
             )
             # Should be rate limited (429) because spoofed header is ignored
@@ -421,7 +428,7 @@ class TestFeedbackRateLimiting:
                 response.status_code == 429
             ), f"Spoofed IP {spoofed_ip} should not bypass rate limiting"
 
-    def test_rate_limit_with_envoy_header_per_unique_ip(self, client):
+    async def test_rate_limit_with_envoy_header_per_unique_ip(self, client):
         """Test that rate limiting works correctly with X-Envoy-External-Address."""
         feedback_data_base = {
             "name": "Railway User",
@@ -443,7 +450,7 @@ class TestFeedbackRateLimiting:
             feedback_data["email"] = f"user_{ip.replace('.', '_')}@example.com"
             headers = {"X-Envoy-External-Address": ip}
 
-            response = client.post(
+            response = await client.post(
                 "/v1/feedback/submit", json=feedback_data, headers=headers
             )
             assert (
@@ -454,7 +461,7 @@ class TestFeedbackRateLimiting:
 class TestFeedbackHeaderExtraction:
     """Tests for extracting request headers in feedback submission."""
 
-    def test_submit_feedback_captures_app_version(self, client, db_session):
+    async def test_submit_feedback_captures_app_version(self, client, db_session):
         """Test that X-App-Version header is captured in database."""
         feedback_data = {
             "name": "Header Test User",
@@ -464,7 +471,7 @@ class TestFeedbackHeaderExtraction:
         }
 
         headers = {"X-App-Version": "1.2.3"}
-        response = client.post(
+        response = await client.post(
             "/v1/feedback/submit", json=feedback_data, headers=headers
         )
 
@@ -472,14 +479,15 @@ class TestFeedbackHeaderExtraction:
         data = response.json()
 
         # Verify in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission.app_version == "1.2.3"
 
-    def test_submit_feedback_captures_ios_version(self, client, db_session):
+    async def test_submit_feedback_captures_ios_version(self, client, db_session):
         """Test that X-Platform header is captured as ios_version in database."""
         feedback_data = {
             "name": "Platform Test User",
@@ -489,7 +497,7 @@ class TestFeedbackHeaderExtraction:
         }
 
         headers = {"X-Platform": "iOS 17.0"}
-        response = client.post(
+        response = await client.post(
             "/v1/feedback/submit", json=feedback_data, headers=headers
         )
 
@@ -497,14 +505,15 @@ class TestFeedbackHeaderExtraction:
         data = response.json()
 
         # Verify in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission.ios_version == "iOS 17.0"
 
-    def test_submit_feedback_captures_device_id(self, client, db_session):
+    async def test_submit_feedback_captures_device_id(self, client, db_session):
         """Test that X-Device-ID header is captured in database."""
         feedback_data = {
             "name": "Device Test User",
@@ -514,7 +523,7 @@ class TestFeedbackHeaderExtraction:
         }
 
         headers = {"X-Device-ID": "ABC123DEF456"}
-        response = client.post(
+        response = await client.post(
             "/v1/feedback/submit", json=feedback_data, headers=headers
         )
 
@@ -522,14 +531,15 @@ class TestFeedbackHeaderExtraction:
         data = response.json()
 
         # Verify in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission.device_id == "ABC123DEF456"
 
-    def test_submit_feedback_with_all_headers(self, client, db_session):
+    async def test_submit_feedback_with_all_headers(self, client, db_session):
         """Test submitting feedback with all optional headers present."""
         feedback_data = {
             "name": "All Headers User",
@@ -544,7 +554,7 @@ class TestFeedbackHeaderExtraction:
             "X-Device-ID": "DEVICE-XYZ-789",
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/feedback/submit", json=feedback_data, headers=headers
         )
 
@@ -552,16 +562,17 @@ class TestFeedbackHeaderExtraction:
         data = response.json()
 
         # Verify all headers in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission.app_version == "2.0.1"
         assert submission.ios_version == "iOS 16.5"
         assert submission.device_id == "DEVICE-XYZ-789"
 
-    def test_submit_feedback_without_headers(self, client, db_session):
+    async def test_submit_feedback_without_headers(self, client, db_session):
         """Test submitting feedback without optional headers (should be None)."""
         feedback_data = {
             "name": "No Headers User",
@@ -570,17 +581,18 @@ class TestFeedbackHeaderExtraction:
             "description": "Testing submission without any optional headers.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
 
         # Verify headers are None in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission.app_version is None
         assert submission.ios_version is None
         assert submission.device_id is None
@@ -589,7 +601,7 @@ class TestFeedbackHeaderExtraction:
 class TestFeedbackSQLInjectionPrevention:
     """Tests for SQL injection prevention in feedback submission."""
 
-    def test_submit_feedback_name_sql_injection_attempt(self, client):
+    async def test_submit_feedback_name_sql_injection_attempt(self, client):
         """Test that SQL injection attempts in name field are blocked."""
         feedback_data = {
             "name": "'; DROP TABLE feedback_submissions; --",
@@ -598,12 +610,12 @@ class TestFeedbackSQLInjectionPrevention:
             "description": "Testing SQL injection in name field.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         # Should be rejected by validation
         assert response.status_code == 422
 
-    def test_submit_feedback_description_sql_injection_attempt(self, client):
+    async def test_submit_feedback_description_sql_injection_attempt(self, client):
         """Test that SQL injection attempts in description field are blocked."""
         feedback_data = {
             "name": "Test User",
@@ -612,12 +624,14 @@ class TestFeedbackSQLInjectionPrevention:
             "description": "' OR '1'='1'; DELETE FROM users; --",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         # Should be rejected by validation
         assert response.status_code == 422
 
-    def test_submit_feedback_valid_special_characters_allowed(self, client, db_session):
+    async def test_submit_feedback_valid_special_characters_allowed(
+        self, client, db_session
+    ):
         """Test that legitimate special characters in feedback are allowed."""
         feedback_data = {
             "name": "John OBrien",
@@ -626,17 +640,18 @@ class TestFeedbackSQLInjectionPrevention:
             "description": "I would like to see better support for users. Can we add this feature?",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
 
         # Verify in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission.name == "John OBrien"
         assert "I would like to see" in submission.description
 
@@ -644,7 +659,7 @@ class TestFeedbackSQLInjectionPrevention:
 class TestFeedbackIPAddressNotStored:
     """Tests verifying IP addresses are NOT stored for privacy compliance."""
 
-    def test_submit_feedback_does_not_store_ip_address(self, client, db_session):
+    async def test_submit_feedback_does_not_store_ip_address(self, client, db_session):
         """Test that IP address is NOT stored in database (privacy compliance)."""
         feedback_data = {
             "name": "Privacy User",
@@ -653,20 +668,21 @@ class TestFeedbackIPAddressNotStored:
             "description": "Testing that IP addresses are not persisted.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
 
         # Verify IP address is NULL in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission.ip_address is None
 
-    def test_submit_feedback_with_envoy_header_still_not_stored(
+    async def test_submit_feedback_with_envoy_header_still_not_stored(
         self, client, db_session
     ):
         """Test that IP address from X-Envoy-External-Address is NOT stored."""
@@ -678,7 +694,7 @@ class TestFeedbackIPAddressNotStored:
         }
 
         headers = {"X-Envoy-External-Address": "203.0.113.45"}
-        response = client.post(
+        response = await client.post(
             "/v1/feedback/submit", json=feedback_data, headers=headers
         )
 
@@ -686,18 +702,19 @@ class TestFeedbackIPAddressNotStored:
         data = response.json()
 
         # Verify IP is still NULL even when header is present
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission.ip_address is None
 
 
 class TestFeedbackDatabaseErrorHandling:
     """Tests for database error handling in feedback submission."""
 
-    def test_submit_feedback_database_error_returns_500(self, client, db_session):
+    async def test_submit_feedback_database_error_returns_500(self, client, db_session):
         """Test that database errors during feedback submission return 500."""
         feedback_data = {
             "name": "DB Error User",
@@ -713,7 +730,7 @@ class TestFeedbackDatabaseErrorHandling:
         )
 
         try:
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
             assert response.status_code == 500
             data = response.json()
             assert (
@@ -724,7 +741,9 @@ class TestFeedbackDatabaseErrorHandling:
             # Restore original commit
             db_session.commit = original_commit
 
-    def test_submit_feedback_database_error_triggers_rollback(self, client, db_session):
+    async def test_submit_feedback_database_error_triggers_rollback(
+        self, client, db_session
+    ):
         """Test that database errors trigger rollback."""
         feedback_data = {
             "name": "Rollback Test",
@@ -742,7 +761,7 @@ class TestFeedbackDatabaseErrorHandling:
         db_session.rollback = mock_rollback
 
         try:
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
             assert response.status_code == 500
 
             # Verify rollback was called
@@ -752,7 +771,7 @@ class TestFeedbackDatabaseErrorHandling:
             db_session.commit = original_commit
             db_session.rollback = original_rollback
 
-    def test_submit_feedback_database_error_logs_error(self, client, db_session):
+    async def test_submit_feedback_database_error_logs_error(self, client, db_session):
         """Test that database errors are logged."""
         feedback_data = {
             "name": "Log Test User",
@@ -767,7 +786,7 @@ class TestFeedbackDatabaseErrorHandling:
 
         try:
             with patch("app.api.v1.feedback.logger") as mock_logger:
-                response = client.post("/v1/feedback/submit", json=feedback_data)
+                response = await client.post("/v1/feedback/submit", json=feedback_data)
                 assert response.status_code == 500
 
                 # Verify error was logged
@@ -782,7 +801,7 @@ class TestFeedbackDatabaseErrorHandling:
 class TestFeedbackEdgeCases:
     """Tests for edge cases in feedback submission."""
 
-    def test_submit_feedback_description_with_newlines(self, client, db_session):
+    async def test_submit_feedback_description_with_newlines(self, client, db_session):
         """Test submitting feedback with newlines in description."""
         feedback_data = {
             "name": "Newline Test User",
@@ -791,22 +810,23 @@ class TestFeedbackEdgeCases:
             "description": "This is line 1.\nThis is line 2.\nThis is line 3.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
 
         # Verify newlines are preserved
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert "\n" in submission.description
         assert "line 1" in submission.description
         assert "line 3" in submission.description
 
-    def test_submit_feedback_description_with_unicode(self, client, db_session):
+    async def test_submit_feedback_description_with_unicode(self, client, db_session):
         """Test submitting feedback with Unicode characters."""
         feedback_data = {
             "name": "Unicode User",
@@ -815,22 +835,23 @@ class TestFeedbackEdgeCases:
             "description": "Great app! 👍 Works perfectly. Merci beaucoup! 日本語もOK",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
 
         # Verify Unicode is preserved
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert "👍" in submission.description
         assert "Merci" in submission.description
         assert "日本語" in submission.description
 
-    def test_submit_feedback_email_case_handling(self, client, db_session):
+    async def test_submit_feedback_email_case_handling(self, client, db_session):
         """Test email case handling in feedback submission."""
         feedback_data = {
             "name": "Case Test User",
@@ -839,23 +860,26 @@ class TestFeedbackEdgeCases:
             "description": "Testing email case handling.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
 
         # Verify email is stored (Pydantic EmailStr may normalize domain to lowercase)
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         # Pydantic EmailStr normalizes at least the domain part to lowercase
         assert submission.email.lower() == "test.user@example.com"
         # But the actual stored value depends on Pydantic version behavior
         assert "@example.com" in submission.email.lower()
 
-    def test_submit_feedback_description_exact_minimum_length(self, client, db_session):
+    async def test_submit_feedback_description_exact_minimum_length(
+        self, client, db_session
+    ):
         """Test submitting feedback with exactly 10 characters (minimum)."""
         feedback_data = {
             "name": "Min Length User",
@@ -864,20 +888,23 @@ class TestFeedbackEdgeCases:
             "description": "1234567890",  # Exactly 10 characters
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
 
         # Verify in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert len(submission.description) == 10
 
-    def test_submit_feedback_description_exact_maximum_length(self, client, db_session):
+    async def test_submit_feedback_description_exact_maximum_length(
+        self, client, db_session
+    ):
         """Test submitting feedback with exactly 5000 characters (maximum)."""
         feedback_data = {
             "name": "Max Length User",
@@ -886,20 +913,21 @@ class TestFeedbackEdgeCases:
             "description": "A" * 5000,  # Exactly 5000 characters
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
 
         # Verify in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert len(submission.description) == 5000
 
-    def test_submit_feedback_with_invalid_auth_token(self, client, db_session):
+    async def test_submit_feedback_with_invalid_auth_token(self, client, db_session):
         """Test that invalid auth token is ignored (feedback still submitted)."""
         feedback_data = {
             "name": "Invalid Token User",
@@ -909,7 +937,7 @@ class TestFeedbackEdgeCases:
         }
 
         headers = {"Authorization": "Bearer invalid_token_here"}
-        response = client.post(
+        response = await client.post(
             "/v1/feedback/submit", json=feedback_data, headers=headers
         )
 
@@ -918,14 +946,15 @@ class TestFeedbackEdgeCases:
         data = response.json()
 
         # Verify user_id is None (authentication failed but submission succeeded)
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission.user_id is None
 
-    def test_submit_feedback_name_with_maximum_length(self, client, db_session):
+    async def test_submit_feedback_name_with_maximum_length(self, client, db_session):
         """Test submitting feedback with name at exactly 100 characters (maximum)."""
         feedback_data = {
             "name": "A" * 100,  # Exactly 100 characters
@@ -934,24 +963,25 @@ class TestFeedbackEdgeCases:
             "description": "Testing maximum name length.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
 
         # Verify in database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert len(submission.name) == 100
 
 
 class TestFeedbackNotificationErrorHandling:
     """Tests for email notification error handling in feedback submission."""
 
-    def test_submit_feedback_succeeds_when_notification_returns_false(
+    async def test_submit_feedback_succeeds_when_notification_returns_false(
         self, client, db_session
     ):
         """Test that feedback submission succeeds even when notification returns False."""
@@ -967,7 +997,7 @@ class TestFeedbackNotificationErrorHandling:
             "app.api.v1.feedback._send_feedback_notification",
             return_value=False,
         ):
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         # Should still succeed - notification failure shouldn't crash the endpoint
         assert response.status_code == 201
@@ -976,15 +1006,16 @@ class TestFeedbackNotificationErrorHandling:
         assert "submission_id" in data
 
         # Verify feedback was saved to database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission is not None
         assert submission.email == "notifail@example.com"
 
-    def test_notification_success_is_logged_correctly(self, client, db_session):
+    async def test_notification_success_is_logged_correctly(self, client, db_session):
         """Test that notification success status is logged for monitoring."""
         feedback_data = {
             "name": "Log Test User",
@@ -994,7 +1025,7 @@ class TestFeedbackNotificationErrorHandling:
         }
 
         with patch("app.api.v1.feedback.logger") as mock_logger:
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         # Should succeed
         assert response.status_code == 201
@@ -1022,7 +1053,7 @@ class TestFeedbackNotificationErrorHandling:
 
         assert result is False
 
-    def test_notification_returns_true_on_success(self, db_session):
+    async def test_notification_returns_true_on_success(self, db_session):
         """Test that _send_feedback_notification returns True on success."""
         from app.api.v1.feedback import _send_feedback_notification
         from app.models import FeedbackCategory
@@ -1063,7 +1094,7 @@ class TestFeedbackNotificationErrorHandling:
         log_message = str(mock_logger.error.call_args)
         assert "feedback_id=12345" in log_message
 
-    def test_notification_failure_logged_as_false(self, client, db_session):
+    async def test_notification_failure_logged_as_false(self, client, db_session):
         """Test that notification failure is logged with notification_sent=False."""
         feedback_data = {
             "name": "Status Log User",
@@ -1078,7 +1109,7 @@ class TestFeedbackNotificationErrorHandling:
                 "app.api.v1.feedback._send_feedback_notification",
                 return_value=False,
             ):
-                response = client.post("/v1/feedback/submit", json=feedback_data)
+                response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
 
@@ -1092,7 +1123,7 @@ class TestFeedbackNotificationErrorHandling:
 class TestRateLimiterErrorHandling:
     """Tests for rate limiter error handling in feedback submission."""
 
-    def test_submit_feedback_succeeds_when_rate_limiter_throws_exception(
+    async def test_submit_feedback_succeeds_when_rate_limiter_throws_exception(
         self, client, db_session
     ):
         """Test that feedback submission succeeds when rate limiter fails (fail-open)."""
@@ -1108,7 +1139,7 @@ class TestRateLimiterErrorHandling:
             "app.api.v1.feedback.feedback_limiter.check",
             side_effect=RuntimeError("Redis connection failed"),
         ):
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         # Should succeed because we fail-open
         assert response.status_code == 201
@@ -1117,15 +1148,16 @@ class TestRateLimiterErrorHandling:
         assert "submission_id" in data
 
         # Verify feedback was saved to database
-        submission = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.id == data["submission_id"])
-            .first()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.id == data["submission_id"]
+            )
         )
+        submission = _result.scalars().first()
         assert submission is not None
         assert submission.email == "rlerror@example.com"
 
-    def test_rate_limiter_error_logs_warning(self, client, db_session):
+    async def test_rate_limiter_error_logs_warning(self, client, db_session):
         """Test that rate limiter errors are logged as warnings."""
         feedback_data = {
             "name": "Log Warning User",
@@ -1139,7 +1171,7 @@ class TestRateLimiterErrorHandling:
             side_effect=ConnectionError("Storage backend unavailable"),
         ):
             with patch("app.api.v1.feedback.logger") as mock_logger:
-                response = client.post("/v1/feedback/submit", json=feedback_data)
+                response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
 
@@ -1150,7 +1182,7 @@ class TestRateLimiterErrorHandling:
         assert "ConnectionError" in warning_message
         assert "fail-open" in warning_message
 
-    def test_rate_limiter_error_logs_client_ip(self, client, db_session):
+    async def test_rate_limiter_error_logs_client_ip(self, client, db_session):
         """Test that rate limiter error logs include client IP for debugging."""
         feedback_data = {
             "name": "IP Log User",
@@ -1164,7 +1196,7 @@ class TestRateLimiterErrorHandling:
             side_effect=TimeoutError("Rate limiter timed out"),
         ):
             with patch("app.api.v1.feedback.logger") as mock_logger:
-                response = client.post("/v1/feedback/submit", json=feedback_data)
+                response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
 
@@ -1172,7 +1204,7 @@ class TestRateLimiterErrorHandling:
         warning_message = str(mock_logger.warning.call_args)
         assert "client_ip=" in warning_message
 
-    def test_rate_limit_429_still_returned_when_limit_exceeded(self, client):
+    async def test_rate_limit_429_still_returned_when_limit_exceeded(self, client):
         """Test that 429 is still returned when rate limit is exceeded (not an error)."""
         # Submit 5 allowed requests
         for i in range(5):
@@ -1182,7 +1214,7 @@ class TestRateLimiterErrorHandling:
                 "category": "bug_report",
                 "description": f"Testing rate limit still works after adding error handling {i}.",
             }
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
             assert response.status_code == 201
 
         # 6th request should still be rate limited
@@ -1193,13 +1225,13 @@ class TestRateLimiterErrorHandling:
             "description": "This should be rate limited.",
         }
 
-        response = client.post("/v1/feedback/submit", json=feedback_data)
+        response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 429
         data = response.json()["detail"]
         assert data["error"] == "Rate limit exceeded"
 
-    def test_rate_limiter_redis_error_allows_request(self, client, db_session):
+    async def test_rate_limiter_redis_error_allows_request(self, client, db_session):
         """Test that Redis-specific errors allow request to proceed."""
         feedback_data = {
             "name": "Redis Error User",
@@ -1215,13 +1247,13 @@ class TestRateLimiterErrorHandling:
                 "READONLY You can't write against a read only replica"
             ),
         ):
-            response = client.post("/v1/feedback/submit", json=feedback_data)
+            response = await client.post("/v1/feedback/submit", json=feedback_data)
 
         assert response.status_code == 201
         data = response.json()
         assert data["success"] is True
 
-    def test_multiple_requests_succeed_when_rate_limiter_fails(
+    async def test_multiple_requests_succeed_when_rate_limiter_fails(
         self, client, db_session
     ):
         """Test that multiple requests can succeed when rate limiter is failing."""
@@ -1238,16 +1270,17 @@ class TestRateLimiterErrorHandling:
                 "app.api.v1.feedback.feedback_limiter.check",
                 side_effect=RuntimeError("Rate limiter unavailable"),
             ):
-                response = client.post("/v1/feedback/submit", json=feedback_data)
+                response = await client.post("/v1/feedback/submit", json=feedback_data)
 
             assert response.status_code == 201, f"Request {i} should succeed"
 
         # Verify all 10 submissions were saved
-        submissions = (
-            db_session.query(FeedbackSubmission)
-            .filter(FeedbackSubmission.email.like("unlimited%@example.com"))
-            .all()
+        _result = await db_session.execute(
+            select(FeedbackSubmission).filter(
+                FeedbackSubmission.email.like("unlimited%@example.com")
+            )
         )
+        submissions = _result.scalars().all()
         assert len(submissions) == 10
 
 

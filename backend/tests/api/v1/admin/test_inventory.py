@@ -9,8 +9,8 @@ Tests cover:
 - Empty database edge case
 - Authentication requirements
 """
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DifficultyLevel, Question, QuestionType
 
@@ -18,27 +18,27 @@ from app.models import DifficultyLevel, Question, QuestionType
 class TestInventoryHealth:
     """Tests for GET /v1/admin/inventory-health endpoint."""
 
-    def test_inventory_health_requires_admin_token(
+    async def test_inventory_health_requires_admin_token(
         self,
-        client: TestClient,
+        client: AsyncClient,
     ):
         """Test that endpoint requires admin token."""
-        response = client.get("/v1/admin/inventory-health")
+        response = await client.get("/v1/admin/inventory-health")
         assert response.status_code == 422  # Missing required header
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health",
             headers={"X-Admin-Token": "invalid-token"},
         )
         assert response.status_code == 401
 
-    def test_inventory_health_empty_database(
+    async def test_inventory_health_empty_database(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
     ):
         """Test inventory health with no questions."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health",
             headers=admin_headers,
         )
@@ -65,11 +65,11 @@ class TestInventoryHealth:
         assert data["summary"]["warning"] == 0
         assert data["summary"]["critical"] == 18
 
-    def test_inventory_health_with_questions(
+    async def test_inventory_health_with_questions(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test inventory health with mixed question counts."""
         # Create questions in different strata with varying counts
@@ -121,9 +121,9 @@ class TestInventoryHealth:
             )
             db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health",
             headers=admin_headers,
         )
@@ -208,11 +208,11 @@ class TestInventoryHealth:
         assert pattern_medium_alerts[0]["count"] == 35
         assert "Low inventory" in pattern_medium_alerts[0]["message"]
 
-    def test_inventory_health_excludes_flagged_questions(
+    async def test_inventory_health_excludes_flagged_questions(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that under_review and deactivated questions are excluded."""
         # Create normal questions
@@ -251,9 +251,9 @@ class TestInventoryHealth:
             )
             db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health",
             headers=admin_headers,
         )
@@ -270,11 +270,11 @@ class TestInventoryHealth:
         assert math_medium["count"] == 30
         assert math_medium["status"] == "warning"  # Below 50 threshold
 
-    def test_inventory_health_excludes_inactive_questions(
+    async def test_inventory_health_excludes_inactive_questions(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that inactive questions are excluded from inventory."""
         # Create active questions
@@ -301,9 +301,9 @@ class TestInventoryHealth:
             )
             db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health",
             headers=admin_headers,
         )
@@ -320,11 +320,11 @@ class TestInventoryHealth:
         assert verbal_easy["count"] == 25
         assert verbal_easy["status"] == "warning"
 
-    def test_inventory_health_custom_thresholds(
+    async def test_inventory_health_custom_thresholds(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test custom threshold parameters."""
         # Create 40 questions
@@ -339,10 +339,10 @@ class TestInventoryHealth:
             )
             db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
         # With default thresholds (50/20), 40 should be warning
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health",
             headers=admin_headers,
         )
@@ -358,7 +358,7 @@ class TestInventoryHealth:
         assert memory_hard["status"] == "warning"
 
         # With custom thresholds (30/10), 40 should be healthy
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health?healthy_min=30&warning_min=10",
             headers=admin_headers,
         )
@@ -379,14 +379,14 @@ class TestInventoryHealth:
         # Should have fewer alerts with lower thresholds
         assert len(data["alerts"]) < 18  # Not all strata will be below threshold
 
-    def test_inventory_health_threshold_validation(
+    async def test_inventory_health_threshold_validation(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
     ):
         """Test that warning_min must be <= healthy_min."""
         # Invalid: warning_min > healthy_min
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health?healthy_min=20&warning_min=50",
             headers=admin_headers,
         )
@@ -394,11 +394,11 @@ class TestInventoryHealth:
         assert "warning_min" in response.json()["detail"]
         assert "must be <=" in response.json()["detail"]
 
-    def test_inventory_health_alert_sorting(
+    async def test_inventory_health_alert_sorting(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that alerts are sorted by severity (critical first) then count."""
         # Create questions with various counts to generate mixed alerts
@@ -438,9 +438,9 @@ class TestInventoryHealth:
             )
             db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health",
             headers=admin_headers,
         )
@@ -476,11 +476,11 @@ class TestInventoryHealth:
         # Among critical alerts, lower count should come first
         assert spatial_hard_idx < pattern_easy_idx
 
-    def test_inventory_health_strata_sorting(
+    async def test_inventory_health_strata_sorting(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that strata are sorted by type then difficulty."""
         # Create a few questions to have non-empty strata
@@ -496,9 +496,9 @@ class TestInventoryHealth:
                 )
                 db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health",
             headers=admin_headers,
         )
@@ -519,11 +519,11 @@ class TestInventoryHealth:
 
             prev_sort_key = current_sort_key
 
-    def test_inventory_health_response_structure(
+    async def test_inventory_health_response_structure(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test complete response structure matches schema."""
         # Create a single question for non-empty response
@@ -536,9 +536,9 @@ class TestInventoryHealth:
             quality_flag="normal",
         )
         db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/inventory-health",
             headers=admin_headers,
         )

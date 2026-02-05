@@ -19,7 +19,7 @@ def admin_headers():
 
 
 @pytest.fixture
-def user_eligible_for_day_30(db_session):
+async def user_eligible_for_day_30(db_session):
     """Create a user eligible for Day 30 reminder (first test 30 days ago)."""
     user = User(
         email="day30test@example.com",
@@ -30,8 +30,8 @@ def user_eligible_for_day_30(db_session):
         apns_device_token="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
     )
     db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    await db_session.commit()
+    await db_session.refresh(user)
 
     # Create a test session and result from 30 days ago
     thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
@@ -43,8 +43,8 @@ def user_eligible_for_day_30(db_session):
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
-    db_session.commit()
-    db_session.refresh(test_session)
+    await db_session.commit()
+    await db_session.refresh(test_session)
 
     test_result = TestResult(
         test_session_id=test_session.id,
@@ -56,13 +56,13 @@ def user_eligible_for_day_30(db_session):
         completed_at=thirty_days_ago,
     )
     db_session.add(test_result)
-    db_session.commit()
+    await db_session.commit()
 
     return user
 
 
 @pytest.fixture
-def user_not_eligible_for_day_30(db_session):
+async def user_not_eligible_for_day_30(db_session):
     """Create a user not eligible for Day 30 reminder (first test 10 days ago)."""
     user = User(
         email="recent_test@example.com",
@@ -73,8 +73,8 @@ def user_not_eligible_for_day_30(db_session):
         apns_device_token="b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6a1",
     )
     db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    await db_session.commit()
+    await db_session.refresh(user)
 
     # Create a test session and result from 10 days ago
     ten_days_ago = utc_now() - timedelta(days=10)
@@ -86,8 +86,8 @@ def user_not_eligible_for_day_30(db_session):
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
-    db_session.commit()
-    db_session.refresh(test_session)
+    await db_session.commit()
+    await db_session.refresh(test_session)
 
     test_result = TestResult(
         test_session_id=test_session.id,
@@ -99,7 +99,7 @@ def user_not_eligible_for_day_30(db_session):
         completed_at=ten_days_ago,
     )
     db_session.add(test_result)
-    db_session.commit()
+    await db_session.commit()
 
     return user
 
@@ -108,11 +108,11 @@ class TestDay30RemindersPreview:
     """Tests for GET /v1/admin/day-30-reminders/preview endpoint."""
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_preview_returns_eligible_users(
+    async def test_preview_returns_eligible_users(
         self, client, admin_headers, user_eligible_for_day_30
     ):
         """Test that preview returns users eligible for Day 30 reminder."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/day-30-reminders/preview",
             headers=admin_headers,
         )
@@ -126,11 +126,11 @@ class TestDay30RemindersPreview:
         assert data["users"][0]["has_device_token"] is True
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_preview_excludes_ineligible_users(
+    async def test_preview_excludes_ineligible_users(
         self, client, admin_headers, user_not_eligible_for_day_30
     ):
         """Test that preview excludes users not eligible for Day 30 reminder."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/day-30-reminders/preview",
             headers=admin_headers,
         )
@@ -141,7 +141,7 @@ class TestDay30RemindersPreview:
         assert len(data["users"]) == 0
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_preview_respects_limit(self, client, admin_headers, db_session):
+    async def test_preview_respects_limit(self, client, admin_headers, db_session):
         """Test that preview respects the limit parameter."""
         # Create 5 eligible users
         for i in range(5):
@@ -154,8 +154,8 @@ class TestDay30RemindersPreview:
                 apns_device_token=f"token{i}" + "0" * 32,
             )
             db_session.add(user)
-            db_session.commit()
-            db_session.refresh(user)
+            await db_session.commit()
+            await db_session.refresh(user)
 
             # Create test from 30 days ago
             thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
@@ -166,8 +166,8 @@ class TestDay30RemindersPreview:
                 status=TestStatus.COMPLETED,
             )
             db_session.add(test_session)
-            db_session.commit()
-            db_session.refresh(test_session)
+            await db_session.commit()
+            await db_session.refresh(test_session)
 
             test_result = TestResult(
                 test_session_id=test_session.id,
@@ -179,9 +179,9 @@ class TestDay30RemindersPreview:
                 completed_at=thirty_days_ago,
             )
             db_session.add(test_result)
-            db_session.commit()
+            await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/day-30-reminders/preview?limit=3",
             headers=admin_headers,
         )
@@ -191,15 +191,15 @@ class TestDay30RemindersPreview:
         assert data["users_count"] == 5  # Total count
         assert len(data["users"]) == 3  # Limited to 3
 
-    def test_preview_requires_admin_token(self, client):
+    async def test_preview_requires_admin_token(self, client):
         """Test that preview endpoint requires admin authentication."""
-        response = client.get("/v1/admin/day-30-reminders/preview")
+        response = await client.get("/v1/admin/day-30-reminders/preview")
 
         assert response.status_code == 422  # Missing required header
 
-    def test_preview_rejects_invalid_token(self, client):
+    async def test_preview_rejects_invalid_token(self, client):
         """Test that preview endpoint rejects invalid admin token."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/day-30-reminders/preview",
             headers={"X-Admin-Token": "invalid-token"},
         )
@@ -212,7 +212,7 @@ class TestDay30RemindersSend:
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
     @patch("app.services.apns_service.APNsService")
-    def test_send_processes_eligible_users(
+    async def test_send_processes_eligible_users(
         self, mock_apns_class, client, admin_headers, user_eligible_for_day_30
     ):
         """Test that send endpoint processes eligible users and sends notifications."""
@@ -225,7 +225,7 @@ class TestDay30RemindersSend:
         )
         mock_apns_class.return_value = mock_apns
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/day-30-reminders/send",
             headers=admin_headers,
         )
@@ -243,11 +243,11 @@ class TestDay30RemindersSend:
         mock_apns.disconnect.assert_called_once()
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    def test_send_returns_zero_when_no_eligible_users(
+    async def test_send_returns_zero_when_no_eligible_users(
         self, client, admin_headers, user_not_eligible_for_day_30
     ):
         """Test that send returns zeros when no users are eligible."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/day-30-reminders/send",
             headers=admin_headers,
         )
@@ -259,15 +259,15 @@ class TestDay30RemindersSend:
         assert data["success"] == 0
         assert data["failed"] == 0
 
-    def test_send_requires_admin_token(self, client):
+    async def test_send_requires_admin_token(self, client):
         """Test that send endpoint requires admin authentication."""
-        response = client.post("/v1/admin/day-30-reminders/send")
+        response = await client.post("/v1/admin/day-30-reminders/send")
 
         assert response.status_code == 422  # Missing required header
 
-    def test_send_rejects_invalid_token(self, client):
+    async def test_send_rejects_invalid_token(self, client):
         """Test that send endpoint rejects invalid admin token."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/day-30-reminders/send",
             headers={"X-Admin-Token": "invalid-token"},
         )

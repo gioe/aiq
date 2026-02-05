@@ -12,8 +12,8 @@ from enum import Enum
 from typing import Optional, Dict, Any, List, Tuple
 
 import numpy as np
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.models import (
@@ -341,8 +341,8 @@ class ResponseMatrixResult:
 DEFAULT_RESPONSE_LIMIT = 10000
 
 
-def build_response_matrix(
-    db: Session,
+async def build_response_matrix(
+    db: AsyncSession,
     min_responses_per_question: int = 30,
     min_questions_per_session: int = 10,
     max_responses: int = DEFAULT_RESPONSE_LIMIT,
@@ -393,18 +393,18 @@ def build_response_matrix(
           analysis or running analysis on time-bounded subsets.
 
     Example:
-        >>> result = build_response_matrix(db, min_responses_per_question=50)
+        >>> result = await build_response_matrix(db, min_responses_per_question=50)
         >>> if result is not None:
         ...     print(f"Matrix shape: {result.n_users} users × {result.n_items} items")
         ...     print(f"Domains: {set(result.question_domains)}")
     """
     # Step 1: Get all completed test sessions
-    completed_sessions = (
-        db.query(TestSession)
+    result = await db.execute(
+        select(TestSession)
         .filter(TestSession.status == TestStatus.COMPLETED)
         .order_by(TestSession.id)
-        .all()
     )
+    completed_sessions = result.scalars().all()
 
     if not completed_sessions:
         return None
@@ -413,12 +413,17 @@ def build_response_matrix(
     session_ids: List[int] = [session.id for session in completed_sessions]
 
     # Step 2: Get responses for completed sessions (with optional limit)
-    base_query = db.query(Response).filter(Response.test_session_id.in_(session_ids))
+    base_query = select(Response).filter(Response.test_session_id.in_(session_ids))
 
     # Get total count before applying limit (for informative warning message)
     total_response_count: Optional[int] = None
     if max_responses:
-        total_response_count = base_query.with_entities(func.count()).scalar()
+        count_result = await db.execute(
+            select(func.count())
+            .select_from(Response)
+            .filter(Response.test_session_id.in_(session_ids))
+        )
+        total_response_count = count_result.scalar()
 
     # Apply limit if specified (0 or None disables the limit)
     # Use ascending order to maintain consistency with session_ids ordering
@@ -428,7 +433,8 @@ def build_response_matrix(
             max_responses
         )
 
-    responses = base_query.all()
+    resp_result = await db.execute(base_query)
+    responses = resp_result.scalars().all()
 
     if not responses:
         return None
@@ -460,13 +466,13 @@ def build_response_matrix(
         return None
 
     # Step 4: Get question details for valid questions (active only)
-    questions = (
-        db.query(Question)
+    q_result = await db.execute(
+        select(Question)
         .filter(Question.id.in_(valid_question_ids))
         .filter(Question.is_active == True)  # noqa: E712
         .order_by(Question.id)
-        .all()
     )
+    questions = q_result.scalars().all()
 
     if not questions:
         return None
@@ -767,7 +773,7 @@ def calculate_g_loadings(
         - Items with zero variance are excluded from analysis.
 
     Example:
-        >>> result = build_response_matrix(db, min_responses_per_question=50)
+        >>> result = await build_response_matrix(db, min_responses_per_question=50)
         >>> if result is not None and result.n_users >= 100:
         ...     g_result = calculate_g_loadings(result)
         ...     print(f"Pattern loading: {g_result.domain_loadings['pattern']:.3f}")

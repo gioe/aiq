@@ -8,9 +8,9 @@ from app.core.datetime_utils import utc_now
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_db, User
 from app.models.models import PasswordResetToken
@@ -79,10 +79,10 @@ def _create_auth_tokens(user: User) -> tuple[str, str]:
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-def register_user(
+async def register_user(
     user_data: UserRegister,
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Register a new user account.
@@ -99,7 +99,8 @@ def register_user(
         HTTPException: 409 if email already exists
     """
     # Check if user already exists
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    result = await db.execute(select(User).filter(User.email == user_data.email))
+    existing_user = result.scalars().first()
     if existing_user:
         raise_conflict(ErrorMessages.EMAIL_ALREADY_REGISTERED)
 
@@ -118,10 +119,10 @@ def register_user(
 
     try:
         db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        await db.commit()
+        await db.refresh(new_user)
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Database error during user registration: {e}")
         raise_server_error(ErrorMessages.ACCOUNT_CREATION_FAILED)
 
@@ -154,10 +155,10 @@ def register_user(
 
 
 @router.post("/login", response_model=Token)
-def login_user(
+async def login_user(
     credentials: UserLogin,
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Authenticate user and return access + refresh tokens.
@@ -177,7 +178,8 @@ def login_user(
     user_agent = get_user_agent_from_request(request)
 
     # Find user by email
-    user = db.query(User).filter(User.email == credentials.email).first()
+    result = await db.execute(select(User).filter(User.email == credentials.email))
+    user = result.scalars().first()
     if not user:
         logger.warning(
             f"Login attempt failed: user not found for email={credentials.email}"
@@ -210,10 +212,10 @@ def login_user(
     # Update last login timestamp
     user.last_login_at = utc_now()
     try:
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(
             f"Database error during login timestamp update for user {user.id}: {e}"
         )
@@ -249,9 +251,9 @@ def login_user(
 
 
 @router.post("/refresh", response_model=TokenRefresh)
-def refresh_access_token(
+async def refresh_access_token(
     current_user: User = Depends(get_current_user_from_refresh_token),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Refresh access token using refresh token.
@@ -278,7 +280,7 @@ def refresh_access_token(
     logger.info(f"Token refresh successful: user_id={current_user.id}")
 
     # Refresh user data from database to ensure it's current
-    db.refresh(current_user)
+    await db.refresh(current_user)
 
     # Create new tokens
     access_token, refresh_token = _create_auth_tokens(current_user)
@@ -352,7 +354,7 @@ def _revoke_token(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout_user(
+async def logout_user(
     request: Request,
     logout_data: LogoutRequest = Body(None),
     current_user: User = Depends(get_current_user),
@@ -419,12 +421,12 @@ def logout_user(
 
 
 @router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
-def logout_all_devices(
+async def logout_all_devices(
     request: Request,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Logout from all devices by invalidating all existing tokens.
@@ -464,9 +466,9 @@ def logout_all_devices(
     # covering all other active sessions beyond the current token.
     try:
         current_user.token_revoked_before = utc_now()
-        db.commit()
+        await db.commit()
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(
             f"Database error during logout-all for user {current_user.id}: {e}"
         )
@@ -510,10 +512,10 @@ TOKEN_INVALIDATION_BATCH_SIZE = 100  # Batch size for invalidating old tokens
 
 
 @router.post("/request-password-reset", response_model=PasswordResetResponse)
-def request_password_reset(
+async def request_password_reset(
     request_data: PasswordResetRequest,
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Request a password reset for an account.
@@ -550,19 +552,19 @@ def request_password_reset(
 
     try:
         # Look up user by email
-        user = db.query(User).filter(User.email == email).first()
+        result = await db.execute(select(User).filter(User.email == email))
+        user = result.scalars().first()
 
         if user:
             # Check token count to prevent resource exhaustion
-            active_token_count = (
-                db.query(func.count(PasswordResetToken.id))
-                .filter(
+            result = await db.execute(
+                select(func.count(PasswordResetToken.id)).filter(
                     PasswordResetToken.user_id == user.id,
                     PasswordResetToken.expires_at > utc_now(),
                     PasswordResetToken.used_at.is_(None),
                 )
-                .scalar()
             )
+            active_token_count = result.scalar()
 
             if active_token_count >= MAX_TOKENS_PER_USER:
                 logger.warning(
@@ -574,24 +576,28 @@ def request_password_reset(
             # Invalidate existing unused tokens in batches to prevent resource exhaustion
             while True:
                 # Get batch of token IDs to invalidate
-                tokens_to_invalidate = (
-                    db.query(PasswordResetToken.id)
+                result = await db.execute(
+                    select(PasswordResetToken.id)
                     .filter(
                         PasswordResetToken.user_id == user.id,
                         PasswordResetToken.used_at.is_(None),
                     )
                     .limit(TOKEN_INVALIDATION_BATCH_SIZE)
-                    .all()
                 )
+                tokens_to_invalidate = result.scalars().all()
 
                 if not tokens_to_invalidate:
                     break
 
-                token_ids = [t.id for t in tokens_to_invalidate]
-                db.query(PasswordResetToken).filter(
-                    PasswordResetToken.id.in_(token_ids)
-                ).update({"used_at": utc_now()}, synchronize_session=False)
-                db.flush()
+                token_ids = list(tokens_to_invalidate)
+                from sqlalchemy import update
+
+                await db.execute(
+                    update(PasswordResetToken)
+                    .where(PasswordResetToken.id.in_(token_ids))
+                    .values(used_at=utc_now())
+                )
+                await db.flush()
 
             # Generate secure random token
             reset_token = secrets.token_urlsafe(PASSWORD_RESET_TOKEN_BYTES)
@@ -608,7 +614,7 @@ def request_password_reset(
                 expires_at=expires_at,
             )
             db.add(token_record)
-            db.commit()
+            await db.commit()
 
             # Send password reset email
             email_sent = send_password_reset_email(
@@ -645,7 +651,7 @@ def request_password_reset(
             )
 
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Database error during password reset request: {e}")
         # Return generic message even on error to prevent information leakage
         return PasswordResetResponse(message=generic_message)
@@ -660,10 +666,10 @@ def request_password_reset(
 
 
 @router.post("/reset-password", response_model=PasswordResetConfirmResponse)
-def reset_password(
+async def reset_password(
     reset_data: PasswordResetConfirm,
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Reset password using a valid reset token.
@@ -699,14 +705,13 @@ def reset_password(
     try:
         # Use constant-time comparison to prevent timing attacks
         # Fetch candidate tokens (non-expired, unused) and compare securely
-        candidate_tokens = (
-            db.query(PasswordResetToken)
-            .filter(
+        result = await db.execute(
+            select(PasswordResetToken).filter(
                 PasswordResetToken.expires_at > utc_now(),
                 PasswordResetToken.used_at.is_(None),
             )
-            .all()
         )
+        candidate_tokens = result.scalars().all()
 
         # Constant-time token lookup to prevent timing side-channel attacks
         token_record = None
@@ -734,7 +739,7 @@ def reset_password(
             raise_bad_request(ErrorMessages.RESET_TOKEN_INVALID)
 
         # Get associated user
-        user = db.query(User).filter(User.id == token_record.user_id).first()
+        user = await db.get(User, token_record.user_id)
         if not user:
             # This should never happen due to foreign key constraint, but handle defensively
             logger.error(
@@ -751,28 +756,32 @@ def reset_password(
         # Invalidate all other tokens for this user in batches
         # (defensive measure in case multiple reset requests were made)
         while True:
-            tokens_to_invalidate = (
-                db.query(PasswordResetToken.id)
+            result = await db.execute(
+                select(PasswordResetToken.id)
                 .filter(
                     PasswordResetToken.user_id == user.id,
                     PasswordResetToken.id != token_record.id,
                     PasswordResetToken.used_at.is_(None),
                 )
                 .limit(TOKEN_INVALIDATION_BATCH_SIZE)
-                .all()
             )
+            tokens_to_invalidate = result.scalars().all()
 
             if not tokens_to_invalidate:
                 break
 
-            token_ids = [t.id for t in tokens_to_invalidate]
-            db.query(PasswordResetToken).filter(
-                PasswordResetToken.id.in_(token_ids)
-            ).update({"used_at": utc_now()}, synchronize_session=False)
-            db.flush()
+            token_ids = list(tokens_to_invalidate)
+            from sqlalchemy import update
+
+            await db.execute(
+                update(PasswordResetToken)
+                .where(PasswordResetToken.id.in_(token_ids))
+                .values(used_at=utc_now())
+            )
+            await db.flush()
 
         # Commit changes
-        db.commit()
+        await db.commit()
 
         # Log security event for successful password reset
         security_logger.log_password_reset(
@@ -796,6 +805,6 @@ def reset_password(
         )
 
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Database error during password reset: {e}")
         raise_server_error(ErrorMessages.GENERIC_SERVER_ERROR)

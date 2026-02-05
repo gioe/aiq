@@ -27,10 +27,7 @@ Reference:
 """
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from app.models import Base
+from sqlalchemy import select
 from app.models.models import (
     Question,
     QuestionType,
@@ -70,27 +67,7 @@ from app.core.reliability import (
     get_reliability_history,
 )
 
-# Use SQLite in-memory database for tests (no file artifacts)
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-@pytest.fixture(scope="function")
-def db_session():
-    """
-    Create a fresh database session for each test.
-    """
-    Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+# db_session fixture is provided by conftest.py (async)
 
 
 @pytest.fixture(autouse=True)
@@ -115,7 +92,7 @@ def clear_cache_before_test():
 # =============================================================================
 
 
-def create_test_user(db_session, email: str = "test@example.com") -> User:
+async def create_test_user(db_session, email: str = "test@example.com") -> User:
     """Create a test user."""
     user = User(
         email=email,
@@ -124,12 +101,12 @@ def create_test_user(db_session, email: str = "test@example.com") -> User:
         last_name="User",
     )
     db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
 
 
-def create_test_question(
+async def create_test_question(
     db_session,
     question_text: str = "Test question",
     question_type: QuestionType = QuestionType.PATTERN,
@@ -147,12 +124,12 @@ def create_test_question(
         is_active=True,
     )
     db_session.add(question)
-    db_session.commit()
-    db_session.refresh(question)
+    await db_session.commit()
+    await db_session.refresh(question)
     return question
 
 
-def create_completed_test_session(
+async def create_completed_test_session(
     db_session,
     user: User,
     questions: list,
@@ -176,8 +153,8 @@ def create_completed_test_session(
         completed_at=utc_now(),
     )
     db_session.add(session)
-    db_session.commit()
-    db_session.refresh(session)
+    await db_session.commit()
+    await db_session.refresh(session)
 
     # Create responses
     for i, (question, is_correct) in enumerate(zip(questions, responses_correct)):
@@ -201,7 +178,7 @@ def create_completed_test_session(
     )
     db_session.add(test_result)
 
-    db_session.commit()
+    await db_session.commit()
     return session
 
 
@@ -271,9 +248,9 @@ class TestInterpretationThresholds:
 class TestInsufficientData:
     """Tests for handling insufficient data scenarios."""
 
-    def test_no_completed_sessions(self, db_session):
+    async def test_no_completed_sessions(self, db_session):
         """Returns error when no completed test sessions exist."""
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         assert result["cronbachs_alpha"] is None
         assert result["num_sessions"] == 0
@@ -281,56 +258,56 @@ class TestInsufficientData:
         assert "Insufficient data" in result["error"]
         assert result["meets_threshold"] is False
 
-    def test_below_min_sessions_threshold(self, db_session):
+    async def test_below_min_sessions_threshold(self, db_session):
         """Returns error when completed sessions are below minimum threshold."""
         # Create 50 completed sessions (below default 100)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(50):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Create varied responses to ensure some variance
             responses = [i % 2 == j % 2 for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         assert result["cronbachs_alpha"] is None
         assert result["error"] is not None
         assert "Insufficient data: 50 sessions" in result["error"]
 
-    def test_exactly_at_min_sessions_threshold(self, db_session):
+    async def test_exactly_at_min_sessions_threshold(self, db_session):
         """Works when exactly at minimum sessions threshold."""
         # Create exactly 100 completed sessions with varied responses
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(100):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Create varied responses to ensure variance
             responses = [(i + j) % 3 == 0 for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should have enough data now (or at least attempt calculation)
         # May still fail if not enough common questions, but shouldn't fail
         # on session count
         assert result["num_sessions"] >= 100
 
-    def test_custom_min_sessions(self, db_session):
+    async def test_custom_min_sessions(self, db_session):
         """Respects custom min_sessions parameter."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(30):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # With min_sessions=50, should fail
-        result_50 = calculate_cronbachs_alpha(db_session, min_sessions=50)
+        result_50 = await calculate_cronbachs_alpha(db_session, min_sessions=50)
         assert result_50["error"] is not None
 
         # With min_sessions=30, might work (depending on question overlap)
-        result_30 = calculate_cronbachs_alpha(db_session, min_sessions=30)
+        result_30 = await calculate_cronbachs_alpha(db_session, min_sessions=30)
         # Either it calculates or fails for different reason
         assert result_30["num_sessions"] >= 30 or result_30["error"] is not None
 
@@ -343,7 +320,7 @@ class TestInsufficientData:
 class TestCronbachsAlphaCalculation:
     """Tests for Cronbach's alpha calculation."""
 
-    def test_calculates_alpha_with_valid_data(self, db_session):
+    async def test_calculates_alpha_with_valid_data(self, db_session):
         """Calculates Cronbach's alpha when sufficient valid data exists."""
         # Create 5 questions
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
@@ -351,7 +328,7 @@ class TestCronbachsAlphaCalculation:
         # Create 120 completed sessions with varied but correlated responses
         # This simulates a reliable test where high performers do well on all items
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
 
             # Create correlated responses:
             # - Users with high "ability" (i > 60) get most right
@@ -366,9 +343,9 @@ class TestCronbachsAlphaCalculation:
                 prob -= j * 0.1  # Later questions slightly harder
                 responses.append(prob > 0.5)
 
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should successfully calculate alpha
         assert result["cronbachs_alpha"] is not None
@@ -378,16 +355,16 @@ class TestCronbachsAlphaCalculation:
         assert result["interpretation"] is not None
         assert isinstance(result["meets_threshold"], bool)
 
-    def test_alpha_result_structure(self, db_session):
+    async def test_alpha_result_structure(self, db_session):
         """Verify result contains all required fields."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(100):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Verify all required fields are present
         assert "cronbachs_alpha" in result
@@ -398,24 +375,24 @@ class TestCronbachsAlphaCalculation:
         assert "item_total_correlations" in result
         assert "error" in result
 
-    def test_meets_threshold_true_when_alpha_high(self, db_session):
+    async def test_meets_threshold_true_when_alpha_high(self, db_session):
         """meets_threshold is True when alpha >= 0.70."""
         # Create highly correlated items (high reliability)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Highly correlated - either all correct or all wrong
             all_correct = i > 60
             responses = [all_correct] * 5
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         if result["cronbachs_alpha"] is not None and result["cronbachs_alpha"] >= 0.70:
             assert result["meets_threshold"] is True
 
-    def test_meets_threshold_false_when_alpha_low(self, db_session):
+    async def test_meets_threshold_false_when_alpha_low(self, db_session):
         """meets_threshold is False when alpha < 0.70."""
         # Create uncorrelated items (low reliability)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
@@ -425,12 +402,12 @@ class TestCronbachsAlphaCalculation:
         random.seed(42)
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Random responses - no correlation between items
             responses = [random.random() > 0.5 for _ in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         if result["cronbachs_alpha"] is not None and result["cronbachs_alpha"] < 0.70:
             assert result["meets_threshold"] is False
@@ -444,17 +421,17 @@ class TestCronbachsAlphaCalculation:
 class TestEdgeCases:
     """Tests for edge cases in Cronbach's alpha calculation."""
 
-    def test_all_same_responses_zero_variance(self, db_session):
+    async def test_all_same_responses_zero_variance(self, db_session):
         """Handles zero variance when all responses are identical."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # All users get all questions correct (no variance)
             responses = [True] * 5
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should handle gracefully - either return error or alpha = 0
         if result["error"] is not None:
@@ -466,59 +443,59 @@ class TestEdgeCases:
             # If no error, alpha should be near 0 or undefined
             assert result["cronbachs_alpha"] is not None
 
-    def test_only_in_progress_sessions_excluded(self, db_session):
+    async def test_only_in_progress_sessions_excluded(self, db_session):
         """In-progress sessions are not included in calculation."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 50 completed sessions
         for i in range(50):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Create 100 in-progress sessions (should not count)
         for i in range(100):
-            user = create_test_user(db_session, f"inprogress{i}@example.com")
+            user = await create_test_user(db_session, f"inprogress{i}@example.com")
             session = TestSession(
                 user_id=user.id,
                 status=TestStatus.IN_PROGRESS,
             )
             db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should only count completed sessions (50), not enough
         assert result["num_sessions"] == 50
         assert result["error"] is not None
         assert "Insufficient data: 50 sessions" in result["error"]
 
-    def test_abandoned_sessions_excluded(self, db_session):
+    async def test_abandoned_sessions_excluded(self, db_session):
         """Abandoned sessions are not included in calculation."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create 50 completed sessions
         for i in range(50):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Create 100 abandoned sessions
         for i in range(100):
-            user = create_test_user(db_session, f"abandoned{i}@example.com")
+            user = await create_test_user(db_session, f"abandoned{i}@example.com")
             session = TestSession(
                 user_id=user.id,
                 status=TestStatus.ABANDONED,
             )
             db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should only count completed sessions
         assert result["num_sessions"] == 50
 
-    def test_exactly_two_items_minimum_for_alpha(self, db_session):
+    async def test_exactly_two_items_minimum_for_alpha(self, db_session):
         """Tests Cronbach's alpha calculation with exactly 2 items (minimum)."""
         # Cronbach's alpha requires at least 2 items to calculate
         # Formula: α = (k / (k-1)) × (1 - Σσ²ᵢ / σ²ₜ)
@@ -527,13 +504,13 @@ class TestEdgeCases:
 
         # Create 120 sessions with correlated responses to get valid alpha
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Correlated responses: high ability users get both right
             ability = i / 120
             responses = [ability > 0.5, ability > 0.5]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should successfully calculate with 2 items
         assert result["error"] is None
@@ -547,7 +524,7 @@ class TestEdgeCases:
         # Item-total correlations should be returned for both items
         assert len(result["item_total_correlations"]) == 2
 
-    def test_single_item_returns_error(self, db_session):
+    async def test_single_item_returns_error(self, db_session):
         """Tests that k=1 (single item) returns appropriate error.
 
         Cronbach's alpha is undefined for k<2 because the formula
@@ -557,17 +534,17 @@ class TestEdgeCases:
         Related: RE-FI-025
         """
         # Create only 1 question (k=1)
-        question = create_test_question(db_session, "SingleQuestion")
+        question = await create_test_question(db_session, "SingleQuestion")
 
         # Create 120 sessions (enough to meet min_sessions threshold)
         # with varied responses to ensure we have variance
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Vary responses to ensure there's variance in the data
             responses = [i % 2 == 0]  # Alternating correct/incorrect
-            create_completed_test_session(db_session, user, [question], responses)
+            await create_completed_test_session(db_session, user, [question], responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should return error for single item
         assert result["cronbachs_alpha"] is None
@@ -582,14 +559,14 @@ class TestEdgeCases:
         assert result["meets_threshold"] is False
         assert result["interpretation"] is None
 
-    def test_very_high_number_of_items(self, db_session):
+    async def test_very_high_number_of_items(self, db_session):
         """Tests Cronbach's alpha calculation with 50+ items."""
         # Create 60 questions (high item count)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(60)]
 
         # Create 150 sessions with correlated responses
         for i in range(150):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Ability-based responses for correlation
             ability = i / 150
             # Add some variation: harder questions (higher index) have lower success rate
@@ -598,9 +575,9 @@ class TestEdgeCases:
                 # Base probability from ability, adjusted by item difficulty
                 prob = ability - (j * 0.01)  # Items get progressively harder
                 responses.append(prob > 0.3)
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should successfully calculate with many items
         assert result["error"] is None
@@ -625,17 +602,17 @@ class TestEdgeCases:
 class TestItemTotalCorrelations:
     """Tests for item-total correlation calculation."""
 
-    def test_item_total_correlations_returned(self, db_session):
+    async def test_item_total_correlations_returned(self, db_session):
         """Item-total correlations are returned for each question."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.5 - (j * 0.1) for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         if result["error"] is None:
             assert len(result["item_total_correlations"]) > 0
@@ -773,7 +750,7 @@ class TestKnownDatasetVerification:
     expected values from psychometric literature/tools.
     """
 
-    def test_perfect_correlation_high_alpha(self, db_session):
+    async def test_perfect_correlation_high_alpha(self, db_session):
         """
         When all items are perfectly correlated, alpha should be high.
 
@@ -784,19 +761,19 @@ class TestKnownDatasetVerification:
 
         # Half get all correct, half get all incorrect
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             all_correct = i < 60
             responses = [all_correct] * 5
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # With perfect item correlation, alpha should be very high
         if result["cronbachs_alpha"] is not None:
             # Alpha should be at least 0.80 for highly correlated items
             assert result["cronbachs_alpha"] >= 0.80
 
-    def test_random_responses_low_alpha(self, db_session):
+    async def test_random_responses_low_alpha(self, db_session):
         """
         When responses are random, alpha should be low.
 
@@ -810,18 +787,18 @@ class TestKnownDatasetVerification:
         random.seed(123)  # For reproducibility
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Completely random responses
             responses = [random.random() > 0.5 for _ in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         if result["cronbachs_alpha"] is not None:
             # With random responses, alpha should be low (near 0)
             assert result["cronbachs_alpha"] < 0.50
 
-    def test_moderate_correlation_moderate_alpha(self, db_session):
+    async def test_moderate_correlation_moderate_alpha(self, db_session):
         """
         When items have moderate correlation, alpha should be moderate to high.
 
@@ -836,7 +813,7 @@ class TestKnownDatasetVerification:
         random.seed(456)
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Underlying ability determines most responses
             ability = i / 120
             responses = []
@@ -846,9 +823,9 @@ class TestKnownDatasetVerification:
                 # Add some noise (more noise = lower alpha)
                 prob += (random.random() - 0.5) * 0.3
                 responses.append(prob > 0.5)
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         if result["cronbachs_alpha"] is not None:
             # With ability-based responses, alpha should be at least moderate
@@ -864,9 +841,9 @@ class TestKnownDatasetVerification:
 class TestResponseStructure:
     """Tests for response structure and types."""
 
-    def test_error_response_structure(self, db_session):
+    async def test_error_response_structure(self, db_session):
         """Error response has correct structure."""
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         assert result["cronbachs_alpha"] is None
         assert result["interpretation"] is None
@@ -875,17 +852,17 @@ class TestResponseStructure:
         assert result["error"] is not None
         assert isinstance(result["error"], str)
 
-    def test_success_response_structure(self, db_session):
+    async def test_success_response_structure(self, db_session):
         """Successful response has correct structure and types."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.5 - (j * 0.1) for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         if result["error"] is None:
             assert isinstance(result["cronbachs_alpha"], float)
@@ -901,7 +878,7 @@ class TestResponseStructure:
 # =============================================================================
 
 
-def create_completed_test_with_score(
+async def create_completed_test_with_score(
     db_session,
     user: User,
     questions: list,
@@ -921,8 +898,8 @@ def create_completed_test_with_score(
         completed_at=completed_at,
     )
     db_session.add(session)
-    db_session.commit()
-    db_session.refresh(session)
+    await db_session.commit()
+    await db_session.refresh(session)
 
     # Create responses (all correct for simplicity)
     for question in questions:
@@ -946,7 +923,7 @@ def create_completed_test_with_score(
     )
     db_session.add(test_result)
 
-    db_session.commit()
+    await db_session.commit()
     return session
 
 
@@ -1084,9 +1061,9 @@ class TestTestRetestInterpretation:
 class TestTestRetestInsufficientData:
     """Tests for test-retest handling of insufficient data."""
 
-    def test_no_test_results(self, db_session):
+    async def test_no_test_results(self, db_session):
         """Returns error when no test results exist."""
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         assert result["test_retest_r"] is None
         assert result["num_retest_pairs"] == 0
@@ -1094,7 +1071,7 @@ class TestTestRetestInsufficientData:
         assert "Insufficient data" in result["error"]
         assert result["meets_threshold"] is False
 
-    def test_below_min_pairs_threshold(self, db_session):
+    async def test_below_min_pairs_threshold(self, db_session):
         """Returns error when retest pairs are below minimum threshold."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1103,11 +1080,11 @@ class TestTestRetestInsufficientData:
 
         # Create 20 users with 2 tests each = 20 pairs (below 30)
         for i in range(20):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             # First test
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1115,7 +1092,7 @@ class TestTestRetestInsufficientData:
                 completed_at=base_time - timedelta(days=30),
             )
             # Second test (14 days later - within interval)
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1123,14 +1100,14 @@ class TestTestRetestInsufficientData:
                 completed_at=base_time - timedelta(days=16),
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         assert result["test_retest_r"] is None
         assert result["num_retest_pairs"] == 20
         assert result["error"] is not None
         assert "Insufficient data: 20 retest pairs" in result["error"]
 
-    def test_custom_min_pairs(self, db_session):
+    async def test_custom_min_pairs(self, db_session):
         """Respects custom min_pairs parameter."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1139,17 +1116,17 @@ class TestTestRetestInsufficientData:
 
         # Create 20 users with 2 tests each
         for i in range(20):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100 + i,
                 completed_at=base_time - timedelta(days=30),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1158,15 +1135,15 @@ class TestTestRetestInsufficientData:
             )
 
         # With min_pairs=30, should fail
-        result_30 = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result_30 = await calculate_test_retest_reliability(db_session, min_pairs=30)
         assert result_30["error"] is not None
 
         # With min_pairs=15, should succeed
-        result_15 = calculate_test_retest_reliability(db_session, min_pairs=15)
+        result_15 = await calculate_test_retest_reliability(db_session, min_pairs=15)
         assert result_15["error"] is None
         assert result_15["test_retest_r"] is not None
 
-    def test_only_single_tests_per_user(self, db_session):
+    async def test_only_single_tests_per_user(self, db_session):
         """Returns error when users only have single tests (no retest pairs)."""
         from app.core.datetime_utils import utc_now
 
@@ -1174,8 +1151,8 @@ class TestTestRetestInsufficientData:
 
         # Create 50 users each with only 1 test
         for i in range(50):
-            user = create_test_user(db_session, f"user{i}@example.com")
-            create_completed_test_with_score(
+            user = await create_test_user(db_session, f"user{i}@example.com")
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1183,7 +1160,7 @@ class TestTestRetestInsufficientData:
                 completed_at=utc_now(),
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         assert result["test_retest_r"] is None
         assert result["num_retest_pairs"] == 0
@@ -1193,7 +1170,7 @@ class TestTestRetestInsufficientData:
 class TestTestRetestIntervalFiltering:
     """Tests for test-retest interval filtering."""
 
-    def test_excludes_tests_below_min_interval(self, db_session):
+    async def test_excludes_tests_below_min_interval(self, db_session):
         """Tests closer than min_interval_days are excluded."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1202,17 +1179,17 @@ class TestTestRetestIntervalFiltering:
 
         # Create 40 users with tests 3 days apart (below default 7-day minimum)
         for i in range(40):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100 + i,
                 completed_at=base_time - timedelta(days=10),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1220,7 +1197,7 @@ class TestTestRetestIntervalFiltering:
                 completed_at=base_time - timedelta(days=7),  # 3 days later
             )
 
-        result = calculate_test_retest_reliability(
+        result = await calculate_test_retest_reliability(
             db_session, min_interval_days=7, min_pairs=30
         )
 
@@ -1228,7 +1205,7 @@ class TestTestRetestIntervalFiltering:
         assert result["num_retest_pairs"] == 0
         assert result["error"] is not None
 
-    def test_excludes_tests_above_max_interval(self, db_session):
+    async def test_excludes_tests_above_max_interval(self, db_session):
         """Tests farther than max_interval_days are excluded."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1237,17 +1214,17 @@ class TestTestRetestIntervalFiltering:
 
         # Create 40 users with tests 200 days apart (above default 180-day maximum)
         for i in range(40):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100 + i,
                 completed_at=base_time - timedelta(days=220),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1255,7 +1232,7 @@ class TestTestRetestIntervalFiltering:
                 completed_at=base_time - timedelta(days=20),  # 200 days later
             )
 
-        result = calculate_test_retest_reliability(
+        result = await calculate_test_retest_reliability(
             db_session, max_interval_days=180, min_pairs=30
         )
 
@@ -1263,7 +1240,7 @@ class TestTestRetestIntervalFiltering:
         assert result["num_retest_pairs"] == 0
         assert result["error"] is not None
 
-    def test_includes_tests_within_interval(self, db_session):
+    async def test_includes_tests_within_interval(self, db_session):
         """Tests within min/max interval are included."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1272,17 +1249,17 @@ class TestTestRetestIntervalFiltering:
 
         # Create 35 users with tests 30 days apart (within 7-180 day range)
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100 + i,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1290,14 +1267,14 @@ class TestTestRetestIntervalFiltering:
                 completed_at=base_time - timedelta(days=30),  # 30 days later
             )
 
-        result = calculate_test_retest_reliability(
+        result = await calculate_test_retest_reliability(
             db_session, min_interval_days=7, max_interval_days=180, min_pairs=30
         )
 
         assert result["num_retest_pairs"] == 35
         assert result["error"] is None
 
-    def test_custom_interval_range(self, db_session):
+    async def test_custom_interval_range(self, db_session):
         """Respects custom interval range parameters."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1306,17 +1283,17 @@ class TestTestRetestIntervalFiltering:
 
         # Create 35 users with tests 5 days apart
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100 + i,
                 completed_at=base_time - timedelta(days=10),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1325,11 +1302,13 @@ class TestTestRetestIntervalFiltering:
             )
 
         # With default 7-day minimum, should fail
-        result_default = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result_default = await calculate_test_retest_reliability(
+            db_session, min_pairs=30
+        )
         assert result_default["num_retest_pairs"] == 0
 
         # With custom 3-day minimum, should succeed
-        result_custom = calculate_test_retest_reliability(
+        result_custom = await calculate_test_retest_reliability(
             db_session, min_interval_days=3, min_pairs=30
         )
         assert result_custom["num_retest_pairs"] == 35
@@ -1338,7 +1317,7 @@ class TestTestRetestIntervalFiltering:
 class TestTestRetestCalculation:
     """Tests for test-retest reliability calculation."""
 
-    def test_calculates_correlation_with_valid_data(self, db_session):
+    async def test_calculates_correlation_with_valid_data(self, db_session):
         """Calculates test-retest correlation when sufficient valid data exists."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1347,7 +1326,7 @@ class TestTestRetestCalculation:
 
         # Create 35 users with 2 tests each, with correlated scores
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             # First score based on user index
@@ -1357,14 +1336,14 @@ class TestTestRetestCalculation:
             noise = (i % 5) - 2  # -2 to 2
             score2 = score1 + noise + 2  # Small practice effect
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=score1,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1372,7 +1351,7 @@ class TestTestRetestCalculation:
                 completed_at=base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # Should successfully calculate correlation
         assert result["test_retest_r"] is not None
@@ -1382,7 +1361,7 @@ class TestTestRetestCalculation:
         # Scores are highly correlated
         assert result["test_retest_r"] > 0.9
 
-    def test_result_structure(self, db_session):
+    async def test_result_structure(self, db_session):
         """Verify result contains all required fields."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1390,17 +1369,17 @@ class TestTestRetestCalculation:
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100 + i,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1408,7 +1387,7 @@ class TestTestRetestCalculation:
                 completed_at=base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # Verify all required fields are present
         assert "test_retest_r" in result
@@ -1424,7 +1403,7 @@ class TestTestRetestCalculation:
         assert "std_change" in result["score_change_stats"]
         assert "practice_effect" in result["score_change_stats"]
 
-    def test_meets_threshold_true_when_r_high(self, db_session):
+    async def test_meets_threshold_true_when_r_high(self, db_session):
         """meets_threshold is True when r > 0.50."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1433,20 +1412,20 @@ class TestTestRetestCalculation:
 
         # Create highly correlated test pairs
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             score1 = 80 + i * 2
             score2 = score1 + 2  # Perfect correlation with offset
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=score1,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1454,13 +1433,13 @@ class TestTestRetestCalculation:
                 completed_at=base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         assert result["test_retest_r"] is not None
         assert result["test_retest_r"] > 0.50
         assert result["meets_threshold"] is True
 
-    def test_meets_threshold_false_when_r_low(self, db_session):
+    async def test_meets_threshold_false_when_r_low(self, db_session):
         """meets_threshold is False when r < 0.50."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1471,20 +1450,20 @@ class TestTestRetestCalculation:
 
         # Create uncorrelated test pairs (random scores)
         for i in range(40):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             score1 = random.randint(80, 120)
             score2 = random.randint(80, 120)  # Independent of score1
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=score1,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1492,7 +1471,7 @@ class TestTestRetestCalculation:
                 completed_at=base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # With random scores, correlation should be near 0 (might be slightly positive/negative)
         # The key test is that meets_threshold reflects the threshold correctly
@@ -1507,7 +1486,7 @@ class TestTestRetestCalculation:
 class TestTestRetestPracticeEffect:
     """Tests for practice effect calculation."""
 
-    def test_positive_practice_effect(self, db_session):
+    async def test_positive_practice_effect(self, db_session):
         """Calculates positive practice effect when scores improve."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1516,21 +1495,21 @@ class TestTestRetestPracticeEffect:
 
         # Create pairs where second score is always 5 points higher (with variance)
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             # Add variance to scores while maintaining +5 practice effect
             score1 = 90 + i  # 90 to 124
             score2 = score1 + 5  # Always +5 higher
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=score1,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1538,12 +1517,12 @@ class TestTestRetestPracticeEffect:
                 completed_at=base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         assert result["score_change_stats"]["practice_effect"] == pytest.approx(5.0)
         assert result["score_change_stats"]["mean_change"] == pytest.approx(5.0)
 
-    def test_negative_practice_effect(self, db_session):
+    async def test_negative_practice_effect(self, db_session):
         """Calculates negative practice effect when scores decrease."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1552,21 +1531,21 @@ class TestTestRetestPracticeEffect:
 
         # Create pairs where second score is always 5 points lower (with variance)
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             # Add variance to scores while maintaining -5 regression
             score1 = 100 + i  # 100 to 134
             score2 = score1 - 5  # Always -5 lower
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=score1,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1574,12 +1553,12 @@ class TestTestRetestPracticeEffect:
                 completed_at=base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         assert result["score_change_stats"]["practice_effect"] == pytest.approx(-5.0)
         assert result["score_change_stats"]["mean_change"] == pytest.approx(-5.0)
 
-    def test_std_change_calculated(self, db_session):
+    async def test_std_change_calculated(self, db_session):
         """Standard deviation of score changes is calculated."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1588,7 +1567,7 @@ class TestTestRetestPracticeEffect:
 
         # Create pairs with varying score changes
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             # Add variance to score1 to ensure valid correlation calculation
@@ -1597,14 +1576,14 @@ class TestTestRetestPracticeEffect:
             change = (i % 5) * 2
             score2 = score1 + change
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=score1,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1612,7 +1591,7 @@ class TestTestRetestPracticeEffect:
                 completed_at=base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         assert result["score_change_stats"]["std_change"] is not None
         assert result["score_change_stats"]["std_change"] > 0  # Should have variance
@@ -1621,7 +1600,7 @@ class TestTestRetestPracticeEffect:
 class TestTestRetestMeanInterval:
     """Tests for mean interval calculation."""
 
-    def test_mean_interval_calculated(self, db_session):
+    async def test_mean_interval_calculated(self, db_session):
         """Mean interval in days is calculated correctly."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1630,17 +1609,17 @@ class TestTestRetestMeanInterval:
 
         # Create pairs all with 30-day intervals
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100 + i,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1648,12 +1627,12 @@ class TestTestRetestMeanInterval:
                 completed_at=base_time - timedelta(days=30),  # 30 days later
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # Mean interval should be 30 days
         assert result["mean_interval_days"] == pytest.approx(30.0)
 
-    def test_mean_interval_with_varied_intervals(self, db_session):
+    async def test_mean_interval_with_varied_intervals(self, db_session):
         """Mean interval calculated correctly with varying intervals."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1662,17 +1641,17 @@ class TestTestRetestMeanInterval:
 
         # Create 15 pairs with 14-day intervals and 15 pairs with 28-day intervals
         for i in range(15):
-            user = create_test_user(db_session, f"user_short_{i}@example.com")
+            user = await create_test_user(db_session, f"user_short_{i}@example.com")
             base_time = utc_now()
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100 + i,
                 completed_at=base_time - timedelta(days=30),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1681,17 +1660,17 @@ class TestTestRetestMeanInterval:
             )
 
         for i in range(20):
-            user = create_test_user(db_session, f"user_long_{i}@example.com")
+            user = await create_test_user(db_session, f"user_long_{i}@example.com")
             base_time = utc_now()
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100 + i,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -1699,7 +1678,7 @@ class TestTestRetestMeanInterval:
                 completed_at=base_time - timedelta(days=32),  # 28 days later
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # Mean interval should be between 14 and 28
         # (15 * 14 + 20 * 28) / 35 = (210 + 560) / 35 = 22
@@ -1710,7 +1689,7 @@ class TestTestRetestMeanInterval:
 class TestTestRetestMultipleTestsPerUser:
     """Tests for handling users with more than 2 tests."""
 
-    def test_multiple_tests_creates_multiple_pairs(self, db_session):
+    async def test_multiple_tests_creates_multiple_pairs(self, db_session):
         """Users with 3+ tests create multiple consecutive pairs."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1719,12 +1698,12 @@ class TestTestRetestMultipleTestsPerUser:
 
         # Create 12 users with 4 tests each = 36 pairs (3 pairs per user)
         for i in range(12):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             # Four tests at 30-day intervals
             for j in range(4):
-                create_completed_test_with_score(
+                await create_completed_test_with_score(
                     db_session,
                     user,
                     questions,
@@ -1732,13 +1711,13 @@ class TestTestRetestMultipleTestsPerUser:
                     completed_at=base_time - timedelta(days=120 - j * 30),
                 )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # 12 users × 3 pairs each = 36 pairs
         assert result["num_retest_pairs"] == 36
         assert result["error"] is None
 
-    def test_only_consecutive_pairs_used(self, db_session):
+    async def test_only_consecutive_pairs_used(self, db_session):
         """Only consecutive test pairs are used, not all combinations."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1748,12 +1727,12 @@ class TestTestRetestMultipleTestsPerUser:
         # Create 18 users with 3 tests each = 36 pairs (2 pairs per user)
         # If we used all combinations, it would be 3 pairs per user
         for i in range(18):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             # Three tests at 30-day intervals
             for j in range(3):
-                create_completed_test_with_score(
+                await create_completed_test_with_score(
                     db_session,
                     user,
                     questions,
@@ -1761,7 +1740,7 @@ class TestTestRetestMultipleTestsPerUser:
                     completed_at=base_time - timedelta(days=90 - j * 30),
                 )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # 18 users × 2 consecutive pairs each = 36 pairs
         assert result["num_retest_pairs"] == 36
@@ -1894,9 +1873,9 @@ class TestSplitHalfInterpretation:
 class TestSplitHalfInsufficientData:
     """Tests for split-half handling of insufficient data."""
 
-    def test_no_completed_sessions(self, db_session):
+    async def test_no_completed_sessions(self, db_session):
         """Returns error when no completed test sessions exist."""
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         assert result["split_half_r"] is None
         assert result["spearman_brown_r"] is None
@@ -1905,52 +1884,52 @@ class TestSplitHalfInsufficientData:
         assert "Insufficient data" in result["error"]
         assert result["meets_threshold"] is False
 
-    def test_below_min_sessions_threshold(self, db_session):
+    async def test_below_min_sessions_threshold(self, db_session):
         """Returns error when completed sessions are below minimum threshold."""
         # Create 50 completed sessions (below default 100)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         for i in range(50):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Create varied responses
             responses = [(i + j) % 2 == 0 for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         assert result["split_half_r"] is None
         assert result["error"] is not None
         assert "Insufficient data: 50 sessions" in result["error"]
 
-    def test_custom_min_sessions(self, db_session):
+    async def test_custom_min_sessions(self, db_session):
         """Respects custom min_sessions parameter."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         for i in range(40):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # With min_sessions=50, should fail
-        result_50 = calculate_split_half_reliability(db_session, min_sessions=50)
+        result_50 = await calculate_split_half_reliability(db_session, min_sessions=50)
         assert result_50["error"] is not None
 
         # With min_sessions=30, should work (or fail for different reason)
-        result_30 = calculate_split_half_reliability(db_session, min_sessions=30)
+        result_30 = await calculate_split_half_reliability(db_session, min_sessions=30)
         # Either it calculates or fails for different reason (e.g., not enough questions)
         assert result_30["num_sessions"] >= 30 or result_30["error"] is not None
 
-    def test_insufficient_questions(self, db_session):
+    async def test_insufficient_questions(self, db_session):
         """Returns error when not enough questions appear across sessions."""
         # Create only 2 questions (need at least 4 for split-half)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(2)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [i % 2 == 0, i % 3 == 0]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         # Should fail due to insufficient items
         assert result["split_half_r"] is None
@@ -1961,14 +1940,14 @@ class TestSplitHalfInsufficientData:
 class TestSplitHalfCalculation:
     """Tests for split-half reliability calculation."""
 
-    def test_calculates_reliability_with_valid_data(self, db_session):
+    async def test_calculates_reliability_with_valid_data(self, db_session):
         """Calculates split-half reliability when sufficient valid data exists."""
         # Create 6 questions (will be split into 3 odd + 3 even)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         # Create 120 sessions with correlated responses (ability-based)
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
 
             # High ability users get more correct on all items
             ability = i / 120
@@ -1980,9 +1959,9 @@ class TestSplitHalfCalculation:
                 prob -= j * 0.05
                 responses.append(prob > 0.4)
 
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         # Should successfully calculate reliability
         assert result["split_half_r"] is not None
@@ -1993,16 +1972,16 @@ class TestSplitHalfCalculation:
         assert result["interpretation"] is not None
         assert isinstance(result["meets_threshold"], bool)
 
-    def test_result_structure(self, db_session):
+    async def test_result_structure(self, db_session):
         """Verify result contains all required fields."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         # Verify all required fields are present
         assert "split_half_r" in result
@@ -2015,36 +1994,36 @@ class TestSplitHalfCalculation:
         assert "meets_threshold" in result
         assert "error" in result
 
-    def test_spearman_brown_greater_than_raw(self, db_session):
+    async def test_spearman_brown_greater_than_raw(self, db_session):
         """Spearman-Brown corrected value should be >= raw correlation (when positive)."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         if result["error"] is None and result["split_half_r"] is not None:
             if result["split_half_r"] > 0:
                 # Spearman-Brown should be >= raw for positive correlations
                 assert result["spearman_brown_r"] >= result["split_half_r"]
 
-    def test_meets_threshold_true_when_spearman_brown_high(self, db_session):
+    async def test_meets_threshold_true_when_spearman_brown_high(self, db_session):
         """meets_threshold is True when Spearman-Brown r >= 0.70."""
         # Create highly correlated items (high reliability)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Highly correlated - either all correct or all wrong
             all_correct = i > 60
             responses = [all_correct] * 6
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         if (
             result["spearman_brown_r"] is not None
@@ -2052,7 +2031,7 @@ class TestSplitHalfCalculation:
         ):
             assert result["meets_threshold"] is True
 
-    def test_meets_threshold_false_when_spearman_brown_low(self, db_session):
+    async def test_meets_threshold_false_when_spearman_brown_low(self, db_session):
         """meets_threshold is False when Spearman-Brown r < 0.70."""
         # Create uncorrelated items (low reliability)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
@@ -2062,12 +2041,12 @@ class TestSplitHalfCalculation:
         random.seed(42)
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Random responses - no correlation between items
             responses = [random.random() > 0.5 for _ in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         if result["spearman_brown_r"] is not None and result["spearman_brown_r"] < 0.70:
             assert result["meets_threshold"] is False
@@ -2076,35 +2055,35 @@ class TestSplitHalfCalculation:
 class TestSplitHalfOddEvenSplit:
     """Tests for the odd-even split logic."""
 
-    def test_odd_even_counts_correct(self, db_session):
+    async def test_odd_even_counts_correct(self, db_session):
         """Verify odd and even item counts are reported correctly."""
         # Create 5 questions (will split into 3 odd + 2 even)
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 for _ in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         if result["error"] is None:
             # With 5 questions: odd items (positions 1, 3, 5) = 3, even items (2, 4) = 2
             assert result["odd_items"] == 3
             assert result["even_items"] == 2
 
-    def test_six_items_split_evenly(self, db_session):
+    async def test_six_items_split_evenly(self, db_session):
         """6 items should split into 3 odd + 3 even."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 for _ in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         if result["error"] is None:
             assert result["odd_items"] == 3
@@ -2114,17 +2093,17 @@ class TestSplitHalfOddEvenSplit:
 class TestSplitHalfEdgeCases:
     """Tests for edge cases in split-half reliability calculation."""
 
-    def test_all_same_responses_handled(self, db_session):
+    async def test_all_same_responses_handled(self, db_session):
         """Handles zero variance when all responses are identical."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # All users get all questions correct (no variance)
             responses = [True] * 6
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         # Should handle gracefully - either return error or handle appropriately
         if result["error"] is not None:
@@ -2134,53 +2113,53 @@ class TestSplitHalfEdgeCases:
                 or "correlation" in result["error"].lower()
             )
 
-    def test_only_in_progress_sessions_excluded(self, db_session):
+    async def test_only_in_progress_sessions_excluded(self, db_session):
         """In-progress sessions are not included in calculation."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         # Create 50 completed sessions
         for i in range(50):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Create 100 in-progress sessions (should not count)
         for i in range(100):
-            user = create_test_user(db_session, f"inprogress{i}@example.com")
+            user = await create_test_user(db_session, f"inprogress{i}@example.com")
             session = TestSession(
                 user_id=user.id,
                 status=TestStatus.IN_PROGRESS,
             )
             db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         # Should only count completed sessions (50), not enough
         assert result["num_sessions"] == 50
         assert result["error"] is not None
 
-    def test_abandoned_sessions_excluded(self, db_session):
+    async def test_abandoned_sessions_excluded(self, db_session):
         """Abandoned sessions are not included in calculation."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         # Create 50 completed sessions
         for i in range(50):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Create 100 abandoned sessions
         for i in range(100):
-            user = create_test_user(db_session, f"abandoned{i}@example.com")
+            user = await create_test_user(db_session, f"abandoned{i}@example.com")
             session = TestSession(
                 user_id=user.id,
                 status=TestStatus.ABANDONED,
             )
             db_session.add(session)
-        db_session.commit()
+        await db_session.commit()
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         # Should only count completed sessions
         assert result["num_sessions"] == 50
@@ -2189,7 +2168,7 @@ class TestSplitHalfEdgeCases:
 class TestSplitHalfKnownDatasets:
     """Tests using controlled datasets to verify calculation accuracy."""
 
-    def test_perfect_correlation_high_reliability(self, db_session):
+    async def test_perfect_correlation_high_reliability(self, db_session):
         """
         When odd and even halves are perfectly correlated, reliability should be high.
 
@@ -2200,18 +2179,18 @@ class TestSplitHalfKnownDatasets:
 
         # Half get all correct, half get all incorrect
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             all_correct = i < 60
             responses = [all_correct] * 6
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         # With perfect item correlation, reliability should be very high
         if result["spearman_brown_r"] is not None:
             assert result["spearman_brown_r"] >= 0.90
 
-    def test_random_responses_low_reliability(self, db_session):
+    async def test_random_responses_low_reliability(self, db_session):
         """
         When responses are random, reliability should be low.
 
@@ -2225,18 +2204,18 @@ class TestSplitHalfKnownDatasets:
         random.seed(123)
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Completely random responses
             responses = [random.random() > 0.5 for _ in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         if result["spearman_brown_r"] is not None:
             # With random responses, reliability should be low (near 0)
             assert result["spearman_brown_r"] < 0.50
 
-    def test_moderate_correlation_moderate_reliability(self, db_session):
+    async def test_moderate_correlation_moderate_reliability(self, db_session):
         """
         When items have moderate correlation, reliability should be moderate to high.
 
@@ -2249,7 +2228,7 @@ class TestSplitHalfKnownDatasets:
         random.seed(456)
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Underlying ability determines most responses
             ability = i / 120
             responses = []
@@ -2258,9 +2237,9 @@ class TestSplitHalfKnownDatasets:
                 # Add some noise
                 prob += (random.random() - 0.5) * 0.3
                 responses.append(prob > 0.5)
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         if result["spearman_brown_r"] is not None:
             # With ability-based responses, should have at least moderate reliability
@@ -2270,9 +2249,9 @@ class TestSplitHalfKnownDatasets:
 class TestSplitHalfResponseStructure:
     """Tests for response structure and types."""
 
-    def test_error_response_structure(self, db_session):
+    async def test_error_response_structure(self, db_session):
         """Error response has correct structure."""
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         assert result["split_half_r"] is None
         assert result["spearman_brown_r"] is None
@@ -2281,17 +2260,17 @@ class TestSplitHalfResponseStructure:
         assert result["error"] is not None
         assert isinstance(result["error"], str)
 
-    def test_success_response_structure(self, db_session):
+    async def test_success_response_structure(self, db_session):
         """Successful response has correct structure and types."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         if result["error"] is None:
             assert isinstance(result["split_half_r"], float)
@@ -2735,9 +2714,9 @@ class TestGenerateReliabilityRecommendations:
 class TestGetReliabilityReport:
     """Tests for get_reliability_report function."""
 
-    def test_report_structure(self, db_session):
+    async def test_report_structure(self, db_session):
         """Report contains all required top-level keys."""
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30
         )
 
@@ -2747,9 +2726,9 @@ class TestGetReliabilityReport:
         assert "overall_status" in report
         assert "recommendations" in report
 
-    def test_internal_consistency_structure(self, db_session):
+    async def test_internal_consistency_structure(self, db_session):
         """Internal consistency section has correct structure."""
-        report = get_reliability_report(db_session)
+        report = await get_reliability_report(db_session)
 
         ic = report["internal_consistency"]
         assert "cronbachs_alpha" in ic
@@ -2760,9 +2739,9 @@ class TestGetReliabilityReport:
         assert "last_calculated" in ic
         assert "item_total_correlations" in ic
 
-    def test_test_retest_structure(self, db_session):
+    async def test_test_retest_structure(self, db_session):
         """Test-retest section has correct structure."""
-        report = get_reliability_report(db_session)
+        report = await get_reliability_report(db_session)
 
         tr = report["test_retest"]
         assert "correlation" in tr
@@ -2773,9 +2752,9 @@ class TestGetReliabilityReport:
         assert "practice_effect" in tr
         assert "last_calculated" in tr
 
-    def test_split_half_structure(self, db_session):
+    async def test_split_half_structure(self, db_session):
         """Split-half section has correct structure."""
-        report = get_reliability_report(db_session)
+        report = await get_reliability_report(db_session)
 
         sh = report["split_half"]
         assert "raw_correlation" in sh
@@ -2784,19 +2763,19 @@ class TestGetReliabilityReport:
         assert "num_sessions" in sh
         assert "last_calculated" in sh
 
-    def test_insufficient_data_status_when_empty_db(self, db_session):
+    async def test_insufficient_data_status_when_empty_db(self, db_session):
         """Returns 'insufficient_data' status when database is empty."""
-        report = get_reliability_report(db_session)
+        report = await get_reliability_report(db_session)
 
         assert report["overall_status"] == "insufficient_data"
 
-    def test_recommendations_list_type(self, db_session):
+    async def test_recommendations_list_type(self, db_session):
         """Recommendations is a list."""
-        report = get_reliability_report(db_session)
+        report = await get_reliability_report(db_session)
 
         assert isinstance(report["recommendations"], list)
 
-    def test_report_with_valid_data(self, db_session):
+    async def test_report_with_valid_data(self, db_session):
         """Report generates correctly with sufficient valid data."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -2806,18 +2785,18 @@ class TestGetReliabilityReport:
 
         # Create 120 completed sessions with correlated responses
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Create some retest pairs
         for i in range(35):
-            user = create_test_user(db_session, f"retest{i}@example.com")
+            user = await create_test_user(db_session, f"retest{i}@example.com")
             base_time = utc_now()
 
             # First test
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -2825,7 +2804,7 @@ class TestGetReliabilityReport:
                 completed_at=base_time - timedelta(days=60),
             )
             # Retest
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -2833,7 +2812,7 @@ class TestGetReliabilityReport:
                 completed_at=base_time - timedelta(days=30),
             )
 
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30
         )
 
@@ -2847,29 +2826,29 @@ class TestGetReliabilityReport:
         # Internal consistency should have data (120 sessions >= 100 threshold)
         assert report["internal_consistency"]["num_sessions"] >= 100
 
-    def test_custom_thresholds(self, db_session):
+    async def test_custom_thresholds(self, db_session):
         """Respects custom min_sessions and min_retest_pairs parameters."""
         # Create a few sessions
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         for i in range(25):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # With default min_sessions=100, should have insufficient data
-        report_default = get_reliability_report(db_session, min_sessions=100)
+        report_default = await get_reliability_report(db_session, min_sessions=100)
         assert report_default["internal_consistency"]["cronbachs_alpha"] is None
 
         # With min_sessions=20, might calculate (depends on question overlap)
-        report_low = get_reliability_report(db_session, min_sessions=20)
+        report_low = await get_reliability_report(db_session, min_sessions=20)
         assert report_low["internal_consistency"]["num_sessions"] >= 20
 
-    def test_last_calculated_timestamp(self, db_session):
+    async def test_last_calculated_timestamp(self, db_session):
         """last_calculated timestamps are set to current time."""
         from app.core.datetime_utils import utc_now
 
-        report = get_reliability_report(db_session)
+        report = await get_reliability_report(db_session)
 
         now = utc_now()
 
@@ -2887,7 +2866,7 @@ class TestGetReliabilityReport:
 class TestReliabilityReportIntegration:
     """Integration tests for the full reliability report flow."""
 
-    def test_excellent_status_with_high_reliability(self, db_session):
+    async def test_excellent_status_with_high_reliability(self, db_session):
         """Returns 'excellent' status when all metrics are excellent."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -2897,19 +2876,19 @@ class TestReliabilityReportIntegration:
 
         # Create perfectly correlated data (excellent internal consistency)
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             # Either all correct or all incorrect - perfect internal consistency
             all_correct = i > 60
             responses = [all_correct] * 6
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Create perfectly correlated retest pairs
         for i in range(35):
-            user = create_test_user(db_session, f"retest{i}@example.com")
+            user = await create_test_user(db_session, f"retest{i}@example.com")
             base_time = utc_now()
 
             score = 80 + i * 2
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -2917,7 +2896,7 @@ class TestReliabilityReportIntegration:
                 completed_at=base_time - timedelta(days=60),
             )
             # Perfect correlation: same score
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -2925,7 +2904,7 @@ class TestReliabilityReportIntegration:
                 completed_at=base_time - timedelta(days=30),
             )
 
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30
         )
 
@@ -2937,7 +2916,7 @@ class TestReliabilityReportIntegration:
         if report["split_half"]["spearman_brown"] is not None:
             assert report["split_half"]["spearman_brown"] >= 0.80
 
-    def test_needs_attention_with_problematic_items(self, db_session):
+    async def test_needs_attention_with_problematic_items(self, db_session):
         """Returns recommendations for item review when items have issues."""
         import random
 
@@ -2948,7 +2927,7 @@ class TestReliabilityReportIntegration:
 
         # Create data where one item has negative correlation
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
 
             responses = []
@@ -2960,9 +2939,9 @@ class TestReliabilityReportIntegration:
                     # Normal items
                     responses.append(ability > 0.4 - (j * 0.05))
 
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        report = get_reliability_report(db_session, min_sessions=100)
+        report = await get_reliability_report(db_session, min_sessions=100)
 
         # Should have item_review recommendations if correlations were calculated
         if report["internal_consistency"]["item_total_correlations"]:
@@ -2984,9 +2963,9 @@ class TestReliabilityReportIntegration:
 class TestStoreReliabilityMetric:
     """Tests for store_reliability_metric function (RE-007)."""
 
-    def test_store_cronbachs_alpha_metric(self, db_session):
+    async def test_store_cronbachs_alpha_metric(self, db_session):
         """Stores Cronbach's alpha metric correctly."""
-        metric = store_reliability_metric(
+        metric = await store_reliability_metric(
             db_session,
             metric_type="cronbachs_alpha",
             value=0.85,
@@ -3000,9 +2979,9 @@ class TestStoreReliabilityMetric:
         assert metric.calculated_at is not None
         assert metric.details is None
 
-    def test_store_test_retest_metric(self, db_session):
+    async def test_store_test_retest_metric(self, db_session):
         """Stores test-retest metric correctly."""
-        metric = store_reliability_metric(
+        metric = await store_reliability_metric(
             db_session,
             metric_type="test_retest",
             value=0.72,
@@ -3013,9 +2992,9 @@ class TestStoreReliabilityMetric:
         assert metric.value == pytest.approx(0.72)
         assert metric.sample_size == 45
 
-    def test_store_split_half_metric(self, db_session):
+    async def test_store_split_half_metric(self, db_session):
         """Stores split-half metric correctly."""
-        metric = store_reliability_metric(
+        metric = await store_reliability_metric(
             db_session,
             metric_type="split_half",
             value=0.78,
@@ -3026,7 +3005,7 @@ class TestStoreReliabilityMetric:
         assert metric.value == pytest.approx(0.78)
         assert metric.sample_size == 200
 
-    def test_store_metric_with_details(self, db_session):
+    async def test_store_metric_with_details(self, db_session):
         """Stores metric with additional details JSON."""
         details = {
             "interpretation": "good",
@@ -3035,7 +3014,7 @@ class TestStoreReliabilityMetric:
             "item_total_correlations": {1: 0.45, 2: 0.52, 3: 0.38},
         }
 
-        metric = store_reliability_metric(
+        metric = await store_reliability_metric(
             db_session,
             metric_type="cronbachs_alpha",
             value=0.82,
@@ -3050,7 +3029,7 @@ class TestStoreReliabilityMetric:
         # JSON serializes integer keys as strings
         assert "1" in metric.details["item_total_correlations"]
 
-    def test_store_multiple_metrics(self, db_session):
+    async def test_store_multiple_metrics(self, db_session):
         """Stores multiple metrics and retrieves them correctly."""
         # Store three metrics
         store_reliability_metric(
@@ -3073,12 +3052,14 @@ class TestStoreReliabilityMetric:
         )
 
         # Query directly from database
-        metrics = db_session.query(ReliabilityMetric).all()
+        _qresult = await db_session.execute(select(ReliabilityMetric))
+
+        metrics = _qresult.scalars().all()
         assert len(metrics) == 3
 
-    def test_store_metric_persists_to_database(self, db_session):
+    async def test_store_metric_persists_to_database(self, db_session):
         """Verifies metric is persisted and can be retrieved from database."""
-        metric = store_reliability_metric(
+        metric = await store_reliability_metric(
             db_session,
             metric_type="cronbachs_alpha",
             value=0.90,
@@ -3086,64 +3067,68 @@ class TestStoreReliabilityMetric:
         )
 
         # Retrieve from database by ID
-        retrieved = (
-            db_session.query(ReliabilityMetric)
-            .filter(ReliabilityMetric.id == metric.id)
-            .first()
+        _qresult = await db_session.execute(
+            select(ReliabilityMetric).filter(ReliabilityMetric.id == metric.id)
         )
+
+        retrieved = _qresult.scalars().first()
 
         assert retrieved is not None
         assert retrieved.metric_type == "cronbachs_alpha"
         assert retrieved.value == pytest.approx(0.90)
         assert retrieved.sample_size == 250
 
-    def test_store_metric_validates_type(self, db_session):
+    async def test_store_metric_validates_type(self, db_session):
         """Rejects invalid metric types."""
         with pytest.raises(ValueError, match="Invalid metric_type"):
             store_reliability_metric(db_session, "invalid_type", 0.85, 100)
 
-    def test_store_metric_validates_type_typo(self, db_session):
+    async def test_store_metric_validates_type_typo(self, db_session):
         """Rejects typos in metric type names."""
         with pytest.raises(ValueError, match="Invalid metric_type"):
             store_reliability_metric(db_session, "cronbach_alpha", 0.85, 100)
 
-    def test_store_metric_validates_value_range_high(self, db_session):
+    async def test_store_metric_validates_value_range_high(self, db_session):
         """Rejects values above 1.0."""
         with pytest.raises(ValueError, match="between -1.0 and 1.0"):
             store_reliability_metric(db_session, "cronbachs_alpha", 1.5, 100)
 
-    def test_store_metric_validates_value_range_low(self, db_session):
+    async def test_store_metric_validates_value_range_low(self, db_session):
         """Rejects values below -1.0."""
         with pytest.raises(ValueError, match="between -1.0 and 1.0"):
             store_reliability_metric(db_session, "cronbachs_alpha", -1.5, 100)
 
-    def test_store_metric_validates_sample_size_zero(self, db_session):
+    async def test_store_metric_validates_sample_size_zero(self, db_session):
         """Rejects zero sample size."""
         with pytest.raises(ValueError, match="at least 1"):
             store_reliability_metric(db_session, "cronbachs_alpha", 0.85, 0)
 
-    def test_store_metric_validates_sample_size_negative(self, db_session):
+    async def test_store_metric_validates_sample_size_negative(self, db_session):
         """Rejects negative sample size."""
         with pytest.raises(ValueError, match="at least 1"):
             store_reliability_metric(db_session, "cronbachs_alpha", 0.85, -5)
 
-    def test_store_metric_accepts_boundary_values(self, db_session):
+    async def test_store_metric_accepts_boundary_values(self, db_session):
         """Accepts valid boundary values for coefficient."""
         # Test -1.0 boundary
-        metric_low = store_reliability_metric(db_session, "cronbachs_alpha", -1.0, 100)
+        metric_low = await store_reliability_metric(
+            db_session, "cronbachs_alpha", -1.0, 100
+        )
         assert metric_low.value == pytest.approx(-1.0)
 
         # Test 1.0 boundary
-        metric_high = store_reliability_metric(db_session, "test_retest", 1.0, 100)
+        metric_high = await store_reliability_metric(
+            db_session, "test_retest", 1.0, 100
+        )
         assert metric_high.value == pytest.approx(1.0)
 
         # Test minimum sample size
-        metric_min = store_reliability_metric(db_session, "split_half", 0.5, 1)
+        metric_min = await store_reliability_metric(db_session, "split_half", 0.5, 1)
         assert metric_min.sample_size == 1
 
-    def test_commit_true_by_default(self, db_session):
+    async def test_commit_true_by_default(self, db_session):
         """Verifies commit=True is the default behavior (backward compatible)."""
-        metric = store_reliability_metric(
+        metric = await store_reliability_metric(
             db_session,
             metric_type="cronbachs_alpha",
             value=0.85,
@@ -3154,13 +3139,17 @@ class TestStoreReliabilityMetric:
         assert metric.id is not None
 
         # Verify the metric was actually committed (visible in query)
-        queried = db_session.query(ReliabilityMetric).filter_by(id=metric.id).first()
+        _qresult = await db_session.execute(
+            select(ReliabilityMetric).filter_by(id=metric.id)
+        )
+
+        queried = _qresult.scalars().first()
         assert queried is not None
         assert queried.value == pytest.approx(0.85)
 
-    def test_commit_false_does_not_commit(self, db_session):
+    async def test_commit_false_does_not_commit(self, db_session):
         """Verifies commit=False does not commit the transaction."""
-        metric = store_reliability_metric(
+        metric = await store_reliability_metric(
             db_session,
             metric_type="test_retest",
             value=0.72,
@@ -3178,27 +3167,31 @@ class TestStoreReliabilityMetric:
         db_session.rollback()
 
         # Metric should not exist after rollback (was not committed)
-        queried = db_session.query(ReliabilityMetric).filter_by(id=metric.id).first()
+        _qresult = await db_session.execute(
+            select(ReliabilityMetric).filter_by(id=metric.id)
+        )
+
+        queried = _qresult.scalars().first()
         assert queried is None
 
-    def test_commit_false_allows_batch_operations(self, db_session):
+    async def test_commit_false_allows_batch_operations(self, db_session):
         """Verifies commit=False allows batching multiple metrics in one transaction."""
         # Store three metrics without committing
-        metric1 = store_reliability_metric(
+        metric1 = await store_reliability_metric(
             db_session,
             metric_type="cronbachs_alpha",
             value=0.85,
             sample_size=100,
             commit=False,
         )
-        metric2 = store_reliability_metric(
+        metric2 = await store_reliability_metric(
             db_session,
             metric_type="test_retest",
             value=0.72,
             sample_size=50,
             commit=False,
         )
-        metric3 = store_reliability_metric(
+        metric3 = await store_reliability_metric(
             db_session,
             metric_type="split_half",
             value=0.78,
@@ -3212,16 +3205,18 @@ class TestStoreReliabilityMetric:
         assert metric3.id is not None
 
         # Now commit all at once
-        db_session.commit()
+        await db_session.commit()
 
         # Verify all three were committed
-        all_metrics = db_session.query(ReliabilityMetric).all()
+        _qresult = await db_session.execute(select(ReliabilityMetric))
+
+        all_metrics = _qresult.scalars().all()
         assert len(all_metrics) == 3
 
         metric_types = {m.metric_type for m in all_metrics}
         assert metric_types == {"cronbachs_alpha", "test_retest", "split_half"}
 
-    def test_commit_false_single_rollback_removes_all(self, db_session):
+    async def test_commit_false_single_rollback_removes_all(self, db_session):
         """Verifies batch operations can be rolled back atomically."""
         # Store two metrics without committing
         store_reliability_metric(
@@ -3243,12 +3238,14 @@ class TestStoreReliabilityMetric:
         db_session.rollback()
 
         # No metrics should exist
-        all_metrics = db_session.query(ReliabilityMetric).all()
+        _qresult = await db_session.execute(select(ReliabilityMetric))
+
+        all_metrics = _qresult.scalars().all()
         assert len(all_metrics) == 0
 
-    def test_commit_explicit_true(self, db_session):
+    async def test_commit_explicit_true(self, db_session):
         """Verifies explicit commit=True works the same as default."""
-        metric = store_reliability_metric(
+        metric = await store_reliability_metric(
             db_session,
             metric_type="split_half",
             value=0.80,
@@ -3260,7 +3257,11 @@ class TestStoreReliabilityMetric:
         assert metric.id is not None
 
         # Verify with a fresh query
-        queried = db_session.query(ReliabilityMetric).filter_by(id=metric.id).first()
+        _qresult = await db_session.execute(
+            select(ReliabilityMetric).filter_by(id=metric.id)
+        )
+
+        queried = _qresult.scalars().first()
         assert queried is not None
         assert queried.value == pytest.approx(0.80)
 
@@ -3268,22 +3269,22 @@ class TestStoreReliabilityMetric:
 class TestGetReliabilityHistory:
     """Tests for get_reliability_history function (RE-007)."""
 
-    def test_get_empty_history(self, db_session):
+    async def test_get_empty_history(self, db_session):
         """Returns empty list when no metrics exist."""
-        history = get_reliability_history(db_session)
+        history = await get_reliability_history(db_session)
         assert history == []
 
-    def test_get_all_metrics(self, db_session):
+    async def test_get_all_metrics(self, db_session):
         """Retrieves all metrics when no filter specified."""
         # Store three metrics
         store_reliability_metric(db_session, "cronbachs_alpha", 0.85, 100)
         store_reliability_metric(db_session, "test_retest", 0.72, 50)
         store_reliability_metric(db_session, "split_half", 0.78, 100)
 
-        history = get_reliability_history(db_session)
+        history = await get_reliability_history(db_session)
         assert len(history) == 3
 
-    def test_filter_by_metric_type(self, db_session):
+    async def test_filter_by_metric_type(self, db_session):
         """Filters history by metric type correctly."""
         # Store multiple metrics of different types
         store_reliability_metric(db_session, "cronbachs_alpha", 0.85, 100)
@@ -3292,18 +3293,20 @@ class TestGetReliabilityHistory:
         store_reliability_metric(db_session, "split_half", 0.78, 100)
 
         # Filter by cronbachs_alpha
-        alpha_history = get_reliability_history(
+        alpha_history = await get_reliability_history(
             db_session, metric_type="cronbachs_alpha"
         )
         assert len(alpha_history) == 2
         assert all(m["metric_type"] == "cronbachs_alpha" for m in alpha_history)
 
         # Filter by test_retest
-        retest_history = get_reliability_history(db_session, metric_type="test_retest")
+        retest_history = await get_reliability_history(
+            db_session, metric_type="test_retest"
+        )
         assert len(retest_history) == 1
         assert retest_history[0]["metric_type"] == "test_retest"
 
-    def test_filter_by_days(self, db_session):
+    async def test_filter_by_days(self, db_session):
         """Filters history by time period correctly."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -3319,18 +3322,18 @@ class TestGetReliabilityHistory:
             calculated_at=utc_now() - timedelta(days=120),
         )
         db_session.add(old_metric)
-        db_session.commit()
+        await db_session.commit()
 
         # Get history with 90-day filter (default)
-        history = get_reliability_history(db_session, days=90)
+        history = await get_reliability_history(db_session, days=90)
         assert len(history) == 1
         assert history[0]["value"] == pytest.approx(0.85)
 
         # Get history with 180-day filter
-        history_longer = get_reliability_history(db_session, days=180)
+        history_longer = await get_reliability_history(db_session, days=180)
         assert len(history_longer) == 2
 
-    def test_history_ordered_by_date_desc(self, db_session):
+    async def test_history_ordered_by_date_desc(self, db_session):
         """Returns metrics ordered by calculated_at descending (most recent first)."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -3358,9 +3361,9 @@ class TestGetReliabilityHistory:
         )
 
         db_session.add_all([metric1, metric2, metric3])
-        db_session.commit()
+        await db_session.commit()
 
-        history = get_reliability_history(db_session)
+        history = await get_reliability_history(db_session)
 
         assert len(history) == 3
         # Most recent first
@@ -3368,7 +3371,7 @@ class TestGetReliabilityHistory:
         assert history[1]["value"] == pytest.approx(0.85)
         assert history[2]["value"] == pytest.approx(0.80)
 
-    def test_history_includes_all_fields(self, db_session):
+    async def test_history_includes_all_fields(self, db_session):
         """Returns all required fields in history entries."""
         details = {"interpretation": "good", "meets_threshold": True}
 
@@ -3380,7 +3383,7 @@ class TestGetReliabilityHistory:
             details=details,
         )
 
-        history = get_reliability_history(db_session)
+        history = await get_reliability_history(db_session)
         assert len(history) == 1
 
         entry = history[0]
@@ -3396,7 +3399,7 @@ class TestGetReliabilityHistory:
         assert entry["sample_size"] == 150
         assert entry["details"]["interpretation"] == "good"
 
-    def test_combined_filters(self, db_session):
+    async def test_combined_filters(self, db_session):
         """Supports combining metric_type and days filters."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -3426,10 +3429,10 @@ class TestGetReliabilityHistory:
         )
 
         db_session.add_all([metric1, metric2, metric3])
-        db_session.commit()
+        await db_session.commit()
 
         # Get recent alpha only
-        history = get_reliability_history(
+        history = await get_reliability_history(
             db_session,
             metric_type="cronbachs_alpha",
             days=30,
@@ -3439,7 +3442,7 @@ class TestGetReliabilityHistory:
         assert history[0]["value"] == pytest.approx(0.85)
         assert history[0]["metric_type"] == "cronbachs_alpha"
 
-    def test_handles_null_details(self, db_session):
+    async def test_handles_null_details(self, db_session):
         """Handles metrics with null details correctly."""
         store_reliability_metric(
             db_session,
@@ -3449,7 +3452,7 @@ class TestGetReliabilityHistory:
             details=None,
         )
 
-        history = get_reliability_history(db_session)
+        history = await get_reliability_history(db_session)
         assert len(history) == 1
         assert history[0]["details"] is None
 
@@ -3468,17 +3471,19 @@ class TestInsufficientDataIndicator:
     detection.
     """
 
-    def test_alpha_insufficient_data_true_when_below_min_sessions(self, db_session):
+    async def test_alpha_insufficient_data_true_when_below_min_sessions(
+        self, db_session
+    ):
         """Cronbach's alpha sets insufficient_data=True when sessions < min."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
 
         # Create only 50 sessions (below 100 minimum)
         for i in range(50):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should set insufficient_data indicator
         assert result["insufficient_data"] is True
@@ -3486,25 +3491,29 @@ class TestInsufficientDataIndicator:
         assert "Insufficient" in result["error"]
         assert result["cronbachs_alpha"] is None
 
-    def test_alpha_insufficient_data_false_when_sufficient_sessions(self, db_session):
+    async def test_alpha_insufficient_data_false_when_sufficient_sessions(
+        self, db_session
+    ):
         """Cronbach's alpha sets insufficient_data=False when data is sufficient."""
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
 
         # Create 120 sessions (above 100 minimum)
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        result = await calculate_cronbachs_alpha(db_session, min_sessions=100)
 
         # Should not set insufficient_data indicator
         assert result["insufficient_data"] is False
         assert result["error"] is None
         assert result["cronbachs_alpha"] is not None
 
-    def test_test_retest_insufficient_data_true_when_below_min_pairs(self, db_session):
+    async def test_test_retest_insufficient_data_true_when_below_min_pairs(
+        self, db_session
+    ):
         """Test-retest sets insufficient_data=True when pairs < min."""
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -3513,11 +3522,11 @@ class TestInsufficientDataIndicator:
 
         # Create only 10 retest pairs (below 30 minimum)
         for i in range(10):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             # First test
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -3525,7 +3534,7 @@ class TestInsufficientDataIndicator:
                 completed_at=base_time - timedelta(days=30),
             )
             # Second test (retest)
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -3533,7 +3542,7 @@ class TestInsufficientDataIndicator:
                 completed_at=base_time,
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # Should set insufficient_data indicator
         assert result["insufficient_data"] is True
@@ -3541,7 +3550,7 @@ class TestInsufficientDataIndicator:
         assert "Insufficient" in result["error"]
         assert result["test_retest_r"] is None
 
-    def test_test_retest_insufficient_data_false_when_sufficient_pairs(
+    async def test_test_retest_insufficient_data_false_when_sufficient_pairs(
         self, db_session
     ):
         """Test-retest sets insufficient_data=False when data is sufficient."""
@@ -3552,11 +3561,11 @@ class TestInsufficientDataIndicator:
 
         # Create 40 retest pairs (above 30 minimum)
         for i in range(40):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             base_time = utc_now()
 
             # First test
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -3564,7 +3573,7 @@ class TestInsufficientDataIndicator:
                 completed_at=base_time - timedelta(days=30),
             )
             # Second test (retest)
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -3572,14 +3581,14 @@ class TestInsufficientDataIndicator:
                 completed_at=base_time,
             )
 
-        result = calculate_test_retest_reliability(db_session, min_pairs=30)
+        result = await calculate_test_retest_reliability(db_session, min_pairs=30)
 
         # Should not set insufficient_data indicator
         assert result["insufficient_data"] is False
         assert result["error"] is None
         assert result["test_retest_r"] is not None
 
-    def test_split_half_insufficient_data_true_when_below_min_sessions(
+    async def test_split_half_insufficient_data_true_when_below_min_sessions(
         self, db_session
     ):
         """Split-half sets insufficient_data=True when sessions < min."""
@@ -3587,11 +3596,11 @@ class TestInsufficientDataIndicator:
 
         # Create only 50 sessions (below 100 minimum)
         for i in range(50):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [(i + j) % 2 == 0 for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         # Should set insufficient_data indicator
         assert result["insufficient_data"] is True
@@ -3599,7 +3608,7 @@ class TestInsufficientDataIndicator:
         assert "Insufficient" in result["error"]
         assert result["spearman_brown_r"] is None
 
-    def test_split_half_insufficient_data_false_when_sufficient_sessions(
+    async def test_split_half_insufficient_data_false_when_sufficient_sessions(
         self, db_session
     ):
         """Split-half sets insufficient_data=False when data is sufficient."""
@@ -3607,12 +3616,12 @@ class TestInsufficientDataIndicator:
 
         # Create 120 sessions (above 100 minimum)
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
-        result = calculate_split_half_reliability(db_session, min_sessions=100)
+        result = await calculate_split_half_reliability(db_session, min_sessions=100)
 
         # Should not set insufficient_data indicator
         assert result["insufficient_data"] is False
@@ -3688,10 +3697,10 @@ class TestInsufficientDataIndicator:
         ]
         assert len(data_collection) == 0
 
-    def test_all_metrics_set_insufficient_data_field(self, db_session):
+    async def test_all_metrics_set_insufficient_data_field(self, db_session):
         """All three metrics include insufficient_data field in results."""
         # Empty database should have insufficient data for all metrics
-        alpha = calculate_cronbachs_alpha(db_session, min_sessions=100)
+        alpha = await calculate_cronbachs_alpha(db_session, min_sessions=100)
         test_retest = calculate_test_retest_reliability(db_session, min_pairs=30)
         split_half = calculate_split_half_reliability(db_session, min_sessions=100)
 
@@ -3719,7 +3728,7 @@ class TestDefensiveErrorHandling:
     functions are caught and don't prevent partial results from being returned.
     """
 
-    def test_report_returns_partial_results_when_alpha_raises(
+    async def test_report_returns_partial_results_when_alpha_raises(
         self, db_session, monkeypatch
     ):
         """Report returns partial results when Cronbach's alpha calculation raises."""
@@ -3733,23 +3742,23 @@ class TestDefensiveErrorHandling:
 
         # Create 120 completed sessions
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Create retest pairs
         for i in range(35):
-            user = create_test_user(db_session, f"retest{i}@example.com")
+            user = await create_test_user(db_session, f"retest{i}@example.com")
             base_time = utc_now()
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=90 + i * 2,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -3767,7 +3776,7 @@ class TestDefensiveErrorHandling:
         )
 
         # Get report - should still work with partial results
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30
         )
 
@@ -3791,7 +3800,7 @@ class TestDefensiveErrorHandling:
             "excellent",
         ]
 
-    def test_report_returns_partial_results_when_test_retest_raises(
+    async def test_report_returns_partial_results_when_test_retest_raises(
         self, db_session, monkeypatch
     ):
         """Report returns partial results when test-retest calculation raises."""
@@ -3801,10 +3810,10 @@ class TestDefensiveErrorHandling:
 
         # Create 120 completed sessions for alpha and split-half
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Make calculate_test_retest_reliability raise an exception
         def raise_error(*args, **kwargs):
@@ -3816,7 +3825,7 @@ class TestDefensiveErrorHandling:
         )
 
         # Get report - should still work with partial results
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30
         )
 
@@ -3830,7 +3839,7 @@ class TestDefensiveErrorHandling:
         assert "cronbachs_alpha" in report["internal_consistency"]
         assert "spearman_brown" in report["split_half"]
 
-    def test_report_returns_partial_results_when_split_half_raises(
+    async def test_report_returns_partial_results_when_split_half_raises(
         self, db_session, monkeypatch
     ):
         """Report returns partial results when split-half calculation raises."""
@@ -3840,10 +3849,10 @@ class TestDefensiveErrorHandling:
 
         # Create 120 completed sessions for alpha
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Make calculate_split_half_reliability raise an exception
         def raise_error(*args, **kwargs):
@@ -3855,7 +3864,7 @@ class TestDefensiveErrorHandling:
         )
 
         # Get report - should still work with partial results
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30
         )
 
@@ -3867,7 +3876,7 @@ class TestDefensiveErrorHandling:
         # Alpha should still be calculated
         assert "cronbachs_alpha" in report["internal_consistency"]
 
-    def test_report_returns_results_when_all_calculations_raise(
+    async def test_report_returns_results_when_all_calculations_raise(
         self, db_session, monkeypatch
     ):
         """Report returns valid structure even when all calculations raise."""
@@ -3899,7 +3908,7 @@ class TestDefensiveErrorHandling:
         )
 
         # Get report - should still return valid structure
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30
         )
 
@@ -3923,7 +3932,9 @@ class TestDefensiveErrorHandling:
         # Overall status should be insufficient_data
         assert report["overall_status"] == "insufficient_data"
 
-    def test_error_result_structure_has_required_fields(self, db_session, monkeypatch):
+    async def test_error_result_structure_has_required_fields(
+        self, db_session, monkeypatch
+    ):
         """Error results from exceptions contain all required fields."""
         from app.core.reliability import report as reliability_report
 
@@ -3936,7 +3947,7 @@ class TestDefensiveErrorHandling:
             reliability_report, "calculate_cronbachs_alpha", raise_error
         )
 
-        report = get_reliability_report(db_session)
+        report = await get_reliability_report(db_session)
 
         # Check internal consistency has all required fields
         ic = report["internal_consistency"]
@@ -3956,7 +3967,7 @@ class TestDefensiveErrorHandling:
         assert ic["num_items"] == 0 or ic["num_items"] is None
         assert ic["item_total_correlations"] == {}
 
-    def test_recommendations_generated_with_partial_errors(
+    async def test_recommendations_generated_with_partial_errors(
         self, db_session, monkeypatch
     ):
         """Recommendations are still generated when some calculations fail."""
@@ -3966,10 +3977,10 @@ class TestDefensiveErrorHandling:
 
         # Create 120 completed sessions
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.4 - (j * 0.05) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Make only alpha calculation raise
         def raise_error(*args, **kwargs):
@@ -3980,7 +3991,7 @@ class TestDefensiveErrorHandling:
             reliability_report, "calculate_cronbachs_alpha", raise_error
         )
 
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30
         )
 
@@ -4042,7 +4053,7 @@ class TestCorrelationEdgeCases:
         assert result2 is not None
         assert abs(result2) < 0.2  # Very close to zero
 
-    def test_exactly_zero_correlation_test_retest(self, db_session):
+    async def test_exactly_zero_correlation_test_retest(self, db_session):
         """
         Test-retest reliability handles zero correlation between test scores.
 
@@ -4061,19 +4072,19 @@ class TestCorrelationEdgeCases:
         # Pairs: (90, 110), (100, 90), (110, 110), (120, 90), (130, 110), etc.
         # The second score alternates while first increases
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
 
             score1 = 90 + i * 2  # Increasing: 90, 92, 94, ...
             score2 = 100 + (10 if i % 2 == 0 else -10)  # Alternating: 110, 90, 110, ...
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 score1,
                 base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -4081,7 +4092,7 @@ class TestCorrelationEdgeCases:
                 base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session)
+        result = await calculate_test_retest_reliability(db_session)
 
         # Should return a result (not insufficient data)
         assert result["error"] is None
@@ -4116,7 +4127,7 @@ class TestCorrelationEdgeCases:
         assert result is not None
         assert result < -0.9  # Strong negative correlation
 
-    def test_negative_correlation_test_retest(self, db_session):
+    async def test_negative_correlation_test_retest(self, db_session):
         """
         Test-retest reliability handles negative correlation between test scores.
 
@@ -4131,19 +4142,19 @@ class TestCorrelationEdgeCases:
         # Create negatively correlated score pairs
         # First score increases, second score decreases
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
 
             score1 = 80 + i * 2  # Increasing: 80, 82, 84, ...
             score2 = 150 - i * 2  # Decreasing: 150, 148, 146, ...
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 score1,
                 base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -4151,7 +4162,7 @@ class TestCorrelationEdgeCases:
                 base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session)
+        result = await calculate_test_retest_reliability(db_session)
 
         # Should return a result
         assert result["error"] is None
@@ -4169,7 +4180,7 @@ class TestCorrelationEdgeCases:
         # Interpretation should reflect poor reliability
         assert result["interpretation"] in ["poor", "unacceptable"]
 
-    def test_practice_effect_exactly_at_threshold(self, db_session):
+    async def test_practice_effect_exactly_at_threshold(self, db_session):
         """
         Practice effect exactly at threshold (5.0) is handled correctly.
 
@@ -4188,20 +4199,20 @@ class TestCorrelationEdgeCases:
 
         # Create pairs where second score is exactly 5 points higher
         for i in range(35):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
 
             # Add variance to scores while maintaining exactly +5 practice effect
             score1 = 90 + i  # 90 to 124
             score2 = score1 + 5  # Always exactly +5 higher
 
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 score1,
                 base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -4209,7 +4220,7 @@ class TestCorrelationEdgeCases:
                 base_time - timedelta(days=30),
             )
 
-        result = calculate_test_retest_reliability(db_session)
+        result = await calculate_test_retest_reliability(db_session)
 
         # Practice effect should be exactly 5.0
         assert result["score_change_stats"]["practice_effect"] == pytest.approx(5.0)
@@ -4372,7 +4383,7 @@ class TestReliabilityDataLoader:
         docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-FI-020)
     """
 
-    def test_data_loader_caches_response_data(self, db_session):
+    async def test_data_loader_caches_response_data(self, db_session):
         """
         Data loader caches response data after first call.
 
@@ -4384,9 +4395,9 @@ class TestReliabilityDataLoader:
         # Create test data
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
         for i in range(10):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             responses = [i % 2 == 0] * 5
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Create data loader
         loader = ReliabilityDataLoader(db_session)
@@ -4400,7 +4411,7 @@ class TestReliabilityDataLoader:
         assert data1["completed_sessions_count"] == 10
         assert len(data1["responses"]) > 0
 
-    def test_data_loader_caches_test_retest_data(self, db_session):
+    async def test_data_loader_caches_test_retest_data(self, db_session):
         """
         Data loader caches test-retest data after first call.
 
@@ -4416,15 +4427,15 @@ class TestReliabilityDataLoader:
         base_time = utc_now()
 
         for i in range(10):
-            user = create_test_user(db_session, f"retest{i}@example.com")
-            create_completed_test_with_score(
+            user = await create_test_user(db_session, f"retest{i}@example.com")
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=100,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -4443,7 +4454,7 @@ class TestReliabilityDataLoader:
         assert data1 is data2
         assert len(data1["test_results"]) == 20  # 10 users x 2 tests each
 
-    def test_data_loader_loads_correct_response_format(self, db_session):
+    async def test_data_loader_loads_correct_response_format(self, db_session):
         """
         Data loader returns responses in correct 4-tuple format.
 
@@ -4453,8 +4464,8 @@ class TestReliabilityDataLoader:
 
         # Create test data
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
-        user = create_test_user(db_session, "loader@example.com")
-        create_completed_test_session(
+        user = await create_test_user(db_session, "loader@example.com")
+        await create_completed_test_session(
             db_session, user, questions, [True, False, True, False, True]
         )
 
@@ -4472,7 +4483,7 @@ class TestReliabilityDataLoader:
             assert isinstance(resp[2], bool)  # is_correct
             assert isinstance(resp[3], int)  # response_id
 
-    def test_calculate_cronbachs_alpha_with_data_loader(self, db_session):
+    async def test_calculate_cronbachs_alpha_with_data_loader(self, db_session):
         """
         calculate_cronbachs_alpha works correctly with data_loader parameter.
 
@@ -4484,10 +4495,10 @@ class TestReliabilityDataLoader:
         # Create test data
         questions = [create_test_question(db_session, f"Q{i}") for i in range(5)]
         for i in range(100):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 100
             responses = [ability > 0.5 - (j * 0.1) for j in range(5)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Calculate with data loader
         loader = ReliabilityDataLoader(db_session)
@@ -4512,7 +4523,7 @@ class TestReliabilityDataLoader:
             == result_without_loader["meets_threshold"]
         )
 
-    def test_calculate_test_retest_with_data_loader(self, db_session):
+    async def test_calculate_test_retest_with_data_loader(self, db_session):
         """
         calculate_test_retest_reliability works correctly with data_loader parameter.
         """
@@ -4525,15 +4536,15 @@ class TestReliabilityDataLoader:
         base_time = utc_now()
 
         for i in range(35):
-            user = create_test_user(db_session, f"retest{i}@example.com")
-            create_completed_test_with_score(
+            user = await create_test_user(db_session, f"retest{i}@example.com")
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=90 + i,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -4566,7 +4577,7 @@ class TestReliabilityDataLoader:
             == result_without_loader["meets_threshold"]
         )
 
-    def test_calculate_split_half_with_data_loader(self, db_session):
+    async def test_calculate_split_half_with_data_loader(self, db_session):
         """
         calculate_split_half_reliability works correctly with data_loader parameter.
         """
@@ -4575,10 +4586,10 @@ class TestReliabilityDataLoader:
         # Create test data
         questions = [create_test_question(db_session, f"Q{i}") for i in range(6)]
         for i in range(100):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 100
             responses = [ability > 0.5 - (j * 0.1) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Calculate with data loader
         loader = ReliabilityDataLoader(db_session)
@@ -4607,7 +4618,7 @@ class TestReliabilityDataLoader:
             == result_without_loader["meets_threshold"]
         )
 
-    def test_data_loader_preload_all(self, db_session):
+    async def test_data_loader_preload_all(self, db_session):
         """
         preload_all() method loads both response and test-retest data.
         """
@@ -4620,8 +4631,8 @@ class TestReliabilityDataLoader:
         base_time = utc_now()
 
         for i in range(10):
-            user = create_test_user(db_session, f"user{i}@example.com")
-            create_completed_test_with_score(
+            user = await create_test_user(db_session, f"user{i}@example.com")
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -4642,7 +4653,7 @@ class TestReliabilityDataLoader:
         assert loader._response_data is not None
         assert loader._test_retest_data is not None
 
-    def test_get_reliability_report_uses_shared_data(self, db_session):
+    async def test_get_reliability_report_uses_shared_data(self, db_session):
         """
         get_reliability_report uses ReliabilityDataLoader for optimized queries.
 
@@ -4658,22 +4669,22 @@ class TestReliabilityDataLoader:
 
         # Create 120 sessions for alpha and split-half
         for i in range(120):
-            user = create_test_user(db_session, f"user{i}@example.com")
+            user = await create_test_user(db_session, f"user{i}@example.com")
             ability = i / 120
             responses = [ability > 0.5 - (j * 0.08) for j in range(6)]
-            create_completed_test_session(db_session, user, questions, responses)
+            await create_completed_test_session(db_session, user, questions, responses)
 
         # Create 35 retest pairs
         for i in range(35):
-            user = create_test_user(db_session, f"retest{i}@example.com")
-            create_completed_test_with_score(
+            user = await create_test_user(db_session, f"retest{i}@example.com")
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
                 iq_score=90 + i,
                 completed_at=base_time - timedelta(days=60),
             )
-            create_completed_test_with_score(
+            await create_completed_test_with_score(
                 db_session,
                 user,
                 questions,
@@ -4682,7 +4693,7 @@ class TestReliabilityDataLoader:
             )
 
         # Generate report (which uses ReliabilityDataLoader internally)
-        report = get_reliability_report(
+        report = await get_reliability_report(
             db_session, min_sessions=100, min_retest_pairs=30, use_cache=False
         )
 

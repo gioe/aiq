@@ -25,9 +25,9 @@ from datetime import timedelta, timezone
 from datetime import datetime as dt
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.models.models import DifficultyLevel, Question, QuestionType
@@ -231,7 +231,7 @@ def get_quality_tier(discrimination: Optional[float]) -> Optional[str]:
 # =============================================================================
 
 
-def calculate_percentile_rank(db: Session, discrimination: float) -> int:
+async def calculate_percentile_rank(db: AsyncSession, discrimination: float) -> int:
     """
     Calculate percentile rank of a discrimination value among all questions.
 
@@ -255,11 +255,10 @@ def calculate_percentile_rank(db: Session, discrimination: float) -> int:
     """
     try:
         # Count total questions with discrimination data
-        total_count = (
-            db.query(func.count(Question.id))
-            .filter(Question.discrimination.isnot(None))
-            .scalar()
+        total_count_result = await db.execute(
+            select(func.count(Question.id)).filter(Question.discrimination.isnot(None))
         )
+        total_count = total_count_result.scalar()
 
         # Handle None result (shouldn't happen with COUNT, but defensive)
         if total_count is None:
@@ -272,14 +271,13 @@ def calculate_percentile_rank(db: Session, discrimination: float) -> int:
             return 50  # Default to median if no data
 
         # Count questions with lower discrimination
-        lower_count = (
-            db.query(func.count(Question.id))
-            .filter(
+        lower_count_result = await db.execute(
+            select(func.count(Question.id)).filter(
                 Question.discrimination.isnot(None),
                 Question.discrimination < discrimination,
             )
-            .scalar()
         )
+        lower_count = lower_count_result.scalar()
 
         # Handle None result (shouldn't happen with COUNT, but defensive)
         if lower_count is None:
@@ -315,8 +313,8 @@ def calculate_percentile_rank(db: Session, discrimination: float) -> int:
 # =============================================================================
 
 
-def get_discrimination_report(
-    db: Session,
+async def get_discrimination_report(
+    db: AsyncSession,
     min_responses: int = 30,
     action_list_limit: int = DEFAULT_ACTION_LIST_LIMIT,
 ) -> Dict:
@@ -405,7 +403,7 @@ def get_discrimination_report(
         # -------------------------------------------------------------------------
         # SUMMARY COUNTS: Use SQL CASE/WHEN aggregation (IDA-F003)
         # -------------------------------------------------------------------------
-        tier_count_query = db.query(
+        tier_count_query = select(
             func.count(Question.id).label("total"),
             func.sum(case((Question.discrimination >= 0.40, 1), else_=0)).label(
                 "excellent"
@@ -456,7 +454,8 @@ def get_discrimination_report(
             func.avg(Question.discrimination).label("mean_discrimination"),
         ).filter(*base_filter)
 
-        tier_result = tier_count_query.first()
+        tier_count_result = await db.execute(tier_count_query)
+        tier_result = tier_count_result.first()
 
         # Handle unexpected None result (IDA-F015)
         # This shouldn't happen with aggregate queries, but provides defensive handling
@@ -515,7 +514,7 @@ def get_discrimination_report(
         # BY_DIFFICULTY BREAKDOWN: Use SQL GROUP BY aggregation (IDA-F003)
         # -------------------------------------------------------------------------
         difficulty_query = (
-            db.query(
+            select(
                 Question.difficulty_level,
                 func.avg(Question.discrimination).label("mean_discrimination"),
                 func.sum(case((Question.discrimination < 0.00, 1), else_=0)).label(
@@ -526,7 +525,8 @@ def get_discrimination_report(
             .group_by(Question.difficulty_level)
         )
 
-        difficulty_results = {row[0]: row for row in difficulty_query.all()}
+        difficulty_query_result = await db.execute(difficulty_query)
+        difficulty_results = {row[0]: row for row in difficulty_query_result.all()}
 
         by_difficulty: Dict[str, Dict] = {}
         for level in DifficultyLevel:
@@ -548,7 +548,7 @@ def get_discrimination_report(
         # BY_TYPE BREAKDOWN: Use SQL GROUP BY aggregation (IDA-F003)
         # -------------------------------------------------------------------------
         type_query = (
-            db.query(
+            select(
                 Question.question_type,
                 func.avg(Question.discrimination).label("mean_discrimination"),
                 func.sum(case((Question.discrimination < 0.00, 1), else_=0)).label(
@@ -559,7 +559,8 @@ def get_discrimination_report(
             .group_by(Question.question_type)
         )
 
-        type_results = {row[0]: row for row in type_query.all()}
+        type_query_result = await db.execute(type_query)
+        type_results = {row[0]: row for row in type_query_result.all()}
 
         by_type: Dict[str, Dict] = {}
         for qtype in QuestionType:
@@ -588,8 +589,8 @@ def get_discrimination_report(
         monitor: List[Dict] = []
 
         # Query questions with negative discrimination (most negative first)
-        negative_questions = (
-            db.query(
+        negative_questions_result = await db.execute(
+            select(
                 Question.id,
                 Question.discrimination,
                 Question.response_count,
@@ -601,8 +602,8 @@ def get_discrimination_report(
             )
             .order_by(Question.discrimination.asc())
             .limit(action_list_limit)
-            .all()
         )
+        negative_questions = negative_questions_result.all()
 
         for q in negative_questions:
             immediate_review.append(
@@ -616,8 +617,8 @@ def get_discrimination_report(
             )
 
         # Query questions with very poor discrimination (0.0 <= r < 0.10, lowest first)
-        very_poor_questions = (
-            db.query(
+        very_poor_questions_result = await db.execute(
+            select(
                 Question.id,
                 Question.discrimination,
                 Question.response_count,
@@ -630,8 +631,8 @@ def get_discrimination_report(
             )
             .order_by(Question.discrimination.asc())
             .limit(action_list_limit)
-            .all()
         )
+        very_poor_questions = very_poor_questions_result.all()
 
         for q in very_poor_questions:
             monitor.append(
@@ -670,15 +671,14 @@ def get_discrimination_report(
         )
 
         # Count questions newly flagged this week
-        new_negative_this_week = (
-            db.query(func.count(Question.id))
-            .filter(
+        new_negative_this_week_result = await db.execute(
+            select(func.count(Question.id)).filter(
                 Question.quality_flag == "under_review",
                 Question.quality_flag_updated_at >= seven_days_ago,
                 Question.quality_flag_reason.like("Negative discrimination%"),
             )
-            .scalar()
         )
+        new_negative_this_week = new_negative_this_week_result.scalar()
 
         trends = {
             "mean_discrimination_30d": mean_discrimination_30d,
@@ -796,8 +796,8 @@ def _get_empty_report() -> Dict[str, Any]:
 # =============================================================================
 
 
-def get_question_discrimination_detail(
-    db: Session,
+async def get_question_discrimination_detail(
+    db: AsyncSession,
     question_id: int,
 ) -> Optional[Dict]:
     """
@@ -826,7 +826,10 @@ def get_question_discrimination_detail(
 
     try:
         # Fetch the question
-        question = db.query(Question).filter(Question.id == question_id).first()
+        question_result = await db.execute(
+            select(Question).filter(Question.id == question_id)
+        )
+        question = question_result.scalars().first()
 
         if not question:
             logger.warning(
@@ -853,21 +856,20 @@ def get_question_discrimination_detail(
         # Note: This may raise DiscriminationAnalysisError which we allow to propagate
         percentile_rank = None
         if disc_value is not None:
-            percentile_rank = calculate_percentile_rank(db, disc_value)
+            percentile_rank = await calculate_percentile_rank(db, disc_value)
 
         # Calculate type average
         type_avg = None
         compared_to_type_avg = None
         if disc_value is not None:
-            type_avg_result = (
-                db.query(func.avg(Question.discrimination))
-                .filter(
+            type_avg_q = await db.execute(
+                select(func.avg(Question.discrimination)).filter(
                     Question.question_type == question.question_type,
                     Question.discrimination.isnot(None),
                     Question.is_active == True,  # noqa: E712
                 )
-                .scalar()
             )
+            type_avg_result = type_avg_q.scalar()
             if type_avg_result is not None:
                 type_avg = float(type_avg_result)
                 diff = disc_value - type_avg
@@ -882,15 +884,14 @@ def get_question_discrimination_detail(
         difficulty_avg = None
         compared_to_difficulty_avg = None
         if disc_value is not None:
-            difficulty_avg_result = (
-                db.query(func.avg(Question.discrimination))
-                .filter(
+            difficulty_avg_q = await db.execute(
+                select(func.avg(Question.discrimination)).filter(
                     Question.difficulty_level == question.difficulty_level,
                     Question.discrimination.isnot(None),
                     Question.is_active == True,  # noqa: E712
                 )
-                .scalar()
             )
+            difficulty_avg_result = difficulty_avg_q.scalar()
             if difficulty_avg_result is not None:
                 difficulty_avg = float(difficulty_avg_result)
                 diff = disc_value - difficulty_avg

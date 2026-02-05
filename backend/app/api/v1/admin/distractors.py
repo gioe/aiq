@@ -7,7 +7,8 @@ in multiple-choice questions.
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.distractor_analysis import (
     analyze_distractor_effectiveness,
@@ -46,7 +47,7 @@ async def get_distractor_analysis(
         le=1000,
         description="Minimum responses required for analysis",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -96,7 +97,8 @@ async def get_distractor_analysis(
     """
     try:
         # First check if question exists
-        question = db.query(Question).filter(Question.id == question_id).first()
+        result = await db.execute(select(Question).filter(Question.id == question_id))
+        question = result.scalars().first()
 
         if question is None:
             raise HTTPException(
@@ -113,7 +115,7 @@ async def get_distractor_analysis(
             )
 
         # Get distractor analysis from core function
-        analysis = analyze_distractor_effectiveness(
+        analysis = await analyze_distractor_effectiveness(
             db, question_id, min_responses=min_responses
         )
 
@@ -213,7 +215,7 @@ async def get_distractor_summary(
         None,
         description="Filter by question type (pattern, logic, spatial, math, verbal, memory)",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -267,7 +269,7 @@ async def get_distractor_summary(
     """
     try:
         # Get bulk summary from core function
-        summary = get_bulk_distractor_summary(
+        summary = await get_bulk_distractor_summary(
             db, min_responses=min_responses, question_type=question_type
         )
 

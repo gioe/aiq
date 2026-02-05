@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.models import Question, QuestionType
@@ -43,7 +43,7 @@ class CATReadinessResult:
     thresholds: dict
 
 
-def evaluate_cat_readiness(db: Session) -> CATReadinessResult:
+async def evaluate_cat_readiness(db: AsyncSession) -> CATReadinessResult:
     """
     Evaluate whether the question bank is ready for CAT across all domains.
 
@@ -81,20 +81,17 @@ def evaluate_cat_readiness(db: Session) -> CATReadinessResult:
         domain_name = q_type.value
 
         # Count all calibrated items (regardless of SE quality)
-        total_calibrated = (
-            db.query(func.count(Question.id))
-            .filter(
-                Question.question_type == q_type,
-                Question.is_active.is_(True),
-                Question.quality_flag == "normal",
-                Question.irt_calibrated_at.isnot(None),
-            )
-            .scalar()
-            or 0
+        total_calibrated_stmt = select(func.count(Question.id)).filter(
+            Question.question_type == q_type,
+            Question.is_active.is_(True),
+            Question.quality_flag == "normal",
+            Question.irt_calibrated_at.isnot(None),
         )
+        result = await db.execute(total_calibrated_stmt)
+        total_calibrated = result.scalar() or 0
 
         # Query well-calibrated items (SE below thresholds)
-        well_calibrated_query = db.query(Question).filter(
+        well_calibrated_stmt = select(Question).filter(
             Question.question_type == q_type,
             Question.is_active.is_(True),
             Question.quality_flag == "normal",
@@ -106,7 +103,8 @@ def evaluate_cat_readiness(db: Session) -> CATReadinessResult:
             Question.irt_difficulty.isnot(None),
         )
 
-        well_calibrated_items = well_calibrated_query.all()
+        result = await db.execute(well_calibrated_stmt)
+        well_calibrated_items = result.scalars().all()
         well_calibrated_count = len(well_calibrated_items)
 
         # Count items in IRT difficulty bands

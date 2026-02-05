@@ -20,7 +20,8 @@ See docs/methodology/METHODOLOGY.md Section 5.4 for psychometric context.
 """
 import logging
 from typing import Dict, Any, Optional, Tuple
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.models import Question
@@ -28,8 +29,8 @@ from app.models.models import Question
 logger = logging.getLogger(__name__)
 
 
-def _validate_and_prepare_distractor_update(
-    db: Session,
+async def _validate_and_prepare_distractor_update(
+    db: AsyncSession,
     question_id: int,
     selected_answer: str,
     operation_name: str = "distractor stats update",
@@ -67,8 +68,8 @@ def _validate_and_prepare_distractor_update(
         return None
 
     # Fetch question
-    question = db.query(Question).filter(Question.id == question_id).first()
-
+    _result = await db.execute(select(Question).filter(Question.id == question_id))
+    question = _result.scalars().first()
     if not question:
         logger.error(f"Question {question_id} not found for {operation_name}")
         return None
@@ -106,8 +107,8 @@ def _validate_and_prepare_distractor_update(
     return (question, current_stats, normalized_answer)
 
 
-def update_distractor_stats(
-    db: Session,
+async def update_distractor_stats(
+    db: AsyncSession,
     question_id: int,
     selected_answer: str,
 ) -> bool:
@@ -144,7 +145,7 @@ def update_distractor_stats(
         }
     """
     # Validate inputs and prepare data
-    result = _validate_and_prepare_distractor_update(
+    result = await _validate_and_prepare_distractor_update(
         db, question_id, selected_answer, "distractor stats update"
     )
     if result is None:
@@ -167,8 +168,8 @@ def update_distractor_stats(
     return True
 
 
-def update_distractor_quartile_stats(
-    db: Session,
+async def update_distractor_quartile_stats(
+    db: AsyncSession,
     question_id: int,
     selected_answer: str,
     is_top_quartile: bool,
@@ -194,7 +195,7 @@ def update_distractor_quartile_stats(
         This function does NOT commit the transaction.
     """
     # Validate inputs and prepare data
-    result = _validate_and_prepare_distractor_update(
+    result = await _validate_and_prepare_distractor_update(
         db, question_id, selected_answer, "distractor quartile stats update"
     )
     if result is None:
@@ -223,8 +224,8 @@ def update_distractor_quartile_stats(
     return True
 
 
-def calculate_distractor_discrimination(
-    db: Session,
+async def calculate_distractor_discrimination(
+    db: AsyncSession,
     question_id: int,
     min_responses: int = 40,
 ) -> Dict[str, Any]:
@@ -270,8 +271,8 @@ def calculate_distractor_discrimination(
         - Near zero: Similar selection across ability levels (neutral)
         - Negative: High scorers select more than low scorers (problematic for distractors)
     """
-    question = db.query(Question).filter(Question.id == question_id).first()
-
+    _result = await db.execute(select(Question).filter(Question.id == question_id))
+    question = _result.scalars().first()
     if not question:
         logger.warning(f"Question {question_id} not found for discrimination analysis")
         return {
@@ -369,8 +370,8 @@ WEAK_THRESHOLD = 0.02  # 2-5% selection rate
 DISCRIMINATION_THRESHOLD = 0.10  # |index| > 10% is considered significant
 
 
-def analyze_distractor_effectiveness(
-    db: Session,
+async def analyze_distractor_effectiveness(
+    db: AsyncSession,
     question_id: int,
     min_responses: int = 50,
 ) -> Dict[str, Any]:
@@ -432,7 +433,7 @@ def analyze_distractor_effectiveness(
         It's expected to have inverted discrimination (high scorers select more).
     """
     # First get discrimination data
-    discrimination = calculate_distractor_discrimination(
+    discrimination = await calculate_distractor_discrimination(
         db, question_id, min_responses=min_responses
     )
 
@@ -445,7 +446,8 @@ def analyze_distractor_effectiveness(
         }
 
     # Get the question for correct answer
-    question = db.query(Question).filter(Question.id == question_id).first()
+    _result = await db.execute(select(Question).filter(Question.id == question_id))
+    question = _result.scalars().first()
     if not question:
         return {
             "insufficient_data": True,
@@ -586,8 +588,8 @@ def _calculate_effective_option_count(
     return 1.0 / sum_squared
 
 
-def get_bulk_distractor_summary(
-    db: Session,
+async def get_bulk_distractor_summary(
+    db: AsyncSession,
     min_responses: int = 50,
     question_type: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -623,7 +625,7 @@ def get_bulk_distractor_summary(
     from app.models.models import QuestionType
 
     # Build base query for multiple-choice questions only
-    query = db.query(Question).filter(
+    query = select(Question).filter(
         Question.is_active == True,  # noqa: E712
         Question.answer_options.isnot(None),  # Only MC questions
     )
@@ -636,7 +638,8 @@ def get_bulk_distractor_summary(
         except ValueError:
             logger.warning(f"Invalid question_type filter: {question_type}")
 
-    questions = query.all()
+    _result = await db.execute(query)
+    questions = _result.scalars().all()
 
     # Initialize counters
     total_analyzed = 0
@@ -682,7 +685,9 @@ def get_bulk_distractor_summary(
         total_analyzed += 1
 
         # Get full analysis for this question
-        analysis = analyze_distractor_effectiveness(db, int(question.id), min_responses)
+        analysis = await analyze_distractor_effectiveness(
+            db, int(question.id), min_responses
+        )
 
         if analysis.get("insufficient_data"):
             # Shouldn't happen but handle gracefully
@@ -777,8 +782,8 @@ def get_bulk_distractor_summary(
     }
 
 
-def get_distractor_stats(
-    db: Session,
+async def get_distractor_stats(
+    db: AsyncSession,
     question_id: int,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -801,8 +806,8 @@ def get_distractor_stats(
             "has_quartile_data": bool
         }
     """
-    question = db.query(Question).filter(Question.id == question_id).first()
-
+    _result = await db.execute(select(Question).filter(Question.id == question_id))
+    question = _result.scalars().first()
     if not question:
         return None
 
@@ -828,8 +833,8 @@ def get_distractor_stats(
     }
 
 
-def determine_score_quartile(
-    db: Session,
+async def determine_score_quartile(
+    db: AsyncSession,
     correct_answers: int,
     total_questions: int,
     min_historical_results: int = 10,
@@ -867,14 +872,13 @@ def determine_score_quartile(
     min_questions = int(total_questions * 0.8)
     max_questions = int(total_questions * 1.2)
 
-    historical_scores = (
-        db.query(TestResult.correct_answers)
-        .filter(
+    _result = await db.execute(
+        select(TestResult.correct_answers).filter(
             TestResult.total_questions >= min_questions,
             TestResult.total_questions <= max_questions,
         )
-        .all()
     )
+    historical_scores = _result.all()
 
     # Extract scores into a list
     scores = [score for (score,) in historical_scores]
@@ -922,8 +926,8 @@ def determine_score_quartile(
         }
 
 
-def update_session_quartile_stats(
-    db: Session,
+async def update_session_quartile_stats(
+    db: AsyncSession,
     test_session_id: int,
     correct_answers: int,
     total_questions: int,
@@ -955,7 +959,9 @@ def update_session_quartile_stats(
     from app.models.models import Response
 
     # Determine user's quartile
-    quartile_result = determine_score_quartile(db, correct_answers, total_questions)
+    quartile_result = await determine_score_quartile(
+        db, correct_answers, total_questions
+    )
 
     result = {
         "session_id": test_session_id,
@@ -979,9 +985,10 @@ def update_session_quartile_stats(
         return result
 
     # Get all responses for this session
-    responses = (
-        db.query(Response).filter(Response.test_session_id == test_session_id).all()
+    _result = await db.execute(
+        select(Response).filter(Response.test_session_id == test_session_id)
     )
+    responses = _result.scalars().all()
 
     if not responses:
         logger.warning(f"No responses found for session {test_session_id}")
@@ -992,7 +999,7 @@ def update_session_quartile_stats(
 
     for response in responses:
         try:
-            success = update_distractor_quartile_stats(
+            success = await update_distractor_quartile_stats(
                 db=db,
                 question_id=int(response.question_id),
                 selected_answer=str(response.user_answer),
@@ -1010,7 +1017,7 @@ def update_session_quartile_stats(
             result["questions_skipped"] += 1
 
     # Commit all the changes made to question distractor_stats
-    db.commit()
+    await db.commit()
 
     logger.info(
         f"Updated quartile stats for session {test_session_id}: "

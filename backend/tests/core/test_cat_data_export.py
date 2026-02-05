@@ -14,6 +14,7 @@ import json
 from datetime import datetime, timedelta
 
 import pytest
+import pytest_asyncio
 
 from app.core.cat.data_export import (
     DataExportError,
@@ -33,8 +34,8 @@ from app.models.models import (
 )
 
 
-@pytest.fixture
-def test_users(db_session):
+@pytest_asyncio.fixture
+async def test_users(db_session):
     """Create test users."""
     test_password_hash = "hash"  # pragma: allowlist secret
     users = [
@@ -43,14 +44,14 @@ def test_users(db_session):
     ]
     for user in users:
         db_session.add(user)
-    db_session.commit()
+    await db_session.commit()
     for user in users:
-        db_session.refresh(user)
+        await db_session.refresh(user)
     return users
 
 
-@pytest.fixture
-def test_questions_with_stats(db_session):
+@pytest_asyncio.fixture
+async def test_questions_with_stats(db_session):
     """Create test questions with empirical statistics."""
     questions = [
         Question(
@@ -100,14 +101,14 @@ def test_questions_with_stats(db_session):
     ]
     for q in questions:
         db_session.add(q)
-    db_session.commit()
+    await db_session.commit()
     for q in questions:
-        db_session.refresh(q)
+        await db_session.refresh(q)
     return questions
 
 
-@pytest.fixture
-def test_responses(db_session, test_users, test_questions_with_stats):
+@pytest_asyncio.fixture
+async def test_responses(db_session, test_users, test_questions_with_stats):
     """Create test responses from completed sessions."""
     sessions = []
     responses = []
@@ -122,8 +123,8 @@ def test_responses(db_session, test_users, test_questions_with_stats):
         completed_at=base_time + timedelta(minutes=20),
     )
     db_session.add(session1)
-    db_session.commit()
-    db_session.refresh(session1)
+    await db_session.commit()
+    await db_session.refresh(session1)
     sessions.append(session1)
 
     for i, q in enumerate(test_questions_with_stats[:3]):
@@ -147,8 +148,8 @@ def test_responses(db_session, test_users, test_questions_with_stats):
         completed_at=base_time + timedelta(days=1, minutes=25),
     )
     db_session.add(session2)
-    db_session.commit()
-    db_session.refresh(session2)
+    await db_session.commit()
+    await db_session.refresh(session2)
     sessions.append(session2)
 
     # User 2: Gets easy and medium correct, hard incorrect
@@ -174,8 +175,8 @@ def test_responses(db_session, test_users, test_questions_with_stats):
         completed_at=None,
     )
     db_session.add(session3)
-    db_session.commit()
-    db_session.refresh(session3)
+    await db_session.commit()
+    await db_session.refresh(session3)
 
     response = Response(
         test_session_id=session3.id,
@@ -188,7 +189,7 @@ def test_responses(db_session, test_users, test_questions_with_stats):
     )
     db_session.add(response)
 
-    db_session.commit()
+    await db_session.commit()
 
     return {"sessions": sessions, "responses": responses}
 
@@ -196,9 +197,9 @@ def test_responses(db_session, test_users, test_questions_with_stats):
 class TestExportResponsesForCalibration:
     """Tests for export_responses_for_calibration function."""
 
-    def test_export_csv_format(self, db_session, test_responses):
+    async def test_export_csv_format(self, db_session, test_responses):
         """Test basic CSV export."""
-        output = export_responses_for_calibration(
+        output = await export_responses_for_calibration(
             db=db_session,
             min_responses=1,  # Changed from 5 to 1 to match test data
             output_format="csv",
@@ -222,9 +223,9 @@ class TestExportResponsesForCalibration:
         # Check data types
         assert rows[0]["is_correct"] in ["0", "1"]
 
-    def test_export_jsonl_format(self, db_session, test_responses):
+    async def test_export_jsonl_format(self, db_session, test_responses):
         """Test JSONL export."""
-        output = export_responses_for_calibration(
+        output = await export_responses_for_calibration(
             db=db_session,
             min_responses=1,  # Changed from 5 to 1 to match test data
             output_format="jsonl",
@@ -241,12 +242,12 @@ class TestExportResponsesForCalibration:
         assert "is_correct" in first_record
         assert first_record["is_correct"] in [0, 1]
 
-    def test_filter_by_min_responses(
+    async def test_filter_by_min_responses(
         self, db_session, test_responses, test_questions_with_stats
     ):
         """Test filtering by minimum response count."""
         # With min_responses=2, only first 3 questions should be included (each has 2 responses)
-        output = export_responses_for_calibration(
+        output = await export_responses_for_calibration(
             db=db_session,
             min_responses=2,
             output_format="csv",
@@ -264,20 +265,20 @@ class TestExportResponsesForCalibration:
         assert test_questions_with_stats[3].id not in question_ids
 
         # Test with min_responses=3 - should get no results
-        output_empty = export_responses_for_calibration(
+        output_empty = await export_responses_for_calibration(
             db=db_session,
             min_responses=3,
             output_format="csv",
         )
         assert output_empty == ""
 
-    def test_filter_by_date_range(self, db_session, test_responses):
+    async def test_filter_by_date_range(self, db_session, test_responses):
         """Test filtering by date range."""
         # Filter to only first day
         start_date = datetime(2026, 1, 1)
         end_date = datetime(2026, 1, 1, 23, 59, 59)
 
-        output = export_responses_for_calibration(
+        output = await export_responses_for_calibration(
             db=db_session,
             start_date=start_date,
             end_date=end_date,
@@ -291,7 +292,7 @@ class TestExportResponsesForCalibration:
         # Should only have user1's 3 responses from day 1
         assert len(rows) == 3
 
-    def test_filter_by_question_ids(
+    async def test_filter_by_question_ids(
         self, db_session, test_responses, test_questions_with_stats
     ):
         """Test filtering by specific question IDs."""
@@ -301,7 +302,7 @@ class TestExportResponsesForCalibration:
             test_questions_with_stats[1].id,
         ]
 
-        output = export_responses_for_calibration(
+        output = await export_responses_for_calibration(
             db=db_session,
             question_ids=question_ids,
             min_responses=1,
@@ -318,9 +319,9 @@ class TestExportResponsesForCalibration:
         exported_qids = {int(row["question_id"]) for row in rows}
         assert exported_qids == set(question_ids)
 
-    def test_empty_result(self, db_session):
+    async def test_empty_result(self, db_session):
         """Test export with no matching responses."""
-        output = export_responses_for_calibration(
+        output = await export_responses_for_calibration(
             db=db_session,
             min_responses=1000,  # Impossible threshold
             output_format="csv",
@@ -328,7 +329,7 @@ class TestExportResponsesForCalibration:
 
         assert output == ""
 
-    def test_invalid_format(self, db_session, test_responses):
+    async def test_invalid_format(self, db_session, test_responses):
         """Test invalid output format raises error."""
         with pytest.raises(DataExportError) as exc_info:
             export_responses_for_calibration(
@@ -339,9 +340,9 @@ class TestExportResponsesForCalibration:
 
         assert "Invalid output format" in str(exc_info.value)
 
-    def test_excludes_in_progress_sessions(self, db_session, test_responses):
+    async def test_excludes_in_progress_sessions(self, db_session, test_responses):
         """Test that in-progress sessions are excluded."""
-        output = export_responses_for_calibration(
+        output = await export_responses_for_calibration(
             db=db_session,
             min_responses=1,
             output_format="csv",
@@ -358,11 +359,11 @@ class TestExportResponsesForCalibration:
 class TestExportResponseMatrix:
     """Tests for export_response_matrix function."""
 
-    def test_matrix_structure(
+    async def test_matrix_structure(
         self, db_session, test_responses, test_questions_with_stats
     ):
         """Test response matrix structure."""
-        output = export_response_matrix(
+        output = await export_response_matrix(
             db=db_session,
             min_responses=1,
         )
@@ -378,9 +379,11 @@ class TestExportResponseMatrix:
         # Should have 2 data rows (users 1 and 2, not user 3 with in-progress)
         assert len(lines) == 3  # header + 2 users
 
-    def test_matrix_values(self, db_session, test_responses, test_questions_with_stats):
+    async def test_matrix_values(
+        self, db_session, test_responses, test_questions_with_stats
+    ):
         """Test matrix contains correct values."""
-        output = export_response_matrix(
+        output = await export_response_matrix(
             db=db_session,
             min_responses=1,
         )
@@ -397,7 +400,7 @@ class TestExportResponseMatrix:
         q1_id = str(test_questions_with_stats[0].id)
         assert user1_row[q1_id] == "1"
 
-    def test_matrix_missing_responses(
+    async def test_matrix_missing_responses(
         self, db_session, test_responses, test_questions_with_stats
     ):
         """Test matrix handles missing responses (not attempted)."""
@@ -411,8 +414,8 @@ class TestExportResponseMatrix:
             is_active=True,
         )
         db_session.add(q5)
-        db_session.commit()
-        db_session.refresh(q5)
+        await db_session.commit()
+        await db_session.refresh(q5)
 
         # Create responses for q5 from new users (not original test users)
         for i in range(10):
@@ -421,8 +424,8 @@ class TestExportResponseMatrix:
                 password_hash="hash",  # pragma: allowlist secret
             )
             db_session.add(user)
-            db_session.commit()
-            db_session.refresh(user)
+            await db_session.commit()
+            await db_session.refresh(user)
 
             session = TestSession(
                 user_id=user.id,
@@ -431,8 +434,8 @@ class TestExportResponseMatrix:
                 completed_at=datetime(2026, 1, 10, 0, 30),
             )
             db_session.add(session)
-            db_session.commit()
-            db_session.refresh(session)
+            await db_session.commit()
+            await db_session.refresh(session)
 
             response = Response(
                 test_session_id=session.id,
@@ -444,10 +447,10 @@ class TestExportResponseMatrix:
             )
             db_session.add(response)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Export with high min_responses so only q5 is included (original questions have only 2 responses)
-        output = export_response_matrix(
+        output = await export_response_matrix(
             db=db_session,
             min_responses=10,
         )
@@ -469,9 +472,9 @@ class TestExportResponseMatrix:
 class TestExportResponseDetails:
     """Tests for export_response_details function."""
 
-    def test_details_include_question_stats(self, db_session, test_responses):
+    async def test_details_include_question_stats(self, db_session, test_responses):
         """Test that response details include question statistics."""
-        output = export_response_details(
+        output = await export_response_details(
             db=db_session,
             min_responses=1,
             output_format="csv",
@@ -490,11 +493,11 @@ class TestExportResponseDetails:
         assert "empirical_difficulty" in rows[0]
         assert "discrimination" in rows[0]
 
-    def test_details_values_correct(
+    async def test_details_values_correct(
         self, db_session, test_responses, test_questions_with_stats
     ):
         """Test response detail values match fixture data."""
-        output = export_response_details(
+        output = await export_response_details(
             db=db_session, min_responses=1, output_format="csv"
         )
         reader = csv.DictReader(io.StringIO(output))
@@ -512,9 +515,9 @@ class TestExportResponseDetails:
         pattern_rows = [r for r in rows if r["question_type"] == "pattern"]
         assert float(pattern_rows[0]["empirical_difficulty"]) == pytest.approx(0.75)
 
-    def test_details_jsonl_format(self, db_session, test_responses):
+    async def test_details_jsonl_format(self, db_session, test_responses):
         """Test response details in JSONL format."""
-        output = export_response_details(
+        output = await export_response_details(
             db=db_session,
             min_responses=1,
             output_format="jsonl",
@@ -531,11 +534,11 @@ class TestExportResponseDetails:
 class TestExportCTTSummary:
     """Tests for export_ctt_summary function."""
 
-    def test_ctt_summary_structure(
+    async def test_ctt_summary_structure(
         self, db_session, test_responses, test_questions_with_stats
     ):
         """Test CTT summary includes all expected fields."""
-        output = export_ctt_summary(
+        output = await export_ctt_summary(
             db=db_session,
             min_responses=1,
         )
@@ -554,11 +557,11 @@ class TestExportCTTSummary:
         assert "discrimination" in rows[0]
         assert "response_count" in rows[0]
 
-    def test_ctt_summary_values(
+    async def test_ctt_summary_values(
         self, db_session, test_responses, test_questions_with_stats
     ):
         """Test CTT summary contains correct values."""
-        output = export_ctt_summary(
+        output = await export_ctt_summary(
             db=db_session,
             min_responses=1,
         )
@@ -576,13 +579,13 @@ class TestExportCTTSummary:
         assert float(q1_row["empirical_difficulty"]) == pytest.approx(0.75)
         assert float(q1_row["discrimination"]) == pytest.approx(0.35)
 
-    def test_ctt_summary_min_responses_filter(
+    async def test_ctt_summary_min_responses_filter(
         self, db_session, test_responses, test_questions_with_stats
     ):
         """Test CTT summary respects min_responses threshold."""
         # First 3 questions have 2 responses each, question 4 has 0
         # With min_responses=2, first 3 should be included
-        output = export_ctt_summary(
+        output = await export_ctt_summary(
             db=db_session,
             min_responses=2,
         )
@@ -595,15 +598,15 @@ class TestExportCTTSummary:
         assert test_questions_with_stats[3].id not in question_ids
 
         # With min_responses=3, no questions meet the threshold
-        output_empty = export_ctt_summary(
+        output_empty = await export_ctt_summary(
             db=db_session,
             min_responses=3,
         )
         assert output_empty == ""
 
-    def test_ctt_summary_sorted_by_id(self, db_session, test_responses):
+    async def test_ctt_summary_sorted_by_id(self, db_session, test_responses):
         """Test CTT summary is sorted by question ID."""
-        output = export_ctt_summary(
+        output = await export_ctt_summary(
             db=db_session,
             min_responses=1,
         )
@@ -648,14 +651,14 @@ class TestDataExportError:
 class TestAdaptiveSessionExclusion:
     """Tests that adaptive (CAT) sessions are excluded from exports (TASK-835)."""
 
-    @pytest.fixture
-    def mixed_sessions(self, db_session):
+    @pytest_asyncio.fixture
+    async def mixed_sessions(self, db_session):
         """Create both fixed-form and adaptive sessions with responses."""
         test_password_hash = "hash"  # pragma: allowlist secret
         user = User(email="export_test@test.com", password_hash=test_password_hash)
         db_session.add(user)
-        db_session.commit()
-        db_session.refresh(user)
+        await db_session.commit()
+        await db_session.refresh(user)
 
         q = Question(
             question_text="Export test question",
@@ -669,8 +672,8 @@ class TestAdaptiveSessionExclusion:
             is_active=True,
         )
         db_session.add(q)
-        db_session.commit()
-        db_session.refresh(q)
+        await db_session.commit()
+        await db_session.refresh(q)
 
         base_time = datetime(2026, 1, 10, 12, 0, 0)
 
@@ -683,8 +686,8 @@ class TestAdaptiveSessionExclusion:
             is_adaptive=False,
         )
         db_session.add(fixed_session)
-        db_session.commit()
-        db_session.refresh(fixed_session)
+        await db_session.commit()
+        await db_session.refresh(fixed_session)
 
         fixed_response = Response(
             test_session_id=fixed_session.id,
@@ -705,8 +708,8 @@ class TestAdaptiveSessionExclusion:
             is_adaptive=True,
         )
         db_session.add(adaptive_session)
-        db_session.commit()
-        db_session.refresh(adaptive_session)
+        await db_session.commit()
+        await db_session.refresh(adaptive_session)
 
         adaptive_response = Response(
             test_session_id=adaptive_session.id,
@@ -717,7 +720,7 @@ class TestAdaptiveSessionExclusion:
             time_spent_seconds=25,
         )
         db_session.add(adaptive_response)
-        db_session.commit()
+        await db_session.commit()
 
         return {
             "user": user,
@@ -726,9 +729,11 @@ class TestAdaptiveSessionExclusion:
             "adaptive_session": adaptive_session,
         }
 
-    def test_calibration_export_excludes_adaptive(self, db_session, mixed_sessions):
+    async def test_calibration_export_excludes_adaptive(
+        self, db_session, mixed_sessions
+    ):
         """Calibration export only includes fixed-form sessions."""
-        output = export_responses_for_calibration(
+        output = await export_responses_for_calibration(
             db=db_session, min_responses=1, output_format="csv"
         )
 
@@ -739,9 +744,9 @@ class TestAdaptiveSessionExclusion:
         assert len(rows) == 1
         assert int(rows[0]["test_session_id"]) == mixed_sessions["fixed_session"].id
 
-    def test_matrix_export_excludes_adaptive(self, db_session, mixed_sessions):
+    async def test_matrix_export_excludes_adaptive(self, db_session, mixed_sessions):
         """Response matrix export only includes fixed-form sessions."""
-        output = export_response_matrix(db=db_session, min_responses=1)
+        output = await export_response_matrix(db=db_session, min_responses=1)
 
         reader = csv.DictReader(io.StringIO(output))
         rows = list(reader)
@@ -749,9 +754,9 @@ class TestAdaptiveSessionExclusion:
         # Only 1 user row (from fixed-form session)
         assert len(rows) == 1
 
-    def test_details_export_excludes_adaptive(self, db_session, mixed_sessions):
+    async def test_details_export_excludes_adaptive(self, db_session, mixed_sessions):
         """Response details export only includes fixed-form sessions."""
-        output = export_response_details(
+        output = await export_response_details(
             db=db_session, min_responses=1, output_format="csv"
         )
 
@@ -760,9 +765,9 @@ class TestAdaptiveSessionExclusion:
 
         assert len(rows) == 1
 
-    def test_ctt_summary_excludes_adaptive(self, db_session, mixed_sessions):
+    async def test_ctt_summary_excludes_adaptive(self, db_session, mixed_sessions):
         """CTT summary export only counts responses from fixed-form sessions."""
-        output = export_ctt_summary(db=db_session, min_responses=1)
+        output = await export_ctt_summary(db=db_session, min_responses=1)
 
         reader = csv.DictReader(io.StringIO(output))
         rows = list(reader)

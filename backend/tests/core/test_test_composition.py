@@ -13,7 +13,7 @@ from app.core.test_composition import select_stratified_questions
 class TestDifficultyDistribution:
     """Test that difficulty distribution produces expected question counts."""
 
-    def test_25_question_distribution(self, db_session, test_user):
+    async def test_25_question_distribution(self, db_session, test_user):
         """For 25 questions, distribution should be 5 easy, 13 medium, 7 hard with weighted domains."""
         # Create enough questions across all difficulties and types
         question_types = list(QuestionType)
@@ -32,9 +32,11 @@ class TestDifficultyDistribution:
                         quality_flag="normal",
                     )
                     db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         assert len(selected) == 25
 
@@ -85,7 +87,7 @@ class TestDifficultyDistribution:
 class TestWeightedDomainDistribution:
     """Test that domain distribution follows configured weights."""
 
-    def test_weighted_allocation_25_questions(self, db_session, test_user):
+    async def test_weighted_allocation_25_questions(self, db_session, test_user):
         """
         Verify weighted domain allocation for 25 questions.
 
@@ -115,9 +117,11 @@ class TestWeightedDomainDistribution:
                         quality_flag="normal",
                     )
                     db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         assert len(selected) == 25
 
@@ -160,7 +164,7 @@ class TestWeightedDomainDistribution:
         # Memory has lowest weight (0.10) - should get 2-3 questions
         assert 2 <= memory_count <= 3, f"Memory: expected [2,3], got {memory_count}"
 
-    def test_weighted_allocation_preserves_total(self, db_session, test_user):
+    async def test_weighted_allocation_preserves_total(self, db_session, test_user):
         """Verify weighted allocation always produces exactly the requested total."""
         # Create sufficient questions
         question_types = list(QuestionType)
@@ -179,11 +183,11 @@ class TestWeightedDomainDistribution:
                         quality_flag="normal",
                     )
                     db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
         # Test various totals
         for total in [10, 15, 20, 25, 30]:
-            selected, metadata = select_stratified_questions(
+            selected, metadata = await select_stratified_questions(
                 db_session, test_user.id, total
             )
             assert len(selected) == total
@@ -194,7 +198,7 @@ class TestWeightedDomainDistribution:
                 domain_total == total
             ), f"For total={total}, domain counts sum to {domain_total}"
 
-    def test_weighted_allocation_respects_difficulty_splits(
+    async def test_weighted_allocation_respects_difficulty_splits(
         self, db_session, test_user
     ):
         """
@@ -218,9 +222,11 @@ class TestWeightedDomainDistribution:
                         quality_flag="normal",
                     )
                     db_session.add(q)
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         # Verify difficulty distribution (20/50/30)
         assert metadata["difficulty"]["easy"] == 5
@@ -249,7 +255,7 @@ class TestWeightedDomainDistribution:
 class TestQualityFlagExclusion:
     """Test that questions with quality_flag != 'normal' are excluded (IDA-005)."""
 
-    def test_under_review_questions_excluded(self, db_session, test_user):
+    async def test_under_review_questions_excluded(self, db_session, test_user):
         """Questions with quality_flag='under_review' should not be selected."""
         # Create a normal question
         normal_question = Question(
@@ -280,17 +286,17 @@ class TestQualityFlagExclusion:
 
         db_session.add(normal_question)
         db_session.add(flagged_question)
-        db_session.commit()
+        await db_session.commit()
 
         # Select questions
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         # Should only select the normal question
         selected_ids = [q.id for q in selected]
         assert normal_question.id in selected_ids
         assert flagged_question.id not in selected_ids
 
-    def test_deactivated_questions_excluded(self, db_session, test_user):
+    async def test_deactivated_questions_excluded(self, db_session, test_user):
         """Questions with quality_flag='deactivated' should not be selected."""
         # Create a normal question
         normal_question = Question(
@@ -321,17 +327,17 @@ class TestQualityFlagExclusion:
 
         db_session.add(normal_question)
         db_session.add(deactivated_question)
-        db_session.commit()
+        await db_session.commit()
 
         # Select questions
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         # Should only select the normal question
         selected_ids = [q.id for q in selected]
         assert normal_question.id in selected_ids
         assert deactivated_question.id not in selected_ids
 
-    def test_normal_flag_questions_included(self, db_session, test_user):
+    async def test_normal_flag_questions_included(self, db_session, test_user):
         """Questions with quality_flag='normal' should be selected."""
         # Create multiple normal questions
         questions = []
@@ -350,10 +356,12 @@ class TestQualityFlagExclusion:
             questions.append(q)
             db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Select questions
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 5)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 5
+        )
 
         # All normal questions should be included
         assert len(selected) == 5
@@ -361,7 +369,9 @@ class TestQualityFlagExclusion:
         for q in questions:
             assert q.id in selected_ids
 
-    def test_flagged_excluded_from_difficulty_fallback(self, db_session, test_user):
+    async def test_flagged_excluded_from_difficulty_fallback(
+        self, db_session, test_user
+    ):
         """
         Flagged questions should be excluded even from the difficulty-level
         fallback query (when stratified selection can't find enough questions).
@@ -394,16 +404,16 @@ class TestQualityFlagExclusion:
 
         db_session.add(normal_question)
         db_session.add(flagged_question)
-        db_session.commit()
+        await db_session.commit()
 
         # Request more questions than available in strata
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         # Flagged question should not be in results
         selected_ids = [q.id for q in selected]
         assert flagged_question.id not in selected_ids
 
-    def test_flagged_excluded_from_final_fallback(self, db_session, test_user):
+    async def test_flagged_excluded_from_final_fallback(self, db_session, test_user):
         """
         Flagged questions should be excluded from the final fallback query
         (when not enough questions in any difficulty level).
@@ -437,16 +447,16 @@ class TestQualityFlagExclusion:
             db_session.add(q)
 
         db_session.add(normal_question)
-        db_session.commit()
+        await db_session.commit()
 
         # Request many questions - should only get the normal one
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         # Only the normal question should be selected
         assert len(selected) == 1
         assert selected[0].id == normal_question.id
 
-    def test_mixed_flags_only_normal_selected(self, db_session, test_user):
+    async def test_mixed_flags_only_normal_selected(self, db_session, test_user):
         """
         With a mix of normal, under_review, and deactivated questions,
         only normal questions should be selected.
@@ -489,9 +499,9 @@ class TestQualityFlagExclusion:
         )
 
         db_session.add_all([normal, under_review, deactivated])
-        db_session.commit()
+        await db_session.commit()
 
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         selected_ids = [q.id for q in selected]
         assert normal.id in selected_ids
@@ -502,7 +512,7 @@ class TestQualityFlagExclusion:
 class TestDiscriminationPreference:
     """Test discrimination preference in test composition (IDA-006)."""
 
-    def test_negative_discrimination_excluded(self, db_session, test_user):
+    async def test_negative_discrimination_excluded(self, db_session, test_user):
         """Questions with negative discrimination should not be selected."""
         # Create a question with positive discrimination
         positive_question = Question(
@@ -536,17 +546,17 @@ class TestDiscriminationPreference:
 
         db_session.add(positive_question)
         db_session.add(negative_question)
-        db_session.commit()
+        await db_session.commit()
 
         # Select questions
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         # Should only select the positive discrimination question
         selected_ids = [q.id for q in selected]
         assert positive_question.id in selected_ids
         assert negative_question.id not in selected_ids
 
-    def test_null_discrimination_included(self, db_session, test_user):
+    async def test_null_discrimination_included(self, db_session, test_user):
         """Questions with NULL discrimination (new questions) should be included."""
         # Create a question with NULL discrimination (new question)
         new_question = Question(
@@ -564,16 +574,16 @@ class TestDiscriminationPreference:
         )
 
         db_session.add(new_question)
-        db_session.commit()
+        await db_session.commit()
 
         # Select questions
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         # New question should be included
         selected_ids = [q.id for q in selected]
         assert new_question.id in selected_ids
 
-    def test_high_discrimination_preferred(self, db_session, test_user):
+    async def test_high_discrimination_preferred(self, db_session, test_user):
         """Questions with higher discrimination should be selected first."""
         # Create questions with varying discrimination values
         # All same difficulty/type to ensure they compete for same slots
@@ -597,10 +607,10 @@ class TestDiscriminationPreference:
             questions.append(q)
             db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Select only 3 questions (less than available)
-        selected, _ = select_stratified_questions(db_session, test_user.id, 3)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 3)
 
         # Get discrimination values of selected questions
         selected_discriminations = [q.discrimination for q in selected]
@@ -609,7 +619,7 @@ class TestDiscriminationPreference:
         # (or close to it, depending on stratification)
         assert all(d >= 0.25 for d in selected_discriminations if d is not None)
 
-    def test_zero_discrimination_included(self, db_session, test_user):
+    async def test_zero_discrimination_included(self, db_session, test_user):
         """Questions with exactly zero discrimination should be included (boundary test)."""
         # Create a question with zero discrimination (boundary case)
         zero_question = Question(
@@ -627,16 +637,16 @@ class TestDiscriminationPreference:
         )
 
         db_session.add(zero_question)
-        db_session.commit()
+        await db_session.commit()
 
         # Select questions
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         # Zero discrimination should be included (threshold is < 0, not <= 0)
         selected_ids = [q.id for q in selected]
         assert zero_question.id in selected_ids
 
-    def test_negative_discrimination_excluded_all_fallbacks(
+    async def test_negative_discrimination_excluded_all_fallbacks(
         self, db_session, test_user
     ):
         """
@@ -676,16 +686,16 @@ class TestDiscriminationPreference:
             db_session.add(q)
 
         db_session.add(positive)
-        db_session.commit()
+        await db_session.commit()
 
         # Request many questions - should only get the positive one
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         # Only the positive discrimination question should be selected
         assert len(selected) == 1
         assert selected[0].id == positive.id
 
-    def test_mixed_discrimination_and_null(self, db_session, test_user):
+    async def test_mixed_discrimination_and_null(self, db_session, test_user):
         """
         With a mix of positive, negative, and NULL discrimination,
         only positive and NULL should be selected.
@@ -733,16 +743,16 @@ class TestDiscriminationPreference:
         )
 
         db_session.add_all([positive, negative, null_disc])
-        db_session.commit()
+        await db_session.commit()
 
-        selected, _ = select_stratified_questions(db_session, test_user.id, 10)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 10)
 
         selected_ids = [q.id for q in selected]
         assert positive.id in selected_ids
         assert null_disc.id in selected_ids
         assert negative.id not in selected_ids
 
-    def test_discrimination_ordering_nulls_last(self, db_session, test_user):
+    async def test_discrimination_ordering_nulls_last(self, db_session, test_user):
         """
         Questions should be ordered with highest discrimination first,
         and NULL discrimination questions last.
@@ -791,10 +801,10 @@ class TestDiscriminationPreference:
         )
 
         db_session.add_all([low_disc, null_disc, high_disc])  # Add in wrong order
-        db_session.commit()
+        await db_session.commit()
 
         # Select 2 questions (less than available) to test preference
-        selected, _ = select_stratified_questions(db_session, test_user.id, 2)
+        selected, _ = await select_stratified_questions(db_session, test_user.id, 2)
 
         # High discrimination should be selected first
         assert high_disc.id in [q.id for q in selected]
@@ -808,7 +818,7 @@ class TestDiscriminationPreference:
 class TestAnchorItemInclusion:
     """Test anchor item inclusion in test composition (TASK-850)."""
 
-    def test_anchor_items_included_in_every_domain(self, db_session, test_user):
+    async def test_anchor_items_included_in_every_domain(self, db_session, test_user):
         """When anchors exist for all domains, each domain gets at least 1."""
         question_types = list(QuestionType)
 
@@ -847,9 +857,11 @@ class TestAnchorItemInclusion:
                     )
                     db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         # Verify total count
         assert len(selected) == 25
@@ -871,7 +883,7 @@ class TestAnchorItemInclusion:
         anchor_types = {q.question_type for q in anchor_questions}
         assert len(anchor_types) == 6
 
-    def test_anchor_items_count_toward_domain_quota(self, db_session, test_user):
+    async def test_anchor_items_count_toward_domain_quota(self, db_session, test_user):
         """Anchor items count toward domain quota - total stays at total_count."""
         question_types = list(QuestionType)
 
@@ -910,9 +922,11 @@ class TestAnchorItemInclusion:
                     )
                     db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         # Total should be exactly 25 (not 25 + 6 anchors)
         assert len(selected) == 25
@@ -921,7 +935,7 @@ class TestAnchorItemInclusion:
         # Anchors are included in the total
         assert metadata["anchor_count"] == 6
 
-    def test_fallback_when_all_anchors_seen(self, db_session, test_user):
+    async def test_fallback_when_all_anchors_seen(self, db_session, test_user):
         """When user has seen all anchors for a domain, test still works."""
         from app.models import UserQuestion
 
@@ -964,7 +978,7 @@ class TestAnchorItemInclusion:
                     )
                     db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
         # Mark all anchors as seen by the user
         for anchor in anchors:
@@ -973,10 +987,12 @@ class TestAnchorItemInclusion:
                 question_id=anchor.id,
             )
             db_session.add(uq)
-        db_session.commit()
+        await db_session.commit()
 
         # Should still work - no anchors but test proceeds
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         assert len(selected) == 25
         assert metadata["anchor_count"] == 0
@@ -985,7 +1001,7 @@ class TestAnchorItemInclusion:
         anchor_questions = [q for q in selected if q.is_anchor]
         assert len(anchor_questions) == 0
 
-    def test_fallback_when_no_anchors_exist(self, db_session, test_user):
+    async def test_fallback_when_no_anchors_exist(self, db_session, test_user):
         """When no anchors exist at all, test still works normally."""
         question_types = list(QuestionType)
 
@@ -1007,9 +1023,11 @@ class TestAnchorItemInclusion:
                     )
                     db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         assert len(selected) == 25
         assert metadata["anchor_count"] == 0
@@ -1018,7 +1036,7 @@ class TestAnchorItemInclusion:
         for qt in question_types:
             assert metadata["anchors_per_domain"][qt.value] == 0
 
-    def test_anchor_metadata_in_composition(self, db_session, test_user):
+    async def test_anchor_metadata_in_composition(self, db_session, test_user):
         """Metadata includes anchor_count and anchors_per_domain info."""
         question_types = list(QuestionType)
 
@@ -1058,9 +1076,11 @@ class TestAnchorItemInclusion:
                     )
                     db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         # Verify metadata structure
         assert "anchor_count" in metadata
@@ -1077,7 +1097,7 @@ class TestAnchorItemInclusion:
         assert metadata["anchors_per_domain"]["math"] == 0
         assert metadata["anchors_per_domain"]["memory"] == 0
 
-    def test_anchor_items_respect_quality_filters(self, db_session, test_user):
+    async def test_anchor_items_respect_quality_filters(self, db_session, test_user):
         """Inactive/flagged anchors are excluded from selection."""
         question_types = list(QuestionType)
 
@@ -1147,9 +1167,11 @@ class TestAnchorItemInclusion:
                     )
                     db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         # Only 1 anchor should be selected (the valid one)
         assert metadata["anchor_count"] == 1
@@ -1160,7 +1182,9 @@ class TestAnchorItemInclusion:
         assert inactive_anchor.id not in selected_ids
         assert flagged_anchor.id not in selected_ids
 
-    def test_anchor_items_respect_discrimination_filter(self, db_session, test_user):
+    async def test_anchor_items_respect_discrimination_filter(
+        self, db_session, test_user
+    ):
         """Negative discrimination anchors are excluded from selection."""
         question_types = list(QuestionType)
 
@@ -1233,9 +1257,11 @@ class TestAnchorItemInclusion:
                     )
                     db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         # Should have 2 anchors (positive and null, but not negative)
         assert metadata["anchor_count"] == 2
@@ -1247,7 +1273,7 @@ class TestAnchorItemInclusion:
         assert negative_anchor.id not in selected_ids
 
     @pytest.mark.parametrize("total_count", [10, 15, 20, 25, 30])
-    def test_total_count_invariant_with_anchors(
+    async def test_total_count_invariant_with_anchors(
         self, db_session, test_user, total_count
     ):
         """Total count must equal requested count regardless of anchor inclusion."""
@@ -1289,16 +1315,16 @@ class TestAnchorItemInclusion:
                     )
                     db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(
+        selected, metadata = await select_stratified_questions(
             db_session, test_user.id, total_count
         )
 
         assert len(selected) == total_count
         assert metadata["total"] == total_count
 
-    def test_total_count_when_anchor_in_zero_allocation_stratum(
+    async def test_total_count_when_anchor_in_zero_allocation_stratum(
         self, db_session, test_user
     ):
         """Total stays correct even when an anchor lands in a stratum with zero allocation.
@@ -1342,9 +1368,11 @@ class TestAnchorItemInclusion:
                     )
                     db_session.add(q)
 
-        db_session.commit()
+        await db_session.commit()
 
-        selected, metadata = select_stratified_questions(db_session, test_user.id, 25)
+        selected, metadata = await select_stratified_questions(
+            db_session, test_user.id, 25
+        )
 
         # Total must be exactly 25 — anchor occupies one slot
         assert len(selected) == 25

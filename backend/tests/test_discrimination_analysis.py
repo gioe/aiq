@@ -56,7 +56,7 @@ def clear_cache_before_test():
     get_cache().clear()
 
 
-def create_test_question(
+async def create_test_question(
     db_session,
     difficulty_level: DifficultyLevel,
     question_type: QuestionType = QuestionType.PATTERN,
@@ -89,8 +89,8 @@ def create_test_question(
         quality_flag_updated_at=quality_flag_updated_at,
     )
     db_session.add(question)
-    db_session.commit()
-    db_session.refresh(question)
+    await db_session.commit()
+    await db_session.refresh(question)
     return question
 
 
@@ -264,7 +264,7 @@ class TestQualityTierThresholdsConstant:
 class TestCalculatePercentileRank:
     """Unit tests for calculate_percentile_rank() function."""
 
-    def test_returns_50_when_no_data(self, db_session):
+    async def test_returns_50_when_no_data(self, db_session):
         """Returns 50 (median) when no questions have discrimination data."""
         percentile = calculate_percentile_rank(db_session, 0.35)
         assert percentile == 50
@@ -291,11 +291,11 @@ class TestCalculatePercentileRank:
             ),
         ],
     )
-    def test_single_question_percentile(
+    async def test_single_question_percentile(
         self, db_session, existing_disc, query_disc, expected_percentile, description
     ):
         """Test percentile calculation with single existing question."""
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -305,13 +305,13 @@ class TestCalculatePercentileRank:
         percentile = calculate_percentile_rank(db_session, query_disc)
         assert percentile == expected_percentile, description
 
-    def test_percentile_calculation_with_multiple_questions(self, db_session):
+    async def test_percentile_calculation_with_multiple_questions(self, db_session):
         """Percentile calculated correctly with multiple questions."""
         # Create 10 questions with different discrimination values
         discriminations = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55]
         total_questions = len(discriminations)
         for disc in discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
@@ -336,29 +336,29 @@ class TestCalculatePercentileRank:
         percentile_55 = calculate_percentile_rank(db_session, 0.55)
         assert percentile_55 == expected_percentile_055  # 9/10 = 90%
 
-    def test_ignores_null_discrimination(self, db_session):
+    async def test_ignores_null_discrimination(self, db_session):
         """NULL discrimination values are ignored in calculation."""
         # Create questions with discrimination data
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
             discrimination=0.20,
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
             discrimination=0.40,
         )
         # Create questions with NULL discrimination
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=0,
             discrimination=None,
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=10,
@@ -373,9 +373,9 @@ class TestCalculatePercentileRank:
         percentile = calculate_percentile_rank(db_session, 0.30)
         assert percentile == expected_percentile  # 1/2 = 50%
 
-    def test_percentile_clamped_to_0_100(self, db_session):
+    async def test_percentile_clamped_to_0_100(self, db_session):
         """Percentile is clamped to valid 0-100 range."""
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -399,7 +399,7 @@ class TestCalculatePercentileRank:
 class TestGetDiscriminationReport:
     """Unit tests for get_discrimination_report() function."""
 
-    def test_empty_report_when_no_questions(self, db_session):
+    async def test_empty_report_when_no_questions(self, db_session):
         """Returns empty report when no questions exist."""
         report = get_discrimination_report(db_session)
 
@@ -417,9 +417,9 @@ class TestGetDiscriminationReport:
         assert report["quality_distribution"]["acceptable_pct"] == pytest.approx(0.0)
         assert report["quality_distribution"]["problematic_pct"] == pytest.approx(0.0)
 
-    def test_report_structure(self, db_session):
+    async def test_report_structure(self, db_session):
         """Verify report structure matches schema."""
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -465,40 +465,40 @@ class TestGetDiscriminationReport:
         assert "mean_discrimination_30d" in report["trends"]
         assert "new_negative_this_week" in report["trends"]
 
-    def test_summary_counts_by_tier(self, db_session):
+    async def test_summary_counts_by_tier(self, db_session):
         """Summary correctly counts questions by tier."""
         # Create one question of each tier
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.EASY,
             response_count=50,
             discrimination=0.45,  # excellent
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.EASY,
             response_count=50,
             discrimination=0.35,  # good
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
             discrimination=0.25,  # acceptable
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
             discrimination=0.15,  # poor
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             response_count=50,
             discrimination=0.05,  # very_poor
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             response_count=50,
@@ -515,7 +515,7 @@ class TestGetDiscriminationReport:
         assert report["summary"]["very_poor"] == 1
         assert report["summary"]["negative"] == 1
 
-    def test_quality_distribution_percentages(self, db_session):
+    async def test_quality_distribution_percentages(self, db_session):
         """Quality distribution percentages calculated correctly."""
         # Create 10 questions with known distribution
         # Define the expected distribution for clarity
@@ -535,39 +535,39 @@ class TestGetDiscriminationReport:
         )
 
         for disc in [0.45, 0.42]:  # excellent
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.EASY,
                 response_count=50,
                 discrimination=disc,
             )
         for disc in [0.35, 0.33, 0.31]:  # good
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
                 discrimination=disc,
             )
         for disc in [0.25, 0.22]:  # acceptable
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
                 discrimination=disc,
             )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             response_count=50,
             discrimination=0.15,  # poor
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             response_count=50,
             discrimination=0.05,  # very_poor
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             response_count=50,
@@ -595,7 +595,7 @@ class TestGetDiscriminationReport:
             problematic_pct
         )
 
-    def test_by_difficulty_breakdown(self, db_session):
+    async def test_by_difficulty_breakdown(self, db_session):
         """By difficulty breakdown calculated correctly."""
         # Define discrimination values for each difficulty level
         easy_discriminations = [0.40, 0.30]
@@ -604,7 +604,7 @@ class TestGetDiscriminationReport:
 
         # Easy questions
         for disc in easy_discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.EASY,
                 response_count=50,
@@ -612,7 +612,7 @@ class TestGetDiscriminationReport:
             )
         # Medium questions
         for disc in medium_discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
@@ -620,7 +620,7 @@ class TestGetDiscriminationReport:
             )
         # Hard questions
         for disc in hard_discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.HARD,
                 response_count=50,
@@ -654,7 +654,7 @@ class TestGetDiscriminationReport:
         )
         assert report["by_difficulty"]["hard"]["negative_count"] == 0
 
-    def test_by_type_breakdown(self, db_session):
+    async def test_by_type_breakdown(self, db_session):
         """By question type breakdown calculated correctly."""
         # Define discrimination values for each question type
         pattern_discriminations = [0.40, 0.20]
@@ -663,7 +663,7 @@ class TestGetDiscriminationReport:
 
         # Pattern questions
         for disc in pattern_discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.EASY,
                 question_type=QuestionType.PATTERN,
@@ -672,7 +672,7 @@ class TestGetDiscriminationReport:
             )
         # Logic questions
         for disc in logic_discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 question_type=QuestionType.LOGIC,
@@ -681,7 +681,7 @@ class TestGetDiscriminationReport:
             )
         # Math questions
         for disc in math_discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.HARD,
                 question_type=QuestionType.MATH,
@@ -715,9 +715,9 @@ class TestGetDiscriminationReport:
         )
         assert report["by_type"]["math"]["negative_count"] == 0
 
-    def test_action_needed_immediate_review(self, db_session):
+    async def test_action_needed_immediate_review(self, db_session):
         """Negative discrimination questions appear in immediate_review."""
-        q_negative = create_test_question(
+        q_negative = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -725,7 +725,7 @@ class TestGetDiscriminationReport:
             quality_flag="under_review",
         )
         # Create a good question that shouldn't appear
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -742,16 +742,16 @@ class TestGetDiscriminationReport:
         assert "Negative discrimination" in action_item["reason"]
         assert action_item["quality_flag"] == "under_review"
 
-    def test_action_needed_monitor(self, db_session):
+    async def test_action_needed_monitor(self, db_session):
         """Very poor discrimination questions appear in monitor list."""
-        q_very_poor = create_test_question(
+        q_very_poor = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
             discrimination=0.05,  # very_poor tier
         )
         # Create a good question that shouldn't appear
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -766,17 +766,17 @@ class TestGetDiscriminationReport:
         assert action_item["discrimination"] == pytest.approx(0.05)
         assert "Very poor discrimination" in action_item["reason"]
 
-    def test_min_responses_filter(self, db_session):
+    async def test_min_responses_filter(self, db_session):
         """min_responses parameter filters questions correctly."""
         # Question with 50 responses
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
             discrimination=0.35,
         )
         # Question with 25 responses
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=25,
@@ -791,16 +791,16 @@ class TestGetDiscriminationReport:
         report_20 = get_discrimination_report(db_session, min_responses=20)
         assert report_20["summary"]["total_questions_with_data"] == 2
 
-    def test_excludes_inactive_questions(self, db_session):
+    async def test_excludes_inactive_questions(self, db_session):
         """Inactive questions excluded from report."""
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
             discrimination=0.35,
             is_active=True,
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -813,15 +813,15 @@ class TestGetDiscriminationReport:
         # Only active question included
         assert report["summary"]["total_questions_with_data"] == 1
 
-    def test_excludes_null_discrimination(self, db_session):
+    async def test_excludes_null_discrimination(self, db_session):
         """Questions with NULL discrimination excluded from report."""
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
             discrimination=0.35,
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -833,14 +833,14 @@ class TestGetDiscriminationReport:
         # Only question with discrimination data included
         assert report["summary"]["total_questions_with_data"] == 1
 
-    def test_trends_new_negative_this_week(self, db_session):
+    async def test_trends_new_negative_this_week(self, db_session):
         """Trends tracks newly flagged questions this week."""
         now = utc_now()
         three_days_ago = now - timedelta(days=3)
         ten_days_ago = now - timedelta(days=10)
 
         # Question flagged 3 days ago (this week)
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -850,7 +850,7 @@ class TestGetDiscriminationReport:
             quality_flag_updated_at=three_days_ago,
         )
         # Question flagged 10 days ago (not this week)
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -869,11 +869,11 @@ class TestGetDiscriminationReport:
     # Action List LIMIT Tests (IDA-F012)
     # -------------------------------------------------------------------------
 
-    def test_action_list_limit_immediate_review(self, db_session):
+    async def test_action_list_limit_immediate_review(self, db_session):
         """action_list_limit parameter limits immediate_review list size."""
         # Create 5 questions with negative discrimination
         for i, disc in enumerate([-0.10, -0.20, -0.30, -0.40, -0.50]):
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
@@ -890,11 +890,11 @@ class TestGetDiscriminationReport:
         report_all = get_discrimination_report(db_session, min_responses=30)
         assert len(report_all["action_needed"]["immediate_review"]) == 5
 
-    def test_action_list_limit_monitor(self, db_session):
+    async def test_action_list_limit_monitor(self, db_session):
         """action_list_limit parameter limits monitor list size."""
         # Create 5 questions with very poor discrimination (0.0 <= r < 0.10)
         for i, disc in enumerate([0.01, 0.02, 0.03, 0.04, 0.05]):
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
@@ -911,12 +911,12 @@ class TestGetDiscriminationReport:
         report_all = get_discrimination_report(db_session, min_responses=30)
         assert len(report_all["action_needed"]["monitor"]) == 5
 
-    def test_action_list_ordering_immediate_review(self, db_session):
+    async def test_action_list_ordering_immediate_review(self, db_session):
         """immediate_review list is ordered by discrimination (worst first)."""
         # Create questions with varying negative discrimination (shuffled order)
         discriminations = [-0.15, -0.35, -0.25, -0.05, -0.45]
         for disc in discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
@@ -933,12 +933,12 @@ class TestGetDiscriminationReport:
         assert disc_values[0] == pytest.approx(-0.45)
         assert disc_values[-1] == pytest.approx(-0.05)
 
-    def test_action_list_ordering_monitor(self, db_session):
+    async def test_action_list_ordering_monitor(self, db_session):
         """Monitor list is ordered by discrimination (lowest first)."""
         # Create questions with varying very poor discrimination (shuffled order)
         discriminations = [0.05, 0.02, 0.08, 0.01, 0.06]
         for disc in discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
@@ -955,12 +955,12 @@ class TestGetDiscriminationReport:
         assert disc_values[0] == pytest.approx(0.01)
         assert disc_values[-1] == pytest.approx(0.08)
 
-    def test_action_list_limit_with_ordering(self, db_session):
+    async def test_action_list_limit_with_ordering(self, db_session):
         """With limit, gets worst items when list exceeds limit."""
         # Create 5 questions with negative discrimination
         discriminations = [-0.10, -0.50, -0.30, -0.20, -0.40]
         for disc in discriminations:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
@@ -989,14 +989,14 @@ class TestGetDiscriminationReport:
 class TestGetQuestionDiscriminationDetail:
     """Unit tests for get_question_discrimination_detail() function."""
 
-    def test_returns_none_for_nonexistent_question(self, db_session):
+    async def test_returns_none_for_nonexistent_question(self, db_session):
         """Returns None for non-existent question ID."""
         result = get_question_discrimination_detail(db_session, 999)
         assert result is None
 
-    def test_detail_structure(self, db_session):
+    async def test_detail_structure(self, db_session):
         """Verify detail response structure matches schema."""
-        question = create_test_question(
+        question = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1017,9 +1017,9 @@ class TestGetQuestionDiscriminationDetail:
         assert "quality_flag" in detail
         assert "history" in detail
 
-    def test_correct_values_returned(self, db_session):
+    async def test_correct_values_returned(self, db_session):
         """Verify correct values returned for question."""
-        question = create_test_question(
+        question = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=75,
@@ -1036,9 +1036,9 @@ class TestGetQuestionDiscriminationDetail:
         assert detail["quality_flag"] == "under_review"
         assert detail["history"] == []  # Empty for now (placeholder)
 
-    def test_null_discrimination_handled(self, db_session):
+    async def test_null_discrimination_handled(self, db_session):
         """Questions with NULL discrimination handled correctly."""
-        question = create_test_question(
+        question = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=10,
@@ -1080,7 +1080,7 @@ class TestGetQuestionDiscriminationDetail:
             ),
         ],
     )
-    def test_type_average_comparison(
+    async def test_type_average_comparison(
         self,
         db_session,
         comparison_discs,
@@ -1091,7 +1091,7 @@ class TestGetQuestionDiscriminationDetail:
         """Test type average comparison for above/below/at scenarios."""
         # Create comparison questions
         for disc in comparison_discs:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.EASY,
                 question_type=question_type,
@@ -1100,7 +1100,7 @@ class TestGetQuestionDiscriminationDetail:
             )
 
         # Target question
-        target = create_test_question(
+        target = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             question_type=question_type,
@@ -1111,17 +1111,17 @@ class TestGetQuestionDiscriminationDetail:
         detail = get_question_discrimination_detail(db_session, target.id)
         assert detail["compared_to_type_avg"] == expected_comparison
 
-    def test_difficulty_average_comparison(self, db_session):
+    async def test_difficulty_average_comparison(self, db_session):
         """Compares question to difficulty average correctly."""
         # Create comparison questions at same difficulty
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             question_type=QuestionType.PATTERN,
             response_count=50,
             discrimination=0.25,
         )
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             question_type=QuestionType.LOGIC,
@@ -1129,7 +1129,7 @@ class TestGetQuestionDiscriminationDetail:
             discrimination=0.25,
         )
         # Target question - above difficulty average
-        target = create_test_question(
+        target = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.HARD,
             question_type=QuestionType.MATH,
@@ -1141,11 +1141,11 @@ class TestGetQuestionDiscriminationDetail:
         # 0.45 vs ~0.32 average
         assert detail["compared_to_difficulty_avg"] == "above"
 
-    def test_percentile_rank_returned(self, db_session):
+    async def test_percentile_rank_returned(self, db_session):
         """Percentile rank calculated and returned."""
         # Create comparison questions
         for disc in [0.10, 0.20, 0.30, 0.40, 0.50]:
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
@@ -1153,7 +1153,7 @@ class TestGetQuestionDiscriminationDetail:
             )
 
         # Target question
-        target = create_test_question(
+        target = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1193,11 +1193,11 @@ class TestGetQuestionDiscriminationDetail:
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
-    def test_all_questions_flagged_pool_exhaustion(self, db_session):
+    async def test_all_questions_flagged_pool_exhaustion(self, db_session):
         """Report handles scenario where all questions are flagged."""
         # Create only flagged questions
         for i in range(5):
-            create_test_question(
+            await create_test_question(
                 db_session,
                 difficulty_level=DifficultyLevel.MEDIUM,
                 response_count=50,
@@ -1212,10 +1212,10 @@ class TestEdgeCases:
         assert report["summary"]["total_questions_with_data"] == 5
         assert len(report["action_needed"]["immediate_review"]) == 5
 
-    def test_new_questions_no_discrimination_data(self, db_session):
+    async def test_new_questions_no_discrimination_data(self, db_session):
         """Handles new questions with no discrimination data."""
         # Create new question with no responses
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=0,
@@ -1227,9 +1227,9 @@ class TestEdgeCases:
         # Should not appear in report (no data)
         assert report["summary"]["total_questions_with_data"] == 0
 
-    def test_exactly_50_responses_boundary(self, db_session):
+    async def test_exactly_50_responses_boundary(self, db_session):
         """Questions with exactly 50 responses (auto-flag threshold)."""
-        question = create_test_question(
+        question = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,  # Exactly at threshold
@@ -1245,9 +1245,9 @@ class TestEdgeCases:
         assert len(result) == 1
         assert result[0]["question_id"] == question.id
 
-    def test_discrimination_exactly_zero(self, db_session):
+    async def test_discrimination_exactly_zero(self, db_session):
         """Question with exactly 0.0 discrimination (boundary)."""
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1280,7 +1280,7 @@ class TestEdgeCases:
             ),
         ],
     )
-    def test_extreme_discrimination_values(
+    async def test_extreme_discrimination_values(
         self,
         db_session,
         discrimination,
@@ -1289,7 +1289,7 @@ class TestEdgeCases:
         in_immediate_review,
     ):
         """Handles extreme discrimination values correctly."""
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=100,
@@ -1318,11 +1318,11 @@ class TestEdgeCases:
             ),
         ],
     )
-    def test_quality_flag_in_detail(
+    async def test_quality_flag_in_detail(
         self, db_session, quality_flag, discrimination, difficulty_level
     ):
         """Detail correctly shows different quality flags."""
-        question = create_test_question(
+        question = await create_test_question(
             db_session,
             difficulty_level=difficulty_level,
             response_count=50,
@@ -1333,10 +1333,10 @@ class TestEdgeCases:
         detail = get_question_discrimination_detail(db_session, question.id)
         assert detail["quality_flag"] == quality_flag
 
-    def test_all_difficulty_levels_in_report(self, db_session):
+    async def test_all_difficulty_levels_in_report(self, db_session):
         """Report includes all difficulty levels even with sparse data."""
         # Only create easy question
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.EASY,
             response_count=50,
@@ -1361,10 +1361,10 @@ class TestEdgeCases:
             0.0
         )
 
-    def test_all_question_types_in_report(self, db_session):
+    async def test_all_question_types_in_report(self, db_session):
         """Report includes all question types even with sparse data."""
         # Only create pattern question
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             question_type=QuestionType.PATTERN,
@@ -1391,10 +1391,10 @@ class TestEdgeCases:
 class TestDiscriminationReportCaching:
     """Tests for discrimination report caching functionality (IDA-F004)."""
 
-    def test_report_is_cached_on_first_call(self, db_session):
+    async def test_report_is_cached_on_first_call(self, db_session):
         """Report is stored in cache after first call."""
         # Create test data
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1414,10 +1414,10 @@ class TestDiscriminationReportCaching:
         assert cached_value is not None
         assert cached_value["summary"]["total_questions_with_data"] == 1
 
-    def test_cached_report_returned_on_subsequent_calls(self, db_session):
+    async def test_cached_report_returned_on_subsequent_calls(self, db_session):
         """Subsequent calls return cached report without hitting database."""
         # Create test data
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1428,7 +1428,7 @@ class TestDiscriminationReportCaching:
         get_discrimination_report(db_session, min_responses=30)
 
         # Manually add another question (simulating database change)
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.EASY,
             response_count=50,
@@ -1441,10 +1441,12 @@ class TestDiscriminationReportCaching:
         # Should be same count because it's returning cached value
         assert report2["summary"]["total_questions_with_data"] == 1
 
-    def test_different_min_responses_creates_different_cache_keys(self, db_session):
+    async def test_different_min_responses_creates_different_cache_keys(
+        self, db_session
+    ):
         """Different min_responses parameters use different cache keys."""
         # Create test data
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1464,10 +1466,10 @@ class TestDiscriminationReportCaching:
         assert cache.get(f"discrimination_report:{params_hash_30}") is not None
         assert cache.get(f"discrimination_report:{params_hash_50}") is not None
 
-    def test_invalidate_clears_all_report_cache_entries(self, db_session):
+    async def test_invalidate_clears_all_report_cache_entries(self, db_session):
         """invalidate_discrimination_report_cache() clears all cached reports."""
         # Create test data
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1492,7 +1494,9 @@ class TestDiscriminationReportCaching:
         assert cache.get(f"discrimination_report:{params_hash_30}") is None
         assert cache.get(f"discrimination_report:{params_hash_50}") is None
 
-    def test_invalidate_only_clears_discrimination_report_entries(self, db_session):
+    async def test_invalidate_only_clears_discrimination_report_entries(
+        self, db_session
+    ):
         """Invalidation only clears discrimination report cache, not other entries."""
         cache = get_cache()
 
@@ -1500,7 +1504,7 @@ class TestDiscriminationReportCaching:
         cache.set("unrelated:key", {"data": "value"}, ttl=300)
 
         # Generate and cache a discrimination report
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1521,10 +1525,10 @@ class TestDiscriminationReportCaching:
         # Discrimination report should be cleared
         assert cache.get(f"discrimination_report:{params_hash}") is None
 
-    def test_fresh_report_after_invalidation(self, db_session):
+    async def test_fresh_report_after_invalidation(self, db_session):
         """After invalidation, fresh data is returned on next call."""
         # Create initial test data
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1536,7 +1540,7 @@ class TestDiscriminationReportCaching:
         assert report1["summary"]["total_questions_with_data"] == 1
 
         # Add another question
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.EASY,
             response_count=50,
@@ -1750,7 +1754,7 @@ class TestDatabaseErrorHandling:
     in DiscriminationAnalysisError with appropriate context for debugging.
     """
 
-    def test_get_discrimination_report_handles_db_error(self, db_session):
+    async def test_get_discrimination_report_handles_db_error(self, db_session):
         """Test that get_discrimination_report wraps database errors."""
         # Mock the query to raise a database error
         with patch.object(
@@ -1768,7 +1772,9 @@ class TestDatabaseErrorHandling:
             # Verify structured context (IDA-F019)
             assert error.context == {"min_responses": 30, "action_list_limit": 100}
 
-    def test_get_question_discrimination_detail_handles_db_error(self, db_session):
+    async def test_get_question_discrimination_detail_handles_db_error(
+        self, db_session
+    ):
         """Test that get_question_discrimination_detail wraps database errors."""
         with patch.object(
             db_session, "query", side_effect=OperationalError("timeout", None, None)
@@ -1782,7 +1788,7 @@ class TestDatabaseErrorHandling:
             # Verify structured context (IDA-F019)
             assert error.context == {"question_id": 123}
 
-    def test_calculate_percentile_rank_handles_db_error(self, db_session):
+    async def test_calculate_percentile_rank_handles_db_error(self, db_session):
         """Test that calculate_percentile_rank wraps database errors."""
         with patch.object(
             db_session, "query", side_effect=SQLAlchemyError("query timeout")
@@ -1796,7 +1802,9 @@ class TestDatabaseErrorHandling:
             # Verify structured context (IDA-F019)
             assert error.context == {"discrimination": 0.35}
 
-    def test_get_discrimination_report_returns_empty_on_none_result(self, db_session):
+    async def test_get_discrimination_report_returns_empty_on_none_result(
+        self, db_session
+    ):
         """Test that get_discrimination_report handles None tier_result gracefully."""
         # Verify the _get_empty_report fallback structure is valid for the schema.
         report = _get_empty_report()
@@ -1807,7 +1815,7 @@ class TestDatabaseErrorHandling:
         assert isinstance(report["by_difficulty"]["easy"]["mean_discrimination"], float)
         assert isinstance(report["action_needed"]["immediate_review"], list)
 
-    def test_get_discrimination_report_handles_none_tier_result_integration(
+    async def test_get_discrimination_report_handles_none_tier_result_integration(
         self, db_session
     ):
         """Test that None from tier_result.first() triggers _get_empty_report().
@@ -1832,7 +1840,7 @@ class TestDatabaseErrorHandling:
             assert report["action_needed"]["monitor"] == []
             assert report["trends"]["mean_discrimination_30d"] is None
 
-    def test_percentile_calculation_handles_none_total_count(self, db_session):
+    async def test_percentile_calculation_handles_none_total_count(self, db_session):
         """Test that percentile calculation handles None total count."""
         # Create a mock that returns None for scalar()
         mock_query = MagicMock()
@@ -1846,7 +1854,7 @@ class TestDatabaseErrorHandling:
             result = calculate_percentile_rank(db_session, discrimination=0.35)
             assert result == 50
 
-    def test_percentile_calculation_handles_none_lower_count(self, db_session):
+    async def test_percentile_calculation_handles_none_lower_count(self, db_session):
         """Test that percentile calculation handles None lower count."""
         # First call returns total count, second returns None for lower count
         call_count = [0]
@@ -1867,10 +1875,10 @@ class TestDatabaseErrorHandling:
             result = calculate_percentile_rank(db_session, discrimination=0.35)
             assert result == 0  # 0/10 * 100 = 0 percentile
 
-    def test_error_propagates_from_percentile_in_detail(self, db_session):
+    async def test_error_propagates_from_percentile_in_detail(self, db_session):
         """Test that errors from calculate_percentile_rank propagate through detail."""
         # Create a question first
-        question = create_test_question(
+        question = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -1918,7 +1926,7 @@ class TestErrorCaching:
         assert ERROR_CACHE_KEY_PREFIX != DISCRIMINATION_REPORT_CACHE_PREFIX
         assert "error" in ERROR_CACHE_KEY_PREFIX.lower()
 
-    def test_first_error_caches_empty_report_and_raises(self, db_session):
+    async def test_first_error_caches_empty_report_and_raises(self, db_session):
         """Test that first database error caches empty report and raises exception."""
         cache = get_cache()
         params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
@@ -1942,7 +1950,7 @@ class TestErrorCaching:
         assert cached_error_report["summary"]["total_questions_with_data"] == 0
         assert cached_error_report == _get_empty_report()
 
-    def test_second_call_returns_cached_error_report(self, db_session):
+    async def test_second_call_returns_cached_error_report(self, db_session):
         """Test that subsequent calls return cached error report without hitting DB."""
         cache = get_cache()
         params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
@@ -1980,7 +1988,7 @@ class TestErrorCaching:
         assert result["summary"]["total_questions_with_data"] == 0
         assert result == _get_empty_report()
 
-    def test_error_cache_prevents_thundering_herd(self, db_session):
+    async def test_error_cache_prevents_thundering_herd(self, db_session):
         """Test multiple concurrent calls during outage don't all hit the database."""
         query_call_count = [0]
 
@@ -2004,7 +2012,7 @@ class TestErrorCaching:
         # Query count should not have increased
         assert query_call_count[0] == first_count
 
-    def test_different_params_have_separate_error_caches(self, db_session):
+    async def test_different_params_have_separate_error_caches(self, db_session):
         """Test that different parameter combinations have separate error caches."""
         cache = get_cache()
 
@@ -2040,7 +2048,7 @@ class TestErrorCaching:
             # Should have hit the database
             assert mock_query.call_count > 0
 
-    def test_invalidate_clears_both_success_and_error_caches(self, db_session):
+    async def test_invalidate_clears_both_success_and_error_caches(self, db_session):
         """Test that invalidate_discrimination_report_cache clears error cache too."""
         cache = get_cache()
         params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
@@ -2062,7 +2070,9 @@ class TestErrorCaching:
         assert cache.get(error_cache_key) is None
         assert cache.get(success_cache_key) is None
 
-    def test_successful_response_clears_error_cache_on_next_call(self, db_session):
+    async def test_successful_response_clears_error_cache_on_next_call(
+        self, db_session
+    ):
         """Test that when DB recovers, successful response is cached instead of error."""
         cache = get_cache()
         params_hash = generate_cache_key(min_responses=30, action_list_limit=100)
@@ -2076,7 +2086,7 @@ class TestErrorCaching:
         cache.delete(error_cache_key)
 
         # Create a question so we get real data
-        create_test_question(
+        await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -2095,7 +2105,7 @@ class TestErrorCaching:
         # Error cache should still be empty
         assert cache.get(error_cache_key) is None
 
-    def test_error_cache_expires_after_ttl(self, db_session):
+    async def test_error_cache_expires_after_ttl(self, db_session):
         """Test that error cache expires and subsequent call hits database.
 
         Note: Uses 0.5s delay to ensure reliable behavior on CI runners
@@ -2148,7 +2158,7 @@ class TestLoggingBehavior:
     elsewhere (e.g., in app configuration).
     """
 
-    def test_calculate_percentile_rank_logs_at_debug_level(self, db_session):
+    async def test_calculate_percentile_rank_logs_at_debug_level(self, db_session):
         """Test that calculate_percentile_rank logs errors at DEBUG level."""
         # Patch the logger in the discrimination_analysis module
         with patch("app.core.discrimination_analysis.logger") as mock_logger:
@@ -2166,7 +2176,9 @@ class TestLoggingBehavior:
             # Should NOT have logged at ERROR level
             assert mock_logger.error.call_count == 0
 
-    def test_get_question_discrimination_detail_logs_at_error_level(self, db_session):
+    async def test_get_question_discrimination_detail_logs_at_error_level(
+        self, db_session
+    ):
         """Test that get_question_discrimination_detail logs errors at ERROR level."""
         with patch("app.core.discrimination_analysis.logger") as mock_logger:
             with patch.object(
@@ -2180,7 +2192,7 @@ class TestLoggingBehavior:
             error_call_args = mock_logger.error.call_args
             assert "discrimination detail" in error_call_args[0][0].lower()
 
-    def test_no_duplicate_error_logs_when_percentile_fails(self, db_session):
+    async def test_no_duplicate_error_logs_when_percentile_fails(self, db_session):
         """Test that we don't get duplicate ERROR logs when percentile calc fails.
 
         When calculate_percentile_rank fails and the error propagates through
@@ -2188,7 +2200,7 @@ class TestLoggingBehavior:
         - 0 ERROR logs from get_question_discrimination_detail (it re-raises without logging)
         """
         # Create a question first so we can get to the percentile calculation
-        question = create_test_question(
+        question = await create_test_question(
             db_session,
             difficulty_level=DifficultyLevel.MEDIUM,
             response_count=50,
@@ -2217,7 +2229,7 @@ class TestLoggingBehavior:
                 f"{mock_logger.error.call_args_list}"
             )
 
-    def test_error_log_count_for_direct_db_error(self, db_session):
+    async def test_error_log_count_for_direct_db_error(self, db_session):
         """Test that direct database errors produce exactly one ERROR log."""
         with patch("app.core.discrimination_analysis.logger") as mock_logger:
             with patch.object(

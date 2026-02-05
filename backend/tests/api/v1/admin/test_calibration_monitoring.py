@@ -13,8 +13,8 @@ Tests cover:
 - Domain aggregate statistics
 """
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.core.security import hash_password
@@ -31,7 +31,7 @@ from app.models import (
 
 
 def _create_question(
-    db_session: Session,
+    db_session: AsyncSession,
     question_type: QuestionType,
     difficulty_level: DifficultyLevel,
     response_count: int = 0,
@@ -57,8 +57,8 @@ def _create_question(
     return q
 
 
-def _create_completed_session(
-    db_session: Session,
+async def _create_completed_session(
+    db_session: AsyncSession,
     user: User,
     questions: list,
 ) -> TestSession:
@@ -70,7 +70,7 @@ def _create_completed_session(
         status=TestStatus.COMPLETED,
     )
     db_session.add(session)
-    db_session.flush()
+    await db_session.flush()
 
     result = TestResult(
         test_session_id=session.id,
@@ -100,27 +100,27 @@ def _create_completed_session(
 class TestCalibrationStatus:
     """Tests for GET /v1/admin/calibration-status endpoint."""
 
-    def test_requires_admin_token(
+    async def test_requires_admin_token(
         self,
-        client: TestClient,
+        client: AsyncClient,
     ):
         """Test that endpoint requires admin token."""
-        response = client.get("/v1/admin/calibration-status")
+        response = await client.get("/v1/admin/calibration-status")
         assert response.status_code == 422  # Missing required header
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers={"X-Admin-Token": "invalid-token"},
         )
         assert response.status_code == 401
 
-    def test_empty_database(
+    async def test_empty_database(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
     ):
         """Test calibration status with no data."""
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -146,20 +146,20 @@ class TestCalibrationStatus:
         dist = data["response_count_distribution"]
         assert all(v == 0 for v in dist.values())
 
-    def test_response_structure(
+    async def test_response_structure(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test complete response structure matches schema."""
         # Create a single question
         _create_question(
             db_session, QuestionType.MATH, DifficultyLevel.EASY, response_count=10
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -196,11 +196,11 @@ class TestCalibrationStatus:
         assert "50-99" in dist
         assert "100+" in dist
 
-    def test_domain_aggregates(
+    async def test_domain_aggregates(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test per-domain aggregate statistics."""
         # Create pattern questions: 5 ready, 5 not ready
@@ -230,9 +230,9 @@ class TestCalibrationStatus:
                 response_count=5,
             )
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -256,11 +256,11 @@ class TestCalibrationStatus:
         assert logic_domain["readiness_pct"] == pytest.approx(0.0)
         assert logic_domain["readiness"] == "not_ready"
 
-    def test_response_count_distribution(
+    async def test_response_count_distribution(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test response count distribution bucketing."""
         # Create questions in each bucket
@@ -286,9 +286,9 @@ class TestCalibrationStatus:
             db_session, QuestionType.MEMORY, DifficultyLevel.EASY, response_count=150
         )
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -306,11 +306,11 @@ class TestCalibrationStatus:
         # Total should equal number of questions
         assert sum(dist.values()) == 7
 
-    def test_exit_criteria(
+    async def test_exit_criteria(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test exit criteria computation with test sessions."""
         user = User(
@@ -320,7 +320,7 @@ class TestCalibrationStatus:
             last_name="User",
         )
         db_session.add(user)
-        db_session.flush()
+        await db_session.flush()
 
         # Create questions
         questions = []
@@ -332,15 +332,15 @@ class TestCalibrationStatus:
                 response_count=60,
             )
             questions.append(q)
-        db_session.flush()
+        await db_session.flush()
 
         # Create 10 completed test sessions
         for _ in range(10):
             _create_completed_session(db_session, user, questions)
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -353,11 +353,11 @@ class TestCalibrationStatus:
         # 10/500 * 100 = 2.0%
         assert ec["test_progress_pct"] == pytest.approx(2.0)
 
-    def test_custom_threshold(
+    async def test_custom_threshold(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that custom min_responses_threshold is respected."""
         # Create items with 30 responses
@@ -368,10 +368,10 @@ class TestCalibrationStatus:
                 DifficultyLevel.EASY,
                 response_count=30,
             )
-        db_session.commit()
+        await db_session.commit()
 
         # With default threshold (50), none should be ready
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -379,18 +379,18 @@ class TestCalibrationStatus:
         assert response.json()["items_ready_for_calibration"] == 0
 
         # With custom threshold (20), all should be ready
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status?min_responses_threshold=20",
             headers=admin_headers,
         )
         assert response.status_code == 200
         assert response.json()["items_ready_for_calibration"] == 5
 
-    def test_alerts_low_tests(
+    async def test_alerts_low_tests(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that warning alert is generated when total tests < 100."""
         user = User(
@@ -400,19 +400,19 @@ class TestCalibrationStatus:
             last_name="User",
         )
         db_session.add(user)
-        db_session.flush()
+        await db_session.flush()
 
         questions = [
             _create_question(
                 db_session, QuestionType.MATH, DifficultyLevel.EASY, response_count=10
             )
         ]
-        db_session.flush()
+        await db_session.flush()
 
         _create_completed_session(db_session, user, questions)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -428,11 +428,11 @@ class TestCalibrationStatus:
         assert len(low_test_alerts) == 1
         assert "500" in low_test_alerts[0]["message"]
 
-    def test_alerts_low_domain_responses(
+    async def test_alerts_low_domain_responses(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that critical alert is generated for domains with < 5 avg responses."""
         # Create items with very low response counts
@@ -443,9 +443,9 @@ class TestCalibrationStatus:
                 DifficultyLevel.HARD,
                 response_count=2,
             )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -461,11 +461,11 @@ class TestCalibrationStatus:
         assert len(spatial_alerts) == 1
         assert "very low average" in spatial_alerts[0]["message"]
 
-    def test_top_items_sorted_descending(
+    async def test_top_items_sorted_descending(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that top items are sorted by response count descending."""
         for count in [5, 100, 50, 25, 75]:
@@ -475,9 +475,9 @@ class TestCalibrationStatus:
                 DifficultyLevel.MEDIUM,
                 response_count=count,
             )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -487,11 +487,11 @@ class TestCalibrationStatus:
         top_counts = [item["response_count"] for item in data["top_items"]]
         assert top_counts == sorted(top_counts, reverse=True)
 
-    def test_bottom_items_excludes_zero_responses(
+    async def test_bottom_items_excludes_zero_responses(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that bottom items only include items with > 0 responses."""
         _create_question(
@@ -506,9 +506,9 @@ class TestCalibrationStatus:
         _create_question(
             db_session, QuestionType.SPATIAL, DifficultyLevel.EASY, response_count=10
         )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -522,11 +522,11 @@ class TestCalibrationStatus:
         bottom_counts = [item["response_count"] for item in data["bottom_items"]]
         assert bottom_counts == sorted(bottom_counts)
 
-    def test_excludes_inactive_and_flagged_questions(
+    async def test_excludes_inactive_and_flagged_questions(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that inactive and non-normal quality_flag questions are excluded."""
         # Active, normal quality - should be included
@@ -569,9 +569,9 @@ class TestCalibrationStatus:
             quality_flag="deactivated",
         )
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -583,11 +583,11 @@ class TestCalibrationStatus:
         assert math_domain is not None
         assert math_domain["items_total"] == 1
 
-    def test_readiness_levels(
+    async def test_readiness_levels(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test readiness classification thresholds."""
         # Create 10 items: 9 ready (90%) -> should be "ready"
@@ -637,9 +637,9 @@ class TestCalibrationStatus:
                 response_count=10,
             )
 
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )
@@ -658,11 +658,11 @@ class TestCalibrationStatus:
         assert logic["readiness"] == "not_ready"
         assert logic["readiness_pct"] == pytest.approx(20.0)
 
-    def test_domains_sorted_alphabetically(
+    async def test_domains_sorted_alphabetically(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """Test that domains are sorted alphabetically."""
         for q_type in [QuestionType.VERBAL, QuestionType.MATH, QuestionType.PATTERN]:
@@ -672,9 +672,9 @@ class TestCalibrationStatus:
                 DifficultyLevel.EASY,
                 response_count=10,
             )
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/calibration-status",
             headers=admin_headers,
         )

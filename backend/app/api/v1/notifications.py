@@ -2,7 +2,7 @@
 Notification endpoints for device token registration and preferences.
 """
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_db, User
 from app.schemas.notifications import (
@@ -12,16 +12,16 @@ from app.schemas.notifications import (
     NotificationPreferencesResponse,
 )
 from app.core.auth import get_current_user
-from app.core.db_error_handling import handle_db_error
+from app.core.db_error_handling import async_handle_db_error
 
 router = APIRouter()
 
 
 @router.post("/register-device", response_model=DeviceTokenResponse)
-def register_device_token(
+async def register_device_token(
     token_data: DeviceTokenRegister,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Register or update the APNs device token for the current user.
@@ -38,11 +38,11 @@ def register_device_token(
     Returns:
         Success response with confirmation message
     """
-    with handle_db_error(db, "register device token"):
+    async with async_handle_db_error(db, "register device token"):
         # Update the user's device token
         current_user.apns_device_token = token_data.device_token
-        db.commit()
-        db.refresh(current_user)
+        await db.commit()
+        await db.refresh(current_user)
 
         return DeviceTokenResponse(
             success=True,
@@ -51,9 +51,9 @@ def register_device_token(
 
 
 @router.delete("/register-device", response_model=DeviceTokenResponse)
-def unregister_device_token(
+async def unregister_device_token(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Unregister the APNs device token for the current user.
@@ -68,11 +68,11 @@ def unregister_device_token(
     Returns:
         Success response with confirmation message
     """
-    with handle_db_error(db, "unregister device token"):
+    async with async_handle_db_error(db, "unregister device token"):
         # Clear the user's device token
         current_user.apns_device_token = None
-        db.commit()
-        db.refresh(current_user)
+        await db.commit()
+        await db.refresh(current_user)
 
         return DeviceTokenResponse(
             success=True,
@@ -81,10 +81,10 @@ def unregister_device_token(
 
 
 @router.put("/preferences", response_model=NotificationPreferencesResponse)
-def update_notification_preferences(
+async def update_notification_preferences(
     preferences: NotificationPreferences,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Update notification preferences for the current user.
@@ -100,11 +100,11 @@ def update_notification_preferences(
     Returns:
         Updated notification preferences
     """
-    with handle_db_error(db, "update notification preferences"):
+    async with async_handle_db_error(db, "update notification preferences"):
         # Update the user's notification preference
         current_user.notification_enabled = preferences.notification_enabled
-        db.commit()
-        db.refresh(current_user)
+        await db.commit()
+        await db.refresh(current_user)
 
         return NotificationPreferencesResponse(
             notification_enabled=current_user.notification_enabled,

@@ -9,8 +9,8 @@ import logging
 from typing import Dict, List
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.error_responses import raise_server_error, ErrorMessages
 from app.models import DifficultyLevel, Question, QuestionType, get_db
@@ -110,7 +110,7 @@ async def get_inventory_health(
         ge=0,
         description="Minimum count for warning status (default: 20)",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     """
@@ -172,8 +172,8 @@ async def get_inventory_health(
 
         # Query database for active question counts grouped by type and difficulty
         # Only count questions with quality_flag='normal' (exclude under_review and deactivated)
-        stratum_counts = (
-            db.query(
+        stmt = (
+            select(
                 Question.question_type,
                 Question.difficulty_level,
                 func.count(Question.id).label("count"),
@@ -183,8 +183,9 @@ async def get_inventory_health(
                 Question.quality_flag == "normal",
             )
             .group_by(Question.question_type, Question.difficulty_level)
-            .all()
         )
+        result = await db.execute(stmt)
+        stratum_counts = result.all()
 
         # Build a map of (type, difficulty) -> count for quick lookup
         # Note: row[2] is the count from func.count().label("count")

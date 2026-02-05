@@ -211,7 +211,7 @@ class TestSQLInjectionDetection:
 class TestRegistrationValidation:
     """Integration tests for registration validation."""
 
-    def test_register_with_weak_password_fails(self, client):
+    async def test_register_with_weak_password_fails(self, client):
         """Test that registration with weak password fails."""
         user_data = {
             "email": "test@example.com",
@@ -220,13 +220,13 @@ class TestRegistrationValidation:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await client.post("/v1/auth/register", json=user_data)
         assert response.status_code == 422
         data = response.json()
         assert "detail" in data
         assert "common" in str(data["detail"]).lower()
 
-    def test_register_with_short_password_fails(self, client):
+    async def test_register_with_short_password_fails(self, client):
         """Test that registration with short password fails."""
         user_data = {
             "email": "test@example.com",
@@ -235,10 +235,10 @@ class TestRegistrationValidation:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await client.post("/v1/auth/register", json=user_data)
         assert response.status_code == 422
 
-    def test_register_with_no_digits_fails(self, client):
+    async def test_register_with_no_digits_fails(self, client):
         """Test that registration without digits in password fails."""
         user_data = {
             "email": "test@example.com",
@@ -247,12 +247,12 @@ class TestRegistrationValidation:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await client.post("/v1/auth/register", json=user_data)
         assert response.status_code == 422
         data = response.json()
         assert "digit" in str(data["detail"]).lower()
 
-    def test_register_sanitizes_names(self, client):
+    async def test_register_sanitizes_names(self, client):
         """Test that names are sanitized during registration."""
         user_data = {
             "email": "test@example.com",
@@ -261,7 +261,7 @@ class TestRegistrationValidation:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await client.post("/v1/auth/register", json=user_data)
         assert response.status_code == 201
         data = response.json()
         # HTML should be sanitized
@@ -271,7 +271,7 @@ class TestRegistrationValidation:
 class TestResponseValidation:
     """Integration tests for response validation."""
 
-    def test_answer_validation_works(self, client, test_user, test_questions):
+    async def test_answer_validation_works(self, client, test_user, test_questions):
         """Test that answer validation is enforced."""
         from app.core.security import create_access_token
 
@@ -279,7 +279,7 @@ class TestResponseValidation:
         headers = {"Authorization": f"Bearer {token}"}
 
         # Start a test session
-        response = client.post(
+        response = await client.post(
             "/v1/test/start", params={"question_count": 1}, headers=headers
         )
         assert response.status_code == 200
@@ -298,7 +298,9 @@ class TestResponseValidation:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission, headers=headers)
+        response = await client.post(
+            "/v1/test/submit", json=submission, headers=headers
+        )
         assert response.status_code == 200
 
         # The answer should be accepted
@@ -309,9 +311,9 @@ class TestResponseValidation:
 class TestSecurityHeaders:
     """Tests for security headers middleware."""
 
-    def test_security_headers_present(self, client):
+    async def test_security_headers_present(self, client):
         """Test that security headers are added to responses."""
-        response = client.get("/v1/health")
+        response = await client.get("/v1/health")
 
         # Check for security headers
         assert "X-Frame-Options" in response.headers
@@ -328,7 +330,7 @@ class TestSecurityHeaders:
 
         assert "Permissions-Policy" in response.headers
 
-    def test_hsts_not_enabled_in_development(self, client):
+    async def test_hsts_not_enabled_in_development(self, client):
         """Test that HSTS is not enabled in development mode."""
         # HSTS should not be present in development
         # (ENV defaults to 'development' in tests)
@@ -340,7 +342,7 @@ class TestSecurityHeaders:
 class TestRequestSizeLimit:
     """Tests for request size limit middleware."""
 
-    def test_large_request_body_rejected(self, client):
+    async def test_large_request_body_rejected(self, client):
         """Test that excessively large request bodies are rejected."""
         # Create a payload larger than 1MB
         large_payload = {
@@ -350,7 +352,7 @@ class TestRequestSizeLimit:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=large_payload)
+        response = await client.post("/v1/auth/register", json=large_payload)
         # Should be rejected by size limit middleware
         assert response.status_code == 413 or response.status_code == 422
 

@@ -27,10 +27,6 @@ Test Cases:
 
 import pytest
 import numpy as np
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from app.models import Base
 from app.models.models import (
     User,
     Question,
@@ -48,28 +44,10 @@ from app.core.analytics import (
 )
 from app.core.security import hash_password
 
-# Use SQLite in-memory database for tests
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# db_session fixture is provided by conftest.py (async)
 
 
-@pytest.fixture(scope="function")
-def db_session():
-    """Create a fresh database session for each test."""
-    Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
-
-
-def create_user(db_session, email: str = "test@example.com") -> User:
+async def create_user(db_session, email: str = "test@example.com") -> User:
     """Create a test user."""
     user = User(
         email=email,
@@ -78,12 +56,12 @@ def create_user(db_session, email: str = "test@example.com") -> User:
         last_name="User",
     )
     db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
 
 
-def create_question(
+async def create_question(
     db_session,
     question_type: QuestionType,
     is_active: bool = True,
@@ -100,12 +78,12 @@ def create_question(
         is_active=is_active,
     )
     db_session.add(question)
-    db_session.commit()
-    db_session.refresh(question)
+    await db_session.commit()
+    await db_session.refresh(question)
     return question
 
 
-def create_test_session(
+async def create_test_session(
     db_session,
     user: User,
     status: TestStatus = TestStatus.COMPLETED,
@@ -116,12 +94,12 @@ def create_test_session(
         status=status,
     )
     db_session.add(session)
-    db_session.commit()
-    db_session.refresh(session)
+    await db_session.commit()
+    await db_session.refresh(session)
     return session
 
 
-def create_response(
+async def create_response(
     db_session,
     session: TestSession,
     user: User,
@@ -137,8 +115,8 @@ def create_response(
         is_correct=is_correct,
     )
     db_session.add(response)
-    db_session.commit()
-    db_session.refresh(response)
+    await db_session.commit()
+    await db_session.refresh(response)
     return response
 
 
@@ -150,23 +128,27 @@ def create_response(
 class TestBuildResponseMatrixBasic:
     """Basic tests for build_response_matrix function."""
 
-    def test_builds_matrix_with_valid_data(self, db_session):
+    async def test_builds_matrix_with_valid_data(self, db_session):
         """Successfully builds a response matrix with valid data."""
         # Create 3 users with completed sessions
         users = [create_user(db_session, f"user{i}@test.com") for i in range(3)]
         sessions = [create_test_session(db_session, user) for user in users]
 
         # Create 2 questions
-        q1 = create_question(db_session, QuestionType.PATTERN)
-        q2 = create_question(db_session, QuestionType.LOGIC)
+        q1 = await create_question(db_session, QuestionType.PATTERN)
+        q2 = await create_question(db_session, QuestionType.LOGIC)
 
         # Each user answers both questions (total 6 responses per question)
         # We need min_responses_per_question=1 for this small dataset
         for i, (user, session) in enumerate(zip(users, sessions)):
-            create_response(db_session, session, user, q1, is_correct=(i % 2 == 0))
-            create_response(db_session, session, user, q2, is_correct=(i % 2 == 1))
+            await create_response(
+                db_session, session, user, q1, is_correct=(i % 2 == 0)
+            )
+            await create_response(
+                db_session, session, user, q2, is_correct=(i % 2 == 1)
+            )
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -177,17 +159,17 @@ class TestBuildResponseMatrixBasic:
         assert result.n_users == 3
         assert result.n_items == 2
 
-    def test_matrix_values_are_binary(self, db_session):
+    async def test_matrix_values_are_binary(self, db_session):
         """Matrix contains only 0 and 1 values."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
-        q1 = create_question(db_session, QuestionType.PATTERN)
-        q2 = create_question(db_session, QuestionType.LOGIC)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
+        q1 = await create_question(db_session, QuestionType.PATTERN)
+        q2 = await create_question(db_session, QuestionType.LOGIC)
 
-        create_response(db_session, session, user, q1, is_correct=True)
-        create_response(db_session, session, user, q2, is_correct=False)
+        await create_response(db_session, session, user, q1, is_correct=True)
+        await create_response(db_session, session, user, q2, is_correct=False)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -198,14 +180,14 @@ class TestBuildResponseMatrixBasic:
         unique_values = np.unique(result.matrix)
         assert all(v in [0, 1] for v in unique_values)
 
-    def test_matrix_dtype_is_int8(self, db_session):
+    async def test_matrix_dtype_is_int8(self, db_session):
         """Matrix uses int8 dtype for memory efficiency."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
-        q = create_question(db_session, QuestionType.PATTERN)
-        create_response(db_session, session, user, q, is_correct=True)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
+        q = await create_question(db_session, QuestionType.PATTERN)
+        await create_response(db_session, session, user, q, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -214,17 +196,17 @@ class TestBuildResponseMatrixBasic:
         assert result is not None
         assert result.matrix.dtype == np.int8
 
-    def test_correct_response_is_1_incorrect_is_0(self, db_session):
+    async def test_correct_response_is_1_incorrect_is_0(self, db_session):
         """Correct responses are 1, incorrect are 0."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
-        q1 = create_question(db_session, QuestionType.PATTERN)
-        q2 = create_question(db_session, QuestionType.LOGIC)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
+        q1 = await create_question(db_session, QuestionType.PATTERN)
+        q2 = await create_question(db_session, QuestionType.LOGIC)
 
-        create_response(db_session, session, user, q1, is_correct=True)
-        create_response(db_session, session, user, q2, is_correct=False)
+        await create_response(db_session, session, user, q1, is_correct=True)
+        await create_response(db_session, session, user, q2, is_correct=False)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -247,61 +229,63 @@ class TestBuildResponseMatrixBasic:
 class TestBuildResponseMatrixReturnsNone:
     """Tests for when build_response_matrix returns None."""
 
-    def test_returns_none_when_no_completed_sessions(self, db_session):
+    async def test_returns_none_when_no_completed_sessions(self, db_session):
         """Returns None when no completed sessions exist."""
-        user = create_user(db_session)
+        user = await create_user(db_session)
         # Create in_progress session instead of completed
-        create_test_session(db_session, user, status=TestStatus.IN_PROGRESS)
+        await create_test_session(db_session, user, status=TestStatus.IN_PROGRESS)
 
-        result = build_response_matrix(db_session)
+        result = await build_response_matrix(db_session)
 
         assert result is None
 
-    def test_returns_none_when_no_responses(self, db_session):
+    async def test_returns_none_when_no_responses(self, db_session):
         """Returns None when no responses exist."""
-        user = create_user(db_session)
-        create_test_session(db_session, user, status=TestStatus.COMPLETED)
+        user = await create_user(db_session)
+        await create_test_session(db_session, user, status=TestStatus.COMPLETED)
         # No responses created
 
-        result = build_response_matrix(db_session)
+        result = await build_response_matrix(db_session)
 
         assert result is None
 
-    def test_returns_none_when_questions_below_threshold(self, db_session):
+    async def test_returns_none_when_questions_below_threshold(self, db_session):
         """Returns None when no questions meet min_responses_per_question."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
-        q = create_question(db_session, QuestionType.PATTERN)
-        create_response(db_session, session, user, q, is_correct=True)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
+        q = await create_question(db_session, QuestionType.PATTERN)
+        await create_response(db_session, session, user, q, is_correct=True)
 
         # Only 1 response, but requiring 100
-        result = build_response_matrix(db_session, min_responses_per_question=100)
+        result = await build_response_matrix(db_session, min_responses_per_question=100)
 
         assert result is None
 
-    def test_returns_none_when_all_questions_inactive(self, db_session):
+    async def test_returns_none_when_all_questions_inactive(self, db_session):
         """Returns None when all questions with responses are inactive."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
-        q = create_question(db_session, QuestionType.PATTERN, is_active=False)
-        create_response(db_session, session, user, q, is_correct=True)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
+        q = await create_question(db_session, QuestionType.PATTERN, is_active=False)
+        await create_response(db_session, session, user, q, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
         )
 
         assert result is None
 
-    def test_returns_none_when_sessions_below_question_threshold(self, db_session):
+    async def test_returns_none_when_sessions_below_question_threshold(
+        self, db_session
+    ):
         """Returns None when no sessions meet min_questions_per_session."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
-        q = create_question(db_session, QuestionType.PATTERN)
-        create_response(db_session, session, user, q, is_correct=True)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
+        q = await create_question(db_session, QuestionType.PATTERN)
+        await create_response(db_session, session, user, q, is_correct=True)
 
         # Only 1 question answered, but requiring 10
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=10,
@@ -318,23 +302,25 @@ class TestBuildResponseMatrixReturnsNone:
 class TestBuildResponseMatrixFiltering:
     """Tests for filtering behavior."""
 
-    def test_filters_incomplete_sessions(self, db_session):
+    async def test_filters_incomplete_sessions(self, db_session):
         """Only includes COMPLETED sessions, not IN_PROGRESS or ABANDONED."""
-        user1 = create_user(db_session, "user1@test.com")
-        user2 = create_user(db_session, "user2@test.com")
-        user3 = create_user(db_session, "user3@test.com")
+        user1 = await create_user(db_session, "user1@test.com")
+        user2 = await create_user(db_session, "user2@test.com")
+        user3 = await create_user(db_session, "user3@test.com")
 
-        s_completed = create_test_session(db_session, user1, TestStatus.COMPLETED)
-        s_in_progress = create_test_session(db_session, user2, TestStatus.IN_PROGRESS)
-        s_abandoned = create_test_session(db_session, user3, TestStatus.ABANDONED)
+        s_completed = await create_test_session(db_session, user1, TestStatus.COMPLETED)
+        s_in_progress = await create_test_session(
+            db_session, user2, TestStatus.IN_PROGRESS
+        )
+        s_abandoned = await create_test_session(db_session, user3, TestStatus.ABANDONED)
 
-        q = create_question(db_session, QuestionType.PATTERN)
+        q = await create_question(db_session, QuestionType.PATTERN)
 
-        create_response(db_session, s_completed, user1, q, is_correct=True)
-        create_response(db_session, s_in_progress, user2, q, is_correct=True)
-        create_response(db_session, s_abandoned, user3, q, is_correct=True)
+        await create_response(db_session, s_completed, user1, q, is_correct=True)
+        await create_response(db_session, s_in_progress, user2, q, is_correct=True)
+        await create_response(db_session, s_abandoned, user3, q, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -346,18 +332,22 @@ class TestBuildResponseMatrixFiltering:
         assert s_in_progress.id not in result.session_ids
         assert s_abandoned.id not in result.session_ids
 
-    def test_filters_inactive_questions(self, db_session):
+    async def test_filters_inactive_questions(self, db_session):
         """Only includes active questions."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
 
-        q_active = create_question(db_session, QuestionType.PATTERN, is_active=True)
-        q_inactive = create_question(db_session, QuestionType.LOGIC, is_active=False)
+        q_active = await create_question(
+            db_session, QuestionType.PATTERN, is_active=True
+        )
+        q_inactive = await create_question(
+            db_session, QuestionType.LOGIC, is_active=False
+        )
 
-        create_response(db_session, session, user, q_active, is_correct=True)
-        create_response(db_session, session, user, q_inactive, is_correct=True)
+        await create_response(db_session, session, user, q_active, is_correct=True)
+        await create_response(db_session, session, user, q_inactive, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -367,22 +357,22 @@ class TestBuildResponseMatrixFiltering:
         assert q_active.id in result.question_ids
         assert q_inactive.id not in result.question_ids
 
-    def test_min_responses_per_question_threshold(self, db_session):
+    async def test_min_responses_per_question_threshold(self, db_session):
         """Questions below min_responses_per_question are excluded."""
         users = [create_user(db_session, f"user{i}@test.com") for i in range(5)]
         sessions = [create_test_session(db_session, user) for user in users]
 
-        q_many = create_question(db_session, QuestionType.PATTERN)
-        q_few = create_question(db_session, QuestionType.LOGIC)
+        q_many = await create_question(db_session, QuestionType.PATTERN)
+        q_few = await create_question(db_session, QuestionType.LOGIC)
 
         # q_many gets 5 responses, q_few gets only 2
         for user, session in zip(users, sessions):
-            create_response(db_session, session, user, q_many, is_correct=True)
+            await create_response(db_session, session, user, q_many, is_correct=True)
 
         for user, session in zip(users[:2], sessions[:2]):
-            create_response(db_session, session, user, q_few, is_correct=True)
+            await create_response(db_session, session, user, q_few, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=3,  # q_few has only 2
             min_questions_per_session=1,
@@ -392,25 +382,25 @@ class TestBuildResponseMatrixFiltering:
         assert q_many.id in result.question_ids
         assert q_few.id not in result.question_ids
 
-    def test_min_questions_per_session_threshold(self, db_session):
+    async def test_min_questions_per_session_threshold(self, db_session):
         """Sessions below min_questions_per_session are excluded."""
-        user1 = create_user(db_session, "user1@test.com")
-        user2 = create_user(db_session, "user2@test.com")
+        user1 = await create_user(db_session, "user1@test.com")
+        user2 = await create_user(db_session, "user2@test.com")
 
-        s1 = create_test_session(db_session, user1)
-        s2 = create_test_session(db_session, user2)
+        s1 = await create_test_session(db_session, user1)
+        s2 = await create_test_session(db_session, user2)
 
-        q1 = create_question(db_session, QuestionType.PATTERN)
-        q2 = create_question(db_session, QuestionType.LOGIC)
+        q1 = await create_question(db_session, QuestionType.PATTERN)
+        q2 = await create_question(db_session, QuestionType.LOGIC)
 
         # s1 answers 2 questions
-        create_response(db_session, s1, user1, q1, is_correct=True)
-        create_response(db_session, s1, user1, q2, is_correct=True)
+        await create_response(db_session, s1, user1, q1, is_correct=True)
+        await create_response(db_session, s1, user1, q2, is_correct=True)
 
         # s2 answers only 1 question
-        create_response(db_session, s2, user2, q1, is_correct=True)
+        await create_response(db_session, s2, user2, q1, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=2,  # s2 has only 1
@@ -429,22 +419,22 @@ class TestBuildResponseMatrixFiltering:
 class TestBuildResponseMatrixMetadata:
     """Tests for metadata correctness."""
 
-    def test_question_ids_in_correct_order(self, db_session):
+    async def test_question_ids_in_correct_order(self, db_session):
         """question_ids list is in the same order as matrix columns."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
 
         # Create questions in random order (by ID)
-        q1 = create_question(db_session, QuestionType.PATTERN)
-        q2 = create_question(db_session, QuestionType.LOGIC)
-        q3 = create_question(db_session, QuestionType.MATH)
+        q1 = await create_question(db_session, QuestionType.PATTERN)
+        q2 = await create_question(db_session, QuestionType.LOGIC)
+        q3 = await create_question(db_session, QuestionType.MATH)
 
         # Respond in different order
-        create_response(db_session, session, user, q3, is_correct=True)
-        create_response(db_session, session, user, q1, is_correct=False)
-        create_response(db_session, session, user, q2, is_correct=True)
+        await create_response(db_session, session, user, q3, is_correct=True)
+        await create_response(db_session, session, user, q1, is_correct=False)
+        await create_response(db_session, session, user, q2, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -454,17 +444,17 @@ class TestBuildResponseMatrixMetadata:
         # Questions should be ordered by ID
         assert result.question_ids == sorted(result.question_ids)
 
-    def test_session_ids_in_correct_order(self, db_session):
+    async def test_session_ids_in_correct_order(self, db_session):
         """session_ids list is in the same order as matrix rows."""
         users = [create_user(db_session, f"user{i}@test.com") for i in range(3)]
         sessions = [create_test_session(db_session, user) for user in users]
 
-        q = create_question(db_session, QuestionType.PATTERN)
+        q = await create_question(db_session, QuestionType.PATTERN)
 
         for user, session in zip(users, sessions):
-            create_response(db_session, session, user, q, is_correct=True)
+            await create_response(db_session, session, user, q, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -474,20 +464,20 @@ class TestBuildResponseMatrixMetadata:
         # Sessions should be ordered by ID
         assert result.session_ids == sorted(result.session_ids)
 
-    def test_question_domains_match_columns(self, db_session):
+    async def test_question_domains_match_columns(self, db_session):
         """question_domains list corresponds to matrix columns."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
 
-        q_pattern = create_question(db_session, QuestionType.PATTERN)
-        q_logic = create_question(db_session, QuestionType.LOGIC)
-        q_math = create_question(db_session, QuestionType.MATH)
+        q_pattern = await create_question(db_session, QuestionType.PATTERN)
+        q_logic = await create_question(db_session, QuestionType.LOGIC)
+        q_math = await create_question(db_session, QuestionType.MATH)
 
-        create_response(db_session, session, user, q_pattern, is_correct=True)
-        create_response(db_session, session, user, q_logic, is_correct=True)
-        create_response(db_session, session, user, q_math, is_correct=True)
+        await create_response(db_session, session, user, q_pattern, is_correct=True)
+        await create_response(db_session, session, user, q_logic, is_correct=True)
+        await create_response(db_session, session, user, q_math, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -507,21 +497,21 @@ class TestBuildResponseMatrixMetadata:
                 expected_domain = "math"
             assert result.question_domains[i] == expected_domain
 
-    def test_n_users_and_n_items_properties(self, db_session):
+    async def test_n_users_and_n_items_properties(self, db_session):
         """n_users and n_items properties return correct values."""
         users = [create_user(db_session, f"user{i}@test.com") for i in range(4)]
         sessions = [create_test_session(db_session, user) for user in users]
 
         questions = [
-            create_question(db_session, qt)
+            await create_question(db_session, qt)
             for qt in [QuestionType.PATTERN, QuestionType.LOGIC, QuestionType.MATH]
         ]
 
         for user, session in zip(users, sessions):
             for q in questions:
-                create_response(db_session, session, user, q, is_correct=True)
+                await create_response(db_session, session, user, q, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -581,23 +571,23 @@ class TestGetDomainColumnIndices:
 class TestGetResponseMatrixStats:
     """Tests for get_response_matrix_stats helper function."""
 
-    def test_calculates_overall_accuracy(self, db_session):
+    async def test_calculates_overall_accuracy(self, db_session):
         """Calculates correct overall accuracy."""
         users = [create_user(db_session, f"user{i}@test.com") for i in range(2)]
         sessions = [create_test_session(db_session, user) for user in users]
 
-        q1 = create_question(db_session, QuestionType.PATTERN)
-        q2 = create_question(db_session, QuestionType.LOGIC)
+        q1 = await create_question(db_session, QuestionType.PATTERN)
+        q2 = await create_question(db_session, QuestionType.LOGIC)
 
         # User 1: both correct
-        create_response(db_session, sessions[0], users[0], q1, is_correct=True)
-        create_response(db_session, sessions[0], users[0], q2, is_correct=True)
+        await create_response(db_session, sessions[0], users[0], q1, is_correct=True)
+        await create_response(db_session, sessions[0], users[0], q2, is_correct=True)
 
         # User 2: both incorrect
-        create_response(db_session, sessions[1], users[1], q1, is_correct=False)
-        create_response(db_session, sessions[1], users[1], q2, is_correct=False)
+        await create_response(db_session, sessions[1], users[1], q1, is_correct=False)
+        await create_response(db_session, sessions[1], users[1], q2, is_correct=False)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -611,21 +601,21 @@ class TestGetResponseMatrixStats:
         assert stats["n_users"] == 2
         assert stats["n_items"] == 2
 
-    def test_calculates_domain_counts(self, db_session):
+    async def test_calculates_domain_counts(self, db_session):
         """Calculates correct domain question counts."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
 
         # 2 pattern, 1 logic
-        q1 = create_question(db_session, QuestionType.PATTERN)
-        q2 = create_question(db_session, QuestionType.PATTERN)
-        q3 = create_question(db_session, QuestionType.LOGIC)
+        q1 = await create_question(db_session, QuestionType.PATTERN)
+        q2 = await create_question(db_session, QuestionType.PATTERN)
+        q3 = await create_question(db_session, QuestionType.LOGIC)
 
-        create_response(db_session, session, user, q1, is_correct=True)
-        create_response(db_session, session, user, q2, is_correct=True)
-        create_response(db_session, session, user, q3, is_correct=True)
+        await create_response(db_session, session, user, q1, is_correct=True)
+        await create_response(db_session, session, user, q2, is_correct=True)
+        await create_response(db_session, session, user, q3, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -637,23 +627,23 @@ class TestGetResponseMatrixStats:
         assert stats["domain_counts"]["pattern"] == 2
         assert stats["domain_counts"]["logic"] == 1
 
-    def test_calculates_domain_accuracies(self, db_session):
+    async def test_calculates_domain_accuracies(self, db_session):
         """Calculates correct domain-specific accuracies."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
 
-        q_pattern1 = create_question(db_session, QuestionType.PATTERN)
-        q_pattern2 = create_question(db_session, QuestionType.PATTERN)
-        q_logic = create_question(db_session, QuestionType.LOGIC)
+        q_pattern1 = await create_question(db_session, QuestionType.PATTERN)
+        q_pattern2 = await create_question(db_session, QuestionType.PATTERN)
+        q_logic = await create_question(db_session, QuestionType.LOGIC)
 
         # Pattern: 1/2 correct = 0.5
-        create_response(db_session, session, user, q_pattern1, is_correct=True)
-        create_response(db_session, session, user, q_pattern2, is_correct=False)
+        await create_response(db_session, session, user, q_pattern1, is_correct=True)
+        await create_response(db_session, session, user, q_pattern2, is_correct=False)
 
         # Logic: 1/1 correct = 1.0
-        create_response(db_session, session, user, q_logic, is_correct=True)
+        await create_response(db_session, session, user, q_logic, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -665,18 +655,18 @@ class TestGetResponseMatrixStats:
         assert stats["domain_accuracies"]["pattern"] == pytest.approx(0.5)
         assert stats["domain_accuracies"]["logic"] == pytest.approx(1.0)
 
-    def test_calculates_sparsity(self, db_session):
+    async def test_calculates_sparsity(self, db_session):
         """Calculates sparsity (proportion of zeros)."""
         users = [create_user(db_session, f"user{i}@test.com") for i in range(2)]
         sessions = [create_test_session(db_session, user) for user in users]
 
-        q = create_question(db_session, QuestionType.PATTERN)
+        q = await create_question(db_session, QuestionType.PATTERN)
 
         # All incorrect = all zeros = sparsity 1.0
         for user, session in zip(users, sessions):
-            create_response(db_session, session, user, q, is_correct=False)
+            await create_response(db_session, session, user, q, is_correct=False)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -696,19 +686,19 @@ class TestGetResponseMatrixStats:
 class TestBuildResponseMatrixComplexScenarios:
     """Tests for complex real-world scenarios."""
 
-    def test_multiple_sessions_same_user(self, db_session):
+    async def test_multiple_sessions_same_user(self, db_session):
         """User with multiple completed sessions appears multiple times."""
-        user = create_user(db_session)
+        user = await create_user(db_session)
 
-        s1 = create_test_session(db_session, user)
-        s2 = create_test_session(db_session, user)
+        s1 = await create_test_session(db_session, user)
+        s2 = await create_test_session(db_session, user)
 
-        q = create_question(db_session, QuestionType.PATTERN)
+        q = await create_question(db_session, QuestionType.PATTERN)
 
-        create_response(db_session, s1, user, q, is_correct=True)
-        create_response(db_session, s2, user, q, is_correct=False)
+        await create_response(db_session, s1, user, q, is_correct=True)
+        await create_response(db_session, s2, user, q, is_correct=False)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -720,7 +710,7 @@ class TestBuildResponseMatrixComplexScenarios:
         assert s1.id in result.session_ids
         assert s2.id in result.session_ids
 
-    def test_large_dataset(self, db_session):
+    async def test_large_dataset(self, db_session):
         """Handles larger datasets correctly."""
         # Create 50 users, 20 questions, all with responses
         users = [create_user(db_session, f"user{i}@test.com") for i in range(50)]
@@ -734,11 +724,11 @@ class TestBuildResponseMatrixComplexScenarios:
         for user, session in zip(users, sessions):
             for i, q in enumerate(questions):
                 # Alternate correct/incorrect
-                create_response(
+                await create_response(
                     db_session, session, user, q, is_correct=((i + user.id) % 2 == 0)
                 )
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -749,20 +739,26 @@ class TestBuildResponseMatrixComplexScenarios:
         assert result.n_items == 20
         assert result.matrix.shape == (50, 20)
 
-    def test_mixed_active_inactive_questions(self, db_session):
+    async def test_mixed_active_inactive_questions(self, db_session):
         """Correctly handles mix of active and inactive questions."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
 
-        q_active1 = create_question(db_session, QuestionType.PATTERN, is_active=True)
-        q_active2 = create_question(db_session, QuestionType.LOGIC, is_active=True)
-        q_inactive = create_question(db_session, QuestionType.MATH, is_active=False)
+        q_active1 = await create_question(
+            db_session, QuestionType.PATTERN, is_active=True
+        )
+        q_active2 = await create_question(
+            db_session, QuestionType.LOGIC, is_active=True
+        )
+        q_inactive = await create_question(
+            db_session, QuestionType.MATH, is_active=False
+        )
 
-        create_response(db_session, session, user, q_active1, is_correct=True)
-        create_response(db_session, session, user, q_active2, is_correct=True)
-        create_response(db_session, session, user, q_inactive, is_correct=True)
+        await create_response(db_session, session, user, q_active1, is_correct=True)
+        await create_response(db_session, session, user, q_active2, is_correct=True)
+        await create_response(db_session, session, user, q_inactive, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -775,18 +771,18 @@ class TestBuildResponseMatrixComplexScenarios:
         assert q_active2.id in result.question_ids
         assert q_inactive.id not in result.question_ids
 
-    def test_all_domains_represented(self, db_session):
+    async def test_all_domains_represented(self, db_session):
         """All 6 question domains can be represented in matrix."""
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
 
         questions = []
         for qt in QuestionType:
-            q = create_question(db_session, qt)
+            q = await create_question(db_session, qt)
             questions.append(q)
-            create_response(db_session, session, user, q, is_correct=True)
+            await create_response(db_session, session, user, q, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -809,7 +805,7 @@ class TestBuildResponseMatrixComplexScenarios:
 class TestBuildResponseMatrixMaxResponses:
     """Tests for max_responses limit behavior."""
 
-    def test_respects_max_responses_limit(self, db_session):
+    async def test_respects_max_responses_limit(self, db_session):
         """Limits the number of responses fetched from database.
 
         Test scenario: 5 users, each answering 1 question = 5 total responses.
@@ -821,13 +817,13 @@ class TestBuildResponseMatrixMaxResponses:
         users = [create_user(db_session, f"user{i}@test.com") for i in range(5)]
         sessions = [create_test_session(db_session, user) for user in users]
 
-        q = create_question(db_session, QuestionType.PATTERN)
+        q = await create_question(db_session, QuestionType.PATTERN)
 
         for user, session in zip(users, sessions):
-            create_response(db_session, session, user, q, is_correct=True)
+            await create_response(db_session, session, user, q, is_correct=True)
 
         # Limit to 3 responses
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -846,7 +842,7 @@ class TestBuildResponseMatrixMaxResponses:
         original_session_ids = {s.id for s in sessions}
         assert all(sid in original_session_ids for sid in result.session_ids)
 
-    def test_logs_warning_when_limit_reached(self, db_session):
+    async def test_logs_warning_when_limit_reached(self, db_session):
         """Logs a warning when max_responses limit is reached.
 
         The warning message should include both the fetched count and the
@@ -859,10 +855,10 @@ class TestBuildResponseMatrixMaxResponses:
         users = [create_user(db_session, f"user{i}@test.com") for i in range(10)]
         sessions = [create_test_session(db_session, user) for user in users]
 
-        q = create_question(db_session, QuestionType.PATTERN)
+        q = await create_question(db_session, QuestionType.PATTERN)
 
         for user, session in zip(users, sessions):
-            create_response(db_session, session, user, q, is_correct=True)
+            await create_response(db_session, session, user, q, is_correct=True)
 
         # Patch the logger to capture the warning call
         with patch("app.core.analytics.logger") as mock_logger:
@@ -884,14 +880,14 @@ class TestBuildResponseMatrixMaxResponses:
             assert "limit: 5" in warning_msg
             assert "Matrix may be incomplete" in warning_msg
 
-    def test_no_warning_when_limit_not_reached(self, db_session):
+    async def test_no_warning_when_limit_not_reached(self, db_session):
         """No warning logged when responses are below the limit."""
         from unittest.mock import patch
 
-        user = create_user(db_session)
-        session = create_test_session(db_session, user)
-        q = create_question(db_session, QuestionType.PATTERN)
-        create_response(db_session, session, user, q, is_correct=True)
+        user = await create_user(db_session)
+        session = await create_test_session(db_session, user)
+        q = await create_question(db_session, QuestionType.PATTERN)
+        await create_response(db_session, session, user, q, is_correct=True)
 
         # Patch the logger to verify no warning is logged
         with patch("app.core.analytics.logger") as mock_logger:
@@ -906,19 +902,19 @@ class TestBuildResponseMatrixMaxResponses:
             # Check that no warning about limit was logged
             mock_logger.warning.assert_not_called()
 
-    def test_zero_max_responses_disables_limit(self, db_session):
+    async def test_zero_max_responses_disables_limit(self, db_session):
         """Setting max_responses=0 disables the limit."""
         # Create 5 users
         users = [create_user(db_session, f"user{i}@test.com") for i in range(5)]
         sessions = [create_test_session(db_session, user) for user in users]
 
-        q = create_question(db_session, QuestionType.PATTERN)
+        q = await create_question(db_session, QuestionType.PATTERN)
 
         for user, session in zip(users, sessions):
-            create_response(db_session, session, user, q, is_correct=True)
+            await create_response(db_session, session, user, q, is_correct=True)
 
         # Disable limit with 0
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,
@@ -929,23 +925,23 @@ class TestBuildResponseMatrixMaxResponses:
         # All 5 users should be included
         assert result.n_users == 5
 
-    def test_default_max_responses_is_10000(self, db_session):
+    async def test_default_max_responses_is_10000(self, db_session):
         """Default max_responses is 10000 (from constant)."""
         from app.core.analytics import DEFAULT_RESPONSE_LIMIT
 
         assert DEFAULT_RESPONSE_LIMIT == 10000
 
-    def test_works_normally_under_limit(self, db_session):
+    async def test_works_normally_under_limit(self, db_session):
         """Matrix is built normally when data is under the limit."""
         users = [create_user(db_session, f"user{i}@test.com") for i in range(3)]
         sessions = [create_test_session(db_session, user) for user in users]
 
-        q = create_question(db_session, QuestionType.PATTERN)
+        q = await create_question(db_session, QuestionType.PATTERN)
 
         for user, session in zip(users, sessions):
-            create_response(db_session, session, user, q, is_correct=True)
+            await create_response(db_session, session, user, q, is_correct=True)
 
-        result = build_response_matrix(
+        result = await build_response_matrix(
             db_session,
             min_responses_per_question=1,
             min_questions_per_session=1,

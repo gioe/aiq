@@ -10,8 +10,9 @@ Tests cover:
 """
 from datetime import datetime
 
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.system_config import set_cat_readiness
 from app.models.models import (
@@ -22,7 +23,7 @@ from app.models.models import (
 
 
 def _create_calibrated_question(
-    db_session: Session,
+    db_session: AsyncSession,
     question_type: QuestionType,
     irt_difficulty: float,
     irt_se_difficulty: float = 0.20,
@@ -51,7 +52,7 @@ def _create_calibrated_question(
 
 
 def _populate_domain_ready(
-    db_session: Session,
+    db_session: AsyncSession,
     question_type: QuestionType,
 ) -> None:
     """Helper to populate a domain with enough calibrated items to pass."""
@@ -75,22 +76,22 @@ def _populate_domain_ready(
 class TestGetCATReadiness:
     """Tests for GET /v1/admin/cat-readiness."""
 
-    def test_requires_admin_token(self, client: TestClient):
+    async def test_requires_admin_token(self, client: AsyncClient):
         """Endpoint requires admin token."""
-        response = client.get("/v1/admin/cat-readiness")
+        response = await client.get("/v1/admin/cat-readiness")
         assert response.status_code == 422
 
-        response = client.get(
+        response = await client.get(
             "/v1/admin/cat-readiness",
             headers={"X-Admin-Token": "invalid-token"},
         )
         assert response.status_code == 401
 
-    def test_default_state_before_evaluation(
-        self, client: TestClient, admin_headers: dict
+    async def test_default_state_before_evaluation(
+        self, client: AsyncClient, admin_headers: dict
     ):
         """GET before any evaluation returns default state."""
-        response = client.get("/v1/admin/cat-readiness", headers=admin_headers)
+        response = await client.get("/v1/admin/cat-readiness", headers=admin_headers)
         assert response.status_code == 200
         data = response.json()
 
@@ -101,11 +102,11 @@ class TestGetCATReadiness:
         assert data["summary"] == "Never evaluated"
         assert "thresholds" in data
 
-    def test_returns_persisted_result(
+    async def test_returns_persisted_result(
         self,
-        client: TestClient,
+        client: AsyncClient,
         admin_headers: dict,
-        db_session: Session,
+        db_session: AsyncSession,
     ):
         """GET returns previously persisted evaluation result."""
         set_cat_readiness(
@@ -136,7 +137,7 @@ class TestGetCATReadiness:
             },
         )
 
-        response = client.get("/v1/admin/cat-readiness", headers=admin_headers)
+        response = await client.get("/v1/admin/cat-readiness", headers=admin_headers)
         assert response.status_code == 200
         data = response.json()
 
@@ -146,9 +147,9 @@ class TestGetCATReadiness:
         assert len(data["domains"]) == 1
         assert data["domains"][0]["domain"] == "pattern"
 
-    def test_response_structure(self, client: TestClient, admin_headers: dict):
+    async def test_response_structure(self, client: AsyncClient, admin_headers: dict):
         """Response contains all expected fields."""
-        response = client.get("/v1/admin/cat-readiness", headers=admin_headers)
+        response = await client.get("/v1/admin/cat-readiness", headers=admin_headers)
         assert response.status_code == 200
         data = response.json()
 
@@ -169,22 +170,22 @@ class TestGetCATReadiness:
 class TestEvaluateCATReadiness:
     """Tests for POST /v1/admin/cat-readiness/evaluate."""
 
-    def test_requires_admin_token(self, client: TestClient):
+    async def test_requires_admin_token(self, client: AsyncClient):
         """Endpoint requires admin token."""
-        response = client.post("/v1/admin/cat-readiness/evaluate")
+        response = await client.post("/v1/admin/cat-readiness/evaluate")
         assert response.status_code == 422
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/cat-readiness/evaluate",
             headers={"X-Admin-Token": "invalid-token"},
         )
         assert response.status_code == 401
 
-    def test_insufficient_items_not_ready(
-        self, client: TestClient, admin_headers: dict
+    async def test_insufficient_items_not_ready(
+        self, client: AsyncClient, admin_headers: dict
     ):
         """POST with no calibrated items → not ready, CAT not enabled."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/cat-readiness/evaluate", headers=admin_headers
         )
         assert response.status_code == 200
@@ -200,15 +201,15 @@ class TestEvaluateCATReadiness:
             assert domain["is_ready"] is False
             assert domain["total_calibrated"] == 0
 
-    def test_sufficient_items_enables_cat(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_sufficient_items_enables_cat(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """POST with all domains passing → globally ready, CAT enabled."""
         for q_type in QuestionType:
             _populate_domain_ready(db_session, q_type)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/cat-readiness/evaluate", headers=admin_headers
         )
         assert response.status_code == 200
@@ -223,32 +224,31 @@ class TestEvaluateCATReadiness:
             assert domain["is_ready"] is True
             assert domain["well_calibrated"] >= 30
 
-    def test_reevaluation_can_disable_cat(
-        self, client: TestClient, admin_headers: dict, db_session: Session
+    async def test_reevaluation_can_disable_cat(
+        self, client: AsyncClient, admin_headers: dict, db_session: AsyncSession
     ):
         """Re-evaluation can disable CAT if items are removed."""
         # First, enable CAT
         for q_type in QuestionType:
             _populate_domain_ready(db_session, q_type)
-        db_session.commit()
+        await db_session.commit()
 
-        response = client.post(
+        response = await client.post(
             "/v1/admin/cat-readiness/evaluate", headers=admin_headers
         )
         assert response.json()["cat_enabled"] is True
 
         # Deactivate all pattern questions
-        pattern_questions = (
-            db_session.query(Question)
-            .filter(Question.question_type == QuestionType.PATTERN)
-            .all()
+        result = await db_session.execute(
+            select(Question).filter(Question.question_type == QuestionType.PATTERN)
         )
+        pattern_questions = result.scalars().all()
         for q in pattern_questions:
             q.is_active = False
-        db_session.commit()
+        await db_session.commit()
 
         # Re-evaluate
-        response = client.post(
+        response = await client.post(
             "/v1/admin/cat-readiness/evaluate", headers=admin_headers
         )
         data = response.json()
@@ -260,22 +260,24 @@ class TestEvaluateCATReadiness:
         pattern_domain = next(d for d in data["domains"] if d["domain"] == "pattern")
         assert pattern_domain["is_ready"] is False
 
-    def test_persists_to_system_config(self, client: TestClient, admin_headers: dict):
+    async def test_persists_to_system_config(
+        self, client: AsyncClient, admin_headers: dict
+    ):
         """POST evaluation persists result, retrievable via GET."""
         # Evaluate (empty → not ready)
         client.post("/v1/admin/cat-readiness/evaluate", headers=admin_headers)
 
         # GET should now return the persisted result
-        response = client.get("/v1/admin/cat-readiness", headers=admin_headers)
+        response = await client.get("/v1/admin/cat-readiness", headers=admin_headers)
         data = response.json()
 
         assert data["evaluated_at"] is not None
         assert data["is_globally_ready"] is False
         assert len(data["domains"]) == 6
 
-    def test_response_structure(self, client: TestClient, admin_headers: dict):
+    async def test_response_structure(self, client: AsyncClient, admin_headers: dict):
         """Response contains all expected fields."""
-        response = client.post(
+        response = await client.post(
             "/v1/admin/cat-readiness/evaluate", headers=admin_headers
         )
         assert response.status_code == 200

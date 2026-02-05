@@ -3,12 +3,13 @@ Tests for response submission endpoints.
 """
 
 import pytest
+from sqlalchemy import select, func
 
 
 class TestSubmitTest:
     """Tests for POST /v1/test/submit endpoint."""
 
-    def test_submit_test_success_all_correct(
+    async def test_submit_test_success_all_correct(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test successfully submitting responses with all correct answers."""
@@ -16,7 +17,7 @@ class TestSubmitTest:
         from app.models import Question
 
         # Start a test first
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -25,9 +26,10 @@ class TestSubmitTest:
 
         # Get the actual correct answers from the database
         question_ids = [q["id"] for q in questions]
-        db_questions = (
-            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        _result = await db_session.execute(
+            select(Question).filter(Question.id.in_(question_ids))
         )
+        db_questions = _result.scalars().all()
         questions_dict = {q.id: q for q in db_questions}
 
         # Submit responses (all correct)
@@ -49,7 +51,7 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
@@ -82,11 +84,10 @@ class TestSubmitTest:
         assert "IQ Score: 115" in data["message"]
 
         # Verify responses in database
-        responses = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == session_id)
-            .all()
+        _result = await db_session.execute(
+            select(Response).filter(Response.test_session_id == session_id)
         )
+        responses = _result.scalars().all()
         assert len(responses) == 3
 
         # Verify all responses marked as correct
@@ -95,25 +96,25 @@ class TestSubmitTest:
             assert resp.answered_at is not None
 
         # Verify session status in database
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        session = _result.scalars().first()
         assert session.status == TestStatus.COMPLETED
         assert session.completed_at is not None
 
         # Verify TestResult created in database
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result is not None
         assert test_result.iq_score == 115
         assert test_result.correct_answers == 3
         assert test_result.total_questions == 3
         assert test_result.completion_time_seconds is not None
 
-    def test_submit_test_success_mixed_answers(
+    async def test_submit_test_success_mixed_answers(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test submitting responses with mixed correct and incorrect answers."""
@@ -121,7 +122,7 @@ class TestSubmitTest:
         from app.models import Question
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=3", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -129,9 +130,10 @@ class TestSubmitTest:
 
         # Get the actual correct answers from the database
         question_ids = [q["id"] for q in questions]
-        db_questions = (
-            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        _result = await db_session.execute(
+            select(Question).filter(Question.id.in_(question_ids))
         )
+        db_questions = _result.scalars().all()
         questions_dict = {q.id: q for q in db_questions}
 
         # Submit responses (1 correct, 2 incorrect)
@@ -153,7 +155,7 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
@@ -168,11 +170,10 @@ class TestSubmitTest:
         assert result["total_questions"] == 3
 
         # Verify responses in database
-        responses = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == session_id)
-            .all()
+        _result = await db_session.execute(
+            select(Response).filter(Response.test_session_id == session_id)
         )
+        responses = _result.scalars().all()
         assert len(responses) == 3
 
         # Count correct vs incorrect
@@ -183,15 +184,14 @@ class TestSubmitTest:
         assert incorrect_count == 2
 
         # Verify TestResult in database
-        test_result = (
-            db_session.query(TestResult)
-            .filter(TestResult.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(TestResult).filter(TestResult.test_session_id == session_id)
         )
+        test_result = _result.scalars().first()
         assert test_result.iq_score == 95
         assert test_result.correct_answers == 1
 
-    def test_submit_test_case_insensitive(
+    async def test_submit_test_case_insensitive(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that answer comparison is case-insensitive."""
@@ -199,7 +199,7 @@ class TestSubmitTest:
         from app.models import Question
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -207,9 +207,10 @@ class TestSubmitTest:
 
         # Get the actual correct answers from the database
         question_ids = [q["id"] for q in questions]
-        db_questions = (
-            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        _result = await db_session.execute(
+            select(Question).filter(Question.id.in_(question_ids))
         )
+        db_questions = _result.scalars().all()
         questions_dict = {q.id: q for q in db_questions}
 
         # Submit with different case (using actual correct answers but in different case)
@@ -231,22 +232,21 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
         assert response.status_code == 200
 
         # Both should be marked correct despite case differences
-        responses = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == session_id)
-            .all()
+        _result = await db_session.execute(
+            select(Response).filter(Response.test_session_id == session_id)
         )
+        responses = _result.scalars().all()
         for resp in responses:
             assert resp.is_correct is True
 
-    def test_submit_test_session_not_found(self, client, auth_headers):
+    async def test_submit_test_session_not_found(self, client, auth_headers):
         """Test submitting for non-existent session."""
         submission_data = {
             "session_id": 99999,
@@ -255,14 +255,14 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
         assert response.status_code == 404
         assert "Test session not found" in response.json()["detail"]
 
-    def test_submit_test_unauthorized_access(
+    async def test_submit_test_unauthorized_access(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that users cannot submit for other users' sessions."""
@@ -278,8 +278,8 @@ class TestSubmitTest:
             last_name="Two",
         )
         db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
+        await db_session.commit()
+        await db_session.refresh(user2)
 
         # Create session for user2
         session = TestSession(
@@ -287,8 +287,8 @@ class TestSubmitTest:
             status=TestStatus.IN_PROGRESS,
         )
         db_session.add(session)
-        db_session.commit()
-        db_session.refresh(session)
+        await db_session.commit()
+        await db_session.refresh(session)
 
         # Try to submit for user2's session with user1's credentials
         submission_data = {
@@ -298,14 +298,14 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
         assert response.status_code == 403
         assert "Not authorized" in response.json()["detail"]
 
-    def test_submit_test_session_already_completed(
+    async def test_submit_test_session_already_completed(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test submitting for an already completed session."""
@@ -314,19 +314,20 @@ class TestSubmitTest:
         from datetime import datetime
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
         questions = start_response.json()["questions"]
 
         # Manually mark session as completed
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        session = _result.scalars().first()
         session.status = TestStatus.COMPLETED
         session.completed_at = datetime.utcnow()
-        db_session.commit()
+        await db_session.commit()
 
         # Try to submit
         submission_data = {
@@ -336,17 +337,19 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
         assert response.status_code == 400
         assert "already completed" in response.json()["detail"]
 
-    def test_submit_test_empty_responses(self, client, auth_headers, test_questions):
+    async def test_submit_test_empty_responses(
+        self, client, auth_headers, test_questions
+    ):
         """Test submitting with empty responses list."""
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -357,19 +360,19 @@ class TestSubmitTest:
             "responses": [],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
         assert response.status_code == 400
         assert "cannot be empty" in response.json()["detail"]
 
-    def test_submit_test_invalid_question_ids(
+    async def test_submit_test_invalid_question_ids(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test submitting responses for questions not in the session."""
         # Start a test with 2 questions
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -391,7 +394,7 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
@@ -399,10 +402,10 @@ class TestSubmitTest:
         assert "Invalid question IDs" in response.json()["detail"]
         assert str(invalid_question.id) in response.json()["detail"]
 
-    def test_submit_test_empty_answer(self, client, auth_headers, test_questions):
+    async def test_submit_test_empty_answer(self, client, auth_headers, test_questions):
         """Test submitting with empty user answer."""
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -416,19 +419,19 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
         assert response.status_code == 400
         assert "cannot be empty" in response.json()["detail"]
 
-    def test_submit_test_whitespace_only_answer(
+    async def test_submit_test_whitespace_only_answer(
         self, client, auth_headers, test_questions
     ):
         """Test submitting with whitespace-only user answer."""
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -442,14 +445,14 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
         assert response.status_code == 400
         assert "cannot be empty" in response.json()["detail"]
 
-    def test_submit_test_requires_authentication(self, client, test_questions):
+    async def test_submit_test_requires_authentication(self, client, test_questions):
         """Test that endpoint requires authentication."""
         submission_data = {
             "session_id": 1,
@@ -458,10 +461,10 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post("/v1/test/submit", json=submission_data)
+        response = await client.post("/v1/test/submit", json=submission_data)
         assert response.status_code in [401, 403]
 
-    def test_submit_test_answer_trimming(
+    async def test_submit_test_answer_trimming(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that user answers are trimmed before storage."""
@@ -469,16 +472,17 @@ class TestSubmitTest:
         from app.models import Question
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=1", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
         questions = start_response.json()["questions"]
 
         # Get the actual correct answer from the database
-        db_question = (
-            db_session.query(Question).filter(Question.id == questions[0]["id"]).first()
+        _result = await db_session.execute(
+            select(Question).filter(Question.id == questions[0]["id"])
         )
+        db_question = _result.scalars().first()
         correct_answer = db_question.correct_answer
 
         # Submit with extra whitespace
@@ -492,29 +496,28 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
         assert response.status_code == 200
 
         # Verify answer is trimmed in database
-        db_response = (
-            db_session.query(Response)
-            .filter(Response.test_session_id == session_id)
-            .first()
+        _result = await db_session.execute(
+            select(Response).filter(Response.test_session_id == session_id)
         )
+        db_response = _result.scalars().first()
         assert db_response.user_answer == correct_answer
         assert db_response.is_correct is True
 
-    def test_submit_test_transaction_atomicity(
+    async def test_submit_test_transaction_atomicity(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that submission is atomic - all responses stored or none."""
         from app.models.models import Response
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         session_id = start_response.json()["session"]["id"]
@@ -529,20 +532,21 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
         assert response.status_code == 200
 
         # Verify responses exist
-        response_count = (
-            db_session.query(Response)
+        _result = await db_session.execute(
+            select(func.count())
+            .select_from(Response)
             .filter(Response.test_session_id == session_id)
-            .count()
         )
+        response_count = _result.scalar()
         assert response_count == 2
 
-    def test_submit_test_multiple_sessions_isolation(
+    async def test_submit_test_multiple_sessions_isolation(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that responses are properly isolated between sessions."""
@@ -550,7 +554,9 @@ class TestSubmitTest:
         from datetime import datetime, timedelta
 
         # Start first test
-        start1 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        start1 = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         session1_id = start1.json()["session"]["id"]
         questions1 = start1.json()["questions"]
 
@@ -562,17 +568,20 @@ class TestSubmitTest:
                 {"question_id": questions1[1]["id"], "user_answer": "answer2"},
             ],
         }
-        client.post("/v1/test/submit", json=submission1, headers=auth_headers)
+        await client.post("/v1/test/submit", json=submission1, headers=auth_headers)
 
         # Backdate the first session completion to bypass 6-month cadence check
-        session1 = (
-            db_session.query(TestSession).filter(TestSession.id == session1_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session1_id)
         )
+        session1 = _result.scalars().first()
         session1.completed_at = datetime.utcnow() - timedelta(days=181)
-        db_session.commit()
+        await db_session.commit()
 
         # Start second test (different questions since first are now seen)
-        start2 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+        start2 = await client.post(
+            "/v1/test/start?question_count=2", headers=auth_headers
+        )
         session2_id = start2.json()["session"]["id"]
         questions2 = start2.json()["questions"]
 
@@ -584,42 +593,46 @@ class TestSubmitTest:
                 {"question_id": questions2[1]["id"], "user_answer": "answer4"},
             ],
         }
-        client.post("/v1/test/submit", json=submission2, headers=auth_headers)
+        await client.post("/v1/test/submit", json=submission2, headers=auth_headers)
 
         # Verify each session has exactly 2 responses
-        session1_responses = (
-            db_session.query(Response)
+        _result = await db_session.execute(
+            select(func.count())
+            .select_from(Response)
             .filter(Response.test_session_id == session1_id)
-            .count()
         )
-        session2_responses = (
-            db_session.query(Response)
+        session1_responses = _result.scalar()
+        _result = await db_session.execute(
+            select(func.count())
+            .select_from(Response)
             .filter(Response.test_session_id == session2_id)
-            .count()
         )
+        session2_responses = _result.scalar()
 
         assert session1_responses == 2
         assert session2_responses == 2
 
         # Verify both sessions are completed
-        session1 = (
-            db_session.query(TestSession).filter(TestSession.id == session1_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session1_id)
         )
-        session2 = (
-            db_session.query(TestSession).filter(TestSession.id == session2_id).first()
+        session1 = _result.scalars().first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session2_id)
         )
+        session2 = _result.scalars().first()
 
         assert session1.status == TestStatus.COMPLETED
         assert session2.status == TestStatus.COMPLETED
 
-    def test_submit_test_time_limit_exceeded_client_flag(
+    async def test_submit_test_time_limit_exceeded_client_flag(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that client-reported time_limit_exceeded flag is stored."""
         from app.models import Question, TestSession
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -628,9 +641,10 @@ class TestSubmitTest:
 
         # Get the actual correct answers from the database
         question_ids = [q["id"] for q in questions]
-        db_questions = (
-            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        _result = await db_session.execute(
+            select(Question).filter(Question.id.in_(question_ids))
         )
+        db_questions = _result.scalars().all()
         questions_dict = {q.id: q for q in db_questions}
 
         # Submit with time_limit_exceeded=True (client reports timeout)
@@ -649,7 +663,7 @@ class TestSubmitTest:
             "time_limit_exceeded": True,
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
@@ -660,19 +674,20 @@ class TestSubmitTest:
         assert data["session"]["time_limit_exceeded"] is True
 
         # Verify session in database has time_limit_exceeded set
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        session = _result.scalars().first()
         assert session.time_limit_exceeded is True
 
-    def test_submit_test_time_limit_exceeded_defaults_to_false(
+    async def test_submit_test_time_limit_exceeded_defaults_to_false(
         self, client, auth_headers, test_questions, db_session
     ):
         """Test that time_limit_exceeded defaults to False when not provided."""
         from app.models import Question, TestSession
 
         # Start a test
-        start_response = client.post(
+        start_response = await client.post(
             "/v1/test/start?question_count=2", headers=auth_headers
         )
         assert start_response.status_code == 200
@@ -681,9 +696,10 @@ class TestSubmitTest:
 
         # Get the actual correct answers from the database
         question_ids = [q["id"] for q in questions]
-        db_questions = (
-            db_session.query(Question).filter(Question.id.in_(question_ids)).all()
+        _result = await db_session.execute(
+            select(Question).filter(Question.id.in_(question_ids))
         )
+        db_questions = _result.scalars().all()
         questions_dict = {q.id: q for q in db_questions}
 
         # Submit WITHOUT time_limit_exceeded field
@@ -701,7 +717,7 @@ class TestSubmitTest:
             ],
         }
 
-        response = client.post(
+        response = await client.post(
             "/v1/test/submit", json=submission_data, headers=auth_headers
         )
 
@@ -712,7 +728,8 @@ class TestSubmitTest:
         assert data["session"]["time_limit_exceeded"] is False
 
         # Verify session in database has time_limit_exceeded as False
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        _result = await db_session.execute(
+            select(TestSession).filter(TestSession.id == session_id)
         )
+        session = _result.scalars().first()
         assert session.time_limit_exceeded is False

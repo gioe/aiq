@@ -7,7 +7,7 @@ These tests verify that:
 """
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import select, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models.models import Question, QuestionType, DifficultyLevel
@@ -113,14 +113,16 @@ def test_query_questions_with_embeddings(db_session: Session):
     db_session.commit()
 
     # Query questions without embeddings
-    questions_without = (
-        db_session.query(Question).filter(Question.question_embedding.is_(None)).all()
+    _qresult = db_session.execute(
+        select(Question).filter(Question.question_embedding.is_(None))
     )
+    questions_without = _qresult.scalars().all()
 
     # Query questions with embeddings
-    questions_with = (
-        db_session.query(Question).filter(Question.question_embedding.isnot(None)).all()
+    _qresult = db_session.execute(
+        select(Question).filter(Question.question_embedding.isnot(None))
     )
+    questions_with = _qresult.scalars().all()
 
     assert len(questions_without) == 1
     assert len(questions_with) == 1
@@ -152,7 +154,8 @@ def test_embedding_persistence_after_update(db_session: Session):
 
     # Reload from database
     db_session.expire(question)
-    reloaded = db_session.query(Question).filter(Question.id == question_id).first()
+    _qresult = db_session.execute(select(Question).filter(Question.id == question_id))
+    reloaded = _qresult.scalars().first()
 
     # Verify embedding persisted
     assert reloaded.question_embedding == original_embedding

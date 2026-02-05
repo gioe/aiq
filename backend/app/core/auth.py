@@ -7,8 +7,9 @@ from typing import Literal, Optional
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_db, User
 from .security import decode_token, verify_token_type
@@ -28,11 +29,11 @@ security_optional = HTTPBearer(auto_error=False)
 TokenType = Literal["access", "refresh"]
 
 
-def _decode_and_validate_token(
+async def _decode_and_validate_token(
     token: str,
     expected_type: TokenType,
     request: Optional[Request] = None,
-    db: Optional[Session] = None,
+    db: Optional[AsyncSession] = None,
 ) -> int:
     """
     Decode and validate a JWT token, returning the user_id.
@@ -119,7 +120,7 @@ def _decode_and_validate_token(
     # Check user-level revocation epoch (logout-all)
     # Only perform this check if we have DB access
     if db is not None:
-        user = db.get(User, user_id)
+        user = await db.get(User, user_id)
         if user and user.token_revoked_before:
             from app.core.datetime_utils import ensure_timezone_aware
 
@@ -166,7 +167,7 @@ def _decode_and_validate_token(
     return user_id
 
 
-def _get_user_or_401(db: Session, user_id: int) -> User:
+async def _get_user_or_401(db: AsyncSession, user_id: int) -> User:
     """
     Get a user by ID or raise 401 Unauthorized.
 
@@ -180,7 +181,7 @@ def _get_user_or_401(db: Session, user_id: int) -> User:
     Raises:
         HTTPException: 401 if user not found
     """
-    user = db.get(User, user_id)
+    user = await db.get(User, user_id)
     if user is None:
         raise_unauthorized(ErrorMessages.USER_NOT_FOUND_AUTH)
     return user
@@ -189,7 +190,7 @@ def _get_user_or_401(db: Session, user_id: int) -> User:
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Get the current authenticated user from JWT token.
@@ -205,14 +206,16 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    user_id = _decode_and_validate_token(credentials.credentials, "access", request, db)
-    return _get_user_or_401(db, user_id)
+    user_id = await _decode_and_validate_token(
+        credentials.credentials, "access", request, db
+    )
+    return await _get_user_or_401(db, user_id)
 
 
 async def get_current_user_from_refresh_token(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Get the current user from a refresh token.
@@ -230,16 +233,16 @@ async def get_current_user_from_refresh_token(
     Raises:
         HTTPException: 401 if token is invalid or user not found
     """
-    user_id = _decode_and_validate_token(
+    user_id = await _decode_and_validate_token(
         credentials.credentials, "refresh", request, db
     )
-    return _get_user_or_401(db, user_id)
+    return await _get_user_or_401(db, user_id)
 
 
 async def get_current_user_optional(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Optional[User]:
     """
     Get the current authenticated user if a valid token is provided.
@@ -262,10 +265,11 @@ async def get_current_user_optional(
         return None
 
     try:
-        user_id = _decode_and_validate_token(
+        user_id = await _decode_and_validate_token(
             credentials.credentials, "access", request, db
         )
-        user = db.query(User).filter(User.id == user_id).first()
+        result = await db.execute(select(User).filter(User.id == user_id))
+        user = result.scalars().first()
         return user
     except HTTPException:
         # Token is invalid or wrong type - treat as anonymous
