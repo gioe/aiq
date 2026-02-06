@@ -201,6 +201,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     metrics.initialize()
     logger.info("Application metrics initialized")
 
+    # Setup database query instrumentation
+    if settings.OTEL_ENABLED and settings.OTEL_METRICS_ENABLED:
+        try:
+            from app.db.instrumentation import setup_db_instrumentation
+            from app.models import engine
+
+            setup_db_instrumentation(engine)
+        except Exception as e:
+            logger.warning(f"Failed to setup database query instrumentation: {e}")
+
     yield
 
     # Shutdown

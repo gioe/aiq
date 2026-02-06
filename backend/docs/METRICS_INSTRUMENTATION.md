@@ -22,10 +22,14 @@ HTTP request metrics are automatically recorded by the OpenTelemetry FastAPI ins
 
 ## Database Metrics (Automatic)
 
-Database query metrics are automatically recorded by the OpenTelemetry SQLAlchemy instrumentation. No manual instrumentation needed.
+Database query metrics are automatically recorded by SQLAlchemy event listeners when metrics are enabled (`OTEL_ENABLED=true` and `OTEL_METRICS_ENABLED=true`). No manual instrumentation needed.
 
 **Recorded automatically:**
-- `db.query.duration` - Query duration by operation and table
+- `db.query.duration` - Query duration by operation (SELECT, INSERT, UPDATE, DELETE) and table name
+
+**Implementation:** The database instrumentation uses SQLAlchemy `before_cursor_execute` and `after_cursor_execute` events to measure query duration. It intelligently filters out internal database queries (PRAGMA, pg_catalog, information_schema) to keep metrics focused on application queries.
+
+**See:** `app/db/instrumentation.py` for implementation details
 
 ## Business Metrics (Manual)
 
