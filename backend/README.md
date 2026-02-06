@@ -27,6 +27,7 @@ uvicorn app.main:app --reload
 When the server is running, visit:
 - **Swagger UI**: http://localhost:8000/v1/docs
 - **ReDoc**: http://localhost:8000/v1/redoc
+- **Prometheus Metrics**: http://localhost:8000/v1/metrics (requires `PROMETHEUS_METRICS_ENABLED=true`)
 
 ### OpenAPI Specification
 
@@ -893,6 +894,44 @@ RATE_LIMIT_REDIS_URL=rediss://:${REDIS_PASSWORD}@${REDIS_HOST}:6379/0
 - Redis connection failures are logged but don't crash the application
 - Automatic fallback to in-memory storage if Redis is unavailable
 - Rate limiting continues to work (within single worker) even if Redis fails
+
+---
+
+## Prometheus Metrics
+
+The backend exposes Prometheus-compatible metrics at `/v1/metrics` for monitoring and observability.
+
+**Quick Start:**
+
+1. Enable metrics in `.env`:
+   ```bash
+   OTEL_ENABLED=true
+   OTEL_METRICS_ENABLED=true
+   PROMETHEUS_METRICS_ENABLED=true
+   ```
+
+2. Access metrics endpoint:
+   ```bash
+   curl http://localhost:8000/v1/metrics
+   ```
+
+3. Configure Prometheus to scrape the endpoint (see [docs/examples/prometheus.yml](docs/examples/prometheus.yml))
+
+**Available Metrics:**
+
+| Category | Metrics |
+|----------|---------|
+| **HTTP** | Request count, duration, status codes |
+| **Database** | Query duration by operation and table |
+| **Test Sessions** | Active sessions, started, completed, abandoned |
+| **Questions** | Generated, served |
+| **Users** | Registrations |
+| **Errors** | Error count by type and endpoint |
+
+**Documentation:**
+- [Complete Metrics Guide](docs/PROMETHEUS_METRICS.md)
+- [Example Configurations](docs/examples/)
+- [Grafana Dashboard JSON](docs/PROMETHEUS_METRICS.md#example-grafana-dashboard-json)
 
 ---
 
