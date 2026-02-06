@@ -855,9 +855,13 @@ class TestFacadeCaptureMethods:
     """Tests for facade capture methods with mocked backends."""
 
     def test_capture_error_calls_sentry_backend(self) -> None:
-        """Test capture_error delegates to Sentry backend."""
+        """Test capture_error delegates to Sentry backend with enriched context."""
         facade = ObservabilityFacade()
         facade._initialized = True
+        facade._config = ObservabilityConfig(
+            sentry=SentryConfig(environment="test"),
+            otel=OTELConfig(service_name="test-service", service_version="1.0.0"),
+        )
         facade._sentry_backend = mock.MagicMock()
         facade._sentry_backend.capture_error.return_value = "event-id-123"
 
@@ -872,14 +876,130 @@ class TestFacadeCaptureMethods:
         )
 
         assert result == "event-id-123"
-        facade._sentry_backend.capture_error.assert_called_once_with(
-            exception=exc,
-            context={"key": "value"},
-            level="error",
-            user={"id": "user-123"},
-            tags={"tag": "value"},
-            fingerprint=["custom"],
+        # Verify call was made
+        facade._sentry_backend.capture_error.assert_called_once()
+        call_kwargs = facade._sentry_backend.capture_error.call_args.kwargs
+
+        # Check enriched context includes service metadata
+        assert call_kwargs["context"]["key"] == "value"
+        assert call_kwargs["context"]["service"]["name"] == "test-service"
+        assert call_kwargs["context"]["service"]["version"] == "1.0.0"
+        assert call_kwargs["context"]["service"]["environment"] == "test"
+        # Trace context should NOT be added when no span active (no None values)
+        assert "trace" not in call_kwargs["context"]
+
+        # Check other parameters passed through
+        assert call_kwargs["exception"] is exc
+        assert call_kwargs["level"] == "error"
+        assert call_kwargs["user"] == {"id": "user-123"}
+        assert call_kwargs["tags"] == {"tag": "value"}
+        assert call_kwargs["fingerprint"] == ["custom"]
+
+    def test_capture_error_logs_warning_when_sentry_disabled(self) -> None:
+        """Test capture_error logs warning when Sentry backend not available."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = None  # Sentry disabled
+
+        exc = ValueError("test error")
+        with mock.patch("libs.observability.facade.logger") as mock_logger:
+            result = facade.capture_error(exc)
+
+        assert result is None
+        mock_logger.warning.assert_called_once()
+        assert "Sentry backend not available" in mock_logger.warning.call_args[0][0]
+
+    def test_capture_error_handles_backend_exception(self) -> None:
+        """Test capture_error logs error and returns None when backend fails."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._config = ObservabilityConfig()
+        facade._sentry_backend = mock.MagicMock()
+        facade._sentry_backend.capture_error.side_effect = RuntimeError("SDK failure")
+
+        exc = ValueError("test error")
+        with mock.patch("libs.observability.facade.logger") as mock_logger:
+            result = facade.capture_error(exc)
+
+        assert result is None
+        mock_logger.error.assert_called_once()
+        assert "Failed to capture error to Sentry" in mock_logger.error.call_args[0][0]
+
+    def test_capture_error_enriches_empty_context(self) -> None:
+        """Test capture_error adds service context even when no context provided."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._config = ObservabilityConfig(
+            sentry=SentryConfig(environment="prod"),
+            otel=OTELConfig(service_name="my-service", service_version="2.0.0"),
         )
+        facade._sentry_backend = mock.MagicMock()
+        facade._sentry_backend.capture_error.return_value = "event-id"
+
+        exc = ValueError("test")
+        facade.capture_error(exc)  # No context parameter
+
+        call_kwargs = facade._sentry_backend.capture_error.call_args.kwargs
+        assert "service" in call_kwargs["context"]
+        assert call_kwargs["context"]["service"]["name"] == "my-service"
+        assert call_kwargs["context"]["service"]["version"] == "2.0.0"
+
+    def test_capture_error_when_config_is_none(self) -> None:
+        """Test capture_error works when config is not set."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._config = None  # No config
+        facade._sentry_backend = mock.MagicMock()
+        facade._sentry_backend.capture_error.return_value = "event-id"
+
+        exc = ValueError("test")
+        result = facade.capture_error(exc)
+
+        # Should still work, just without service context
+        assert result == "event-id"
+        call_kwargs = facade._sentry_backend.capture_error.call_args.kwargs
+        assert "service" not in call_kwargs["context"]
+
+    def test_capture_error_includes_trace_context_when_span_active(self) -> None:
+        """Test capture_error includes trace context when OTEL span is active."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._config = ObservabilityConfig(
+            sentry=SentryConfig(environment="test"),
+            otel=OTELConfig(service_name="test-service", service_version="1.0.0"),
+        )
+        facade._sentry_backend = mock.MagicMock()
+        facade._sentry_backend.capture_error.return_value = "event-id"
+
+        # Create mock OTEL objects
+        mock_span = mock.MagicMock()
+        mock_span_context = mock.MagicMock()
+        mock_span_context.trace_id = 0x12345678901234567890123456789012
+        mock_span_context.span_id = 0x1234567890123456
+        mock_span_context.is_valid = True
+        mock_span.get_span_context.return_value = mock_span_context
+
+        # Create mock trace module
+        mock_trace_module = mock.MagicMock()
+        mock_trace_module.get_current_span.return_value = mock_span
+
+        # Create mock opentelemetry package
+        mock_otel = mock.MagicMock()
+        mock_otel.trace = mock_trace_module
+
+        # Use mock.patch.dict for pytest-safe module mocking
+        with mock.patch.dict(
+            "sys.modules",
+            {"opentelemetry": mock_otel, "opentelemetry.trace": mock_trace_module},
+        ):
+            exc = ValueError("test error")
+            facade.capture_error(exc)
+
+            call_kwargs = facade._sentry_backend.capture_error.call_args.kwargs
+            # Trace context should be included
+            assert "trace" in call_kwargs["context"]
+            assert call_kwargs["context"]["trace"]["trace_id"] == "12345678901234567890123456789012"
+            assert call_kwargs["context"]["trace"]["span_id"] == "1234567890123456"
 
     def test_capture_message_calls_sentry_backend(self) -> None:
         """Test capture_message delegates to Sentry backend."""

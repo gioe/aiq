@@ -581,10 +581,19 @@ class ObservabilityFacade:
         Use this to report exceptions that should be tracked and alerted on.
         The error will be sent to Sentry with full context for debugging.
 
+        Automatically enriches errors with:
+        - Service metadata (name, version, environment) from configuration
+        - OTEL trace context (trace_id, span_id) if a span is active
+
+        Handles failures gracefully:
+        - Logs warning if Sentry backend is disabled/unavailable
+        - Logs error and returns None if capture fails
+
         Args:
             exception: The exception to capture. Can be any exception instance.
             context: Additional context data to attach. This appears as
-                "additional" context in Sentry's UI.
+                "additional" context in Sentry's UI. Merged with automatic
+                service and trace context.
             level: Error severity level. One of "debug", "info", "warning",
                 "error", or "fatal". Defaults to "error".
             user: User information dict with keys like "id", "email", "username".
@@ -595,7 +604,8 @@ class ObservabilityFacade:
                 error grouping when needed.
 
         Returns:
-            Event ID if captured, None if skipped (not initialized or backend disabled).
+            Event ID if captured, None if skipped (not initialized, backend
+            disabled, or capture failed).
 
         Example:
             Basic error capture::
@@ -628,16 +638,45 @@ class ObservabilityFacade:
             logger.debug("capture_error called but observability not initialized")
             return None
 
-        if self._sentry_backend is not None:
+        if self._sentry_backend is None:
+            logger.warning(
+                "capture_error called but Sentry backend not available. "
+                "Error will not be captured: %s",
+                type(exception).__name__,
+            )
+            return None
+
+        # Enrich context with facade-level metadata
+        enriched_context = dict(context) if context else {}
+        if self._config is not None:
+            enriched_context["service"] = {
+                "name": self._config.otel.service_name,
+                "version": self._config.otel.service_version,
+                "environment": self._config.sentry.environment,
+            }
+
+        # Attach OTEL trace context if a span is active (only when both values present)
+        trace_ctx = self.get_trace_context()
+        if trace_ctx.get("trace_id") and trace_ctx.get("span_id"):
+            enriched_context["trace"] = trace_ctx
+
+        try:
             return self._sentry_backend.capture_error(
                 exception=exception,
-                context=context,
+                context=enriched_context,
                 level=level,
                 user=user,
                 tags=tags,
                 fingerprint=fingerprint,
             )
-        return None
+        except Exception as e:
+            logger.error(
+                "Failed to capture error to Sentry: %s. Original error: %s: %s",
+                e,
+                type(exception).__name__,
+                str(exception),
+            )
+            return None
 
     def capture_message(
         self,
