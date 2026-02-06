@@ -316,3 +316,82 @@ class TestHandleDbErrorDecorator:
     def test_alias_exists(self):
         """Test that handle_db_error_decorator alias exists and works."""
         assert handle_db_error_decorator is HandleDbErrorDecorator
+
+
+class TestDatabaseErrorMetrics:
+    """Tests for metrics integration with database error handling."""
+
+    def test_records_metric_on_sqlalchemy_error(self):
+        """Test that error metric is recorded for SQLAlchemy errors."""
+        db = MagicMock()
+
+        with patch("app.core.db_error_handling.metrics") as mock_metrics:
+            with pytest.raises(HTTPException):
+                with handle_db_error(db, "database operation"):
+                    raise SQLAlchemyError("connection lost")
+
+            mock_metrics.record_error.assert_called_once_with(
+                error_type="DatabaseError"
+            )
+
+    def test_records_metric_on_generic_exception(self):
+        """Test that error metric is recorded for generic exceptions."""
+        db = MagicMock()
+
+        with patch("app.core.db_error_handling.metrics") as mock_metrics:
+            with pytest.raises(HTTPException):
+                with handle_db_error(db, "operation"):
+                    raise ValueError("something went wrong")
+
+            mock_metrics.record_error.assert_called_once_with(
+                error_type="DatabaseError"
+            )
+
+    def test_records_metric_on_http_exception_when_not_reraised(self):
+        """Test that error metric is recorded for HTTPException when not reraised."""
+        db = MagicMock()
+
+        with patch("app.core.db_error_handling.metrics") as mock_metrics:
+            with pytest.raises(HTTPException):
+                with handle_db_error(db, "operation", reraise_http_exceptions=False):
+                    raise HTTPException(status_code=404, detail="Not found")
+
+            mock_metrics.record_error.assert_called_once_with(
+                error_type="DatabaseError"
+            )
+
+    def test_does_not_record_metric_on_http_exception_when_reraised(self):
+        """Test that error metric is not recorded for HTTPException when reraised."""
+        db = MagicMock()
+
+        with patch("app.core.db_error_handling.metrics") as mock_metrics:
+            with pytest.raises(HTTPException):
+                with handle_db_error(db, "operation", reraise_http_exceptions=True):
+                    raise HTTPException(status_code=404, detail="Not found")
+
+            mock_metrics.record_error.assert_not_called()
+
+    def test_does_not_record_metric_on_success(self):
+        """Test that error metric is not recorded on successful operations."""
+        db = MagicMock()
+
+        with patch("app.core.db_error_handling.metrics") as mock_metrics:
+            with handle_db_error(db, "operation"):
+                pass  # Success
+
+            mock_metrics.record_error.assert_not_called()
+
+    def test_metrics_failure_does_not_break_error_handling(self):
+        """Test that metrics recording failure doesn't break error handling."""
+        db = MagicMock()
+
+        with patch("app.core.db_error_handling.metrics") as mock_metrics:
+            mock_metrics.record_error.side_effect = Exception("metrics error")
+
+            # Should still raise HTTPException despite metrics failure
+            with pytest.raises(HTTPException) as exc_info:
+                with handle_db_error(db, "operation"):
+                    raise ValueError("original error")
+
+            assert "Failed to operation" in exc_info.value.detail
+            db.rollback.assert_called_once()

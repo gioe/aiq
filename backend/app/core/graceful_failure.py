@@ -35,6 +35,8 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Any, Callable, Generator, Optional, TypeVar
 
+from app.observability import metrics
+
 
 # Type variable for decorator return type preservation
 T = TypeVar("T")
@@ -110,6 +112,12 @@ def graceful_failure(
             message = f"Failed to {operation_name}: {e}"
 
         logger.log(log_level, message, exc_info=exc_info)
+
+        # Record error metric for observability (safe - won't break graceful failure)
+        try:
+            metrics.record_error(error_type="GracefulFailure")
+        except Exception:
+            pass  # Metrics recording should not break graceful failure handling
 
 
 class GracefulFailureDecorator:
