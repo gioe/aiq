@@ -6,11 +6,14 @@ error capture, and context management.
 
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterator
 
 if TYPE_CHECKING:
     from libs.observability.config import SentryConfig
+
+logger = logging.getLogger(__name__)
 
 
 class SentryBackend:
@@ -20,40 +23,76 @@ class SentryBackend:
         self._config = config
         self._initialized = False
 
-    def init(self) -> None:
-        """Initialize the Sentry SDK."""
+    def init(self) -> bool:
+        """Initialize the Sentry SDK.
+
+        Returns:
+            True if Sentry was initialized successfully, False otherwise.
+        """
         if not self._config.enabled or not self._config.dsn:
-            return
+            logger.debug("Sentry initialization skipped (disabled or DSN not configured)")
+            return False
 
-        import sentry_sdk
-        from sentry_sdk.integrations.logging import LoggingIntegration
-
-        integrations = [
-            LoggingIntegration(
-                level=None,  # Don't capture breadcrumbs from logs
-                event_level=None,  # Don't send log events
-            ),
-        ]
-
-        # Add OpenTelemetry integration if available
         try:
-            from sentry_sdk.integrations.opentelemetry import OpenTelemetryIntegration
+            import sentry_sdk
+            from sentry_sdk.integrations.logging import LoggingIntegration
 
-            integrations.append(OpenTelemetryIntegration())
-        except ImportError:
-            pass
+            integrations: list[Any] = [
+                LoggingIntegration(
+                    level=None,  # Don't capture breadcrumbs from logs
+                    event_level=None,  # Don't send log events
+                ),
+            ]
 
-        sentry_sdk.init(
-            dsn=self._config.dsn,
-            environment=self._config.environment,
-            release=self._config.release,
-            traces_sample_rate=self._config.traces_sample_rate,
-            profiles_sample_rate=self._config.profiles_sample_rate,
-            integrations=integrations,
-            send_default_pii=self._config.send_default_pii,
-        )
+            # Add FastAPI integration if available
+            try:
+                from sentry_sdk.integrations.fastapi import FastApiIntegration
 
-        self._initialized = True
+                integrations.append(FastApiIntegration(transaction_style="endpoint"))
+            except ImportError:
+                pass
+
+            # Add Starlette integration if available
+            try:
+                from sentry_sdk.integrations.starlette import StarletteIntegration
+
+                integrations.append(StarletteIntegration(transaction_style="endpoint"))
+            except ImportError:
+                pass
+
+            # Add OpenTelemetry integration if available
+            # Note: Must catch both ImportError and DidNotEnable - the latter is raised
+            # when opentelemetry SDK is not installed even if sentry_sdk is
+            try:
+                from sentry_sdk.integrations.opentelemetry import OpenTelemetryIntegration
+
+                integrations.append(OpenTelemetryIntegration())
+            except (ImportError, Exception):
+                # Catches ImportError when sentry-sdk doesn't have OTEL support
+                # and DidNotEnable when opentelemetry SDK is not installed
+                pass
+
+            sentry_sdk.init(
+                dsn=self._config.dsn,
+                environment=self._config.environment,
+                release=self._config.release,
+                traces_sample_rate=self._config.traces_sample_rate,
+                profiles_sample_rate=self._config.profiles_sample_rate,
+                integrations=integrations,
+                send_default_pii=self._config.send_default_pii,
+            )
+
+            self._initialized = True
+
+            logger.info(
+                f"Sentry initialized for environment '{self._config.environment}' "
+                f"with {self._config.traces_sample_rate * 100:.0f}% trace sampling"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Sentry: {e}", exc_info=True)
+            return False
 
     def capture_error(
         self,
