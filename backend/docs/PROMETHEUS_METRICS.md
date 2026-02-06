@@ -166,6 +166,102 @@ topk(5, rate(app_errors[1h]) by (error_type))
 rate(app_errors[5m]) / rate(http_server_requests[5m]) * 100
 ```
 
+## Security
+
+The `/v1/metrics` endpoint is intentionally **unauthenticated** to allow standard Prometheus scrapers to collect metrics without custom authentication configuration.
+
+### Security Model
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                       Railway Private Network                        │
+│                                                                     │
+│  ┌─────────────────┐        Internal        ┌─────────────────┐   │
+│  │  AIQ Backend    │◄──────────────────────►│  Grafana Alloy  │   │
+│  │  /v1/metrics    │       (private)         │  (scraper)      │   │
+│  └─────────────────┘                         └─────────────────┘   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                │ Public access blocked by
+                                │ Railway networking config
+                                ▼
+                    ┌─────────────────────────┐
+                    │   Public Internet       │
+                    │   (no direct access)    │
+                    └─────────────────────────┘
+```
+
+### Railway Deployment (Production)
+
+In Railway, the `/v1/metrics` endpoint is protected by **private networking**:
+
+1. **Internal-only access**: The metrics endpoint is only accessible to services within the same Railway project via the internal network. External requests cannot reach it.
+
+2. **No application-level auth required**: Since Railway's network isolation provides security, we don't need to implement authentication at the application level.
+
+3. **Grafana Alloy configuration**: The Alloy scraper runs within the Railway project and accesses metrics via the internal hostname (e.g., `aiq-backend.railway.internal:8000`).
+
+4. **Public API isolation**: The public Railway domain (`aiq-backend-production.up.railway.app`) does NOT expose the `/v1/metrics` endpoint—it's only reachable internally.
+
+### Data Security
+
+The metrics endpoint is designed with data security in mind:
+
+| Concern | Mitigation |
+|---------|------------|
+| **No PII in metrics** | User IDs, emails, and session IDs are never included in metric labels |
+| **Bounded cardinality** | Labels use finite sets (e.g., HTTP methods, routes, status codes) |
+| **Excluded from API docs** | The endpoint has `include_in_schema=False` to hide it from OpenAPI |
+| **No sensitive business data** | Metrics are operational (latency, counts) not business-specific |
+
+### Alternative: Adding Authentication
+
+For deployments where network isolation isn't available (self-hosted, multi-cloud), you can add authentication:
+
+**Option 1: Bearer Token (recommended)**
+
+Modify `app/api/v1/metrics.py` to require a token:
+
+```python
+from fastapi import Header, HTTPException
+
+async def verify_metrics_token(x_metrics_token: str = Header(...)):
+    if x_metrics_token != settings.METRICS_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid metrics token")
+
+@router.get("/metrics", dependencies=[Depends(verify_metrics_token)])
+async def prometheus_metrics():
+    # ... existing implementation
+```
+
+Configure Prometheus:
+```yaml
+scrape_configs:
+  - job_name: 'aiq-backend'
+    bearer_token: 'your-metrics-token'  # pragma: allowlist secret
+    # ... rest of config
+```
+
+**Option 2: Basic Authentication**
+
+```yaml
+scrape_configs:
+  - job_name: 'aiq-backend'
+    basic_auth:
+      username: 'metrics'
+      password: 'your-password'  # pragma: allowlist secret
+    # ... rest of config
+```
+
+### Best Practices
+
+1. **Prefer network isolation** over application-level auth when available (simpler, no token management)
+2. **Use TLS** for metrics scraping in production (`scheme: https`)
+3. **Monitor cardinality** to prevent metric explosion from unbounded labels
+4. **Rotate tokens** periodically if using authentication
+5. **Audit access** via scraper logs if security is a concern
+
 ## Prometheus Configuration
 
 ### Basic Scraping
