@@ -640,6 +640,50 @@ class ObservabilityFacade:
         if self._sentry_backend is not None:
             self._sentry_backend.set_context(name, context)
 
+    def get_trace_context(self) -> dict[str, str | None]:
+        """Get the current trace context for correlation.
+
+        Returns a dict with trace_id and span_id from the current OTEL span,
+        or None values if no active span or OTEL is not initialized.
+
+        This is useful for including trace context in Sentry errors to enable
+        navigation from Sentry to Grafana traces.
+
+        Returns:
+            Dict with 'trace_id' and 'span_id' keys. Values are hex-formatted
+            strings (32 chars for trace_id, 16 chars for span_id) or None
+            if no active trace.
+
+        Example:
+            Include trace context in Sentry errors::
+
+                trace_ctx = observability.get_trace_context()
+                observability.capture_error(
+                    exception,
+                    context={"trace": trace_ctx},
+                )
+        """
+        result: dict[str, str | None] = {"trace_id": None, "span_id": None}
+
+        if not self._initialized:
+            return result
+
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span_context = span.get_span_context()
+            if span_context.is_valid:
+                result["trace_id"] = format(span_context.trace_id, "032x")
+                result["span_id"] = format(span_context.span_id, "016x")
+        except ImportError:
+            # OTEL not installed, this is expected in some deployments
+            pass
+        except Exception as e:
+            logger.debug("Could not get trace context: %s", e)
+
+        return result
+
     def record_event(
         self,
         name: str,

@@ -40,7 +40,7 @@ psutil==5.9.8  # Process and system monitoring
 redis==5.0.1
 
 # Error Tracking
-sentry-sdk[fastapi]>=2.0.0
+sentry-sdk[fastapi,opentelemetry]>=2.0.0
 
 # Distributed Tracing and Observability (OpenTelemetry)
 opentelemetry-api==1.30.0

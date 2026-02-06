@@ -91,6 +91,17 @@ class OTELBackend:
         resource = Resource(attributes={SERVICE_NAME: self._config.service_name})
         self._tracer_provider = TracerProvider(resource=resource)
 
+        # Add Sentry span processor if available (for OTEL->Sentry trace correlation)
+        try:
+            from sentry_sdk.integrations.opentelemetry import SentrySpanProcessor
+
+            self._tracer_provider.add_span_processor(SentrySpanProcessor())
+            logger.info("Sentry span processor added for OTEL trace correlation")
+        except ImportError:
+            logger.debug("Sentry OpenTelemetry integration not available")
+        except Exception as e:
+            logger.debug(f"Could not add Sentry span processor: {e}")
+
         if self._config.endpoint:
             otlp_exporter = OTLPSpanExporter(
                 endpoint=self._config.endpoint,

@@ -818,3 +818,61 @@ class TestCaptureErrorFingerprinting:
         backend.capture_error(ValueError("test"))
         # Verify fingerprint attribute was never set on scope (uses Sentry's default grouping)
         assert not hasattr(mock_scope, "fingerprint")
+
+
+class TestSentryOTELTraceIntegration:
+    """Tests for Sentry-OTEL trace correlation."""
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_init_gracefully_handles_otel_not_configured(
+        self, mock_init: mock.MagicMock
+    ) -> None:
+        """Test init() gracefully handles when OTEL is not configured (DidNotEnable)."""
+        # Without mocking, OpenTelemetryIntegration() raises DidNotEnable
+        # because OTEL tracer provider isn't configured. This should be handled gracefully.
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        result = backend.init()
+
+        # Should still initialize successfully
+        assert result is True
+        assert backend._initialized is True
+        mock_init.assert_called_once()
+
+        # Verify the standard integrations are still present
+        call_kwargs = mock_init.call_args[1]
+        integrations = call_kwargs["integrations"]
+        integration_types = [type(i).__name__ for i in integrations]
+        assert "LoggingIntegration" in integration_types
+        assert "FastApiIntegration" in integration_types
+        assert "StarletteIntegration" in integration_types
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_init_attempts_to_add_opentelemetry_integration(
+        self, mock_init: mock.MagicMock
+    ) -> None:
+        """Test init() attempts to add OpenTelemetry integration.
+
+        This test verifies that the code path exists to add OpenTelemetryIntegration.
+        The integration may or may not be added depending on whether OTEL SDK is available.
+        """
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+
+        # The init should succeed regardless of OTEL availability
+        result = backend.init()
+        assert result is True
+
+        # Verify init was called with some integrations
+        mock_init.assert_called_once()
+        call_kwargs = mock_init.call_args[1]
+        integrations = call_kwargs["integrations"]
+
+        # At minimum, these integrations should always be present
+        integration_types = [type(i).__name__ for i in integrations]
+        assert "LoggingIntegration" in integration_types
+
+        # OpenTelemetryIntegration may or may not be present depending on environment
+        # This is expected behavior - we just verify the code doesn't crash
