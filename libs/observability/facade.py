@@ -651,7 +651,8 @@ class ObservabilityFacade:
 
         Returns:
             Dict with 'trace_id' and 'span_id' keys. Values are hex-formatted
-            strings or None if no active trace.
+            strings (32 chars for trace_id, 16 chars for span_id) or None
+            if no active trace.
 
         Example:
             Include trace context in Sentry errors::
