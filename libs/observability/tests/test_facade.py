@@ -885,8 +885,8 @@ class TestFacadeCaptureMethods:
         assert call_kwargs["context"]["service"]["name"] == "test-service"
         assert call_kwargs["context"]["service"]["version"] == "1.0.0"
         assert call_kwargs["context"]["service"]["environment"] == "test"
-        # Trace context should be empty when no span active
-        assert call_kwargs["context"]["trace"] == {"trace_id": None, "span_id": None}
+        # Trace context should NOT be added when no span active (no None values)
+        assert "trace" not in call_kwargs["context"]
 
         # Check other parameters passed through
         assert call_kwargs["exception"] is exc
@@ -943,6 +943,22 @@ class TestFacadeCaptureMethods:
         assert "service" in call_kwargs["context"]
         assert call_kwargs["context"]["service"]["name"] == "my-service"
         assert call_kwargs["context"]["service"]["version"] == "2.0.0"
+
+    def test_capture_error_when_config_is_none(self) -> None:
+        """Test capture_error works when config is not set."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._config = None  # No config
+        facade._sentry_backend = mock.MagicMock()
+        facade._sentry_backend.capture_error.return_value = "event-id"
+
+        exc = ValueError("test")
+        result = facade.capture_error(exc)
+
+        # Should still work, just without service context
+        assert result == "event-id"
+        call_kwargs = facade._sentry_backend.capture_error.call_args.kwargs
+        assert "service" not in call_kwargs["context"]
 
     def test_capture_message_calls_sentry_backend(self) -> None:
         """Test capture_message delegates to Sentry backend."""
