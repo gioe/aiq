@@ -23,6 +23,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from app.core.config import settings
+from app.models.models import DifficultyLevel, QuestionType
 
 if TYPE_CHECKING:
     from opentelemetry.metrics import Counter, Histogram, Meter, UpDownCounter
@@ -31,6 +32,10 @@ logger = logging.getLogger(__name__)
 
 # Maximum expected test duration before warning (24 hours in seconds)
 MAX_EXPECTED_TEST_DURATION_SECONDS = 86400
+
+# Valid question types and difficulty levels for metrics
+VALID_QUESTION_TYPES = {e.value for e in QuestionType}
+VALID_DIFFICULTY_LEVELS = {e.value for e in DifficultyLevel}
 
 
 class ApplicationMetrics:
@@ -399,6 +404,24 @@ class ApplicationMetrics:
 
         if count <= 0:
             logger.warning(f"Invalid questions generated count {count}, skipping")
+            return
+
+        # Normalize and validate question_type
+        question_type = question_type.lower()
+        if question_type not in VALID_QUESTION_TYPES:
+            logger.warning(
+                f"Invalid question_type '{question_type}', "
+                f"expected one of {VALID_QUESTION_TYPES}, skipping"
+            )
+            return
+
+        # Normalize and validate difficulty
+        difficulty = difficulty.lower()
+        if difficulty not in VALID_DIFFICULTY_LEVELS:
+            logger.warning(
+                f"Invalid difficulty '{difficulty}', "
+                f"expected one of {VALID_DIFFICULTY_LEVELS}, skipping"
+            )
             return
 
         try:
