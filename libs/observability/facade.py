@@ -794,14 +794,21 @@ class ObservabilityFacade:
             logger.debug("record_metric called but observability not initialized: %s", name)
             return
 
-        if self._otel_backend is not None:
-            self._otel_backend.record_metric(
-                name=name,
-                value=value,
-                labels=labels,
-                metric_type=metric_type,
-                unit=unit,
+        if self._otel_backend is None:
+            logger.warning(
+                "record_metric called but OTEL backend not available. "
+                "Metric will not be recorded: %s",
+                name,
             )
+            return
+
+        self._otel_backend.record_metric(
+            name=name,
+            value=value,
+            labels=labels,
+            metric_type=metric_type,
+            unit=unit,
+        )
 
     @contextmanager
     def start_span(

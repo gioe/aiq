@@ -1,5 +1,6 @@
 """Tests for observability facade."""
 
+import logging
 from unittest import mock
 
 import pytest
@@ -1097,6 +1098,20 @@ class TestFacadeMetricMethods:
             metric_type="counter",
             unit="requests",
         )
+
+    def test_record_metric_logs_warning_when_otel_backend_unavailable(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test record_metric logs warning when OTEL backend is None."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._otel_backend = None
+
+        with caplog.at_level(logging.WARNING):
+            facade.record_metric("test.metric", 42)
+
+        assert "record_metric called but OTEL backend not available" in caplog.text
+        assert "test.metric" in caplog.text
 
 
 class TestFacadeContextMethods:
