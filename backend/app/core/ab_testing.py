@@ -9,7 +9,18 @@ Key Features:
 - Consistent hashing ensures same user always gets same variant
 - Configurable rollout percentage (0-100%)
 - Admin override capability for forcing specific users to specific variants
+- Thread-safe admin override operations
 - Logging for variant assignments (analytics)
+
+Thread Safety:
+    Admin override operations use a reentrant lock for thread-safe access.
+    The assign_test_variant function is inherently thread-safe as it only
+    reads from the override dict (protected by lock) and computes a
+    deterministic hash.
+
+Persistence:
+    Admin overrides are stored in-memory and will be lost on application
+    restart. For persistent overrides, consider storing in database.
 
 Usage:
     from app.core.ab_testing import assign_test_variant
@@ -20,20 +31,37 @@ Usage:
 
 import hashlib
 import logging
-from typing import Dict, Literal
+import math
+import threading
+from typing import Dict, Literal, Optional
 
 logger = logging.getLogger(__name__)
 
 # Type alias for test variants
 TestVariant = Literal["fixed", "adaptive"]
 
-# Global admin override dictionary
-# Maps user_id -> variant for users with manual assignments
+# Thread-safe admin override storage
+# Lock protects all access to _admin_overrides dictionary
+_override_lock = threading.RLock()
 _admin_overrides: Dict[int, TestVariant] = {}
 
 # Percentage bounds
 MIN_PERCENTAGE = 0.0
 MAX_PERCENTAGE = 100.0
+
+# Hash computation constants
+MAX_HASH_INT = 2**64 - 1
+
+# Public API
+__all__ = [
+    "TestVariant",
+    "assign_test_variant",
+    "set_admin_override",
+    "clear_admin_override",
+    "clear_all_admin_overrides",
+    "get_admin_override",
+    "get_all_admin_overrides",
+]
 
 
 def assign_test_variant(user_id: int, adaptive_percentage: float) -> TestVariant:
@@ -80,22 +108,23 @@ def assign_test_variant(user_id: int, adaptive_percentage: float) -> TestVariant
             f"got: {adaptive_percentage}"
         )
 
-    # Check for admin override first
-    if user_id in _admin_overrides:
-        override_variant = _admin_overrides[user_id]
-        logger.info(
-            f"A/B test assignment for user {user_id}: {override_variant} (admin override)",
-            extra={
-                "user_id": user_id,
-                "variant": override_variant,
-                "assignment_method": "admin_override",
-                "adaptive_percentage": adaptive_percentage,
-            },
-        )
-        return override_variant
+    # Check for admin override first (thread-safe read)
+    with _override_lock:
+        if user_id in _admin_overrides:
+            override_variant = _admin_overrides[user_id]
+            logger.info(
+                f"A/B test assignment for user {user_id}: {override_variant} (admin override)",
+                extra={
+                    "user_id": user_id,
+                    "variant": override_variant,
+                    "assignment_method": "admin_override",
+                    "adaptive_percentage": adaptive_percentage,
+                },
+            )
+            return override_variant
 
-    # Edge cases: 0% or 100%
-    if adaptive_percentage == MIN_PERCENTAGE:
+    # Edge cases: 0% or 100% (using math.isclose for float precision)
+    if math.isclose(adaptive_percentage, MIN_PERCENTAGE, abs_tol=1e-9):
         logger.debug(
             f"A/B test assignment for user {user_id}: fixed (0% rollout)",
             extra={
@@ -107,7 +136,7 @@ def assign_test_variant(user_id: int, adaptive_percentage: float) -> TestVariant
         )
         return "fixed"
 
-    if adaptive_percentage == MAX_PERCENTAGE:
+    if math.isclose(adaptive_percentage, MAX_PERCENTAGE, abs_tol=1e-9):
         logger.debug(
             f"A/B test assignment for user {user_id}: adaptive (100% rollout)",
             extra={
@@ -124,18 +153,17 @@ def assign_test_variant(user_id: int, adaptive_percentage: float) -> TestVariant
     user_id_bytes = str(user_id).encode("utf-8")
     hash_digest = hashlib.sha256(user_id_bytes).digest()
 
-    # Convert first 8 bytes to integer (0 to 2^64-1)
+    # Convert first 8 bytes to integer (0 to MAX_HASH_INT)
     # Then normalize to range [0.0, 100.0]
     hash_int = int.from_bytes(hash_digest[:8], byteorder="big")
-    max_hash_value = 2**64 - 1
-    hash_percentage = (hash_int / max_hash_value) * 100.0
+    hash_percentage = (hash_int / MAX_HASH_INT) * 100.0
 
     # Assign to adaptive if hash_percentage < adaptive_percentage
     variant: TestVariant = (
         "adaptive" if hash_percentage < adaptive_percentage else "fixed"
     )
 
-    logger.info(
+    logger.debug(
         f"A/B test assignment for user {user_id}: {variant}",
         extra={
             "user_id": user_id,
@@ -178,7 +206,8 @@ def set_admin_override(user_id: int, variant: TestVariant) -> None:
     if variant not in ("fixed", "adaptive"):
         raise ValueError(f"variant must be 'fixed' or 'adaptive', got: {variant}")
 
-    _admin_overrides[user_id] = variant
+    with _override_lock:
+        _admin_overrides[user_id] = variant
     logger.info(
         f"Admin override set for user {user_id}: {variant}",
         extra={"user_id": user_id, "variant": variant, "action": "set_override"},
@@ -210,19 +239,19 @@ def clear_admin_override(user_id: int) -> bool:
     if not isinstance(user_id, int) or user_id <= 0:
         raise ValueError(f"user_id must be a positive integer, got: {user_id}")
 
-    if user_id in _admin_overrides:
-        variant = _admin_overrides.pop(user_id)
-        logger.info(
-            f"Admin override cleared for user {user_id} (was: {variant})",
-            extra={
-                "user_id": user_id,
-                "previous_variant": variant,
-                "action": "clear_override",
-            },
-        )
-        return True
-
-    return False
+    with _override_lock:
+        if user_id in _admin_overrides:
+            prev_variant = _admin_overrides.pop(user_id)
+            logger.info(
+                f"Admin override cleared for user {user_id} (was: {prev_variant})",
+                extra={
+                    "user_id": user_id,
+                    "previous_variant": prev_variant,
+                    "action": "clear_override",
+                },
+            )
+            return True
+        return False
 
 
 def clear_all_admin_overrides() -> int:
@@ -240,8 +269,9 @@ def clear_all_admin_overrides() -> int:
         >>> clear_all_admin_overrides()
         2
     """
-    count = len(_admin_overrides)
-    _admin_overrides.clear()
+    with _override_lock:
+        count = len(_admin_overrides)
+        _admin_overrides.clear()
 
     if count > 0:
         logger.info(
@@ -252,7 +282,7 @@ def clear_all_admin_overrides() -> int:
     return count
 
 
-def get_admin_override(user_id: int) -> TestVariant | None:
+def get_admin_override(user_id: int) -> Optional[TestVariant]:
     """
     Get the admin override for a specific user, if any.
 
@@ -275,7 +305,8 @@ def get_admin_override(user_id: int) -> TestVariant | None:
     if not isinstance(user_id, int) or user_id <= 0:
         raise ValueError(f"user_id must be a positive integer, got: {user_id}")
 
-    return _admin_overrides.get(user_id)
+    with _override_lock:
+        return _admin_overrides.get(user_id)
 
 
 def get_all_admin_overrides() -> Dict[int, TestVariant]:
@@ -291,4 +322,5 @@ def get_all_admin_overrides() -> Dict[int, TestVariant]:
         >>> get_all_admin_overrides()
         {123: 'adaptive', 456: 'fixed'}
     """
-    return _admin_overrides.copy()
+    with _override_lock:
+        return _admin_overrides.copy()
