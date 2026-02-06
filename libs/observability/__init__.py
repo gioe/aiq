@@ -34,6 +34,19 @@ Usage:
     with observability.start_span("process_request") as span:
         span.set_attribute("user_id", user.id)
         # ... do work
+
+    # Record structured events
+    observability.record_event(
+        "user.signup",
+        data={"user_id": "123", "method": "oauth"},
+        tags={"source": "web"},
+    )
+
+    # Set user context for error tracking
+    observability.set_user("user-123", username="alice", email="alice@example.com")
+
+    # Set additional context
+    observability.set_context("request", {"url": "/api/test", "method": "POST"})
 """
 
 from libs.observability.facade import ObservabilityFacade

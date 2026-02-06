@@ -91,6 +91,12 @@ class TestFacadeWithoutInit:
         # Should not raise
         facade.set_context("name", {"key": "value"})
 
+    def test_record_event_returns_none(self) -> None:
+        """Test record_event returns None when not initialized."""
+        facade = ObservabilityFacade()
+        result = facade.record_event("test.event", data={"key": "value"})
+        assert result is None
+
     def test_flush_does_nothing(self) -> None:
         """Test flush does nothing when not initialized."""
         facade = ObservabilityFacade()
@@ -192,6 +198,55 @@ class TestFacadeCaptureMethods:
             tags={"tag": "value"},
         )
 
+    def test_record_event_calls_sentry_backend(self) -> None:
+        """Test record_event delegates to Sentry backend via capture_message."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+        facade._sentry_backend.capture_message.return_value = "event-id-789"
+
+        result = facade.record_event(
+            "user.signup",
+            data={"user_id": "123", "method": "oauth"},
+            level="info",
+            tags={"source": "web"},
+        )
+
+        assert result == "event-id-789"
+        facade._sentry_backend.capture_message.assert_called_once_with(
+            message="Event: user.signup",
+            level="info",
+            context={"user_id": "123", "method": "oauth"},
+            tags={"source": "web"},
+        )
+
+    def test_record_event_without_data(self) -> None:
+        """Test record_event works with no data provided."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+        facade._sentry_backend.capture_message.return_value = "event-id-000"
+
+        result = facade.record_event("test.event")
+
+        assert result == "event-id-000"
+        facade._sentry_backend.capture_message.assert_called_once_with(
+            message="Event: test.event",
+            level="info",
+            context=None,
+            tags=None,
+        )
+
+    def test_record_event_returns_none_without_sentry(self) -> None:
+        """Test record_event returns None when Sentry backend is not configured."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = None
+
+        result = facade.record_event("test.event", data={"key": "value"})
+
+        assert result is None
+
 
 class TestFacadeMetricMethods:
     """Tests for facade metric methods with mocked backends."""
@@ -233,6 +288,36 @@ class TestFacadeContextMethods:
         facade._sentry_backend.set_user.assert_called_once_with(
             "user-123", email="test@example.com"
         )
+
+    def test_set_user_with_all_fields(self) -> None:
+        """Test set_user passes all fields to Sentry backend."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        facade.set_user(
+            "user-123",
+            username="alice",
+            email="alice@example.com",
+            ip_address="192.168.1.1",
+        )
+
+        facade._sentry_backend.set_user.assert_called_once_with(
+            "user-123",
+            username="alice",
+            email="alice@example.com",
+            ip_address="192.168.1.1",
+        )
+
+    def test_set_user_with_none_clears_user(self) -> None:
+        """Test set_user with None clears user context."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        facade.set_user(None)
+
+        facade._sentry_backend.set_user.assert_called_once_with(None)
 
     def test_set_tag_calls_sentry_backend(self) -> None:
         """Test set_tag delegates to Sentry backend."""
@@ -284,3 +369,141 @@ class TestFacadeLifecycleMethods:
         facade._sentry_backend.shutdown.assert_called_once()
         facade._otel_backend.shutdown.assert_called_once()
         assert facade.is_initialized is False
+
+
+class TestAPIContract:
+    """Tests validating the public API contract."""
+
+    def test_facade_has_all_required_methods(self) -> None:
+        """Test ObservabilityFacade exposes all required API methods."""
+        facade = ObservabilityFacade()
+
+        # Core methods
+        assert callable(getattr(facade, "init", None))
+        assert callable(getattr(facade, "capture_error", None))
+        assert callable(getattr(facade, "capture_message", None))
+        assert callable(getattr(facade, "record_metric", None))
+        assert callable(getattr(facade, "start_span", None))
+
+        # Context methods
+        assert callable(getattr(facade, "set_user", None))
+        assert callable(getattr(facade, "set_tag", None))
+        assert callable(getattr(facade, "set_context", None))
+        assert callable(getattr(facade, "record_event", None))
+
+        # Lifecycle methods
+        assert callable(getattr(facade, "flush", None))
+        assert callable(getattr(facade, "shutdown", None))
+
+        # Properties
+        assert hasattr(facade, "is_initialized")
+
+    def test_span_context_has_all_required_methods(self) -> None:
+        """Test SpanContext exposes all required methods."""
+        ctx = SpanContext("test")
+
+        assert callable(getattr(ctx, "set_attribute", None))
+        assert callable(getattr(ctx, "set_status", None))
+        assert callable(getattr(ctx, "record_exception", None))
+        assert callable(getattr(ctx, "__enter__", None))
+        assert callable(getattr(ctx, "__exit__", None))
+
+    def test_module_exports_singleton(self) -> None:
+        """Test the module exports a singleton observability instance."""
+        from libs.observability import observability
+
+        assert isinstance(observability, ObservabilityFacade)
+
+    def test_module_exports_facade_class(self) -> None:
+        """Test the module exports the ObservabilityFacade class."""
+        from libs.observability import ObservabilityFacade as ExportedFacade
+
+        assert ExportedFacade is ObservabilityFacade
+
+    def test_init_accepts_required_parameters(self) -> None:
+        """Test init() accepts the documented parameters."""
+        facade = ObservabilityFacade()
+        with mock.patch("libs.observability.config.load_config") as mock_load:
+            from libs.observability.config import ObservabilityConfig, OTELConfig, SentryConfig
+
+            mock_load.return_value = ObservabilityConfig(
+                sentry=SentryConfig(enabled=False),
+                otel=OTELConfig(enabled=False),
+            )
+            # Should not raise
+            facade.init(
+                config_path="config/test.yaml",
+                service_name="test-service",
+                environment="test",
+            )
+
+    def test_capture_error_accepts_required_parameters(self) -> None:
+        """Test capture_error() accepts the documented parameters."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+        facade._sentry_backend.capture_error.return_value = "event-id"
+
+        # All parameters should be accepted without error
+        facade.capture_error(
+            ValueError("test"),
+            context={"key": "value"},
+            level="error",
+            user={"id": "user-123"},
+            tags={"tag": "value"},
+            fingerprint=["custom", "fingerprint"],
+        )
+
+    def test_record_metric_accepts_required_parameters(self) -> None:
+        """Test record_metric() accepts the documented parameters."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._otel_backend = mock.MagicMock()
+
+        # All parameters should be accepted without error
+        facade.record_metric(
+            "test.metric",
+            42.0,
+            labels={"label": "value"},
+            metric_type="histogram",
+            unit="ms",
+        )
+
+    def test_start_span_accepts_required_parameters(self) -> None:
+        """Test start_span() accepts the documented parameters."""
+        facade = ObservabilityFacade()
+        # Not initialized, but should accept parameters
+
+        with facade.start_span(
+            "test_span",
+            kind="server",
+            attributes={"key": "value"},
+        ):
+            pass  # Just testing parameter acceptance
+
+    def test_set_user_accepts_required_parameters(self) -> None:
+        """Test set_user() accepts the documented parameters."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        # All parameters should be accepted without error
+        facade.set_user(
+            "user-123",
+            username="alice",
+            email="alice@example.com",
+        )
+
+    def test_record_event_accepts_required_parameters(self) -> None:
+        """Test record_event() accepts the documented parameters."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        # All parameters should be accepted without error
+        facade.record_event(
+            "test.event",
+            data={"key": "value"},
+            level="info",
+            tags={"tag": "value"},
+        )
