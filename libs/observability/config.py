@@ -40,9 +40,15 @@ class OTELConfig:
 
     enabled: bool = True
     service_name: str = "unknown-service"
+    service_version: str | None = None
     endpoint: str | None = None
+    exporter: Literal["console", "otlp", "none"] = "otlp"
+    otlp_headers: str = ""  # Format: "key1=value1,key2=value2" (e.g., Grafana Cloud auth)
     metrics_enabled: bool = True
+    metrics_export_interval_millis: int = 60000  # 60 seconds
     traces_enabled: bool = True
+    traces_sample_rate: float = 1.0  # 1.0 = 100% sampling, 0.1 = 10% sampling
+    logs_enabled: bool = False
     prometheus_enabled: bool = True
     insecure: bool = False  # Set to True only for local development without TLS
 
@@ -119,6 +125,28 @@ class ObservabilityConfig:
                 f"Value must be one of: {', '.join(sorted(valid_routing_values))}."
             )
 
+        # Validate OTEL sample rate
+        if not (0.0 <= self.otel.traces_sample_rate <= 1.0):
+            errors.append(
+                f"Invalid otel.traces_sample_rate: {self.otel.traces_sample_rate}. "
+                "Value must be between 0.0 and 1.0."
+            )
+
+        # Validate OTEL exporter value
+        valid_exporters = {"console", "otlp", "none"}
+        if self.otel.exporter not in valid_exporters:
+            errors.append(
+                f"Invalid otel.exporter: '{self.otel.exporter}'. "
+                f"Value must be one of: {', '.join(sorted(valid_exporters))}."
+            )
+
+        # Validate metrics export interval
+        if self.otel.metrics_export_interval_millis <= 0:
+            errors.append(
+                f"Invalid otel.metrics_export_interval_millis: {self.otel.metrics_export_interval_millis}. "
+                "Value must be positive."
+            )
+
         # Check if OTEL endpoint should be set (warning, not error)
         if self.otel.enabled:
             uses_otel = (
@@ -126,9 +154,10 @@ class ObservabilityConfig:
                 or "otel" in self.routing.metrics
                 or "otel" in self.routing.traces
             )
-            if uses_otel and not self.otel.endpoint:
+            # Only warn about missing endpoint if using OTLP exporter
+            if uses_otel and self.otel.exporter == "otlp" and not self.otel.endpoint:
                 logger.warning(
-                    "OTEL endpoint is not configured but routing includes 'otel'. "
+                    "OTEL endpoint is not configured but using OTLP exporter. "
                     "Set OTEL_ENDPOINT environment variable or configure otel.endpoint "
                     "to enable OpenTelemetry export."
                 )
@@ -188,8 +217,60 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
+def _safe_float(value: Any, default: float, field_name: str) -> float:
+    """Safely convert a value to float with helpful error message.
+
+    Args:
+        value: Value to convert.
+        default: Default value if conversion fails or value is None.
+        field_name: Field name for error messages.
+
+    Returns:
+        Float value.
+
+    Raises:
+        ConfigurationError: If value cannot be converted to float.
+    """
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (ValueError, TypeError) as e:
+        raise ConfigurationError(
+            f"Invalid value for {field_name}: {value!r} cannot be converted to float"
+        ) from e
+
+
+def _safe_int(value: Any, default: int, field_name: str) -> int:
+    """Safely convert a value to int with helpful error message.
+
+    Args:
+        value: Value to convert.
+        default: Default value if conversion fails or value is None.
+        field_name: Field name for error messages.
+
+    Returns:
+        Integer value.
+
+    Raises:
+        ConfigurationError: If value cannot be converted to int.
+    """
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError) as e:
+        raise ConfigurationError(
+            f"Invalid value for {field_name}: {value!r} cannot be converted to integer"
+        ) from e
+
+
 def _dict_to_config(data: dict[str, Any]) -> ObservabilityConfig:
-    """Convert a dictionary to ObservabilityConfig."""
+    """Convert a dictionary to ObservabilityConfig.
+
+    Raises:
+        ConfigurationError: If any config values cannot be parsed.
+    """
     sentry_data = data.get("sentry", {})
     otel_data = data.get("otel", {})
     routing_data = data.get("routing", {})
@@ -200,16 +281,32 @@ def _dict_to_config(data: dict[str, Any]) -> ObservabilityConfig:
             dsn=sentry_data.get("dsn"),
             environment=sentry_data.get("environment", "development"),
             release=sentry_data.get("release"),
-            traces_sample_rate=float(sentry_data.get("traces_sample_rate", 0.1)),
-            profiles_sample_rate=float(sentry_data.get("profiles_sample_rate", 0.0)),
+            traces_sample_rate=_safe_float(
+                sentry_data.get("traces_sample_rate"), 0.1, "sentry.traces_sample_rate"
+            ),
+            profiles_sample_rate=_safe_float(
+                sentry_data.get("profiles_sample_rate"), 0.0, "sentry.profiles_sample_rate"
+            ),
             send_default_pii=sentry_data.get("send_default_pii", False),
         ),
         otel=OTELConfig(
             enabled=otel_data.get("enabled", True),
             service_name=otel_data.get("service_name", "unknown-service"),
+            service_version=otel_data.get("service_version"),
             endpoint=otel_data.get("endpoint"),
+            exporter=otel_data.get("exporter", "otlp"),
+            otlp_headers=otel_data.get("otlp_headers", ""),
             metrics_enabled=otel_data.get("metrics_enabled", True),
+            metrics_export_interval_millis=_safe_int(
+                otel_data.get("metrics_export_interval_millis"),
+                60000,
+                "otel.metrics_export_interval_millis",
+            ),
             traces_enabled=otel_data.get("traces_enabled", True),
+            traces_sample_rate=_safe_float(
+                otel_data.get("traces_sample_rate"), 1.0, "otel.traces_sample_rate"
+            ),
+            logs_enabled=otel_data.get("logs_enabled", False),
             prometheus_enabled=otel_data.get("prometheus_enabled", True),
             insecure=otel_data.get("insecure", False),
         ),

@@ -13,7 +13,10 @@ from libs.observability.config import (
     OTELConfig,
     RoutingConfig,
     SentryConfig,
+    _dict_to_config,
     _process_config_values,
+    _safe_float,
+    _safe_int,
     _substitute_env_vars,
     load_config,
 )
@@ -163,9 +166,15 @@ class TestDataclassDefaults:
         config = OTELConfig()
         assert config.enabled is True
         assert config.service_name == "unknown-service"
+        assert config.service_version is None
         assert config.endpoint is None
+        assert config.exporter == "otlp"
+        assert config.otlp_headers == ""
         assert config.metrics_enabled is True
+        assert config.metrics_export_interval_millis == 60000
         assert config.traces_enabled is True
+        assert config.traces_sample_rate == 1.0
+        assert config.logs_enabled is False
         assert config.prometheus_enabled is True
         assert config.insecure is False
 
@@ -392,7 +401,7 @@ class TestConfigValidation:
         """Test that missing OTEL endpoint when routing to OTEL logs a warning."""
         config = ObservabilityConfig(
             sentry=SentryConfig(enabled=True, dsn="https://test@sentry.io/123"),
-            otel=OTELConfig(enabled=True, endpoint=None),
+            otel=OTELConfig(enabled=True, endpoint=None, exporter="otlp"),
             routing=RoutingConfig(errors="otel"),
         )
 
@@ -402,7 +411,7 @@ class TestConfigValidation:
         # Should log warning but not raise
         assert len(caplog.records) == 1
         assert "OTEL endpoint is not configured" in caplog.text
-        assert "routing includes 'otel'" in caplog.text
+        assert "OTLP exporter" in caplog.text
         assert "OTEL_ENDPOINT" in caplog.text
 
     def test_missing_otel_endpoint_when_routing_both_logs_warning(
@@ -449,6 +458,93 @@ class TestConfigValidation:
             config.validate()
 
         assert len(caplog.records) == 0
+
+    def test_invalid_otel_traces_sample_rate_raises_error(self) -> None:
+        """Test that OTEL traces_sample_rate > 1.0 raises ConfigurationError."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=True, dsn="https://test@sentry.io/123"),
+            otel=OTELConfig(enabled=True, traces_sample_rate=1.5),
+        )
+        with pytest.raises(ConfigurationError) as exc_info:
+            config.validate()
+
+        error_message = str(exc_info.value)
+        assert "Invalid otel.traces_sample_rate: 1.5" in error_message
+        assert "must be between 0.0 and 1.0" in error_message
+
+    def test_invalid_otel_traces_sample_rate_negative_raises_error(self) -> None:
+        """Test that OTEL traces_sample_rate < 0.0 raises ConfigurationError."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=True, dsn="https://test@sentry.io/123"),
+            otel=OTELConfig(enabled=True, traces_sample_rate=-0.1),
+        )
+        with pytest.raises(ConfigurationError) as exc_info:
+            config.validate()
+
+        assert "Invalid otel.traces_sample_rate: -0.1" in str(exc_info.value)
+
+    def test_invalid_otel_exporter_raises_error(self) -> None:
+        """Test that invalid OTEL exporter value raises ConfigurationError."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=True, dsn="https://test@sentry.io/123"),
+            otel=OTELConfig(enabled=True, exporter="jaeger"),  # type: ignore
+        )
+        with pytest.raises(ConfigurationError) as exc_info:
+            config.validate()
+
+        error_message = str(exc_info.value)
+        assert "Invalid otel.exporter: 'jaeger'" in error_message
+        assert "console, none, otlp" in error_message
+
+    def test_invalid_otel_metrics_export_interval_raises_error(self) -> None:
+        """Test that negative metrics_export_interval_millis raises ConfigurationError."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=True, dsn="https://test@sentry.io/123"),
+            otel=OTELConfig(enabled=True, metrics_export_interval_millis=-1000),
+        )
+        with pytest.raises(ConfigurationError) as exc_info:
+            config.validate()
+
+        error_message = str(exc_info.value)
+        assert "Invalid otel.metrics_export_interval_millis: -1000" in error_message
+        assert "must be positive" in error_message
+
+    def test_zero_metrics_export_interval_raises_error(self) -> None:
+        """Test that zero metrics_export_interval_millis raises ConfigurationError."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=True, dsn="https://test@sentry.io/123"),
+            otel=OTELConfig(enabled=True, metrics_export_interval_millis=0),
+        )
+        with pytest.raises(ConfigurationError) as exc_info:
+            config.validate()
+
+        assert "must be positive" in str(exc_info.value)
+
+    def test_missing_otel_endpoint_with_console_exporter_no_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that missing endpoint doesn't warn when using console exporter."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=True, dsn="https://test@sentry.io/123"),
+            otel=OTELConfig(enabled=True, endpoint=None, exporter="console"),
+            routing=RoutingConfig(errors="otel"),
+        )
+
+        with caplog.at_level(logging.WARNING):
+            config.validate()
+
+        # No warning because console exporter doesn't need endpoint
+        assert len(caplog.records) == 0
+
+    def test_all_valid_otel_exporter_values_pass(self) -> None:
+        """Test that all valid OTEL exporter values pass validation."""
+        for exporter in ["console", "otlp", "none"]:
+            config = ObservabilityConfig(
+                sentry=SentryConfig(enabled=True, dsn="https://test@sentry.io/123"),
+                otel=OTELConfig(enabled=True, exporter=exporter),  # type: ignore
+            )
+            # Should not raise
+            config.validate()
 
     def test_load_config_calls_validate(self) -> None:
         """Test that load_config() calls validate() on the returned config."""
@@ -624,3 +720,91 @@ custom_key: custom_value
 
             # Config should still be valid
             assert config.sentry.enabled is True
+
+
+class TestSafeConversionHelpers:
+    """Tests for safe type conversion helper functions."""
+
+    def test_safe_float_with_valid_float(self) -> None:
+        """Test _safe_float with valid float value."""
+        result = _safe_float(0.5, 0.0, "test_field")
+        assert result == 0.5
+
+    def test_safe_float_with_valid_int(self) -> None:
+        """Test _safe_float with valid integer value."""
+        result = _safe_float(1, 0.0, "test_field")
+        assert result == 1.0
+
+    def test_safe_float_with_valid_string(self) -> None:
+        """Test _safe_float with valid string value."""
+        result = _safe_float("0.75", 0.0, "test_field")
+        assert result == 0.75
+
+    def test_safe_float_with_none_returns_default(self) -> None:
+        """Test _safe_float with None returns default."""
+        result = _safe_float(None, 0.5, "test_field")
+        assert result == 0.5
+
+    def test_safe_float_with_invalid_string_raises_error(self) -> None:
+        """Test _safe_float with invalid string raises ConfigurationError."""
+        with pytest.raises(ConfigurationError) as exc_info:
+            _safe_float("not-a-number", 0.0, "sentry.traces_sample_rate")
+
+        error_message = str(exc_info.value)
+        assert "sentry.traces_sample_rate" in error_message
+        assert "'not-a-number'" in error_message
+        assert "cannot be converted to float" in error_message
+
+    def test_safe_int_with_valid_int(self) -> None:
+        """Test _safe_int with valid integer value."""
+        result = _safe_int(60000, 0, "test_field")
+        assert result == 60000
+
+    def test_safe_int_with_valid_float(self) -> None:
+        """Test _safe_int with valid float value (truncates)."""
+        result = _safe_int(30000.9, 0, "test_field")
+        assert result == 30000
+
+    def test_safe_int_with_valid_string(self) -> None:
+        """Test _safe_int with valid string value."""
+        result = _safe_int("45000", 0, "test_field")
+        assert result == 45000
+
+    def test_safe_int_with_none_returns_default(self) -> None:
+        """Test _safe_int with None returns default."""
+        result = _safe_int(None, 60000, "test_field")
+        assert result == 60000
+
+    def test_safe_int_with_invalid_string_raises_error(self) -> None:
+        """Test _safe_int with invalid string raises ConfigurationError."""
+        with pytest.raises(ConfigurationError) as exc_info:
+            _safe_int("not-an-integer", 0, "otel.metrics_export_interval_millis")
+
+        error_message = str(exc_info.value)
+        assert "otel.metrics_export_interval_millis" in error_message
+        assert "'not-an-integer'" in error_message
+        assert "cannot be converted to integer" in error_message
+
+    def test_dict_to_config_with_invalid_sample_rate(self) -> None:
+        """Test _dict_to_config with invalid sample rate raises helpful error."""
+        data = {
+            "sentry": {"traces_sample_rate": "invalid"},
+        }
+        with pytest.raises(ConfigurationError) as exc_info:
+            _dict_to_config(data)
+
+        error_message = str(exc_info.value)
+        assert "sentry.traces_sample_rate" in error_message
+        assert "cannot be converted to float" in error_message
+
+    def test_dict_to_config_with_invalid_export_interval(self) -> None:
+        """Test _dict_to_config with invalid export interval raises helpful error."""
+        data = {
+            "otel": {"metrics_export_interval_millis": "not-a-number"},
+        }
+        with pytest.raises(ConfigurationError) as exc_info:
+            _dict_to_config(data)
+
+        error_message = str(exc_info.value)
+        assert "otel.metrics_export_interval_millis" in error_message
+        assert "cannot be converted to integer" in error_message
