@@ -1153,11 +1153,19 @@ class ObservabilityFacade:
             logger.debug("flush called but observability not initialized")
             return
 
+        # Wrap each backend flush in try-except to ensure both are attempted
+        # even if one fails. This provides proper backend isolation during flush.
         if self._sentry_backend is not None:
-            self._sentry_backend.flush(timeout)
+            try:
+                self._sentry_backend.flush(timeout)
+            except Exception as e:
+                logger.warning("Sentry backend flush failed: %s", e)
 
         if self._otel_backend is not None:
-            self._otel_backend.flush(timeout)
+            try:
+                self._otel_backend.flush(timeout)
+            except Exception as e:
+                logger.warning("OTEL backend flush failed: %s", e)
 
     def shutdown(self) -> None:
         """Shutdown observability backends gracefully.
