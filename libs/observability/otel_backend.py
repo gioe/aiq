@@ -6,6 +6,7 @@ metrics recording and distributed tracing.
 
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Literal
@@ -136,7 +137,8 @@ class OTELBackend:
         elif metric_type == "gauge":
             # OTEL gauges use ObservableGauge with callbacks for true gauge semantics.
             # We store the current value and let the callback report it during scrape.
-            attr_key = str(sorted(attributes.items())) if attributes else ""
+            # Use JSON serialization for safety (no eval).
+            attr_key = json.dumps(sorted(attributes.items())) if attributes else ""
             if name not in self._gauge_values:
                 self._gauge_values[name] = {}
 
@@ -152,8 +154,8 @@ class OTELBackend:
 
                         observations = []
                         for attr_str, val in self._gauge_values.get(metric_name, {}).items():
-                            # Reconstruct attributes from string key
-                            attrs = dict(eval(attr_str)) if attr_str else {}
+                            # Reconstruct attributes from JSON key
+                            attrs = dict(json.loads(attr_str)) if attr_str else {}
                             observations.append(Observation(val, attrs))
                         return observations
 
