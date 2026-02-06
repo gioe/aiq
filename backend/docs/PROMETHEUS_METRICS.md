@@ -174,35 +174,39 @@ The `/v1/metrics` endpoint is intentionally **unauthenticated** to allow standar
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       Railway Private Network                        │
+│                       Railway Project                               │
 │                                                                     │
 │  ┌─────────────────┐        Internal        ┌─────────────────┐   │
 │  │  AIQ Backend    │◄──────────────────────►│  Grafana Alloy  │   │
-│  │  /v1/metrics    │       (private)         │  (scraper)      │   │
+│  │  /v1/metrics    │    (preferred path)     │  (scraper)      │   │
 │  └─────────────────┘                         └─────────────────┘   │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-                                │
-                                │ Public access blocked by
-                                │ Railway networking config
-                                ▼
-                    ┌─────────────────────────┐
-                    │   Public Internet       │
-                    │   (no direct access)    │
-                    └─────────────────────────┘
+│           │                                                         │
+└───────────┼─────────────────────────────────────────────────────────┘
+            │
+            │ Endpoint accessible but:
+            │ • No PII in metrics
+            │ • Hidden from API docs
+            │ • Only operational data
+            ▼
+┌─────────────────────────────┐
+│   Public Internet           │
+│   (low-value target)        │
+└─────────────────────────────┘
 ```
 
 ### Railway Deployment (Production)
 
-In Railway, the `/v1/metrics` endpoint is protected by **private networking**:
+In Railway deployments, the `/v1/metrics` endpoint security relies on multiple layers:
 
-1. **Internal-only access**: The metrics endpoint is only accessible to services within the same Railway project via the internal network. External requests cannot reach it.
+1. **No sensitive data exposed**: The metrics endpoint contains only operational data (request counts, latencies, error rates). No PII or business-sensitive data is included in metric labels.
 
-2. **No application-level auth required**: Since Railway's network isolation provides security, we don't need to implement authentication at the application level.
+2. **Hidden from API documentation**: The endpoint has `include_in_schema=False`, so it doesn't appear in OpenAPI docs or API explorers.
 
-3. **Grafana Alloy configuration**: The Alloy scraper runs within the Railway project and accesses metrics via the internal hostname (e.g., `aiq-backend.railway.internal:8000`).
+3. **Internal scraper access**: Grafana Alloy runs within the Railway project and can access metrics via the internal hostname (e.g., `aiq-backend.railway.internal:8000`), avoiding public network traversal.
 
-4. **Public API isolation**: The public Railway domain (`aiq-backend-production.up.railway.app`) does NOT expose the `/v1/metrics` endpoint—it's only reachable internally.
+4. **Defense in depth**: While the endpoint is technically accessible via the public domain, the combination of non-sensitive data and obscurity provides acceptable risk for operational metrics.
+
+> **Note**: If your metrics contain business-sensitive information, consider enabling Railway's Private Networking feature to restrict `/v1/metrics` to internal access only, or add application-level authentication (see [Adding Authentication](#alternative-adding-authentication) below).
 
 ### Data Security
 
@@ -221,21 +225,25 @@ For deployments where network isolation isn't available (self-hosted, multi-clou
 
 **Option 1: Bearer Token (recommended)**
 
-Modify `app/api/v1/metrics.py` to require a token:
+1. Add `METRICS_AUTH_TOKEN` to `app/core/config.py`:
+   ```python
+   METRICS_AUTH_TOKEN: str | None = None
+   ```
 
-```python
-from fastapi import Header, HTTPException
+2. Modify `app/api/v1/metrics.py` to require a token:
+   ```python
+   from fastapi import Header, HTTPException
 
-async def verify_metrics_token(x_metrics_token: str = Header(...)):
-    if x_metrics_token != settings.METRICS_AUTH_TOKEN:
-        raise HTTPException(status_code=401, detail="Invalid metrics token")
+   async def verify_metrics_token(x_metrics_token: str = Header(...)):
+       if x_metrics_token != settings.METRICS_AUTH_TOKEN:
+           raise HTTPException(status_code=401, detail="Invalid metrics token")
 
-@router.get("/metrics", dependencies=[Depends(verify_metrics_token)])
-async def prometheus_metrics():
-    # ... existing implementation
-```
+   @router.get("/metrics", dependencies=[Depends(verify_metrics_token)])
+   async def prometheus_metrics():
+       # ... existing implementation
+   ```
 
-Configure Prometheus:
+3. Configure Prometheus:
 ```yaml
 scrape_configs:
   - job_name: 'aiq-backend'
