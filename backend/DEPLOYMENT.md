@@ -579,7 +579,7 @@ When adding custom Prometheus metrics, cardinality (the number of unique time se
 | Difficulty levels | ✅ | `easy`, `medium`, `hard` |
 | User IDs | ❌ | `uuid-abc123...` (unbounded) |
 | Session IDs | ❌ | `uuid-xyz789...` (unbounded) |
-| Timestamps | ❌ | `2024-01-15T10:30:00` (continuous) |
+| Timestamps | ❌ | `2026-01-15T10:30:00` (continuous) |
 | Request IDs | ❌ | `req-abc123` (unbounded) |
 
 **Key principle**: Labels should have a finite, predictable set of values (ideally <10 unique values per label).
