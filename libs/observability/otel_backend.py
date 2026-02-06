@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Literal
 
@@ -67,6 +68,75 @@ def _parse_otlp_headers(headers_str: str) -> dict[str, str]:
     return headers
 
 
+# Valid metric name pattern: lowercase alphanumeric, underscores, and dots
+# Must start with a letter, dots for hierarchy (e.g., "http.server.requests")
+_METRIC_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_.]*$")
+
+# Known high-cardinality label patterns to warn about
+_HIGH_CARDINALITY_PATTERNS = [
+    re.compile(r"^(user_?id|userid|uid)$", re.IGNORECASE),
+    re.compile(r"^(request_?id|req_?id|trace_?id|span_?id)$", re.IGNORECASE),
+    re.compile(r"^(session_?id|sid)$", re.IGNORECASE),
+    re.compile(r"^(timestamp|time|date)$", re.IGNORECASE),
+    re.compile(r"^(uuid|guid|id)$", re.IGNORECASE),
+    re.compile(r"^(email|ip|ip_?address)$", re.IGNORECASE),
+]
+
+
+def _validate_metric_name(name: str) -> tuple[bool, str | None]:
+    """Validate a metric name follows conventions.
+
+    Metric names should:
+    - Start with a lowercase letter
+    - Contain only lowercase letters, numbers, underscores, and dots
+    - Use dots for hierarchy (e.g., "http.server.requests")
+    - Not contain spaces
+
+    Args:
+        name: The metric name to validate.
+
+    Returns:
+        Tuple of (is_valid, error_message). If valid, error_message is None.
+    """
+    if not name:
+        return False, "Metric name cannot be empty"
+
+    if " " in name:
+        return False, f"Metric name '{name}' contains spaces"
+
+    if not _METRIC_NAME_PATTERN.match(name):
+        return False, (
+            f"Metric name '{name}' does not follow conventions. "
+            "Use lowercase letters, numbers, underscores, and dots. "
+            "Must start with a letter."
+        )
+
+    return True, None
+
+
+def _check_label_cardinality(labels: dict[str, str] | None, metric_name: str) -> None:
+    """Check for high-cardinality labels and warn if found.
+
+    High-cardinality labels (like user IDs, timestamps, request IDs) can cause
+    metric explosion in Prometheus and should be avoided.
+
+    Args:
+        labels: The labels to check.
+        metric_name: The metric name for logging context.
+    """
+    if not labels:
+        return
+
+    for label_key in labels:
+        for pattern in _HIGH_CARDINALITY_PATTERNS:
+            if pattern.match(label_key):
+                logger.warning(
+                    f"High-cardinality label '{label_key}' detected in metric '{metric_name}'. "
+                    "Consider using a lower-cardinality alternative to avoid metric explosion."
+                )
+                break
+
+
 class OTELBackend:
     """Backend for OpenTelemetry metrics, tracing, and logging.
 
@@ -118,6 +188,7 @@ class OTELBackend:
         self._counters: dict[str, Any] = {}
         self._histograms: dict[str, Any] = {}
         self._gauges: dict[str, Any] = {}
+        self._updown_counters: dict[str, Any] = {}
         self._gauge_values: dict[str, dict[str, float]] = {}  # Track gauge values for callbacks
         self._meter_provider: MeterProvider | None = None
         self._tracer_provider: TracerProvider | None = None
@@ -404,7 +475,7 @@ class OTELBackend:
         value: float | int,
         *,
         labels: dict[str, str] | None = None,
-        metric_type: Literal["counter", "histogram", "gauge"] = "counter",
+        metric_type: Literal["counter", "histogram", "gauge", "updown_counter"] = "counter",
         unit: str | None = None,
     ) -> None:
         """Record a metric value.
@@ -413,11 +484,24 @@ class OTELBackend:
             name: Metric name (e.g., "requests.total").
             value: Metric value to record.
             labels: Labels/dimensions for the metric.
-            metric_type: Type of metric ("counter", "histogram", or "gauge").
+            metric_type: Type of metric:
+                - "counter": Monotonically increasing (e.g., requests_total)
+                - "histogram": Distribution of values (e.g., request_duration)
+                - "gauge": Current value via observable callback (e.g., temperature)
+                - "updown_counter": Can increase/decrease (e.g., queue_size)
             unit: Unit of measurement (defaults to "1" for counters, "ms" for histograms).
         """
         if not self._initialized or self._meter is None:
             return
+
+        # Validate metric name
+        is_valid, error_msg = _validate_metric_name(name)
+        if not is_valid:
+            logger.warning(error_msg)
+            # Continue anyway for graceful degradation
+
+        # Check for high-cardinality labels
+        _check_label_cardinality(labels, name)
 
         attributes = labels or {}
 
@@ -472,6 +556,15 @@ class OTELBackend:
                     unit=unit or "1",
                     description=f"Gauge for {name}",
                 )
+
+        elif metric_type == "updown_counter":
+            if name not in self._updown_counters:
+                self._updown_counters[name] = self._meter.create_up_down_counter(
+                    name=name,
+                    unit=unit or "1",
+                    description=f"UpDownCounter for {name}",
+                )
+            self._updown_counters[name].add(value, attributes=attributes)
 
     @contextmanager
     def start_span(
