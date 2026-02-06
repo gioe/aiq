@@ -26,7 +26,8 @@ class TestObservabilityFacadeInit:
                 otel=OTELConfig(enabled=False),
             )
             mock_load.return_value = mock_config
-            facade.init()
+            result = facade.init()
+            assert result is True
             assert facade.is_initialized is True
 
     def test_init_with_disabled_backends(self) -> None:
@@ -42,6 +43,172 @@ class TestObservabilityFacadeInit:
             # Backends should be None when disabled
             assert facade._sentry_backend is None
             assert facade._otel_backend is None
+
+    def test_init_is_idempotent(self) -> None:
+        """Test init() is idempotent - calling twice doesn't reinitialize."""
+        facade = ObservabilityFacade()
+        with mock.patch("libs.observability.config.load_config") as mock_load:
+            mock_config = ObservabilityConfig(
+                sentry=SentryConfig(enabled=False),
+                otel=OTELConfig(enabled=False),
+            )
+            mock_load.return_value = mock_config
+
+            # First init
+            result1 = facade.init()
+            assert result1 is True
+            assert mock_load.call_count == 1
+
+            # Second init should return True but not reinitialize
+            result2 = facade.init()
+            assert result2 is True
+            # load_config should not be called again
+            assert mock_load.call_count == 1
+
+    def test_init_registers_atexit_handler(self) -> None:
+        """Test init() registers an atexit handler for shutdown."""
+        facade = ObservabilityFacade()
+        with mock.patch("libs.observability.config.load_config") as mock_load:
+            mock_config = ObservabilityConfig(
+                sentry=SentryConfig(enabled=False),
+                otel=OTELConfig(enabled=False),
+            )
+            mock_load.return_value = mock_config
+
+            with mock.patch("atexit.register") as mock_atexit:
+                facade.init()
+                mock_atexit.assert_called_once_with(facade._atexit_shutdown)
+                assert facade._atexit_registered is True
+
+    def test_init_registers_atexit_only_once(self) -> None:
+        """Test atexit handler is only registered once even after shutdown and reinit."""
+        facade = ObservabilityFacade()
+        with mock.patch("libs.observability.config.load_config") as mock_load:
+            mock_config = ObservabilityConfig(
+                sentry=SentryConfig(enabled=False),
+                otel=OTELConfig(enabled=False),
+            )
+            mock_load.return_value = mock_config
+
+            with mock.patch("atexit.register") as mock_atexit:
+                # First init
+                facade.init()
+                assert mock_atexit.call_count == 1
+
+                # Shutdown and reinit
+                facade.shutdown()
+                facade.init()
+                # atexit should NOT be called again
+                assert mock_atexit.call_count == 1
+
+    def test_init_returns_false_on_config_error(self) -> None:
+        """Test init() returns False when configuration fails."""
+        from libs.observability.config import ConfigurationError
+
+        facade = ObservabilityFacade()
+        with mock.patch("libs.observability.config.load_config") as mock_load:
+            mock_load.side_effect = ConfigurationError("Invalid configuration")
+
+            with mock.patch("atexit.register"):
+                result = facade.init()
+                assert result is False
+                assert facade.is_initialized is False
+
+    def test_init_handles_sentry_backend_init_failure(self) -> None:
+        """Test init() continues if Sentry backend init fails."""
+        facade = ObservabilityFacade()
+        with mock.patch("libs.observability.config.load_config") as mock_load:
+            mock_config = ObservabilityConfig(
+                sentry=SentryConfig(enabled=True, dsn="https://test@sentry.io/123"),
+                otel=OTELConfig(enabled=False),
+            )
+            mock_load.return_value = mock_config
+
+            with mock.patch("libs.observability.sentry_backend.SentryBackend") as mock_sentry:
+                mock_sentry.side_effect = RuntimeError("Sentry init failed")
+
+                with mock.patch("atexit.register"):
+                    result = facade.init()
+                    # Should still succeed - graceful degradation
+                    assert result is True
+                    assert facade.is_initialized is True
+
+    def test_init_handles_otel_backend_init_failure(self) -> None:
+        """Test init() continues if OTEL backend init fails."""
+        facade = ObservabilityFacade()
+        with mock.patch("libs.observability.config.load_config") as mock_load:
+            mock_config = ObservabilityConfig(
+                sentry=SentryConfig(enabled=False),
+                otel=OTELConfig(enabled=True, service_name="test"),
+            )
+            mock_load.return_value = mock_config
+
+            with mock.patch("libs.observability.otel_backend.OTELBackend") as mock_otel:
+                mock_otel.side_effect = RuntimeError("OTEL init failed")
+
+                with mock.patch("atexit.register"):
+                    result = facade.init()
+                    # Should still succeed - graceful degradation
+                    assert result is True
+                    assert facade.is_initialized is True
+
+
+class TestObservabilityFacadeAtexitShutdown:
+    """Tests for atexit shutdown handler."""
+
+    def test_atexit_shutdown_calls_flush_and_shutdown(self) -> None:
+        """Test _atexit_shutdown flushes and shuts down backends."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        mock_sentry = mock.MagicMock()
+        mock_otel = mock.MagicMock()
+        facade._sentry_backend = mock_sentry
+        facade._otel_backend = mock_otel
+
+        facade._atexit_shutdown()
+
+        mock_sentry.flush.assert_called_once_with(2.0)
+        mock_otel.flush.assert_called_once_with(2.0)
+        mock_sentry.shutdown.assert_called_once()
+        mock_otel.shutdown.assert_called_once()
+
+    def test_atexit_shutdown_handles_flush_errors(self) -> None:
+        """Test _atexit_shutdown handles flush errors gracefully."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        mock_sentry = mock.MagicMock()
+        mock_sentry.flush.side_effect = RuntimeError("flush failed")
+        facade._sentry_backend = mock_sentry
+
+        # Should not raise
+        facade._atexit_shutdown()
+
+        # Shutdown should still be called
+        mock_sentry.shutdown.assert_called_once()
+
+    def test_atexit_shutdown_handles_shutdown_errors(self) -> None:
+        """Test _atexit_shutdown handles shutdown errors gracefully."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        mock_sentry = mock.MagicMock()
+        mock_sentry.shutdown.side_effect = RuntimeError("shutdown failed")
+        facade._sentry_backend = mock_sentry
+
+        # Should not raise
+        facade._atexit_shutdown()
+
+    def test_atexit_shutdown_does_nothing_when_not_initialized(self) -> None:
+        """Test _atexit_shutdown does nothing when not initialized."""
+        facade = ObservabilityFacade()
+        facade._initialized = False
+        mock_sentry = mock.MagicMock()
+        facade._sentry_backend = mock_sentry
+
+        facade._atexit_shutdown()
+
+        # Backend methods should not be called
+        mock_sentry.flush.assert_not_called()
+        mock_sentry.shutdown.assert_not_called()
 
 
 class TestFacadeWithoutInit:
@@ -899,14 +1066,35 @@ class TestFacadeLifecycleMethods:
         """Test shutdown calls both backends and clears initialized flag."""
         facade = ObservabilityFacade()
         facade._initialized = True
-        facade._sentry_backend = mock.MagicMock()
-        facade._otel_backend = mock.MagicMock()
+        mock_sentry = mock.MagicMock()
+        mock_otel = mock.MagicMock()
+        facade._sentry_backend = mock_sentry
+        facade._otel_backend = mock_otel
 
         facade.shutdown()
 
-        facade._sentry_backend.shutdown.assert_called_once()
-        facade._otel_backend.shutdown.assert_called_once()
+        mock_sentry.shutdown.assert_called_once()
+        mock_otel.shutdown.assert_called_once()
         assert facade.is_initialized is False
+        # Backend references should be cleared
+        assert facade._sentry_backend is None
+        assert facade._otel_backend is None
+        assert facade._config is None
+
+    def test_shutdown_is_idempotent(self) -> None:
+        """Test shutdown can be called multiple times safely."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        mock_sentry = mock.MagicMock()
+        facade._sentry_backend = mock_sentry
+
+        # First shutdown
+        facade.shutdown()
+        assert mock_sentry.shutdown.call_count == 1
+
+        # Second shutdown should not call backend again (it's None now)
+        facade.shutdown()
+        assert mock_sentry.shutdown.call_count == 1
 
 
 class TestAPIContract:
