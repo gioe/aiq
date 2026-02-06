@@ -338,33 +338,42 @@ PROMETHEUS_METRICS_ENABLED=true
 
 ### Current State
 
-- `/v1/metrics` endpoint is **public** (no authentication)
-- Metrics do not contain PII
-- Endpoint excluded from OpenAPI docs
-- No sensitive data in metric labels
+- `/v1/metrics` endpoint is **unauthenticated** at the application level
+- Security is provided by **Railway private networking** in production
+- Metrics do not contain PII (no user IDs, emails, session IDs)
+- Endpoint excluded from OpenAPI docs (`include_in_schema=False`)
+- No sensitive business data in metric labels
+
+### Railway Deployment Security Model
+
+In production on Railway, the `/v1/metrics` endpoint relies on network-level isolation:
+
+1. **Private networking**: The metrics endpoint is only accessible within the Railway project's internal network
+2. **No public exposure**: External requests cannot reach `/v1/metrics`—only internal services (like Grafana Alloy) can scrape metrics
+3. **No token management**: Network isolation eliminates the need for authentication tokens
+
+This approach is simpler and more secure than application-level authentication for cloud deployments where network isolation is available.
 
 ### Production Recommendations
 
-1. **Add authentication** if metrics contain business-sensitive data:
+1. **Prefer network isolation** (Railway private networking, VPC, security groups) over application-level auth
+
+2. **Add authentication** only if network isolation isn't available:
    ```python
    @router.get("/metrics", dependencies=[Depends(verify_metrics_token)])
    ```
 
-2. **Use network isolation** (VPC, security groups)
+3. **Sanitize labels** - never include user IDs, emails, or session IDs
 
-3. **Rate limit** the metrics endpoint:
-   ```python
-   # Already configured in main.py
-   endpoint_limits={"/v1/metrics": {"limit": 60, "window": 60}}
-   ```
-
-4. **Sanitize labels** - avoid including user data
-
-5. **TLS for scraping** in production:
+4. **TLS for scraping** in production:
    ```yaml
    # prometheus.yml
    scheme: https
    ```
+
+5. **Monitor cardinality** - unbounded labels can leak information and impact performance
+
+For detailed security documentation, see [PROMETHEUS_METRICS.md](PROMETHEUS_METRICS.md#security).
 
 ## Troubleshooting
 
