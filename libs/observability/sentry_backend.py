@@ -78,8 +78,8 @@ def _serialize_value(value: Any, _seen: set[int] | None = None) -> Any:
                 for k, v in value.__dict__.items()
                 if not k.startswith("_")
             }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Could not serialize object via __dict__: %s: %s", type(value).__name__, e)
 
     # Fallback to string representation
     try:
@@ -163,13 +163,11 @@ class SentryBackend:
 
                 integrations.append(OpenTelemetryIntegration())
             except ImportError:
-                pass
+                logger.debug("OpenTelemetry integration module not available")
             except Exception as e:
-                # DidNotEnable is raised when opentelemetry SDK is not installed
-                if e.__class__.__name__ == "DidNotEnable":
-                    pass
-                else:
-                    logger.debug(f"OpenTelemetry integration unavailable: {e}")
+                # DidNotEnable is raised when OTEL SDK is not installed or not configured.
+                # This is expected in some deployments, so we log at debug level.
+                logger.debug("OpenTelemetry integration unavailable: %s: %s", type(e).__name__, e)
 
             sentry_sdk.init(
                 dsn=self._config.dsn,

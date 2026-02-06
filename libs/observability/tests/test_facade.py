@@ -384,6 +384,7 @@ class TestAPIContract:
         assert callable(getattr(facade, "capture_message", None))
         assert callable(getattr(facade, "record_metric", None))
         assert callable(getattr(facade, "start_span", None))
+        assert callable(getattr(facade, "get_trace_context", None))
 
         # Context methods
         assert callable(getattr(facade, "set_user", None))
@@ -507,3 +508,95 @@ class TestAPIContract:
             level="info",
             tags={"tag": "value"},
         )
+
+
+class TestTraceContextIntegration:
+    """Tests for get_trace_context() method."""
+
+    def test_get_trace_context_returns_none_when_not_initialized(self) -> None:
+        """Test get_trace_context returns None values when not initialized."""
+        facade = ObservabilityFacade()
+        result = facade.get_trace_context()
+
+        assert result == {"trace_id": None, "span_id": None}
+
+    def test_get_trace_context_returns_none_when_no_active_span(self) -> None:
+        """Test get_trace_context returns None when no active span."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+
+        result = facade.get_trace_context()
+
+        assert result == {"trace_id": None, "span_id": None}
+
+    def test_get_trace_context_with_active_span(self) -> None:
+        """Test get_trace_context returns trace and span IDs from active span."""
+        import sys
+
+        facade = ObservabilityFacade()
+        facade._initialized = True
+
+        # Create mock OTEL objects
+        mock_span = mock.MagicMock()
+        mock_span_context = mock.MagicMock()
+        mock_span_context.trace_id = 0x12345678901234567890123456789012
+        mock_span_context.span_id = 0x1234567890123456
+        mock_span_context.is_valid = True
+        mock_span.get_span_context.return_value = mock_span_context
+
+        # Create mock trace module
+        mock_trace_module = mock.MagicMock()
+        mock_trace_module.get_current_span.return_value = mock_span
+
+        # Create mock opentelemetry package
+        mock_otel = mock.MagicMock()
+        mock_otel.trace = mock_trace_module
+
+        # Store original sys.modules state
+        original_modules = sys.modules.copy()
+
+        try:
+            # Install mocks in sys.modules before the import happens
+            sys.modules["opentelemetry"] = mock_otel
+            sys.modules["opentelemetry.trace"] = mock_trace_module
+
+            result = facade.get_trace_context()
+
+            assert result["trace_id"] == "12345678901234567890123456789012"
+            assert result["span_id"] == "1234567890123456"
+        finally:
+            # Restore original sys.modules
+            sys.modules.clear()
+            sys.modules.update(original_modules)
+
+    def test_get_trace_context_handles_invalid_span_context(self) -> None:
+        """Test get_trace_context returns None for invalid span context."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+
+        # Mock the OTEL trace module with invalid span context
+        mock_trace_module = mock.MagicMock()
+        mock_span = mock.MagicMock()
+        mock_span_context = mock.MagicMock()
+        mock_span_context.is_valid = False
+        mock_span.get_span_context.return_value = mock_span_context
+        mock_trace_module.get_current_span.return_value = mock_span
+
+        with mock.patch.dict("sys.modules", {"opentelemetry": mock.MagicMock(), "opentelemetry.trace": mock_trace_module}):
+            result = facade.get_trace_context()
+
+            assert result == {"trace_id": None, "span_id": None}
+
+    def test_get_trace_context_handles_exception_gracefully(self) -> None:
+        """Test get_trace_context handles exceptions gracefully."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+
+        # Mock the OTEL trace module to raise an exception
+        mock_trace_module = mock.MagicMock()
+        mock_trace_module.get_current_span.side_effect = RuntimeError("OTEL not available")
+
+        with mock.patch.dict("sys.modules", {"opentelemetry": mock.MagicMock(), "opentelemetry.trace": mock_trace_module}):
+            result = facade.get_trace_context()
+
+            assert result == {"trace_id": None, "span_id": None}
