@@ -145,6 +145,235 @@ class TestSpanContext:
             with ctx:
                 raise ValueError("test error")
 
+    def test_add_event_with_no_spans(self) -> None:
+        """Test add_event does nothing with no spans."""
+        ctx = SpanContext("test")
+        # Should not raise
+        ctx.add_event("cache_hit")
+        ctx.add_event("cache_miss", {"key": "value"})
+
+    def test_set_attribute_with_otel_span(self) -> None:
+        """Test set_attribute calls OTEL span."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_attribute("key", "value")
+
+        mock_otel_span.set_attribute.assert_called_once_with("key", "value")
+
+    def test_set_attribute_with_sentry_span(self) -> None:
+        """Test set_attribute calls Sentry span."""
+        mock_sentry_span = mock.MagicMock()
+        ctx = SpanContext("test", sentry_span=mock_sentry_span)
+
+        ctx.set_attribute("key", "value")
+
+        mock_sentry_span.set_data.assert_called_once_with("key", "value")
+
+    def test_set_attribute_with_both_spans(self) -> None:
+        """Test set_attribute calls both OTEL and Sentry spans."""
+        mock_otel_span = mock.MagicMock()
+        mock_sentry_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span, sentry_span=mock_sentry_span)
+
+        ctx.set_attribute("key", "value")
+
+        mock_otel_span.set_attribute.assert_called_once_with("key", "value")
+        mock_sentry_span.set_data.assert_called_once_with("key", "value")
+
+    def test_set_status_ok_with_otel_span(self) -> None:
+        """Test set_status 'ok' calls OTEL span with OK status."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        # Mock the opentelemetry.trace module that gets imported inside set_status
+        mock_status_code = mock.MagicMock()
+        mock_status_code.OK = "OK"
+        mock_status_code.ERROR = "ERROR"
+
+        with mock.patch.dict(
+            "sys.modules",
+            {"opentelemetry": mock.MagicMock(), "opentelemetry.trace": mock.MagicMock(StatusCode=mock_status_code)},
+        ):
+            ctx.set_status("ok")
+
+        mock_otel_span.set_status.assert_called_once()
+        call_args = mock_otel_span.set_status.call_args[0]
+        assert call_args[0] == "OK"
+
+    def test_set_status_error_with_otel_span(self) -> None:
+        """Test set_status 'error' calls OTEL span with ERROR status."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        # Mock the opentelemetry.trace module that gets imported inside set_status
+        mock_status_code = mock.MagicMock()
+        mock_status_code.OK = "OK"
+        mock_status_code.ERROR = "ERROR"
+
+        with mock.patch.dict(
+            "sys.modules",
+            {"opentelemetry": mock.MagicMock(), "opentelemetry.trace": mock.MagicMock(StatusCode=mock_status_code)},
+        ):
+            ctx.set_status("error", "Something went wrong")
+
+        mock_otel_span.set_status.assert_called_once()
+        call_args = mock_otel_span.set_status.call_args[0]
+        assert call_args[0] == "ERROR"
+        assert call_args[1] == "Something went wrong"
+
+    def test_record_exception_with_otel_span(self) -> None:
+        """Test record_exception calls OTEL span."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        exc = ValueError("test error")
+        ctx.record_exception(exc)
+
+        mock_otel_span.record_exception.assert_called_once_with(exc)
+
+    def test_add_event_with_otel_span(self) -> None:
+        """Test add_event calls OTEL span."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.add_event("cache_hit", {"key": "user:123"})
+
+        mock_otel_span.add_event.assert_called_once_with("cache_hit", attributes={"key": "user:123"})
+
+    def test_add_event_without_attributes(self) -> None:
+        """Test add_event with no attributes."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.add_event("retry_attempt")
+
+        mock_otel_span.add_event.assert_called_once_with("retry_attempt", attributes=None)
+
+    def test_context_manager_records_exception_on_error(self) -> None:
+        """Test context manager records exception when error occurs."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        with pytest.raises(ValueError):
+            with ctx:
+                raise ValueError("test error")
+
+        mock_otel_span.record_exception.assert_called_once()
+        mock_otel_span.set_status.assert_called_once()
+
+
+class TestStartSpanWithBackends:
+    """Tests for start_span with mocked backends."""
+
+    def test_start_span_with_otel_backend_only(self) -> None:
+        """Test start_span with only OTEL backend enabled."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._otel_backend = mock.MagicMock()
+        facade._sentry_backend = None
+
+        mock_otel_context = mock.MagicMock()
+        facade._otel_backend.start_span.return_value = mock_otel_context
+
+        mock_config = mock.MagicMock()
+        mock_config.routing.traces = "otel"
+        facade._config = mock_config
+
+        with facade.start_span("test_span", attributes={"key": "value"}) as span:
+            assert isinstance(span, SpanContext)
+
+        facade._otel_backend.start_span.assert_called_once_with(
+            "test_span", kind="internal", attributes={"key": "value"}
+        )
+
+    def test_start_span_with_sentry_backend_only(self) -> None:
+        """Test start_span with only Sentry backend enabled."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._otel_backend = None
+        facade._sentry_backend = mock.MagicMock()
+
+        mock_sentry_context = mock.MagicMock()
+        facade._sentry_backend.start_span.return_value = mock_sentry_context
+
+        mock_config = mock.MagicMock()
+        mock_config.routing.traces = "sentry"
+        facade._config = mock_config
+
+        with facade.start_span("test_span", attributes={"key": "value"}) as span:
+            assert isinstance(span, SpanContext)
+
+        facade._sentry_backend.start_span.assert_called_once_with(
+            "test_span", attributes={"key": "value"}
+        )
+
+    def test_start_span_with_both_backends(self) -> None:
+        """Test start_span with both backends enabled (routing=both)."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._otel_backend = mock.MagicMock()
+        facade._sentry_backend = mock.MagicMock()
+
+        mock_otel_context = mock.MagicMock()
+        mock_sentry_context = mock.MagicMock()
+        facade._otel_backend.start_span.return_value = mock_otel_context
+        facade._sentry_backend.start_span.return_value = mock_sentry_context
+
+        mock_config = mock.MagicMock()
+        mock_config.routing.traces = "both"
+        facade._config = mock_config
+
+        with facade.start_span("test_span", kind="server", attributes={"key": "value"}) as span:
+            assert isinstance(span, SpanContext)
+
+        facade._otel_backend.start_span.assert_called_once_with(
+            "test_span", kind="server", attributes={"key": "value"}
+        )
+        facade._sentry_backend.start_span.assert_called_once_with(
+            "test_span", attributes={"key": "value"}
+        )
+
+    def test_start_span_with_different_kinds(self) -> None:
+        """Test start_span with different span kinds."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._otel_backend = mock.MagicMock()
+        facade._otel_backend.start_span.return_value = mock.MagicMock()
+
+        mock_config = mock.MagicMock()
+        mock_config.routing.traces = "otel"
+        facade._config = mock_config
+
+        for kind in ["internal", "server", "client", "producer", "consumer"]:
+            with facade.start_span("test_span", kind=kind):  # type: ignore[arg-type]
+                pass
+
+            facade._otel_backend.start_span.assert_called_with(
+                "test_span", kind=kind, attributes=None
+            )
+
+    def test_nested_spans(self) -> None:
+        """Test nested spans work correctly."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._otel_backend = mock.MagicMock()
+
+        outer_context = mock.MagicMock()
+        inner_context = mock.MagicMock()
+        facade._otel_backend.start_span.side_effect = [outer_context, inner_context]
+
+        mock_config = mock.MagicMock()
+        mock_config.routing.traces = "otel"
+        facade._config = mock_config
+
+        with facade.start_span("outer") as outer_span:
+            assert isinstance(outer_span, SpanContext)
+            with facade.start_span("inner") as inner_span:
+                assert isinstance(inner_span, SpanContext)
+
+        assert facade._otel_backend.start_span.call_count == 2
+
 
 class TestFacadeCaptureMethods:
     """Tests for facade capture methods with mocked backends."""
@@ -406,6 +635,7 @@ class TestAPIContract:
         assert callable(getattr(ctx, "set_attribute", None))
         assert callable(getattr(ctx, "set_status", None))
         assert callable(getattr(ctx, "record_exception", None))
+        assert callable(getattr(ctx, "add_event", None))
         assert callable(getattr(ctx, "__enter__", None))
         assert callable(getattr(ctx, "__exit__", None))
 
