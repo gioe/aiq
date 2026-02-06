@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Production stage
@@ -32,8 +32,17 @@ RUN useradd -m -u 1000 appuser
 # Copy Python dependencies from builder to appuser's home
 COPY --from=builder /root/.local /home/appuser/.local
 
-# Copy application code
-COPY . .
+# Copy shared libraries
+COPY libs/ /app/libs/
+
+# Copy backend application code
+COPY backend/ /app/backend/
+
+# Set working directory to backend for alembic and app imports
+WORKDIR /app/backend
+
+# Set PYTHONPATH to include both app root (for libs) and backend (for app)
+ENV PYTHONPATH=/app:/app/backend
 
 # Fix permissions
 RUN chown -R appuser:appuser /app /home/appuser/.local

@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - 'backend/**'
+      - 'libs/**'
       - '.github/workflows/backend-ci.yml'
   push:
     branches:
       - main
     paths:
       - 'backend/**'
+      - 'libs/**'
       - '.github/workflows/backend-ci.yml'
 
 jobs:
@@ -58,6 +60,8 @@ jobs:
           flake8 .
 
       - name: Run MyPy type checking
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           cd backend
           mypy app/
@@ -65,6 +69,7 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/iq_tracker_test
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           cd backend
           alembic upgrade head
@@ -76,6 +81,7 @@ jobs:
           JWT_SECRET_KEY: test-jwt-secret-key
           ADMIN_TOKEN: test-admin-token
           SERVICE_API_KEY: test-service-key
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           cd backend
           pytest -v
@@ -114,6 +120,7 @@ jobs:
           JWT_SECRET_KEY: export-jwt-secret-key
           ADMIN_TOKEN: export-admin-token
           SERVICE_API_KEY: export-service-key
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           cd backend
           python export_openapi.py

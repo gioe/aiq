@@ -39,8 +39,9 @@ psutil==5.9.8  # Process and system monitoring
 # Redis (for distributed rate limiting in multi-worker deployments)
 redis==5.0.1
 
-# Error Tracking
+# Error Tracking and Observability
 sentry-sdk[fastapi,opentelemetry]>=2.0.0
+pyyaml>=6.0  # Required by libs/observability for config parsing
 
 # Distributed Tracing and Observability (OpenTelemetry)
 opentelemetry-api==1.30.0
