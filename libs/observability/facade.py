@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-MetricType = Literal["counter", "histogram", "gauge"]
+MetricType = Literal["counter", "histogram", "gauge", "updown_counter"]
 ErrorLevel = Literal["debug", "info", "warning", "error", "fatal"]
 
 
@@ -395,6 +395,7 @@ class ObservabilityFacade:
                 - "counter": Monotonically increasing count (e.g., requests, errors)
                 - "histogram": Distribution of values (e.g., latencies, sizes)
                 - "gauge": Current point-in-time value (e.g., active connections)
+                - "updown_counter": Can increase/decrease (e.g., queue_size, active_sessions)
             unit: Optional unit of measurement (e.g., "ms", "bytes", "1").
                 Defaults to "1" for counters, "ms" for histograms.
 

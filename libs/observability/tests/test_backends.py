@@ -7,7 +7,12 @@ from unittest import mock
 import pytest
 
 from libs.observability.config import OTELConfig, SentryConfig
-from libs.observability.otel_backend import OTELBackend, _parse_otlp_headers
+from libs.observability.otel_backend import (
+    OTELBackend,
+    _parse_otlp_headers,
+    _validate_metric_name,
+    _check_label_cardinality,
+)
 from libs.observability.sentry_backend import SentryBackend
 
 # Check if sentry_sdk is available
@@ -1115,3 +1120,252 @@ class TestOTELBackendSampleRate:
 
         # Cleanup
         backend.shutdown()
+
+
+class TestMetricNameValidation:
+    """Tests for metric name validation."""
+
+    def test_valid_simple_name(self) -> None:
+        """Test validation of simple valid metric name."""
+        is_valid, error = _validate_metric_name("requests")
+        assert is_valid is True
+        assert error is None
+
+    def test_valid_name_with_dots(self) -> None:
+        """Test validation of metric name with dots for hierarchy."""
+        is_valid, error = _validate_metric_name("http.server.requests.total")
+        assert is_valid is True
+        assert error is None
+
+    def test_valid_name_with_underscores(self) -> None:
+        """Test validation of metric name with underscores."""
+        is_valid, error = _validate_metric_name("request_duration_seconds")
+        assert is_valid is True
+        assert error is None
+
+    def test_valid_name_with_numbers(self) -> None:
+        """Test validation of metric name with numbers."""
+        is_valid, error = _validate_metric_name("api_v2_requests")
+        assert is_valid is True
+        assert error is None
+
+    def test_invalid_empty_name(self) -> None:
+        """Test validation rejects empty name."""
+        is_valid, error = _validate_metric_name("")
+        assert is_valid is False
+        assert error is not None
+        assert "empty" in error.lower()
+
+    def test_invalid_name_with_spaces(self) -> None:
+        """Test validation rejects name with spaces."""
+        is_valid, error = _validate_metric_name("my metric")
+        assert is_valid is False
+        assert error is not None
+        assert "spaces" in error.lower()
+
+    def test_invalid_name_starting_with_number(self) -> None:
+        """Test validation rejects name starting with number."""
+        is_valid, error = _validate_metric_name("123requests")
+        assert is_valid is False
+        assert error is not None
+        assert "conventions" in error.lower()
+
+    def test_invalid_name_with_uppercase(self) -> None:
+        """Test validation rejects name with uppercase letters."""
+        is_valid, error = _validate_metric_name("HTTP_Requests")
+        assert is_valid is False
+        assert error is not None
+        assert "conventions" in error.lower()
+
+    def test_invalid_name_with_special_chars(self) -> None:
+        """Test validation rejects name with special characters."""
+        is_valid, error = _validate_metric_name("requests@total")
+        assert is_valid is False
+        assert error is not None
+        assert "conventions" in error.lower()
+
+
+class TestLabelCardinalityValidation:
+    """Tests for label cardinality checking."""
+
+    def test_no_warning_for_normal_labels(self) -> None:
+        """Test no warning for normal low-cardinality labels."""
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            _check_label_cardinality({"endpoint": "/api", "method": "GET"}, "requests")
+            mock_logger.warning.assert_not_called()
+
+    def test_warns_on_user_id(self) -> None:
+        """Test warning on user_id label."""
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            _check_label_cardinality({"user_id": "12345"}, "requests")
+            mock_logger.warning.assert_called_once()
+            assert "user_id" in mock_logger.warning.call_args[0][0]
+
+    def test_warns_on_userid_variant(self) -> None:
+        """Test warning on userid label (no underscore)."""
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            _check_label_cardinality({"userid": "12345"}, "requests")
+            mock_logger.warning.assert_called_once()
+
+    def test_warns_on_request_id(self) -> None:
+        """Test warning on request_id label."""
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            _check_label_cardinality({"request_id": "abc-123"}, "requests")
+            mock_logger.warning.assert_called_once()
+            assert "request_id" in mock_logger.warning.call_args[0][0]
+
+    def test_warns_on_session_id(self) -> None:
+        """Test warning on session_id label."""
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            _check_label_cardinality({"session_id": "sess-xyz"}, "requests")
+            mock_logger.warning.assert_called_once()
+
+    def test_warns_on_timestamp(self) -> None:
+        """Test warning on timestamp label."""
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            _check_label_cardinality({"timestamp": "2024-01-15T10:30:00"}, "requests")
+            mock_logger.warning.assert_called_once()
+
+    def test_warns_on_email(self) -> None:
+        """Test warning on email label."""
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            _check_label_cardinality({"email": "user@example.com"}, "requests")
+            mock_logger.warning.assert_called_once()
+
+    def test_warns_on_ip_address(self) -> None:
+        """Test warning on ip_address label."""
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            _check_label_cardinality({"ip_address": "192.168.1.1"}, "requests")
+            mock_logger.warning.assert_called_once()
+
+    def test_none_labels_no_error(self) -> None:
+        """Test no error when labels is None."""
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            _check_label_cardinality(None, "requests")
+            mock_logger.warning.assert_not_called()
+
+
+class TestUpDownCounterMetric:
+    """Tests for UpDownCounter metric type."""
+
+    def test_record_updown_counter_creates_instrument(self) -> None:
+        """Test record_metric creates UpDownCounter instrument."""
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter = mock.MagicMock()
+        mock_updown = mock.MagicMock()
+        backend._meter.create_up_down_counter.return_value = mock_updown
+
+        backend.record_metric("queue.size", 10, metric_type="updown_counter")
+
+        backend._meter.create_up_down_counter.assert_called_once_with(
+            name="queue.size",
+            unit="1",
+            description="UpDownCounter for queue.size",
+        )
+        mock_updown.add.assert_called_once_with(10, attributes={})
+
+    def test_record_updown_counter_reuses_instrument(self) -> None:
+        """Test record_metric reuses existing UpDownCounter."""
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter = mock.MagicMock()
+        mock_updown = mock.MagicMock()
+        backend._updown_counters["queue.size"] = mock_updown
+
+        backend.record_metric("queue.size", -5, metric_type="updown_counter")
+
+        # Should not create new instrument
+        backend._meter.create_up_down_counter.assert_not_called()
+        mock_updown.add.assert_called_once_with(-5, attributes={})
+
+    def test_record_updown_counter_with_labels(self) -> None:
+        """Test record_metric passes labels to UpDownCounter."""
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter = mock.MagicMock()
+        mock_updown = mock.MagicMock()
+        backend._meter.create_up_down_counter.return_value = mock_updown
+
+        backend.record_metric(
+            "active.connections",
+            3,
+            labels={"service": "api"},
+            metric_type="updown_counter",
+        )
+
+        mock_updown.add.assert_called_once_with(3, attributes={"service": "api"})
+
+    def test_record_updown_counter_with_custom_unit(self) -> None:
+        """Test record_metric uses custom unit for UpDownCounter."""
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter = mock.MagicMock()
+        mock_updown = mock.MagicMock()
+        backend._meter.create_up_down_counter.return_value = mock_updown
+
+        backend.record_metric(
+            "memory.usage",
+            1024,
+            metric_type="updown_counter",
+            unit="bytes",
+        )
+
+        backend._meter.create_up_down_counter.assert_called_once_with(
+            name="memory.usage",
+            unit="bytes",
+            description="UpDownCounter for memory.usage",
+        )
+
+
+class TestRecordMetricValidation:
+    """Tests for validation in record_metric."""
+
+    def test_invalid_metric_name_logs_warning(self) -> None:
+        """Test invalid metric name logs warning but still records."""
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter = mock.MagicMock()
+        mock_counter = mock.MagicMock()
+        backend._meter.create_counter.return_value = mock_counter
+
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            backend.record_metric("Invalid Metric Name", 1, metric_type="counter")
+
+            # Should log warning about invalid name
+            mock_logger.warning.assert_called()
+            warning_msg = mock_logger.warning.call_args[0][0]
+            assert "Invalid Metric Name" in warning_msg
+
+            # Should still create and record the metric (graceful degradation)
+            mock_counter.add.assert_called_once()
+
+    def test_high_cardinality_label_logs_warning(self) -> None:
+        """Test high-cardinality label logs warning but still records."""
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter = mock.MagicMock()
+        mock_counter = mock.MagicMock()
+        backend._meter.create_counter.return_value = mock_counter
+
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            backend.record_metric(
+                "requests",
+                1,
+                labels={"user_id": "12345"},
+                metric_type="counter",
+            )
+
+            # Should log warning about high cardinality
+            mock_logger.warning.assert_called()
+            warning_msg = mock_logger.warning.call_args[0][0]
+            assert "user_id" in warning_msg
+
+            # Should still record the metric
+            mock_counter.add.assert_called_once()
