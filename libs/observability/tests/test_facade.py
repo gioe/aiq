@@ -250,6 +250,315 @@ class TestSpanContext:
 
         mock_otel_span.add_event.assert_called_once_with("retry_attempt", attributes=None)
 
+
+class TestSpanContextHttpAttributes:
+    """Tests for set_http_attributes helper method."""
+
+    def test_set_http_attributes_required_fields(self) -> None:
+        """Test set_http_attributes sets method and url."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_http_attributes(method="GET", url="https://example.com/api/users")
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("http.request.method", "GET") in calls
+        assert mock.call("url.full", "https://example.com/api/users") in calls
+
+    def test_set_http_attributes_uppercases_method(self) -> None:
+        """Test set_http_attributes uppercases the HTTP method."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_http_attributes(method="post", url="https://example.com/api")
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("http.request.method", "POST") in calls
+
+    def test_set_http_attributes_with_status_code(self) -> None:
+        """Test set_http_attributes includes status code when provided."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_http_attributes(method="GET", url="https://example.com", status_code=200)
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("http.response.status_code", 200) in calls
+
+    def test_set_http_attributes_without_status_code(self) -> None:
+        """Test set_http_attributes excludes status code when not provided."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_http_attributes(method="GET", url="https://example.com")
+
+        # Verify status code was not set
+        for call in mock_otel_span.set_attribute.call_args_list:
+            assert call[0][0] != "http.response.status_code"
+
+    def test_set_http_attributes_with_all_optional_fields(self) -> None:
+        """Test set_http_attributes with all optional fields."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_http_attributes(
+            method="POST",
+            url="https://api.example.com/users",
+            status_code=201,
+            route="/users",
+            request_size=1024,
+            response_size=2048,
+        )
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("http.request.method", "POST") in calls
+        assert mock.call("url.full", "https://api.example.com/users") in calls
+        assert mock.call("http.response.status_code", 201) in calls
+        assert mock.call("http.route", "/users") in calls
+        assert mock.call("http.request.body.size", 1024) in calls
+        assert mock.call("http.response.body.size", 2048) in calls
+
+    def test_set_http_attributes_without_span(self) -> None:
+        """Test set_http_attributes does nothing without a span."""
+        ctx = SpanContext("test")  # No otel_span or sentry_span
+
+        # Should not raise
+        ctx.set_http_attributes(method="GET", url="https://example.com", status_code=200)
+
+
+class TestSpanContextDbAttributes:
+    """Tests for set_db_attributes helper method."""
+
+    def test_set_db_attributes_required_fields(self) -> None:
+        """Test set_db_attributes sets operation."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_db_attributes(operation="SELECT")
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("db.operation", "SELECT") in calls
+
+    def test_set_db_attributes_uppercases_operation(self) -> None:
+        """Test set_db_attributes uppercases the operation."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_db_attributes(operation="insert")
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("db.operation", "INSERT") in calls
+
+    def test_set_db_attributes_with_table(self) -> None:
+        """Test set_db_attributes includes table when provided."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_db_attributes(operation="SELECT", table="users")
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("db.sql.table", "users") in calls
+
+    def test_set_db_attributes_with_duration(self) -> None:
+        """Test set_db_attributes includes duration when provided."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_db_attributes(operation="SELECT", table="users", duration_ms=42.5)
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("db.query.duration", 42.5) in calls
+
+    def test_set_db_attributes_with_all_optional_fields(self) -> None:
+        """Test set_db_attributes with all optional fields."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_db_attributes(
+            operation="SELECT",
+            table="users",
+            duration_ms=15.3,
+            db_system="postgresql",
+            db_name="aiq_prod",
+            statement="SELECT * FROM users WHERE id = $1",
+        )
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("db.operation", "SELECT") in calls
+        assert mock.call("db.sql.table", "users") in calls
+        assert mock.call("db.query.duration", 15.3) in calls
+        assert mock.call("db.system", "postgresql") in calls
+        assert mock.call("db.name", "aiq_prod") in calls
+        assert mock.call("db.statement", "SELECT * FROM users WHERE id = $1") in calls
+
+    def test_set_db_attributes_without_span(self) -> None:
+        """Test set_db_attributes does nothing without a span."""
+        ctx = SpanContext("test")  # No otel_span or sentry_span
+
+        # Should not raise
+        ctx.set_db_attributes(operation="SELECT", table="users", duration_ms=10.0)
+
+
+class TestSpanContextUserAttributes:
+    """Tests for set_user_attributes helper method."""
+
+    def test_set_user_attributes_with_user_id(self) -> None:
+        """Test set_user_attributes sets user ID."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_user_attributes(user_id="user-123")
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("enduser.id", "user-123") in calls
+
+    def test_set_user_attributes_with_username(self) -> None:
+        """Test set_user_attributes includes username when provided."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_user_attributes(user_id="user-123", username="alice")
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("enduser.id", "user-123") in calls
+        assert mock.call("enduser.username", "alice") in calls
+
+    def test_set_user_attributes_with_role_and_scope(self) -> None:
+        """Test set_user_attributes includes role and scope when provided."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_user_attributes(
+            user_id="user-123",
+            username="alice",
+            role="admin",
+            scope="read:users write:users",
+        )
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("enduser.id", "user-123") in calls
+        assert mock.call("enduser.username", "alice") in calls
+        assert mock.call("enduser.role", "admin") in calls
+        assert mock.call("enduser.scope", "read:users write:users") in calls
+
+    def test_set_user_attributes_with_none_user_id(self) -> None:
+        """Test set_user_attributes skips user_id when None."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        ctx.set_user_attributes(user_id=None, username="anonymous")
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        # user_id should not be set
+        for call in calls:
+            assert call[0][0] != "enduser.id"
+        # But username should be set
+        assert mock.call("enduser.username", "anonymous") in calls
+
+    def test_set_user_attributes_without_span(self) -> None:
+        """Test set_user_attributes does nothing without a span."""
+        ctx = SpanContext("test")  # No otel_span or sentry_span
+
+        # Should not raise
+        ctx.set_user_attributes(user_id="user-123", username="alice")
+
+
+class TestSpanContextErrorAttributes:
+    """Tests for set_error_attributes helper method."""
+
+    def test_set_error_attributes_basic(self) -> None:
+        """Test set_error_attributes sets exception type and message."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        exc = ValueError("Something went wrong")
+        ctx.set_error_attributes(exc)
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("exception.type", "ValueError") in calls
+        assert mock.call("exception.message", "Something went wrong") in calls
+        assert mock.call("exception.escaped", True) in calls
+
+    def test_set_error_attributes_with_escaped_false(self) -> None:
+        """Test set_error_attributes with escaped=False."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        exc = RuntimeError("Handled error")
+        ctx.set_error_attributes(exc, escaped=False)
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("exception.escaped", False) in calls
+
+    def test_set_error_attributes_includes_module(self) -> None:
+        """Test set_error_attributes includes module in exception type."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        # Use an exception from a non-builtins module
+        from json import JSONDecodeError
+
+        exc = JSONDecodeError("Expecting value", "doc", 0)
+        ctx.set_error_attributes(exc)
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        # Should include module prefix
+        exception_type_call = [c for c in calls if c[0][0] == "exception.type"][0]
+        assert "JSONDecodeError" in exception_type_call[0][1]
+
+    def test_set_error_attributes_builtin_exception(self) -> None:
+        """Test set_error_attributes handles builtin exceptions correctly."""
+        mock_otel_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span)
+
+        exc = KeyError("missing_key")
+        ctx.set_error_attributes(exc)
+
+        calls = mock_otel_span.set_attribute.call_args_list
+        # Builtin exceptions should not have module prefix
+        assert mock.call("exception.type", "KeyError") in calls
+
+    def test_set_error_attributes_without_span(self) -> None:
+        """Test set_error_attributes does nothing without a span."""
+        ctx = SpanContext("test")  # No otel_span or sentry_span
+
+        # Should not raise
+        ctx.set_error_attributes(ValueError("test"))
+
+
+class TestSpanContextAttributeHelperWithSentry:
+    """Tests for attribute helpers with Sentry backend."""
+
+    def test_set_http_attributes_with_sentry_span(self) -> None:
+        """Test set_http_attributes works with Sentry span."""
+        mock_sentry_span = mock.MagicMock()
+        ctx = SpanContext("test", sentry_span=mock_sentry_span)
+
+        ctx.set_http_attributes(method="GET", url="https://example.com", status_code=200)
+
+        calls = mock_sentry_span.set_data.call_args_list
+        assert mock.call("http.request.method", "GET") in calls
+        assert mock.call("url.full", "https://example.com") in calls
+        assert mock.call("http.response.status_code", 200) in calls
+
+    def test_set_db_attributes_with_both_spans(self) -> None:
+        """Test set_db_attributes works with both OTEL and Sentry spans."""
+        mock_otel_span = mock.MagicMock()
+        mock_sentry_span = mock.MagicMock()
+        ctx = SpanContext("test", otel_span=mock_otel_span, sentry_span=mock_sentry_span)
+
+        ctx.set_db_attributes(operation="SELECT", table="users")
+
+        # Check OTEL span
+        otel_calls = mock_otel_span.set_attribute.call_args_list
+        assert mock.call("db.operation", "SELECT") in otel_calls
+        assert mock.call("db.sql.table", "users") in otel_calls
+
+        # Check Sentry span
+        sentry_calls = mock_sentry_span.set_data.call_args_list
+        assert mock.call("db.operation", "SELECT") in sentry_calls
+        assert mock.call("db.sql.table", "users") in sentry_calls
+
     def test_context_manager_records_exception_on_error(self) -> None:
         """Test context manager records exception when error occurs."""
         mock_otel_span = mock.MagicMock()
@@ -638,6 +947,12 @@ class TestAPIContract:
         assert callable(getattr(ctx, "add_event", None))
         assert callable(getattr(ctx, "__enter__", None))
         assert callable(getattr(ctx, "__exit__", None))
+
+        # Convenience attribute helpers
+        assert callable(getattr(ctx, "set_http_attributes", None))
+        assert callable(getattr(ctx, "set_db_attributes", None))
+        assert callable(getattr(ctx, "set_user_attributes", None))
+        assert callable(getattr(ctx, "set_error_attributes", None))
 
     def test_module_exports_singleton(self) -> None:
         """Test the module exports a singleton observability instance."""
