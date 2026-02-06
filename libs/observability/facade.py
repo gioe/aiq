@@ -246,8 +246,7 @@ class SpanContext:
             db_system: Database system identifier (e.g., "postgresql", "mysql").
                        Optional.
             db_name: Database name. Optional.
-            statement: Database statement (query). Optional. Be careful not to
-                       include sensitive data in production.
+            statement: Database statement (query). Optional.
 
         Example:
             with observability.start_span("db_query") as span:
@@ -260,6 +259,19 @@ class SpanContext:
                     duration_ms=elapsed_ms,
                     db_system="postgresql",
                 )
+
+        Warning:
+            The ``statement`` parameter should be sanitized before use in production.
+            Never include raw user input, passwords, or sensitive data in statements.
+
+            **Safe:**
+            ``statement="SELECT * FROM users WHERE id = $1"``
+
+            **Unsafe:**
+            ``statement=f"SELECT * FROM users WHERE id = {user_input}"``
+
+            If you must include dynamic values, use placeholders (``$1``, ``?``)
+            and avoid interpolating sensitive data like passwords or PII.
 
         Note:
             Attribute names follow OpenTelemetry semantic conventions:
@@ -297,19 +309,28 @@ class SpanContext:
         Useful for correlating spans with specific users during debugging.
 
         Args:
-            user_id: Unique user identifier. Pass None to skip (for optional user context).
+            user_id: Unique user identifier. Pass None for unauthenticated/anonymous
+                     requests, or when user context is not yet available (e.g., early
+                     in request processing before authentication).
             username: User display name or handle. Optional.
             role: User role (e.g., "admin", "member"). Optional.
             scope: User scope for access control context. Optional.
 
         Example:
-            with observability.start_span("process_request") as span:
-                if current_user:
-                    span.set_user_attributes(
-                        user_id=str(current_user.id),
-                        username=current_user.username,
-                        role=current_user.role,
-                    )
+            Authenticated request::
+
+                with observability.start_span("process_request") as span:
+                    if current_user:
+                        span.set_user_attributes(
+                            user_id=str(current_user.id),
+                            username=current_user.username,
+                            role=current_user.role,
+                        )
+
+            Anonymous/unauthenticated request::
+
+                with observability.start_span("public_endpoint") as span:
+                    span.set_user_attributes(user_id=None, username="anonymous")
 
         Note:
             Attribute names follow OpenTelemetry semantic conventions:
@@ -361,8 +382,6 @@ class SpanContext:
             For full exception recording with stacktrace, use record_exception()
             in addition to this method.
         """
-        import traceback
-
         exc_type = type(exception).__qualname__
         exc_module = type(exception).__module__
         if exc_module and exc_module != "builtins":
