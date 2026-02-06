@@ -935,6 +935,21 @@ class TestParseOTLPHeaders:
         result = _parse_otlp_headers("invalid,key=value")
         assert result == {"key": "value"}
 
+    def test_parse_rejects_headers_with_newlines(self) -> None:
+        """Test parsing rejects headers containing newline characters."""
+        result = _parse_otlp_headers("key=value\ninjected,key2=value2")
+        assert result == {"key2": "value2"}
+
+    def test_parse_rejects_headers_with_carriage_return(self) -> None:
+        """Test parsing rejects headers containing carriage return characters."""
+        result = _parse_otlp_headers("key=value\rinjected,key2=value2")
+        assert result == {"key2": "value2"}
+
+    def test_parse_rejects_key_with_control_chars(self) -> None:
+        """Test parsing rejects keys containing control characters."""
+        result = _parse_otlp_headers("bad\x00key=value,good=value")
+        assert result == {"good": "value"}
+
 
 class TestOTELBackendInitReturnValue:
     """Tests for OTEL backend init() return value."""

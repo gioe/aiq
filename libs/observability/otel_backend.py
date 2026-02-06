@@ -33,6 +33,8 @@ def _parse_otlp_headers(headers_str: str) -> dict[str, str]:
     Returns: {"key1": "value1", "key2": "value2"}
 
     Note: Empty keys or values are skipped to avoid malformed headers.
+    Headers containing control characters (newlines, carriage returns, etc.)
+    are rejected to prevent header injection attacks.
 
     Args:
         headers_str: Comma-separated key=value pairs.
@@ -43,6 +45,9 @@ def _parse_otlp_headers(headers_str: str) -> dict[str, str]:
     if not headers_str:
         return {}
 
+    # Control characters that could enable header injection
+    CONTROL_CHARS = frozenset("\r\n\x00\x0b\x0c")
+
     headers: dict[str, str] = {}
     for pair in headers_str.split(","):
         if "=" in pair:
@@ -50,6 +55,14 @@ def _parse_otlp_headers(headers_str: str) -> dict[str, str]:
             key = key.strip()
             value = value.strip()
             if key and value:
+                # Reject headers with control characters to prevent injection
+                if any(c in key for c in CONTROL_CHARS) or any(
+                    c in value for c in CONTROL_CHARS
+                ):
+                    logger.warning(
+                        f"Skipping header with control characters: {key!r}"
+                    )
+                    continue
                 headers[key] = value
     return headers
 

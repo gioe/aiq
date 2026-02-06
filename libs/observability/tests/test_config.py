@@ -13,7 +13,10 @@ from libs.observability.config import (
     OTELConfig,
     RoutingConfig,
     SentryConfig,
+    _dict_to_config,
     _process_config_values,
+    _safe_float,
+    _safe_int,
     _substitute_env_vars,
     load_config,
 )
@@ -717,3 +720,91 @@ custom_key: custom_value
 
             # Config should still be valid
             assert config.sentry.enabled is True
+
+
+class TestSafeConversionHelpers:
+    """Tests for safe type conversion helper functions."""
+
+    def test_safe_float_with_valid_float(self) -> None:
+        """Test _safe_float with valid float value."""
+        result = _safe_float(0.5, 0.0, "test_field")
+        assert result == 0.5
+
+    def test_safe_float_with_valid_int(self) -> None:
+        """Test _safe_float with valid integer value."""
+        result = _safe_float(1, 0.0, "test_field")
+        assert result == 1.0
+
+    def test_safe_float_with_valid_string(self) -> None:
+        """Test _safe_float with valid string value."""
+        result = _safe_float("0.75", 0.0, "test_field")
+        assert result == 0.75
+
+    def test_safe_float_with_none_returns_default(self) -> None:
+        """Test _safe_float with None returns default."""
+        result = _safe_float(None, 0.5, "test_field")
+        assert result == 0.5
+
+    def test_safe_float_with_invalid_string_raises_error(self) -> None:
+        """Test _safe_float with invalid string raises ConfigurationError."""
+        with pytest.raises(ConfigurationError) as exc_info:
+            _safe_float("not-a-number", 0.0, "sentry.traces_sample_rate")
+
+        error_message = str(exc_info.value)
+        assert "sentry.traces_sample_rate" in error_message
+        assert "'not-a-number'" in error_message
+        assert "cannot be converted to float" in error_message
+
+    def test_safe_int_with_valid_int(self) -> None:
+        """Test _safe_int with valid integer value."""
+        result = _safe_int(60000, 0, "test_field")
+        assert result == 60000
+
+    def test_safe_int_with_valid_float(self) -> None:
+        """Test _safe_int with valid float value (truncates)."""
+        result = _safe_int(30000.9, 0, "test_field")
+        assert result == 30000
+
+    def test_safe_int_with_valid_string(self) -> None:
+        """Test _safe_int with valid string value."""
+        result = _safe_int("45000", 0, "test_field")
+        assert result == 45000
+
+    def test_safe_int_with_none_returns_default(self) -> None:
+        """Test _safe_int with None returns default."""
+        result = _safe_int(None, 60000, "test_field")
+        assert result == 60000
+
+    def test_safe_int_with_invalid_string_raises_error(self) -> None:
+        """Test _safe_int with invalid string raises ConfigurationError."""
+        with pytest.raises(ConfigurationError) as exc_info:
+            _safe_int("not-an-integer", 0, "otel.metrics_export_interval_millis")
+
+        error_message = str(exc_info.value)
+        assert "otel.metrics_export_interval_millis" in error_message
+        assert "'not-an-integer'" in error_message
+        assert "cannot be converted to integer" in error_message
+
+    def test_dict_to_config_with_invalid_sample_rate(self) -> None:
+        """Test _dict_to_config with invalid sample rate raises helpful error."""
+        data = {
+            "sentry": {"traces_sample_rate": "invalid"},
+        }
+        with pytest.raises(ConfigurationError) as exc_info:
+            _dict_to_config(data)
+
+        error_message = str(exc_info.value)
+        assert "sentry.traces_sample_rate" in error_message
+        assert "cannot be converted to float" in error_message
+
+    def test_dict_to_config_with_invalid_export_interval(self) -> None:
+        """Test _dict_to_config with invalid export interval raises helpful error."""
+        data = {
+            "otel": {"metrics_export_interval_millis": "not-a-number"},
+        }
+        with pytest.raises(ConfigurationError) as exc_info:
+            _dict_to_config(data)
+
+        error_message = str(exc_info.value)
+        assert "otel.metrics_export_interval_millis" in error_message
+        assert "cannot be converted to integer" in error_message

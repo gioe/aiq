@@ -217,8 +217,60 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
+def _safe_float(value: Any, default: float, field_name: str) -> float:
+    """Safely convert a value to float with helpful error message.
+
+    Args:
+        value: Value to convert.
+        default: Default value if conversion fails or value is None.
+        field_name: Field name for error messages.
+
+    Returns:
+        Float value.
+
+    Raises:
+        ConfigurationError: If value cannot be converted to float.
+    """
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (ValueError, TypeError) as e:
+        raise ConfigurationError(
+            f"Invalid value for {field_name}: {value!r} cannot be converted to float"
+        ) from e
+
+
+def _safe_int(value: Any, default: int, field_name: str) -> int:
+    """Safely convert a value to int with helpful error message.
+
+    Args:
+        value: Value to convert.
+        default: Default value if conversion fails or value is None.
+        field_name: Field name for error messages.
+
+    Returns:
+        Integer value.
+
+    Raises:
+        ConfigurationError: If value cannot be converted to int.
+    """
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError) as e:
+        raise ConfigurationError(
+            f"Invalid value for {field_name}: {value!r} cannot be converted to integer"
+        ) from e
+
+
 def _dict_to_config(data: dict[str, Any]) -> ObservabilityConfig:
-    """Convert a dictionary to ObservabilityConfig."""
+    """Convert a dictionary to ObservabilityConfig.
+
+    Raises:
+        ConfigurationError: If any config values cannot be parsed.
+    """
     sentry_data = data.get("sentry", {})
     otel_data = data.get("otel", {})
     routing_data = data.get("routing", {})
@@ -229,8 +281,12 @@ def _dict_to_config(data: dict[str, Any]) -> ObservabilityConfig:
             dsn=sentry_data.get("dsn"),
             environment=sentry_data.get("environment", "development"),
             release=sentry_data.get("release"),
-            traces_sample_rate=float(sentry_data.get("traces_sample_rate", 0.1)),
-            profiles_sample_rate=float(sentry_data.get("profiles_sample_rate", 0.0)),
+            traces_sample_rate=_safe_float(
+                sentry_data.get("traces_sample_rate"), 0.1, "sentry.traces_sample_rate"
+            ),
+            profiles_sample_rate=_safe_float(
+                sentry_data.get("profiles_sample_rate"), 0.0, "sentry.profiles_sample_rate"
+            ),
             send_default_pii=sentry_data.get("send_default_pii", False),
         ),
         otel=OTELConfig(
@@ -241,11 +297,15 @@ def _dict_to_config(data: dict[str, Any]) -> ObservabilityConfig:
             exporter=otel_data.get("exporter", "otlp"),
             otlp_headers=otel_data.get("otlp_headers", ""),
             metrics_enabled=otel_data.get("metrics_enabled", True),
-            metrics_export_interval_millis=int(
-                otel_data.get("metrics_export_interval_millis", 60000)
+            metrics_export_interval_millis=_safe_int(
+                otel_data.get("metrics_export_interval_millis"),
+                60000,
+                "otel.metrics_export_interval_millis",
             ),
             traces_enabled=otel_data.get("traces_enabled", True),
-            traces_sample_rate=float(otel_data.get("traces_sample_rate", 1.0)),
+            traces_sample_rate=_safe_float(
+                otel_data.get("traces_sample_rate"), 1.0, "otel.traces_sample_rate"
+            ),
             logs_enabled=otel_data.get("logs_enabled", False),
             prometheus_enabled=otel_data.get("prometheus_enabled", True),
             insecure=otel_data.get("insecure", False),
