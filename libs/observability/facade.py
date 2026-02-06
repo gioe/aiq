@@ -39,6 +39,7 @@ Example:
 
 from __future__ import annotations
 
+import atexit
 import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Literal
@@ -414,6 +415,7 @@ class ObservabilityFacade:
         self._config: ObservabilityConfig | None = None
         self._sentry_backend: Any = None
         self._otel_backend: Any = None
+        self._atexit_registered = False
 
     @property
     def is_initialized(self) -> bool:
@@ -426,11 +428,15 @@ class ObservabilityFacade:
         service_name: str | None = None,
         environment: str | None = None,
         **overrides: Any,
-    ) -> None:
+    ) -> bool:
         """Initialize observability backends.
 
         This must be called before using any other observability methods.
         Typically called once at application startup.
+
+        This method is idempotent - calling it multiple times is safe.
+        Subsequent calls will log a warning and return True without
+        reinitializing backends.
 
         Args:
             config_path: Path to YAML configuration file. If not provided,
@@ -441,6 +447,10 @@ class ObservabilityFacade:
                 "staging", "development").
             **overrides: Additional config overrides. Prefix with sentry_,
                 otel_, or routing_ to target specific config sections.
+
+        Returns:
+            True if initialization succeeded or was already initialized.
+            False if initialization failed due to configuration errors.
 
         Example:
             Initialize with YAML config::
@@ -460,29 +470,101 @@ class ObservabilityFacade:
                     otel_endpoint="http://localhost:4317",
                 )
         """
-        from libs.observability.config import load_config
+        # Idempotency: if already initialized, warn and return early
+        if self._initialized:
+            logger.warning(
+                "Observability already initialized. Skipping reinitialization. "
+                "Call shutdown() first if you need to reconfigure."
+            )
+            return True
 
-        self._config = load_config(
-            config_path=config_path,
-            service_name=service_name,
-            environment=environment,
-            **overrides,
-        )
+        try:
+            from libs.observability.config import ConfigurationError, load_config
 
-        # Initialize backends based on config
+            self._config = load_config(
+                config_path=config_path,
+                service_name=service_name,
+                environment=environment,
+                **overrides,
+            )
+        except ConfigurationError as e:
+            logger.error("Failed to load observability configuration: %s", e)
+            return False
+        except Exception as e:
+            logger.error("Unexpected error loading observability configuration: %s", e)
+            return False
+
+        # Track which backends were initialized
+        sentry_initialized = False
+        otel_initialized = False
+
+        # Initialize Sentry backend if enabled
         if self._config.sentry.enabled:
-            from libs.observability.sentry_backend import SentryBackend
+            try:
+                from libs.observability.sentry_backend import SentryBackend
 
-            self._sentry_backend = SentryBackend(self._config.sentry)
-            self._sentry_backend.init()
+                self._sentry_backend = SentryBackend(self._config.sentry)
+                sentry_initialized = self._sentry_backend.init()
+            except Exception as e:
+                logger.error("Failed to initialize Sentry backend: %s", e)
+                # Continue - other backends may still work
 
+        # Initialize OTEL backend if enabled
         if self._config.otel.enabled:
-            from libs.observability.otel_backend import OTELBackend
+            try:
+                from libs.observability.otel_backend import OTELBackend
 
-            self._otel_backend = OTELBackend(self._config.otel)
-            self._otel_backend.init()
+                self._otel_backend = OTELBackend(self._config.otel)
+                otel_initialized = self._otel_backend.init()
+            except Exception as e:
+                logger.error("Failed to initialize OTEL backend: %s", e)
+                # Continue - other backends may still work
 
         self._initialized = True
+
+        # Register atexit handler for graceful shutdown
+        if not self._atexit_registered:
+            atexit.register(self._atexit_shutdown)
+            self._atexit_registered = True
+
+        # Log summary of what was initialized
+        initialized_backends = []
+        if sentry_initialized:
+            initialized_backends.append("Sentry")
+        if otel_initialized:
+            initialized_backends.append("OpenTelemetry")
+
+        if initialized_backends:
+            logger.info(
+                "Observability initialized: %s (service=%s, environment=%s)",
+                ", ".join(initialized_backends),
+                self._config.otel.service_name,
+                self._config.sentry.environment,
+            )
+        else:
+            logger.warning(
+                "Observability initialized but no backends are active. "
+                "Check your configuration."
+            )
+
+        return True
+
+    def _atexit_shutdown(self) -> None:
+        """Shutdown handler registered with atexit.
+
+        Called automatically when the Python interpreter exits.
+        Flushes pending data and shuts down backends gracefully.
+        """
+        if self._initialized:
+            logger.debug("Observability atexit shutdown triggered")
+            try:
+                self.flush(timeout=2.0)
+            except Exception as e:
+                logger.debug("Error flushing during atexit: %s", e)
+            try:
+                self.shutdown()
+            except Exception as e:
+                logger.debug("Error during atexit shutdown: %s", e)
 
     def capture_error(
         self,
@@ -1037,6 +1119,9 @@ class ObservabilityFacade:
         Closes connections to Sentry and OTEL backends. Call this during
         application shutdown, after flush().
 
+        This method is idempotent - calling it multiple times is safe.
+        Subsequent calls will return immediately without error.
+
         Example:
             Clean shutdown sequence::
 
@@ -1047,10 +1132,16 @@ class ObservabilityFacade:
             logger.debug("shutdown called but observability not initialized")
             return
 
+        logger.info("Shutting down observability backends")
+
         if self._sentry_backend is not None:
             self._sentry_backend.shutdown()
+            self._sentry_backend = None
 
         if self._otel_backend is not None:
             self._otel_backend.shutdown()
+            self._otel_backend = None
 
         self._initialized = False
+        self._config = None
+        logger.debug("Observability shutdown complete")
