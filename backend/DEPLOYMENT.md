@@ -564,6 +564,30 @@ OTEL_METRICS_ENABLED=False  # Disable metrics only
 OTEL_LOGS_ENABLED=False     # Disable logs only
 ```
 
+### Metrics Cardinality Guidelines
+
+When adding custom Prometheus metrics, cardinality (the number of unique time series) is critical for performance and cost. High-cardinality metrics can cause Prometheus storage issues and increase Grafana Cloud costs.
+
+**Rules for metric labels:**
+
+| Label Type | Allowed | Example |
+|------------|---------|---------|
+| HTTP methods | ✅ | `GET`, `POST`, `PUT`, `DELETE` |
+| API routes | ✅ | `/v1/auth/login`, `/v1/test/start` |
+| Status codes | ✅ | `200`, `401`, `500` |
+| Question types | ✅ | `pattern`, `logic`, `verbal` |
+| Difficulty levels | ✅ | `easy`, `medium`, `hard` |
+| User IDs | ❌ | `uuid-abc123...` (unbounded) |
+| Session IDs | ❌ | `uuid-xyz789...` (unbounded) |
+| Timestamps | ❌ | `2026-01-15T10:30:00` (continuous) |
+| Request IDs | ❌ | `req-abc123` (unbounded) |
+
+**Key principle**: Labels should have a finite, predictable set of values (ideally <10 unique values per label).
+
+**Current cardinality**: The default metrics have ~1,300 time series, well within safe limits (<100K).
+
+For detailed cardinality analysis and examples, see [docs/PROMETHEUS_METRICS.md](docs/PROMETHEUS_METRICS.md#metric-cardinality).
+
 ## Common Commands
 
 ```bash
