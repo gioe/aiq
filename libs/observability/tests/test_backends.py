@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from libs.observability.config import OTELConfig, SentryConfig
-from libs.observability.otel_backend import OTELBackend
+from libs.observability.otel_backend import OTELBackend, _parse_otlp_headers
 from libs.observability.sentry_backend import SentryBackend
 
 # Check if sentry_sdk is available
@@ -20,6 +20,18 @@ except ImportError:
 
 requires_sentry_sdk = pytest.mark.skipif(
     not HAS_SENTRY_SDK, reason="sentry_sdk not installed"
+)
+
+# Check if opentelemetry SDK is available
+try:
+    import opentelemetry.sdk.trace
+
+    HAS_OTEL_SDK = True
+except ImportError:
+    HAS_OTEL_SDK = False
+
+requires_otel_sdk = pytest.mark.skipif(
+    not HAS_OTEL_SDK, reason="opentelemetry-sdk not installed"
 )
 
 
@@ -469,14 +481,18 @@ class TestOTELBackendLifecycle:
         config = OTELConfig(enabled=True)
         backend = OTELBackend(config)
         backend._initialized = True
-        backend._meter_provider = mock.MagicMock()
-        backend._tracer_provider = mock.MagicMock()
+        mock_meter_provider = mock.MagicMock()
+        mock_tracer_provider = mock.MagicMock()
+        backend._meter_provider = mock_meter_provider
+        backend._tracer_provider = mock_tracer_provider
 
         backend.shutdown()
 
-        backend._meter_provider.shutdown.assert_called_once()
-        backend._tracer_provider.shutdown.assert_called_once()
+        mock_meter_provider.shutdown.assert_called_once()
+        mock_tracer_provider.shutdown.assert_called_once()
         assert backend._initialized is False
+        assert backend._meter_provider is None
+        assert backend._tracer_provider is None
 
     def test_flush_logs_warning_on_error(self) -> None:
         """Test flush logs warning when provider flush fails."""
@@ -876,3 +892,211 @@ class TestSentryOTELTraceIntegration:
 
         # OpenTelemetryIntegration may or may not be present depending on environment
         # This is expected behavior - we just verify the code doesn't crash
+
+
+class TestParseOTLPHeaders:
+    """Tests for OTLP headers parsing."""
+
+    def test_parse_empty_string(self) -> None:
+        """Test parsing empty string returns empty dict."""
+        assert _parse_otlp_headers("") == {}
+
+    def test_parse_single_header(self) -> None:
+        """Test parsing single key=value pair."""
+        assert _parse_otlp_headers("Authorization=Basic xxx") == {"Authorization": "Basic xxx"}
+
+    def test_parse_multiple_headers(self) -> None:
+        """Test parsing multiple key=value pairs."""
+        result = _parse_otlp_headers("key1=value1,key2=value2")
+        assert result == {"key1": "value1", "key2": "value2"}
+
+    def test_parse_strips_whitespace(self) -> None:
+        """Test parsing strips whitespace around keys and values."""
+        result = _parse_otlp_headers(" key1 = value1 , key2 = value2 ")
+        assert result == {"key1": "value1", "key2": "value2"}
+
+    def test_parse_skips_empty_keys(self) -> None:
+        """Test parsing skips entries with empty keys."""
+        result = _parse_otlp_headers("=value,key=value")
+        assert result == {"key": "value"}
+
+    def test_parse_skips_empty_values(self) -> None:
+        """Test parsing skips entries with empty values."""
+        result = _parse_otlp_headers("key=,key2=value2")
+        assert result == {"key2": "value2"}
+
+    def test_parse_handles_value_with_equals(self) -> None:
+        """Test parsing handles values containing equals signs."""
+        result = _parse_otlp_headers("Authorization=Basic dXNlcjpwYXNz=")
+        assert result == {"Authorization": "Basic dXNlcjpwYXNz="}
+
+    def test_parse_skips_entries_without_equals(self) -> None:
+        """Test parsing skips entries without equals sign."""
+        result = _parse_otlp_headers("invalid,key=value")
+        assert result == {"key": "value"}
+
+
+class TestOTELBackendInitReturnValue:
+    """Tests for OTEL backend init() return value."""
+
+    def test_init_returns_false_when_disabled(self) -> None:
+        """Test init() returns False when OTEL is disabled."""
+        config = OTELConfig(enabled=False)
+        backend = OTELBackend(config)
+        result = backend.init()
+        assert result is False
+        assert backend._initialized is False
+
+    def test_init_returns_false_when_exporter_none(self) -> None:
+        """Test init() returns False when exporter='none'."""
+        config = OTELConfig(enabled=True, exporter="none")
+        backend = OTELBackend(config)
+        result = backend.init()
+        assert result is False
+        assert backend._initialized is False
+
+    def test_init_returns_true_when_already_initialized(self) -> None:
+        """Test init() returns True and logs warning when already initialized."""
+        config = OTELConfig(enabled=True, traces_enabled=False, metrics_enabled=False)
+        backend = OTELBackend(config)
+        backend._initialized = True
+
+        with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
+            result = backend.init()
+            assert result is True
+            mock_logger.warning.assert_called_once()
+            assert "already initialized" in mock_logger.warning.call_args[0][0]
+
+
+class TestOTELBackendConsoleExporter:
+    """Tests for OTEL backend with console exporter."""
+
+    @requires_otel_sdk
+    def test_init_with_console_exporter_succeeds(self) -> None:
+        """Test init() with console exporter succeeds and enables tracing."""
+        config = OTELConfig(
+            enabled=True,
+            exporter="console",
+            traces_enabled=True,
+            metrics_enabled=False,
+            logs_enabled=False,
+        )
+        backend = OTELBackend(config)
+        result = backend.init()
+
+        assert result is True
+        assert backend._initialized is True
+        assert backend._tracer is not None
+        assert backend._tracer_provider is not None
+
+        # Cleanup
+        backend.shutdown()
+
+
+class TestOTELBackendNewConfigFields:
+    """Tests for new OTEL config fields."""
+
+    def test_config_with_service_version(self) -> None:
+        """Test OTELConfig with service_version field."""
+        config = OTELConfig(
+            enabled=True,
+            service_name="my-service",
+            service_version="2.0.0",
+        )
+        assert config.service_version == "2.0.0"
+
+    def test_config_with_traces_sample_rate(self) -> None:
+        """Test OTELConfig with traces_sample_rate field."""
+        config = OTELConfig(
+            enabled=True,
+            traces_sample_rate=0.25,
+        )
+        assert config.traces_sample_rate == 0.25
+
+    def test_config_with_metrics_export_interval(self) -> None:
+        """Test OTELConfig with metrics_export_interval_millis field."""
+        config = OTELConfig(
+            enabled=True,
+            metrics_export_interval_millis=30000,
+        )
+        assert config.metrics_export_interval_millis == 30000
+
+    def test_config_with_logs_enabled(self) -> None:
+        """Test OTELConfig with logs_enabled field."""
+        config = OTELConfig(
+            enabled=True,
+            logs_enabled=True,
+        )
+        assert config.logs_enabled is True
+
+    def test_config_with_otlp_headers(self) -> None:
+        """Test OTELConfig with otlp_headers field."""
+        config = OTELConfig(
+            enabled=True,
+            otlp_headers="Authorization=Basic xxx",
+        )
+        assert config.otlp_headers == "Authorization=Basic xxx"
+
+
+class TestOTELBackendLoggerProvider:
+    """Tests for OTEL backend logger provider handling."""
+
+    def test_flush_includes_logger_provider(self) -> None:
+        """Test flush() calls force_flush on logger provider."""
+        config = OTELConfig(enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter_provider = mock.MagicMock()
+        backend._tracer_provider = mock.MagicMock()
+        backend._logger_provider = mock.MagicMock()
+
+        backend.flush(timeout=5.0)
+
+        backend._meter_provider.force_flush.assert_called_once_with(timeout_millis=5000)
+        backend._tracer_provider.force_flush.assert_called_once_with(timeout_millis=5000)
+        backend._logger_provider.force_flush.assert_called_once_with(timeout_millis=5000)
+
+    def test_shutdown_includes_logger_provider(self) -> None:
+        """Test shutdown() calls shutdown on logger provider."""
+        config = OTELConfig(enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        mock_meter_provider = mock.MagicMock()
+        mock_tracer_provider = mock.MagicMock()
+        mock_logger_provider = mock.MagicMock()
+        backend._meter_provider = mock_meter_provider
+        backend._tracer_provider = mock_tracer_provider
+        backend._logger_provider = mock_logger_provider
+
+        backend.shutdown()
+
+        mock_meter_provider.shutdown.assert_called_once()
+        mock_tracer_provider.shutdown.assert_called_once()
+        mock_logger_provider.shutdown.assert_called_once()
+        assert backend._initialized is False
+        assert backend._logger_provider is None
+
+
+class TestOTELBackendSampleRate:
+    """Tests for OTEL backend trace sampling."""
+
+    @requires_otel_sdk
+    def test_init_with_sample_rate_succeeds(self) -> None:
+        """Test init() succeeds with configured sample rate."""
+        config = OTELConfig(
+            enabled=True,
+            exporter="console",
+            traces_enabled=True,
+            metrics_enabled=False,
+            logs_enabled=False,
+            traces_sample_rate=0.5,
+        )
+        backend = OTELBackend(config)
+        result = backend.init()
+
+        assert result is True
+        assert backend._initialized is True
+        assert backend._tracer_provider is not None
+
+        # Cleanup
+        backend.shutdown()
