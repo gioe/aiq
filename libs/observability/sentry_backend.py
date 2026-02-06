@@ -18,18 +18,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _serialize_value(value: Any) -> Any:
+def _serialize_value(value: Any, _seen: set[int] | None = None) -> Any:
     """Serialize a value to a JSON-compatible type.
 
     Handles common non-JSON types like datetime, UUID, and objects with
     __dict__ attribute. Falls back to str() for unknown types.
 
+    Note:
+        Circular references are detected and replaced with a placeholder string.
+        This prevents infinite recursion when serializing self-referential structures.
+
     Args:
         value: The value to serialize.
+        _seen: Internal tracking set for circular reference detection.
 
     Returns:
         A JSON-serializable value.
     """
+    # Initialize seen set for circular reference detection
+    if _seen is None:
+        _seen = set()
+
+    # Primitive types are always safe
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
 
@@ -45,19 +55,29 @@ def _serialize_value(value: Any) -> Any:
         except UnicodeDecodeError:
             return f"<bytes: {len(value)} bytes>"
 
+    # Check for circular references in container types
+    value_id = id(value)
+    if value_id in _seen:
+        return f"<circular reference: {type(value).__name__}>"
+    _seen.add(value_id)
+
     if isinstance(value, dict):
-        return {k: _serialize_value(v) for k, v in value.items()}
+        return {k: _serialize_value(v, _seen) for k, v in value.items()}
 
     if isinstance(value, (list, tuple)):
-        return [_serialize_value(item) for item in value]
+        return [_serialize_value(item, _seen) for item in value]
 
     if isinstance(value, set):
-        return [_serialize_value(item) for item in sorted(value, key=str)]
+        return [_serialize_value(item, _seen) for item in sorted(value, key=str)]
 
     # Try to use __dict__ for custom objects
     if hasattr(value, "__dict__"):
         try:
-            return {k: _serialize_value(v) for k, v in value.__dict__.items() if not k.startswith("_")}
+            return {
+                k: _serialize_value(v, _seen)
+                for k, v in value.__dict__.items()
+                if not k.startswith("_")
+            }
         except Exception:
             pass
 
@@ -77,7 +97,8 @@ def _serialize_context(context: dict[str, Any]) -> dict[str, Any]:
     Returns:
         A new dictionary with all values serialized to JSON-compatible types.
     """
-    return {key: _serialize_value(value) for key, value in context.items()}
+    seen: set[int] = set()
+    return {key: _serialize_value(value, seen) for key, value in context.items()}
 
 
 class SentryBackend:

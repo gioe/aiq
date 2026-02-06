@@ -1,6 +1,7 @@
 """Tests for backend implementations."""
 
 import sys
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -627,6 +628,47 @@ class TestContextSerialization:
             "count": 5,
         }
 
+    def test_serialize_value_circular_reference_dict(self) -> None:
+        """Test serialization handles circular reference in dict."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        d: dict[str, Any] = {"name": "test"}
+        d["self"] = d  # Create circular reference
+
+        result = _serialize_value(d)
+
+        assert result["name"] == "test"
+        assert result["self"] == "<circular reference: dict>"
+
+    def test_serialize_value_circular_reference_list(self) -> None:
+        """Test serialization handles circular reference in list."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        lst: list[Any] = [1, 2, 3]
+        lst.append(lst)  # Create circular reference
+
+        result = _serialize_value(lst)
+
+        assert result[0] == 1
+        assert result[1] == 2
+        assert result[2] == 3
+        assert result[3] == "<circular reference: list>"
+
+    def test_serialize_value_indirect_circular_reference(self) -> None:
+        """Test serialization handles indirect circular references."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        a: dict[str, Any] = {"name": "a"}
+        b: dict[str, Any] = {"name": "b"}
+        a["child"] = b
+        b["parent"] = a  # Creates indirect circular reference
+
+        result = _serialize_value(a)
+
+        assert result["name"] == "a"
+        assert result["child"]["name"] == "b"
+        assert result["child"]["parent"] == "<circular reference: dict>"
+
     @requires_sentry_sdk
     @mock.patch("sentry_sdk.capture_exception")
     @mock.patch("sentry_sdk.push_scope")
@@ -769,10 +811,10 @@ class TestCaptureErrorFingerprinting:
         backend = SentryBackend(config)
         backend._initialized = True
 
-        mock_scope = mock.MagicMock()
+        mock_scope = mock.MagicMock(spec=["set_context", "set_user", "set_tag", "level"])
         mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
         mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
 
         backend.capture_error(ValueError("test"))
-        # fingerprint should not be set when None
-        assert not hasattr(mock_scope, "_fingerprint") or mock_scope.fingerprint != ["custom"]
+        # Verify fingerprint attribute was never set on scope (uses Sentry's default grouping)
+        assert not hasattr(mock_scope, "fingerprint")
