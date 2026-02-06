@@ -99,6 +99,16 @@ class Settings(BaseSettings):
     CAT_MAX_SE_DISCRIMINATION: float = 0.30
     CAT_MIN_ITEMS_PER_DIFFICULTY_BAND: int = 5
 
+    # A/B Testing Configuration (TASK-885)
+    # Percentage of users to assign to adaptive (CAT) testing mode
+    # Can be ramped from 0% (all fixed) to 100% (all adaptive) for gradual rollout
+    ADAPTIVE_TEST_PERCENTAGE: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=100.0,
+        description="Percentage of users assigned to adaptive testing (0.0-100.0)",
+    )
+
     # Apple Push Notification Service (APNs)
     APNS_KEY_ID: str = ""  # APNs Auth Key ID (10 characters)
     APNS_TEAM_ID: str = ""  # Apple Developer Team ID (10 characters)
