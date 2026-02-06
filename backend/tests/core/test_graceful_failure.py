@@ -6,7 +6,7 @@ for handling non-critical operations that should not block execution.
 """
 
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 import pytest
 
@@ -329,3 +329,67 @@ class TestGracefulFailureIntegration:
 
         assert results == ["outer start", "inner", "after outer"]
         assert mock_logger.log.call_count == 1  # Only outer logged
+
+
+class TestGracefulFailureMetrics:
+    """Tests for metrics integration with graceful failure handling."""
+
+    def test_records_metric_on_exception(self, mock_logger):
+        """Test that error metric is recorded when exception occurs."""
+        with patch("app.core.graceful_failure.metrics") as mock_metrics:
+            with graceful_failure("test operation", mock_logger):
+                raise ValueError("test error")
+
+            mock_metrics.record_error.assert_called_once_with(
+                error_type="GracefulFailure"
+            )
+
+    def test_does_not_record_metric_on_success(self, mock_logger):
+        """Test that error metric is not recorded on successful operations."""
+        with patch("app.core.graceful_failure.metrics") as mock_metrics:
+            with graceful_failure("test operation", mock_logger):
+                pass  # Success
+
+            mock_metrics.record_error.assert_not_called()
+
+    def test_records_metric_for_different_exception_types(self, mock_logger):
+        """Test that error metric is recorded for various exception types."""
+        exception_types = [
+            ValueError("value error"),
+            TypeError("type error"),
+            RuntimeError("runtime error"),
+        ]
+
+        with patch("app.core.graceful_failure.metrics") as mock_metrics:
+            for exc in exception_types:
+                with graceful_failure("test operation", mock_logger):
+                    raise exc
+
+            # Should record metric for each exception
+            assert mock_metrics.record_error.call_count == len(exception_types)
+            for call_args in mock_metrics.record_error.call_args_list:
+                assert call_args == call(error_type="GracefulFailure")
+
+    def test_metrics_failure_does_not_break_graceful_failure(self, mock_logger):
+        """Test that metrics recording failure doesn't break graceful failure handling."""
+        with patch("app.core.graceful_failure.metrics") as mock_metrics:
+            mock_metrics.record_error.side_effect = Exception("metrics error")
+
+            # Should still swallow the original exception despite metrics failure
+            results = []
+            with graceful_failure("test operation", mock_logger):
+                raise ValueError("original error")
+
+            results.append("continued")
+            assert results == ["continued"]
+
+    def test_records_metric_with_nested_graceful_failures(self, mock_logger):
+        """Test that metrics are recorded for nested graceful failures."""
+        with patch("app.core.graceful_failure.metrics") as mock_metrics:
+            with graceful_failure("outer operation", mock_logger):
+                with graceful_failure("inner operation", mock_logger):
+                    raise ValueError("inner error")
+                raise ValueError("outer error")
+
+            # Should record metrics for both exceptions
+            assert mock_metrics.record_error.call_count == 2

@@ -62,6 +62,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.observability import metrics
+
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +229,12 @@ def handle_db_error(
             exc_info=True,
         )
 
+        # Record error metric for observability (safe - won't break error handling)
+        try:
+            metrics.record_error(error_type="DatabaseError")
+        except Exception:
+            pass  # Metrics recording should not break error handling
+
         # Raise new HTTPException with configured status code
         raise HTTPException(status_code=status_code, detail=detail)
     except (SQLAlchemyError, Exception) as e:
@@ -244,6 +252,12 @@ def handle_db_error(
             f"Database error during {operation_name}: {e}",
             exc_info=True,
         )
+
+        # Record error metric for observability (safe - won't break error handling)
+        try:
+            metrics.record_error(error_type="DatabaseError")
+        except Exception:
+            pass  # Metrics recording should not break error handling
 
         raise HTTPException(status_code=status_code, detail=detail)
 
