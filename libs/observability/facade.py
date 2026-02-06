@@ -1180,13 +1180,23 @@ class ObservabilityFacade:
 
         logger.info("Shutting down observability backends")
 
+        # Wrap each backend shutdown in try-except to ensure both are attempted
+        # even if one fails. This provides proper backend isolation during shutdown.
         if self._sentry_backend is not None:
-            self._sentry_backend.shutdown()
-            self._sentry_backend = None
+            try:
+                self._sentry_backend.shutdown()
+            except Exception as e:
+                logger.warning("Sentry backend shutdown failed: %s", e)
+            finally:
+                self._sentry_backend = None
 
         if self._otel_backend is not None:
-            self._otel_backend.shutdown()
-            self._otel_backend = None
+            try:
+                self._otel_backend.shutdown()
+            except Exception as e:
+                logger.warning("OTEL backend shutdown failed: %s", e)
+            finally:
+                self._otel_backend = None
 
         self._initialized = False
         self._config = None

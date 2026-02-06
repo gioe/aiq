@@ -378,11 +378,7 @@ class TestBackendIsolation:
         mock_otel_span.set_attribute.assert_called_once_with("key", "value")
 
     def test_independent_backend_shutdown(self) -> None:
-        """Test OTEL shutdown is attempted even if Sentry shutdown fails first.
-
-        Note: The facade.shutdown() will raise if a backend raises, but we verify
-        that the other backend's shutdown was still called before the exception.
-        """
+        """Test backends are shut down independently - one failure doesn't prevent the other."""
         facade = ObservabilityFacade()
         facade._initialized = True
 
@@ -393,18 +389,17 @@ class TestBackendIsolation:
         facade._sentry_backend = mock_sentry_backend
         facade._otel_backend = mock_otel_backend
 
-        # Sentry shutdown will raise, but we can check if OTEL was called before or after
-        # Looking at the facade code, Sentry is shut down first, so OTEL won't be reached
-        # if Sentry raises. This test verifies the current behavior (not isolation).
-        # If isolation is needed, the facade code should be updated to catch exceptions.
-        try:
-            facade.shutdown()
-        except RuntimeError:
-            pass  # Expected - Sentry raises
+        # Shutdown should complete even if Sentry fails - OTEL still gets shut down
+        facade.shutdown()
 
-        # Sentry was called (and raised)
+        # Both backends should have been attempted
         mock_sentry_backend.shutdown.assert_called_once()
-        # Note: With current impl, OTEL may not be called if Sentry raises first
+        mock_otel_backend.shutdown.assert_called_once()
+
+        # State should be properly cleaned up
+        assert facade.is_initialized is False
+        assert facade._sentry_backend is None
+        assert facade._otel_backend is None
 
 
 class TestRealisticWorkflows:
