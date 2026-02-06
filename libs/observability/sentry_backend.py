@@ -24,10 +24,20 @@ class SentryBackend:
         self._initialized = False
 
     def init(self) -> bool:
-        """Initialize the Sentry SDK.
+        """Initialize the Sentry SDK with FastAPI/Starlette integrations.
+
+        Configures Sentry with the following integrations when available:
+        - LoggingIntegration (always included)
+        - FastApiIntegration with transaction_style="endpoint"
+        - StarletteIntegration with transaction_style="endpoint"
+        - OpenTelemetryIntegration (if OTEL SDK is installed)
 
         Returns:
-            True if Sentry was initialized successfully, False otherwise.
+            True if Sentry was initialized successfully (SDK configured and ready).
+            False if initialization was skipped (disabled/no DSN) or failed (exception).
+
+        Note:
+            Does not raise exceptions - failures are logged and return False.
         """
         if not self._config.enabled or not self._config.dsn:
             logger.debug("Sentry initialization skipped (disabled or DSN not configured)")
@@ -67,10 +77,14 @@ class SentryBackend:
                 from sentry_sdk.integrations.opentelemetry import OpenTelemetryIntegration
 
                 integrations.append(OpenTelemetryIntegration())
-            except (ImportError, Exception):
-                # Catches ImportError when sentry-sdk doesn't have OTEL support
-                # and DidNotEnable when opentelemetry SDK is not installed
+            except ImportError:
                 pass
+            except Exception as e:
+                # DidNotEnable is raised when opentelemetry SDK is not installed
+                if e.__class__.__name__ == "DidNotEnable":
+                    pass
+                else:
+                    logger.debug(f"OpenTelemetry integration unavailable: {e}")
 
             sentry_sdk.init(
                 dsn=self._config.dsn,

@@ -114,6 +114,48 @@ class TestSentryBackendInit:
 
     @requires_sentry_sdk
     @mock.patch("sentry_sdk.init")
+    def test_fastapi_integration_uses_endpoint_transaction_style(
+        self, mock_init: mock.MagicMock
+    ) -> None:
+        """Test FastAPI integration configured with transaction_style='endpoint'."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend.init()
+
+        mock_init.assert_called_once()
+        call_kwargs = mock_init.call_args[1]
+        integrations = call_kwargs["integrations"]
+
+        # Find FastAPI integration and check transaction_style
+        fastapi_integration = next(
+            (i for i in integrations if type(i).__name__ == "FastApiIntegration"), None
+        )
+        assert fastapi_integration is not None
+        assert fastapi_integration.transaction_style == "endpoint"
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_starlette_integration_uses_endpoint_transaction_style(
+        self, mock_init: mock.MagicMock
+    ) -> None:
+        """Test Starlette integration configured with transaction_style='endpoint'."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend.init()
+
+        mock_init.assert_called_once()
+        call_kwargs = mock_init.call_args[1]
+        integrations = call_kwargs["integrations"]
+
+        # Find Starlette integration and check transaction_style
+        starlette_integration = next(
+            (i for i in integrations if type(i).__name__ == "StarletteIntegration"), None
+        )
+        assert starlette_integration is not None
+        assert starlette_integration.transaction_style == "endpoint"
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
     def test_init_logs_success(self, mock_init: mock.MagicMock) -> None:
         """Test init() logs INFO message on successful initialization."""
         config = SentryConfig(
