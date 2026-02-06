@@ -26,17 +26,19 @@ class TestSentryBackendInit:
     """Tests for Sentry backend initialization."""
 
     def test_disabled_backend_does_not_init(self) -> None:
-        """Test disabled backend skips SDK initialization."""
+        """Test disabled backend skips SDK initialization and returns False."""
         config = SentryConfig(enabled=False, dsn="https://test@sentry.io/123")
         backend = SentryBackend(config)
-        backend.init()
+        result = backend.init()
+        assert result is False
         assert backend._initialized is False
 
     def test_no_dsn_does_not_init(self) -> None:
-        """Test backend without DSN skips initialization."""
+        """Test backend without DSN skips initialization and returns False."""
         config = SentryConfig(enabled=True, dsn=None)
         backend = SentryBackend(config)
-        backend.init()
+        result = backend.init()
+        assert result is False
         assert backend._initialized is False
 
     @requires_sentry_sdk
@@ -53,7 +55,7 @@ class TestSentryBackendInit:
             send_default_pii=True,
         )
         backend = SentryBackend(config)
-        backend.init()
+        result = backend.init()
 
         mock_init.assert_called_once()
         call_kwargs = mock_init.call_args[1]
@@ -63,7 +65,137 @@ class TestSentryBackendInit:
         assert call_kwargs["traces_sample_rate"] == 0.5
         assert call_kwargs["profiles_sample_rate"] == 0.1
         assert call_kwargs["send_default_pii"] is True
+        assert result is True
         assert backend._initialized is True
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_init_returns_true_on_success(self, mock_init: mock.MagicMock) -> None:
+        """Test init() returns True on successful initialization."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        result = backend.init()
+
+        assert result is True
+        assert backend._initialized is True
+        mock_init.assert_called_once()
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_init_includes_fastapi_integration(self, mock_init: mock.MagicMock) -> None:
+        """Test init() includes FastAPI integration when available."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend.init()
+
+        mock_init.assert_called_once()
+        call_kwargs = mock_init.call_args[1]
+        integrations = call_kwargs["integrations"]
+
+        # Check that FastApiIntegration is in the list
+        integration_types = [type(i).__name__ for i in integrations]
+        assert "FastApiIntegration" in integration_types
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_init_includes_starlette_integration(self, mock_init: mock.MagicMock) -> None:
+        """Test init() includes Starlette integration when available."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend.init()
+
+        mock_init.assert_called_once()
+        call_kwargs = mock_init.call_args[1]
+        integrations = call_kwargs["integrations"]
+
+        # Check that StarletteIntegration is in the list
+        integration_types = [type(i).__name__ for i in integrations]
+        assert "StarletteIntegration" in integration_types
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_fastapi_integration_uses_endpoint_transaction_style(
+        self, mock_init: mock.MagicMock
+    ) -> None:
+        """Test FastAPI integration configured with transaction_style='endpoint'."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend.init()
+
+        mock_init.assert_called_once()
+        call_kwargs = mock_init.call_args[1]
+        integrations = call_kwargs["integrations"]
+
+        # Find FastAPI integration and check transaction_style
+        fastapi_integration = next(
+            (i for i in integrations if type(i).__name__ == "FastApiIntegration"), None
+        )
+        assert fastapi_integration is not None
+        assert fastapi_integration.transaction_style == "endpoint"
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_starlette_integration_uses_endpoint_transaction_style(
+        self, mock_init: mock.MagicMock
+    ) -> None:
+        """Test Starlette integration configured with transaction_style='endpoint'."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend.init()
+
+        mock_init.assert_called_once()
+        call_kwargs = mock_init.call_args[1]
+        integrations = call_kwargs["integrations"]
+
+        # Find Starlette integration and check transaction_style
+        starlette_integration = next(
+            (i for i in integrations if type(i).__name__ == "StarletteIntegration"), None
+        )
+        assert starlette_integration is not None
+        assert starlette_integration.transaction_style == "endpoint"
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_init_logs_success(self, mock_init: mock.MagicMock) -> None:
+        """Test init() logs INFO message on successful initialization."""
+        config = SentryConfig(
+            enabled=True,
+            dsn="https://test@sentry.io/123",
+            environment="production",
+            traces_sample_rate=0.5,
+        )
+        backend = SentryBackend(config)
+
+        with mock.patch("libs.observability.sentry_backend.logger") as mock_logger:
+            backend.init()
+            mock_logger.info.assert_called_once()
+            log_message = mock_logger.info.call_args[0][0]
+            assert "production" in log_message
+            assert "50%" in log_message
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.init")
+    def test_init_returns_false_on_error(self, mock_init: mock.MagicMock) -> None:
+        """Test init() returns False and logs error when initialization fails."""
+        mock_init.side_effect = RuntimeError("SDK init failed")
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+
+        with mock.patch("libs.observability.sentry_backend.logger") as mock_logger:
+            result = backend.init()
+
+            assert result is False
+            assert backend._initialized is False
+            mock_logger.error.assert_called_once()
+
+    def test_init_logs_debug_when_disabled(self) -> None:
+        """Test init() logs DEBUG message when disabled."""
+        config = SentryConfig(enabled=False, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+
+        with mock.patch("libs.observability.sentry_backend.logger") as mock_logger:
+            backend.init()
+            mock_logger.debug.assert_called_once()
 
 
 class TestSentryBackendCapture:
