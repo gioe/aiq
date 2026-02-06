@@ -264,16 +264,21 @@ if settings.enable_prometheus_metrics:
     # Clear FastAPI Instrumentator's default HTTP collectors to avoid duplicate
     # registration on module reload (common in test scenarios with importlib.reload).
     # These collectors are recreated by instrumentator.instrument() below.
-    collectors_to_remove = [
-        c
-        for c in list(REGISTRY._names_to_collectors.values())
-        if hasattr(c, "_name") and c._name.startswith(("http_requests", "http_request"))
-    ]
-    for collector in collectors_to_remove:
-        try:
-            REGISTRY.unregister(collector)
-        except (ValueError, KeyError) as e:
-            logger.debug(f"Failed to unregister Prometheus collector: {e}")
+    # Guard to test/dev only: REGISTRY._names_to_collectors is a private attribute
+    # that could change in future prometheus_client versions. In production with
+    # single-module-load, this cleanup is unnecessary (no reload occurs).
+    if settings.env in ("development", "test"):
+        collectors_to_remove = [
+            c
+            for c in list(REGISTRY._names_to_collectors.values())
+            if hasattr(c, "_name")
+            and c._name.startswith(("http_requests", "http_request"))
+        ]
+        for collector in collectors_to_remove:
+            try:
+                REGISTRY.unregister(collector)
+            except (ValueError, KeyError) as e:
+                logger.debug(f"Failed to unregister Prometheus collector: {e}")
 
     instrumentator = Instrumentator(
         excluded_handlers=["/health", "/metrics"],
