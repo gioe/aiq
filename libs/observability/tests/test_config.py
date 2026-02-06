@@ -511,33 +511,30 @@ class TestYAMLLoading:
 
     def test_load_yaml_import_error(self) -> None:
         """Test ImportError raised when PyYAML is not installed."""
+        import builtins
         import sys
 
-        # Save the original yaml module reference
-        yaml_module = sys.modules.get("yaml")
+        import libs.observability.config as config_module
+
+        # Save original import and remove yaml from sys.modules cache
+        original_import = builtins.__import__
+        yaml_module = sys.modules.pop("yaml", None)
+
+        def mock_import(name: str, *args, **kwargs):
+            if name == "yaml":
+                raise ImportError("No module named 'yaml'")
+            return original_import(name, *args, **kwargs)
 
         try:
-            # Remove yaml from sys.modules to simulate it not being installed
-            sys.modules["yaml"] = None  # type: ignore
-
-            # Reload the config module to trigger the import
-            import importlib
-
-            import libs.observability.config as config_module
-
-            # We need to call the function directly and have it try to import yaml
-            # Since the import happens inside the function, we mock the builtins
-            with mock.patch.dict(sys.modules, {"yaml": None}):
+            with mock.patch.object(builtins, "__import__", side_effect=mock_import):
                 with pytest.raises(ImportError) as exc_info:
                     config_module._load_yaml(Path("/nonexistent/path.yaml"))
 
                 assert "PyYAML is required" in str(exc_info.value)
         finally:
-            # Restore the original yaml module
+            # Restore yaml module to sys.modules cache
             if yaml_module is not None:
                 sys.modules["yaml"] = yaml_module
-            elif "yaml" in sys.modules:
-                del sys.modules["yaml"]
 
 
 class TestConfigFileMerging:
@@ -572,11 +569,12 @@ otel:
             assert config.otel.metrics_enabled is True
 
     def test_load_config_with_nonexistent_file(self) -> None:
-        """Test loading config with nonexistent file uses defaults only."""
+        """Test loading config with nonexistent file gracefully falls back to defaults."""
         with mock.patch.dict(
             os.environ,
             {"SENTRY_DSN": "https://test@sentry.io/123"},
         ):
+            # Should not raise an error when file doesn't exist
             config = load_config(config_path="/nonexistent/path/config.yaml")
 
             # Should still work with default config
