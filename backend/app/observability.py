@@ -29,6 +29,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Maximum expected test duration before warning (24 hours in seconds)
+MAX_EXPECTED_TEST_DURATION_SECONDS = 86400
+
 
 class ApplicationMetrics:
     """
@@ -300,6 +303,10 @@ class ApplicationMetrics:
         if not self._initialized or self._tests_started_counter is None:
             return
 
+        if question_count < 0:
+            logger.warning(f"Invalid question_count {question_count}, using 0")
+            question_count = 0
+
         try:
             attributes = {
                 "test.adaptive": str(adaptive).lower(),
@@ -326,6 +333,16 @@ class ApplicationMetrics:
         if not self._initialized or self._tests_completed_counter is None:
             return
 
+        if question_count < 0:
+            logger.warning(f"Invalid question_count {question_count}, using 0")
+            question_count = 0
+
+        if duration_seconds < 0:
+            logger.warning(f"Invalid duration_seconds {duration_seconds}, using 0")
+            duration_seconds = 0.0
+        elif duration_seconds > MAX_EXPECTED_TEST_DURATION_SECONDS:
+            logger.warning(f"Suspicious test duration {duration_seconds}s (> 24 hours)")
+
         try:
             attributes = {
                 "test.adaptive": str(adaptive).lower(),
@@ -349,6 +366,10 @@ class ApplicationMetrics:
         """
         if not self._initialized or self._tests_abandoned_counter is None:
             return
+
+        if questions_answered < 0:
+            logger.warning(f"Invalid questions_answered {questions_answered}, using 0")
+            questions_answered = 0
 
         try:
             attributes = {
@@ -376,6 +397,10 @@ class ApplicationMetrics:
         if not self._initialized or self._questions_generated_counter is None:
             return
 
+        if count <= 0:
+            logger.warning(f"Invalid questions generated count {count}, skipping")
+            return
+
         try:
             attributes = {
                 "question.type": question_type,
@@ -398,6 +423,10 @@ class ApplicationMetrics:
             adaptive: Whether these were served in an adaptive test
         """
         if not self._initialized or self._questions_served_counter is None:
+            return
+
+        if count <= 0:
+            logger.warning(f"Invalid questions served count {count}, skipping")
             return
 
         try:

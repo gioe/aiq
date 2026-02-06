@@ -64,10 +64,10 @@ async def prometheus_metrics() -> Response:
             content=metrics_text,
             media_type="text/plain; version=0.0.4",
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to generate Prometheus metrics")
         return Response(
-            content=f"# Error generating metrics: {e}\n",
+            content="# Error generating metrics\n",
             media_type="text/plain; version=0.0.4",
             status_code=HTTP_503_SERVICE_UNAVAILABLE,
         )

@@ -786,6 +786,66 @@ groups:
 - Use recording rules for expensive queries
 - Consider using remote storage for long-term retention
 
+## Metric Cardinality
+
+Cardinality refers to the number of unique time series created by a metric. High cardinality can cause performance issues with Prometheus storage and querying.
+
+### Current Cardinality Estimates
+
+| Metric | Labels | Estimated Cardinality |
+|--------|--------|----------------------|
+| `http_server_requests` | method (5) × route (~20) × status_code (5) | ~500 |
+| `http_server_request_duration` | method (5) × route (~20) × status_code (5) | ~500 |
+| `test_sessions_started` | adaptive (2) × question_count (~5) | ~10 |
+| `test_sessions_completed` | adaptive (2) × question_count (~5) | ~10 |
+| `test_sessions_abandoned` | adaptive (2) × questions_answered (~25) | ~50 |
+| `questions_generated` | type (~6) × difficulty (3) | ~18 |
+| `questions_served` | adaptive (2) | ~2 |
+| `app_errors` | type (~10) × route (~20) | ~200 |
+| `user_registrations` | (none) | 1 |
+
+**Total estimated cardinality**: ~1,300 series
+
+This is well within Prometheus's comfortable operating range (< 100K series for a single instance).
+
+### Cardinality Best Practices
+
+1. **Avoid high-cardinality labels**: Never use user IDs, session IDs, request IDs, or timestamps as label values
+2. **Bound label cardinality**: Ensure labels have a finite, predictable set of values
+3. **Use histograms over summaries**: Histograms are more aggregation-friendly
+4. **Monitor your cardinality**: Use `prometheus_tsdb_head_series` to track series count
+
+### Adding New Metrics
+
+When adding new metrics, consider:
+
+```yaml
+# Good: Bounded cardinality
+question.type: ["pattern", "logic", "verbal", "spatial", "memory", "arithmetic"]
+question.difficulty: ["easy", "medium", "hard"]
+
+# Bad: Unbounded cardinality (DO NOT USE)
+user.id: "uuid-..."        # Unique per user
+session.id: "uuid-..."     # Unique per session
+timestamp: "2024-..."      # Continuous values
+```
+
+### Multi-Worker Considerations
+
+The `test_sessions_active` gauge tracks sessions using delta calculations. In multi-worker deployments (e.g., Gunicorn with multiple workers):
+
+- Each worker maintains its own internal counter
+- Process restarts reset the internal counter, causing drift
+- For accurate active session counts, query the database directly:
+
+```promql
+# This may be inaccurate in multi-worker deployments
+test_sessions_active
+
+# Alternative: Use an external query or custom exporter
+# that queries the database for active session count
+```
+
 ## Further Reading
 
 - [Prometheus Documentation](https://prometheus.io/docs/)
