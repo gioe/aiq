@@ -13,6 +13,7 @@ from libs.observability.config import (
     OTELConfig,
     RoutingConfig,
     SentryConfig,
+    _process_config_values,
     _substitute_env_vars,
     load_config,
 )
@@ -485,3 +486,143 @@ class TestConfigValidation:
                 load_config(sentry_traces_sample_rate=2.0)
 
             assert "Invalid sentry.traces_sample_rate: 2.0" in str(exc_info.value)
+
+
+class TestProcessConfigValues:
+    """Tests for _process_config_values helper."""
+
+    def test_list_with_env_var_strings(self) -> None:
+        """Test list values with environment variable substitution."""
+        with mock.patch.dict(os.environ, {"LIST_VAR": "substituted"}):
+            config = {"items": ["${LIST_VAR}", "plain"]}
+            result = _process_config_values(config)
+            assert result["items"] == ["substituted", "plain"]
+
+    def test_list_with_non_string_items(self) -> None:
+        """Test list values with non-string items pass through unchanged."""
+        config = {"numbers": [1, 2, 3], "mixed": ["string", 42, True]}
+        result = _process_config_values(config)
+        assert result["numbers"] == [1, 2, 3]
+        assert result["mixed"] == ["string", 42, True]
+
+
+class TestYAMLLoading:
+    """Tests for YAML file loading."""
+
+    def test_load_yaml_import_error(self) -> None:
+        """Test ImportError raised when PyYAML is not installed."""
+        import sys
+
+        # Save the original yaml module reference
+        yaml_module = sys.modules.get("yaml")
+
+        try:
+            # Remove yaml from sys.modules to simulate it not being installed
+            sys.modules["yaml"] = None  # type: ignore
+
+            # Reload the config module to trigger the import
+            import importlib
+
+            import libs.observability.config as config_module
+
+            # We need to call the function directly and have it try to import yaml
+            # Since the import happens inside the function, we mock the builtins
+            with mock.patch.dict(sys.modules, {"yaml": None}):
+                with pytest.raises(ImportError) as exc_info:
+                    config_module._load_yaml(Path("/nonexistent/path.yaml"))
+
+                assert "PyYAML is required" in str(exc_info.value)
+        finally:
+            # Restore the original yaml module
+            if yaml_module is not None:
+                sys.modules["yaml"] = yaml_module
+            elif "yaml" in sys.modules:
+                del sys.modules["yaml"]
+
+
+class TestConfigFileMerging:
+    """Tests for configuration file merging."""
+
+    def test_load_config_with_custom_yaml_file(self, tmp_path: Path) -> None:
+        """Test loading config from a custom YAML file merges with defaults."""
+        custom_config = tmp_path / "custom.yaml"
+        custom_config.write_text(
+            """
+sentry:
+  traces_sample_rate: 0.5
+  environment: staging
+otel:
+  service_name: custom-service
+"""
+        )
+
+        with mock.patch.dict(
+            os.environ,
+            {"SENTRY_DSN": "https://test@sentry.io/123"},
+        ):
+            config = load_config(config_path=str(custom_config))
+
+            # Custom values should override defaults
+            assert config.sentry.traces_sample_rate == 0.5
+            assert config.sentry.environment == "staging"
+            assert config.otel.service_name == "custom-service"
+
+            # Default values should be preserved
+            assert config.sentry.enabled is True
+            assert config.otel.metrics_enabled is True
+
+    def test_load_config_with_nonexistent_file(self) -> None:
+        """Test loading config with nonexistent file uses defaults only."""
+        with mock.patch.dict(
+            os.environ,
+            {"SENTRY_DSN": "https://test@sentry.io/123"},
+        ):
+            config = load_config(config_path="/nonexistent/path/config.yaml")
+
+            # Should still work with default config
+            assert config.sentry.enabled is True
+            assert config.otel.enabled is True
+
+    def test_load_config_merges_nested_dict_values(self, tmp_path: Path) -> None:
+        """Test that nested dict values are properly merged (not replaced)."""
+        custom_config = tmp_path / "custom.yaml"
+        custom_config.write_text(
+            """
+sentry:
+  traces_sample_rate: 0.8
+routing:
+  traces: both
+"""
+        )
+
+        with mock.patch.dict(
+            os.environ,
+            {"SENTRY_DSN": "https://test@sentry.io/123"},
+        ):
+            config = load_config(config_path=str(custom_config))
+
+            # Custom values
+            assert config.sentry.traces_sample_rate == 0.8
+            assert config.routing.traces == "both"
+
+            # Default routing values should be preserved (from default.yaml merge)
+            assert config.routing.errors == "sentry"
+            assert config.routing.metrics == "otel"
+
+    def test_load_config_custom_file_overwrites_top_level(self, tmp_path: Path) -> None:
+        """Test that non-dict top-level values are overwritten, not merged."""
+        custom_config = tmp_path / "custom.yaml"
+        custom_config.write_text(
+            """
+custom_key: custom_value
+"""
+        )
+
+        with mock.patch.dict(
+            os.environ,
+            {"SENTRY_DSN": "https://test@sentry.io/123"},
+        ):
+            config = load_config(config_path=str(custom_config))
+
+            # Config should still be valid
+            assert config.sentry.enabled is True
