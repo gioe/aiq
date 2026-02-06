@@ -450,6 +450,206 @@ class TestOTELBackendTracing:
         with backend.start_span("test") as span:
             assert span is None
 
+    def test_start_span_with_tracer(self) -> None:
+        """Test start_span yields span object when tracer is configured."""
+        config = OTELConfig(enabled=True, traces_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+
+        mock_span = mock.MagicMock()
+        mock_tracer = mock.MagicMock()
+        mock_tracer.start_as_current_span.return_value.__enter__ = mock.MagicMock(
+            return_value=mock_span
+        )
+        mock_tracer.start_as_current_span.return_value.__exit__ = mock.MagicMock(
+            return_value=False
+        )
+        backend._tracer = mock_tracer
+
+        with backend.start_span("test_operation") as span:
+            assert span is mock_span
+
+    def test_start_span_with_attributes(self) -> None:
+        """Test start_span passes attributes to tracer."""
+        config = OTELConfig(enabled=True, traces_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+
+        mock_span = mock.MagicMock()
+        mock_tracer = mock.MagicMock()
+        mock_tracer.start_as_current_span.return_value.__enter__ = mock.MagicMock(
+            return_value=mock_span
+        )
+        mock_tracer.start_as_current_span.return_value.__exit__ = mock.MagicMock(
+            return_value=False
+        )
+        backend._tracer = mock_tracer
+
+        with backend.start_span("test_operation", attributes={"key": "value", "count": 42}):
+            pass
+
+        mock_tracer.start_as_current_span.assert_called_once()
+        call_kwargs = mock_tracer.start_as_current_span.call_args[1]
+        assert call_kwargs["attributes"] == {"key": "value", "count": 42}
+
+    def test_start_span_internal_kind(self) -> None:
+        """Test start_span with internal kind."""
+        config = OTELConfig(enabled=True, traces_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+
+        mock_span = mock.MagicMock()
+        mock_tracer = mock.MagicMock()
+        mock_tracer.start_as_current_span.return_value.__enter__ = mock.MagicMock(
+            return_value=mock_span
+        )
+        mock_tracer.start_as_current_span.return_value.__exit__ = mock.MagicMock(
+            return_value=False
+        )
+        backend._tracer = mock_tracer
+
+        with backend.start_span("test_operation", kind="internal"):
+            pass
+
+        mock_tracer.start_as_current_span.assert_called_once()
+        call_args = mock_tracer.start_as_current_span.call_args
+        # kind should be mapped to SpanKind.INTERNAL
+        assert "kind" in call_args[1]
+
+    def test_start_span_server_kind(self) -> None:
+        """Test start_span with server kind."""
+        config = OTELConfig(enabled=True, traces_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+
+        mock_span = mock.MagicMock()
+        mock_tracer = mock.MagicMock()
+        mock_tracer.start_as_current_span.return_value.__enter__ = mock.MagicMock(
+            return_value=mock_span
+        )
+        mock_tracer.start_as_current_span.return_value.__exit__ = mock.MagicMock(
+            return_value=False
+        )
+        backend._tracer = mock_tracer
+
+        with backend.start_span("handle_request", kind="server"):
+            pass
+
+        mock_tracer.start_as_current_span.assert_called_once()
+
+    def test_start_span_client_kind(self) -> None:
+        """Test start_span with client kind."""
+        config = OTELConfig(enabled=True, traces_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+
+        mock_span = mock.MagicMock()
+        mock_tracer = mock.MagicMock()
+        mock_tracer.start_as_current_span.return_value.__enter__ = mock.MagicMock(
+            return_value=mock_span
+        )
+        mock_tracer.start_as_current_span.return_value.__exit__ = mock.MagicMock(
+            return_value=False
+        )
+        backend._tracer = mock_tracer
+
+        with backend.start_span("api_call", kind="client"):
+            pass
+
+        mock_tracer.start_as_current_span.assert_called_once()
+
+    def test_start_span_producer_kind(self) -> None:
+        """Test start_span with producer kind."""
+        config = OTELConfig(enabled=True, traces_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+
+        mock_span = mock.MagicMock()
+        mock_tracer = mock.MagicMock()
+        mock_tracer.start_as_current_span.return_value.__enter__ = mock.MagicMock(
+            return_value=mock_span
+        )
+        mock_tracer.start_as_current_span.return_value.__exit__ = mock.MagicMock(
+            return_value=False
+        )
+        backend._tracer = mock_tracer
+
+        with backend.start_span("publish_message", kind="producer"):
+            pass
+
+        mock_tracer.start_as_current_span.assert_called_once()
+
+    def test_start_span_consumer_kind(self) -> None:
+        """Test start_span with consumer kind."""
+        config = OTELConfig(enabled=True, traces_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+
+        mock_span = mock.MagicMock()
+        mock_tracer = mock.MagicMock()
+        mock_tracer.start_as_current_span.return_value.__enter__ = mock.MagicMock(
+            return_value=mock_span
+        )
+        mock_tracer.start_as_current_span.return_value.__exit__ = mock.MagicMock(
+            return_value=False
+        )
+        backend._tracer = mock_tracer
+
+        with backend.start_span("process_message", kind="consumer"):
+            pass
+
+        mock_tracer.start_as_current_span.assert_called_once()
+
+    @requires_otel_sdk
+    def test_start_span_with_real_tracer(self) -> None:
+        """Test start_span with a real OTEL tracer (console exporter)."""
+        config = OTELConfig(
+            enabled=True,
+            exporter="console",
+            traces_enabled=True,
+            metrics_enabled=False,
+            logs_enabled=False,
+        )
+        backend = OTELBackend(config)
+        result = backend.init()
+
+        assert result is True
+        assert backend._tracer is not None
+
+        # Create a span and verify it works
+        with backend.start_span("test_operation", attributes={"test_key": "test_value"}) as span:
+            assert span is not None
+            span.set_attribute("another_key", "another_value")
+            span.add_event("test_event", {"event_attr": "event_value"})
+
+        backend.shutdown()
+
+    @requires_otel_sdk
+    def test_nested_spans_with_real_tracer(self) -> None:
+        """Test nested spans with a real OTEL tracer."""
+        config = OTELConfig(
+            enabled=True,
+            exporter="console",
+            traces_enabled=True,
+            metrics_enabled=False,
+            logs_enabled=False,
+        )
+        backend = OTELBackend(config)
+        result = backend.init()
+
+        assert result is True
+
+        # Create nested spans
+        with backend.start_span("outer_span") as outer:
+            assert outer is not None
+            outer.set_attribute("level", "outer")
+
+            with backend.start_span("inner_span") as inner:
+                assert inner is not None
+                inner.set_attribute("level", "inner")
+
+        backend.shutdown()
+
 
 class TestOTELBackendLifecycle:
     """Tests for OTEL backend lifecycle methods."""

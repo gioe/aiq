@@ -149,6 +149,27 @@ class SpanContext:
         if self._otel_span is not None:
             self._otel_span.record_exception(exception)
 
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
+        """Add an event to the span.
+
+        Events are time-stamped annotations that can include attributes.
+        Use them to record significant occurrences during the span's lifetime.
+
+        Args:
+            name: The event name (e.g., "cache_hit", "retry_attempt").
+            attributes: Optional attributes to attach to the event.
+
+        Example:
+            with observability.start_span("process_request") as span:
+                if cache.has(key):
+                    span.add_event("cache_hit", {"key": key})
+                else:
+                    span.add_event("cache_miss", {"key": key})
+                    result = compute(key)
+        """
+        if self._otel_span is not None:
+            self._otel_span.add_event(name, attributes=attributes)
+
     def __enter__(self) -> SpanContext:
         """Enter the span context."""
         return self
