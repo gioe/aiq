@@ -8,12 +8,97 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Iterator
+from uuid import UUID
 
 if TYPE_CHECKING:
     from libs.observability.config import SentryConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _serialize_value(value: Any, _seen: set[int] | None = None) -> Any:
+    """Serialize a value to a JSON-compatible type.
+
+    Handles common non-JSON types like datetime, UUID, and objects with
+    __dict__ attribute. Falls back to str() for unknown types.
+
+    Note:
+        Circular references are detected and replaced with a placeholder string.
+        This prevents infinite recursion when serializing self-referential structures.
+
+    Args:
+        value: The value to serialize.
+        _seen: Internal tracking set for circular reference detection.
+
+    Returns:
+        A JSON-serializable value.
+    """
+    # Initialize seen set for circular reference detection
+    if _seen is None:
+        _seen = set()
+
+    # Primitive types are always safe
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+
+    if isinstance(value, UUID):
+        return str(value)
+
+    if isinstance(value, bytes):
+        try:
+            return value.decode("utf-8")
+        except UnicodeDecodeError:
+            return f"<bytes: {len(value)} bytes>"
+
+    # Check for circular references in container types
+    value_id = id(value)
+    if value_id in _seen:
+        return f"<circular reference: {type(value).__name__}>"
+    _seen.add(value_id)
+
+    if isinstance(value, dict):
+        return {k: _serialize_value(v, _seen) for k, v in value.items()}
+
+    if isinstance(value, (list, tuple)):
+        return [_serialize_value(item, _seen) for item in value]
+
+    if isinstance(value, set):
+        return [_serialize_value(item, _seen) for item in sorted(value, key=str)]
+
+    # Try to use __dict__ for custom objects
+    if hasattr(value, "__dict__"):
+        try:
+            return {
+                k: _serialize_value(v, _seen)
+                for k, v in value.__dict__.items()
+                if not k.startswith("_")
+            }
+        except Exception:
+            pass
+
+    # Fallback to string representation
+    try:
+        return str(value)
+    except Exception:
+        return f"<unserializable: {type(value).__name__}>"
+
+
+def _serialize_context(context: dict[str, Any]) -> dict[str, Any]:
+    """Serialize context dict to ensure all values are JSON-compatible.
+
+    Args:
+        context: The context dictionary to serialize.
+
+    Returns:
+        A new dictionary with all values serialized to JSON-compatible types.
+    """
+    seen: set[int] = set()
+    return {key: _serialize_value(value, seen) for key, value in context.items()}
 
 
 class SentryBackend:
@@ -120,8 +205,22 @@ class SentryBackend:
     ) -> str | None:
         """Capture an exception and send to Sentry.
 
+        Captures the exception with full stack trace and any additional context.
+        Non-JSON-serializable values in context are automatically converted to
+        string representations.
+
+        Args:
+            exception: The exception to capture.
+            context: Additional context data to attach. Values are automatically
+                serialized (datetime -> ISO string, UUID -> string, etc.).
+            level: Error severity level. One of "debug", "info", "warning",
+                "error", or "fatal". Defaults to "error".
+            user: User information dict with keys like "id", "email", "username".
+            tags: Tags for categorization and filtering in Sentry.
+            fingerprint: Custom grouping fingerprint to override automatic grouping.
+
         Returns:
-            Event ID if captured.
+            Event ID if captured, None if not initialized.
         """
         if not self._initialized:
             return None
@@ -130,7 +229,9 @@ class SentryBackend:
 
         with sentry_sdk.push_scope() as scope:
             if context:
-                scope.set_context("additional", context)
+                # Serialize context to handle non-JSON types
+                serialized_context = _serialize_context(context)
+                scope.set_context("additional", serialized_context)
             if user:
                 scope.set_user(user)
             if tags:
@@ -152,8 +253,14 @@ class SentryBackend:
     ) -> str | None:
         """Capture a message and send to Sentry.
 
+        Args:
+            message: The message to capture.
+            level: Message severity level. Defaults to "info".
+            context: Additional context data to attach.
+            tags: Tags for categorization and filtering.
+
         Returns:
-            Event ID if captured.
+            Event ID if captured, None if not initialized.
         """
         if not self._initialized:
             return None
@@ -162,7 +269,9 @@ class SentryBackend:
 
         with sentry_sdk.push_scope() as scope:
             if context:
-                scope.set_context("additional", context)
+                # Serialize context to handle non-JSON types
+                serialized_context = _serialize_context(context)
+                scope.set_context("additional", serialized_context)
             if tags:
                 for key, value in tags.items():
                     scope.set_tag(key, value)
@@ -216,13 +325,20 @@ class SentryBackend:
         sentry_sdk.set_tag(key, value)
 
     def set_context(self, name: str, context: dict[str, Any]) -> None:
-        """Set a context block on the current scope."""
+        """Set a context block on the current scope.
+
+        Args:
+            name: Context block name.
+            context: Context data. Non-JSON types are automatically serialized.
+        """
         if not self._initialized:
             return
 
         import sentry_sdk
 
-        sentry_sdk.set_context(name, context)
+        # Serialize context to handle non-JSON types
+        serialized_context = _serialize_context(context)
+        sentry_sdk.set_context(name, serialized_context)
 
     def flush(self, timeout: float = 2.0) -> None:
         """Flush pending events."""

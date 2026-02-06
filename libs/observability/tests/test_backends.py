@@ -1,6 +1,7 @@
 """Tests for backend implementations."""
 
 import sys
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -502,3 +503,318 @@ class TestOTELBackendLifecycle:
         with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
             backend.shutdown()
             mock_logger.warning.assert_called()
+
+
+class TestContextSerialization:
+    """Tests for context serialization in Sentry backend."""
+
+    def test_serialize_value_primitives(self) -> None:
+        """Test serialization of primitive types."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        assert _serialize_value(None) is None
+        assert _serialize_value(True) is True
+        assert _serialize_value(42) == 42
+        assert _serialize_value(3.14) == 3.14
+        assert _serialize_value("hello") == "hello"
+
+    def test_serialize_value_datetime(self) -> None:
+        """Test serialization of datetime objects."""
+        from datetime import date, datetime
+
+        from libs.observability.sentry_backend import _serialize_value
+
+        dt = datetime(2024, 1, 15, 10, 30, 0)
+        assert _serialize_value(dt) == "2024-01-15T10:30:00"
+
+        d = date(2024, 1, 15)
+        assert _serialize_value(d) == "2024-01-15"
+
+    def test_serialize_value_uuid(self) -> None:
+        """Test serialization of UUID objects."""
+        from uuid import UUID
+
+        from libs.observability.sentry_backend import _serialize_value
+
+        uuid = UUID("12345678-1234-5678-1234-567812345678")
+        assert _serialize_value(uuid) == "12345678-1234-5678-1234-567812345678"
+
+    def test_serialize_value_bytes(self) -> None:
+        """Test serialization of bytes."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        # UTF-8 decodable bytes
+        assert _serialize_value(b"hello") == "hello"
+
+        # Non-UTF-8 bytes
+        result = _serialize_value(b"\xff\xfe")
+        assert "<bytes:" in result
+
+    def test_serialize_value_nested_dict(self) -> None:
+        """Test serialization of nested dictionaries."""
+        from datetime import datetime
+        from uuid import UUID
+
+        from libs.observability.sentry_backend import _serialize_value
+
+        nested = {
+            "user_id": UUID("12345678-1234-5678-1234-567812345678"),
+            "timestamp": datetime(2024, 1, 15, 10, 30, 0),
+            "metadata": {
+                "nested_uuid": UUID("87654321-4321-8765-4321-876543218765"),
+            },
+        }
+        result = _serialize_value(nested)
+
+        assert result["user_id"] == "12345678-1234-5678-1234-567812345678"
+        assert result["timestamp"] == "2024-01-15T10:30:00"
+        assert result["metadata"]["nested_uuid"] == "87654321-4321-8765-4321-876543218765"
+
+    def test_serialize_value_list(self) -> None:
+        """Test serialization of lists."""
+        from uuid import UUID
+
+        from libs.observability.sentry_backend import _serialize_value
+
+        items = [UUID("12345678-1234-5678-1234-567812345678"), "hello", 42]
+        result = _serialize_value(items)
+
+        assert result == ["12345678-1234-5678-1234-567812345678", "hello", 42]
+
+    def test_serialize_value_set(self) -> None:
+        """Test serialization of sets (converted to sorted list)."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        items = {3, 1, 2}
+        result = _serialize_value(items)
+
+        assert result == [1, 2, 3]
+
+    def test_serialize_value_custom_object(self) -> None:
+        """Test serialization of custom objects with __dict__."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        class CustomObj:
+            def __init__(self) -> None:
+                self.name = "test"
+                self.value = 42
+                self._private = "hidden"
+
+        obj = CustomObj()
+        result = _serialize_value(obj)
+
+        assert result == {"name": "test", "value": 42}
+        assert "_private" not in result
+
+    def test_serialize_context(self) -> None:
+        """Test full context serialization."""
+        from datetime import datetime
+        from uuid import UUID
+
+        from libs.observability.sentry_backend import _serialize_context
+
+        context = {
+            "request_id": UUID("12345678-1234-5678-1234-567812345678"),
+            "timestamp": datetime(2024, 1, 15, 10, 30, 0),
+            "user_id": "user-123",
+            "count": 5,
+        }
+        result = _serialize_context(context)
+
+        assert result == {
+            "request_id": "12345678-1234-5678-1234-567812345678",
+            "timestamp": "2024-01-15T10:30:00",
+            "user_id": "user-123",
+            "count": 5,
+        }
+
+    def test_serialize_value_circular_reference_dict(self) -> None:
+        """Test serialization handles circular reference in dict."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        d: dict[str, Any] = {"name": "test"}
+        d["self"] = d  # Create circular reference
+
+        result = _serialize_value(d)
+
+        assert result["name"] == "test"
+        assert result["self"] == "<circular reference: dict>"
+
+    def test_serialize_value_circular_reference_list(self) -> None:
+        """Test serialization handles circular reference in list."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        lst: list[Any] = [1, 2, 3]
+        lst.append(lst)  # Create circular reference
+
+        result = _serialize_value(lst)
+
+        assert result[0] == 1
+        assert result[1] == 2
+        assert result[2] == 3
+        assert result[3] == "<circular reference: list>"
+
+    def test_serialize_value_indirect_circular_reference(self) -> None:
+        """Test serialization handles indirect circular references."""
+        from libs.observability.sentry_backend import _serialize_value
+
+        a: dict[str, Any] = {"name": "a"}
+        b: dict[str, Any] = {"name": "b"}
+        a["child"] = b
+        b["parent"] = a  # Creates indirect circular reference
+
+        result = _serialize_value(a)
+
+        assert result["name"] == "a"
+        assert result["child"]["name"] == "b"
+        assert result["child"]["parent"] == "<circular reference: dict>"
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.capture_exception")
+    @mock.patch("sentry_sdk.push_scope")
+    def test_capture_error_serializes_context(
+        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+    ) -> None:
+        """Test capture_error serializes non-JSON types in context."""
+        from datetime import datetime
+        from uuid import UUID
+
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend._initialized = True
+
+        mock_scope = mock.MagicMock()
+        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_capture.return_value = "event-id"
+
+        exc = ValueError("test")
+        context = {
+            "request_id": UUID("12345678-1234-5678-1234-567812345678"),
+            "timestamp": datetime(2024, 1, 15, 10, 30, 0),
+        }
+        backend.capture_error(exc, context=context)
+
+        # Verify context was serialized
+        mock_scope.set_context.assert_called_once()
+        call_args = mock_scope.set_context.call_args
+        assert call_args[0][0] == "additional"
+        serialized_context = call_args[0][1]
+        assert serialized_context["request_id"] == "12345678-1234-5678-1234-567812345678"
+        assert serialized_context["timestamp"] == "2024-01-15T10:30:00"
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.set_context")
+    def test_set_context_serializes_values(self, mock_set_context: mock.MagicMock) -> None:
+        """Test set_context serializes non-JSON types."""
+        from datetime import datetime
+
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend._initialized = True
+
+        backend.set_context("request", {"timestamp": datetime(2024, 1, 15, 10, 30, 0)})
+
+        mock_set_context.assert_called_once_with("request", {"timestamp": "2024-01-15T10:30:00"})
+
+
+class TestCaptureErrorLevels:
+    """Tests for error level handling in capture_error."""
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.capture_exception")
+    @mock.patch("sentry_sdk.push_scope")
+    def test_capture_error_with_fatal_level(
+        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+    ) -> None:
+        """Test capture_error with fatal level."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend._initialized = True
+
+        mock_scope = mock.MagicMock()
+        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+
+        backend.capture_error(ValueError("test"), level="fatal")
+        assert mock_scope.level == "fatal"
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.capture_exception")
+    @mock.patch("sentry_sdk.push_scope")
+    def test_capture_error_with_info_level(
+        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+    ) -> None:
+        """Test capture_error with info level."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend._initialized = True
+
+        mock_scope = mock.MagicMock()
+        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+
+        backend.capture_error(ValueError("test"), level="info")
+        assert mock_scope.level == "info"
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.capture_exception")
+    @mock.patch("sentry_sdk.push_scope")
+    def test_capture_error_default_level_is_error(
+        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+    ) -> None:
+        """Test capture_error uses 'error' level by default."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend._initialized = True
+
+        mock_scope = mock.MagicMock()
+        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+
+        backend.capture_error(ValueError("test"))
+        assert mock_scope.level == "error"
+
+
+class TestCaptureErrorFingerprinting:
+    """Tests for custom fingerprinting in capture_error."""
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.capture_exception")
+    @mock.patch("sentry_sdk.push_scope")
+    def test_capture_error_with_custom_fingerprint(
+        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+    ) -> None:
+        """Test capture_error with custom fingerprint for grouping."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend._initialized = True
+
+        mock_scope = mock.MagicMock()
+        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+
+        backend.capture_error(
+            ValueError("test"),
+            fingerprint=["{{ default }}", "payment-error", "user-123"],
+        )
+        assert mock_scope.fingerprint == ["{{ default }}", "payment-error", "user-123"]
+
+    @requires_sentry_sdk
+    @mock.patch("sentry_sdk.capture_exception")
+    @mock.patch("sentry_sdk.push_scope")
+    def test_capture_error_without_fingerprint_uses_default(
+        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+    ) -> None:
+        """Test capture_error without fingerprint lets Sentry use default grouping."""
+        config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
+        backend = SentryBackend(config)
+        backend._initialized = True
+
+        mock_scope = mock.MagicMock(spec=["set_context", "set_user", "set_tag", "level"])
+        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+
+        backend.capture_error(ValueError("test"))
+        # Verify fingerprint attribute was never set on scope (uses Sentry's default grouping)
+        assert not hasattr(mock_scope, "fingerprint")
