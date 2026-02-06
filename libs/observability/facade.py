@@ -655,9 +655,9 @@ class ObservabilityFacade:
                 "environment": self._config.sentry.environment,
             }
 
-        # Attach OTEL trace context if a span is active (only when values present)
+        # Attach OTEL trace context if a span is active (only when both values present)
         trace_ctx = self.get_trace_context()
-        if trace_ctx.get("trace_id") or trace_ctx.get("span_id"):
+        if trace_ctx.get("trace_id") and trace_ctx.get("span_id"):
             enriched_context["trace"] = trace_ctx
 
         try:
