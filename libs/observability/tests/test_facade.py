@@ -1231,6 +1231,64 @@ class TestFacadeLifecycleMethods:
         facade.shutdown()
         assert mock_sentry.shutdown.call_count == 1
 
+    def test_shutdown_handles_sentry_error_gracefully(self) -> None:
+        """Test shutdown continues to OTEL even if Sentry shutdown fails."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        mock_sentry = mock.MagicMock()
+        mock_otel = mock.MagicMock()
+        mock_sentry.shutdown.side_effect = RuntimeError("Sentry shutdown failed")
+        facade._sentry_backend = mock_sentry
+        facade._otel_backend = mock_otel
+
+        # Should not raise, OTEL should still be shut down
+        facade.shutdown()
+
+        mock_sentry.shutdown.assert_called_once()
+        mock_otel.shutdown.assert_called_once()
+        assert facade.is_initialized is False
+        assert facade._sentry_backend is None
+        assert facade._otel_backend is None
+
+    def test_shutdown_handles_otel_error_gracefully(self) -> None:
+        """Test shutdown completes even if OTEL shutdown fails."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        mock_sentry = mock.MagicMock()
+        mock_otel = mock.MagicMock()
+        mock_otel.shutdown.side_effect = RuntimeError("OTEL shutdown failed")
+        facade._sentry_backend = mock_sentry
+        facade._otel_backend = mock_otel
+
+        # Should not raise, state should be properly cleaned up
+        facade.shutdown()
+
+        mock_sentry.shutdown.assert_called_once()
+        mock_otel.shutdown.assert_called_once()
+        assert facade.is_initialized is False
+        assert facade._sentry_backend is None
+        assert facade._otel_backend is None
+
+    def test_shutdown_handles_both_errors_gracefully(self) -> None:
+        """Test shutdown completes even if both backends fail."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        mock_sentry = mock.MagicMock()
+        mock_otel = mock.MagicMock()
+        mock_sentry.shutdown.side_effect = RuntimeError("Sentry shutdown failed")
+        mock_otel.shutdown.side_effect = RuntimeError("OTEL shutdown failed")
+        facade._sentry_backend = mock_sentry
+        facade._otel_backend = mock_otel
+
+        # Should not raise, state should be properly cleaned up
+        facade.shutdown()
+
+        mock_sentry.shutdown.assert_called_once()
+        mock_otel.shutdown.assert_called_once()
+        assert facade.is_initialized is False
+        assert facade._sentry_backend is None
+        assert facade._otel_backend is None
+
 
 class TestAPIContract:
     """Tests validating the public API contract."""
