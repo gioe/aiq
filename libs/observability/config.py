@@ -35,6 +35,7 @@ class OTELConfig:
     metrics_enabled: bool = True
     traces_enabled: bool = True
     prometheus_enabled: bool = True
+    insecure: bool = False  # Set to True only for local development without TLS
 
 
 @dataclass
@@ -56,12 +57,20 @@ class ObservabilityConfig:
 
 
 def _substitute_env_vars(value: str) -> str:
-    """Substitute ${VAR} patterns with environment variable values."""
+    """Substitute ${VAR} or ${VAR:default} patterns with environment variable values.
+
+    Supports default values using colon syntax: ${VAR:default_value}
+    If no default is provided and the variable is not set, returns empty string.
+    """
     pattern = r"\$\{([^}]+)\}"
 
     def replace(match: re.Match[str]) -> str:
-        var_name = match.group(1)
-        return os.environ.get(var_name, "")
+        var_expr = match.group(1)
+        # Support default values: ${VAR:default}
+        if ":" in var_expr:
+            var_name, default = var_expr.split(":", 1)
+            return os.environ.get(var_name, default)
+        return os.environ.get(var_expr, "")
 
     return re.sub(pattern, replace, value)
 
@@ -117,6 +126,7 @@ def _dict_to_config(data: dict[str, Any]) -> ObservabilityConfig:
             metrics_enabled=otel_data.get("metrics_enabled", True),
             traces_enabled=otel_data.get("traces_enabled", True),
             prometheus_enabled=otel_data.get("prometheus_enabled", True),
+            insecure=otel_data.get("insecure", False),
         ),
         routing=RoutingConfig(
             errors=routing_data.get("errors", "sentry"),

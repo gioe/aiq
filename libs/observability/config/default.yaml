@@ -17,6 +17,7 @@ otel:
   metrics_enabled: true
   traces_enabled: true
   prometheus_enabled: true
+  insecure: false  # Set to true only for local development without TLS
 
 routing:
   # Where to send each signal type

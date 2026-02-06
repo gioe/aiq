@@ -6,6 +6,7 @@ metrics recording and distributed tracing.
 
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Literal
 
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
     from opentelemetry.trace import Span
 
     from libs.observability.config import OTELConfig
+
+logger = logging.getLogger(__name__)
 
 
 class OTELBackend:
@@ -26,6 +29,7 @@ class OTELBackend:
         self._counters: dict[str, Any] = {}
         self._histograms: dict[str, Any] = {}
         self._gauges: dict[str, Any] = {}
+        self._gauge_values: dict[str, dict[str, float]] = {}  # Track gauge values for callbacks
         self._meter_provider: Any = None
         self._tracer_provider: Any = None
 
@@ -56,7 +60,10 @@ class OTELBackend:
 
         # Add OTLP exporter if endpoint configured
         if self._config.endpoint:
-            otlp_exporter = OTLPMetricExporter(endpoint=self._config.endpoint, insecure=True)
+            otlp_exporter = OTLPMetricExporter(
+                endpoint=self._config.endpoint,
+                insecure=self._config.insecure,
+            )
             readers.append(PeriodicExportingMetricReader(otlp_exporter))
 
         # Add Prometheus reader for scraping
@@ -84,7 +91,10 @@ class OTELBackend:
         self._tracer_provider = TracerProvider(resource=resource)
 
         if self._config.endpoint:
-            otlp_exporter = OTLPSpanExporter(endpoint=self._config.endpoint, insecure=True)
+            otlp_exporter = OTLPSpanExporter(
+                endpoint=self._config.endpoint,
+                insecure=self._config.insecure,
+            )
             self._tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
 
         trace.set_tracer_provider(self._tracer_provider)
@@ -124,17 +134,37 @@ class OTELBackend:
             self._histograms[name].record(value, attributes=attributes)
 
         elif metric_type == "gauge":
-            # OTEL gauges use ObservableGauge with callbacks
-            # For simple use, we use an UpDownCounter as a gauge-like metric
+            # OTEL gauges use ObservableGauge with callbacks for true gauge semantics.
+            # We store the current value and let the callback report it during scrape.
+            attr_key = str(sorted(attributes.items())) if attributes else ""
+            if name not in self._gauge_values:
+                self._gauge_values[name] = {}
+
+            # Store the absolute value (gauge semantics)
+            self._gauge_values[name][attr_key] = float(value)
+
+            # Create the observable gauge with callback if not exists
             if name not in self._gauges:
-                self._gauges[name] = self._meter.create_up_down_counter(
+
+                def make_callback(metric_name: str) -> Any:
+                    def callback(options: Any) -> Any:
+                        from opentelemetry.metrics import Observation
+
+                        observations = []
+                        for attr_str, val in self._gauge_values.get(metric_name, {}).items():
+                            # Reconstruct attributes from string key
+                            attrs = dict(eval(attr_str)) if attr_str else {}
+                            observations.append(Observation(val, attrs))
+                        return observations
+
+                    return callback
+
+                self._gauges[name] = self._meter.create_observable_gauge(
                     name=name,
+                    callbacks=[make_callback(name)],
                     unit=unit or "1",
                     description=f"Gauge for {name}",
                 )
-            # For gauges, we track the delta (this is a simplification)
-            # Real gauge implementation would need state tracking
-            self._gauges[name].add(value, attributes=attributes)
 
     @contextmanager
     def start_span(
@@ -183,14 +213,14 @@ class OTELBackend:
         if self._meter_provider is not None:
             try:
                 self._meter_provider.force_flush(timeout_millis=int(timeout * 1000))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to flush meter provider: %s", e)
 
         if self._tracer_provider is not None:
             try:
                 self._tracer_provider.force_flush(timeout_millis=int(timeout * 1000))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to flush tracer provider: %s", e)
 
     def shutdown(self) -> None:
         """Shutdown OpenTelemetry providers."""
@@ -200,13 +230,13 @@ class OTELBackend:
         if self._meter_provider is not None:
             try:
                 self._meter_provider.shutdown()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to shutdown meter provider: %s", e)
 
         if self._tracer_provider is not None:
             try:
                 self._tracer_provider.shutdown()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to shutdown tracer provider: %s", e)
 
         self._initialized = False
