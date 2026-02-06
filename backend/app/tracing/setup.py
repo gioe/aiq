@@ -2,15 +2,24 @@
 OpenTelemetry tracing, metrics, and logging setup and configuration.
 """
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 from app.core.config import settings
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
     from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import ConsoleMetricExporter
+    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+        OTLPMetricExporter,
+    )
     from opentelemetry.sdk._logs import LoggerProvider
     from opentelemetry.sdk.resources import Resource
+
+    SpanExporter = Union[ConsoleSpanExporter, OTLPSpanExporter]
+    MetricExporter = Union[ConsoleMetricExporter, OTLPMetricExporter]
 
 logger = logging.getLogger(__name__)
 
@@ -93,22 +102,19 @@ def setup_tracing(app) -> None:
     sampler = TraceIdRatioBasedSampler(settings.OTEL_TRACES_SAMPLE_RATE)
     trace_provider = TracerProvider(resource=resource, sampler=sampler)
 
+    span_exporter: Optional["SpanExporter"] = None
     if settings.OTEL_EXPORTER == "console":
-        exporter = ConsoleSpanExporter()
-        processor = BatchSpanProcessor(exporter)
-        trace_provider.add_span_processor(processor)
+        span_exporter = ConsoleSpanExporter()
     elif settings.OTEL_EXPORTER == "otlp":
         try:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
                 OTLPSpanExporter,
             )
 
-            exporter = OTLPSpanExporter(
+            span_exporter = OTLPSpanExporter(
                 endpoint=settings.OTEL_OTLP_ENDPOINT,
                 headers=otlp_headers,
             )
-            processor = BatchSpanProcessor(exporter)
-            trace_provider.add_span_processor(processor)
         except ImportError:
             trace_provider.shutdown()
             logger.warning(
@@ -116,6 +122,10 @@ def setup_tracing(app) -> None:
                 "Install with: pip install opentelemetry-exporter-otlp"
             )
             return
+
+    if span_exporter is not None:
+        processor = BatchSpanProcessor(span_exporter)
+        trace_provider.add_span_processor(processor)
 
     trace.set_tracer_provider(trace_provider)
     _tracer_provider = trace_provider
@@ -172,28 +182,19 @@ def _setup_metrics(resource: "Resource", otlp_headers: dict) -> None:
         )
         return
 
+    metric_exporter: Optional["MetricExporter"] = None
     if settings.OTEL_EXPORTER == "console":
-        exporter = ConsoleMetricExporter()
-        reader = PeriodicExportingMetricReader(
-            exporter,
-            export_interval_millis=settings.OTEL_METRICS_EXPORT_INTERVAL_MILLIS,
-        )
-        meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
+        metric_exporter = ConsoleMetricExporter()
     elif settings.OTEL_EXPORTER == "otlp":
         try:
             from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
                 OTLPMetricExporter,
             )
 
-            exporter = OTLPMetricExporter(
+            metric_exporter = OTLPMetricExporter(
                 endpoint=settings.OTEL_OTLP_ENDPOINT,
                 headers=otlp_headers,
             )
-            reader = PeriodicExportingMetricReader(
-                exporter,
-                export_interval_millis=settings.OTEL_METRICS_EXPORT_INTERVAL_MILLIS,
-            )
-            meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
         except ImportError:
             logger.warning(
                 "OTLP metric exporter not available. "
@@ -202,6 +203,15 @@ def _setup_metrics(resource: "Resource", otlp_headers: dict) -> None:
             return
     else:
         return
+
+    if metric_exporter is None:
+        return
+
+    reader = PeriodicExportingMetricReader(
+        metric_exporter,
+        export_interval_millis=settings.OTEL_METRICS_EXPORT_INTERVAL_MILLIS,
+    )
+    meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
 
     metrics.set_meter_provider(meter_provider)
     _meter_provider = meter_provider
