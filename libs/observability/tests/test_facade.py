@@ -962,8 +962,6 @@ class TestFacadeCaptureMethods:
 
     def test_capture_error_includes_trace_context_when_span_active(self) -> None:
         """Test capture_error includes trace context when OTEL span is active."""
-        import sys
-
         facade = ObservabilityFacade()
         facade._initialized = True
         facade._config = ObservabilityConfig(
@@ -989,14 +987,11 @@ class TestFacadeCaptureMethods:
         mock_otel = mock.MagicMock()
         mock_otel.trace = mock_trace_module
 
-        # Store original sys.modules state
-        original_modules = sys.modules.copy()
-
-        try:
-            # Install mocks in sys.modules
-            sys.modules["opentelemetry"] = mock_otel
-            sys.modules["opentelemetry.trace"] = mock_trace_module
-
+        # Use mock.patch.dict for pytest-safe module mocking
+        with mock.patch.dict(
+            "sys.modules",
+            {"opentelemetry": mock_otel, "opentelemetry.trace": mock_trace_module},
+        ):
             exc = ValueError("test error")
             facade.capture_error(exc)
 
@@ -1005,10 +1000,6 @@ class TestFacadeCaptureMethods:
             assert "trace" in call_kwargs["context"]
             assert call_kwargs["context"]["trace"]["trace_id"] == "12345678901234567890123456789012"
             assert call_kwargs["context"]["trace"]["span_id"] == "1234567890123456"
-        finally:
-            # Restore original sys.modules
-            sys.modules.clear()
-            sys.modules.update(original_modules)
 
     def test_capture_message_calls_sentry_backend(self) -> None:
         """Test capture_message delegates to Sentry backend."""

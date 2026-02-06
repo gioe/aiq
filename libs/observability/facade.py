@@ -671,9 +671,10 @@ class ObservabilityFacade:
             )
         except Exception as e:
             logger.error(
-                "Failed to capture error to Sentry: %s. Original error: %s",
+                "Failed to capture error to Sentry: %s. Original error: %s: %s",
                 e,
                 type(exception).__name__,
+                str(exception),
             )
             return None
 
