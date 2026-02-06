@@ -5,11 +5,20 @@ Supports YAML configuration files with environment variable substitution.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
+
+logger = logging.getLogger(__name__)
+
+
+class ConfigurationError(Exception):
+    """Raised when observability configuration is invalid."""
+
+    pass
 
 
 @dataclass
@@ -54,6 +63,82 @@ class ObservabilityConfig:
     sentry: SentryConfig = field(default_factory=SentryConfig)
     otel: OTELConfig = field(default_factory=OTELConfig)
     routing: RoutingConfig = field(default_factory=RoutingConfig)
+
+    def validate(self) -> None:
+        """Validate the configuration.
+
+        Validates that:
+        - When sentry.enabled=True, sentry.dsn is set (non-empty)
+        - When otel.enabled=True and routing uses "otel", otel.endpoint should be set (warning)
+        - traces_sample_rate is between 0.0 and 1.0
+        - profiles_sample_rate is between 0.0 and 1.0
+        - routing values are one of: "sentry", "otel", "both"
+
+        Raises:
+            ConfigurationError: If any validation errors are found.
+        """
+        errors: list[str] = []
+
+        # Validate Sentry DSN when enabled
+        if self.sentry.enabled and not self.sentry.dsn:
+            errors.append(
+                "Sentry DSN is required when sentry.enabled=True. "
+                "Set SENTRY_DSN environment variable or configure sentry.dsn in your config."
+            )
+
+        # Validate sample rates
+        if not (0.0 <= self.sentry.traces_sample_rate <= 1.0):
+            errors.append(
+                f"Invalid sentry.traces_sample_rate: {self.sentry.traces_sample_rate}. "
+                "Value must be between 0.0 and 1.0."
+            )
+
+        if not (0.0 <= self.sentry.profiles_sample_rate <= 1.0):
+            errors.append(
+                f"Invalid sentry.profiles_sample_rate: {self.sentry.profiles_sample_rate}. "
+                "Value must be between 0.0 and 1.0."
+            )
+
+        # Validate routing values
+        valid_routing_values = {"sentry", "otel", "both"}
+        if self.routing.errors not in valid_routing_values:
+            errors.append(
+                f"Invalid routing.errors: '{self.routing.errors}'. "
+                f"Value must be one of: {', '.join(sorted(valid_routing_values))}."
+            )
+
+        if self.routing.metrics not in valid_routing_values:
+            errors.append(
+                f"Invalid routing.metrics: '{self.routing.metrics}'. "
+                f"Value must be one of: {', '.join(sorted(valid_routing_values))}."
+            )
+
+        if self.routing.traces not in valid_routing_values:
+            errors.append(
+                f"Invalid routing.traces: '{self.routing.traces}'. "
+                f"Value must be one of: {', '.join(sorted(valid_routing_values))}."
+            )
+
+        # Check if OTEL endpoint should be set (warning, not error)
+        if self.otel.enabled:
+            uses_otel = (
+                "otel" in self.routing.errors
+                or "otel" in self.routing.metrics
+                or "otel" in self.routing.traces
+            )
+            if uses_otel and not self.otel.endpoint:
+                logger.warning(
+                    "OTEL endpoint is not configured but routing includes 'otel'. "
+                    "Set OTEL_ENDPOINT environment variable or configure otel.endpoint "
+                    "to enable OpenTelemetry export."
+                )
+
+        # Raise aggregated errors
+        if errors:
+            error_message = "Configuration validation failed:\n" + "\n".join(
+                f"  - {error}" for error in errors
+            )
+            raise ConfigurationError(error_message)
 
 
 def _substitute_env_vars(value: str) -> str:
@@ -200,5 +285,8 @@ def load_config(
             setattr(config.otel, key[5:], value)
         elif key.startswith("routing_"):
             setattr(config.routing, key[8:], value)
+
+    # Validate configuration before returning
+    config.validate()
 
     return config
