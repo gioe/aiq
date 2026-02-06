@@ -289,10 +289,10 @@ class OTELBackend:
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-        from opentelemetry.sdk.trace.sampling import TraceIdRatioBasedSampler
+        from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
         # Create sampler based on config
-        sampler = TraceIdRatioBasedSampler(self._config.traces_sample_rate)
+        sampler = TraceIdRatioBased(self._config.traces_sample_rate)
         tracer_provider = TracerProvider(resource=resource, sampler=sampler)
 
         # Add Sentry span processor if available (for OTEL->Sentry trace correlation)
@@ -340,7 +340,10 @@ class OTELBackend:
         self._tracer_provider = tracer_provider
 
         version = self._config.service_version or "1.0.0"
-        self._tracer = trace.get_tracer(self._config.service_name, version=version)
+        self._tracer = trace.get_tracer(
+            self._config.service_name,
+            instrumenting_library_version=version,
+        )
 
         logger.info(
             f"OpenTelemetry tracing initialized with {self._config.exporter} exporter "
