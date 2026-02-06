@@ -170,6 +170,227 @@ class SpanContext:
         if self._otel_span is not None:
             self._otel_span.add_event(name, attributes=attributes)
 
+    def set_http_attributes(
+        self,
+        method: str,
+        url: str,
+        status_code: int | None = None,
+        *,
+        route: str | None = None,
+        request_size: int | None = None,
+        response_size: int | None = None,
+    ) -> None:
+        """Set HTTP-related span attributes following OpenTelemetry semantic conventions.
+
+        Sets common HTTP attributes for tracking HTTP requests. Useful for
+        instrumenting HTTP clients or when adding custom context to HTTP spans.
+
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE, etc.).
+            url: Full URL of the request.
+            status_code: HTTP response status code (200, 404, 500, etc.).
+                         Optional because the response may not be available yet.
+            route: HTTP route template (e.g., "/users/{id}"). Optional.
+            request_size: Request body size in bytes. Optional.
+            response_size: Response body size in bytes. Optional.
+
+        Example:
+            with observability.start_span("http_request", kind="client") as span:
+                response = await client.get(url)
+                span.set_http_attributes(
+                    method="GET",
+                    url=url,
+                    status_code=response.status_code,
+                )
+
+        Note:
+            Attribute names follow OpenTelemetry semantic conventions:
+            - http.request.method
+            - url.full
+            - http.response.status_code
+            - http.route
+            - http.request.body.size
+            - http.response.body.size
+        """
+        self.set_attribute("http.request.method", method.upper())
+        self.set_attribute("url.full", url)
+
+        if status_code is not None:
+            self.set_attribute("http.response.status_code", status_code)
+        if route is not None:
+            self.set_attribute("http.route", route)
+        if request_size is not None:
+            self.set_attribute("http.request.body.size", request_size)
+        if response_size is not None:
+            self.set_attribute("http.response.body.size", response_size)
+
+    def set_db_attributes(
+        self,
+        operation: str,
+        table: str | None = None,
+        duration_ms: float | None = None,
+        *,
+        db_system: str | None = None,
+        db_name: str | None = None,
+        statement: str | None = None,
+    ) -> None:
+        """Set database-related span attributes following OpenTelemetry semantic conventions.
+
+        Sets common database attributes for tracking database operations. Useful for
+        instrumenting database queries or when adding custom context to DB spans.
+
+        Args:
+            operation: Database operation (SELECT, INSERT, UPDATE, DELETE, etc.).
+            table: Database table name. Optional.
+            duration_ms: Query duration in milliseconds. Optional.
+            db_system: Database system identifier (e.g., "postgresql", "mysql").
+                       Optional.
+            db_name: Database name. Optional.
+            statement: Database statement (query). Optional.
+
+        Example:
+            with observability.start_span("db_query") as span:
+                start = time.perf_counter()
+                result = await db.execute(query)
+                elapsed_ms = (time.perf_counter() - start) * 1000
+                span.set_db_attributes(
+                    operation="SELECT",
+                    table="users",
+                    duration_ms=elapsed_ms,
+                    db_system="postgresql",
+                )
+
+        Warning:
+            The ``statement`` parameter should be sanitized before use in production.
+            Never include raw user input, passwords, or sensitive data in statements.
+
+            **Safe:**
+            ``statement="SELECT * FROM users WHERE id = $1"``
+
+            **Unsafe:**
+            ``statement=f"SELECT * FROM users WHERE id = {user_input}"``
+
+            If you must include dynamic values, use placeholders (``$1``, ``?``)
+            and avoid interpolating sensitive data like passwords or PII.
+
+        Note:
+            Attribute names follow OpenTelemetry semantic conventions:
+            - db.operation
+            - db.sql.table
+            - db.system
+            - db.name
+            - db.statement
+            - db.query.duration (custom, not in semconv)
+        """
+        self.set_attribute("db.operation", operation.upper())
+
+        if table is not None:
+            self.set_attribute("db.sql.table", table)
+        if duration_ms is not None:
+            self.set_attribute("db.query.duration", duration_ms)
+        if db_system is not None:
+            self.set_attribute("db.system", db_system)
+        if db_name is not None:
+            self.set_attribute("db.name", db_name)
+        if statement is not None:
+            self.set_attribute("db.statement", statement)
+
+    def set_user_attributes(
+        self,
+        user_id: str | None,
+        username: str | None = None,
+        *,
+        role: str | None = None,
+        scope: str | None = None,
+    ) -> None:
+        """Set user-related span attributes following OpenTelemetry semantic conventions.
+
+        Sets user context attributes for tracking which user performed an operation.
+        Useful for correlating spans with specific users during debugging.
+
+        Args:
+            user_id: Unique user identifier. Pass None for unauthenticated/anonymous
+                     requests, or when user context is not yet available (e.g., early
+                     in request processing before authentication).
+            username: User display name or handle. Optional.
+            role: User role (e.g., "admin", "member"). Optional.
+            scope: User scope for access control context. Optional.
+
+        Example:
+            Authenticated request::
+
+                with observability.start_span("process_request") as span:
+                    if current_user:
+                        span.set_user_attributes(
+                            user_id=str(current_user.id),
+                            username=current_user.username,
+                            role=current_user.role,
+                        )
+
+            Anonymous/unauthenticated request::
+
+                with observability.start_span("public_endpoint") as span:
+                    span.set_user_attributes(user_id=None, username="anonymous")
+
+        Note:
+            Attribute names follow OpenTelemetry semantic conventions:
+            - enduser.id
+            - enduser.username (custom extension of semconv)
+            - enduser.role
+            - enduser.scope
+        """
+        if user_id is not None:
+            self.set_attribute("enduser.id", user_id)
+        if username is not None:
+            self.set_attribute("enduser.username", username)
+        if role is not None:
+            self.set_attribute("enduser.role", role)
+        if scope is not None:
+            self.set_attribute("enduser.scope", scope)
+
+    def set_error_attributes(
+        self,
+        exception: BaseException,
+        *,
+        escaped: bool = True,
+    ) -> None:
+        """Set error-related span attributes following OpenTelemetry semantic conventions.
+
+        Sets exception attributes for detailed error tracking. This complements
+        record_exception() by providing searchable attributes on the span itself.
+
+        Args:
+            exception: The exception to record attributes for.
+            escaped: Whether the exception escaped the span's scope (was not caught).
+                     Defaults to True.
+
+        Example:
+            with observability.start_span("process_request") as span:
+                try:
+                    result = risky_operation()
+                except ValueError as e:
+                    span.set_error_attributes(e, escaped=False)
+                    span.set_status("error", str(e))
+                    result = fallback_value
+
+        Note:
+            Attribute names follow OpenTelemetry semantic conventions:
+            - exception.type
+            - exception.message
+            - exception.escaped
+
+            For full exception recording with stacktrace, use record_exception()
+            in addition to this method.
+        """
+        exc_type = type(exception).__qualname__
+        exc_module = type(exception).__module__
+        if exc_module and exc_module != "builtins":
+            exc_type = f"{exc_module}.{exc_type}"
+
+        self.set_attribute("exception.type", exc_type)
+        self.set_attribute("exception.message", str(exception))
+        self.set_attribute("exception.escaped", escaped)
+
     def __enter__(self) -> SpanContext:
         """Enter the span context."""
         return self

@@ -49,9 +49,9 @@ Usage:
     observability.set_context("request", {"url": "/api/test", "method": "POST"})
 """
 
-from libs.observability.facade import ObservabilityFacade
+from libs.observability.facade import ObservabilityFacade, SpanContext
 
 # Singleton instance for application use
 observability = ObservabilityFacade()
 
-__all__ = ["observability", "ObservabilityFacade"]
+__all__ = ["observability", "ObservabilityFacade", "SpanContext"]
