@@ -1,18 +1,27 @@
 """
 Pytest configuration and shared fixtures for testing.
 """
-from unittest.mock import patch, AsyncMock
+import sys
+from pathlib import Path
 
-import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
+# Add project root to path so libs/ is importable (matches CI PYTHONPATH config)
+# This must happen before importing from app/ which may import from libs/
+project_root = Path(__file__).parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-from app.models import Base, get_db, User, Question, UserQuestion
-from app.models.models import QuestionType, DifficultyLevel
-from app.main import app
-from app.core.security import hash_password, create_access_token
-from app.core.config import settings
+from unittest.mock import patch, AsyncMock  # noqa: E402
+
+import pytest  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.models import Base, get_db, User, Question, UserQuestion  # noqa: E402
+from app.models.models import QuestionType, DifficultyLevel  # noqa: E402
+from app.main import app  # noqa: E402
+from app.core.security import hash_password, create_access_token  # noqa: E402
+from app.core.config import settings  # noqa: E402
 
 # Use SQLite in-memory database for tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"

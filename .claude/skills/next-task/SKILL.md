@@ -91,7 +91,7 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
 
 11. **Update the task status and PR URL**:
     ```bash
-    sqlite3 tasks.db "UPDATE tasks SET status = 'In Review', github_pr = '<pr_url>', updated_at = datetime('now') WHERE id = <id>"
+    sqlite3 tasks.db "UPDATE tasks SET github_pr = '<pr_url>', updated_at = datetime('now') WHERE id = <id>"
     ```
 
 12. **Review loop - iterate until Claude approves**:
@@ -293,14 +293,6 @@ When called with `wip` or `in-progress`:
 sqlite3 -header -column tasks.db "SELECT id, summary, priority, domain, assignee, github_pr FROM tasks WHERE status = 'In Progress'"
 ```
 
-### Show Tasks In Review
-
-When called with `review` or `in-review`:
-
-```bash
-sqlite3 -header -column tasks.db "SELECT id, summary, priority, github_pr FROM tasks WHERE status = 'In Review'"
-```
-
 ### Preview Next Task (without starting)
 
 When called with `preview`:
@@ -335,7 +327,6 @@ LIMIT 1;
 | `assignee <value>` | Filter next task by assignee |
 | `blocked` | Show all blocked tasks |
 | `wip` | Show all In Progress tasks |
-| `review` | Show all In Review tasks with PR URLs |
 | `preview` | Show next ready task without starting it |
 
 ## Important Guidelines
