@@ -35,9 +35,16 @@ from .providers.google_provider import GoogleProvider
 from .providers.openai_provider import OpenAIProvider
 from .providers.xai_provider import XAIProvider
 
-# Add repo root to path for libs.observability import
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from libs.observability import observability  # noqa: E402
+# Import observability facade for dual-write metrics pattern
+# This dual-write approach allows metrics to flow to both the legacy MetricsTracker
+# (for pipeline reporting) and the new OTEL-based observability system.
+# TODO: Remove sys.path manipulation once libs.observability is a proper package
+try:
+    from libs.observability import observability
+except ImportError:
+    # Fallback for environments where libs.observability isn't installed as a package
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
