@@ -1,0 +1,29 @@
+# Question-service-specific observability configuration
+# Overrides defaults from libs/observability/config/default.yaml
+# Values can use ${ENV_VAR} or ${ENV_VAR:default} syntax for environment variable substitution
+
+sentry:
+  enabled: true
+  dsn: ${SENTRY_DSN}
+  environment: ${ENV:development}
+  release: ${RELEASE}
+  traces_sample_rate: 0.1
+  profiles_sample_rate: 0.0
+  send_default_pii: false
+
+otel:
+  enabled: true
+  service_name: aiq-question-service
+  endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+  metrics_enabled: true
+  traces_enabled: true
+  prometheus_enabled: true
+  insecure: false
+
+routing:
+  # Errors: Sentry has superior error grouping and alerting
+  errors: sentry
+  # Metrics: OTEL/Prometheus for Grafana dashboards
+  metrics: otel
+  # Traces: OTEL for question-service (simpler than backend)
+  traces: otel
