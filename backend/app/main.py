@@ -7,9 +7,6 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Union
 from urllib.parse import urlparse
 
-import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.starlette import StarletteIntegration
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +17,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.tracing import setup_tracing, shutdown_tracing
+from libs.observability import observability
 
 from app.core.analytics import AnalyticsTracker
 from app.core.logging_config import setup_logging
@@ -47,54 +45,6 @@ from app.ratelimit import (
 setup_logging()
 
 logger = logging.getLogger(__name__)
-
-
-def init_sentry(
-    dsn: str,
-    traces_sample_rate: float,
-    environment: str,
-    release: str,
-) -> bool:
-    """
-    Initialize Sentry for error tracking.
-
-    Args:
-        dsn: Sentry DSN (Data Source Name). If empty or None, Sentry is not initialized.
-        traces_sample_rate: Percentage of transactions to trace (0.0-1.0).
-        environment: Application environment (e.g., 'production', 'development').
-        release: Application version/release identifier.
-
-    Returns:
-        True if Sentry was initialized, False otherwise.
-    """
-    if not dsn:
-        return False
-
-    sentry_sdk.init(
-        dsn=dsn,
-        traces_sample_rate=traces_sample_rate,
-        environment=environment,
-        release=release,
-        send_default_pii=False,
-        integrations=[
-            StarletteIntegration(transaction_style="endpoint"),
-            FastApiIntegration(transaction_style="endpoint"),
-        ],
-    )
-    logger.info(
-        f"Sentry initialized for environment '{environment}' "
-        f"with {traces_sample_rate * 100:.0f}% trace sampling"
-    )
-    return True
-
-
-# Initialize Sentry for error tracking (only if DSN is configured)
-init_sentry(
-    dsn=settings.SENTRY_DSN,
-    traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
-    environment=settings.ENV,
-    release=settings.APP_VERSION,
-)
 
 
 def _sanitize_redis_url(url: str) -> str:
@@ -177,6 +127,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     - On shutdown: Terminates any running background processes and closes connections
     """
     # Startup
+    # Initialize observability (Sentry + OTEL via unified facade)
+    observability.init(
+        config_path="config/observability.yaml",
+        service_name="aiq-backend",
+        environment=settings.ENV,
+    )
+
     process_registry.register_shutdown_handler()
     logger.info("Process registry shutdown handlers registered")
 
@@ -215,6 +172,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     shutdown_tracing()
+
+    # Shutdown observability backends (flushes pending data to Sentry/OTEL)
+    observability.shutdown()
 
     stats = process_registry.get_stats()
     if stats["running"] > 0:
