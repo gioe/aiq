@@ -35,7 +35,7 @@ COPY --from=builder /root/.local /home/appuser/.local
 # Copy shared libraries
 COPY libs/ /app/libs/
 
-# Copy backend application code
+# Copy backend application code (cache bust: 2026-02-07-v2)
 COPY backend/ /app/backend/
 
 # Set working directory to backend for alembic and app imports
