@@ -9,6 +9,8 @@ embedding caching across workers, with automatic fallback to in-memory caching.
 
 import hashlib
 import logging
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -16,6 +18,14 @@ from openai import OpenAI
 
 from .embedding_cache import HybridEmbeddingCache
 from .models import GeneratedQuestion
+
+# Import observability facade for distributed tracing
+try:
+    from libs.observability import observability
+except ImportError:
+    # Fallback for environments where libs.observability isn't installed as a package
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -253,32 +263,47 @@ class QuestionDeduplicator:
         Raises:
             Exception: If embedding generation fails
         """
-        question_text = question.question_text.strip().lower()
+        with observability.start_span(
+            "deduplicator.check_duplicate",
+            attributes={
+                "question_type": question.question_type.value,
+                "existing_count": len(existing_questions),
+            },
+        ) as span:
+            question_text = question.question_text.strip().lower()
 
-        # Step 1: Check for exact match (case-insensitive)
-        for existing in existing_questions:
-            existing_text = existing.get("question_text", "").strip().lower()
-            if question_text == existing_text:
-                logger.info(f"Exact duplicate found for: {question_text[:50]}...")
-                return DuplicateCheckResult(
-                    is_duplicate=True,
-                    duplicate_type="exact",
-                    similarity_score=1.0,
-                    matched_question=existing,
+            # Step 1: Check for exact match (case-insensitive)
+            for existing in existing_questions:
+                existing_text = existing.get("question_text", "").strip().lower()
+                if question_text == existing_text:
+                    span.set_attribute("is_duplicate", True)
+                    span.set_attribute("duplicate_type", "exact")
+                    logger.info(f"Exact duplicate found for: {question_text[:50]}...")
+                    return DuplicateCheckResult(
+                        is_duplicate=True,
+                        duplicate_type="exact",
+                        similarity_score=1.0,
+                        matched_question=existing,
+                    )
+
+            # Step 2: Check for semantic similarity using embeddings
+            if len(existing_questions) > 0:
+                result = self._check_semantic_similarity(
+                    question_text, existing_questions
                 )
+                if result.is_duplicate:
+                    span.set_attribute("is_duplicate", True)
+                    span.set_attribute("duplicate_type", "semantic")
+                    span.set_attribute("similarity_score", result.similarity_score)
+                    logger.info(
+                        f"Semantic duplicate found with score {result.similarity_score:.3f}"
+                    )
+                    return result
 
-        # Step 2: Check for semantic similarity using embeddings
-        if len(existing_questions) > 0:
-            result = self._check_semantic_similarity(question_text, existing_questions)
-            if result.is_duplicate:
-                logger.info(
-                    f"Semantic duplicate found with score {result.similarity_score:.3f}"
-                )
-                return result
-
-        # No duplicate found
-        logger.debug(f"No duplicate found for: {question_text[:50]}...")
-        return DuplicateCheckResult(is_duplicate=False)
+            # No duplicate found
+            span.set_attribute("is_duplicate", False)
+            logger.debug(f"No duplicate found for: {question_text[:50]}...")
+            return DuplicateCheckResult(is_duplicate=False)
 
     def check_duplicates_batch(
         self,
@@ -472,25 +497,34 @@ class QuestionDeduplicator:
         Raises:
             Exception: If duplicate checking fails
         """
-        logger.info(f"Filtering duplicates from {len(questions)} questions")
+        with observability.start_span(
+            "deduplicator.filter_duplicates",
+            attributes={
+                "questions_count": len(questions),
+                "existing_count": len(existing_questions),
+            },
+        ) as span:
+            logger.info(f"Filtering duplicates from {len(questions)} questions")
 
-        unique_questions = []
-        duplicates = []
+            unique_questions = []
+            duplicates = []
 
-        for question in questions:
-            result = self.check_duplicate(question, existing_questions)
+            for question in questions:
+                result = self.check_duplicate(question, existing_questions)
 
-            if result.is_duplicate:
-                duplicates.append((question, result))
-            else:
-                unique_questions.append(question)
+                if result.is_duplicate:
+                    duplicates.append((question, result))
+                else:
+                    unique_questions.append(question)
 
-        logger.info(
-            f"Filtering complete: {len(unique_questions)} unique, "
-            f"{len(duplicates)} duplicates"
-        )
+            span.set_attribute("unique_count", len(unique_questions))
+            span.set_attribute("duplicate_count", len(duplicates))
+            logger.info(
+                f"Filtering complete: {len(unique_questions)} unique, "
+                f"{len(duplicates)} duplicates"
+            )
 
-        return unique_questions, duplicates
+            return unique_questions, duplicates
 
     def get_stats(self) -> Dict[str, Any]:
         """Get deduplicator configuration and cache statistics.

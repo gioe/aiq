@@ -346,102 +346,124 @@ class QuestionGenerator:
         start_time = time.perf_counter()
         completion_result = None
 
-        # Generate question with circuit breaker protection and cost tracking
-        def _do_generation() -> Dict[str, Any]:
-            nonlocal completion_result
-            completion_result = provider.generate_structured_completion_with_usage(
-                prompt=prompt,
-                response_format={},  # Provider will handle JSON mode
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model_override=model_override,
-            )
-            return completion_result.content
+        with observability.start_span(
+            "generator.generate_question",
+            attributes={
+                "question_type": question_type.value,
+                "difficulty": difficulty.value,
+                "provider": provider_name,
+                "model": actual_model,
+            },
+        ) as span:
+            # Generate question with circuit breaker protection and cost tracking
+            def _do_generation() -> Dict[str, Any]:
+                nonlocal completion_result
+                completion_result = provider.generate_structured_completion_with_usage(
+                    prompt=prompt,
+                    response_format={},  # Provider will handle JSON mode
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    model_override=model_override,
+                )
+                return completion_result.content
 
-        try:
-            response = circuit_breaker.execute(_do_generation)
-            latency = time.perf_counter() - start_time
+            try:
+                response = circuit_breaker.execute(_do_generation)
+                latency = time.perf_counter() - start_time
+                span.set_attribute("generation_duration", latency)
 
-            # Record routing and latency metrics (TASK-575)
-            metrics = get_metrics_tracker()
-            question_type_str = question_type.value
-            metrics.record_question_latency(question_type_str, latency)
-
-            # ALSO record to observability facade (with error handling)
-            _safe_record_metric(
-                "question.generation.latency",
-                value=latency,
-                labels={"question_type": question_type_str, "provider": provider_name},
-                metric_type="histogram",
-                unit="s",
-            )
-
-            # Record cost per question type if token usage is available
-            if completion_result and completion_result.token_usage:
-                cost = calculate_cost(completion_result.token_usage)
-                metrics.record_question_cost(question_type_str, cost)
+                # Record routing and latency metrics (TASK-575)
+                metrics = get_metrics_tracker()
+                question_type_str = question_type.value
+                metrics.record_question_latency(question_type_str, latency)
 
                 # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
-                    "question.generation.cost",
-                    value=cost,
+                    "question.generation.latency",
+                    value=latency,
                     labels={
                         "question_type": question_type_str,
                         "provider": provider_name,
                     },
-                    metric_type="counter",
-                    unit="usd",
+                    metric_type="histogram",
+                    unit="s",
                 )
 
-            # Parse response into GeneratedQuestion
-            question = self._parse_generated_response(
-                response=response,
-                question_type=question_type,
-                difficulty=difficulty,
-                provider_name=provider_name,
-                model=actual_model,
-            )
-            question.sub_type = subtype
+                # Record cost per question type if token usage is available
+                if completion_result and completion_result.token_usage:
+                    cost = calculate_cost(completion_result.token_usage)
+                    metrics.record_question_cost(question_type_str, cost)
 
-            logger.info(
-                f"Successfully generated question: {question.question_text[:50]}..."
-            )
-            return question
+                    # ALSO record to observability facade (with error handling)
+                    _safe_record_metric(
+                        "question.generation.cost",
+                        value=cost,
+                        labels={
+                            "question_type": question_type_str,
+                            "provider": provider_name,
+                        },
+                        metric_type="counter",
+                        unit="usd",
+                    )
 
-        except CircuitBreakerOpen:
-            logger.warning(
-                f"Circuit breaker is open for {provider_name}, cannot generate question"
-            )
-            raise
-        except LLMProviderError as e:
-            logger.error(
-                f"Failed to generate question with {provider_name}: {str(e)} "
-                f"(category={e.classified_error.category.value})"
-            )
-            # Capture classified error to Sentry
-            _safe_capture_generation_error(
-                e,
-                provider=provider_name,
-                question_type=question_type.value,
-                difficulty=difficulty.value,
-                operation="generation",
-                subtype=subtype,
-                model=actual_model,
-            )
-            raise
-        except Exception as e:
-            logger.error(f"Failed to generate question with {provider_name}: {str(e)}")
-            # Capture unclassified error to Sentry
-            _safe_capture_generation_error(
-                e,
-                provider=provider_name,
-                question_type=question_type.value,
-                difficulty=difficulty.value,
-                operation="generation",
-                subtype=subtype,
-                model=actual_model,
-            )
-            raise
+                # Parse response into GeneratedQuestion
+                question = self._parse_generated_response(
+                    response=response,
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    provider_name=provider_name,
+                    model=actual_model,
+                )
+                question.sub_type = subtype
+
+                span.set_attribute("success", True)
+                logger.info(
+                    f"Successfully generated question: {question.question_text[:50]}..."
+                )
+                return question
+
+            except CircuitBreakerOpen:
+                span.set_attribute("success", False)
+                span.set_status("error", "Circuit breaker open")
+                logger.warning(
+                    f"Circuit breaker is open for {provider_name}, cannot generate question"
+                )
+                raise
+            except LLMProviderError as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(
+                    f"Failed to generate question with {provider_name}: {str(e)} "
+                    f"(category={e.classified_error.category.value})"
+                )
+                # Capture classified error to Sentry
+                _safe_capture_generation_error(
+                    e,
+                    provider=provider_name,
+                    question_type=question_type.value,
+                    difficulty=difficulty.value,
+                    operation="generation",
+                    subtype=subtype,
+                    model=actual_model,
+                )
+                raise
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(
+                    f"Failed to generate question with {provider_name}: {str(e)}"
+                )
+                # Capture unclassified error to Sentry
+                _safe_capture_generation_error(
+                    e,
+                    provider=provider_name,
+                    question_type=question_type.value,
+                    difficulty=difficulty.value,
+                    operation="generation",
+                    subtype=subtype,
+                    model=actual_model,
+                )
+                raise
 
     def _get_available_provider(self) -> Optional[str]:
         """Get the first available provider with non-open circuit.
@@ -905,115 +927,137 @@ class QuestionGenerator:
         start_time = time.perf_counter()
         completion_result = None
 
-        # Define the async API call with cost tracking
-        async def _do_async_generation() -> Dict[str, Any]:
-            nonlocal completion_result
-            async with self._rate_limiter:
-                completion_result = await asyncio.wait_for(
-                    provider.generate_structured_completion_with_usage_async(
-                        prompt=prompt,
-                        response_format=_QUESTION_SCHEMA,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        model_override=model_override,
-                    ),
-                    timeout=effective_timeout,
-                )
-                return completion_result.content
+        with observability.start_span(
+            "generator.generate_question_async",
+            attributes={
+                "question_type": question_type.value,
+                "difficulty": difficulty.value,
+                "provider": provider_name,
+                "model": actual_model,
+            },
+        ) as span:
+            # Define the async API call with cost tracking
+            async def _do_async_generation() -> Dict[str, Any]:
+                nonlocal completion_result
+                async with self._rate_limiter:
+                    completion_result = await asyncio.wait_for(
+                        provider.generate_structured_completion_with_usage_async(
+                            prompt=prompt,
+                            response_format=_QUESTION_SCHEMA,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model_override=model_override,
+                        ),
+                        timeout=effective_timeout,
+                    )
+                    return completion_result.content
 
-        # Generate question asynchronously with circuit breaker protection
-        try:
-            response = await circuit_breaker.execute_async(_do_async_generation)
-            latency = time.perf_counter() - start_time
+            # Generate question asynchronously with circuit breaker protection
+            try:
+                response = await circuit_breaker.execute_async(_do_async_generation)
+                latency = time.perf_counter() - start_time
+                span.set_attribute("generation_duration", latency)
 
-            # Record routing and latency metrics (TASK-575)
-            metrics = get_metrics_tracker()
-            question_type_str = question_type.value
-            metrics.record_question_latency(question_type_str, latency)
-
-            # ALSO record to observability facade (with error handling)
-            _safe_record_metric(
-                "question.generation.latency",
-                value=latency,
-                labels={"question_type": question_type_str, "provider": provider_name},
-                metric_type="histogram",
-                unit="s",
-            )
-
-            # Record cost per question type if token usage is available
-            if completion_result and completion_result.token_usage:
-                cost = calculate_cost(completion_result.token_usage)
-                metrics.record_question_cost(question_type_str, cost)
+                # Record routing and latency metrics (TASK-575)
+                metrics = get_metrics_tracker()
+                question_type_str = question_type.value
+                metrics.record_question_latency(question_type_str, latency)
 
                 # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
-                    "question.generation.cost",
-                    value=cost,
+                    "question.generation.latency",
+                    value=latency,
                     labels={
                         "question_type": question_type_str,
                         "provider": provider_name,
                     },
-                    metric_type="counter",
-                    unit="usd",
+                    metric_type="histogram",
+                    unit="s",
                 )
 
-            # Parse response into GeneratedQuestion
-            question = self._parse_generated_response(
-                response=response,
-                question_type=question_type,
-                difficulty=difficulty,
-                provider_name=provider_name,
-                model=actual_model,
-            )
-            question.sub_type = subtype
+                # Record cost per question type if token usage is available
+                if completion_result and completion_result.token_usage:
+                    cost = calculate_cost(completion_result.token_usage)
+                    metrics.record_question_cost(question_type_str, cost)
 
-            logger.info(
-                f"Successfully generated question (async): {question.question_text[:50]}..."
-            )
-            return question
+                    # ALSO record to observability facade (with error handling)
+                    _safe_record_metric(
+                        "question.generation.cost",
+                        value=cost,
+                        labels={
+                            "question_type": question_type_str,
+                            "provider": provider_name,
+                        },
+                        metric_type="counter",
+                        unit="usd",
+                    )
 
-        except CircuitBreakerOpen:
-            logger.warning(
-                f"Circuit breaker is open for {provider_name}, cannot generate question (async)"
-            )
-            raise
-        except asyncio.TimeoutError:
-            logger.error(
-                f"Timeout generating question with {provider_name} "
-                f"(async) after {effective_timeout}s"
-            )
-            raise
-        except LLMProviderError as e:
-            logger.error(
-                f"Failed to generate question with {provider_name} (async): {str(e)} "
-                f"(category={e.classified_error.category.value})"
-            )
-            # Capture classified error to Sentry
-            _safe_capture_generation_error(
-                e,
-                provider=provider_name,
-                question_type=question_type.value,
-                difficulty=difficulty.value,
-                operation="generation_async",
-                subtype=subtype,
-                model=actual_model,
-            )
-            raise
-        except Exception as e:
-            logger.error(
-                f"Failed to generate question with {provider_name} (async): {str(e)}"
-            )
-            # Capture unclassified error to Sentry
-            _safe_capture_generation_error(
-                e,
-                provider=provider_name,
-                question_type=question_type.value,
-                difficulty=difficulty.value,
-                operation="generation_async",
-                subtype=subtype,
-                model=actual_model,
-            )
-            raise
+                # Parse response into GeneratedQuestion
+                question = self._parse_generated_response(
+                    response=response,
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    provider_name=provider_name,
+                    model=actual_model,
+                )
+                question.sub_type = subtype
+
+                span.set_attribute("success", True)
+                logger.info(
+                    f"Successfully generated question (async): {question.question_text[:50]}..."
+                )
+                return question
+
+            except CircuitBreakerOpen:
+                span.set_attribute("success", False)
+                span.set_status("error", "Circuit breaker open")
+                logger.warning(
+                    f"Circuit breaker is open for {provider_name}, cannot generate question (async)"
+                )
+                raise
+            except asyncio.TimeoutError:
+                span.set_attribute("success", False)
+                span.set_status("error", f"Timeout after {effective_timeout}s")
+                logger.error(
+                    f"Timeout generating question with {provider_name} "
+                    f"(async) after {effective_timeout}s"
+                )
+                raise
+            except LLMProviderError as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(
+                    f"Failed to generate question with {provider_name} (async): {str(e)} "
+                    f"(category={e.classified_error.category.value})"
+                )
+                # Capture classified error to Sentry
+                _safe_capture_generation_error(
+                    e,
+                    provider=provider_name,
+                    question_type=question_type.value,
+                    difficulty=difficulty.value,
+                    operation="generation_async",
+                    subtype=subtype,
+                    model=actual_model,
+                )
+                raise
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(
+                    f"Failed to generate question with {provider_name} (async): {str(e)}"
+                )
+                # Capture unclassified error to Sentry
+                _safe_capture_generation_error(
+                    e,
+                    provider=provider_name,
+                    question_type=question_type.value,
+                    difficulty=difficulty.value,
+                    operation="generation_async",
+                    subtype=subtype,
+                    model=actual_model,
+                )
+                raise
 
     async def generate_batch_async(
         self,
@@ -1734,100 +1778,123 @@ class QuestionGenerator:
         start_time = time.perf_counter()
         completion_result = None
 
-        async def _do_batch_generation() -> Any:
-            nonlocal completion_result
-            async with self._rate_limiter:
-                completion_result = await asyncio.wait_for(
-                    provider.generate_structured_completion_with_usage_async(
-                        prompt=prompt,
-                        response_format=_QUESTION_BATCH_SCHEMA,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        model_override=model_override,
-                    ),
-                    timeout=effective_timeout,
-                )
-                return completion_result.content
+        with observability.start_span(
+            "generator.generate_batch_single_call_async",
+            attributes={
+                "question_type": question_type.value,
+                "difficulty": difficulty.value,
+                "count": count,
+                "provider": provider_name,
+                "model": actual_model,
+            },
+        ) as span:
 
-        try:
-            response = await circuit_breaker.execute_async(_do_batch_generation)
-            latency = time.perf_counter() - start_time
+            async def _do_batch_generation() -> Any:
+                nonlocal completion_result
+                async with self._rate_limiter:
+                    completion_result = await asyncio.wait_for(
+                        provider.generate_structured_completion_with_usage_async(
+                            prompt=prompt,
+                            response_format=_QUESTION_BATCH_SCHEMA,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model_override=model_override,
+                        ),
+                        timeout=effective_timeout,
+                    )
+                    return completion_result.content
 
-            # Record metrics
-            metrics = get_metrics_tracker()
-            question_type_str = question_type.value
-            metrics.record_question_latency(question_type_str, latency)
+            try:
+                response = await circuit_breaker.execute_async(_do_batch_generation)
+                latency = time.perf_counter() - start_time
+                span.set_attribute("generation_duration", latency)
 
-            # ALSO record to observability facade (with error handling)
-            _safe_record_metric(
-                "question.generation.latency",
-                value=latency,
-                labels={"question_type": question_type_str, "provider": provider_name},
-                metric_type="histogram",
-                unit="s",
-            )
-
-            if completion_result and completion_result.token_usage:
-                cost = calculate_cost(completion_result.token_usage)
-                metrics.record_question_cost(question_type_str, cost)
+                # Record metrics
+                metrics = get_metrics_tracker()
+                question_type_str = question_type.value
+                metrics.record_question_latency(question_type_str, latency)
 
                 # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
-                    "question.generation.cost",
-                    value=cost,
+                    "question.generation.latency",
+                    value=latency,
                     labels={
                         "question_type": question_type_str,
                         "provider": provider_name,
                     },
-                    metric_type="counter",
-                    unit="usd",
+                    metric_type="histogram",
+                    unit="s",
                 )
 
-            # Parse batch response
-            questions = self._parse_batch_response(
-                response=response,
-                question_type=question_type,
-                difficulty=difficulty,
-                provider_name=provider_name,
-                model=actual_model,
-            )
+                if completion_result and completion_result.token_usage:
+                    cost = calculate_cost(completion_result.token_usage)
+                    metrics.record_question_cost(question_type_str, cost)
 
-            # Stamp the batch-level subtype onto each parsed question
-            if subtype:
-                for q in questions:
-                    q.sub_type = subtype
+                    # ALSO record to observability facade (with error handling)
+                    _safe_record_metric(
+                        "question.generation.cost",
+                        value=cost,
+                        labels={
+                            "question_type": question_type_str,
+                            "provider": provider_name,
+                        },
+                        metric_type="counter",
+                        unit="usd",
+                    )
 
-            logger.info(
-                f"Single-call batch complete: {len(questions)}/{count} questions "
-                f"parsed successfully in {latency:.2f}s"
-            )
-            return questions
+                # Parse batch response
+                questions = self._parse_batch_response(
+                    response=response,
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    provider_name=provider_name,
+                    model=actual_model,
+                )
 
-        except CircuitBreakerOpen:
-            logger.warning(
-                f"Circuit breaker is open for {provider_name}, "
-                f"cannot generate batch (single call)"
-            )
-            raise
-        except asyncio.TimeoutError:
-            logger.error(
-                f"Timeout generating batch with {provider_name} "
-                f"after {effective_timeout}s"
-            )
-            raise
-        except Exception as e:
-            logger.error(f"Failed to generate batch with {provider_name}: {str(e)}")
-            # Capture batch generation error to Sentry
-            _safe_capture_generation_error(
-                e,
-                provider=provider_name,
-                question_type=question_type.value,
-                difficulty=difficulty.value,
-                operation="batch_generation_single_call",
-                subtype=subtype,
-                model=actual_model,
-            )
-            raise
+                # Stamp the batch-level subtype onto each parsed question
+                if subtype:
+                    for q in questions:
+                        q.sub_type = subtype
+
+                span.set_attribute("success", True)
+                span.set_attribute("questions_generated", len(questions))
+                logger.info(
+                    f"Single-call batch complete: {len(questions)}/{count} questions "
+                    f"parsed successfully in {latency:.2f}s"
+                )
+                return questions
+
+            except CircuitBreakerOpen:
+                span.set_attribute("success", False)
+                span.set_status("error", "Circuit breaker open")
+                logger.warning(
+                    f"Circuit breaker is open for {provider_name}, "
+                    f"cannot generate batch (single call)"
+                )
+                raise
+            except asyncio.TimeoutError:
+                span.set_attribute("success", False)
+                span.set_status("error", f"Timeout after {effective_timeout}s")
+                logger.error(
+                    f"Timeout generating batch with {provider_name} "
+                    f"after {effective_timeout}s"
+                )
+                raise
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(f"Failed to generate batch with {provider_name}: {str(e)}")
+                # Capture batch generation error to Sentry
+                _safe_capture_generation_error(
+                    e,
+                    provider=provider_name,
+                    question_type=question_type.value,
+                    difficulty=difficulty.value,
+                    operation="batch_generation_single_call",
+                    subtype=subtype,
+                    model=actual_model,
+                )
+                raise
 
     def get_available_providers(self) -> List[str]:
         """Get list of available provider names.
@@ -1965,108 +2032,129 @@ class QuestionGenerator:
         start_time = time.perf_counter()
         completion_result = None
 
-        async def _do_regeneration() -> Dict[str, Any]:
-            nonlocal completion_result
-            async with self._rate_limiter:
-                completion_result = await asyncio.wait_for(
-                    provider.generate_structured_completion_with_usage_async(
-                        prompt=prompt,
-                        response_format=_QUESTION_SCHEMA,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        model_override=model_override,
-                    ),
-                    timeout=effective_timeout,
-                )
-                return completion_result.content
+        with observability.start_span(
+            "generator.regenerate_question_with_feedback_async",
+            attributes={
+                "question_type": original_question.question_type.value,
+                "difficulty": original_question.difficulty_level.value,
+                "provider": provider_name,
+                "model": actual_model,
+            },
+        ) as span:
 
-        try:
-            response = await circuit_breaker.execute_async(_do_regeneration)
-            latency = time.perf_counter() - start_time
+            async def _do_regeneration() -> Dict[str, Any]:
+                nonlocal completion_result
+                async with self._rate_limiter:
+                    completion_result = await asyncio.wait_for(
+                        provider.generate_structured_completion_with_usage_async(
+                            prompt=prompt,
+                            response_format=_QUESTION_SCHEMA,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model_override=model_override,
+                        ),
+                        timeout=effective_timeout,
+                    )
+                    return completion_result.content
 
-            # Record metrics
-            metrics = get_metrics_tracker()
-            question_type_str = original_question.question_type.value
-            metrics.record_question_latency(question_type_str, latency)
+            try:
+                response = await circuit_breaker.execute_async(_do_regeneration)
+                latency = time.perf_counter() - start_time
+                span.set_attribute("generation_duration", latency)
 
-            # ALSO record to observability facade (with error handling)
-            _safe_record_metric(
-                "question.generation.latency",
-                value=latency,
-                labels={"question_type": question_type_str, "provider": provider_name},
-                metric_type="histogram",
-                unit="s",
-            )
-
-            if completion_result and completion_result.token_usage:
-                cost = calculate_cost(completion_result.token_usage)
-                metrics.record_question_cost(question_type_str, cost)
+                # Record metrics
+                metrics = get_metrics_tracker()
+                question_type_str = original_question.question_type.value
+                metrics.record_question_latency(question_type_str, latency)
 
                 # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
-                    "question.generation.cost",
-                    value=cost,
+                    "question.generation.latency",
+                    value=latency,
                     labels={
                         "question_type": question_type_str,
                         "provider": provider_name,
                     },
-                    metric_type="counter",
-                    unit="usd",
+                    metric_type="histogram",
+                    unit="s",
                 )
 
-            # Parse response into GeneratedQuestion
-            question = self._parse_generated_response(
-                response=response,
-                question_type=original_question.question_type,
-                difficulty=original_question.difficulty_level,
-                provider_name=provider_name,
-                model=actual_model,
-            )
+                if completion_result and completion_result.token_usage:
+                    cost = calculate_cost(completion_result.token_usage)
+                    metrics.record_question_cost(question_type_str, cost)
 
-            # Preserve original sub_type on regenerated question
-            question.sub_type = original_question.sub_type
+                    # ALSO record to observability facade (with error handling)
+                    _safe_record_metric(
+                        "question.generation.cost",
+                        value=cost,
+                        labels={
+                            "question_type": question_type_str,
+                            "provider": provider_name,
+                        },
+                        metric_type="counter",
+                        unit="usd",
+                    )
 
-            # Add metadata indicating this was regenerated
-            question.metadata["regenerated"] = True
-            question.metadata["original_question"] = original_question.question_text[
-                :100
-            ]
-            question.metadata["regeneration_reason"] = "judge_feedback"
+                # Parse response into GeneratedQuestion
+                question = self._parse_generated_response(
+                    response=response,
+                    question_type=original_question.question_type,
+                    difficulty=original_question.difficulty_level,
+                    provider_name=provider_name,
+                    model=actual_model,
+                )
 
-            logger.info(
-                f"Successfully regenerated question: {question.question_text[:50]}..."
-            )
-            return question
+                # Preserve original sub_type on regenerated question
+                question.sub_type = original_question.sub_type
 
-        except CircuitBreakerOpen:
-            logger.warning(
-                f"Circuit breaker is open for {provider_name}, cannot regenerate"
-            )
-            raise
-        except asyncio.TimeoutError:
-            logger.error(
-                f"Timeout regenerating question with {provider_name} "
-                f"after {effective_timeout}s"
-            )
-            raise
-        except Exception as e:
-            logger.error(
-                f"Failed to regenerate question with {provider_name}: {str(e)}\n"
-                f"  Provider: {provider_name}, Model: {actual_model}\n"
-                f"  Original question type: {original_question.question_type.value}\n"
-                f"  Exception type: {type(e).__name__}"
-            )
-            # Capture regeneration error to Sentry
-            _safe_capture_generation_error(
-                e,
-                provider=provider_name,
-                question_type=original_question.question_type.value,
-                difficulty=original_question.difficulty_level.value,
-                operation="regeneration",
-                subtype=original_question.sub_type,
-                model=actual_model,
-            )
-            raise
+                # Add metadata indicating this was regenerated
+                question.metadata["regenerated"] = True
+                question.metadata[
+                    "original_question"
+                ] = original_question.question_text[:100]
+                question.metadata["regeneration_reason"] = "judge_feedback"
+
+                span.set_attribute("success", True)
+                logger.info(
+                    f"Successfully regenerated question: {question.question_text[:50]}..."
+                )
+                return question
+
+            except CircuitBreakerOpen:
+                span.set_attribute("success", False)
+                span.set_status("error", "Circuit breaker open")
+                logger.warning(
+                    f"Circuit breaker is open for {provider_name}, cannot regenerate"
+                )
+                raise
+            except asyncio.TimeoutError:
+                span.set_attribute("success", False)
+                span.set_status("error", f"Timeout after {effective_timeout}s")
+                logger.error(
+                    f"Timeout regenerating question with {provider_name} "
+                    f"after {effective_timeout}s"
+                )
+                raise
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(
+                    f"Failed to regenerate question with {provider_name}: {str(e)}\n"
+                    f"  Provider: {provider_name}, Model: {actual_model}\n"
+                    f"  Original question type: {original_question.question_type.value}\n"
+                    f"  Exception type: {type(e).__name__}"
+                )
+                # Capture regeneration error to Sentry
+                _safe_capture_generation_error(
+                    e,
+                    provider=provider_name,
+                    question_type=original_question.question_type.value,
+                    difficulty=original_question.difficulty_level.value,
+                    operation="regeneration",
+                    subtype=original_question.sub_type,
+                    model=actual_model,
+                )
+                raise
 
     async def cleanup(self) -> None:
         """Clean up all provider resources.

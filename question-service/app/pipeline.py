@@ -6,7 +6,9 @@ coordinating the generator, judge, and other components.
 
 import asyncio
 import logging
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .config import settings
@@ -16,6 +18,14 @@ from .models import (
     GenerationBatch,
     QuestionType,
 )
+
+# Import observability facade for distributed tracing
+try:
+    from libs.observability import observability
+except ImportError:
+    # Fallback for environments where libs.observability isn't installed as a package
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -81,24 +91,39 @@ class QuestionGenerationPipeline:
         Raises:
             Exception: If generation fails
         """
-        logger.info(
-            f"Pipeline: Generating {count} {question_type.value} questions "
-            f"at {difficulty.value} difficulty"
-        )
+        with observability.start_span(
+            "pipeline.generate_questions",
+            attributes={
+                "question_type": question_type.value,
+                "difficulty": difficulty.value,
+                "count": count,
+            },
+        ) as span:
+            try:
+                logger.info(
+                    f"Pipeline: Generating {count} {question_type.value} questions "
+                    f"at {difficulty.value} difficulty"
+                )
 
-        batch = self.generator.generate_batch(
-            question_type=question_type,
-            difficulty=difficulty,
-            count=count,
-            distribute_across_providers=distribute_providers,
-            provider_tier=provider_tier,
-        )
+                batch = self.generator.generate_batch(
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    count=count,
+                    distribute_across_providers=distribute_providers,
+                    provider_tier=provider_tier,
+                )
 
-        logger.info(
-            f"Pipeline: Generated {len(batch.questions)}/{count} questions successfully"
-        )
+                span.set_attribute("success", True)
+                span.set_attribute("questions_generated", len(batch.questions))
+                logger.info(
+                    f"Pipeline: Generated {len(batch.questions)}/{count} questions successfully"
+                )
 
-        return batch
+                return batch
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                raise
 
     async def generate_questions_async(
         self,
@@ -126,24 +151,39 @@ class QuestionGenerationPipeline:
         Raises:
             Exception: If generation fails
         """
-        logger.info(
-            f"Pipeline (async): Generating {count} {question_type.value} questions "
-            f"at {difficulty.value} difficulty"
-        )
+        with observability.start_span(
+            "pipeline.generate_questions_async",
+            attributes={
+                "question_type": question_type.value,
+                "difficulty": difficulty.value,
+                "count": count,
+            },
+        ) as span:
+            try:
+                logger.info(
+                    f"Pipeline (async): Generating {count} {question_type.value} questions "
+                    f"at {difficulty.value} difficulty"
+                )
 
-        batch = await self.generator.generate_batch_async(
-            question_type=question_type,
-            difficulty=difficulty,
-            count=count,
-            distribute_across_providers=distribute_providers,
-            provider_tier=provider_tier,
-        )
+                batch = await self.generator.generate_batch_async(
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    count=count,
+                    distribute_across_providers=distribute_providers,
+                    provider_tier=provider_tier,
+                )
 
-        logger.info(
-            f"Pipeline (async): Generated {len(batch.questions)}/{count} questions successfully"
-        )
+                span.set_attribute("success", True)
+                span.set_attribute("questions_generated", len(batch.questions))
+                logger.info(
+                    f"Pipeline (async): Generated {len(batch.questions)}/{count} questions successfully"
+                )
 
-        return batch
+                return batch
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                raise
 
     def generate_full_question_set(
         self,
@@ -232,90 +272,100 @@ class QuestionGenerationPipeline:
         Raises:
             Exception: If job fails
         """
-        start_time = datetime.now(timezone.utc)
         questions_per_run = questions_per_run or settings.questions_per_run
 
-        logger.info(f"Starting question generation job: {questions_per_run} questions")
+        with observability.start_span(
+            "pipeline.run_generation_job",
+            attributes={"questions_per_run": questions_per_run},
+        ) as span:
+            start_time = datetime.now(timezone.utc)
 
-        # Determine which types to generate
-        types_to_generate = question_types or list(QuestionType)
+            logger.info(
+                f"Starting question generation job: {questions_per_run} questions"
+            )
 
-        # Default difficulty distribution
-        if difficulty_distribution is None:
-            difficulty_distribution = {
-                DifficultyLevel.EASY: 0.30,
-                DifficultyLevel.MEDIUM: 0.45,
-                DifficultyLevel.HARD: 0.25,
+            # Determine which types to generate
+            types_to_generate = question_types or list(QuestionType)
+
+            # Default difficulty distribution
+            if difficulty_distribution is None:
+                difficulty_distribution = {
+                    DifficultyLevel.EASY: 0.30,
+                    DifficultyLevel.MEDIUM: 0.45,
+                    DifficultyLevel.HARD: 0.25,
+                }
+
+            # Calculate questions per type
+            questions_per_type = questions_per_run // len(types_to_generate)
+
+            all_batches = []
+            all_questions = []
+
+            # Generate questions for each type
+            for question_type in types_to_generate:
+                logger.info(f"Job: Generating questions for {question_type.value}")
+
+                for difficulty, proportion in difficulty_distribution.items():
+                    count = max(1, int(questions_per_type * proportion))
+
+                    try:
+                        batch = self.generate_questions(
+                            question_type=question_type,
+                            difficulty=difficulty,
+                            count=count,
+                            distribute_providers=True,
+                            provider_tier=provider_tier,
+                        )
+                        all_batches.append(batch)
+                        all_questions.extend(batch.questions)
+
+                    except Exception as e:
+                        logger.error(
+                            f"Job: Failed to generate {question_type.value} - "
+                            f"{difficulty.value}: {str(e)}"
+                        )
+                        continue
+
+            end_time = datetime.now(timezone.utc)
+            duration = (end_time - start_time).total_seconds()
+
+            # Compile statistics
+            stats = {
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "duration_seconds": duration,
+                "target_questions": questions_per_run,
+                "questions_generated": len(all_questions),
+                "batches_created": len(all_batches),
+                "success_rate": len(all_questions) / questions_per_run
+                if questions_per_run > 0
+                else 0,
+                "providers_used": list(set(q.source_llm for q in all_questions)),
+                "questions_by_type": {
+                    qt.value: len([q for q in all_questions if q.question_type == qt])
+                    for qt in QuestionType
+                },
+                "questions_by_difficulty": {
+                    diff.value: len(
+                        [q for q in all_questions if q.difficulty_level == diff]
+                    )
+                    for diff in DifficultyLevel
+                },
             }
 
-        # Calculate questions per type
-        questions_per_type = questions_per_run // len(types_to_generate)
+            span.set_attribute("success", True)
+            span.set_attribute("questions_generated", len(all_questions))
+            span.set_attribute("duration_seconds", duration)
+            logger.info(
+                f"Job complete: Generated {len(all_questions)}/{questions_per_run} "
+                f"questions in {duration:.1f}s"
+            )
 
-        all_batches = []
-        all_questions = []
-
-        # Generate questions for each type
-        for question_type in types_to_generate:
-            logger.info(f"Job: Generating questions for {question_type.value}")
-
-            for difficulty, proportion in difficulty_distribution.items():
-                count = max(1, int(questions_per_type * proportion))
-
-                try:
-                    batch = self.generate_questions(
-                        question_type=question_type,
-                        difficulty=difficulty,
-                        count=count,
-                        distribute_providers=True,
-                        provider_tier=provider_tier,
-                    )
-                    all_batches.append(batch)
-                    all_questions.extend(batch.questions)
-
-                except Exception as e:
-                    logger.error(
-                        f"Job: Failed to generate {question_type.value} - "
-                        f"{difficulty.value}: {str(e)}"
-                    )
-                    continue
-
-        end_time = datetime.now(timezone.utc)
-        duration = (end_time - start_time).total_seconds()
-
-        # Compile statistics
-        stats = {
-            "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
-            "duration_seconds": duration,
-            "target_questions": questions_per_run,
-            "questions_generated": len(all_questions),
-            "batches_created": len(all_batches),
-            "success_rate": len(all_questions) / questions_per_run
-            if questions_per_run > 0
-            else 0,
-            "providers_used": list(set(q.source_llm for q in all_questions)),
-            "questions_by_type": {
-                qt.value: len([q for q in all_questions if q.question_type == qt])
-                for qt in QuestionType
-            },
-            "questions_by_difficulty": {
-                diff.value: len(
-                    [q for q in all_questions if q.difficulty_level == diff]
-                )
-                for diff in DifficultyLevel
-            },
-        }
-
-        logger.info(
-            f"Job complete: Generated {len(all_questions)}/{questions_per_run} "
-            f"questions in {duration:.1f}s"
-        )
-
-        return {
-            "statistics": stats,
-            "batches": all_batches,
-            "questions": all_questions,
-        }
+            return {
+                "statistics": stats,
+                "batches": all_batches,
+                "questions": all_questions,
+            }
 
     async def run_generation_job_async(
         self,
@@ -342,108 +392,119 @@ class QuestionGenerationPipeline:
         Raises:
             Exception: If job fails
         """
-        start_time = datetime.now(timezone.utc)
         questions_per_run = questions_per_run or settings.questions_per_run
 
-        logger.info(
-            f"Starting async question generation job: {questions_per_run} questions"
-        )
+        with observability.start_span(
+            "pipeline.run_generation_job_async",
+            attributes={"questions_per_run": questions_per_run},
+        ) as span:
+            start_time = datetime.now(timezone.utc)
 
-        # Determine which types to generate
-        types_to_generate = question_types or list(QuestionType)
+            logger.info(
+                f"Starting async question generation job: {questions_per_run} questions"
+            )
 
-        # Default difficulty distribution
-        if difficulty_distribution is None:
-            difficulty_distribution = {
-                DifficultyLevel.EASY: 0.30,
-                DifficultyLevel.MEDIUM: 0.45,
-                DifficultyLevel.HARD: 0.25,
+            # Determine which types to generate
+            types_to_generate = question_types or list(QuestionType)
+
+            # Default difficulty distribution
+            if difficulty_distribution is None:
+                difficulty_distribution = {
+                    DifficultyLevel.EASY: 0.30,
+                    DifficultyLevel.MEDIUM: 0.45,
+                    DifficultyLevel.HARD: 0.25,
+                }
+
+            # Calculate questions per type
+            questions_per_type = questions_per_run // len(types_to_generate)
+
+            # Create tasks for all type/difficulty combinations
+            tasks = []
+            task_metadata = []
+
+            for question_type in types_to_generate:
+                for difficulty, proportion in difficulty_distribution.items():
+                    count = max(1, int(questions_per_type * proportion))
+                    task = self.generate_questions_async(
+                        question_type=question_type,
+                        difficulty=difficulty,
+                        count=count,
+                        distribute_providers=True,
+                        provider_tier=provider_tier,
+                    )
+                    tasks.append(task)
+                    task_metadata.append(
+                        {
+                            "question_type": question_type,
+                            "difficulty": difficulty,
+                            "count": count,
+                        }
+                    )
+
+            logger.info(
+                f"Job (async): Executing {len(tasks)} generation tasks in parallel"
+            )
+
+            # Execute all tasks concurrently
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results
+            all_batches: List[GenerationBatch] = []
+            all_questions = []
+
+            for i, result in enumerate(results):
+                metadata = task_metadata[i]
+                if isinstance(result, BaseException):
+                    logger.error(
+                        f"Job (async): Failed to generate "
+                        f"{metadata['question_type'].value} - "
+                        f"{metadata['difficulty'].value}: {str(result)}"
+                    )
+                elif isinstance(result, GenerationBatch):
+                    all_batches.append(result)
+                    all_questions.extend(result.questions)
+
+            end_time = datetime.now(timezone.utc)
+            duration = (end_time - start_time).total_seconds()
+
+            # Compile statistics
+            stats = {
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "duration_seconds": duration,
+                "target_questions": questions_per_run,
+                "questions_generated": len(all_questions),
+                "batches_created": len(all_batches),
+                "success_rate": len(all_questions) / questions_per_run
+                if questions_per_run > 0
+                else 0,
+                "providers_used": list(set(q.source_llm for q in all_questions)),
+                "questions_by_type": {
+                    qt.value: len([q for q in all_questions if q.question_type == qt])
+                    for qt in QuestionType
+                },
+                "questions_by_difficulty": {
+                    diff.value: len(
+                        [q for q in all_questions if q.difficulty_level == diff]
+                    )
+                    for diff in DifficultyLevel
+                },
+                "async": True,
             }
 
-        # Calculate questions per type
-        questions_per_type = questions_per_run // len(types_to_generate)
+            span.set_attribute("success", True)
+            span.set_attribute("questions_generated", len(all_questions))
+            span.set_attribute("duration_seconds", duration)
+            logger.info(
+                f"Job (async) complete: Generated {len(all_questions)}/{questions_per_run} "
+                f"questions in {duration:.1f}s"
+            )
 
-        # Create tasks for all type/difficulty combinations
-        tasks = []
-        task_metadata = []
-
-        for question_type in types_to_generate:
-            for difficulty, proportion in difficulty_distribution.items():
-                count = max(1, int(questions_per_type * proportion))
-                task = self.generate_questions_async(
-                    question_type=question_type,
-                    difficulty=difficulty,
-                    count=count,
-                    distribute_providers=True,
-                    provider_tier=provider_tier,
-                )
-                tasks.append(task)
-                task_metadata.append(
-                    {
-                        "question_type": question_type,
-                        "difficulty": difficulty,
-                        "count": count,
-                    }
-                )
-
-        logger.info(f"Job (async): Executing {len(tasks)} generation tasks in parallel")
-
-        # Execute all tasks concurrently
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Process results
-        all_batches: List[GenerationBatch] = []
-        all_questions = []
-
-        for i, result in enumerate(results):
-            metadata = task_metadata[i]
-            if isinstance(result, BaseException):
-                logger.error(
-                    f"Job (async): Failed to generate {metadata['question_type'].value} - "
-                    f"{metadata['difficulty'].value}: {str(result)}"
-                )
-            elif isinstance(result, GenerationBatch):
-                all_batches.append(result)
-                all_questions.extend(result.questions)
-
-        end_time = datetime.now(timezone.utc)
-        duration = (end_time - start_time).total_seconds()
-
-        # Compile statistics
-        stats = {
-            "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
-            "duration_seconds": duration,
-            "target_questions": questions_per_run,
-            "questions_generated": len(all_questions),
-            "batches_created": len(all_batches),
-            "success_rate": len(all_questions) / questions_per_run
-            if questions_per_run > 0
-            else 0,
-            "providers_used": list(set(q.source_llm for q in all_questions)),
-            "questions_by_type": {
-                qt.value: len([q for q in all_questions if q.question_type == qt])
-                for qt in QuestionType
-            },
-            "questions_by_difficulty": {
-                diff.value: len(
-                    [q for q in all_questions if q.difficulty_level == diff]
-                )
-                for diff in DifficultyLevel
-            },
-            "async": True,
-        }
-
-        logger.info(
-            f"Job (async) complete: Generated {len(all_questions)}/{questions_per_run} "
-            f"questions in {duration:.1f}s"
-        )
-
-        return {
-            "statistics": stats,
-            "batches": all_batches,
-            "questions": all_questions,
-        }
+            return {
+                "statistics": stats,
+                "batches": all_batches,
+                "questions": all_questions,
+            }
 
     def run_balanced_generation_job(
         self,
@@ -467,82 +528,90 @@ class QuestionGenerationPipeline:
         Raises:
             Exception: If job fails
         """
-        start_time = datetime.now(timezone.utc)
         total_to_generate = sum(stratum_allocations.values())
 
-        logger.info(
-            f"Starting balanced generation job: {total_to_generate} questions "
-            f"across {len([v for v in stratum_allocations.values() if v > 0])} strata"
-        )
-
-        all_batches = []
-        all_questions = []
-
-        for (question_type, difficulty), count in stratum_allocations.items():
-            if count <= 0:
-                continue
+        with observability.start_span(
+            "pipeline.run_balanced_generation_job",
+            attributes={"total_to_generate": total_to_generate},
+        ) as span:
+            start_time = datetime.now(timezone.utc)
 
             logger.info(
-                f"Job: Generating {count} questions for "
-                f"{question_type.value}/{difficulty.value}"
+                f"Starting balanced generation job: {total_to_generate} questions "
+                f"across {len([v for v in stratum_allocations.values() if v > 0])} strata"
             )
 
-            try:
-                batch = self.generate_questions(
-                    question_type=question_type,
-                    difficulty=difficulty,
-                    count=count,
-                    distribute_providers=True,
-                    provider_tier=provider_tier,
+            all_batches = []
+            all_questions = []
+
+            for (question_type, difficulty), count in stratum_allocations.items():
+                if count <= 0:
+                    continue
+
+                logger.info(
+                    f"Job: Generating {count} questions for "
+                    f"{question_type.value}/{difficulty.value}"
                 )
-                all_batches.append(batch)
-                all_questions.extend(batch.questions)
 
-            except Exception as e:
-                logger.error(
-                    f"Job: Failed to generate {question_type.value} - "
-                    f"{difficulty.value}: {str(e)}"
-                )
-                continue
+                try:
+                    batch = self.generate_questions(
+                        question_type=question_type,
+                        difficulty=difficulty,
+                        count=count,
+                        distribute_providers=True,
+                        provider_tier=provider_tier,
+                    )
+                    all_batches.append(batch)
+                    all_questions.extend(batch.questions)
 
-        end_time = datetime.now(timezone.utc)
-        duration = (end_time - start_time).total_seconds()
+                except Exception as e:
+                    logger.error(
+                        f"Job: Failed to generate {question_type.value} - "
+                        f"{difficulty.value}: {str(e)}"
+                    )
+                    continue
 
-        # Compile statistics
-        stats = {
-            "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
-            "duration_seconds": duration,
-            "target_questions": total_to_generate,
-            "questions_generated": len(all_questions),
-            "batches_created": len(all_batches),
-            "success_rate": len(all_questions) / total_to_generate
-            if total_to_generate > 0
-            else 0,
-            "providers_used": list(set(q.source_llm for q in all_questions)),
-            "questions_by_type": {
-                qt.value: len([q for q in all_questions if q.question_type == qt])
-                for qt in QuestionType
-            },
-            "questions_by_difficulty": {
-                diff.value: len(
-                    [q for q in all_questions if q.difficulty_level == diff]
-                )
-                for diff in DifficultyLevel
-            },
-            "balanced": True,
-        }
+            end_time = datetime.now(timezone.utc)
+            duration = (end_time - start_time).total_seconds()
 
-        logger.info(
-            f"Balanced job complete: Generated {len(all_questions)}/{total_to_generate} "
-            f"questions in {duration:.1f}s"
-        )
+            # Compile statistics
+            stats = {
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "duration_seconds": duration,
+                "target_questions": total_to_generate,
+                "questions_generated": len(all_questions),
+                "batches_created": len(all_batches),
+                "success_rate": len(all_questions) / total_to_generate
+                if total_to_generate > 0
+                else 0,
+                "providers_used": list(set(q.source_llm for q in all_questions)),
+                "questions_by_type": {
+                    qt.value: len([q for q in all_questions if q.question_type == qt])
+                    for qt in QuestionType
+                },
+                "questions_by_difficulty": {
+                    diff.value: len(
+                        [q for q in all_questions if q.difficulty_level == diff]
+                    )
+                    for diff in DifficultyLevel
+                },
+                "balanced": True,
+            }
 
-        return {
-            "statistics": stats,
-            "batches": all_batches,
-            "questions": all_questions,
-        }
+            span.set_attribute("success", True)
+            span.set_attribute("questions_generated", len(all_questions))
+            span.set_attribute("duration_seconds", duration)
+            logger.info(
+                f"Balanced job complete: Generated {len(all_questions)}/{total_to_generate} "
+                f"questions in {duration:.1f}s"
+            )
+
+            return {
+                "statistics": stats,
+                "batches": all_batches,
+                "questions": all_questions,
+            }
 
     async def run_balanced_generation_job_async(
         self,
@@ -566,100 +635,108 @@ class QuestionGenerationPipeline:
         Raises:
             Exception: If job fails
         """
-        start_time = datetime.now(timezone.utc)
         total_to_generate = sum(stratum_allocations.values())
 
-        logger.info(
-            f"Starting async balanced generation job: {total_to_generate} questions "
-            f"across {len([v for v in stratum_allocations.values() if v > 0])} strata"
-        )
+        with observability.start_span(
+            "pipeline.run_balanced_generation_job_async",
+            attributes={"total_to_generate": total_to_generate},
+        ) as span:
+            start_time = datetime.now(timezone.utc)
 
-        # Create tasks for all allocations
-        tasks = []
-        task_metadata = []
-
-        for (question_type, difficulty), count in stratum_allocations.items():
-            if count <= 0:
-                continue
-
-            task = self.generate_questions_async(
-                question_type=question_type,
-                difficulty=difficulty,
-                count=count,
-                distribute_providers=True,
-                provider_tier=provider_tier,
-            )
-            tasks.append(task)
-            task_metadata.append(
-                {
-                    "question_type": question_type,
-                    "difficulty": difficulty,
-                    "count": count,
-                }
+            logger.info(
+                f"Starting async balanced generation job: {total_to_generate} questions "
+                f"across {len([v for v in stratum_allocations.values() if v > 0])} strata"
             )
 
-        logger.info(
-            f"Balanced job (async): Executing {len(tasks)} generation tasks in parallel"
-        )
+            # Create tasks for all allocations
+            tasks = []
+            task_metadata = []
 
-        # Execute all tasks concurrently
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+            for (question_type, difficulty), count in stratum_allocations.items():
+                if count <= 0:
+                    continue
 
-        # Process results
-        all_batches: List[GenerationBatch] = []
-        all_questions = []
-
-        for i, result in enumerate(results):
-            metadata = task_metadata[i]
-            if isinstance(result, BaseException):
-                logger.error(
-                    f"Balanced job (async): Failed to generate "
-                    f"{metadata['question_type'].value} - "
-                    f"{metadata['difficulty'].value}: {str(result)}"
+                task = self.generate_questions_async(
+                    question_type=question_type,
+                    difficulty=difficulty,
+                    count=count,
+                    distribute_providers=True,
+                    provider_tier=provider_tier,
                 )
-            elif isinstance(result, GenerationBatch):
-                all_batches.append(result)
-                all_questions.extend(result.questions)
-
-        end_time = datetime.now(timezone.utc)
-        duration = (end_time - start_time).total_seconds()
-
-        # Compile statistics
-        stats = {
-            "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
-            "duration_seconds": duration,
-            "target_questions": total_to_generate,
-            "questions_generated": len(all_questions),
-            "batches_created": len(all_batches),
-            "success_rate": len(all_questions) / total_to_generate
-            if total_to_generate > 0
-            else 0,
-            "providers_used": list(set(q.source_llm for q in all_questions)),
-            "questions_by_type": {
-                qt.value: len([q for q in all_questions if q.question_type == qt])
-                for qt in QuestionType
-            },
-            "questions_by_difficulty": {
-                diff.value: len(
-                    [q for q in all_questions if q.difficulty_level == diff]
+                tasks.append(task)
+                task_metadata.append(
+                    {
+                        "question_type": question_type,
+                        "difficulty": difficulty,
+                        "count": count,
+                    }
                 )
-                for diff in DifficultyLevel
-            },
-            "async": True,
-            "balanced": True,
-        }
 
-        logger.info(
-            f"Balanced job (async) complete: Generated "
-            f"{len(all_questions)}/{total_to_generate} questions in {duration:.1f}s"
-        )
+            logger.info(
+                f"Balanced job (async): Executing {len(tasks)} generation tasks in parallel"
+            )
 
-        return {
-            "statistics": stats,
-            "batches": all_batches,
-            "questions": all_questions,
-        }
+            # Execute all tasks concurrently
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results
+            all_batches: List[GenerationBatch] = []
+            all_questions = []
+
+            for i, result in enumerate(results):
+                metadata = task_metadata[i]
+                if isinstance(result, BaseException):
+                    logger.error(
+                        f"Balanced job (async): Failed to generate "
+                        f"{metadata['question_type'].value} - "
+                        f"{metadata['difficulty'].value}: {str(result)}"
+                    )
+                elif isinstance(result, GenerationBatch):
+                    all_batches.append(result)
+                    all_questions.extend(result.questions)
+
+            end_time = datetime.now(timezone.utc)
+            duration = (end_time - start_time).total_seconds()
+
+            # Compile statistics
+            stats = {
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "duration_seconds": duration,
+                "target_questions": total_to_generate,
+                "questions_generated": len(all_questions),
+                "batches_created": len(all_batches),
+                "success_rate": len(all_questions) / total_to_generate
+                if total_to_generate > 0
+                else 0,
+                "providers_used": list(set(q.source_llm for q in all_questions)),
+                "questions_by_type": {
+                    qt.value: len([q for q in all_questions if q.question_type == qt])
+                    for qt in QuestionType
+                },
+                "questions_by_difficulty": {
+                    diff.value: len(
+                        [q for q in all_questions if q.difficulty_level == diff]
+                    )
+                    for diff in DifficultyLevel
+                },
+                "async": True,
+                "balanced": True,
+            }
+
+            span.set_attribute("success", True)
+            span.set_attribute("questions_generated", len(all_questions))
+            span.set_attribute("duration_seconds", duration)
+            logger.info(
+                f"Balanced job (async) complete: Generated "
+                f"{len(all_questions)}/{total_to_generate} questions in {duration:.1f}s"
+            )
+
+            return {
+                "statistics": stats,
+                "batches": all_batches,
+                "questions": all_questions,
+            }
 
     def get_pipeline_info(self) -> Dict[str, Any]:
         """Get information about the pipeline configuration.
