@@ -450,7 +450,7 @@ The question-service exposes a Prometheus-compatible `/metrics` endpoint on the 
 │  ┌─────────────────────┐    scrape /metrics         │
 │  │  question-service    │◄──────────────────────┐   │
 │  │  (trigger server)    │                       │   │
-│  │  :8001/metrics       │   ┌───────────────┐   │   │
+│  │  :8080/metrics       │   ┌───────────────┐   │   │
 │  └─────────────────────┘   │ Grafana Alloy  │───┘   │
 │                            │ (collector)    │       │
 │                            │ :9091 metrics  │       │
@@ -510,7 +510,7 @@ The Railway Alloy template includes a default configuration. You may need to add
 ```alloy
 prometheus.scrape "question_service" {
   targets = [{
-    __address__ = "<question-service-internal-url>:8001",
+    __address__ = "<question-service-internal-url>:8080",
   }]
   forward_to = [prometheus.remote_write.grafana_cloud.receiver]
   scrape_interval = "30s"
