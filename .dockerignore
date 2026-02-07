@@ -37,7 +37,8 @@ website/
 # Test files (not needed in production)
 tests/
 */tests/
-**/test_*.py
+# Exclude test files but NOT source files like test_sessions.py
+**/tests/test_*.py
 
 # Local configuration
 .env
