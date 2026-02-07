@@ -40,7 +40,7 @@ jobs:
 
       - name: Create issue on failure
         if: steps.cert-check.outputs.exit_code != '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CERT_STATUS: ${{ steps.cert-check.outputs.status }}
           CERT_EXIT_CODE: ${{ steps.cert-check.outputs.exit_code }}
