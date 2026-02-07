@@ -36,9 +36,9 @@ class TestExceptionHandlerMetrics:
         handler = app.exception_handlers[Exception]
         assert handler is not None
 
-    def test_metrics_import_is_present(self):
-        """Test that metrics is imported in main.py."""
-        # This test verifies the integration is set up
+    def test_observability_import_is_present(self):
+        """Test that observability is imported in main.py."""
+        # This test verifies the unified observability integration is set up
         import app.main
 
-        assert hasattr(app.main, "metrics")
+        assert hasattr(app.main, "observability")
