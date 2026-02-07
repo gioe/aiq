@@ -67,12 +67,16 @@ class ApplicationMetrics:
             logger.warning("Application metrics already initialized")
             return
 
-        # Check if observability facade is initialized
+        # Require observability facade to be initialized first
+        # The facade is initialized in main.py before ApplicationMetrics.initialize()
+        # If this fails, it indicates incorrect initialization order
         if not observability.is_initialized:
-            logger.warning(
+            logger.error(
                 "Observability facade not initialized. "
-                "Metrics will be delegated once it is initialized."
+                "ApplicationMetrics requires the facade to be initialized first. "
+                "Metrics will not be recorded."
             )
+            return
 
         self._initialized = True
         logger.info("Application metrics initialized successfully")
@@ -98,6 +102,7 @@ class ApplicationMetrics:
 
         try:
             # Record request count as counter
+            # Note: status_code is converted to string as the facade expects dict[str, str] labels
             observability.record_metric(
                 name="http.server.requests",
                 value=1,
