@@ -61,6 +61,11 @@ def _safe_record_metric(
     Wraps observability.record_metric() in try-except to ensure metrics failures
     don't crash the generation pipeline. Metrics are nice-to-have, not critical.
 
+    Note: The observability facade is initialized in run_generation.py:main()
+    before the pipeline is created, so metrics ARE recorded during generation.
+    The initialization check here avoids unnecessary function calls if observability
+    is not yet initialized (e.g., during module load or in test environments).
+
     Args:
         name: Metric name (e.g., "question.generation.latency")
         value: Metric value
@@ -68,6 +73,10 @@ def _safe_record_metric(
         metric_type: One of "counter", "histogram", "gauge", "updown_counter"
         unit: Optional unit (e.g., "s", "usd")
     """
+    # Skip if observability not initialized (avoids overhead of entering facade)
+    if not observability.is_initialized:
+        return
+
     try:
         observability.record_metric(
             name,
