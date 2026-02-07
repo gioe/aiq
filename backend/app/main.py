@@ -22,7 +22,6 @@ from libs.observability import observability
 from app.core.analytics import AnalyticsTracker
 from app.core.logging_config import setup_logging
 from app.core.process_registry import process_registry
-from app.observability import metrics
 from app.middleware import (
     PerformanceMonitoringMiddleware,
     RequestLoggingMiddleware,
@@ -500,14 +499,16 @@ def create_application() -> FastAPI:
                 user_id=user_id,
             )
 
-            # Record error metric for observability (safe - won't break error handling)
-            try:
-                metrics.record_error(
-                    error_type="HTTPException",
-                    path=str(request.url.path),
-                )
-            except Exception:
-                pass  # Metrics recording should not break error handling
+            # Capture error to observability (Sentry + OTEL)
+            observability.capture_error(
+                exc,
+                context={
+                    "path": str(request.url.path),
+                    "method": request.method,
+                    "status_code": exc.status_code,
+                },
+                tags={"error_type": "HTTPException"},
+            )
 
         return JSONResponse(
             status_code=exc.status_code,
@@ -548,14 +549,16 @@ def create_application() -> FastAPI:
             user_id=user_id,
         )
 
-        # Record error metric for observability (safe - won't break error handling)
-        try:
-            metrics.record_error(
-                error_type="ValidationError",
-                path=str(request.url.path),
-            )
-        except Exception:
-            pass  # Metrics recording should not break error handling
+        # Capture error to observability (Sentry + OTEL)
+        observability.capture_error(
+            exc,
+            context={
+                "path": str(request.url.path),
+                "method": request.method,
+                "validation_errors": errors,
+            },
+            tags={"error_type": "ValidationError"},
+        )
 
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -591,14 +594,16 @@ def create_application() -> FastAPI:
             user_id=user_id,
         )
 
-        # Record error metric for observability (safe - won't break error handling)
-        try:
-            metrics.record_error(
-                error_type=exc.__class__.__name__,
-                path=str(request.url.path),
-            )
-        except Exception:
-            pass  # Metrics recording should not break error handling
+        # Capture error to observability (Sentry + OTEL)
+        observability.capture_error(
+            exc,
+            context={
+                "path": str(request.url.path),
+                "method": request.method,
+                "error_id": error_id,
+            },
+            tags={"error_type": exc.__class__.__name__},
+        )
 
         # Return error response with tracking ID (don't leak internal details)
         return JSONResponse(
