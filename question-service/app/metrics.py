@@ -33,6 +33,11 @@ class MetricsTracker:
 
     This class provides methods to record various metrics and generate
     comprehensive reports about pipeline execution.
+
+    .. deprecated::
+        MetricsTracker is deprecated. Use `libs.observability.observability.record_metric()`
+        for new metrics. MetricsTracker remains for backward compatibility with existing
+        pipeline reporting.
     """
 
     def __init__(self):

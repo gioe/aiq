@@ -8,8 +8,10 @@ import asyncio
 import json
 import logging
 import random
+import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .circuit_breaker import (
@@ -33,7 +35,59 @@ from .providers.google_provider import GoogleProvider
 from .providers.openai_provider import OpenAIProvider
 from .providers.xai_provider import XAIProvider
 
+# Import observability facade for dual-write metrics pattern
+# This dual-write approach allows metrics to flow to both the legacy MetricsTracker
+# (for pipeline reporting) and the new OTEL-based observability system.
+# TODO: Remove sys.path manipulation once libs.observability is a proper package
+try:
+    from libs.observability import observability
+except ImportError:
+    # Fallback for environments where libs.observability isn't installed as a package
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from libs.observability import observability  # noqa: E402
+
 logger = logging.getLogger(__name__)
+
+
+def _safe_record_metric(
+    name: str,
+    value: float,
+    labels: Dict[str, str],
+    metric_type: str = "counter",
+    unit: Optional[str] = None,
+) -> None:
+    """Record a metric to the observability facade with error handling.
+
+    Wraps observability.record_metric() in try-except to ensure metrics failures
+    don't crash the generation pipeline. Metrics are nice-to-have, not critical.
+
+    Note: The observability facade is initialized in run_generation.py:main()
+    before the pipeline is created, so metrics ARE recorded during generation.
+    The initialization check here avoids unnecessary function calls if observability
+    is not yet initialized (e.g., during module load or in test environments).
+
+    Args:
+        name: Metric name (e.g., "question.generation.latency")
+        value: Metric value
+        labels: Metric labels/dimensions
+        metric_type: One of "counter", "histogram", "gauge", "updown_counter"
+        unit: Optional unit (e.g., "s", "usd")
+    """
+    # Skip if observability not initialized (avoids overhead of entering facade)
+    if not observability.is_initialized:
+        return
+
+    try:
+        observability.record_metric(
+            name,
+            value=value,
+            labels=labels,
+            metric_type=metric_type,
+            unit=unit,
+        )
+    except Exception as e:
+        logger.debug(f"Failed to record observability metric {name}: {e}")
+
 
 # Default rate limiting settings
 DEFAULT_MAX_CONCURRENT_REQUESTS = 10  # Max concurrent LLM API calls per provider
@@ -232,10 +286,31 @@ class QuestionGenerator:
             question_type_str = question_type.value
             metrics.record_question_latency(question_type_str, latency)
 
+            # ALSO record to observability facade (with error handling)
+            _safe_record_metric(
+                "question.generation.latency",
+                value=latency,
+                labels={"question_type": question_type_str, "provider": provider_name},
+                metric_type="histogram",
+                unit="s",
+            )
+
             # Record cost per question type if token usage is available
             if completion_result and completion_result.token_usage:
                 cost = calculate_cost(completion_result.token_usage)
                 metrics.record_question_cost(question_type_str, cost)
+
+                # ALSO record to observability facade (with error handling)
+                _safe_record_metric(
+                    "question.generation.cost",
+                    value=cost,
+                    labels={
+                        "question_type": question_type_str,
+                        "provider": provider_name,
+                    },
+                    metric_type="counter",
+                    unit="usd",
+                )
 
             # Parse response into GeneratedQuestion
             question = self._parse_generated_response(
@@ -421,6 +496,18 @@ class QuestionGenerator:
                     is_specialist=True,
                 )
 
+                # ALSO record to observability facade (with error handling)
+                _safe_record_metric(
+                    "question.routing.decision",
+                    value=1,
+                    labels={
+                        "question_type": question_type_str,
+                        "provider": specialist_provider,
+                        "is_specialist": "true",
+                    },
+                    metric_type="counter",
+                )
+
         logger.info(
             f"Generating batch of {count} {question_type.value} questions "
             f"at {difficulty.value} difficulty"
@@ -472,6 +559,19 @@ class QuestionGenerator:
                             primary_provider=original_provider,
                             fallback_provider=new_provider,
                             reason="circuit_breaker_open",
+                        )
+
+                        # ALSO record to observability facade (with error handling)
+                        _safe_record_metric(
+                            "question.provider.fallback",
+                            value=1,
+                            labels={
+                                "question_type": question_type_str,
+                                "primary_provider": original_provider,
+                                "fallback_provider": new_provider,
+                                "reason": "circuit_breaker_open",
+                            },
+                            metric_type="counter",
                         )
                     current_provider = new_provider
                     current_model = new_model
@@ -730,10 +830,31 @@ class QuestionGenerator:
             question_type_str = question_type.value
             metrics.record_question_latency(question_type_str, latency)
 
+            # ALSO record to observability facade (with error handling)
+            _safe_record_metric(
+                "question.generation.latency",
+                value=latency,
+                labels={"question_type": question_type_str, "provider": provider_name},
+                metric_type="histogram",
+                unit="s",
+            )
+
             # Record cost per question type if token usage is available
             if completion_result and completion_result.token_usage:
                 cost = calculate_cost(completion_result.token_usage)
                 metrics.record_question_cost(question_type_str, cost)
+
+                # ALSO record to observability facade (with error handling)
+                _safe_record_metric(
+                    "question.generation.cost",
+                    value=cost,
+                    labels={
+                        "question_type": question_type_str,
+                        "provider": provider_name,
+                    },
+                    metric_type="counter",
+                    unit="usd",
+                )
 
             # Parse response into GeneratedQuestion
             question = self._parse_generated_response(
@@ -843,6 +964,18 @@ class QuestionGenerator:
                     provider=specialist_provider,
                     model=specialist_model,
                     is_specialist=True,
+                )
+
+                # ALSO record to observability facade (with error handling)
+                _safe_record_metric(
+                    "question.routing.decision",
+                    value=1,
+                    labels={
+                        "question_type": question_type_str,
+                        "provider": specialist_provider,
+                        "is_specialist": "true",
+                    },
+                    metric_type="counter",
                 )
 
         # Determine if we should use single-call batch generation
@@ -1504,9 +1637,30 @@ class QuestionGenerator:
             question_type_str = question_type.value
             metrics.record_question_latency(question_type_str, latency)
 
+            # ALSO record to observability facade (with error handling)
+            _safe_record_metric(
+                "question.generation.latency",
+                value=latency,
+                labels={"question_type": question_type_str, "provider": provider_name},
+                metric_type="histogram",
+                unit="s",
+            )
+
             if completion_result and completion_result.token_usage:
                 cost = calculate_cost(completion_result.token_usage)
                 metrics.record_question_cost(question_type_str, cost)
+
+                # ALSO record to observability facade (with error handling)
+                _safe_record_metric(
+                    "question.generation.cost",
+                    value=cost,
+                    labels={
+                        "question_type": question_type_str,
+                        "provider": provider_name,
+                    },
+                    metric_type="counter",
+                    unit="usd",
+                )
 
             # Parse batch response
             questions = self._parse_batch_response(
@@ -1704,9 +1858,30 @@ class QuestionGenerator:
             question_type_str = original_question.question_type.value
             metrics.record_question_latency(question_type_str, latency)
 
+            # ALSO record to observability facade (with error handling)
+            _safe_record_metric(
+                "question.generation.latency",
+                value=latency,
+                labels={"question_type": question_type_str, "provider": provider_name},
+                metric_type="histogram",
+                unit="s",
+            )
+
             if completion_result and completion_result.token_usage:
                 cost = calculate_cost(completion_result.token_usage)
                 metrics.record_question_cost(question_type_str, cost)
+
+                # ALSO record to observability facade (with error handling)
+                _safe_record_metric(
+                    "question.generation.cost",
+                    value=cost,
+                    labels={
+                        "question_type": question_type_str,
+                        "provider": provider_name,
+                    },
+                    metric_type="counter",
+                    unit="usd",
+                )
 
             # Parse response into GeneratedQuestion
             question = self._parse_generated_response(
