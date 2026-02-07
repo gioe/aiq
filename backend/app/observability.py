@@ -20,13 +20,11 @@ Usage:
     metrics.set_active_sessions(42)
 """
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from app.core.config import settings
 from app.models.models import DifficultyLevel, QuestionType
-
-if TYPE_CHECKING:
-    from opentelemetry.metrics import Counter, Histogram, Meter, UpDownCounter
+from libs.observability import observability
 
 logger = logging.getLogger(__name__)
 
@@ -44,23 +42,13 @@ class ApplicationMetrics:
 
     Provides helper methods for recording custom metrics throughout the application.
     All methods are no-ops if metrics are not enabled.
+
+    This class delegates to the centralized observability facade for actual
+    metric recording while maintaining backward compatibility with existing code.
     """
 
     def __init__(self) -> None:
-        """Initialize ApplicationMetrics with empty instruments."""
-        self._meter: Optional["Meter"] = None
-        self._http_request_counter: Optional["Counter"] = None
-        self._http_request_duration: Optional["Histogram"] = None
-        self._db_query_duration: Optional["Histogram"] = None
-        self._active_sessions_gauge: Optional["UpDownCounter"] = None
-        self._error_counter: Optional["Counter"] = None
-        # Business metrics
-        self._tests_started_counter: Optional["Counter"] = None
-        self._tests_completed_counter: Optional["Counter"] = None
-        self._tests_abandoned_counter: Optional["Counter"] = None
-        self._questions_generated_counter: Optional["Counter"] = None
-        self._questions_served_counter: Optional["Counter"] = None
-        self._user_registrations_counter: Optional["Counter"] = None
+        """Initialize ApplicationMetrics with empty state."""
         self._initialized = False
         self._last_session_count: int = 0
 
@@ -69,6 +57,7 @@ class ApplicationMetrics:
         Initialize OpenTelemetry metrics.
 
         Should be called during application startup after OpenTelemetry is configured.
+        This method now relies on the observability facade being initialized.
         """
         if not settings.OTEL_ENABLED or not settings.OTEL_METRICS_ENABLED:
             logger.info("Application metrics not enabled (OTEL_METRICS_ENABLED=False)")
@@ -78,102 +67,19 @@ class ApplicationMetrics:
             logger.warning("Application metrics already initialized")
             return
 
-        try:
-            from opentelemetry import metrics as otel_metrics
+        # Require observability facade to be initialized first
+        # The facade is initialized in main.py before ApplicationMetrics.initialize()
+        # If this fails, it indicates incorrect initialization order
+        if not observability.is_initialized:
+            logger.error(
+                "Observability facade not initialized. "
+                "ApplicationMetrics requires the facade to be initialized first. "
+                "Metrics will not be recorded."
+            )
+            return
 
-            meter_provider = otel_metrics.get_meter_provider()
-            self._meter = meter_provider.get_meter(
-                "aiq.backend",
-                version=settings.APP_VERSION,
-            )
-
-            # HTTP Request Counter
-            # Tracks total number of HTTP requests by method, endpoint, and status
-            self._http_request_counter = self._meter.create_counter(
-                name="http.server.requests",
-                description="Total HTTP requests",
-                unit="1",
-            )
-
-            # HTTP Request Duration Histogram
-            # Tracks request latency distribution by method and endpoint
-            self._http_request_duration = self._meter.create_histogram(
-                name="http.server.request.duration",
-                description="HTTP request duration",
-                unit="s",
-            )
-
-            # Database Query Duration Histogram
-            # Tracks database query performance by operation and table
-            self._db_query_duration = self._meter.create_histogram(
-                name="db.query.duration",
-                description="Database query duration",
-                unit="s",
-            )
-
-            # Active Sessions Gauge
-            # Current number of active test sessions (in_progress status)
-            self._active_sessions_gauge = self._meter.create_up_down_counter(
-                name="test.sessions.active",
-                description="Number of active test sessions",
-                unit="1",
-            )
-
-            # Error Counter
-            # Tracks application errors by type and endpoint
-            self._error_counter = self._meter.create_counter(
-                name="app.errors",
-                description="Application errors",
-                unit="1",
-            )
-
-            # Business Metrics
-            # Test session lifecycle tracking
-            self._tests_started_counter = self._meter.create_counter(
-                name="test.sessions.started",
-                description="Total test sessions started",
-                unit="1",
-            )
-            self._tests_completed_counter = self._meter.create_counter(
-                name="test.sessions.completed",
-                description="Total test sessions completed",
-                unit="1",
-            )
-            self._tests_abandoned_counter = self._meter.create_counter(
-                name="test.sessions.abandoned",
-                description="Total test sessions abandoned",
-                unit="1",
-            )
-
-            # Question generation and serving
-            self._questions_generated_counter = self._meter.create_counter(
-                name="questions.generated",
-                description="Total questions generated by AI",
-                unit="1",
-            )
-            self._questions_served_counter = self._meter.create_counter(
-                name="questions.served",
-                description="Total questions served to users",
-                unit="1",
-            )
-
-            # User lifecycle
-            self._user_registrations_counter = self._meter.create_counter(
-                name="users.registrations",
-                description="Total user registrations",
-                unit="1",
-            )
-
-            self._initialized = True
-            logger.info("Application metrics initialized successfully")
-
-        except ImportError:
-            logger.warning(
-                "OpenTelemetry metrics packages not available. "
-                "Custom metrics will be disabled."
-            )
-        except Exception as e:
-            logger.error(f"Failed to initialize application metrics: {e}")
+        self._initialized = True
+        logger.info("Application metrics initialized successfully")
 
     def record_http_request(
         self,
@@ -194,18 +100,33 @@ class ApplicationMetrics:
         if not self._initialized:
             return
 
-        if self._http_request_counter is None or self._http_request_duration is None:
-            return
-
         try:
-            attributes: dict[str, str | int] = {
-                "http.method": method,
-                "http.route": path,
-                "http.status_code": status_code,
-            }
+            # Record request count as counter
+            # Note: status_code is converted to string as the facade expects dict[str, str] labels
+            observability.record_metric(
+                name="http.server.requests",
+                value=1,
+                labels={
+                    "http.method": method,
+                    "http.route": path,
+                    "http.status_code": str(status_code),
+                },
+                metric_type="counter",
+                unit="1",
+            )
 
-            self._http_request_counter.add(1, attributes)
-            self._http_request_duration.record(duration, attributes)
+            # Record request duration as histogram
+            observability.record_metric(
+                name="http.server.request.duration",
+                value=duration,
+                labels={
+                    "http.method": method,
+                    "http.route": path,
+                    "http.status_code": str(status_code),
+                },
+                metric_type="histogram",
+                unit="s",
+            )
         except Exception as e:
             logger.debug(f"Failed to record HTTP request metric: {e}")
 
@@ -226,15 +147,17 @@ class ApplicationMetrics:
         if not self._initialized:
             return
 
-        if self._db_query_duration is None:
-            return
-
         try:
-            attributes = {
-                "db.operation": operation,
-                "db.table": table,
-            }
-            self._db_query_duration.record(duration, attributes)
+            observability.record_metric(
+                name="db.query.duration",
+                value=duration,
+                labels={
+                    "db.operation": operation,
+                    "db.table": table,
+                },
+                metric_type="histogram",
+                unit="s",
+            )
         except Exception as e:
             logger.debug(f"Failed to record database query metric: {e}")
 
@@ -254,14 +177,15 @@ class ApplicationMetrics:
         if not self._initialized:
             return
 
-        if self._active_sessions_gauge is None:
-            return
-
         try:
-            # UpDownCounter uses add(), not set()
-            # Track the delta from the last count
+            # UpDownCounter uses deltas, so we compute the delta from the last count
             delta = count - self._last_session_count
-            self._active_sessions_gauge.add(delta)
+            observability.record_metric(
+                name="test.sessions.active",
+                value=delta,
+                metric_type="updown_counter",
+                unit="1",
+            )
             self._last_session_count = count
         except Exception as e:
             logger.debug(f"Failed to update active sessions metric: {e}")
@@ -281,15 +205,18 @@ class ApplicationMetrics:
         if not self._initialized:
             return
 
-        if self._error_counter is None:
-            return
-
         try:
-            attributes: dict[str, str] = {"error.type": error_type}
+            labels: dict[str, str] = {"error.type": error_type}
             if path:
-                attributes["http.route"] = path
+                labels["http.route"] = path
 
-            self._error_counter.add(1, attributes)
+            observability.record_metric(
+                name="app.errors",
+                value=1,
+                labels=labels,
+                metric_type="counter",
+                unit="1",
+            )
         except Exception as e:
             logger.debug(f"Failed to record error metric: {e}")
 
@@ -305,7 +232,7 @@ class ApplicationMetrics:
             adaptive: Whether this is an adaptive (CAT) test
             question_count: Number of questions in the test
         """
-        if not self._initialized or self._tests_started_counter is None:
+        if not self._initialized:
             return
 
         if question_count < 0:
@@ -313,11 +240,16 @@ class ApplicationMetrics:
             question_count = 0
 
         try:
-            attributes = {
-                "test.adaptive": str(adaptive).lower(),
-                "test.question_count": str(question_count),
-            }
-            self._tests_started_counter.add(1, attributes)
+            observability.record_metric(
+                name="test.sessions.started",
+                value=1,
+                labels={
+                    "test.adaptive": str(adaptive).lower(),
+                    "test.question_count": str(question_count),
+                },
+                metric_type="counter",
+                unit="1",
+            )
         except Exception as e:
             logger.debug(f"Failed to record test started metric: {e}")
 
@@ -335,7 +267,7 @@ class ApplicationMetrics:
             question_count: Number of questions in the test
             duration_seconds: Total test duration in seconds
         """
-        if not self._initialized or self._tests_completed_counter is None:
+        if not self._initialized:
             return
 
         if question_count < 0:
@@ -349,11 +281,16 @@ class ApplicationMetrics:
             logger.warning(f"Suspicious test duration {duration_seconds}s (> 24 hours)")
 
         try:
-            attributes = {
-                "test.adaptive": str(adaptive).lower(),
-                "test.question_count": str(question_count),
-            }
-            self._tests_completed_counter.add(1, attributes)
+            observability.record_metric(
+                name="test.sessions.completed",
+                value=1,
+                labels={
+                    "test.adaptive": str(adaptive).lower(),
+                    "test.question_count": str(question_count),
+                },
+                metric_type="counter",
+                unit="1",
+            )
         except Exception as e:
             logger.debug(f"Failed to record test completed metric: {e}")
 
@@ -369,7 +306,7 @@ class ApplicationMetrics:
             adaptive: Whether this was an adaptive (CAT) test
             questions_answered: Number of questions answered before abandonment
         """
-        if not self._initialized or self._tests_abandoned_counter is None:
+        if not self._initialized:
             return
 
         if questions_answered < 0:
@@ -377,11 +314,16 @@ class ApplicationMetrics:
             questions_answered = 0
 
         try:
-            attributes = {
-                "test.adaptive": str(adaptive).lower(),
-                "test.questions_answered": str(questions_answered),
-            }
-            self._tests_abandoned_counter.add(1, attributes)
+            observability.record_metric(
+                name="test.sessions.abandoned",
+                value=1,
+                labels={
+                    "test.adaptive": str(adaptive).lower(),
+                    "test.questions_answered": str(questions_answered),
+                },
+                metric_type="counter",
+                unit="1",
+            )
         except Exception as e:
             logger.debug(f"Failed to record test abandoned metric: {e}")
 
@@ -399,7 +341,7 @@ class ApplicationMetrics:
             question_type: Type of question (pattern, logic, verbal, etc.)
             difficulty: Question difficulty (easy, medium, hard)
         """
-        if not self._initialized or self._questions_generated_counter is None:
+        if not self._initialized:
             return
 
         if count <= 0:
@@ -425,11 +367,16 @@ class ApplicationMetrics:
             return
 
         try:
-            attributes = {
-                "question.type": question_type,
-                "question.difficulty": difficulty,
-            }
-            self._questions_generated_counter.add(count, attributes)
+            observability.record_metric(
+                name="questions.generated",
+                value=count,
+                labels={
+                    "question.type": question_type,
+                    "question.difficulty": difficulty,
+                },
+                metric_type="counter",
+                unit="1",
+            )
         except Exception as e:
             logger.debug(f"Failed to record questions generated metric: {e}")
 
@@ -445,7 +392,7 @@ class ApplicationMetrics:
             count: Number of questions served
             adaptive: Whether these were served in an adaptive test
         """
-        if not self._initialized or self._questions_served_counter is None:
+        if not self._initialized:
             return
 
         if count <= 0:
@@ -453,10 +400,15 @@ class ApplicationMetrics:
             return
 
         try:
-            attributes = {
-                "test.adaptive": str(adaptive).lower(),
-            }
-            self._questions_served_counter.add(count, attributes)
+            observability.record_metric(
+                name="questions.served",
+                value=count,
+                labels={
+                    "test.adaptive": str(adaptive).lower(),
+                },
+                metric_type="counter",
+                unit="1",
+            )
         except Exception as e:
             logger.debug(f"Failed to record questions served metric: {e}")
 
@@ -464,11 +416,16 @@ class ApplicationMetrics:
         """
         Record a new user registration.
         """
-        if not self._initialized or self._user_registrations_counter is None:
+        if not self._initialized:
             return
 
         try:
-            self._user_registrations_counter.add(1)
+            observability.record_metric(
+                name="users.registrations",
+                value=1,
+                metric_type="counter",
+                unit="1",
+            )
         except Exception as e:
             logger.debug(f"Failed to record user registration metric: {e}")
 
