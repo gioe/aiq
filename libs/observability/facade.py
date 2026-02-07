@@ -877,28 +877,30 @@ class ObservabilityFacade:
             return
 
         otel_span = None
+        otel_context = None
         sentry_span = None
+        sentry_context = None
 
         routing = self._config.routing.traces if self._config else "otel"
 
         # Start OTEL span if configured
         if routing in ("otel", "both") and self._otel_backend is not None:
-            otel_span = self._otel_backend.start_span(name, kind=kind, attributes=attributes)
-            otel_span.__enter__()
+            otel_context = self._otel_backend.start_span(name, kind=kind, attributes=attributes)
+            otel_span = otel_context.__enter__()
 
         # Start Sentry span if configured
         if routing in ("sentry", "both") and self._sentry_backend is not None:
-            sentry_span = self._sentry_backend.start_span(name, attributes=attributes)
-            if sentry_span is not None:
-                sentry_span.__enter__()
+            sentry_context = self._sentry_backend.start_span(name, attributes=attributes)
+            if sentry_context is not None:
+                sentry_span = sentry_context.__enter__()
 
         try:
             yield SpanContext(name, otel_span=otel_span, sentry_span=sentry_span)
         finally:
-            if sentry_span is not None:
-                sentry_span.__exit__(None, None, None)
-            if otel_span is not None:
-                otel_span.__exit__(None, None, None)
+            if sentry_context is not None:
+                sentry_context.__exit__(None, None, None)
+            if otel_context is not None:
+                otel_context.__exit__(None, None, None)
 
     def set_user(
         self,
