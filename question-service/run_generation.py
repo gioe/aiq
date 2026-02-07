@@ -49,6 +49,10 @@ from app.metrics import MetricsTracker  # noqa: E402
 from app.models import DifficultyLevel, QuestionType  # noqa: E402
 from app.reporter import RunReporter  # noqa: E402
 
+# Add repo root to path for libs.observability import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from libs.observability import observability  # noqa: E402
+
 # Exit codes
 EXIT_SUCCESS = 0
 EXIT_PARTIAL_FAILURE = 1
@@ -850,6 +854,14 @@ def main() -> int:
     # This proves the cron triggered, even if it fails immediately
     write_heartbeat(status="started")
 
+    # Initialize observability (Sentry + OTEL via unified facade)
+    # Must happen before any code that could raise exceptions we want to capture
+    observability.init(
+        config_path="config/observability.yaml",
+        service_name="aiq-question-service",
+        environment=settings.env,
+    )
+
     args = parse_arguments()
 
     # Setup logging
@@ -867,6 +879,9 @@ def main() -> int:
 
     logger.info("=" * 80)
     logger.info("Question Generation Script Starting")
+    logger.info(
+        f"Observability initialized: service=aiq-question-service, env={settings.env}"
+    )
     logger.info(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
     logger.info(
         f"Configuration: count={args.count or settings.questions_per_run}, "
@@ -1755,6 +1770,13 @@ def main() -> int:
                 logger.info("Database connection closed")
             except Exception:
                 pass
+
+        # Shutdown observability backends (flushes pending data to Sentry/OTEL)
+        try:
+            observability.flush(timeout=5.0)
+            observability.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
