@@ -6,6 +6,32 @@ This guide covers deploying the question generation service to Railway as a **Cr
 
 The question generation service runs as a **scheduled batch job** (not a web server), making it perfect for Railway's Cron service type.
 
+## Build Configuration Requirements
+
+**Important**: The question-service requires access to the shared `libs/` directory at the repository root for observability (Sentry + OpenTelemetry integration). The Docker build must be configured correctly.
+
+### Railway Service Settings
+
+In the Railway dashboard, configure the question-service with:
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| **Root Directory** | `/` (empty/root) | Must be repo root to access libs/ |
+| **Dockerfile Path** | `question-service/Dockerfile.trigger` | Relative to repo root |
+| **Watch Patterns** | `question-service/**`, `libs/**` | Rebuild on changes to either |
+
+### Why This Matters
+
+The observability facade (`libs/observability/`) provides:
+- Sentry error tracking with rich context
+- OpenTelemetry distributed tracing
+- Metrics export to Grafana Cloud
+
+If the build context doesn't include `libs/`, the service will fail with:
+```
+ModuleNotFoundError: No module named 'libs'
+```
+
 ## Deployment Steps
 
 ### 1. Create Railway Service
