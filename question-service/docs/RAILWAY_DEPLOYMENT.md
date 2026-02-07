@@ -12,13 +12,22 @@ The question generation service runs as a **scheduled batch job** (not a web ser
 
 ### Railway Service Settings
 
-In the Railway dashboard, configure the question-service with:
+In the Railway dashboard, configure the question-service build settings:
+
+1. Go to **question-service** → **Settings** → **Build**
+2. Configure:
 
 | Setting | Value | Notes |
 |---------|-------|-------|
-| **Root Directory** | `/` (empty/root) | Must be repo root to access libs/ |
+| **Builder** | Dockerfile | |
+| **Root Directory** | (leave empty) | Empty means repo root, required for libs/ access |
 | **Dockerfile Path** | `question-service/Dockerfile.trigger` | Relative to repo root |
-| **Watch Patterns** | `question-service/**`, `libs/**` | Rebuild on changes to either |
+
+3. Under **Settings** → **Deploy** → **Watch Paths**:
+   - Click **Add Path** → Enter `question-service/**`
+   - Click **Add Path** → Enter `libs/**`
+
+This ensures the service rebuilds when either the question-service code or shared libraries change.
 
 ### Why This Matters
 
