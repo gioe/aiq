@@ -209,80 +209,106 @@ class QuestionJudge:
             Exception: If LLM call fails
         """
         question_type = question.question_type.value
-        logger.info(f"Evaluating {question_type} question")
+        # Initialize provider variables before try block to avoid UnboundLocalError
+        resolved_provider: Optional[str] = None
+        effective_model: Optional[str] = None
 
-        # Resolve the best available provider using fallback chain
-        available_providers = list(self.providers.keys())
-        resolved_provider, resolved_model = self.judge_config.resolve_judge_provider(
-            question_type, available_providers
-        )
+        with observability.start_span(
+            "judge.evaluate_question",
+            attributes={
+                "question_type": question_type,
+                "difficulty": question.difficulty_level.value,
+            },
+        ) as span:
+            try:
+                logger.info(f"Evaluating {question_type} question")
 
-        provider = self.providers[resolved_provider]
-        effective_model = resolved_model or provider.model
+                # Resolve the best available provider using fallback chain
+                available_providers = list(self.providers.keys())
+                (
+                    resolved_provider,
+                    resolved_model,
+                ) = self.judge_config.resolve_judge_provider(
+                    question_type, available_providers
+                )
 
-        # Build judge prompt
-        prompt = build_judge_prompt(
-            question=question.question_text,
-            answer_options=question.answer_options or [question.correct_answer],
-            correct_answer=question.correct_answer,
-            question_type=question_type,
-            difficulty=question.difficulty_level.value,
-            stimulus=question.stimulus,
-        )
+                provider = self.providers[resolved_provider]
+                effective_model = resolved_model or provider.model
 
-        logger.debug(f"Using judge model: {effective_model} ({resolved_provider})")
+                span.set_attribute("provider", resolved_provider)
+                span.set_attribute("model", effective_model)
 
-        try:
-            # Get evaluation from LLM with cost tracking
-            # Using model_override to avoid mutating provider state
-            result = provider.generate_structured_completion_with_usage(
-                prompt=prompt,
-                response_format={},  # Provider will handle JSON mode
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model_override=resolved_model,
-            )
+                # Build judge prompt
+                prompt = build_judge_prompt(
+                    question=question.question_text,
+                    answer_options=question.answer_options or [question.correct_answer],
+                    correct_answer=question.correct_answer,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    stimulus=question.stimulus,
+                )
 
-            # Parse evaluation scores
-            evaluation = self._parse_evaluation_response(result.content)
+                logger.debug(
+                    f"Using judge model: {effective_model} ({resolved_provider})"
+                )
 
-            # Calculate overall score using evaluation criteria weights
-            overall_score = self._calculate_overall_score(evaluation)
+                # Get evaluation from LLM with cost tracking
+                # Using model_override to avoid mutating provider state
+                result = provider.generate_structured_completion_with_usage(
+                    prompt=prompt,
+                    response_format={},  # Provider will handle JSON mode
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    model_override=resolved_model,
+                )
 
-            # Update overall score in evaluation
-            evaluation.overall_score = overall_score
+                # Parse evaluation scores
+                evaluation = self._parse_evaluation_response(result.content)
 
-            # Determine if question is approved
-            min_score = self.judge_config.get_min_judge_score()
-            approved = overall_score >= min_score
+                # Calculate overall score using evaluation criteria weights
+                overall_score = self._calculate_overall_score(evaluation)
 
-            logger.info(
-                f"Question evaluated: overall_score={overall_score:.3f}, "
-                f"approved={approved} (threshold={min_score})"
-            )
+                # Update overall score in evaluation
+                evaluation.overall_score = overall_score
 
-            # Create evaluated question
-            evaluated = EvaluatedQuestion(
-                question=question,
-                evaluation=evaluation,
-                judge_model=f"{resolved_provider}/{effective_model}",
-                approved=approved,
-            )
+                # Determine if question is approved
+                min_score = self.judge_config.get_min_judge_score()
+                approved = overall_score >= min_score
 
-            return evaluated
+                span.set_attribute("success", True)
+                span.set_attribute("score", overall_score)
+                span.set_attribute("approved", approved)
 
-        except Exception as e:
-            logger.error(f"Failed to evaluate question: {str(e)}")
-            # Capture evaluation error to Sentry
-            _safe_capture_evaluation_error(
-                e,
-                provider=resolved_provider,
-                question_type=question_type,
-                difficulty=question.difficulty_level.value,
-                operation="evaluation",
-                model=effective_model,
-            )
-            raise
+                logger.info(
+                    f"Question evaluated: overall_score={overall_score:.3f}, "
+                    f"approved={approved} (threshold={min_score})"
+                )
+
+                # Create evaluated question
+                evaluated = EvaluatedQuestion(
+                    question=question,
+                    evaluation=evaluation,
+                    judge_model=f"{resolved_provider}/{effective_model}",
+                    approved=approved,
+                )
+
+                return evaluated
+
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(f"Failed to evaluate question: {str(e)}")
+                # Capture evaluation error to Sentry (only if provider was resolved)
+                if resolved_provider is not None:
+                    _safe_capture_evaluation_error(
+                        e,
+                        provider=resolved_provider,
+                        question_type=question_type,
+                        difficulty=question.difficulty_level.value,
+                        operation="evaluation",
+                        model=effective_model,
+                    )
+                raise
 
     async def evaluate_question_async(
         self,
@@ -312,111 +338,145 @@ class QuestionJudge:
             Exception: If LLM call fails
         """
         question_type = question.question_type.value
-        logger.info(f"Evaluating {question_type} question (async)")
+        # Initialize provider variables before try block to avoid UnboundLocalError
+        resolved_provider: Optional[str] = None
+        effective_model: Optional[str] = None
+        effective_timeout: Optional[float] = None
 
-        # Resolve the best available provider using fallback chain
-        available_providers = list(self.providers.keys())
-        resolved_provider, resolved_model = self.judge_config.resolve_judge_provider(
-            question_type, available_providers
-        )
+        with observability.start_span(
+            "judge.evaluate_question_async",
+            attributes={
+                "question_type": question_type,
+                "difficulty": question.difficulty_level.value,
+            },
+        ) as span:
+            try:
+                logger.info(f"Evaluating {question_type} question (async)")
 
-        provider = self.providers[resolved_provider]
-        effective_model = resolved_model or provider.model
-
-        # Get circuit breaker for this judge provider
-        circuit_breaker_name = f"judge-{resolved_provider}"
-        circuit_breaker = self._circuit_breaker_registry.get_or_create(
-            circuit_breaker_name
-        )
-
-        # Build judge prompt
-        prompt = build_judge_prompt(
-            question=question.question_text,
-            answer_options=question.answer_options or [question.correct_answer],
-            correct_answer=question.correct_answer,
-            question_type=question_type,
-            difficulty=question.difficulty_level.value,
-            stimulus=question.stimulus,
-        )
-
-        logger.debug(
-            f"Using judge model: {effective_model} ({resolved_provider}) (async)"
-        )
-
-        # Use provided timeout or instance default
-        effective_timeout = timeout if timeout is not None else self._async_timeout
-
-        # Define the async API call with rate limiting, timeout, and cost tracking
-        async def _do_async_evaluation() -> Dict[str, Any]:
-            async with self._rate_limiter:
-                result = await asyncio.wait_for(
-                    provider.generate_structured_completion_with_usage_async(
-                        prompt=prompt,
-                        response_format={},  # Provider will handle JSON mode
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        model_override=resolved_model,
-                    ),
-                    timeout=effective_timeout,
+                # Resolve the best available provider using fallback chain
+                available_providers = list(self.providers.keys())
+                (
+                    resolved_provider,
+                    resolved_model,
+                ) = self.judge_config.resolve_judge_provider(
+                    question_type, available_providers
                 )
-                return result.content
 
-        try:
-            # Execute with circuit breaker protection
-            response = await circuit_breaker.execute_async(_do_async_evaluation)
+                provider = self.providers[resolved_provider]
+                effective_model = resolved_model or provider.model
 
-            # Parse evaluation scores
-            evaluation = self._parse_evaluation_response(response)
+                span.set_attribute("provider", resolved_provider)
+                span.set_attribute("model", effective_model)
 
-            # Calculate overall score using evaluation criteria weights
-            overall_score = self._calculate_overall_score(evaluation)
+                # Get circuit breaker for this judge provider
+                circuit_breaker_name = f"judge-{resolved_provider}"
+                circuit_breaker = self._circuit_breaker_registry.get_or_create(
+                    circuit_breaker_name
+                )
 
-            # Update overall score in evaluation
-            evaluation.overall_score = overall_score
+                # Build judge prompt
+                prompt = build_judge_prompt(
+                    question=question.question_text,
+                    answer_options=question.answer_options or [question.correct_answer],
+                    correct_answer=question.correct_answer,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    stimulus=question.stimulus,
+                )
 
-            # Determine if question is approved
-            min_score = self.judge_config.get_min_judge_score()
-            approved = overall_score >= min_score
+                logger.debug(
+                    f"Using judge model: {effective_model} ({resolved_provider}) (async)"
+                )
 
-            logger.info(
-                f"Question evaluated (async): overall_score={overall_score:.3f}, "
-                f"approved={approved} (threshold={min_score})"
-            )
+                # Use provided timeout or instance default
+                effective_timeout = (
+                    timeout if timeout is not None else self._async_timeout
+                )
 
-            # Create evaluated question
-            evaluated = EvaluatedQuestion(
-                question=question,
-                evaluation=evaluation,
-                judge_model=f"{resolved_provider}/{effective_model}",
-                approved=approved,
-            )
+                # Define the async API call with rate limiting, timeout, and cost tracking
+                async def _do_async_evaluation() -> Dict[str, Any]:
+                    async with self._rate_limiter:
+                        result = await asyncio.wait_for(
+                            provider.generate_structured_completion_with_usage_async(
+                                prompt=prompt,
+                                response_format={},  # Provider will handle JSON mode
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                                model_override=resolved_model,
+                            ),
+                            timeout=effective_timeout,
+                        )
+                        return result.content
 
-            return evaluated
+                # Execute with circuit breaker protection
+                response = await circuit_breaker.execute_async(_do_async_evaluation)
 
-        except CircuitBreakerOpen:
-            logger.warning(
-                f"Circuit breaker is open for judge-{resolved_provider}, "
-                f"cannot evaluate question (async)"
-            )
-            raise
-        except asyncio.TimeoutError:
-            logger.error(
-                f"Timeout evaluating question with {resolved_provider} "
-                f"(async) after {effective_timeout}s"
-            )
-            raise
-        except Exception as e:
-            logger.error(f"Failed to evaluate question (async): {str(e)}")
-            # Capture evaluation error to Sentry
-            _safe_capture_evaluation_error(
-                e,
-                provider=resolved_provider,
-                question_type=question_type,
-                difficulty=question.difficulty_level.value,
-                operation="evaluation_async",
-                model=effective_model,
-            )
-            raise
+                # Parse evaluation scores
+                evaluation = self._parse_evaluation_response(response)
+
+                # Calculate overall score using evaluation criteria weights
+                overall_score = self._calculate_overall_score(evaluation)
+
+                # Update overall score in evaluation
+                evaluation.overall_score = overall_score
+
+                # Determine if question is approved
+                min_score = self.judge_config.get_min_judge_score()
+                approved = overall_score >= min_score
+
+                span.set_attribute("success", True)
+                span.set_attribute("score", overall_score)
+                span.set_attribute("approved", approved)
+
+                logger.info(
+                    f"Question evaluated (async): overall_score={overall_score:.3f}, "
+                    f"approved={approved} (threshold={min_score})"
+                )
+
+                # Create evaluated question
+                evaluated = EvaluatedQuestion(
+                    question=question,
+                    evaluation=evaluation,
+                    judge_model=f"{resolved_provider}/{effective_model}",
+                    approved=approved,
+                )
+
+                return evaluated
+
+            except CircuitBreakerOpen:
+                span.set_attribute("success", False)
+                span.set_status("error", "Circuit breaker open")
+                provider_info = resolved_provider or "unknown"
+                logger.warning(
+                    f"Circuit breaker is open for judge-{provider_info}, "
+                    f"cannot evaluate question (async)"
+                )
+                raise
+            except asyncio.TimeoutError:
+                span.set_attribute("success", False)
+                timeout_info = effective_timeout or self._async_timeout
+                span.set_status("error", f"Timeout after {timeout_info}s")
+                provider_info = resolved_provider or "unknown"
+                logger.error(
+                    f"Timeout evaluating question with {provider_info} "
+                    f"(async) after {timeout_info}s"
+                )
+                raise
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(f"Failed to evaluate question (async): {str(e)}")
+                # Capture evaluation error to Sentry (only if provider was resolved)
+                if resolved_provider is not None:
+                    _safe_capture_evaluation_error(
+                        e,
+                        provider=resolved_provider,
+                        question_type=question_type,
+                        difficulty=question.difficulty_level.value,
+                        operation="evaluation_async",
+                        model=effective_model,
+                    )
+                raise
 
     async def evaluate_questions_list_async(
         self,

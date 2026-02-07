@@ -6,7 +6,9 @@ PostgreSQL database using SQLAlchemy.
 
 import enum
 import logging
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
@@ -27,6 +29,14 @@ from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .models import EvaluatedQuestion, GeneratedQuestion
+
+# Import observability facade for distributed tracing
+try:
+    from libs.observability import observability
+except ImportError:
+    # Fallback for environments where libs.observability isn't installed as a package
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -220,51 +230,64 @@ class DatabaseService:
         Raises:
             Exception: If insertion fails
         """
-        session = self.get_session()
-        try:
-            # Generate embedding for the question (TASK-433)
-            # This is computed once at insertion time to avoid repeated API calls
-            # during deduplication. Falls back to None if OpenAI client is unavailable.
-            embedding = self._generate_embedding(question.question_text)
+        with observability.start_span(
+            "database.insert_question",
+            attributes={
+                "question_type": question.question_type.value,
+                "difficulty": question.difficulty_level.value,
+            },
+        ) as span:
+            session = self.get_session()
+            try:
+                # Generate embedding for the question (TASK-433)
+                # This is computed once at insertion time to avoid repeated API calls
+                # during deduplication. Falls back to None if OpenAI client is unavailable.
+                embedding = self._generate_embedding(question.question_text)
 
-            # Create database model
-            # Note: No mapping needed - QuestionType enum values now match backend directly
-            db_question = QuestionModel(
-                question_text=question.question_text,
-                question_type=question.question_type.value,
-                difficulty_level=question.difficulty_level.value,
-                correct_answer=question.correct_answer,
-                answer_options=question.answer_options,
-                explanation=question.explanation,
-                stimulus=question.stimulus,  # TASK-727: Content to memorize
-                sub_type=question.sub_type,
-                question_metadata=question.metadata,
-                source_llm=question.source_llm,
-                source_model=question.source_model,
-                judge_score=judge_score,
-                prompt_version=PROMPT_VERSION,
-                is_active=True,
-                question_embedding=embedding,  # TASK-433: Store pre-computed embedding
-            )
+                # Create database model
+                # Note: No mapping needed - QuestionType enum values now match backend directly
+                db_question = QuestionModel(
+                    question_text=question.question_text,
+                    question_type=question.question_type.value,
+                    difficulty_level=question.difficulty_level.value,
+                    correct_answer=question.correct_answer,
+                    answer_options=question.answer_options,
+                    explanation=question.explanation,
+                    stimulus=question.stimulus,  # TASK-727: Content to memorize
+                    sub_type=question.sub_type,
+                    question_metadata=question.metadata,
+                    source_llm=question.source_llm,
+                    source_model=question.source_model,
+                    judge_score=judge_score,
+                    prompt_version=PROMPT_VERSION,
+                    is_active=True,
+                    question_embedding=embedding,  # TASK-433: Store pre-computed embedding
+                )
 
-            session.add(db_question)
-            session.commit()
-            session.refresh(db_question)
+                session.add(db_question)
+                session.commit()
+                session.refresh(db_question)
 
-            question_id = db_question.id
-            embedding_status = "with embedding" if embedding else "without embedding"
-            logger.info(
-                f"Inserted question with ID: {question_id} ({embedding_status})"
-            )
+                question_id = db_question.id
+                embedding_status = (
+                    "with embedding" if embedding else "without embedding"
+                )
+                span.set_attribute("success", True)
+                span.set_attribute("question_id", question_id)
+                logger.info(
+                    f"Inserted question with ID: {question_id} ({embedding_status})"
+                )
 
-            return question_id  # type: ignore[return-value]
+                return question_id  # type: ignore[return-value]
 
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Failed to insert question: {str(e)}")
-            raise
-        finally:
-            self.close_session(session)
+            except Exception as e:
+                session.rollback()
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(f"Failed to insert question: {str(e)}")
+                raise
+            finally:
+                self.close_session(session)
 
     def insert_evaluated_question(
         self,
@@ -284,42 +307,52 @@ class DatabaseService:
         Raises:
             Exception: If insertion fails
         """
-        # Merge individual scores into question metadata for future recalculation
-        question = evaluated_question.question
-        evaluation = evaluated_question.evaluation
-
-        enriched_metadata = {
-            **(question.metadata or {}),
-            "evaluation_scores": {
-                "clarity_score": evaluation.clarity_score,
-                "difficulty_score": evaluation.difficulty_score,
-                "validity_score": evaluation.validity_score,
-                "formatting_score": evaluation.formatting_score,
-                "creativity_score": evaluation.creativity_score,
-                "feedback": evaluation.feedback,
+        with observability.start_span(
+            "database.insert_evaluated_question",
+            attributes={
+                "question_type": evaluated_question.question.question_type.value,
+                "difficulty": evaluated_question.question.difficulty_level.value,
+                "approved": evaluated_question.approved,
             },
-            "judge_model": evaluated_question.judge_model,
-        }
+        ) as span:
+            # Merge individual scores into question metadata for future recalculation
+            question = evaluated_question.question
+            evaluation = evaluated_question.evaluation
 
-        # Create a new question with enriched metadata
-        enriched_question = GeneratedQuestion(
-            question_text=question.question_text,
-            question_type=question.question_type,
-            difficulty_level=question.difficulty_level,
-            correct_answer=question.correct_answer,
-            answer_options=question.answer_options,
-            explanation=question.explanation,
-            stimulus=question.stimulus,  # TASK-727: Preserve stimulus field
-            sub_type=question.sub_type,
-            metadata=enriched_metadata,
-            source_llm=question.source_llm,
-            source_model=question.source_model,
-        )
+            enriched_metadata = {
+                **(question.metadata or {}),
+                "evaluation_scores": {
+                    "clarity_score": evaluation.clarity_score,
+                    "difficulty_score": evaluation.difficulty_score,
+                    "validity_score": evaluation.validity_score,
+                    "formatting_score": evaluation.formatting_score,
+                    "creativity_score": evaluation.creativity_score,
+                    "feedback": evaluation.feedback,
+                },
+                "judge_model": evaluated_question.judge_model,
+            }
 
-        return self.insert_question(
-            question=enriched_question,
-            judge_score=evaluation.overall_score,
-        )
+            # Create a new question with enriched metadata
+            enriched_question = GeneratedQuestion(
+                question_text=question.question_text,
+                question_type=question.question_type,
+                difficulty_level=question.difficulty_level,
+                correct_answer=question.correct_answer,
+                answer_options=question.answer_options,
+                explanation=question.explanation,
+                stimulus=question.stimulus,  # TASK-727: Preserve stimulus field
+                sub_type=question.sub_type,
+                metadata=enriched_metadata,
+                source_llm=question.source_llm,
+                source_model=question.source_model,
+            )
+
+            question_id = self.insert_question(
+                question=enriched_question,
+                judge_score=evaluation.overall_score,
+            )
+            span.set_attribute("question_id", question_id)
+            return question_id
 
     def insert_questions_batch(
         self,
@@ -345,59 +378,67 @@ class DatabaseService:
                 f"length of questions ({len(questions)})"
             )
 
-        session = self.get_session()
-        db_questions = []
-        embeddings_computed = 0
+        with observability.start_span(
+            "database.insert_questions_batch",
+            attributes={"count": len(questions)},
+        ) as span:
+            session = self.get_session()
+            db_questions = []
+            embeddings_computed = 0
 
-        try:
-            # Note: No mapping needed - QuestionType enum values now match backend directly
-            for i, question in enumerate(questions):
-                judge_score = judge_scores[i] if judge_scores else None
+            try:
+                # Note: No mapping needed - QuestionType enum values now match backend directly
+                for i, question in enumerate(questions):
+                    judge_score = judge_scores[i] if judge_scores else None
 
-                # Generate embedding for each question (TASK-433)
-                embedding = self._generate_embedding(question.question_text)
-                if embedding:
-                    embeddings_computed += 1
+                    # Generate embedding for each question (TASK-433)
+                    embedding = self._generate_embedding(question.question_text)
+                    if embedding:
+                        embeddings_computed += 1
 
-                db_question = QuestionModel(
-                    question_text=question.question_text,
-                    question_type=question.question_type.value,
-                    difficulty_level=question.difficulty_level.value,
-                    correct_answer=question.correct_answer,
-                    answer_options=question.answer_options,
-                    explanation=question.explanation,
-                    stimulus=question.stimulus,  # TASK-727: Content to memorize
-                    sub_type=question.sub_type,
-                    question_metadata=question.metadata,
-                    source_llm=question.source_llm,
-                    source_model=question.source_model,
-                    judge_score=judge_score,
-                    prompt_version=PROMPT_VERSION,
-                    is_active=True,
-                    question_embedding=embedding,  # TASK-433: Store pre-computed embedding
+                    db_question = QuestionModel(
+                        question_text=question.question_text,
+                        question_type=question.question_type.value,
+                        difficulty_level=question.difficulty_level.value,
+                        correct_answer=question.correct_answer,
+                        answer_options=question.answer_options,
+                        explanation=question.explanation,
+                        stimulus=question.stimulus,  # TASK-727: Content to memorize
+                        sub_type=question.sub_type,
+                        question_metadata=question.metadata,
+                        source_llm=question.source_llm,
+                        source_model=question.source_model,
+                        judge_score=judge_score,
+                        prompt_version=PROMPT_VERSION,
+                        is_active=True,
+                        question_embedding=embedding,  # TASK-433: Store pre-computed embedding
+                    )
+
+                    session.add(db_question)
+                    db_questions.append(db_question)
+
+                session.commit()
+
+                # IDs are populated by SQLAlchemy after commit
+                question_ids = [q.id for q in db_questions]
+
+                span.set_attribute("success", True)
+                span.set_attribute("questions_inserted", len(question_ids))
+                logger.info(
+                    f"Inserted {len(question_ids)} questions in batch "
+                    f"({embeddings_computed} with embeddings)"
                 )
 
-                session.add(db_question)
-                db_questions.append(db_question)
+                return question_ids  # type: ignore[return-value]
 
-            session.commit()
-
-            # IDs are populated by SQLAlchemy after commit
-            question_ids = [q.id for q in db_questions]
-
-            logger.info(
-                f"Inserted {len(question_ids)} questions in batch "
-                f"({embeddings_computed} with embeddings)"
-            )
-
-            return question_ids  # type: ignore[return-value]
-
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Failed to insert batch of questions: {str(e)}")
-            raise
-        finally:
-            self.close_session(session)
+            except Exception as e:
+                session.rollback()
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(f"Failed to insert batch of questions: {str(e)}")
+                raise
+            finally:
+                self.close_session(session)
 
     def insert_evaluated_questions_batch(
         self,
@@ -417,47 +458,53 @@ class DatabaseService:
         Raises:
             Exception: If insertion fails
         """
-        # Enrich each question with individual evaluation scores
-        enriched_questions = []
-        scores = []
+        with observability.start_span(
+            "database.insert_evaluated_questions_batch",
+            attributes={"count": len(evaluated_questions)},
+        ) as span:
+            # Enrich each question with individual evaluation scores
+            enriched_questions = []
+            scores = []
 
-        for eq in evaluated_questions:
-            question = eq.question
-            evaluation = eq.evaluation
+            for eq in evaluated_questions:
+                question = eq.question
+                evaluation = eq.evaluation
 
-            enriched_metadata = {
-                **(question.metadata or {}),
-                "evaluation_scores": {
-                    "clarity_score": evaluation.clarity_score,
-                    "difficulty_score": evaluation.difficulty_score,
-                    "validity_score": evaluation.validity_score,
-                    "formatting_score": evaluation.formatting_score,
-                    "creativity_score": evaluation.creativity_score,
-                    "feedback": evaluation.feedback,
-                },
-                "judge_model": eq.judge_model,
-            }
+                enriched_metadata = {
+                    **(question.metadata or {}),
+                    "evaluation_scores": {
+                        "clarity_score": evaluation.clarity_score,
+                        "difficulty_score": evaluation.difficulty_score,
+                        "validity_score": evaluation.validity_score,
+                        "formatting_score": evaluation.formatting_score,
+                        "creativity_score": evaluation.creativity_score,
+                        "feedback": evaluation.feedback,
+                    },
+                    "judge_model": eq.judge_model,
+                }
 
-            enriched_question = GeneratedQuestion(
-                question_text=question.question_text,
-                question_type=question.question_type,
-                difficulty_level=question.difficulty_level,
-                correct_answer=question.correct_answer,
-                answer_options=question.answer_options,
-                explanation=question.explanation,
-                stimulus=question.stimulus,  # TASK-727: Preserve stimulus field
-                sub_type=question.sub_type,
-                metadata=enriched_metadata,
-                source_llm=question.source_llm,
-                source_model=question.source_model,
+                enriched_question = GeneratedQuestion(
+                    question_text=question.question_text,
+                    question_type=question.question_type,
+                    difficulty_level=question.difficulty_level,
+                    correct_answer=question.correct_answer,
+                    answer_options=question.answer_options,
+                    explanation=question.explanation,
+                    stimulus=question.stimulus,  # TASK-727: Preserve stimulus field
+                    sub_type=question.sub_type,
+                    metadata=enriched_metadata,
+                    source_llm=question.source_llm,
+                    source_model=question.source_model,
+                )
+
+                enriched_questions.append(enriched_question)
+                scores.append(evaluation.overall_score)
+
+            question_ids = self.insert_questions_batch(
+                questions=enriched_questions, judge_scores=scores
             )
-
-            enriched_questions.append(enriched_question)
-            scores.append(evaluation.overall_score)
-
-        return self.insert_questions_batch(
-            questions=enriched_questions, judge_scores=scores
-        )
+            span.set_attribute("questions_inserted", len(question_ids))
+            return question_ids
 
     def get_all_questions(self) -> List[Dict[str, Any]]:
         """Retrieve all questions from database.
