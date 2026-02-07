@@ -6,6 +6,41 @@ This guide covers deploying the question generation service to Railway as a **Cr
 
 The question generation service runs as a **scheduled batch job** (not a web server), making it perfect for Railway's Cron service type.
 
+## Build Configuration Requirements
+
+**Important**: The question-service requires access to the shared `libs/` directory at the repository root for observability (Sentry + OpenTelemetry integration). The Docker build must be configured correctly.
+
+### Railway Service Settings
+
+In the Railway dashboard, configure the question-service build settings:
+
+1. Go to **question-service** → **Settings** → **Build**
+2. Configure:
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| **Builder** | Dockerfile | |
+| **Root Directory** | (leave empty) | Empty means repo root, required for libs/ access |
+| **Dockerfile Path** | `question-service/Dockerfile.trigger` | Relative to repo root |
+
+3. Under **Settings** → **Deploy** → **Watch Paths**:
+   - Click **Add Path** → Enter `question-service/**`
+   - Click **Add Path** → Enter `libs/**`
+
+This ensures the service rebuilds when either the question-service code or shared libraries change.
+
+### Why This Matters
+
+The observability facade (`libs/observability/`) provides:
+- Sentry error tracking with rich context
+- OpenTelemetry distributed tracing
+- Metrics export to Grafana Cloud
+
+If the build context doesn't include `libs/`, the service will fail with:
+```
+ModuleNotFoundError: No module named 'libs'
+```
+
 ## Deployment Steps
 
 ### 1. Create Railway Service
@@ -415,7 +450,7 @@ The question-service exposes a Prometheus-compatible `/metrics` endpoint on the 
 │  ┌─────────────────────┐    scrape /metrics         │
 │  │  question-service    │◄──────────────────────┐   │
 │  │  (trigger server)    │                       │   │
-│  │  :8001/metrics       │   ┌───────────────┐   │   │
+│  │  :8080/metrics       │   ┌───────────────┐   │   │
 │  └─────────────────────┘   │ Grafana Alloy  │───┘   │
 │                            │ (collector)    │       │
 │                            │ :9091 metrics  │       │
@@ -475,7 +510,7 @@ The Railway Alloy template includes a default configuration. You may need to add
 ```alloy
 prometheus.scrape "question_service" {
   targets = [{
-    __address__ = "<question-service-internal-url>:8001",
+    __address__ = "<question-service-internal-url>:8080",
   }]
   forward_to = [prometheus.remote_write.grafana_cloud.receiver]
   scrape_interval = "30s"

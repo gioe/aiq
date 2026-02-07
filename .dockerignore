@@ -1,0 +1,61 @@
+# Git
+.git
+.github
+
+# Development
+.venv
+venv
+*/venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (not needed in container)
+*.md
+!requirements.txt
+
+# iOS app (not needed for backend services)
+ios/
+
+# Website (not needed for backend services)
+website/
+
+# Test files (not needed in production)
+tests/
+*/tests/
+**/test_*.py
+
+# Local configuration
+.env
+.env.local
+*.local
+
+# Logs
+*.log
+logs/
+
+# Claude Code
+.claude/
+
+# SQLite databases
+*.db
+*.sqlite3
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
