@@ -35,7 +35,7 @@ from .providers.google_provider import GoogleProvider
 from .providers.openai_provider import OpenAIProvider
 from .providers.xai_provider import XAIProvider
 
-# Import observability facade for dual-write metrics pattern
+# Import observability facade for dual-write metrics pattern and Sentry error capture
 # This dual-write approach allows metrics to flow to both the legacy MetricsTracker
 # (for pipeline reporting) and the new OTEL-based observability system.
 # TODO: Remove sys.path manipulation once libs.observability is a proper package
@@ -47,6 +47,87 @@ except ImportError:
     from libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_capture_generation_error(
+    error: BaseException,
+    *,
+    provider: str,
+    question_type: str,
+    difficulty: str,
+    operation: str = "generation",
+    subtype: Optional[str] = None,
+    model: Optional[str] = None,
+) -> None:
+    """Capture a generation error to Sentry with classified context.
+
+    Wraps observability.capture_error() in try-except to ensure error capture failures
+    don't crash the generation pipeline.
+
+    Args:
+        error: The exception to capture
+        provider: LLM provider name (e.g., "openai", "anthropic")
+        question_type: Question type being generated (e.g., "pattern_recognition")
+        difficulty: Difficulty level (e.g., "easy", "medium", "hard")
+        operation: Operation type (e.g., "generation", "batch_generation")
+        subtype: Optional question subtype
+        model: Optional model name
+    """
+    if not observability.is_initialized:
+        return
+
+    try:
+        # Build context with generation-specific details
+        context: Dict[str, Any] = {
+            "provider": provider,
+            "question_type": question_type,
+            "difficulty": difficulty,
+            "operation": operation,
+        }
+
+        if subtype:
+            context["subtype"] = subtype
+        if model:
+            context["model"] = model
+
+        # Extract error classification if it's an LLMProviderError
+        error_category = "unknown"
+        is_retryable = False
+        if isinstance(error, LLMProviderError):
+            classified = error.classified_error
+            error_category = classified.category.value
+            is_retryable = classified.is_retryable
+            context["error_category"] = error_category
+            context["error_severity"] = classified.severity.value
+            context["is_retryable"] = is_retryable
+            if classified.status_code:
+                context["status_code"] = classified.status_code
+            if classified.quota_details:
+                context["quota_details"] = classified.quota_details
+
+        # Use fingerprint to group similar errors together in Sentry
+        # Group by: error type, provider, question type, and error category
+        fingerprint = [
+            type(error).__name__,
+            provider,
+            question_type,
+            error_category,
+        ]
+
+        observability.capture_error(
+            error,
+            context=context,
+            level="error",
+            tags={
+                "domain": "question-generation",
+                "provider": provider,
+                "question_type": question_type,
+                "error_category": error_category,
+            },
+            fingerprint=fingerprint,
+        )
+    except Exception as e:
+        logger.debug(f"Failed to capture generation error to Sentry: {e}")
 
 
 def _safe_record_metric(
@@ -337,9 +418,29 @@ class QuestionGenerator:
                 f"Failed to generate question with {provider_name}: {str(e)} "
                 f"(category={e.classified_error.category.value})"
             )
+            # Capture classified error to Sentry
+            _safe_capture_generation_error(
+                e,
+                provider=provider_name,
+                question_type=question_type.value,
+                difficulty=difficulty.value,
+                operation="generation",
+                subtype=subtype,
+                model=actual_model,
+            )
             raise
         except Exception as e:
             logger.error(f"Failed to generate question with {provider_name}: {str(e)}")
+            # Capture unclassified error to Sentry
+            _safe_capture_generation_error(
+                e,
+                provider=provider_name,
+                question_type=question_type.value,
+                difficulty=difficulty.value,
+                operation="generation",
+                subtype=subtype,
+                model=actual_model,
+            )
             raise
 
     def _get_available_provider(self) -> Optional[str]:
@@ -887,10 +988,30 @@ class QuestionGenerator:
                 f"Failed to generate question with {provider_name} (async): {str(e)} "
                 f"(category={e.classified_error.category.value})"
             )
+            # Capture classified error to Sentry
+            _safe_capture_generation_error(
+                e,
+                provider=provider_name,
+                question_type=question_type.value,
+                difficulty=difficulty.value,
+                operation="generation_async",
+                subtype=subtype,
+                model=actual_model,
+            )
             raise
         except Exception as e:
             logger.error(
                 f"Failed to generate question with {provider_name} (async): {str(e)}"
+            )
+            # Capture unclassified error to Sentry
+            _safe_capture_generation_error(
+                e,
+                provider=provider_name,
+                question_type=question_type.value,
+                difficulty=difficulty.value,
+                operation="generation_async",
+                subtype=subtype,
+                model=actual_model,
             )
             raise
 
@@ -1696,6 +1817,16 @@ class QuestionGenerator:
             raise
         except Exception as e:
             logger.error(f"Failed to generate batch with {provider_name}: {str(e)}")
+            # Capture batch generation error to Sentry
+            _safe_capture_generation_error(
+                e,
+                provider=provider_name,
+                question_type=question_type.value,
+                difficulty=difficulty.value,
+                operation="batch_generation_single_call",
+                subtype=subtype,
+                model=actual_model,
+            )
             raise
 
     def get_available_providers(self) -> List[str]:
@@ -1924,6 +2055,16 @@ class QuestionGenerator:
                 f"  Provider: {provider_name}, Model: {actual_model}\n"
                 f"  Original question type: {original_question.question_type.value}\n"
                 f"  Exception type: {type(e).__name__}"
+            )
+            # Capture regeneration error to Sentry
+            _safe_capture_generation_error(
+                e,
+                provider=provider_name,
+                question_type=original_question.question_type.value,
+                difficulty=original_question.difficulty_level.value,
+                operation="regeneration",
+                subtype=original_question.sub_type,
+                model=actual_model,
             )
             raise
 

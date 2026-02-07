@@ -7,7 +7,18 @@ specialized LLM models based on question type.
 import asyncio
 import json
 import logging
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Import observability facade for Sentry error capture
+# TODO: Remove sys.path manipulation once libs.observability is a proper package
+try:
+    from libs.observability import observability
+except ImportError:
+    # Fallback for environments where libs.observability isn't installed as a package
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from libs.observability import observability  # noqa: E402
 
 from .judge_config import JudgeConfigLoader
 from .circuit_breaker import (
@@ -34,6 +45,69 @@ logger = logging.getLogger(__name__)
 # Default rate limiting settings for async operations
 DEFAULT_MAX_CONCURRENT_EVALUATIONS = 10  # Max concurrent judge API calls
 DEFAULT_ASYNC_TIMEOUT_SECONDS = 60.0  # Timeout for individual async evaluation calls
+
+
+def _safe_capture_evaluation_error(
+    error: BaseException,
+    *,
+    provider: str,
+    question_type: str,
+    difficulty: str,
+    operation: str = "evaluation",
+    model: Optional[str] = None,
+) -> None:
+    """Capture an evaluation error to Sentry with context.
+
+    Wraps observability.capture_error() in try-except to ensure error capture failures
+    don't crash the evaluation pipeline.
+
+    Args:
+        error: The exception to capture
+        provider: LLM provider name (e.g., "openai", "anthropic")
+        question_type: Question type being evaluated (e.g., "pattern_recognition")
+        difficulty: Difficulty level (e.g., "easy", "medium", "hard")
+        operation: Operation type (e.g., "evaluation", "batch_evaluation")
+        model: Optional model name
+    """
+    if not observability.is_initialized:
+        return
+
+    try:
+        # Build context with evaluation-specific details
+        context: Dict[str, Any] = {
+            "provider": provider,
+            "question_type": question_type,
+            "difficulty": difficulty,
+            "operation": operation,
+        }
+
+        if model:
+            context["model"] = model
+
+        # Extract error type for categorization
+        error_type = type(error).__name__
+
+        # Use fingerprint to group similar errors together in Sentry
+        # Group by: error type, provider, question type
+        fingerprint = [
+            error_type,
+            provider,
+            question_type,
+        ]
+
+        observability.capture_error(
+            error,
+            context=context,
+            level="error",
+            tags={
+                "domain": "question-evaluation",
+                "provider": provider,
+                "question_type": question_type,
+            },
+            fingerprint=fingerprint,
+        )
+    except Exception as e:
+        logger.debug(f"Failed to capture evaluation error to Sentry: {e}")
 
 
 class QuestionJudge:
@@ -199,6 +273,15 @@ class QuestionJudge:
 
         except Exception as e:
             logger.error(f"Failed to evaluate question: {str(e)}")
+            # Capture evaluation error to Sentry
+            _safe_capture_evaluation_error(
+                e,
+                provider=resolved_provider,
+                question_type=question_type,
+                difficulty=question.difficulty_level.value,
+                operation="evaluation",
+                model=effective_model,
+            )
             raise
 
     async def evaluate_question_async(
@@ -324,6 +407,15 @@ class QuestionJudge:
             raise
         except Exception as e:
             logger.error(f"Failed to evaluate question (async): {str(e)}")
+            # Capture evaluation error to Sentry
+            _safe_capture_evaluation_error(
+                e,
+                provider=resolved_provider,
+                question_type=question_type,
+                difficulty=question.difficulty_level.value,
+                operation="evaluation_async",
+                model=effective_model,
+            )
             raise
 
     async def evaluate_questions_list_async(
