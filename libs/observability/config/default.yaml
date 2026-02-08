@@ -14,6 +14,7 @@ otel:
   enabled: true
   service_name: ${SERVICE_NAME:aiq-service}
   endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+  otlp_headers: ${OTEL_EXPORTER_OTLP_HEADERS}
   metrics_enabled: true
   traces_enabled: true
   prometheus_enabled: true
