@@ -6,6 +6,7 @@
     "watchPatterns": ["/question-service/**", "/libs/**"]
   },
   "deploy": {
+    "healthcheckPath": "",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
