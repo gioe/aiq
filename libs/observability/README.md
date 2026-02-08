@@ -756,91 +756,45 @@ When `prometheus_enabled: true`, metrics are exposed for Prometheus scraping. Co
 
 ## Troubleshooting
 
-### Errors Not Appearing in Sentry
+For comprehensive troubleshooting, see the full **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** which covers:
 
-1. **Check DSN is set:**
-   ```python
-   print(os.environ.get("SENTRY_DSN"))
-   ```
+- Sentry not receiving errors
+- OTEL metrics not appearing in Grafana
+- Trace correlation not working
+- Configuration validation errors
+- Import path issues
+- Performance issues
 
-2. **Verify Sentry is enabled:**
-   ```python
-   print(observability._config.sentry.enabled)
-   print(observability._sentry_backend is not None)
-   ```
+### Quick Diagnostics
 
-3. **Check initialization succeeded:**
-   ```python
-   print(observability.is_initialized)
-   ```
+```python
+from libs.observability import observability
+import os
 
-4. **Flush before exit:**
-   ```python
-   observability.flush(timeout=5.0)
-   ```
+# Check environment variables
+print(f"SENTRY_DSN: {'SET' if os.environ.get('SENTRY_DSN') else 'NOT SET'}")
+print(f"OTEL_ENDPOINT: {'SET' if os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT') else 'NOT SET'}")
 
-5. **Check Sentry project filters** - Sentry may be filtering by environment or sample rate.
+# Check initialization
+print(f"Initialized: {observability.is_initialized}")
+print(f"Sentry backend: {observability._sentry_backend is not None}")
+print(f"OTEL backend: {observability._otel_backend is not None}")
 
-### Metrics Not Appearing in Grafana
-
-1. **Verify OTEL endpoint:**
-   ```python
-   print(os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"))
-   ```
-
-2. **Check OTEL is enabled:**
-   ```python
-   print(observability._config.otel.enabled)
-   print(observability._config.otel.metrics_enabled)
-   ```
-
-3. **Verify metric names follow conventions:**
-   - Lowercase only
-   - Use dots for hierarchy
-   - No spaces or special characters
-
-4. **Check label cardinality** - High-cardinality labels may hit limits.
-
-5. **For Prometheus scraping**, ensure:
-   - `prometheus_enabled: true` in config
-   - Prometheus is configured to scrape your service
-   - Port is exposed and accessible
-
-### Traces Not Correlating
-
-1. **Ensure both backends are initialized:**
-   ```python
-   print(observability._sentry_backend is not None)
-   print(observability._otel_backend is not None)
-   ```
-
-2. **Check routing config:**
-   ```python
-   print(observability._config.routing.traces)  # Should be "both"
-   ```
-
-3. **Verify OpenTelemetry integration in Sentry:**
-   - Install: `pip install sentry-sdk[opentelemetry]`
-   - Check logs for "Sentry span processor added for OTEL trace correlation"
-
-4. **Check trace context propagation** - Ensure `traceparent` and `tracestate` headers are forwarded in HTTP requests.
-
-### Common Initialization Errors
-
-**"Sentry DSN is required when sentry.enabled=True"**
-```bash
-export SENTRY_DSN="https://your-key@sentry.io/project-id"
+# Check config
+if observability._config:
+    print(f"Sentry enabled: {observability._config.sentry.enabled}")
+    print(f"OTEL enabled: {observability._config.otel.enabled}")
+    print(f"Traces routing: {observability._config.routing.traces}")
 ```
 
-**"OTLP exporter not available"**
-```bash
-pip install opentelemetry-exporter-otlp
-```
+### Common Issues Quick Reference
 
-**"Prometheus metric reader not available"**
-```bash
-pip install opentelemetry-exporter-prometheus
-```
+| Issue | First Check | Quick Fix |
+|-------|-------------|-----------|
+| No Sentry errors | `echo $SENTRY_DSN` | Export `SENTRY_DSN` |
+| No OTEL metrics | `echo $OTEL_EXPORTER_OTLP_ENDPOINT` | Export endpoint and headers |
+| Import errors | `echo $PYTHONPATH` | Add project root to PYTHONPATH |
+| Trace correlation | Check routing config | Set `routing.traces: both` |
 
 ### Debug Logging
 
