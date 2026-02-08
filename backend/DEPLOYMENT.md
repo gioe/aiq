@@ -71,7 +71,11 @@ ADMIN_USERNAME=admin
 # Generate password hash locally: python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your_password'))"
 ADMIN_PASSWORD_HASH=$2b$12$...your-bcrypt-hash...
 
-# OpenTelemetry Observability (optional)
+# Sentry Error Tracking (recommended for production)
+SENTRY_DSN=https://your-sentry-dsn@sentry.io/your-project-id
+SENTRY_TRACES_SAMPLE_RATE=0.1
+
+# OpenTelemetry Observability (optional, for metrics and additional tracing)
 # Set OTEL_ENABLED=True to enable distributed tracing, metrics, and logs
 OTEL_ENABLED=False
 OTEL_SERVICE_NAME=aiq-backend
@@ -82,6 +86,7 @@ OTEL_TRACES_SAMPLE_RATE=0.1
 OTEL_METRICS_ENABLED=True
 OTEL_METRICS_EXPORT_INTERVAL_MILLIS=60000
 OTEL_LOGS_ENABLED=True
+PROMETHEUS_METRICS_ENABLED=True
 # For Grafana Cloud authentication, set Authorization header with your API token
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <your-grafana-cloud-api-token>
 ```
@@ -480,11 +485,59 @@ Get your Railway URL:
 railway domain
 ```
 
-## OpenTelemetry Observability (Optional)
+## Observability (Sentry + OpenTelemetry)
 
-OpenTelemetry provides distributed tracing, metrics, and logs export for monitoring application performance and debugging issues.
+The backend uses a dual-provider observability stack configured via `backend/config/observability.yaml`:
+- **Sentry**: Error tracking and alerting (superior error grouping)
+- **OpenTelemetry**: Metrics export to Prometheus/Grafana
+- **Traces**: Sent to both Sentry Performance and OTEL for comprehensive coverage
 
-### Grafana Cloud Setup
+### Configuration File
+
+The `backend/config/observability.yaml` file controls observability routing:
+
+```yaml
+sentry:
+  enabled: true
+  dsn: ${SENTRY_DSN}
+  environment: ${ENV:development}
+  traces_sample_rate: 0.1
+
+otel:
+  enabled: true
+  service_name: aiq-backend
+  endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+  metrics_enabled: true
+  traces_enabled: true
+  prometheus_enabled: true
+
+routing:
+  errors: sentry    # Sentry has superior error grouping
+  metrics: otel     # OTEL/Prometheus for Grafana dashboards
+  traces: both      # Send to both for comprehensive tracing
+```
+
+Values use `${ENV_VAR}` or `${ENV_VAR:default}` syntax for environment variable substitution.
+
+### Sentry Setup (Recommended)
+
+1. **Create Sentry Account**
+   - Sign up at [sentry.io](https://sentry.io)
+   - Create a new Python project
+
+2. **Configure Environment Variables**
+
+   In Railway, add:
+   ```bash
+   SENTRY_DSN=https://your-key@sentry.io/your-project-id
+   SENTRY_TRACES_SAMPLE_RATE=0.1
+   ```
+
+3. **Verify in Sentry Dashboard**
+   - Check **Issues** for errors
+   - Check **Performance** for traces
+
+### Grafana Cloud Setup (Optional)
 
 1. **Create Grafana Cloud Account**
    - Sign up at [grafana.com](https://grafana.com)
@@ -506,6 +559,7 @@ OpenTelemetry provides distributed tracing, metrics, and logs export for monitor
    OTEL_METRICS_ENABLED=True
    OTEL_METRICS_EXPORT_INTERVAL_MILLIS=60000
    OTEL_LOGS_ENABLED=True
+   PROMETHEUS_METRICS_ENABLED=True
    OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <your-grafana-cloud-api-token>
    ```
 
@@ -550,14 +604,36 @@ rate(app_errors_total{service_name="aiq-backend"}[5m])
 - **Production**: Set `OTEL_TRACES_SAMPLE_RATE=0.1` (10% sampling) to control costs
 - Metrics are exported every 60 seconds by default (configurable via `OTEL_METRICS_EXPORT_INTERVAL_MILLIS`)
 
+### Environment Variables Reference
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SENTRY_DSN` | (empty) | Sentry DSN for error tracking (leave empty to disable) |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.1` | Sentry traces sample rate (0.0-1.0) |
+| `OTEL_ENABLED` | `False` | Enable OpenTelemetry instrumentation |
+| `OTEL_SERVICE_NAME` | `aiq-backend` | Service name in traces and metrics |
+| `OTEL_EXPORTER` | `console` | Exporter type: `console`, `otlp`, or `none` |
+| `OTEL_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP collector endpoint |
+| `OTEL_TRACES_SAMPLE_RATE` | `1.0` | Trace sample rate (0.0-1.0) |
+| `OTEL_METRICS_ENABLED` | `False` | Enable metrics export |
+| `OTEL_METRICS_EXPORT_INTERVAL_MILLIS` | `60000` | Metrics export interval in ms |
+| `OTEL_LOGS_ENABLED` | `False` | Enable logs export via OTEL |
+| `PROMETHEUS_METRICS_ENABLED` | `False` | Enable Prometheus `/metrics` endpoint |
+| `OTEL_EXPORTER_OTLP_HEADERS` | (empty) | OTLP auth headers (e.g., `Authorization=Bearer <token>`) |
+
 ### Disabling Observability
 
-To disable all observability features:
+To disable Sentry:
+```bash
+SENTRY_DSN=  # Empty or omit entirely
+```
+
+To disable OpenTelemetry:
 ```bash
 OTEL_ENABLED=False
 ```
 
-Or disable specific components:
+To disable specific OTEL components:
 ```bash
 OTEL_ENABLED=True
 OTEL_METRICS_ENABLED=False  # Disable metrics only
