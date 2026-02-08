@@ -57,6 +57,7 @@ prometheus-client==0.21.0
 pytest==7.4.3
 pytest-asyncio==0.21.1
 httpx==0.28.1
+responses==0.25.0  # For mocking HTTP requests in tests
 black==24.3.0
 flake8==6.1.0
 mypy==1.7.1
