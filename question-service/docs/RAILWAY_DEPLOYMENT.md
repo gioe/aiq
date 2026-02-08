@@ -437,7 +437,111 @@ Before going to production:
 - [ ] Team knows how to check Railway logs
 - [ ] Escalation plan for critical alerts
 
-## Grafana Cloud Observability
+## Observability (Sentry + OpenTelemetry)
+
+The question-service uses a dual-provider observability stack configured via `question-service/config/observability.yaml`:
+- **Sentry**: Error tracking and alerting (superior error grouping)
+- **OpenTelemetry**: Metrics export to Prometheus/Grafana
+- **Traces**: Sent to OTEL for distributed tracing (simpler than the backend which uses both)
+
+### Configuration File
+
+The `question-service/config/observability.yaml` file controls observability routing:
+
+```yaml
+sentry:
+  enabled: true
+  dsn: ${SENTRY_DSN}
+  environment: ${ENV:development}
+  release: ${RELEASE}           # Optional app version
+  traces_sample_rate: 0.1
+
+otel:
+  enabled: true
+  service_name: aiq-question-service
+  endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}  # Set via env var
+  metrics_enabled: true
+  traces_enabled: true
+  prometheus_enabled: true
+  insecure: false               # Set true for local dev without TLS
+
+routing:
+  errors: sentry    # Sentry has superior error grouping
+  metrics: otel     # OTEL/Prometheus for Grafana dashboards
+  traces: otel      # OTEL-only for question-service (simpler than backend)
+```
+
+Values use `${ENV_VAR}` or `${ENV_VAR:default}` syntax for environment variable substitution.
+
+### Railway Environment Setup
+
+Add these environment variables to the question-service in Railway:
+
+```bash
+# Sentry Error Tracking (recommended)
+SENTRY_DSN=https://your-key@sentry.io/your-project-id
+ENV=production
+
+# OpenTelemetry (optional, for Grafana Cloud)
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <your-grafana-cloud-api-token>
+
+# Optional: Release version for Sentry
+RELEASE=v1.0.0
+```
+
+### Sentry Setup
+
+1. **Create Sentry Account**
+   - Sign up at [sentry.io](https://sentry.io)
+   - Create a new Python project
+
+2. **Get DSN**
+   - Navigate to **Settings** → **Projects** → **Client Keys (DSN)**
+   - Copy the DSN
+
+3. **Configure in Railway**
+   - Add `SENTRY_DSN=https://...` to environment variables
+   - Set `ENV=production`
+
+4. **Verify in Sentry Dashboard**
+   - Check **Issues** for errors
+   - Check **Performance** for traces (if traces_sample_rate > 0)
+
+### Grafana Cloud Setup (Optional)
+
+1. **Create Grafana Cloud Account**
+   - Sign up at [grafana.com](https://grafana.com)
+   - Navigate to **Connections** → **Add new connection** → **OpenTelemetry**
+
+2. **Get OTLP Endpoint and API Token**
+   - Copy your OTLP endpoint (e.g., `https://otlp-gateway-prod-us-central-0.grafana.net/otlp`)
+   - Generate an API token with **MetricsPublisher** and **TracesPublisher** permissions
+
+3. **Configure in Railway**
+   ```bash
+   OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
+   OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <your-token>
+   ```
+
+4. **Verify Data Flow**
+   - In Grafana Cloud, navigate to **Explore** → **Prometheus** for metrics
+   - Navigate to **Explore** → **Tempo** for traces
+
+### Disabling Observability
+
+To disable Sentry, set `SENTRY_DSN` to empty or omit it entirely:
+```bash
+SENTRY_DSN=
+```
+
+To disable OpenTelemetry, update `config/observability.yaml`:
+```yaml
+otel:
+  enabled: false
+```
+
+## Grafana Cloud Metrics (Prometheus Endpoint)
 
 The question-service exposes a Prometheus-compatible `/metrics` endpoint on the trigger server. Combined with a **Grafana Alloy** sidecar service on Railway, this enables real-time metrics dashboards and alerting in Grafana Cloud.
 
@@ -560,5 +664,5 @@ ENABLE_PROMETHEUS_METRICS=false
 
 ---
 
-**Last Updated**: January 31, 2026
+**Last Updated**: February 7, 2026
 **Maintained By**: AIQ Engineering Team
