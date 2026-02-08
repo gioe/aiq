@@ -37,8 +37,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: /Users/mattgioe/iq-tracker/backend/venv/bin/mypy
-        args: ['/Users/mattgioe/iq-tracker/backend/app/', '--config-file=/Users/mattgioe/iq-tracker/backend/pyproject.toml']
+        entry: bash -c 'source venv/bin/activate && mypy app/ --config-file=pyproject.toml'
         language: system
         types: [python]
         pass_filenames: false

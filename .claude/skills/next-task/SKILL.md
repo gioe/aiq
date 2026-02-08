@@ -74,27 +74,36 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
    - Task assignee field (often indicates the right agent type)
    - Task description and requirements
 
-7. **Delegate the work** to the chosen subagent(s).
+7. **Explore the codebase before implementing** — use a sub-agent to research and answer:
+   - What files will need to change?
+   - What's the correct virtualenv and PYTHONPATH for this area?
+   - Are there existing patterns to follow (check the relevant CLAUDE.md)?
+   - What tests already exist for this area?
+   - Are there any related recent changes that could conflict?
 
-8. **Create atomic commits** as you complete logical units of work.
+   Report findings before writing any code. Sessions that skip this step have significantly higher friction from wrong-approach starts.
+
+8. **Delegate the work** to the chosen subagent(s).
+
+9. **Create atomic commits** as you complete logical units of work.
    - All commits should be on the feature branch, NOT main.
 
-9. **Review the code locally** before considering the work complete.
+10. **Review the code locally** before considering the work complete.
    - Use the appropriate code review agent for the domain.
 
-10. **Push the branch and create a PR**:
+11. **Push the branch and create a PR**:
     ```bash
     git push -u origin feature/TASK-<id>-description
     gh pr create --title "[TASK-<id>] Brief task description" --body "..."
     ```
     Capture the PR URL from the output (e.g., `https://github.com/gioe/aiq/pull/540`).
 
-11. **Update the task status and PR URL**:
+12. **Update the task status and PR URL**:
     ```bash
     sqlite3 tasks.db "UPDATE tasks SET github_pr = '<pr_url>', updated_at = datetime('now') WHERE id = <id>"
     ```
 
-12. **Review loop - iterate until Claude approves**:
+13. **Review loop - iterate until Claude approves**:
     After the PR is created, enter a review loop with the remote Claude reviewer. Continue until agreement is reached that the PR is ready to merge.
 
     ```
@@ -117,7 +126,7 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     └─────────┘
     ```
 
-    **Step 12a: Poll for Claude's review**
+    **Step 13a: Poll for Claude's review**
 
     Use the `/poll-claude-review` skill to wait for Claude's review:
     ```
@@ -131,7 +140,7 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
 
     The skill handles polling, timeout, and returns the full review content.
 
-    **Step 12b: Check if Claude approved**
+    **Step 13b: Check if Claude approved**
     Parse the review to determine if Claude has approved the PR. Look for approval signals:
     - "LGTM" (Looks Good To Me)
     - "Approved"
@@ -139,10 +148,10 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     - "No blocking issues"
     - No Category A (blocking) comments in the review
 
-    If approved → Exit loop, proceed to step 13.
-    If not approved → Continue to step 12c.
+    If approved → Exit loop, proceed to step 14.
+    If not approved → Continue to step 13c.
 
-    **Step 12c: Address Claude's review comments**
+    **Step 13c: Address Claude's review comments**
 
     **Category A - Address Immediately (blocking):**
     - Security concerns (XSS, SQL injection, auth issues, secrets)
@@ -172,16 +181,16 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
        ```
     2. Document in `.github/DEFERRED_REVIEW_ITEMS.md`
 
-    **Step 12d: Push fixes and loop back**
+    **Step 13d: Push fixes and loop back**
     ```bash
     git push origin feature/TASK-<id>-description
     ```
-    Then use `/poll-claude-review <pr_number> follow-up` to wait for Claude's next review. Loop back to step 12b.
+    Then use `/poll-claude-review <pr_number> follow-up` to wait for Claude's next review. Loop back to step 13b.
 
-13. **PR approved - finalize and merge**:
+14. **PR approved - finalize and merge**:
     Once Claude approves, automatically perform ALL of these steps:
 
-    **Step 13a: Create deferred tasks for Category B items**
+    **Step 14a: Create deferred tasks for Category B items**
     For each non-blocking suggestion in the review, create a task:
     ```bash
     sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at)
@@ -192,22 +201,22 @@ Original comment: <comment text>
 Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'))"
     ```
 
-    **Step 13b: Merge the PR**
+    **Step 14b: Merge the PR**
     ```bash
     gh pr merge $PR_NUMBER --squash --delete-branch
     ```
 
-    **Step 13c: Update task status to Done**
+    **Step 14c: Update task status to Done**
     ```bash
     sqlite3 tasks.db "UPDATE tasks SET status = 'Done', updated_at = datetime('now') WHERE id = <id>"
     ```
 
-14. **End task metrics tracking**:
+15. **End task metrics tracking**:
     ```bash
     ~/.claude/task-metrics.sh end
     ```
 
-15. **Check for newly unblocked tasks**:
+16. **Check for newly unblocked tasks**:
     ```bash
     sqlite3 -header -column tasks.db "
     SELECT t.id, t.summary, t.priority
