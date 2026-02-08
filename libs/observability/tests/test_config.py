@@ -948,3 +948,23 @@ class TestSentryDSNValidation:
         # The path is 'extra/path/123' which is not a valid numeric project ID
         assert len(errors) == 1
         assert "project ID must be numeric" in errors[0]
+
+    def test_dsn_validation_with_trailing_whitespace(self) -> None:
+        """Test DSN with trailing whitespace fails validation.
+
+        Trailing whitespace in DSN is a common config typo. urlparse treats trailing
+        whitespace as part of the URL path, causing project ID validation to fail.
+        """
+        errors = validate_sentry_dsn_format("https://key@sentry.io/123 ")
+        assert len(errors) == 1
+        assert "project ID must be numeric" in errors[0]
+
+    def test_dsn_validation_with_leading_whitespace_passes(self) -> None:
+        """Test DSN with leading whitespace passes validation.
+
+        Note: urlparse() strips leading whitespace, so leading spaces don't cause
+        validation failures. This test documents the current behavior.
+        """
+        errors = validate_sentry_dsn_format(" https://key@sentry.io/123")
+        # urlparse strips leading whitespace, so this parses correctly
+        assert errors == []

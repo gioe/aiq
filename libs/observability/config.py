@@ -37,12 +37,10 @@ def validate_sentry_dsn_format(dsn: str) -> list[str]:
         List of validation error messages. Empty list if valid.
     """
     errors: list[str] = []
+    dsn_format_hint = "DSN format should be: https://<PUBLIC_KEY>@<HOST>/<PROJECT_ID>"
 
-    try:
-        parsed = urlparse(dsn)
-    except Exception as e:
-        errors.append(f"Invalid DSN format: could not parse URL ({e})")
-        return errors
+    # urlparse() doesn't raise exceptions - it does best-effort parsing
+    parsed = urlparse(dsn)
 
     # Validate protocol (scheme)
     if parsed.scheme not in ("http", "https"):
@@ -53,29 +51,19 @@ def validate_sentry_dsn_format(dsn: str) -> list[str]:
 
     # Validate public key (username part of URL)
     if not parsed.username:
-        errors.append(
-            "Invalid DSN: missing public key. "
-            "DSN format should be: https://{PUBLIC_KEY}@{HOST}/{PROJECT_ID}"
-        )
+        errors.append(f"Invalid DSN: missing public key. {dsn_format_hint}")
 
     # Validate host
     if not parsed.hostname:
-        errors.append(
-            "Invalid DSN: missing host. "
-            "DSN format should be: https://{PUBLIC_KEY}@{HOST}/{PROJECT_ID}"
-        )
+        errors.append(f"Invalid DSN: missing host. {dsn_format_hint}")
 
     # Validate project ID (path should be /{project_id})
     path = parsed.path.strip("/")
     if not path:
-        errors.append(
-            "Invalid DSN: missing project ID. "
-            "DSN format should be: https://{PUBLIC_KEY}@{HOST}/{PROJECT_ID}"
-        )
+        errors.append(f"Invalid DSN: missing project ID. {dsn_format_hint}")
     elif not path.isdigit():
         errors.append(
-            f"Invalid DSN: project ID must be numeric, got '{path}'. "
-            "DSN format should be: https://{{PUBLIC_KEY}}@{{HOST}}/{{PROJECT_ID}}"
+            f"Invalid DSN: project ID must be numeric, got '{path}'. {dsn_format_hint}"
         )
 
     return errors
