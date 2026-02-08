@@ -118,34 +118,24 @@ class ObservabilityConfig:
     otel: OTELConfig = field(default_factory=OTELConfig)
     routing: RoutingConfig = field(default_factory=RoutingConfig)
 
-    def validate(self) -> None:
-        """Validate the configuration.
+    def _validate_sentry(self) -> list[str]:
+        """Validate Sentry configuration.
 
-        Validates that:
-        - When sentry.enabled=True, sentry.dsn is set (non-empty)
-        - When otel.enabled=True and routing uses "otel", otel.endpoint should be set (warning)
-        - traces_sample_rate is between 0.0 and 1.0
-        - profiles_sample_rate is between 0.0 and 1.0
-        - routing values are one of: "sentry", "otel", "both"
-
-        Raises:
-            ConfigurationError: If any validation errors are found.
+        Returns:
+            List of validation error messages.
         """
         errors: list[str] = []
 
-        # Validate Sentry DSN when enabled
         if self.sentry.enabled and not self.sentry.dsn:
             errors.append(
                 "Sentry DSN is required when sentry.enabled=True. "
                 "Set SENTRY_DSN environment variable or configure sentry.dsn in your config."
             )
 
-        # Validate Sentry DSN format if Sentry is enabled and DSN is provided
         if self.sentry.enabled and self.sentry.dsn:
             dsn_errors = validate_sentry_dsn_format(self.sentry.dsn)
             errors.extend(dsn_errors)
 
-        # Validate sample rates
         if not (0.0 <= self.sentry.traces_sample_rate <= 1.0):
             errors.append(
                 f"Invalid sentry.traces_sample_rate: {self.sentry.traces_sample_rate}. "
@@ -158,8 +148,46 @@ class ObservabilityConfig:
                 "Value must be between 0.0 and 1.0."
             )
 
-        # Validate routing values
+        return errors
+
+    def _validate_otel(self) -> list[str]:
+        """Validate OpenTelemetry configuration.
+
+        Returns:
+            List of validation error messages.
+        """
+        errors: list[str] = []
+
+        if not (0.0 <= self.otel.traces_sample_rate <= 1.0):
+            errors.append(
+                f"Invalid otel.traces_sample_rate: {self.otel.traces_sample_rate}. "
+                "Value must be between 0.0 and 1.0."
+            )
+
+        valid_exporters = {"console", "otlp", "none"}
+        if self.otel.exporter not in valid_exporters:
+            errors.append(
+                f"Invalid otel.exporter: '{self.otel.exporter}'. "
+                f"Value must be one of: {', '.join(sorted(valid_exporters))}."
+            )
+
+        if self.otel.metrics_export_interval_millis <= 0:
+            errors.append(
+                f"Invalid otel.metrics_export_interval_millis: {self.otel.metrics_export_interval_millis}. "
+                "Value must be positive."
+            )
+
+        return errors
+
+    def _validate_routing(self) -> list[str]:
+        """Validate routing configuration.
+
+        Returns:
+            List of validation error messages.
+        """
+        errors: list[str] = []
         valid_routing_values = {"sentry", "otel", "both"}
+
         if self.routing.errors not in valid_routing_values:
             errors.append(
                 f"Invalid routing.errors: '{self.routing.errors}'. "
@@ -178,44 +206,47 @@ class ObservabilityConfig:
                 f"Value must be one of: {', '.join(sorted(valid_routing_values))}."
             )
 
-        # Validate OTEL sample rate
-        if not (0.0 <= self.otel.traces_sample_rate <= 1.0):
-            errors.append(
-                f"Invalid otel.traces_sample_rate: {self.otel.traces_sample_rate}. "
-                "Value must be between 0.0 and 1.0."
+        return errors
+
+    def _warn_missing_otel_endpoint(self) -> None:
+        """Log a warning if OTEL endpoint should be set but isn't."""
+        if not self.otel.enabled:
+            return
+
+        uses_otel = (
+            "otel" in self.routing.errors
+            or "otel" in self.routing.metrics
+            or "otel" in self.routing.traces
+        )
+
+        if uses_otel and self.otel.exporter == "otlp" and not self.otel.endpoint:
+            logger.warning(
+                "OTEL endpoint is not configured but using OTLP exporter. "
+                "Set OTEL_ENDPOINT environment variable or configure otel.endpoint "
+                "to enable OpenTelemetry export."
             )
 
-        # Validate OTEL exporter value
-        valid_exporters = {"console", "otlp", "none"}
-        if self.otel.exporter not in valid_exporters:
-            errors.append(
-                f"Invalid otel.exporter: '{self.otel.exporter}'. "
-                f"Value must be one of: {', '.join(sorted(valid_exporters))}."
-            )
+    def validate(self) -> None:
+        """Validate the configuration.
 
-        # Validate metrics export interval
-        if self.otel.metrics_export_interval_millis <= 0:
-            errors.append(
-                f"Invalid otel.metrics_export_interval_millis: {self.otel.metrics_export_interval_millis}. "
-                "Value must be positive."
-            )
+        Validates that:
+        - When sentry.enabled=True, sentry.dsn is set (non-empty)
+        - When otel.enabled=True and routing uses "otel", otel.endpoint should be set (warning)
+        - traces_sample_rate is between 0.0 and 1.0
+        - profiles_sample_rate is between 0.0 and 1.0
+        - routing values are one of: "sentry", "otel", "both"
 
-        # Check if OTEL endpoint should be set (warning, not error)
-        if self.otel.enabled:
-            uses_otel = (
-                "otel" in self.routing.errors
-                or "otel" in self.routing.metrics
-                or "otel" in self.routing.traces
-            )
-            # Only warn about missing endpoint if using OTLP exporter
-            if uses_otel and self.otel.exporter == "otlp" and not self.otel.endpoint:
-                logger.warning(
-                    "OTEL endpoint is not configured but using OTLP exporter. "
-                    "Set OTEL_ENDPOINT environment variable or configure otel.endpoint "
-                    "to enable OpenTelemetry export."
-                )
+        Raises:
+            ConfigurationError: If any validation errors are found.
+        """
+        errors: list[str] = []
 
-        # Raise aggregated errors
+        errors.extend(self._validate_sentry())
+        errors.extend(self._validate_otel())
+        errors.extend(self._validate_routing())
+
+        self._warn_missing_otel_endpoint()
+
         if errors:
             error_message = "Configuration validation failed:\n" + "\n".join(
                 f"  - {error}" for error in errors
