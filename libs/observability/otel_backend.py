@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Literal
 
@@ -190,6 +191,7 @@ class OTELBackend:
         self._gauges: dict[str, Any] = {}
         self._updown_counters: dict[str, Any] = {}
         self._gauge_values: dict[str, dict[str, float]] = {}  # Track gauge values for callbacks
+        self._gauge_lock = threading.Lock()  # Protects _gauge_values access
         self._meter_provider: MeterProvider | None = None
         self._tracer_provider: TracerProvider | None = None
         self._logger_provider: LoggerProvider | None = None
@@ -530,22 +532,28 @@ class OTELBackend:
             # OTEL gauges use ObservableGauge with callbacks for true gauge semantics.
             # We store the current value and let the callback report it during scrape.
             # Use JSON serialization for safety (no eval).
+            # Thread safety: _gauge_lock protects all _gauge_values reads/writes since
+            # the callback may be invoked from a different thread during metric export.
             attr_key = json.dumps(sorted(attributes.items())) if attributes else ""
-            if name not in self._gauge_values:
-                self._gauge_values[name] = {}
+            with self._gauge_lock:
+                if name not in self._gauge_values:
+                    self._gauge_values[name] = {}
 
-            # Store the absolute value (gauge semantics)
-            self._gauge_values[name][attr_key] = float(value)
+                # Store the absolute value (gauge semantics)
+                self._gauge_values[name][attr_key] = float(value)
 
             # Create the observable gauge with callback if not exists
             if name not in self._gauges:
 
-                def make_callback(metric_name: str) -> Any:
+                def make_callback(metric_name: str, lock: threading.Lock) -> Any:
                     def callback(options: Any) -> Any:
                         from opentelemetry.metrics import Observation
 
                         observations = []
-                        for attr_str, val in self._gauge_values.get(metric_name, {}).items():
+                        with lock:
+                            # Copy to avoid holding lock during Observation creation
+                            gauge_data = dict(self._gauge_values.get(metric_name, {}))
+                        for attr_str, val in gauge_data.items():
                             # Reconstruct attributes from JSON key
                             attrs = dict(json.loads(attr_str)) if attr_str else {}
                             observations.append(Observation(val, attrs))
@@ -555,7 +563,7 @@ class OTELBackend:
 
                 self._gauges[name] = self._meter.create_observable_gauge(
                     name=name,
-                    callbacks=[make_callback(name)],
+                    callbacks=[make_callback(name, self._gauge_lock)],
                     unit=unit or "1",
                     description=f"Gauge for {name}",
                 )
