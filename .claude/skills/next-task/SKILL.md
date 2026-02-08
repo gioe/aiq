@@ -174,10 +174,10 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     - Minor TODOs
 
     For each Category B comment:
-    1. Create a task in the local SQLite database:
+    1. Create a task in the local SQLite database (with 60-day expiry):
        ```bash
-       sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at)
-         VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.\n\nOriginal comment: <comment text>\n\nReason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'))"
+       sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
+         VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.\n\nOriginal comment: <comment text>\n\nReason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'), datetime('now', '+60 days'))"
        ```
     2. Document in `.github/DEFERRED_REVIEW_ITEMS.md`
 
@@ -191,14 +191,14 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     Once Claude approves, automatically perform ALL of these steps:
 
     **Step 14a: Create deferred tasks for Category B items**
-    For each non-blocking suggestion in the review, create a task:
+    For each non-blocking suggestion in the review, create a task (with 60-day expiry):
     ```bash
-    sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at)
+    sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
       VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.
 
 Original comment: <comment text>
 
-Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'))"
+Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'), datetime('now', '+60 days'))"
     ```
 
     **Step 14b: Merge the PR**
@@ -337,6 +337,26 @@ LIMIT 1;
 | `blocked` | Show all blocked tasks |
 | `wip` | Show all In Progress tasks |
 | `preview` | Show next ready task without starting it |
+
+## Canonical Values (Enforced by SQLite Triggers)
+
+All inserts and updates are validated by triggers. Using non-canonical values will be rejected.
+
+### Domain
+`iOS`, `Backend`, `Question Service`, `Infrastructure`, `Docs`, `Data`, `Testing`, `Web`
+
+WARNING: Do NOT use lowercase variants like `backend`, `ios`, `question-service`, or alternatives like `documentation`, `devops`. Always use the exact canonical values above.
+
+### Task Type
+`bug`, `feature`, `refactor`, `test`, `docs`, `infrastructure`
+
+WARNING: Do NOT use variants like `bug_fix`, `Bug`, `refactoring`, `testing`, `documentation`, `deployment`, `enhancement`, `engineering`, `production`, `implementation`. Always use the exact canonical values above.
+
+### Priority
+`Highest`, `High`, `Medium`, `Low`, `Lowest`
+
+### Status
+`To Do`, `In Progress`, `Done`
 
 ## Important Guidelines
 

@@ -8,6 +8,39 @@ allowed-tools: Bash, Glob, Grep, Read
 
 Grooms the local tasks database by identifying completed, redundant, incorrectly prioritized, or unassigned tasks.
 
+## Step 0: Auto-Close Expired Deferred Tasks
+
+Before analyzing the backlog, close any deferred tasks that have passed their 60-day expiry. This is automatic and does not require user approval.
+
+```bash
+# Check how many deferred tasks have expired
+sqlite3 -header -column tasks.db "
+SELECT COUNT(*) as expired_count
+FROM tasks
+WHERE summary LIKE '%[Deferred]%'
+  AND status = 'To Do'
+  AND expires_at IS NOT NULL
+  AND expires_at < datetime('now')
+"
+
+# Auto-close expired deferred tasks
+sqlite3 tasks.db "
+UPDATE tasks
+SET status = 'Done',
+    updated_at = datetime('now'),
+    description = description || char(10) || char(10) || '---' || char(10) || 'Auto-closed: Deferred task expired after 60 days without action (' || datetime('now') || ').'
+WHERE summary LIKE '%[Deferred]%'
+  AND status = 'To Do'
+  AND expires_at IS NOT NULL
+  AND expires_at < datetime('now');
+"
+```
+
+Report how many were auto-closed before proceeding:
+```
+Auto-closed X expired deferred tasks.
+```
+
 ## Step 1: Fetch All Backlog Tasks
 
 Query all open tasks from the local SQLite database:
@@ -183,7 +216,7 @@ sqlite3 tasks.db "DELETE FROM tasks WHERE id = <id>"
 sqlite3 tasks.db "UPDATE tasks SET priority = '<New Priority>' WHERE id = <id>"
 ```
 
-Valid priority values: High, Medium, Low
+Valid priority values (trigger-enforced): Highest, High, Medium, Low, Lowest
 
 ### For Agent Assignments:
 ```bash
@@ -209,13 +242,25 @@ After all grooming changes are complete, compute `priority_score` for all open t
 ### Scoring Formula
 
 ```
-priority_score = base_priority + unblocks_bonus + age_bonus
+priority_score = base_priority + source_bonus + unblocks_bonus
 ```
 
 Where:
-- **base_priority**: Highest=40, High=30, Medium=20, Low=10
-- **unblocks_bonus**: +15 if task has any dependents, +5 per dependent task
-- **age_bonus**: +10 if created more than 14 days ago
+- **base_priority**: Highest=100, High=80, Medium=60, Low=40, Lowest=20 (wide spread so bonuses can't jump tiers)
+- **source_bonus**: +10 if the task is NOT a `[Deferred]` task (intentional work outranks deferred at the same priority)
+- **unblocks_bonus**: +5 per dependent task, capped at +15 (tiebreaker within a tier, can't override a tier gap)
+
+No age bonus — within a tier, `ORDER BY priority_score DESC, id` naturally implements FIFO.
+
+### Score Ranges
+
+| Priority | Intentional (no deps) | Intentional (max deps) | Deferred |
+|----------|----------------------|----------------------|----------|
+| Highest  | 110                  | 125                  | 100-115  |
+| High     | 90                   | 105                  | 80-95    |
+| Medium   | 70                   | 85                   | 60-75    |
+| Low      | 50                   | 65                   | 40-55    |
+| Lowest   | 30                   | 45                   | 20-35    |
 
 ### Compute and Update Scores
 
@@ -223,22 +268,23 @@ Where:
 # Update priority_score for all open tasks
 sqlite3 tasks.db "
 UPDATE tasks SET priority_score = (
-  -- Base priority
+  -- Base priority (wide spread: 20 points per tier)
   CASE priority
-    WHEN 'Highest' THEN 40
-    WHEN 'High' THEN 30
-    WHEN 'Medium' THEN 20
-    WHEN 'Low' THEN 10
-    ELSE 15
+    WHEN 'Highest' THEN 100
+    WHEN 'High' THEN 80
+    WHEN 'Medium' THEN 60
+    WHEN 'Low' THEN 40
+    WHEN 'Lowest' THEN 20
+    ELSE 40
   END
-  -- Unblocks bonus: +15 if has dependents, +5 per dependent
-  + COALESCE((
-    SELECT CASE WHEN COUNT(*) > 0 THEN 15 + (COUNT(*) * 5) ELSE 0 END
+  -- Source bonus: +10 for intentional (non-deferred) tasks
+  + CASE WHEN summary NOT LIKE '%[Deferred]%' THEN 10 ELSE 0 END
+  -- Unblocks bonus: +5 per dependent task, capped at +15
+  + MIN(COALESCE((
+    SELECT COUNT(*) * 5
     FROM task_dependencies d
     WHERE d.depends_on_id = tasks.id
-  ), 0)
-  -- Age bonus: +10 if older than 14 days
-  + CASE WHEN julianday('now') - julianday(created_at) > 14 THEN 10 ELSE 0 END
+  ), 0), 15)
 )
 WHERE status != 'Done';
 "
@@ -249,7 +295,7 @@ SELECT id, summary, priority, priority_score
 FROM tasks
 WHERE status = 'To Do'
 ORDER BY priority_score DESC
-LIMIT 10;
+LIMIT 15;
 "
 ```
 
@@ -301,6 +347,26 @@ Show final backlog state:
 ```bash
 sqlite3 -header -column tasks.db "SELECT id, summary, status, priority, domain, assignee FROM tasks WHERE status != 'Done' ORDER BY priority DESC, id"
 ```
+
+## Canonical Values (Enforced by SQLite Triggers)
+
+All inserts and updates are validated by triggers. Using non-canonical values will be rejected.
+
+### Domain
+`iOS`, `Backend`, `Question Service`, `Infrastructure`, `Docs`, `Data`, `Testing`, `Web`
+
+WARNING: Do NOT use lowercase variants like `backend`, `ios`, `question-service`, or alternatives like `documentation`, `devops`. Always use the exact canonical values above.
+
+### Task Type
+`bug`, `feature`, `refactor`, `test`, `docs`, `infrastructure`
+
+WARNING: Do NOT use variants like `bug_fix`, `Bug`, `refactoring`, `testing`, `documentation`, `deployment`, `enhancement`, `engineering`, `production`, `implementation`. Always use the exact canonical values above.
+
+### Priority
+`Highest`, `High`, `Medium`, `Low`, `Lowest`
+
+### Status
+`To Do`, `In Progress`, `Done`
 
 ## Important Guidelines
 

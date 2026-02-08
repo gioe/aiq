@@ -155,7 +155,7 @@ The tasks table has these columns:
 - priority: TEXT (Highest, High, Medium, Low, Lowest - map from analysis priority)
 - domain: TEXT (iOS, Backend, Question Service, Infrastructure, Docs, Testing, Web, Data)
 - assignee: TEXT (ios-engineer, fastapi-architect, database-engineer, statistical-analysis-scientist, python-code-guardian, technical-product-manager, project-code-reviewer)
-- task_type: TEXT (bug, feature, refactor, test, docs)
+- task_type: TEXT (bug, feature, refactor, test, docs, infrastructure)
 - created_at: TEXT (datetime)
 - updated_at: TEXT (datetime)
 
