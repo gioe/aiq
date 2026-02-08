@@ -851,6 +851,35 @@ class TestStartSpanWithBackends:
 
         assert facade._otel_backend.start_span.call_count == 2
 
+    def test_start_span_cleans_up_on_exception(self) -> None:
+        """Test start_span properly cleans up contexts when exception is raised.
+
+        The ExitStack ensures both OTEL and Sentry contexts are properly exited
+        even when an exception occurs within the span.
+        """
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._otel_backend = mock.MagicMock()
+        facade._sentry_backend = mock.MagicMock()
+
+        mock_otel_context = mock.MagicMock()
+        mock_sentry_context = mock.MagicMock()
+        facade._otel_backend.start_span.return_value = mock_otel_context
+        facade._sentry_backend.start_span.return_value = mock_sentry_context
+
+        mock_config = mock.MagicMock()
+        mock_config.routing.traces = "both"
+        facade._config = mock_config
+
+        # When an exception is raised within the span
+        with pytest.raises(ValueError, match="test error"):
+            with facade.start_span("test_span"):
+                raise ValueError("test error")
+
+        # Both contexts should have __exit__ called (via ExitStack.enter_context)
+        mock_otel_context.__exit__.assert_called_once()
+        mock_sentry_context.__exit__.assert_called_once()
+
 
 class TestFacadeCaptureMethods:
     """Tests for facade capture methods with mocked backends."""

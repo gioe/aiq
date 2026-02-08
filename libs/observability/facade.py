@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import atexit
 import logging
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Literal
 
 if TYPE_CHECKING:
@@ -876,31 +876,26 @@ class ObservabilityFacade:
             yield SpanContext(name)
             return
 
-        otel_span = None
-        otel_context = None
-        sentry_span = None
-        sentry_context = None
-
         routing = self._config.routing.traces if self._config else "otel"
 
-        # Start OTEL span if configured
-        if routing in ("otel", "both") and self._otel_backend is not None:
-            otel_context = self._otel_backend.start_span(name, kind=kind, attributes=attributes)
-            otel_span = otel_context.__enter__()
+        with ExitStack() as stack:
+            otel_span = None
+            sentry_span = None
 
-        # Start Sentry span if configured
-        if routing in ("sentry", "both") and self._sentry_backend is not None:
-            sentry_context = self._sentry_backend.start_span(name, attributes=attributes)
-            if sentry_context is not None:
-                sentry_span = sentry_context.__enter__()
+            # Start OTEL span if configured
+            if routing in ("otel", "both") and self._otel_backend is not None:
+                otel_context = self._otel_backend.start_span(
+                    name, kind=kind, attributes=attributes
+                )
+                otel_span = stack.enter_context(otel_context)
 
-        try:
+            # Start Sentry span if configured
+            if routing in ("sentry", "both") and self._sentry_backend is not None:
+                sentry_context = self._sentry_backend.start_span(name, attributes=attributes)
+                if sentry_context is not None:
+                    sentry_span = stack.enter_context(sentry_context)
+
             yield SpanContext(name, otel_span=otel_span, sentry_span=sentry_span)
-        finally:
-            if sentry_context is not None:
-                sentry_context.__exit__(None, None, None)
-            if otel_context is not None:
-                otel_context.__exit__(None, None, None)
 
     def set_user(
         self,
