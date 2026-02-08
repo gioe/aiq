@@ -501,23 +501,29 @@ sentry:
   enabled: true
   dsn: ${SENTRY_DSN}
   environment: ${ENV:development}
+  release: ${RELEASE}           # Optional app version
   traces_sample_rate: 0.1
 
 otel:
   enabled: true
   service_name: aiq-backend
-  endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+  endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}  # Set via env var
   metrics_enabled: true
   traces_enabled: true
   prometheus_enabled: true
+  insecure: false               # Set true for local dev without TLS
 
 routing:
   errors: sentry    # Sentry has superior error grouping
   metrics: otel     # OTEL/Prometheus for Grafana dashboards
-  traces: both      # Send to both for comprehensive tracing
+  traces: both      # Send to both (overrides default of otel-only)
 ```
 
 Values use `${ENV_VAR}` or `${ENV_VAR:default}` syntax for environment variable substitution.
+
+**Note:** The backend also supports legacy environment variables (`OTEL_OTLP_ENDPOINT`) in `app/core/config.py` for the tracing module. For consistency, set both:
+- `OTEL_EXPORTER_OTLP_ENDPOINT` (for observability.yaml)
+- `OTEL_OTLP_ENDPOINT` (for legacy tracing in config.py)
 
 ### Sentry Setup (Recommended)
 
@@ -554,7 +560,9 @@ Values use `${ENV_VAR}` or `${ENV_VAR:default}` syntax for environment variable 
    OTEL_ENABLED=True
    OTEL_SERVICE_NAME=aiq-backend
    OTEL_EXPORTER=otlp
+   # Set both endpoint variables for compatibility
    OTEL_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
+   OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
    OTEL_TRACES_SAMPLE_RATE=0.1
    OTEL_METRICS_ENABLED=True
    OTEL_METRICS_EXPORT_INTERVAL_MILLIS=60000
@@ -610,10 +618,12 @@ rate(app_errors_total{service_name="aiq-backend"}[5m])
 |----------|---------|-------------|
 | `SENTRY_DSN` | (empty) | Sentry DSN for error tracking (leave empty to disable) |
 | `SENTRY_TRACES_SAMPLE_RATE` | `0.1` | Sentry traces sample rate (0.0-1.0) |
+| `RELEASE` | (empty) | App version for Sentry releases (optional) |
 | `OTEL_ENABLED` | `False` | Enable OpenTelemetry instrumentation |
 | `OTEL_SERVICE_NAME` | `aiq-backend` | Service name in traces and metrics |
 | `OTEL_EXPORTER` | `console` | Exporter type: `console`, `otlp`, or `none` |
-| `OTEL_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP collector endpoint |
+| `OTEL_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP collector endpoint (legacy tracing) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | (none) | OTLP collector endpoint (observability.yaml) |
 | `OTEL_TRACES_SAMPLE_RATE` | `1.0` | Trace sample rate (0.0-1.0) |
 | `OTEL_METRICS_ENABLED` | `False` | Enable metrics export |
 | `OTEL_METRICS_EXPORT_INTERVAL_MILLIS` | `60000` | Metrics export interval in ms |
