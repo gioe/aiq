@@ -61,9 +61,27 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from libs.observability.facade import ObservabilityFacade
+
+# Test configuration constants
+FIXTURE_FLUSH_TIMEOUT_SECONDS = 5.0  # Timeout for fixture teardown flush
+FINAL_FLUSH_TIMEOUT_SECONDS = 10.0  # Extended timeout for final verification test
+COUNTER_TEST_ITERATIONS = 5  # Number of counter increments to test batching
+HISTOGRAM_TEST_VALUES_MS = [
+    10,
+    25,
+    50,
+    75,
+    100,
+    150,
+    200,
+    500,
+]  # Realistic latency distribution
 
 # Skip all tests in this module unless explicitly enabled
 pytestmark = [
@@ -156,8 +174,8 @@ def observability_facade(e2e_config_file: Path, test_run_id: str):
     """Initialize the observability facade with real backends using config file."""
     from libs.observability import observability
 
-    # Reset facade state if previously initialized
-    if observability._initialized:
+    # Reset facade state if previously initialized (use public property)
+    if observability.is_initialized:
         observability.shutdown()
 
     # Initialize with our e2e test config file
@@ -173,7 +191,7 @@ def observability_facade(e2e_config_file: Path, test_run_id: str):
     yield observability
 
     # Flush and shutdown after tests
-    observability.flush(timeout=5.0)
+    observability.flush(timeout=FIXTURE_FLUSH_TIMEOUT_SECONDS)
     observability.shutdown()
 
 
@@ -181,7 +199,7 @@ class TestSentryIntegration:
     """Tests for Sentry integration with real backend."""
 
     def test_capture_error_sends_to_sentry(
-        self, observability_facade: Any, test_run_id: str
+        self, observability_facade: "ObservabilityFacade", test_run_id: str
     ) -> None:
         """Test that errors are captured and sent to Sentry.
 
@@ -213,7 +231,7 @@ class TestSentryIntegration:
         print(f"Search in Sentry for: {error_message}")
 
     def test_capture_error_with_trace_context(
-        self, observability_facade: Any, test_run_id: str
+        self, observability_facade: "ObservabilityFacade", test_run_id: str
     ) -> None:
         """Test that errors include trace context when captured within a span."""
         error_message = f"E2E Traced Error [{test_run_id}] - {time.time()}"
@@ -245,7 +263,7 @@ class TestOTELIntegration:
     """Tests for OpenTelemetry integration with real backend."""
 
     def test_record_metric_counter(
-        self, observability_facade: Any, test_run_id: str
+        self, observability_facade: "ObservabilityFacade", test_run_id: str
     ) -> None:
         """Test that counter metrics are recorded and sent to OTEL.
 
@@ -253,11 +271,11 @@ class TestOTELIntegration:
         """
         metric_name = f"e2e.test.counter.{test_run_id.replace('-', '_')}"
 
-        # Record multiple counter increments
-        for i in range(5):
+        # Record multiple counter increments to test batching behavior
+        for i in range(COUNTER_TEST_ITERATIONS):
             observability_facade.record_metric(
                 metric_name,
-                1,
+                1,  # Standard counter increment
                 labels={
                     "test_run_id": test_run_id,
                     "iteration": str(i),
@@ -265,18 +283,22 @@ class TestOTELIntegration:
                 metric_type="counter",
             )
 
+        # Verify facade remains in valid state after recording
+        assert (
+            observability_facade.is_initialized
+        ), "Facade should remain initialized after recording metrics"
+
         print(f"\nRecorded counter metric: {metric_name}")
         print("Verify in your metrics backend (e.g., Grafana) for this metric")
 
     def test_record_metric_histogram(
-        self, observability_facade: Any, test_run_id: str
+        self, observability_facade: "ObservabilityFacade", test_run_id: str
     ) -> None:
         """Test that histogram metrics are recorded and sent to OTEL."""
         metric_name = f"e2e.test.histogram.{test_run_id.replace('-', '_')}"
 
-        # Record various values to create a distribution
-        values = [10, 25, 50, 75, 100, 150, 200, 500]
-        for value in values:
+        # Record realistic latency values to create a distribution
+        for value in HISTOGRAM_TEST_VALUES_MS:
             observability_facade.record_metric(
                 metric_name,
                 value,
@@ -285,10 +307,17 @@ class TestOTELIntegration:
                 unit="ms",
             )
 
-        print(f"\nRecorded histogram metric: {metric_name}")
-        print(f"Values: {values}")
+        # Verify facade remains in valid state after recording
+        assert (
+            observability_facade.is_initialized
+        ), "Facade should remain initialized after recording metrics"
 
-    def test_create_span(self, observability_facade: Any, test_run_id: str) -> None:
+        print(f"\nRecorded histogram metric: {metric_name}")
+        print(f"Values: {HISTOGRAM_TEST_VALUES_MS}")
+
+    def test_create_span(
+        self, observability_facade: "ObservabilityFacade", test_run_id: str
+    ) -> None:
         """Test that spans are created and sent to OTEL."""
         span_name = f"e2e_test_span_{test_run_id}"
 
@@ -322,7 +351,7 @@ class TestDualTracingMode:
     """Tests for dual tracing mode (both Sentry and OTEL receive traces)."""
 
     def test_nested_spans_sent_to_both_backends(
-        self, observability_facade: Any, test_run_id: str
+        self, observability_facade: "ObservabilityFacade", test_run_id: str
     ) -> None:
         """Test that nested spans are sent to both Sentry and OTEL."""
         outer_span_name = f"e2e_outer_span_{test_run_id}"
@@ -363,7 +392,7 @@ class TestRealisticWorkflow:
     """Tests simulating realistic application workflows."""
 
     def test_http_request_workflow(
-        self, observability_facade: Any, test_run_id: str
+        self, observability_facade: "ObservabilityFacade", test_run_id: str
     ) -> None:
         """Simulate a complete HTTP request workflow with all telemetry types."""
         endpoint = f"/api/e2e-test/{test_run_id}"
@@ -438,7 +467,7 @@ class TestRealisticWorkflow:
         print(f"\nHTTP request workflow completed for: {endpoint}")
 
     def test_error_handling_workflow(
-        self, observability_facade: Any, test_run_id: str
+        self, observability_facade: "ObservabilityFacade", test_run_id: str
     ) -> None:
         """Simulate an error handling workflow with trace correlation."""
         endpoint = f"/api/e2e-error/{test_run_id}"
@@ -495,22 +524,29 @@ class TestRealisticWorkflow:
 class TestFlushAndVerification:
     """Tests for flushing data and preparing for verification."""
 
-    def test_flush_all_data(self, observability_facade: Any, test_run_id: str) -> None:
+    def test_flush_all_data(
+        self, observability_facade: "ObservabilityFacade", test_run_id: str
+    ) -> None:
         """Flush all pending data to backends.
 
-        This should be run last to ensure all data from previous tests
-        is sent to the backends.
+        Note: The observability_facade fixture also flushes on teardown.
+        This test provides an explicit flush with verification output.
         """
         # Record a final marker metric
         observability_facade.record_metric(
             "e2e.test.completed",
-            1,
+            1,  # Standard counter increment to mark completion
             labels={"test_run_id": test_run_id},
             metric_type="counter",
         )
 
-        # Flush with generous timeout
-        observability_facade.flush(timeout=10.0)
+        # Flush with generous timeout to ensure async telemetry is sent
+        observability_facade.flush(timeout=FINAL_FLUSH_TIMEOUT_SECONDS)
+
+        # Verify facade is still healthy after flush
+        assert (
+            observability_facade.is_initialized
+        ), "Facade should remain initialized after flush"
 
         print(f"\n{'='*60}")
         print("E2E OBSERVABILITY TEST COMPLETED")
