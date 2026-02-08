@@ -1102,6 +1102,82 @@ class TestFacadeCaptureMethods:
 
         assert result is None
 
+    def test_record_event_validates_data_is_json_serializable(self) -> None:
+        """Test record_event raises ValueError if data is not JSON-serializable."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        class CustomClass:
+            pass
+
+        with pytest.raises(ValueError, match="non-JSON-serializable"):
+            facade.record_event("test.event", data={"custom": CustomClass()})
+
+        # Backend should not be called
+        facade._sentry_backend.capture_message.assert_not_called()
+
+    def test_record_event_validates_data_is_dict(self) -> None:
+        """Test record_event raises ValueError if data is not a dict."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        with pytest.raises(ValueError, match="Data must be a dictionary"):
+            facade.record_event("test.event", data="not a dict")  # type: ignore[arg-type]
+
+        # Backend should not be called
+        facade._sentry_backend.capture_message.assert_not_called()
+
+    def test_record_event_identifies_problematic_key(self) -> None:
+        """Test record_event error identifies which key has non-serializable value."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        class CustomClass:
+            pass
+
+        data = {
+            "good_key": "good_value",
+            "bad_key": CustomClass(),
+        }
+
+        with pytest.raises(ValueError) as exc_info:
+            facade.record_event("test.event", data=data)
+
+        error_msg = str(exc_info.value)
+        assert "bad_key" in error_msg
+        assert "CustomClass" in error_msg
+
+        # Backend should not be called
+        facade._sentry_backend.capture_message.assert_not_called()
+
+    def test_record_event_validates_even_when_not_initialized(self) -> None:
+        """Test record_event validation happens even when not initialized."""
+        facade = ObservabilityFacade()
+        # Not initialized
+        assert not facade._initialized
+
+        class CustomClass:
+            pass
+
+        with pytest.raises(ValueError, match="non-JSON-serializable"):
+            facade.record_event("test.event", data={"custom": CustomClass()})
+
+    def test_record_event_allows_none_data(self) -> None:
+        """Test record_event accepts None for data parameter."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+        facade._sentry_backend.capture_message.return_value = "event-id"
+
+        # Should not raise - None is valid
+        result = facade.record_event("test.event", data=None)
+
+        assert result == "event-id"
+        facade._sentry_backend.capture_message.assert_called_once()
+
 
 class TestFacadeMetricMethods:
     """Tests for facade metric methods with mocked backends."""
@@ -1197,6 +1273,67 @@ class TestFacadeContextMethods:
         facade.set_tag("key", "value")
 
         facade._sentry_backend.set_tag.assert_called_once_with("key", "value")
+
+    def test_set_tag_validates_key_is_string(self) -> None:
+        """Test set_tag raises ValueError if key is not a string."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        with pytest.raises(ValueError, match="Tag key must be a string"):
+            facade.set_tag(123, "value")  # type: ignore[arg-type]
+
+        # Backend should not be called
+        facade._sentry_backend.set_tag.assert_not_called()
+
+    def test_set_tag_validates_value_is_string(self) -> None:
+        """Test set_tag raises ValueError if value is not a string."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        with pytest.raises(ValueError, match="Tag value must be a string"):
+            facade.set_tag("key", 123)  # type: ignore[arg-type]
+
+        # Backend should not be called
+        facade._sentry_backend.set_tag.assert_not_called()
+
+    def test_set_tag_validates_key_length(self) -> None:
+        """Test set_tag raises ValueError if key exceeds max length."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        too_long_key = "a" * 201  # Max is 200
+
+        with pytest.raises(ValueError, match="Tag key exceeds maximum length"):
+            facade.set_tag(too_long_key, "value")
+
+        # Backend should not be called
+        facade._sentry_backend.set_tag.assert_not_called()
+
+    def test_set_tag_validates_value_length(self) -> None:
+        """Test set_tag raises ValueError if value exceeds max length."""
+        facade = ObservabilityFacade()
+        facade._initialized = True
+        facade._sentry_backend = mock.MagicMock()
+
+        too_long_value = "a" * 201  # Max is 200
+
+        with pytest.raises(ValueError, match="Tag value exceeds maximum length"):
+            facade.set_tag("key", too_long_value)
+
+        # Backend should not be called
+        facade._sentry_backend.set_tag.assert_not_called()
+
+    def test_set_tag_validates_even_when_not_initialized(self) -> None:
+        """Test set_tag validation happens even when not initialized."""
+        facade = ObservabilityFacade()
+        # Not initialized
+        assert not facade._initialized
+
+        with pytest.raises(ValueError, match="Tag key must be a string"):
+            facade.set_tag(123, "value")  # type: ignore[arg-type]
 
     def test_set_context_calls_sentry_backend(self) -> None:
         """Test set_context delegates to Sentry backend."""

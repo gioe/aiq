@@ -44,6 +44,8 @@ import logging
 from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Literal
 
+from libs.observability.validation import validate_json_serializable, validate_tag
+
 if TYPE_CHECKING:
     from libs.observability.config import ObservabilityConfig
 
@@ -960,12 +962,19 @@ class ObservabilityFacade:
             key: Tag key. Use lowercase with underscores.
             value: Tag value. Must be a string with low cardinality.
 
+        Raises:
+            ValueError: If key or value fail validation (non-string, too long).
+
         Example:
             Set version and environment tags::
 
                 observability.set_tag("api_version", "v2")
                 observability.set_tag("feature_flag", "new_scoring")
         """
+        # Validate tag before checking initialization to ensure
+        # validation errors are raised even when not initialized
+        validate_tag(key, value)
+
         if not self._initialized:
             logger.debug("set_tag called but observability not initialized")
             return
@@ -1079,6 +1088,9 @@ class ObservabilityFacade:
         Returns:
             Event ID if recorded, None if skipped.
 
+        Raises:
+            ValueError: If data is not JSON-serializable.
+
         Example:
             Track user signup::
 
@@ -1113,6 +1125,11 @@ class ObservabilityFacade:
                     level="info",
                 )
         """
+        # Validate data is JSON-serializable before checking initialization
+        # to ensure validation errors are raised even when not initialized
+        if data is not None:
+            validate_json_serializable(data)
+
         if not self._initialized:
             logger.debug("record_event called but observability not initialized: %s", name)
             return None
