@@ -1050,7 +1050,6 @@ class TestOTELBackendGaugeThreadSafety:
     def test_concurrent_gauge_writes_are_safe(self) -> None:
         """Test that concurrent gauge writes do not cause race conditions."""
         import threading
-        import time
 
         config = OTELConfig(enabled=True, metrics_enabled=True)
         backend = OTELBackend(config)
@@ -1148,8 +1147,8 @@ class TestOTELBackendGaugeThreadSafety:
         # No exceptions should have occurred
         assert len(errors) == 0
 
-    def test_gauge_callback_copies_data_under_lock(self) -> None:
-        """Test that the gauge callback copies data while holding the lock."""
+    def test_gauge_callback_can_be_invoked(self) -> None:
+        """Test that the gauge callback can be invoked and returns observations."""
         import threading
 
         config = OTELConfig(enabled=True, metrics_enabled=True)
