@@ -160,6 +160,13 @@ JUDGE_CONFIG_PATH=./config/judges.yaml
 # Logging
 LOG_LEVEL=INFO
 LOG_FILE=./logs/generation.log
+
+# Observability (see config/observability.yaml)
+SENTRY_DSN=https://your-key@sentry.io/your-project-id
+ENV=production                    # Sentry environment (default: development)
+RELEASE=v1.0.0                   # Sentry release tracking (optional)
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer <token>
 ```
 
 ### Judge Configuration
