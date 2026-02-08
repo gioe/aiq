@@ -210,11 +210,11 @@
       },
       "targets": [
         {
-          "expr": "trigger_job_duration",
-          "legendFormat": "Job Duration (dry_run={{dry_run}})"
+          "expr": "rate(trigger_job_duration_sum[$__rate_interval]) / rate(trigger_job_duration_count[$__rate_interval])",
+          "legendFormat": "Avg Duration (dry_run={{dry_run}})"
         }
       ],
-      "title": "Last Job Duration",
+      "title": "Avg Job Duration",
       "type": "stat"
     },
     {
@@ -426,11 +426,11 @@
       },
       "targets": [
         {
-          "expr": "generation_duration",
-          "legendFormat": "Duration ({{provider_tier}})"
+          "expr": "rate(generation_duration_sum[$__rate_interval]) / rate(generation_duration_count[$__rate_interval])",
+          "legendFormat": "Avg Duration ({{provider_tier}})"
         }
       ],
-      "title": "Last Generation Duration",
+      "title": "Avg Generation Duration",
       "type": "stat"
     },
     {
@@ -517,11 +517,15 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "question_generation_latency{provider!=\"\"}",
-          "legendFormat": "{{provider}} ({{question_type}})"
+          "expr": "histogram_quantile(0.50, rate(question_generation_latency_bucket[$__rate_interval]))",
+          "legendFormat": "p50 {{provider}} ({{question_type}})"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(question_generation_latency_bucket[$__rate_interval]))",
+          "legendFormat": "p95 {{provider}} ({{question_type}})"
         }
       ],
-      "title": "Generation Latency by Provider",
+      "title": "Generation Latency by Provider (p50 / p95)",
       "type": "timeseries"
     },
     {

@@ -27,7 +27,7 @@ echo ""
 echo "--- Question-Service Environment Variables ---"
 
 if [ -n "${OTEL_EXPORTER_OTLP_ENDPOINT:-}" ]; then
-  pass "OTEL_EXPORTER_OTLP_ENDPOINT is set: ${OTEL_EXPORTER_OTLP_ENDPOINT}"
+  pass "OTEL_EXPORTER_OTLP_ENDPOINT is set (value hidden)"
 else
   fail "OTEL_EXPORTER_OTLP_ENDPOINT is not set"
 fi
@@ -81,12 +81,14 @@ if [ -n "$TRIGGER_URL" ]; then
   echo "--- Testing /metrics Endpoint ---"
   METRICS_URL="${TRIGGER_URL%/}/metrics"
 
-  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$METRICS_URL" 2>/dev/null || echo "000")
+  RESPONSE_FILE=$(mktemp)
+  HTTP_CODE=$(curl -s -o "$RESPONSE_FILE" -w "%{http_code}" --max-time 10 "$METRICS_URL" 2>/dev/null || echo "000")
   if [ "$HTTP_CODE" = "200" ]; then
     pass "/metrics endpoint returned 200"
 
-    # Check for expected metric names
-    METRICS_OUTPUT=$(curl -s --max-time 10 "$METRICS_URL" 2>/dev/null)
+    # Check for expected metric names (reuse single curl response)
+    METRICS_OUTPUT=$(cat "$RESPONSE_FILE")
+    rm -f "$RESPONSE_FILE"
     if echo "$METRICS_OUTPUT" | grep -q "aiq_question_service_http_requests_total"; then
       pass "Found aiq_question_service_http_requests_total metric"
     else
@@ -99,8 +101,10 @@ if [ -n "$TRIGGER_URL" ]; then
       fail "Missing aiq_question_service_http_request_duration_seconds metric"
     fi
   elif [ "$HTTP_CODE" = "000" ]; then
+    rm -f "$RESPONSE_FILE"
     fail "Could not connect to $METRICS_URL (connection failed)"
   else
+    rm -f "$RESPONSE_FILE"
     fail "/metrics endpoint returned HTTP $HTTP_CODE"
   fi
 else

@@ -641,22 +641,22 @@ The `/metrics` endpoint automatically provides:
 | `aiq_question_service_http_response_size_bytes` | Histogram | Response body sizes |
 | `aiq_question_service_http_requests_inprogress` | Gauge | Concurrent requests |
 
-Custom business metrics are also exported via OTEL and include:
+Custom business metrics are also exported via OTEL. Note: OTEL metric names use dots (e.g. `trigger.job.duration`) but Prometheus converts these to underscores (e.g. `trigger_job_duration`) when scraped.
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `trigger.job.duration` | Counter | Duration of trigger job runs |
+| Metric (OTEL name) | Type | Description |
+|---------------------|------|-------------|
+| `trigger.job.duration` | Histogram | Duration of trigger job runs (seconds) |
 | `trigger.job.completed` | Counter | Job completions by status (success/failure/timeout) |
 | `trigger.requests` | Counter | Trigger requests received |
 | `trigger.rejected` | Counter | Trigger requests rejected (already running) |
 | `generation.questions_produced` | Counter | Questions produced per run |
-| `generation.duration` | Counter | Generation pipeline duration |
+| `generation.duration` | Histogram | Generation pipeline duration (seconds) |
 | `judge.approved` | Counter | Questions approved by judge |
 | `judge.rejected` | Counter | Questions rejected by judge |
 | `dedup.duplicates_removed` | Counter | Duplicate questions removed |
 | `db.questions_inserted` | Counter | Questions inserted into database |
-| `question.generation.latency` | Counter | Per-question generation latency by provider |
-| `question.generation.cost` | Counter | Per-question generation cost by provider |
+| `question.generation.latency` | Histogram | Per-question generation latency by provider (seconds) |
+| `question.generation.cost` | Counter | Per-question generation cost by provider (USD) |
 | `question.routing.decision` | Counter | Provider routing decisions |
 | `question.provider.fallback` | Counter | Provider fallback events |
 
