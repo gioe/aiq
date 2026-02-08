@@ -98,7 +98,7 @@ class OTELConfig:
     traces_sample_rate: float = 1.0  # 1.0 = 100% sampling, 0.1 = 10% sampling
     logs_enabled: bool = False
     prometheus_enabled: bool = True
-    insecure: bool = False  # Set to True only for local development without TLS
+    insecure: bool = False  # Unused with HTTP transport; kept for config compat
 
 
 @dataclass

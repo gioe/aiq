@@ -476,7 +476,7 @@ class TestOTELBackendLogsInit:
     @mock.patch("opentelemetry._logs.set_logger_provider")
     @mock.patch("opentelemetry.sdk._logs.LoggerProvider")
     @mock.patch("opentelemetry.sdk._logs.LoggingHandler")
-    @mock.patch("opentelemetry.exporter.otlp.proto.grpc._log_exporter.OTLPLogExporter")
+    @mock.patch("opentelemetry.exporter.otlp.proto.http._log_exporter.OTLPLogExporter")
     @mock.patch("opentelemetry.sdk._logs.export.BatchLogRecordProcessor")
     @mock.patch("logging.getLogger")
     def test_init_logs_with_otlp_exporter(
@@ -507,7 +507,7 @@ class TestOTELBackendLogsInit:
 
         mock_otlp_exporter.assert_called_once()
         call_kwargs = mock_otlp_exporter.call_args[1]
-        assert call_kwargs["endpoint"] == "https://otlp.example.com:4317"
+        assert call_kwargs["endpoint"] == "https://otlp.example.com:4317/v1/logs"
         assert call_kwargs["headers"] == headers
         mock_batch_processor.assert_called_once()
         mock_root_logger.addHandler.assert_called_once()
@@ -532,7 +532,7 @@ class TestOTELBackendLogsInit:
         )
         backend = OTELBackend(config)
 
-        with mock.patch.dict("sys.modules", {"opentelemetry.exporter.otlp.proto.grpc._log_exporter": None}):
+        with mock.patch.dict("sys.modules", {"opentelemetry.exporter.otlp.proto.http._log_exporter": None}):
             with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
                 backend._init_logs(mock_resource, {})
                 mock_logger.warning.assert_called()
