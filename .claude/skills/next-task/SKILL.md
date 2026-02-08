@@ -174,12 +174,18 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     - Minor TODOs
 
     For each Category B comment:
-    1. Create a task in the local SQLite database (with 60-day expiry):
+    1. **Check for duplicates first** using `/check-dupes`:
+       ```bash
+       python3 scripts/check_duplicates.py check "[Deferred] <brief description>" --domain <domain>
+       ```
+       - If exit code 1 (duplicates found): skip the INSERT and log which existing task covers it.
+       - If exit code 0 (no duplicates): proceed to create the task.
+    2. Create a task in the local SQLite database (with 60-day expiry):
        ```bash
        sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
          VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.\n\nOriginal comment: <comment text>\n\nReason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'), datetime('now', '+60 days'))"
        ```
-    2. Document in `.github/DEFERRED_REVIEW_ITEMS.md`
+    3. Document in `.github/DEFERRED_REVIEW_ITEMS.md`
 
     **Step 13d: Push fixes and loop back**
     ```bash
@@ -191,15 +197,22 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     Once Claude approves, automatically perform ALL of these steps:
 
     **Step 14a: Create deferred tasks for Category B items**
-    For each non-blocking suggestion in the review, create a task (with 60-day expiry):
-    ```bash
-    sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
-      VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.
+    For each non-blocking suggestion in the review:
+    1. **Check for duplicates first** using `/check-dupes`:
+       ```bash
+       python3 scripts/check_duplicates.py check "[Deferred] <brief description>" --domain <domain>
+       ```
+       - If exit code 1 (duplicates found): skip the INSERT and log which existing task covers it.
+       - If exit code 0 (no duplicates): proceed to create the task.
+    2. Create the task (with 60-day expiry):
+       ```bash
+       sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
+         VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.
 
 Original comment: <comment text>
 
 Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'), datetime('now', '+60 days'))"
-    ```
+       ```
 
     **Step 14b: Merge the PR**
     ```bash

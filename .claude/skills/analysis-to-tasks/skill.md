@@ -67,19 +67,18 @@ Extract recommendations from the analysis file. Look for:
 sqlite3 -header -column tasks.db "SELECT id, summary, description, status, priority, domain FROM tasks WHERE status != 'Done' ORDER BY id"
 ```
 
-#### 4b. Analyze Overlap
+#### 4b. Check for Duplicates with `/check-dupes`
 
-For each recommendation from the analysis, check if there's an existing task that:
-1. **Exact match**: Summary contains the same key phrases
-2. **Semantic overlap**: Description addresses the same problem/file/component
-3. **Partial coverage**: Existing task covers part of the recommendation
-
-Use these search patterns for each recommendation:
+For each recommendation, run the dedup utility:
 
 ```bash
-# Search by key terms from the recommendation
-sqlite3 tasks.db "SELECT id, summary, status FROM tasks WHERE status != 'Done' AND (summary LIKE '%<key_term_1>%' OR summary LIKE '%<key_term_2>%' OR description LIKE '%<key_term_1>%')"
+python3 scripts/check_duplicates.py check "<recommendation summary>" --domain <domain> --threshold 0.6 --json
 ```
+
+Interpret results by similarity score:
+- **>= 0.82**: Duplicate — skip this recommendation (mark as "Already Tracked")
+- **0.60 - 0.82**: Partial overlap — present to user for decision
+- **< 0.60** (or exit code 0): New — proceed to create
 
 #### 4c. Categorize Recommendations
 
@@ -343,37 +342,28 @@ sqlite3 -header -column tasks.db "SELECT id, summary, priority, domain, assignee
 
 ## Duplicate Detection (Step 4)
 
-Duplicate detection is performed **early in Step 4**, before task creation begins. This prevents creating redundant work and keeps the database clean.
+Duplicate detection is performed **early in Step 4** using `/check-dupes`, before task creation begins. This prevents creating redundant work and keeps the database clean.
 
-### Search Strategies
+### How It Works
 
-Use multiple search strategies to find potential duplicates:
-
+For each recommendation, run:
 ```bash
-# 1. Search by key phrases from recommendation
-sqlite3 tasks.db "SELECT id, summary, status FROM tasks WHERE status != 'Done' AND summary LIKE '%<key_phrase>%'"
-
-# 2. Search by affected file/component names
-sqlite3 tasks.db "SELECT id, summary, status FROM tasks WHERE status != 'Done' AND (description LIKE '%ViewModel%' OR description LIKE '%TestTakingFlow%')"
-
-# 3. Search by domain for broader overlap check
-sqlite3 tasks.db "SELECT id, summary, description FROM tasks WHERE status != 'Done' AND domain = 'iOS'"
+python3 scripts/check_duplicates.py check "<summary>" --domain <domain> --threshold 0.6 --json
 ```
 
-### Handling Duplicates
+The tool normalizes summaries (strips `[Deferred]`/`[Enhancement]` prefixes, lowercases, collapses whitespace) and uses `SequenceMatcher` to compute similarity scores.
 
-When duplicates or overlaps are found:
+### Interpreting Results
 
-| Situation | Action |
-|-----------|--------|
-| Exact duplicate | Skip and note existing task ID |
-| Partial overlap | Ask user: skip, create new, or update existing |
-| Recommendation supersedes existing | Ask user: update existing task or create replacement |
-| No overlap | Proceed with creation |
+| Score | Meaning | Action |
+|-------|---------|--------|
+| >= 0.82 | Duplicate | Skip and note existing task ID |
+| 0.60 - 0.82 | Partial overlap | Ask user: skip, create new, or update existing |
+| < 0.60 | New | Proceed with creation |
 
 ### User Options for Overlaps
 
-If duplicates or partial overlaps are found, present options:
+If partial overlaps are found (0.60-0.82), present options:
 1. **Skip** - Don't create the redundant task
 2. **Create anyway** - May be intentional (different scope)
 3. **Update existing** - Enhance the existing task with new details

@@ -58,7 +58,19 @@ python3 scripts/manage_dependencies.py blocked
 python3 scripts/manage_dependencies.py all
 ```
 
-## Step 2: Categorize Tasks
+## Step 2: Scan for Duplicates and Categorize Tasks
+
+### Step 2a: Scan for Duplicate Pairs
+
+Before categorizing, run the dedup scanner to identify duplicate tasks:
+
+```bash
+python3 scripts/check_duplicates.py scan --status "To Do"
+```
+
+Any pairs found should be included in **Category B (Candidates for Deletion)** with reason "duplicate" and the matching task ID. The higher-ID task in each pair is the candidate for closure (keep the original).
+
+### Step 2b: Categorize Tasks
 
 Analyze each task and categorize it into one of the following:
 

@@ -25,8 +25,20 @@ if [ -z "$STAGED" ]; then
     exit 0
 fi
 
+# Find pre-commit binary (may be in a virtualenv)
+if command -v pre-commit &>/dev/null; then
+    PRE_COMMIT=pre-commit
+elif [ -x "$CWD/backend/venv/bin/pre-commit" ]; then
+    PRE_COMMIT="$CWD/backend/venv/bin/pre-commit"
+elif [ -x "$CWD/question-service/venv/bin/pre-commit" ]; then
+    PRE_COMMIT="$CWD/question-service/venv/bin/pre-commit"
+else
+    # pre-commit not installed — skip check rather than block all commits
+    exit 0
+fi
+
 # Run pre-commit on staged files only
-OUTPUT=$(pre-commit run --files $STAGED 2>&1)
+OUTPUT=$($PRE_COMMIT run --files $STAGED 2>&1)
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then
