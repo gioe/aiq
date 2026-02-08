@@ -320,14 +320,14 @@ class OTELBackend:
                 )
             else:
                 try:
-                    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
                         OTLPSpanExporter,
                     )
 
+                    endpoint = self._config.endpoint.rstrip("/")
                     exporter = OTLPSpanExporter(
-                        endpoint=self._config.endpoint,
+                        endpoint=f"{endpoint}/v1/traces",
                         headers=otlp_headers if otlp_headers else None,
-                        insecure=self._config.insecure,
                     )
                     tracer_provider.add_span_processor(BatchSpanProcessor(exporter))
                 except ImportError:
@@ -379,14 +379,14 @@ class OTELBackend:
         elif self._config.exporter == "otlp":
             if self._config.endpoint:
                 try:
-                    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                    from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
                         OTLPMetricExporter,
                     )
 
+                    endpoint = self._config.endpoint.rstrip("/")
                     exporter = OTLPMetricExporter(
-                        endpoint=self._config.endpoint,
+                        endpoint=f"{endpoint}/v1/metrics",
                         headers=otlp_headers if otlp_headers else None,
-                        insecure=self._config.insecure,
                     )
                     reader = PeriodicExportingMetricReader(
                         exporter,
@@ -445,14 +445,14 @@ class OTELBackend:
 
         if self._config.exporter == "otlp" and self._config.endpoint:
             try:
-                from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
+                from opentelemetry.exporter.otlp.proto.http._log_exporter import (
                     OTLPLogExporter,
                 )
 
+                endpoint = self._config.endpoint.rstrip("/")
                 exporter = OTLPLogExporter(
-                    endpoint=self._config.endpoint,
+                    endpoint=f"{endpoint}/v1/logs",
                     headers=otlp_headers if otlp_headers else None,
-                    insecure=self._config.insecure,
                 )
                 processor = BatchLogRecordProcessor(exporter)
                 logger_provider.add_log_record_processor(processor)
