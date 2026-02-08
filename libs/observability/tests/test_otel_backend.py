@@ -1032,3 +1032,148 @@ class TestLabelCardinalityAdditionalPatterns:
         with mock.patch("libs.observability.otel_backend.logger") as mock_logger:
             _check_label_cardinality({"req_id": "req123"}, "requests")
             mock_logger.warning.assert_called_once()
+
+
+class TestOTELBackendGaugeThreadSafety:
+    """Tests for gauge metric thread safety."""
+
+    def test_gauge_lock_exists(self) -> None:
+        """Test that gauge lock is initialized."""
+        import threading
+
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+
+        assert hasattr(backend, "_gauge_lock")
+        assert isinstance(backend._gauge_lock, type(threading.Lock()))
+
+    def test_concurrent_gauge_writes_are_safe(self) -> None:
+        """Test that concurrent gauge writes do not cause race conditions."""
+        import threading
+
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter = mock.MagicMock()
+        backend._meter.create_observable_gauge.return_value = mock.MagicMock()
+
+        errors: list[Exception] = []
+        num_threads = 10
+        iterations_per_thread = 100
+
+        def write_gauges(thread_id: int) -> None:
+            try:
+                for i in range(iterations_per_thread):
+                    backend.record_metric(
+                        "concurrent.gauge",
+                        float(thread_id * 1000 + i),
+                        labels={"thread": str(thread_id)},
+                        metric_type="gauge",
+                    )
+            except Exception as e:
+                errors.append(e)
+
+        threads = [
+            threading.Thread(target=write_gauges, args=(i,)) for i in range(num_threads)
+        ]
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # No exceptions should have occurred
+        assert len(errors) == 0
+        # All thread values should be stored
+        assert "concurrent.gauge" in backend._gauge_values
+        assert len(backend._gauge_values["concurrent.gauge"]) == num_threads
+
+    def test_concurrent_gauge_read_write_is_safe(self) -> None:
+        """Test that concurrent reads and writes to gauge values are safe."""
+        import threading
+
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter = mock.MagicMock()
+        backend._meter.create_observable_gauge.return_value = mock.MagicMock()
+
+        # Pre-populate some gauge values
+        backend._gauge_values["test.metric"] = {"": 0.0}
+
+        errors: list[Exception] = []
+        num_iterations = 100
+
+        # Capture the callback when the gauge is created
+        callback_holder: list[Any] = []
+
+        def capture_callback(*args: Any, **kwargs: Any) -> mock.MagicMock:
+            if "callbacks" in kwargs and kwargs["callbacks"]:
+                callback_holder.append(kwargs["callbacks"][0])
+            return mock.MagicMock()
+
+        backend._meter.create_observable_gauge.side_effect = capture_callback
+
+        # Create the gauge to capture the callback
+        backend.record_metric("test.metric", 1.0, metric_type="gauge")
+
+        def writer() -> None:
+            try:
+                for i in range(num_iterations):
+                    backend.record_metric(
+                        "test.metric", float(i), metric_type="gauge"
+                    )
+            except Exception as e:
+                errors.append(e)
+
+        def reader() -> None:
+            try:
+                if callback_holder:
+                    for _ in range(num_iterations):
+                        # Simulate what OTEL SDK does: call the callback
+                        callback_holder[0](None)
+            except Exception as e:
+                errors.append(e)
+
+        writer_thread = threading.Thread(target=writer)
+        reader_thread = threading.Thread(target=reader)
+
+        writer_thread.start()
+        reader_thread.start()
+
+        writer_thread.join()
+        reader_thread.join()
+
+        # No exceptions should have occurred
+        assert len(errors) == 0
+
+    def test_gauge_callback_can_be_invoked(self) -> None:
+        """Test that the gauge callback can be invoked and returns observations."""
+        import threading
+
+        config = OTELConfig(enabled=True, metrics_enabled=True)
+        backend = OTELBackend(config)
+        backend._initialized = True
+        backend._meter = mock.MagicMock()
+
+        # Track if the callback was created with the lock
+        callback_holder: list[Any] = []
+
+        def capture_callback(*args: Any, **kwargs: Any) -> mock.MagicMock:
+            if "callbacks" in kwargs and kwargs["callbacks"]:
+                callback_holder.append(kwargs["callbacks"][0])
+            return mock.MagicMock()
+
+        backend._meter.create_observable_gauge.side_effect = capture_callback
+
+        backend.record_metric("test.gauge", 42.0, metric_type="gauge")
+
+        assert len(callback_holder) == 1
+        callback = callback_holder[0]
+
+        # Verify the callback signature accepts a lock parameter (via closure)
+        # by checking it can be called without error
+        with mock.patch("opentelemetry.metrics.Observation") as mock_obs:
+            mock_obs.return_value = mock.MagicMock()
+            result = callback(None)
+            assert isinstance(result, list)
