@@ -153,25 +153,31 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
 
     **Step 13c: Address Claude's review comments**
 
-    **Category A - Address Immediately (blocking):**
+    **Category A - Address Immediately (must fix in this PR):**
     - Security concerns (XSS, SQL injection, auth issues, secrets)
     - Bug reports (logic errors, null pointers, race conditions)
     - Breaking changes (API contract violations)
-    - Test failures or missing tests
-    - Critical performance issues
+    - Test failures or missing tests for code introduced/modified in this PR
+    - Performance issues
     - Type errors or missing error handling
+    - Missing documentation for new public APIs, modules, or complex logic added in this PR
+    - Refactoring of code introduced or modified in this PR (e.g., extract duplication you just created)
+    - Error handling gaps in code you wrote or changed
+
+    The bar is: if the reviewer is commenting on code this PR touches, fix it now.
 
     For each Category A comment:
     1. Read the relevant file(s)
     2. Make the code fix using Edit tool
     3. Commit: `[TASK-<id>] Address PR review: <brief description>`
 
-    **Category B - Defer to backlog (non-blocking):**
-    - Code style suggestions
-    - Refactoring suggestions
-    - Documentation requests
-    - Nice-to-have improvements
-    - Minor TODOs
+    **Category B - Defer to backlog (cosmetic only):**
+    - Pure style preferences (naming conventions, formatting) that don't affect correctness
+    - Suggestions about pre-existing code NOT touched by this PR
+    - "In the future, we might want to..." aspirational ideas
+    - Improvements to unrelated modules the reviewer noticed in passing
+
+    The bar is: only defer if the comment is about code this PR did NOT change, or is a purely cosmetic preference with no functional impact.
 
     For each Category B comment:
     1. **Check for duplicates first** using `/check-dupes`:
@@ -196,8 +202,9 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
 14. **PR approved - finalize and merge**:
     Once Claude approves, automatically perform ALL of these steps:
 
-    **Step 14a: Create deferred tasks for Category B items**
-    For each non-blocking suggestion in the review:
+    **Step 14a: Create deferred tasks for any remaining Category B items**
+    Category B items should be rare (only cosmetic style nits or comments about untouched code).
+    If there are any, for each one:
     1. **Check for duplicates first** using `/check-dupes`:
        ```bash
        python3 scripts/check_duplicates.py check "[Deferred] <brief description>" --domain <domain>

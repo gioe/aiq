@@ -56,24 +56,26 @@ From the latest Claude comment, extract:
 
 For each Claude comment, analyze the content to categorize it:
 
-### Category A: Requires Immediate Attention
-Comments that should be addressed NOW:
+### Category A: Must Fix in This PR
+Comments about code this PR introduces or modifies. Address these NOW:
 - **Security concerns**: XSS, SQL injection, authentication issues, secrets exposure
 - **Bug reports**: Logic errors, null pointer issues, race conditions
 - **Breaking changes**: API contract violations, backwards incompatibility
-- **Test failures**: Comments about failing or missing tests
-- **Critical performance issues**: O(n²) in hot paths, memory leaks
+- **Test failures or missing tests**: For code introduced/modified in this PR
+- **Performance issues**: O(n²) in hot paths, memory leaks
 - **Type errors**: Missing types, incorrect types that will cause runtime errors
-- **Missing error handling**: Unhandled exceptions in critical paths
+- **Missing error handling**: Unhandled exceptions in code this PR touches
+- **Missing documentation**: For new public APIs, modules, or complex logic added in this PR
+- **Refactoring of PR code**: Extracting duplication, simplifying logic in code this PR wrote or changed
 
-### Category B: Can Be Deferred
-Comments that can be addressed later:
-- **Code style suggestions**: Naming conventions, formatting preferences
-- **Refactoring suggestions**: "Could be cleaner if..."
-- **Documentation requests**: "Consider adding a docstring"
-- **Nice-to-have improvements**: Performance optimizations for non-critical paths
-- **Future considerations**: "In the future, we might want to..."
-- **Minor TODOs**: Non-critical cleanup items
+The bar is: if the reviewer comments on code this PR touches, fix it now.
+
+### Category B: Can Be Deferred (Cosmetic Only)
+Only defer comments that are purely cosmetic or about code this PR did NOT change:
+- **Pure style preferences**: Naming conventions, formatting that don't affect correctness
+- **Suggestions about untouched code**: Improvements to pre-existing code not modified by this PR
+- **Future aspirations**: "In the future, we might want to..." ideas about unrelated modules
+- **Tangential observations**: Reviewer noticed something in a nearby file they'd like improved
 
 ## Step 6: Take Action
 
