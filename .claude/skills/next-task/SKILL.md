@@ -208,7 +208,7 @@ Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now
 
     **Step 14c: Update task status to Done**
     ```bash
-    sqlite3 tasks.db "UPDATE tasks SET status = 'Done', updated_at = datetime('now') WHERE id = <id>"
+    sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
     ```
 
 15. **End task metrics tracking**:
@@ -231,7 +231,7 @@ Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now
 When called with `done <id>`:
 
 ```bash
-sqlite3 tasks.db "UPDATE tasks SET status = 'Done', updated_at = datetime('now') WHERE id = <id>"
+sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
 ```
 
 Then show newly unblocked tasks.
@@ -357,6 +357,11 @@ WARNING: Do NOT use variants like `bug_fix`, `Bug`, `refactoring`, `testing`, `d
 
 ### Status
 `To Do`, `In Progress`, `Done`
+
+### Closed Reason (set when status = Done)
+`completed`, `expired`, `wont_do`, `duplicate`
+
+Always set `closed_reason` when marking a task Done. Use `completed` for work that was implemented, `expired` for auto-closed deferred tasks, `wont_do` for obsolete/cancelled tasks, `duplicate` for redundant tasks.
 
 ## Important Guidelines
 

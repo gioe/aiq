@@ -27,6 +27,7 @@ WHERE summary LIKE '%[Deferred]%'
 sqlite3 tasks.db "
 UPDATE tasks
 SET status = 'Done',
+    closed_reason = 'expired',
     updated_at = datetime('now'),
     description = description || char(10) || char(10) || '---' || char(10) || 'Auto-closed: Deferred task expired after 60 days without action (' || datetime('now') || ').'
 WHERE summary LIKE '%[Deferred]%'
@@ -203,13 +204,19 @@ Only after user approval, execute the changes:
 
 ### For Done Transitions (Acceptance Criteria Met):
 ```bash
-sqlite3 tasks.db "UPDATE tasks SET status = 'Done' WHERE id = <id>"
+sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
 ```
 
-### For Deletions:
+### For Deletions (duplicate/obsolete):
 ```bash
-sqlite3 tasks.db "DELETE FROM tasks WHERE id = <id>"
+# For duplicates:
+sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'duplicate', updated_at = datetime('now') WHERE id = <id>"
+
+# For obsolete/won't-do:
+sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'wont_do', updated_at = datetime('now') WHERE id = <id>"
 ```
+
+**Note:** Prefer closing with a reason over `DELETE`. This preserves history and keeps metrics accurate.
 
 ### For Priority Changes:
 ```bash
@@ -367,6 +374,11 @@ WARNING: Do NOT use variants like `bug_fix`, `Bug`, `refactoring`, `testing`, `d
 
 ### Status
 `To Do`, `In Progress`, `Done`
+
+### Closed Reason (set when status = Done)
+`completed`, `expired`, `wont_do`, `duplicate`
+
+Always set `closed_reason` when marking a task Done. Use `completed` for work that was implemented, `expired` for auto-closed deferred tasks, `wont_do` for obsolete/cancelled tasks, `duplicate` for redundant tasks.
 
 ## Important Guidelines
 
