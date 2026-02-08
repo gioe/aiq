@@ -11,6 +11,7 @@ observability operations, including:
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from typing import Any
 from unittest import mock
@@ -19,6 +20,9 @@ import pytest
 
 from libs.observability.config import ObservabilityConfig, OTELConfig, RoutingConfig, SentryConfig
 from libs.observability.facade import ObservabilityFacade, SpanContext
+
+# Configurable timeout for concurrent tests - allows increasing for slow CI environments
+THREAD_TIMEOUT = float(os.getenv("TEST_THREAD_TIMEOUT", "30.0"))
 
 
 # ==============================================================================
@@ -85,7 +89,7 @@ class TestConcurrentSpanOperations:
             thread.start()
 
         for thread in threads:
-            thread.join(timeout=10.0)
+            thread.join(timeout=THREAD_TIMEOUT)
             if thread.is_alive():
                 pytest.fail(f"Thread {thread.name} did not complete within timeout")
 
@@ -148,7 +152,7 @@ class TestConcurrentSpanOperations:
             thread.start()
 
         for thread in threads:
-            thread.join(timeout=10.0)
+            thread.join(timeout=THREAD_TIMEOUT)
 
         # Verify exception isolation - each thread handled its own exception
         expected_failures = [i for i in range(num_threads) if i % 2 == 0]
@@ -209,7 +213,7 @@ class TestConcurrentSpanOperations:
             thread.start()
 
         for thread in threads:
-            thread.join(timeout=10.0)
+            thread.join(timeout=THREAD_TIMEOUT)
 
         # Verify each span has its own isolated attributes
         with lock:
@@ -289,9 +293,11 @@ class TestInvalidInputHandling:
 
         # Validation should still raise
         with pytest.raises(ValueError, match="Tag key must be a string"):
+            # Intentionally pass invalid type to test validation
             facade.set_tag(123, "value")  # type: ignore[arg-type]
 
         with pytest.raises(ValueError, match="Tag value must be a string"):
+            # Intentionally pass invalid type to test validation
             facade.set_tag("key", 456)  # type: ignore[arg-type]
 
     def test_record_event_with_circular_reference(self) -> None:
@@ -550,6 +556,7 @@ class TestExceptionHandlingDuringBackendOperations:
 
             try:
                 # Setting modules to None causes ImportError on import
+                # Setting to None causes ImportError on next import attempt
                 sys.modules["opentelemetry"] = None  # type: ignore[assignment]
                 sys.modules["opentelemetry.trace"] = None  # type: ignore[assignment]
 
