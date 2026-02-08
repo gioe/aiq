@@ -23,6 +23,22 @@ AIQ tracks cognitive capacity over time, similar to how fitness apps track physi
 - **Health Check**: `https://aiq-backend-production.up.railway.app/v1/health`
 - **API Docs**: `https://aiq-backend-production.up.railway.app/v1/docs`
 
+#### Railway Service Topology
+
+This is a monorepo with two independent Railway services sharing `libs/`. Both Dockerfiles build from the **repo root** to access `libs/`.
+
+| | Backend | Question Service |
+|---|---|---|
+| **Railway root dir** | `/` | `/` |
+| **railway.json** | `railway.json` (repo root) | `question-service/railway.json` |
+| **Dockerfile** | `backend/Dockerfile` | `question-service/Dockerfile.trigger` |
+| **Healthcheck** | `/v1/health` | None (cron/trigger service) |
+| **Watch paths** | `/backend/**`, `/libs/**` | `/question-service/**`, `/libs/**` |
+| **Restart policy** | `ON_FAILURE` (max 10) | `NEVER` |
+| **PYTHONPATH** | `/app:/app/backend` | `/app:/app/question-service` |
+
+**Critical rule**: The root `railway.json` belongs to the **backend**, not to the whole repo. Changing it affects the backend only. The question-service has its own `question-service/railway.json`. Never merge these or create conflicting configs.
+
 ### Atlassian (Jira/Confluence)
 - **Cloud ID**: `db4de7e6-1840-4ba8-8e45-13fdf7ae9753`
 - **Site URL**: https://gioematt.atlassian.net
@@ -42,6 +58,18 @@ AIQ tracks cognitive capacity over time, similar to how fitness apps track physi
 | List issues | `gh issue list` |
 | Check CI status | `gh run list` / `gh run view <id>` |
 | View PR comments | `gh api repos/{owner}/{repo}/pulls/<number>/comments` |
+
+## Committing & Pre-commit
+
+Before committing, run pre-commit hooks locally (`pre-commit run --all-files`) and fix any linting (e.g., E402 import order), mypy type errors, or float comparison issues. Do not assume pre-commit will pass — verify first.
+
+## Task Queue
+
+The project task database is the SQLite DB at the project root (`tasks.db`), not Claude Code's internal task list. Always use the project's SQLite database when working with the task queue.
+
+## General Rules
+
+If a test or command fails, do NOT re-run the exact same command more than twice. Instead, analyze the error output, change approach, or ask the user for guidance.
 
 ## Required Skills Usage
 

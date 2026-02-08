@@ -34,6 +34,19 @@ When working on the backend, read these docs first:
 - **Admin auth**: Two types — `X-Admin-Token` for manual ops, `X-Service-Key` for service-to-service.
 - **Database migrations**: Alembic in `alembic/`. Run `alembic revision --autogenerate -m "..."` then `alembic upgrade head`.
 
+### Testing & Environment
+
+Always activate the backend virtualenv (`source venv/bin/activate`) and ensure `PYTHONPATH` includes `libs/` before running tests. Never assume import paths — verify them first.
+
+### Railway Deployment
+
+- **Config**: The root `railway.json` is the backend's config (not a global config). It points to `backend/Dockerfile`.
+- **Dockerfile**: `backend/Dockerfile` — builds from repo root, copies `libs/` and `backend/` into the image.
+- **PYTHONPATH**: `/app:/app/backend` inside the container.
+- **Healthcheck**: `/v1/health` — always verify this returns 200 after deployment changes.
+- **Watch paths**: `/backend/**` and `/libs/**` — changes to shared libs trigger a backend redeploy.
+- **Isolation**: Changes to the root `railway.json` or `backend/Dockerfile` must NOT affect the question-service. They have separate configs. See root CLAUDE.md for the full topology table.
+
 ### Dev commands
 
 ```bash

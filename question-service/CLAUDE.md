@@ -23,3 +23,17 @@ When working on question generation, prompts, or the pipeline, read these docs f
 | `run_generation.py` | CLI entry point, salvage strategies (answer repair, difficulty reclassification, regeneration) |
 | `config/generators.yaml` | Primary/fallback provider routing per question type |
 | `config/judges.yaml` | Judge model assignment per question type |
+
+### Testing & Environment
+
+Always activate the question-service virtualenv (`source venv/bin/activate`) and ensure `PYTHONPATH` includes `libs/` before running tests. Never assume import paths — verify them first.
+
+### Railway Deployment
+
+- **Config**: `question-service/railway.json` — separate from the root `railway.json` (which is the backend's).
+- **Dockerfile**: `question-service/Dockerfile.trigger` (NOT `Dockerfile`) — this is the one Railway uses. `Dockerfile` is for the cron batch job.
+- **PYTHONPATH**: `/app:/app/question-service` inside the container.
+- **No healthcheck**: This is a cron/trigger service, not a long-running web server. Do not add a healthcheck path.
+- **Watch paths**: `/question-service/**` and `/libs/**` — changes to shared libs trigger a redeploy.
+- **Isolation**: Changes to `question-service/railway.json` or its Dockerfiles must NOT affect the backend. They have separate configs. See root CLAUDE.md for the full topology table.
+- **Full deployment guide**: [docs/RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md)
