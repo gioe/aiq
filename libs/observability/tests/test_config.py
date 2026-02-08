@@ -19,6 +19,7 @@ from libs.observability.config import (
     _safe_int,
     _substitute_env_vars,
     load_config,
+    validate_sentry_dsn_format,
 )
 
 
@@ -808,3 +809,142 @@ class TestSafeConversionHelpers:
         error_message = str(exc_info.value)
         assert "otel.metrics_export_interval_millis" in error_message
         assert "cannot be converted to integer" in error_message
+
+
+class TestSentryDSNValidation:
+    """Tests for Sentry DSN format validation."""
+
+    def test_valid_dsn_basic(self) -> None:
+        """Test valid DSN with basic format."""
+        errors = validate_sentry_dsn_format("https://abc123@sentry.io/456")
+        assert errors == []
+
+    def test_valid_dsn_with_secret_key(self) -> None:
+        """Test valid DSN with optional secret key (deprecated but valid)."""
+        errors = validate_sentry_dsn_format("https://public:secret@sentry.io/789")
+        assert errors == []
+
+    def test_valid_dsn_with_subdomain(self) -> None:
+        """Test valid DSN with organization subdomain."""
+        errors = validate_sentry_dsn_format("https://abc123@o123.ingest.sentry.io/456789")
+        assert errors == []
+
+    def test_valid_dsn_with_custom_host(self) -> None:
+        """Test valid DSN with custom self-hosted Sentry."""
+        errors = validate_sentry_dsn_format("https://key@sentry.mycompany.com/1")
+        assert errors == []
+
+    def test_valid_dsn_with_port(self) -> None:
+        """Test valid DSN with custom port."""
+        errors = validate_sentry_dsn_format("https://key@sentry.local:9000/123")
+        assert errors == []
+
+    def test_valid_dsn_http_protocol(self) -> None:
+        """Test valid DSN with http protocol (for local development)."""
+        errors = validate_sentry_dsn_format("http://key@localhost/1")
+        assert errors == []
+
+    def test_invalid_dsn_wrong_protocol(self) -> None:
+        """Test DSN with invalid protocol."""
+        errors = validate_sentry_dsn_format("ftp://key@sentry.io/123")
+        assert len(errors) == 1
+        assert "Invalid DSN protocol: 'ftp'" in errors[0]
+        assert "Must be 'http' or 'https'" in errors[0]
+
+    def test_invalid_dsn_missing_public_key(self) -> None:
+        """Test DSN without public key."""
+        errors = validate_sentry_dsn_format("https://sentry.io/123")
+        assert len(errors) == 1
+        assert "missing public key" in errors[0]
+
+    def test_invalid_dsn_missing_host(self) -> None:
+        """Test DSN without host."""
+        # This is a malformed URL that won't have a hostname
+        errors = validate_sentry_dsn_format("https://key@/123")
+        assert len(errors) == 1
+        assert "missing host" in errors[0]
+
+    def test_invalid_dsn_missing_project_id(self) -> None:
+        """Test DSN without project ID."""
+        errors = validate_sentry_dsn_format("https://key@sentry.io/")
+        assert len(errors) == 1
+        assert "missing project ID" in errors[0]
+
+    def test_invalid_dsn_non_numeric_project_id(self) -> None:
+        """Test DSN with non-numeric project ID."""
+        errors = validate_sentry_dsn_format("https://key@sentry.io/my-project")
+        assert len(errors) == 1
+        assert "project ID must be numeric" in errors[0]
+        assert "'my-project'" in errors[0]
+
+    def test_invalid_dsn_multiple_errors(self) -> None:
+        """Test DSN with multiple validation errors."""
+        errors = validate_sentry_dsn_format("ftp://sentry.io/abc")
+        assert len(errors) >= 2
+        # Should have protocol error and missing public key error
+
+    def test_invalid_dsn_completely_malformed(self) -> None:
+        """Test completely malformed DSN."""
+        errors = validate_sentry_dsn_format("not-a-url-at-all")
+        # Should have errors for missing components
+        assert len(errors) >= 1
+
+    def test_invalid_dsn_empty_string(self) -> None:
+        """Test empty DSN string."""
+        errors = validate_sentry_dsn_format("")
+        # Should have errors for missing protocol and components
+        assert len(errors) >= 1
+
+    def test_config_validation_catches_malformed_dsn(self) -> None:
+        """Test that config validation catches malformed DSN."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=True, dsn="https://sentry.io/123"),
+        )
+        with pytest.raises(ConfigurationError) as exc_info:
+            config.validate()
+
+        error_message = str(exc_info.value)
+        assert "missing public key" in error_message
+
+    def test_config_validation_catches_non_numeric_project_id(self) -> None:
+        """Test that config validation catches non-numeric project ID."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=True, dsn="https://key@sentry.io/my-project"),
+        )
+        with pytest.raises(ConfigurationError) as exc_info:
+            config.validate()
+
+        error_message = str(exc_info.value)
+        assert "project ID must be numeric" in error_message
+
+    def test_config_validation_accepts_valid_dsn(self) -> None:
+        """Test that config validation accepts valid DSN."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=True, dsn="https://abc123@o456.ingest.sentry.io/789"),
+        )
+        # Should not raise
+        config.validate()
+
+    def test_config_validation_skips_dsn_format_check_when_disabled(self) -> None:
+        """Test that DSN format is not checked when Sentry is disabled."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=False, dsn="invalid-dsn"),
+        )
+        # Should not raise even with invalid DSN because Sentry is disabled
+        config.validate()
+
+    def test_config_validation_skips_dsn_format_check_when_none(self) -> None:
+        """Test that DSN format is not checked when DSN is None."""
+        config = ObservabilityConfig(
+            sentry=SentryConfig(enabled=False, dsn=None),
+        )
+        # Should not raise
+        config.validate()
+
+    def test_dsn_validation_with_path_segments(self) -> None:
+        """Test DSN validation with extra path segments (not typical but test parsing)."""
+        # Standard DSN only has project ID in path
+        errors = validate_sentry_dsn_format("https://key@sentry.io/extra/path/123")
+        # The path is 'extra/path/123' which is not a valid numeric project ID
+        assert len(errors) == 1
+        assert "project ID must be numeric" in errors[0]

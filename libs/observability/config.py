@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,65 @@ class ConfigurationError(Exception):
     """Raised when observability configuration is invalid."""
 
     pass
+
+
+def validate_sentry_dsn_format(dsn: str) -> list[str]:
+    """Validate Sentry DSN format and return a list of errors.
+
+    DSN format: {PROTOCOL}://{PUBLIC_KEY}@{HOST}/{PROJECT_ID}
+    Optional secret key: {PROTOCOL}://{PUBLIC_KEY}:{SECRET_KEY}@{HOST}/{PROJECT_ID}
+
+    See: https://docs.sentry.io/concepts/key-terms/dsn-explainer/
+
+    Args:
+        dsn: The Sentry DSN to validate.
+
+    Returns:
+        List of validation error messages. Empty list if valid.
+    """
+    errors: list[str] = []
+
+    try:
+        parsed = urlparse(dsn)
+    except Exception as e:
+        errors.append(f"Invalid DSN format: could not parse URL ({e})")
+        return errors
+
+    # Validate protocol (scheme)
+    if parsed.scheme not in ("http", "https"):
+        errors.append(
+            f"Invalid DSN protocol: '{parsed.scheme}'. "
+            "Must be 'http' or 'https'."
+        )
+
+    # Validate public key (username part of URL)
+    if not parsed.username:
+        errors.append(
+            "Invalid DSN: missing public key. "
+            "DSN format should be: https://{PUBLIC_KEY}@{HOST}/{PROJECT_ID}"
+        )
+
+    # Validate host
+    if not parsed.hostname:
+        errors.append(
+            "Invalid DSN: missing host. "
+            "DSN format should be: https://{PUBLIC_KEY}@{HOST}/{PROJECT_ID}"
+        )
+
+    # Validate project ID (path should be /{project_id})
+    path = parsed.path.strip("/")
+    if not path:
+        errors.append(
+            "Invalid DSN: missing project ID. "
+            "DSN format should be: https://{PUBLIC_KEY}@{HOST}/{PROJECT_ID}"
+        )
+    elif not path.isdigit():
+        errors.append(
+            f"Invalid DSN: project ID must be numeric, got '{path}'. "
+            "DSN format should be: https://{{PUBLIC_KEY}}@{{HOST}}/{{PROJECT_ID}}"
+        )
+
+    return errors
 
 
 @dataclass
@@ -91,6 +151,11 @@ class ObservabilityConfig:
                 "Sentry DSN is required when sentry.enabled=True. "
                 "Set SENTRY_DSN environment variable or configure sentry.dsn in your config."
             )
+
+        # Validate Sentry DSN format if Sentry is enabled and DSN is provided
+        if self.sentry.enabled and self.sentry.dsn:
+            dsn_errors = validate_sentry_dsn_format(self.sentry.dsn)
+            errors.extend(dsn_errors)
 
         # Validate sample rates
         if not (0.0 <= self.sentry.traces_sample_rate <= 1.0):
