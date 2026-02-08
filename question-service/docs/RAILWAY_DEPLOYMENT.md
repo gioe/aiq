@@ -641,7 +641,45 @@ The `/metrics` endpoint automatically provides:
 | `aiq_question_service_http_response_size_bytes` | Histogram | Response body sizes |
 | `aiq_question_service_http_requests_inprogress` | Gauge | Concurrent requests |
 
-Custom business metrics (questions generated, evaluation scores, costs, etc.) will be added in a follow-up task.
+Custom business metrics are also exported via OTEL and include:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `trigger.job.duration` | Counter | Duration of trigger job runs |
+| `trigger.job.completed` | Counter | Job completions by status (success/failure/timeout) |
+| `trigger.requests` | Counter | Trigger requests received |
+| `trigger.rejected` | Counter | Trigger requests rejected (already running) |
+| `generation.questions_produced` | Counter | Questions produced per run |
+| `generation.duration` | Counter | Generation pipeline duration |
+| `judge.approved` | Counter | Questions approved by judge |
+| `judge.rejected` | Counter | Questions rejected by judge |
+| `dedup.duplicates_removed` | Counter | Duplicate questions removed |
+| `db.questions_inserted` | Counter | Questions inserted into database |
+| `question.generation.latency` | Counter | Per-question generation latency by provider |
+| `question.generation.cost` | Counter | Per-question generation cost by provider |
+| `question.routing.decision` | Counter | Provider routing decisions |
+| `question.provider.fallback` | Counter | Provider fallback events |
+
+### Grafana Dashboard Template
+
+A pre-built dashboard JSON is available at `infra/grafana/question-service-dashboard.json`. Import it into Grafana Cloud:
+
+1. Go to **Dashboards** → **New** → **Import**
+2. Upload the JSON file or paste its contents
+3. Select your Prometheus data source when prompted
+
+### Alloy Configuration
+
+A Grafana Alloy configuration template is at `infra/grafana/alloy-config.alloy`. See the file for required environment variables.
+
+### Verify Setup
+
+Run the verification script to check your configuration:
+
+```bash
+./infra/verify-otel-setup.sh                           # Check env vars only
+./infra/verify-otel-setup.sh https://your-trigger-url  # Also test /metrics
+```
 
 ### Disabling Metrics
 
@@ -664,5 +702,5 @@ ENABLE_PROMETHEUS_METRICS=false
 
 ---
 
-**Last Updated**: February 7, 2026
+**Last Updated**: February 8, 2026
 **Maintained By**: AIQ Engineering Team

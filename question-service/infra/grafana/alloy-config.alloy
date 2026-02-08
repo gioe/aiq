@@ -1,0 +1,39 @@
+// Grafana Alloy configuration for AIQ Question Service
+// Deploy this as a Railway service alongside the question-service.
+//
+// Required environment variables (set on the Alloy Railway service):
+//   GRAFANA_PROMETHEUS_HOST     - e.g. https://prometheus-prod-XX-prod-XX.grafana.net
+//   GRAFANA_PROMETHEUS_USERNAME - Your Metrics instance ID
+//   GRAFANA_PROMETHEUS_PASSWORD - Your Cloud Access Policy token
+//   QUESTION_SERVICE_HOST       - Railway internal DNS for question-service (e.g. question-service.railway.internal)
+
+// Scrape question-service /metrics endpoint
+prometheus.scrape "question_service" {
+  targets = [{
+    __address__ = env("QUESTION_SERVICE_HOST") + ":8080",
+    job         = "aiq-question-service",
+  }]
+
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  scrape_interval = "30s"
+  scrape_timeout  = "10s"
+  metrics_path    = "/metrics"
+}
+
+// Forward metrics to Grafana Cloud
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = env("GRAFANA_PROMETHEUS_HOST") + "/api/prom/push"
+
+    basic_auth {
+      username = env("GRAFANA_PROMETHEUS_USERNAME")
+      password = env("GRAFANA_PROMETHEUS_PASSWORD")
+    }
+  }
+
+  // Write-ahead log configuration
+  wal {
+    truncate_frequency = "2h"
+    max_keepalive_time = "8h"
+  }
+}
