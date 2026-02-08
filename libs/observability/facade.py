@@ -35,6 +35,64 @@ Example:
         with observability.start_span("process_request") as span:
             span.set_attribute("user_id", "123")
             result = do_work()
+
+Security Considerations:
+    **Debug Logging and PII Exposure**
+
+    This module uses Python's logging framework for internal diagnostics.
+    When debug logging is enabled (e.g., ``logging.DEBUG`` level), sensitive
+    information may be written to log files or stdout.
+
+    **Risks:**
+
+    - **PII in event data**: The ``context``, ``data``, and ``attributes``
+      parameters passed to methods like ``capture_error()``, ``record_event()``,
+      and ``set_attribute()`` may contain personally identifiable information
+      (PII) such as user IDs, email addresses, IP addresses, or session tokens.
+      This data can appear in debug logs when observability is not initialized
+      or when tracing internal operations.
+
+    - **Sensitive context exposure**: The ``set_context()`` and ``set_user()``
+      methods accept arbitrary data that could include sensitive user details.
+      Debug logs may reference this context when diagnosing issues.
+
+    - **Exception details**: Error messages and stack traces captured via
+      ``capture_error()`` may contain sensitive data embedded in exception
+      messages or local variables.
+
+    **Best Practices:**
+
+    1. **Never enable DEBUG logging in production.** Use INFO or WARNING level
+       in production environments to prevent accidental PII exposure::
+
+           import logging
+           logging.getLogger("libs.observability").setLevel(logging.INFO)
+
+    2. **Sanitize data before passing to observability methods.** Remove or
+       mask PII fields before including them in context or attributes::
+
+           # Bad: exposes email in logs and Sentry
+           observability.capture_error(e, context={"email": user.email})
+
+           # Good: use anonymized identifiers
+           observability.capture_error(e, context={"user_id": user.id})
+
+    3. **Use structured identifiers instead of PII.** Prefer opaque user IDs
+       over emails, usernames, or other identifying information::
+
+           # Prefer this
+           span.set_attribute("user_id", str(user.id))
+
+           # Over this
+           span.set_attribute("user_email", user.email)
+
+    4. **Review log aggregation security.** Ensure log storage systems
+       (CloudWatch, Datadog, etc.) have appropriate access controls and
+       retention policies for data that may inadvertently contain PII.
+
+    5. **Audit observability calls during code review.** Check that sensitive
+       data is not being passed to ``context``, ``data``, ``attributes``,
+       or ``tags`` parameters.
 """
 
 from __future__ import annotations

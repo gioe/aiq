@@ -47,6 +47,27 @@ Usage:
 
     # Set additional context
     observability.set_context("request", {"url": "/api/test", "method": "POST"})
+
+Security:
+    **Warning: Debug logging may expose sensitive data.**
+
+    When Python's logging level is set to DEBUG, this module logs internal
+    operations that may include context data, event payloads, and user
+    information. Never enable DEBUG logging in production environments.
+
+    See ``libs.observability.facade`` module docstring for detailed security
+    guidance on:
+
+    - PII exposure risks in event data and context
+    - Sensitivity of debug logs
+    - Best practices for log sanitization
+
+    Key recommendations:
+
+    1. Use INFO or WARNING log level in production
+    2. Sanitize PII before passing to observability methods
+    3. Use opaque identifiers (user_id) instead of PII (email, name)
+    4. Audit observability calls during code review
 """
 
 from libs.observability.facade import ObservabilityFacade, SpanContext
