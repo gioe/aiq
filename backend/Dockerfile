@@ -35,7 +35,7 @@ COPY --from=builder /root/.local /home/appuser/.local
 # Copy shared libraries
 COPY libs/ /app/libs/
 
-# Copy backend application code (cache bust: 2026-02-07-v2)
+# Copy backend application code
 COPY backend/ /app/backend/
 
 # Set working directory to backend for alembic and app imports
@@ -62,4 +62,3 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 
 # Run migrations and start server
 CMD alembic upgrade head && gunicorn app.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8000} --access-logfile - --error-logfile -
-# Cache bust Sat Feb  7 20:16:29 EST 2026
