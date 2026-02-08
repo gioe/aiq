@@ -560,7 +560,9 @@ Values use `${ENV_VAR}` or `${ENV_VAR:default}` syntax for environment variable 
    OTEL_ENABLED=True
    OTEL_SERVICE_NAME=aiq-backend
    OTEL_EXPORTER=otlp
-   # Set both endpoint variables for compatibility
+   # Set both endpoint variables for compatibility:
+   # - OTEL_OTLP_ENDPOINT: used by legacy tracing module (app/tracing/setup.py)
+   # - OTEL_EXPORTER_OTLP_ENDPOINT: used by observability.yaml (libs/observability)
    OTEL_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
    OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
    OTEL_TRACES_SAMPLE_RATE=0.1
@@ -618,7 +620,7 @@ rate(app_errors_total{service_name="aiq-backend"}[5m])
 |----------|---------|-------------|
 | `SENTRY_DSN` | (empty) | Sentry DSN for error tracking (leave empty to disable) |
 | `SENTRY_TRACES_SAMPLE_RATE` | `0.1` | Sentry traces sample rate (0.0-1.0) |
-| `RELEASE` | (empty) | App version for Sentry releases (optional) |
+| `RELEASE` | (empty) | App version for Sentry releases (used by observability.yaml, not config.py) |
 | `OTEL_ENABLED` | `False` | Enable OpenTelemetry instrumentation |
 | `OTEL_SERVICE_NAME` | `aiq-backend` | Service name in traces and metrics |
 | `OTEL_EXPORTER` | `console` | Exporter type: `console`, `otlp`, or `none` |
