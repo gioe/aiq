@@ -12,10 +12,13 @@ import logging
 import os
 import secrets
 import subprocess
+import sys
 import threading
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from pathlib import Path
+from typing import AsyncGenerator, Dict, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -26,6 +29,10 @@ from prometheus_client import REGISTRY
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
+
+# Add repo root to path for libs.observability import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +246,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             )
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan: initialize and shut down observability."""
+    observability.init(
+        config_path="config/observability.yaml",
+        service_name="aiq-question-service-trigger",
+        environment=settings.env,
+    )
+    logger.info(
+        "Observability initialized: service=aiq-question-service-trigger, env=%s",
+        settings.env,
+    )
+    yield
+    observability.flush(timeout=5.0)
+    observability.shutdown()
+
+
 app = FastAPI(
     title="Question Generation Trigger Service",
     description=(
@@ -254,6 +278,7 @@ app = FastAPI(
     license_info={
         "name": "Proprietary",
     },
+    lifespan=lifespan,
 )
 
 # Add rate limiting middleware (skip health check and metrics)
@@ -417,29 +442,73 @@ def run_generation_job(count: int, dry_run: bool, verbose: bool) -> None:
 
     logger.info(f"Starting generation job: {' '.join(cmd)}")
 
-    try:
-        result = subprocess.run(
-            cmd,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=3600,  # 1 hour timeout
-        )
+    with observability.start_span(
+        "generation_job",
+        kind="internal",
+        attributes={"count": count, "dry_run": dry_run, "verbose": verbose},
+    ) as span:
+        try:
+            start_time = time.monotonic()
+            result = subprocess.run(
+                cmd,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=3600,  # 1 hour timeout
+            )
+            duration_s = time.monotonic() - start_time
 
-        if result.returncode == 0:
-            logger.info(
-                f"Generation job completed successfully (exit code: {result.returncode})"
+            span.set_attribute("exit_code", result.returncode)
+            span.set_attribute("duration_seconds", round(duration_s, 1))
+
+            observability.record_metric(
+                "trigger.job.duration",
+                value=duration_s,
+                labels={"dry_run": str(dry_run)},
+                metric_type="histogram",
+                unit="s",
             )
-        else:
-            logger.error(
-                f"Generation job failed (exit code: {result.returncode})\n"
-                f"stdout: {result.stdout}\n"
-                f"stderr: {result.stderr}"
+
+            if result.returncode == 0:
+                logger.info(
+                    f"Generation job completed successfully (exit code: {result.returncode})"
+                )
+                span.set_status("ok")
+                observability.record_metric(
+                    "trigger.job.completed",
+                    value=1,
+                    labels={"status": "success"},
+                    metric_type="counter",
+                )
+            else:
+                logger.error(
+                    f"Generation job failed (exit code: {result.returncode})\n"
+                    f"stdout: {result.stdout}\n"
+                    f"stderr: {result.stderr}"
+                )
+                span.set_status("error", f"Exit code {result.returncode}")
+                observability.record_metric(
+                    "trigger.job.completed",
+                    value=1,
+                    labels={"status": "failure"},
+                    metric_type="counter",
+                )
+        except subprocess.TimeoutExpired as e:
+            logger.error("Generation job timed out after 3600 seconds")
+            span.set_status("error", "Timeout after 3600s")
+            observability.capture_error(e, context={"count": count, "timeout": 3600})
+            observability.record_metric(
+                "trigger.job.completed",
+                value=1,
+                labels={"status": "timeout"},
+                metric_type="counter",
             )
-    except subprocess.TimeoutExpired:
-        logger.error("Generation job timed out after 3600 seconds")
-    except Exception as e:
-        logger.exception(f"Generation job crashed with exception: {e}")
+        except Exception as e:
+            logger.exception(f"Generation job crashed with exception: {e}")
+            span.set_status("error", str(e))
+            observability.capture_error(
+                e, context={"count": count, "command": " ".join(cmd)}
+            )
 
 
 @app.get(
@@ -500,6 +569,13 @@ async def trigger_generation(
         f"dry_run={request.dry_run}, verbose={request.verbose}"
     )
 
+    observability.record_metric(
+        "trigger.requests",
+        value=1,
+        labels={"dry_run": str(request.dry_run)},
+        metric_type="counter",
+    )
+
     with _job_lock:
         # Clean up completed job reference to avoid memory leaks
         if _running_job is not None and not _running_job.is_alive():
@@ -508,6 +584,12 @@ async def trigger_generation(
         # Check if a job is already running
         if _running_job is not None:
             logger.warning("Generation job already running - rejecting request")
+            observability.record_metric(
+                "trigger.rejected",
+                value=1,
+                labels={"reason": "already_running"},
+                metric_type="counter",
+            )
             raise HTTPException(
                 status_code=409,
                 detail="A generation job is already running. Please wait for it to complete.",

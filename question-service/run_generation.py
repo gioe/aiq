@@ -1050,6 +1050,9 @@ def main() -> int:
                 logger.info(f"✓ Deduplicator initialized (cache: {cache_type})")
             except Exception as e:
                 logger.error(f"Failed to connect to database: {e}")
+                observability.capture_error(
+                    e, context={"phase": "init", "step": "database_connection"}
+                )
 
                 # Send alert for database error
                 from app.error_classifier import (
@@ -1161,16 +1164,49 @@ def main() -> int:
         logger.info("PHASE 1: Question Generation")
         logger.info("=" * 80)
 
-        # Choose generation mode based on auto-balance flag
-        if args.auto_balance and generation_plan:
-            # Use balanced generation with pre-computed allocations
-            logger.info("Using auto-balanced generation mode")
+        with observability.start_span(
+            "phase1_generation",
+            attributes={"provider_tier": args.provider_tier},
+        ) as gen_span:
+            # Choose generation mode based on auto-balance flag
+            if args.auto_balance and generation_plan:
+                # Use balanced generation with pre-computed allocations
+                logger.info("Using auto-balanced generation mode")
+                gen_span.set_attribute("mode", "auto_balanced")
 
-            if args.use_async:
+                if args.use_async:
+                    logger.info(
+                        f"Using async parallel generation mode "
+                        f"(max_concurrent={args.max_concurrent}, timeout={args.timeout}s)"
+                    )
+
+                    # Reconfigure generator with CLI-specified async parameters
+                    pipeline.generator._rate_limiter = asyncio.Semaphore(
+                        args.max_concurrent
+                    )
+                    pipeline.generator._async_timeout = args.timeout
+
+                    async def run_balanced_async_with_cleanup() -> dict:
+                        try:
+                            return await pipeline.run_balanced_generation_job_async(
+                                stratum_allocations=generation_plan.allocations,
+                                provider_tier=args.provider_tier,
+                            )
+                        finally:
+                            await pipeline.cleanup()
+
+                    job_result = asyncio.run(run_balanced_async_with_cleanup())
+                else:
+                    job_result = pipeline.run_balanced_generation_job(
+                        stratum_allocations=generation_plan.allocations,
+                        provider_tier=args.provider_tier,
+                    )
+            elif args.use_async:
                 logger.info(
                     f"Using async parallel generation mode "
                     f"(max_concurrent={args.max_concurrent}, timeout={args.timeout}s)"
                 )
+                gen_span.set_attribute("mode", "async")
 
                 # Reconfigure generator with CLI-specified async parameters
                 pipeline.generator._rate_limiter = asyncio.Semaphore(
@@ -1178,72 +1214,67 @@ def main() -> int:
                 )
                 pipeline.generator._async_timeout = args.timeout
 
-                async def run_balanced_async_with_cleanup() -> dict:
+                async def run_async_with_cleanup() -> dict:
                     try:
-                        return await pipeline.run_balanced_generation_job_async(
-                            stratum_allocations=generation_plan.allocations,
+                        return await pipeline.run_generation_job_async(
+                            questions_per_run=args.count,
+                            question_types=question_types,
+                            difficulty_distribution=difficulty_distribution,
                             provider_tier=args.provider_tier,
                         )
                     finally:
                         await pipeline.cleanup()
 
-                job_result = asyncio.run(run_balanced_async_with_cleanup())
+                job_result = asyncio.run(run_async_with_cleanup())
             else:
-                job_result = pipeline.run_balanced_generation_job(
-                    stratum_allocations=generation_plan.allocations,
+                gen_span.set_attribute("mode", "sync")
+                job_result = pipeline.run_generation_job(
+                    questions_per_run=args.count,
+                    question_types=question_types,
+                    difficulty_distribution=difficulty_distribution,
                     provider_tier=args.provider_tier,
                 )
-        elif args.use_async:
+
+            stats = job_result["statistics"]
+            generated_questions = job_result["questions"]
+
+            gen_span.set_attribute("questions_generated", stats["questions_generated"])
+            gen_span.set_attribute("target_questions", stats["target_questions"])
+            gen_span.set_attribute("duration_seconds", stats["duration_seconds"])
+
+            observability.record_metric(
+                "generation.questions_produced",
+                value=stats["questions_generated"],
+                labels={"provider_tier": args.provider_tier},
+                metric_type="counter",
+            )
+            observability.record_metric(
+                "generation.duration",
+                value=stats["duration_seconds"],
+                labels={"provider_tier": args.provider_tier},
+                metric_type="histogram",
+                unit="s",
+            )
+
             logger.info(
-                f"Using async parallel generation mode "
-                f"(max_concurrent={args.max_concurrent}, timeout={args.timeout}s)"
+                f"Generated: {stats['questions_generated']}/{stats['target_questions']} "
+                f"questions ({stats['success_rate']*100:.1f}% success rate)"
             )
+            logger.info(f"Duration: {stats['duration_seconds']:.1f}s")
 
-            # Reconfigure generator with CLI-specified async parameters
-            pipeline.generator._rate_limiter = asyncio.Semaphore(args.max_concurrent)
-            pipeline.generator._async_timeout = args.timeout
+            # Note: Generation metrics are already tracked by the pipeline internally
 
-            async def run_async_with_cleanup() -> dict:
-                try:
-                    return await pipeline.run_generation_job_async(
-                        questions_per_run=args.count,
-                        question_types=question_types,
-                        difficulty_distribution=difficulty_distribution,
-                        provider_tier=args.provider_tier,
+            # Within-batch deduplication to remove near-identical questions before judge
+            if generated_questions and len(generated_questions) > 1:
+                original_count = len(generated_questions)
+                generated_questions = dedupe_within_batch(generated_questions)
+                dupes_removed = original_count - len(generated_questions)
+                if dupes_removed > 0:
+                    logger.info(
+                        f"Within-batch dedup: Removed {dupes_removed} near-duplicate questions "
+                        f"({len(generated_questions)} unique remaining)"
                     )
-                finally:
-                    await pipeline.cleanup()
-
-            job_result = asyncio.run(run_async_with_cleanup())
-        else:
-            job_result = pipeline.run_generation_job(
-                questions_per_run=args.count,
-                question_types=question_types,
-                difficulty_distribution=difficulty_distribution,
-                provider_tier=args.provider_tier,
-            )
-
-        stats = job_result["statistics"]
-        generated_questions = job_result["questions"]
-
-        logger.info(
-            f"Generated: {stats['questions_generated']}/{stats['target_questions']} "
-            f"questions ({stats['success_rate']*100:.1f}% success rate)"
-        )
-        logger.info(f"Duration: {stats['duration_seconds']:.1f}s")
-
-        # Note: Generation metrics are already tracked by the pipeline internally
-
-        # Within-batch deduplication to remove near-identical questions before judge
-        if generated_questions and len(generated_questions) > 1:
-            original_count = len(generated_questions)
-            generated_questions = dedupe_within_batch(generated_questions)
-            dupes_removed = original_count - len(generated_questions)
-            if dupes_removed > 0:
-                logger.info(
-                    f"Within-batch dedup: Removed {dupes_removed} near-duplicate questions "
-                    f"({len(generated_questions)} unique remaining)"
-                )
+                    gen_span.set_attribute("batch_dupes_removed", dupes_removed)
 
         if not generated_questions:
             logger.error("No questions generated!")
@@ -1288,52 +1319,33 @@ def main() -> int:
         approved_questions = []
         rejected_questions = []
 
-        if args.use_async_judge:
-            logger.info(
-                f"Using async parallel judge evaluation mode "
-                f"(max_concurrent={args.max_concurrent_judge}, "
-                f"timeout={args.judge_timeout}s)"
-            )
-
-            async def run_async_judge_with_cleanup() -> list:
-                try:
-                    return await judge.evaluate_questions_list_async(
-                        questions=generated_questions,
-                    )
-                finally:
-                    await judge.cleanup()
-
-            all_evaluated = asyncio.run(run_async_judge_with_cleanup())
-
-            # Separate approved and rejected, apply difficulty placement, record metrics
-            for evaluated_question in all_evaluated:
-                if evaluated_question.evaluation.overall_score >= min_score:
-                    logger.info(
-                        f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
-                    )
-                    # Apply difficulty placement adjustment if needed
-                    adjusted_question = apply_difficulty_placement(
-                        evaluated_question, judge, logger
-                    )
-                    approved_questions.append(adjusted_question)
-                else:
-                    rejected_questions.append(evaluated_question)
-                    log_rejection_details(evaluated_question, logger)
-
-                # Record evaluation metrics
-                metrics.record_evaluation_success(
-                    score=evaluated_question.evaluation.overall_score,
-                    approved=evaluated_question.evaluation.overall_score >= min_score,
-                    judge_model=evaluated_question.judge_model,
+        with observability.start_span(
+            "phase2_judge_evaluation",
+            attributes={
+                "min_score": min_score,
+                "questions_to_evaluate": len(generated_questions),
+            },
+        ) as judge_span:
+            if args.use_async_judge:
+                logger.info(
+                    f"Using async parallel judge evaluation mode "
+                    f"(max_concurrent={args.max_concurrent_judge}, "
+                    f"timeout={args.judge_timeout}s)"
                 )
-        else:
-            # Sequential evaluation
-            for i, question in enumerate(generated_questions, 1):
-                logger.info(f"Evaluating question {i}/{len(generated_questions)}...")
+                judge_span.set_attribute("mode", "async")
 
-                try:
-                    evaluated_question = judge.evaluate_question(question)
+                async def run_async_judge_with_cleanup() -> list:
+                    try:
+                        return await judge.evaluate_questions_list_async(
+                            questions=generated_questions,
+                        )
+                    finally:
+                        await judge.cleanup()
 
+                all_evaluated = asyncio.run(run_async_judge_with_cleanup())
+
+                # Separate approved and rejected, apply difficulty placement, record metrics
+                for evaluated_question in all_evaluated:
                     if evaluated_question.evaluation.overall_score >= min_score:
                         logger.info(
                             f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
@@ -1345,7 +1357,7 @@ def main() -> int:
                         approved_questions.append(adjusted_question)
                     else:
                         rejected_questions.append(evaluated_question)
-                        log_rejection_details(evaluated_question, logger, index=i)
+                        log_rejection_details(evaluated_question, logger)
 
                     # Record evaluation metrics
                     metrics.record_evaluation_success(
@@ -1354,18 +1366,69 @@ def main() -> int:
                         >= min_score,
                         judge_model=evaluated_question.judge_model,
                     )
+            else:
+                # Sequential evaluation
+                judge_span.set_attribute("mode", "sync")
+                for i, question in enumerate(generated_questions, 1):
+                    logger.info(
+                        f"Evaluating question {i}/{len(generated_questions)}..."
+                    )
 
-                except Exception as e:
-                    logger.error(f"  ✗ Evaluation failed: {e}")
-                    # Can't append to rejected_questions as we don't have an evaluation
-                    continue
+                    try:
+                        evaluated_question = judge.evaluate_question(question)
 
-        approval_rate = len(approved_questions) / len(generated_questions) * 100
-        logger.info(
-            f"\nApproved: {len(approved_questions)}/{len(generated_questions)} "
-            f"({approval_rate:.1f}%)"
-        )
-        logger.info(f"Rejected: {len(rejected_questions)}")
+                        if evaluated_question.evaluation.overall_score >= min_score:
+                            logger.info(
+                                f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
+                            )
+                            # Apply difficulty placement adjustment if needed
+                            adjusted_question = apply_difficulty_placement(
+                                evaluated_question, judge, logger
+                            )
+                            approved_questions.append(adjusted_question)
+                        else:
+                            rejected_questions.append(evaluated_question)
+                            log_rejection_details(evaluated_question, logger, index=i)
+
+                        # Record evaluation metrics
+                        metrics.record_evaluation_success(
+                            score=evaluated_question.evaluation.overall_score,
+                            approved=evaluated_question.evaluation.overall_score
+                            >= min_score,
+                            judge_model=evaluated_question.judge_model,
+                        )
+
+                    except Exception as e:
+                        logger.error(f"  ✗ Evaluation failed: {e}")
+                        observability.capture_error(
+                            e,
+                            context={"phase": "judge_evaluation", "question_index": i},
+                        )
+                        # Can't append to rejected_questions as we don't have an evaluation
+                        continue
+
+            approval_rate = len(approved_questions) / len(generated_questions) * 100
+
+            judge_span.set_attribute("approved_count", len(approved_questions))
+            judge_span.set_attribute("rejected_count", len(rejected_questions))
+            judge_span.set_attribute("approval_rate", approval_rate)
+
+            observability.record_metric(
+                "judge.approved",
+                value=len(approved_questions),
+                metric_type="counter",
+            )
+            observability.record_metric(
+                "judge.rejected",
+                value=len(rejected_questions),
+                metric_type="counter",
+            )
+
+            logger.info(
+                f"\nApproved: {len(approved_questions)}/{len(generated_questions)} "
+                f"({approval_rate:.1f}%)"
+            )
+            logger.info(f"Rejected: {len(rejected_questions)}")
 
         # Salvage phase: attempt to repair or reclassify rejected questions
         if rejected_questions:
@@ -1517,70 +1580,92 @@ def main() -> int:
             logger.info("PHASE 3: Deduplication")
             logger.info("=" * 80)
 
-            # Fetch existing questions from database for deduplication
-            try:
-                assert db is not None
-                existing_questions = db.get_all_questions()
-                logger.info(
-                    f"Loaded {len(existing_questions)} existing questions for deduplication"
-                )
-            except Exception as e:
-                logger.error(f"Failed to load existing questions: {e}")
-                existing_questions = []
-
-            unique_questions = []
-            duplicate_count = 0
-
-            for evaluated_question in approved_questions:
+            with observability.start_span(
+                "phase3_deduplication",
+                attributes={"approved_count": len(approved_questions)},
+            ) as dedup_span:
+                # Fetch existing questions from database for deduplication
                 try:
-                    # Type assertion: deduplicator is guaranteed to be initialized here
-                    assert deduplicator is not None
-                    # Scope dedup to same difficulty level — questions sharing a
-                    # problem template across difficulties are intentionally distinct.
-                    q_difficulty = str(
-                        evaluated_question.question.difficulty_level.value
-                    ).lower()
-                    same_difficulty_questions = [
-                        eq
-                        for eq in existing_questions
-                        if str(
-                            getattr(
-                                eq.get("difficulty_level", ""),
-                                "value",
-                                eq.get("difficulty_level", ""),
-                            )
-                        ).lower()
-                        == q_difficulty
-                    ]
-                    result = deduplicator.check_duplicate(
-                        evaluated_question.question, same_difficulty_questions
+                    assert db is not None
+                    existing_questions = db.get_all_questions()
+                    logger.info(
+                        f"Loaded {len(existing_questions)} existing questions for deduplication"
                     )
-
-                    if not result.is_duplicate:
-                        unique_questions.append(evaluated_question)
-                        logger.debug(
-                            f"✓ Unique: {evaluated_question.question.question_text[:60]}..."
-                        )
-                    else:
-                        duplicate_count += 1
-                        logger.info(
-                            f"✗ Duplicate ({result.duplicate_type}, score={result.similarity_score:.3f}): "
-                            f"{evaluated_question.question.question_text[:60]}..."
-                        )
-
-                    metrics.record_duplicate_check(
-                        is_duplicate=result.is_duplicate,
-                        duplicate_type=result.duplicate_type,
+                    dedup_span.set_attribute(
+                        "existing_questions", len(existing_questions)
                     )
-
                 except Exception as e:
-                    logger.error(f"Deduplication check failed: {e}")
-                    # Include question if deduplication check fails (fail open)
-                    unique_questions.append(evaluated_question)
-                    continue
+                    logger.error(f"Failed to load existing questions: {e}")
+                    observability.capture_error(
+                        e, context={"phase": "deduplication", "step": "load_existing"}
+                    )
+                    existing_questions = []
 
-            logger.info(f"\nUnique questions: {len(unique_questions)}")
-            logger.info(f"Duplicates removed: {duplicate_count}")
+                unique_questions = []
+                duplicate_count = 0
+
+                for evaluated_question in approved_questions:
+                    try:
+                        # Type assertion: deduplicator is guaranteed to be initialized here
+                        assert deduplicator is not None
+                        # Scope dedup to same difficulty level — questions sharing a
+                        # problem template across difficulties are intentionally distinct.
+                        q_difficulty = str(
+                            evaluated_question.question.difficulty_level.value
+                        ).lower()
+                        same_difficulty_questions = [
+                            eq
+                            for eq in existing_questions
+                            if str(
+                                getattr(
+                                    eq.get("difficulty_level", ""),
+                                    "value",
+                                    eq.get("difficulty_level", ""),
+                                )
+                            ).lower()
+                            == q_difficulty
+                        ]
+                        result = deduplicator.check_duplicate(
+                            evaluated_question.question, same_difficulty_questions
+                        )
+
+                        if not result.is_duplicate:
+                            unique_questions.append(evaluated_question)
+                            logger.debug(
+                                f"✓ Unique: {evaluated_question.question.question_text[:60]}..."
+                            )
+                        else:
+                            duplicate_count += 1
+                            logger.info(
+                                f"✗ Duplicate ({result.duplicate_type}, score={result.similarity_score:.3f}): "
+                                f"{evaluated_question.question.question_text[:60]}..."
+                            )
+
+                        metrics.record_duplicate_check(
+                            is_duplicate=result.is_duplicate,
+                            duplicate_type=result.duplicate_type,
+                        )
+
+                    except Exception as e:
+                        logger.error(f"Deduplication check failed: {e}")
+                        observability.capture_error(
+                            e, context={"phase": "deduplication", "step": "check"}
+                        )
+                        # Include question if deduplication check fails (fail open)
+                        unique_questions.append(evaluated_question)
+                        continue
+
+                dedup_span.set_attribute("unique_count", len(unique_questions))
+                dedup_span.set_attribute("duplicate_count", duplicate_count)
+
+                observability.record_metric(
+                    "dedup.duplicates_removed",
+                    value=duplicate_count,
+                    metric_type="counter",
+                )
+
+                logger.info(f"\nUnique questions: {len(unique_questions)}")
+                logger.info(f"Duplicates removed: {duplicate_count}")
 
         # Database insertion
         inserted_count = 0
@@ -1590,23 +1675,46 @@ def main() -> int:
             logger.info("PHASE 4: Database Insertion")
             logger.info("=" * 80)
 
-            for i, evaluated_question in enumerate(unique_questions, 1):
-                try:
-                    # Type assertion: db is guaranteed to be initialized here
-                    assert db is not None
-                    question_id = db.insert_evaluated_question(evaluated_question)
-                    inserted_count += 1
-                    logger.debug(
-                        f"✓ Inserted question {i}/{len(unique_questions)} "
-                        f"(ID: {question_id}, score: {evaluated_question.evaluation.overall_score:.2f})"
-                    )
+            with observability.start_span(
+                "phase4_db_insertion",
+                attributes={"questions_to_insert": len(unique_questions)},
+            ) as insert_span:
+                for i, evaluated_question in enumerate(unique_questions, 1):
+                    try:
+                        # Type assertion: db is guaranteed to be initialized here
+                        assert db is not None
+                        question_id = db.insert_evaluated_question(evaluated_question)
+                        inserted_count += 1
+                        logger.debug(
+                            f"✓ Inserted question {i}/{len(unique_questions)} "
+                            f"(ID: {question_id}, score: {evaluated_question.evaluation.overall_score:.2f})"
+                        )
 
-                    metrics.record_insertion_success(count=1)
+                        metrics.record_insertion_success(count=1)
 
-                except Exception as e:
-                    logger.error(f"✗ Failed to insert question {i}: {e}")
-                    metrics.record_insertion_failure(error=str(e), count=1)
-                    continue
+                    except Exception as e:
+                        logger.error(f"✗ Failed to insert question {i}: {e}")
+                        observability.capture_error(
+                            e,
+                            context={
+                                "phase": "db_insertion",
+                                "question_index": i,
+                                "question_type": evaluated_question.question.question_type.value,
+                            },
+                        )
+                        metrics.record_insertion_failure(error=str(e), count=1)
+                        continue
+
+                insert_span.set_attribute("inserted_count", inserted_count)
+                insert_span.set_attribute(
+                    "failed_count", len(unique_questions) - inserted_count
+                )
+
+                observability.record_metric(
+                    "db.questions_inserted",
+                    value=inserted_count,
+                    metric_type="counter",
+                )
 
             logger.info(
                 f"\nInserted: {inserted_count}/{len(unique_questions)} questions"
@@ -1720,6 +1828,11 @@ def main() -> int:
 
     except Exception as e:
         logger.exception(f"Unexpected error: {e}")
+        observability.capture_error(
+            e,
+            context={"phase": "main", "step": "unexpected"},
+            level="fatal",
+        )
 
         # Try to send alert for unexpected errors
         try:
