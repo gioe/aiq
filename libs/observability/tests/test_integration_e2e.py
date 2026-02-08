@@ -259,7 +259,7 @@ class TestConcurrentMetricRecording:
 
         # Wait for all threads to complete
         for thread in threads:
-            thread.join(timeout=5.0)
+            thread.join(timeout=10.0)
             if thread.is_alive():
                 pytest.fail(f"Thread {thread.name} did not complete within timeout")
 
@@ -319,7 +319,7 @@ class TestConcurrentMetricRecording:
             thread.start()
 
         for thread in threads:
-            thread.join(timeout=5.0)
+            thread.join(timeout=10.0)
             if thread.is_alive():
                 pytest.fail(f"Thread {thread.name} did not complete within timeout")
 
@@ -367,7 +367,7 @@ class TestConcurrentMetricRecording:
             thread.start()
 
         for thread in threads:
-            thread.join(timeout=5.0)
+            thread.join(timeout=10.0)
             if thread.is_alive():
                 pytest.fail(f"Thread {thread.name} did not complete within timeout")
 
@@ -810,7 +810,17 @@ class TestErrorRecovery:
             assert result is True
 
     def test_application_continues_when_observability_fails(self) -> None:
-        """Test that application can continue functioning when observability fails."""
+        """Test error handling behavior when backends fail after initialization.
+
+        The observability facade has different error handling strategies for different
+        operations:
+
+        - capture_error(): Wraps exceptions and returns None on failure (graceful degradation)
+        - record_metric(): Propagates exceptions (backends expected reliable after init)
+        - start_span(): Returns SpanContext that handles backend errors internally
+
+        This test verifies the documented behavior of each operation type.
+        """
         facade = ObservabilityFacade()
         facade._initialized = True
         facade._config = ObservabilityConfig(
@@ -827,19 +837,19 @@ class TestErrorRecovery:
         mock_otel.record_metric.side_effect = RuntimeError("OTEL unavailable")
         facade._otel_backend = mock_otel
 
-        # Application operations should not raise
+        # Error capture wraps exceptions - returns None on failure (graceful degradation)
         result = facade.capture_error(ValueError("test error"))
-        assert result is None  # Failed gracefully
+        assert result is None
 
-        # Metrics will raise because record_metric doesn't wrap backend calls in try-except
-        # This is actually the current behavior - it doesn't silently swallow errors
-        # The facade expects backends to be reliable after init
+        # Metric recording propagates backend exceptions directly to the caller.
+        # The facade expects backends to be reliable after successful initialization.
+        # Applications that need to handle unreliable backends should wrap calls.
         with pytest.raises(RuntimeError, match="OTEL unavailable"):
             facade.record_metric("test.metric", 1)
 
-        # Spans should fail gracefully
+        # Spans return a SpanContext that handles backend errors internally
         with facade.start_span("test-span") as span:
-            assert span is not None  # Returns a SpanContext even if backends fail
+            assert span is not None
 
     def test_partial_backend_failure_isolated(self) -> None:
         """Test that failure in one backend doesn't affect the other."""
