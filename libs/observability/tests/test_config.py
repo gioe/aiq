@@ -606,6 +606,16 @@ class TestProcessConfigValues:
 class TestYAMLLoading:
     """Tests for YAML file loading."""
 
+    def test_load_config_with_invalid_yaml_syntax(self, tmp_path: Path) -> None:
+        """Test that invalid YAML syntax raises yaml.YAMLError."""
+        import yaml
+
+        invalid_yaml = tmp_path / "invalid.yaml"
+        invalid_yaml.write_text("{ invalid yaml syntax: [")
+
+        with pytest.raises(yaml.YAMLError):
+            load_config(config_path=str(invalid_yaml))
+
     def test_load_yaml_import_error(self) -> None:
         """Test ImportError raised when PyYAML is not installed."""
         import builtins
