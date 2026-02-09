@@ -541,97 +541,13 @@ otel:
   enabled: false
 ```
 
-## Grafana Cloud Metrics (Prometheus Endpoint)
+## Grafana Cloud Metrics
 
-The question-service exposes a Prometheus-compatible `/metrics` endpoint on the trigger server. Combined with a **Grafana Alloy** sidecar service on Railway, this enables real-time metrics dashboards and alerting in Grafana Cloud.
+Metrics are pushed directly to Grafana Cloud via OTLP (configured in `config/observability.yaml`). No sidecar service is needed.
 
-### Architecture
+### Metrics Available
 
-```
-┌─────────────────────────────────────────────────────┐
-│  Railway Project                                    │
-│                                                     │
-│  ┌─────────────────────┐    scrape /metrics         │
-│  │  question-service    │◄──────────────────────┐   │
-│  │  (trigger server)    │                       │   │
-│  │  :8080/metrics       │   ┌───────────────┐   │   │
-│  └─────────────────────┘   │ Grafana Alloy  │───┘   │
-│                            │ (collector)    │       │
-│                            │ :9091 metrics  │       │
-│                            │ :3100 logs     │       │
-│                            └───────┬───────┘       │
-└────────────────────────────────────┼───────────────┘
-                                     │ remote write
-                                     ▼
-                          ┌─────────────────────┐
-                          │   Grafana Cloud      │
-                          │   (Free Tier)        │
-                          │                      │
-                          │  Prometheus (metrics) │
-                          │  Loki (logs)          │
-                          │  Dashboards           │
-                          │  Alerting             │
-                          └─────────────────────┘
-```
-
-### Step 1: Create Grafana Cloud Account
-
-1. Go to https://grafana.com/auth/sign-up/create-user
-2. Create a free account (10K metrics series, 50GB logs, 50GB traces)
-3. Verify your email and activate
-
-### Step 2: Get Prometheus Credentials
-
-In the Grafana Cloud Portal:
-
-1. Find the **Prometheus** card/tile
-2. Click **"Send Metrics"** or **"Details"**
-3. Copy these values:
-   - **Remote Write URL** — e.g., `https://prometheus-prod-XX-prod-XX.grafana.net/api/prom/push`
-   - **Username** — your Metrics instance ID (a number)
-   - **API Key** — click **"Generate now"** to create a Cloud Access Policy token with `metrics:write` scope
-
-### Step 3: Deploy Railway Grafana Alloy
-
-1. Go to https://railway.com/deploy/railway-grafana-allo
-2. Click **Deploy Now** and authenticate with GitHub
-3. Add the service to your existing AIQ Railway project
-4. Configure environment variables:
-
-| Variable | Value | Required |
-|----------|-------|----------|
-| `GRAFANA_PROMETHEUS_HOST` | Your Prometheus remote write URL (host only, e.g., `https://prometheus-prod-XX-prod-XX.grafana.net`) | Yes |
-| `GRAFANA_PROMETHEUS_USERNAME` | Your Metrics instance ID | Yes |
-| `GRAFANA_PROMETHEUS_PASSWORD` | Your Cloud Access Policy token | Yes |
-| `LOKI_HOST` | Your Loki endpoint (from Loki card in Cloud Portal) | Optional |
-| `LOKI_USERNAME` | Your Loki instance ID | Optional |
-| `LOKI_PASSWORD` | Your Loki API key | Optional |
-
-### Step 4: Configure Alloy to Scrape Question Service
-
-The Railway Alloy template includes a default configuration. You may need to add a scrape target for the question-service trigger server. In the Alloy configuration, add:
-
-```alloy
-prometheus.scrape "question_service" {
-  targets = [{
-    __address__ = "<question-service-internal-url>:8080",
-  }]
-  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
-  scrape_interval = "30s"
-}
-```
-
-Replace `<question-service-internal-url>` with the Railway internal DNS name for the question-service (available in Railway's service networking settings).
-
-### Verifying the Setup
-
-1. **Check /metrics endpoint**: `curl https://your-trigger-service-url/metrics` — should return Prometheus text format with `aiq_question_service_*` metrics
-2. **Check Grafana Cloud**: Go to Explore → select Prometheus data source → query `aiq_question_service_http_requests_total` — should show data within a few minutes
-3. **Check Alloy logs**: In Railway, view the Alloy service logs for scrape success/failure messages
-
-### Default Metrics Available
-
-The `/metrics` endpoint automatically provides:
+The `/metrics` endpoint provides Prometheus-format metrics for local scraping. These same metrics are also pushed to Grafana Cloud via OTLP:
 
 | Metric | Type | Description |
 |--------|------|-------------|
@@ -667,19 +583,6 @@ A pre-built dashboard JSON is available at `infra/grafana/question-service-dashb
 1. Go to **Dashboards** → **New** → **Import**
 2. Upload the JSON file or paste its contents
 3. Select your Prometheus data source when prompted
-
-### Alloy Configuration
-
-A Grafana Alloy configuration template is at `infra/grafana/alloy-config.alloy`. See the file for required environment variables.
-
-### Verify Setup
-
-Run the verification script to check your configuration:
-
-```bash
-./infra/verify-otel-setup.sh                           # Check env vars only
-./infra/verify-otel-setup.sh https://your-trigger-url  # Also test /metrics
-```
 
 ### Disabling Metrics
 

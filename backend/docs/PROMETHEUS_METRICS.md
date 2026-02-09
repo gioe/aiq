@@ -177,7 +177,7 @@ The `/v1/metrics` endpoint is intentionally **unauthenticated** to allow standar
 │                       Railway Project                               │
 │                                                                     │
 │  ┌─────────────────┐        Internal        ┌─────────────────┐   │
-│  │  AIQ Backend    │◄──────────────────────►│  Grafana Alloy  │   │
+│  │  AIQ Backend    │◄──────────────────────►│  Prometheus     │   │
 │  │  /v1/metrics    │    (preferred path)     │  (scraper)      │   │
 │  └─────────────────┘                         └─────────────────┘   │
 │           │                                                         │
@@ -202,7 +202,7 @@ In Railway deployments, the `/v1/metrics` endpoint security relies on multiple l
 
 2. **Hidden from API documentation**: The endpoint has `include_in_schema=False`, so it doesn't appear in OpenAPI docs or API explorers.
 
-3. **Internal scraper access**: Grafana Alloy runs within the Railway project and can access metrics via the internal hostname (e.g., `aiq-backend.railway.internal:8000`), avoiding public network traversal.
+3. **Internal scraper access**: A Prometheus scraper within the Railway project can access metrics via the internal hostname (e.g., `aiq-backend.railway.internal:8000`), avoiding public network traversal.
 
 4. **Defense in depth**: While the endpoint is technically accessible via the public domain, the combination of non-sensitive data and obscurity provides acceptable risk for operational metrics.
 

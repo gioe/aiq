@@ -349,7 +349,7 @@ PROMETHEUS_METRICS_ENABLED=true
 In production on Railway, the `/v1/metrics` endpoint relies on network-level isolation:
 
 1. **Private networking**: The metrics endpoint is only accessible within the Railway project's internal network
-2. **No public exposure**: External requests cannot reach `/v1/metrics`—only internal services (like Grafana Alloy) can scrape metrics
+2. **No public exposure**: External requests cannot reach `/v1/metrics`—only internal services can scrape metrics
 3. **No token management**: Network isolation eliminates the need for authentication tokens
 
 This approach is simpler and more secure than application-level authentication for cloud deployments where network isolation is available.
