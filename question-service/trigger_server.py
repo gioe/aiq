@@ -442,75 +442,80 @@ def run_generation_job(count: int, dry_run: bool, verbose: bool) -> None:
 
     logger.info(f"Starting generation job: {' '.join(cmd)}")
 
-    with observability.start_span(
-        "generation_job",
-        kind="internal",
-        attributes={"count": count, "dry_run": dry_run, "verbose": verbose},
-    ) as span:
-        try:
-            start_time = time.monotonic()
-            result = subprocess.run(
-                cmd,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=3600,  # 1 hour timeout
-            )
-            duration_s = time.monotonic() - start_time
-
-            span.set_attribute("exit_code", result.returncode)
-            span.set_attribute("duration_seconds", round(duration_s, 1))
-
-            observability.record_metric(
-                "trigger.job.duration",
-                value=duration_s,
-                labels={"dry_run": str(dry_run)},
-                metric_type="histogram",
-                unit="s",
-            )
-
-            if result.returncode == 0:
-                logger.info(
-                    f"Generation job completed successfully in {duration_s:.1f}s "
-                    f"(exit code: {result.returncode})\n"
-                    f"stdout: {result.stdout[-2000:] if result.stdout else '(empty)'}"
+    try:
+        with observability.start_span(
+            "generation_job",
+            kind="internal",
+            attributes={"count": count, "dry_run": dry_run, "verbose": verbose},
+        ) as span:
+            try:
+                start_time = time.monotonic()
+                result = subprocess.run(
+                    cmd,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=3600,  # 1 hour timeout
                 )
-                span.set_status("ok")
+                duration_s = time.monotonic() - start_time
+
+                span.set_attribute("exit_code", result.returncode)
+                span.set_attribute("duration_seconds", round(duration_s, 1))
+
+                observability.record_metric(
+                    "trigger.job.duration",
+                    value=duration_s,
+                    labels={"dry_run": str(dry_run)},
+                    metric_type="histogram",
+                    unit="s",
+                )
+
+                if result.returncode == 0:
+                    logger.info(
+                        f"Generation job completed successfully in {duration_s:.1f}s "
+                        f"(exit code: {result.returncode})\n"
+                        f"stdout: {result.stdout[-2000:] if result.stdout else '(empty)'}"
+                    )
+                    span.set_status("ok")
+                    observability.record_metric(
+                        "trigger.job.completed",
+                        value=1,
+                        labels={"status": "success"},
+                        metric_type="counter",
+                    )
+                else:
+                    logger.error(
+                        f"Generation job failed (exit code: {result.returncode})\n"
+                        f"stdout: {result.stdout}\n"
+                        f"stderr: {result.stderr}"
+                    )
+                    span.set_status("error", f"Exit code {result.returncode}")
+                    observability.record_metric(
+                        "trigger.job.completed",
+                        value=1,
+                        labels={"status": "failure"},
+                        metric_type="counter",
+                    )
+            except subprocess.TimeoutExpired as e:
+                logger.error("Generation job timed out after 3600 seconds")
+                span.set_status("error", "Timeout after 3600s")
+                observability.capture_error(
+                    e, context={"count": count, "timeout": 3600}
+                )
                 observability.record_metric(
                     "trigger.job.completed",
                     value=1,
-                    labels={"status": "success"},
+                    labels={"status": "timeout"},
                     metric_type="counter",
                 )
-            else:
-                logger.error(
-                    f"Generation job failed (exit code: {result.returncode})\n"
-                    f"stdout: {result.stdout}\n"
-                    f"stderr: {result.stderr}"
+            except Exception as e:
+                logger.exception(f"Generation job crashed with exception: {e}")
+                span.set_status("error", str(e))
+                observability.capture_error(
+                    e, context={"count": count, "command": " ".join(cmd)}
                 )
-                span.set_status("error", f"Exit code {result.returncode}")
-                observability.record_metric(
-                    "trigger.job.completed",
-                    value=1,
-                    labels={"status": "failure"},
-                    metric_type="counter",
-                )
-        except subprocess.TimeoutExpired as e:
-            logger.error("Generation job timed out after 3600 seconds")
-            span.set_status("error", "Timeout after 3600s")
-            observability.capture_error(e, context={"count": count, "timeout": 3600})
-            observability.record_metric(
-                "trigger.job.completed",
-                value=1,
-                labels={"status": "timeout"},
-                metric_type="counter",
-            )
-        except Exception as e:
-            logger.exception(f"Generation job crashed with exception: {e}")
-            span.set_status("error", str(e))
-            observability.capture_error(
-                e, context={"count": count, "command": " ".join(cmd)}
-            )
+    except Exception as e:
+        logger.exception(f"Generation job thread failed unexpectedly: {e}")
 
     logger.info("Generation job finished — metrics will export on next periodic cycle")
 
