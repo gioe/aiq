@@ -17,7 +17,8 @@ otel:
   endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
   otlp_headers: ${OTEL_EXPORTER_OTLP_HEADERS}
   metrics_enabled: true
-  traces_enabled: true
+  metrics_export_interval_millis: 300000  # 5 min — avoids retry cascade hitting rate limits
+  traces_enabled: false  # Traces routed to Sentry, not needed for OTLP push
   prometheus_enabled: true
   insecure: false
 
