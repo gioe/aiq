@@ -1884,9 +1884,10 @@ def main() -> int:
             except Exception:
                 pass
 
-        # Shutdown observability backends (flushes pending data to Sentry/OTEL)
+        # Shutdown observability backends
+        # Skip flush — metrics export on the periodic cycle to avoid
+        # Grafana Cloud free tier rate limits (err-mimir-tenant-max-request-rate)
         try:
-            observability.flush(timeout=5.0)
             observability.shutdown()
         except Exception:
             pass
