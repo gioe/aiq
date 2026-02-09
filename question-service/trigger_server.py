@@ -29,16 +29,14 @@ from prometheus_client import REGISTRY
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
+from app.logging_config import setup_logging  # noqa: E402
 
 # Add repo root to path for libs.observability import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from libs.observability import observability  # noqa: E402
 
-# Configure logging so application logs appear in Railway
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Use the shared logging config — same as run_generation.py and other entry points
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Rate limiting constants
