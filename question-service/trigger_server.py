@@ -471,7 +471,9 @@ def run_generation_job(count: int, dry_run: bool, verbose: bool) -> None:
 
             if result.returncode == 0:
                 logger.info(
-                    f"Generation job completed successfully (exit code: {result.returncode})"
+                    f"Generation job completed successfully in {duration_s:.1f}s "
+                    f"(exit code: {result.returncode})\n"
+                    f"stdout: {result.stdout[-2000:] if result.stdout else '(empty)'}"
                 )
                 span.set_status("ok")
                 observability.record_metric(
@@ -509,6 +511,10 @@ def run_generation_job(count: int, dry_run: bool, verbose: bool) -> None:
             observability.capture_error(
                 e, context={"count": count, "command": " ".join(cmd)}
             )
+
+    # Flush metrics so they export immediately instead of waiting for the next interval
+    observability.flush(timeout=5.0)
+    logger.info("Observability data flushed after generation job")
 
 
 @app.get(
