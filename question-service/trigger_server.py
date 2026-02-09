@@ -34,6 +34,11 @@ from app.config import settings
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from libs.observability import observability  # noqa: E402
 
+# Configure logging so application logs appear in Railway
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 # Rate limiting constants
