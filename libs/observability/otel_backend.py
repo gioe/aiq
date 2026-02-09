@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import threading
+from urllib.parse import unquote
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Literal
 
@@ -34,12 +35,14 @@ def _parse_otlp_headers(headers_str: str) -> dict[str, str]:
     Format: "key1=value1,key2=value2"
     Returns: {"key1": "value1", "key2": "value2"}
 
+    Values are URL-decoded per the OTEL spec (e.g., %20 → space).
+
     Note: Empty keys or values are skipped to avoid malformed headers.
     Headers containing control characters (newlines, carriage returns, etc.)
     are rejected to prevent header injection attacks.
 
     Args:
-        headers_str: Comma-separated key=value pairs.
+        headers_str: Comma-separated key=value pairs, optionally URL-encoded.
 
     Returns:
         Dictionary of header key-value pairs.
@@ -54,8 +57,8 @@ def _parse_otlp_headers(headers_str: str) -> dict[str, str]:
     for pair in headers_str.split(","):
         if "=" in pair:
             key, value = pair.split("=", 1)
-            key = key.strip()
-            value = value.strip()
+            key = unquote(key.strip())
+            value = unquote(value.strip())
             if key and value:
                 # Reject headers with control characters to prevent injection
                 if any(c in key for c in CONTROL_CHARS) or any(

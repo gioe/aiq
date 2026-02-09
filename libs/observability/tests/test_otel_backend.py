@@ -941,6 +941,16 @@ class TestParseOTLPHeadersAdditionalCases:
         result = _parse_otlp_headers(",key=value,")
         assert result == {"key": "value"}
 
+    def test_parse_url_encoded_space(self) -> None:
+        """Test parsing URL-encoded %20 in header value."""
+        result = _parse_otlp_headers("Authorization=Basic%20dGVzdDp0ZXN0")
+        assert result == {"Authorization": "Basic dGVzdDp0ZXN0"}
+
+    def test_parse_url_encoded_key_and_value(self) -> None:
+        """Test parsing URL-encoded key and value."""
+        result = _parse_otlp_headers("X%2DCustom=val%3Due")
+        assert result == {"X-Custom": "val=ue"}
+
 
 class TestMetricNameValidationAdditionalCases:
     """Additional tests for metric name validation edge cases."""
