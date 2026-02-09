@@ -17,6 +17,7 @@ otel:
   endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
   otlp_headers: ${OTEL_EXPORTER_OTLP_HEADERS}
   metrics_enabled: true
+  metrics_export_interval_millis: 300000  # 5 min — avoids Grafana Cloud free tier rate limits
   traces_enabled: true
   prometheus_enabled: true
   insecure: false

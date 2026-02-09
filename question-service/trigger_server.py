@@ -512,9 +512,7 @@ def run_generation_job(count: int, dry_run: bool, verbose: bool) -> None:
                 e, context={"count": count, "command": " ".join(cmd)}
             )
 
-    # Flush metrics so they export immediately instead of waiting for the next interval
-    observability.flush(timeout=5.0)
-    logger.info("Observability data flushed after generation job")
+    logger.info("Generation job finished — metrics will export on next periodic cycle")
 
 
 @app.get(
