@@ -45,6 +45,15 @@ class OpenAIProvider(BaseLLMProvider):
         """Check if a model requires max_completion_tokens instead of max_tokens."""
         return model.startswith(self._MAX_COMPLETION_TOKENS_MODELS)
 
+    def _get_message_content(self, response: Any) -> Optional[str]:
+        """Extract message content from a chat completion response.
+
+        Raises LLMProviderError if the response has no choices.
+        """
+        if not response.choices:
+            raise self._handle_api_error(ValueError("API returned empty choices list"))
+        return response.choices[0].message.content
+
     def _token_limit_kwargs(self, model: str, max_tokens: int) -> Dict[str, int]:
         """Return the correct token limit parameter for the given model.
 
@@ -93,7 +102,7 @@ class OpenAIProvider(BaseLLMProvider):
                     **self._token_limit_kwargs(model_to_use, max_tokens),
                     **kwargs,
                 )
-                return response.choices[0].message.content or ""
+                return self._get_message_content(response) or ""
             except openai.OpenAIError as e:
                 raise self._handle_api_error(e)
 
@@ -142,7 +151,7 @@ class OpenAIProvider(BaseLLMProvider):
                     **kwargs,
                 )
 
-                content = response.choices[0].message.content or "{}"
+                content = self._get_message_content(response) or "{}"
                 return json.loads(content)
             except openai.OpenAIError as e:
                 raise self._handle_api_error(e)
@@ -204,7 +213,7 @@ class OpenAIProvider(BaseLLMProvider):
                     **self._token_limit_kwargs(model_to_use, max_tokens),
                     **kwargs,
                 )
-                return response.choices[0].message.content or ""
+                return self._get_message_content(response) or ""
             except openai.OpenAIError as e:
                 raise self._handle_api_error(e)
 
@@ -253,7 +262,7 @@ class OpenAIProvider(BaseLLMProvider):
                     **kwargs,
                 )
 
-                content = response.choices[0].message.content or "{}"
+                content = self._get_message_content(response) or "{}"
                 return json.loads(content)
             except openai.OpenAIError as e:
                 raise self._handle_api_error(e)
@@ -295,7 +304,7 @@ class OpenAIProvider(BaseLLMProvider):
                     **kwargs,
                 )
 
-                content = response.choices[0].message.content or ""
+                content = self._get_message_content(response) or ""
 
                 # Extract actual token usage from response
                 token_usage = None
@@ -352,7 +361,7 @@ class OpenAIProvider(BaseLLMProvider):
                     **kwargs,
                 )
 
-                raw_content = response.choices[0].message.content or "{}"
+                raw_content = self._get_message_content(response) or "{}"
                 content = json.loads(raw_content)
 
                 # Extract actual token usage from response
@@ -406,7 +415,7 @@ class OpenAIProvider(BaseLLMProvider):
                     **kwargs,
                 )
 
-                content = response.choices[0].message.content or ""
+                content = self._get_message_content(response) or ""
 
                 # Extract actual token usage from response
                 token_usage = None
@@ -463,7 +472,7 @@ class OpenAIProvider(BaseLLMProvider):
                     **kwargs,
                 )
 
-                raw_content = response.choices[0].message.content
+                raw_content = self._get_message_content(response)
                 if not raw_content:
                     logger.warning(
                         "OpenAI async structured response had empty content. "
@@ -513,12 +522,14 @@ class OpenAIProvider(BaseLLMProvider):
             - gpt-4-turbo-preview, gpt-4 (GPT-4 series)
             - gpt-3.5-turbo (faster, cheaper, legacy)
         """
+        # Last reviewed: 2026-02-10
+        # Docs: https://platform.openai.com/docs/models
         return [
             # GPT-5 series (newest)
             "gpt-5.2",
             "gpt-5.1",
             "gpt-5",
-            # Reasoning models (o-series)
+            # Reasoning models (o-series) — use max_completion_tokens, not max_tokens
             "o4-mini",
             "o3",
             "o3-mini",
@@ -553,15 +564,13 @@ class OpenAIProvider(BaseLLMProvider):
             # Filter to models that support chat completions
             # Chat models typically include gpt-*, o1*, o3*, o4*, etc.
             chat_model_prefixes = ("gpt-", "o1", "o3", "o4")
-            return sorted(
-                [
-                    model.id
-                    for model in models.data
-                    if any(
-                        model.id.startswith(prefix) for prefix in chat_model_prefixes
-                    )
-                ]
-            )
+            result = []
+            for model in models.data:
+                if any(model.id.startswith(prefix) for prefix in chat_model_prefixes):
+                    result.append(model.id)
+                else:
+                    logger.debug(f"Filtered out non-chat model: {model.id}")
+            return sorted(result)
         except openai.OpenAIError:
             raise
 

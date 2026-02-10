@@ -1,0 +1,67 @@
+name: Weekly Model Availability Check
+
+on:
+  schedule:
+    # Run every Monday at 08:00 UTC
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  check-models:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: question-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Google model availability tests
+        if: ${{ secrets.GOOGLE_API_KEY != '' }}
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/question-service:${{ github.workspace }}/libs
+        run: |
+          python -m pytest tests/providers/test_provider_model_availability_integration.py \
+            -k "TestGoogleProviderModelAvailability or TestGooglePreviewModelIdentifiers" \
+            --run-integration -v
+
+      - name: Run OpenAI model availability tests
+        if: ${{ secrets.OPENAI_API_KEY != '' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/question-service:${{ github.workspace }}/libs
+        run: |
+          python -m pytest tests/providers/test_provider_model_availability_integration.py \
+            -k "TestOpenAIProviderModelAvailability" \
+            --run-integration -v
+
+      - name: Run xAI model availability tests
+        if: ${{ secrets.XAI_API_KEY != '' }}
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/question-service:${{ github.workspace }}/libs
+        run: |
+          python -m pytest tests/providers/test_provider_model_availability_integration.py \
+            -k "TestXAIProviderModelAvailability" \
+            --run-integration -v
+
+      - name: Run Anthropic model availability tests
+        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/question-service:${{ github.workspace }}/libs
+        run: |
+          python -m pytest tests/providers/test_provider_model_availability_integration.py \
+            -k "TestAnthropicProviderModelAvailability" \
+            --run-integration -v

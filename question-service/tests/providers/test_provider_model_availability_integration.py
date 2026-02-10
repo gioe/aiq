@@ -106,12 +106,22 @@ class TestAnthropicProviderModelAvailability:
         so we validate models by attempting a minimal completion with each one.
         This approach has trade-offs:
         - Pro: Validates model actually works end-to-end
-        - Con: Costs ~9 API calls (one per model) with minimal tokens
+        - Con: Costs ~N API calls (one per model) with minimal tokens
         - Con: Error message matching is heuristic-based
 
         We use max_tokens=1 to minimize cost and capture any model-related
         errors that indicate the model doesn't exist or is unavailable.
+
+        Error detection covers:
+        - anthropic.NotFoundError (HTTP 404) — model identifier not recognized
+        - anthropic.BadRequestError (HTTP 400) — model deprecated or invalid
+        - LLMProviderError wrapping the above with classified_error
+        - Heuristic string matching as a fallback for unexpected error formats
         """
+        from anthropic import BadRequestError, NotFoundError
+
+        from app.providers.base import LLMProviderError
+
         listed_models = provider.get_available_models()
         failed_models = []
 
@@ -124,10 +134,16 @@ class TestAnthropicProviderModelAvailability:
                     model_override=model,
                 )
                 assert result is not None
+            except (NotFoundError, BadRequestError) as e:
+                # SDK-specific exceptions: most reliable detection
+                failed_models.append((model, str(e)))
+            except LLMProviderError as e:
+                # Wrapped error — check if original is model-related
+                orig = e.original_exception
+                if isinstance(orig, (NotFoundError, BadRequestError)):
+                    failed_models.append((model, str(orig)))
             except Exception as e:
-                # Check if it's a model-related error
-                # Anthropic errors may include: "model not found", "invalid model",
-                # "unknown model", "unavailable", "does not exist", etc.
+                # Fallback heuristic for unexpected error formats
                 error_str = str(e).lower()
                 model_error_indicators = [
                     "not found",
@@ -137,6 +153,7 @@ class TestAnthropicProviderModelAvailability:
                     "does not exist",
                     "not supported",
                     "not available",
+                    "deprecated",
                 ]
                 is_model_error = "model" in error_str and any(
                     indicator in error_str for indicator in model_error_indicators

@@ -7,12 +7,7 @@ import pytest
 from anthropic import AnthropicError
 
 from app.providers.anthropic_provider import ANTHROPIC_MODELS, AnthropicProvider
-
-
-@pytest.fixture
-def mock_anthropic_api_key() -> str:
-    """Fixture providing a mock Anthropic API key for testing."""
-    return "sk-ant-test-mock-api-key-12345"
+from app.providers.base import LLMProviderError
 
 
 class TestAnthropicProvider:
@@ -119,7 +114,7 @@ class TestAnthropicProvider:
 
         provider = AnthropicProvider(api_key=mock_anthropic_api_key)
 
-        with pytest.raises(Exception, match="anthropic.*API error"):
+        with pytest.raises(LLMProviderError):
             provider.generate_completion(sample_prompt)
 
     @patch("app.providers.anthropic_provider.Anthropic")
@@ -198,7 +193,7 @@ class TestAnthropicProvider:
 
         provider = AnthropicProvider(api_key=mock_anthropic_api_key)
 
-        with pytest.raises(Exception, match="anthropic.*API error"):
+        with pytest.raises(LLMProviderError):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)
 
     @patch("app.providers.anthropic_provider.Anthropic")

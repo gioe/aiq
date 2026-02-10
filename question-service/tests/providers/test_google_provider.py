@@ -5,33 +5,38 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from app.providers.google_provider import BatchJobResult, GoogleProvider
+from app.providers.base import LLMProviderError
+from app.providers.google_provider import (
+    BatchJobResult,
+    GoogleProvider,
+    _parse_google_model_name,
+)
 
 
 class TestGoogleProvider:
     """Test suite for GoogleProvider."""
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_initialization(self, mock_client_class, mock_openai_api_key):
+    def test_initialization(self, mock_client_class, mock_google_api_key):
         """Test that provider initializes correctly."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key, model="gemini-2.5-pro")
+        provider = GoogleProvider(api_key=mock_google_api_key, model="gemini-2.5-pro")
 
-        assert provider.api_key == mock_openai_api_key
+        assert provider.api_key == mock_google_api_key
         assert provider.model == "gemini-2.5-pro"
         assert provider.client is not None
         assert provider.get_provider_name() == "google"
-        mock_client_class.assert_called_once_with(api_key=mock_openai_api_key)
+        mock_client_class.assert_called_once_with(api_key=mock_google_api_key)
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_default_model(self, mock_client_class, mock_openai_api_key):
+    def test_default_model(self, mock_client_class, mock_google_api_key):
         """Test that default model is set correctly."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
         assert provider.model == "gemini-2.5-pro"
 
@@ -39,7 +44,7 @@ class TestGoogleProvider:
     def test_generate_completion_success(
         self,
         mock_client_class,
-        mock_openai_api_key,
+        mock_google_api_key,
         sample_prompt,
         mock_completion_response,
     ):
@@ -52,7 +57,7 @@ class TestGoogleProvider:
 
         mock_client.models.generate_content.return_value = mock_response
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         result = provider.generate_completion(
             sample_prompt, temperature=0.7, max_tokens=1000
         )
@@ -64,7 +69,7 @@ class TestGoogleProvider:
     def test_generate_completion_with_kwargs(
         self,
         mock_client_class,
-        mock_openai_api_key,
+        mock_google_api_key,
         sample_prompt,
     ):
         """Test completion generation with additional kwargs."""
@@ -76,7 +81,7 @@ class TestGoogleProvider:
 
         mock_client.models.generate_content.return_value = mock_response
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         provider.generate_completion(
             sample_prompt, temperature=0.5, max_tokens=500, top_p=0.9
         )
@@ -87,7 +92,7 @@ class TestGoogleProvider:
     def test_generate_completion_api_error(
         self,
         mock_client_class,
-        mock_openai_api_key,
+        mock_google_api_key,
         sample_prompt,
     ):
         """Test handling of API errors during completion."""
@@ -95,16 +100,16 @@ class TestGoogleProvider:
         mock_client_class.return_value = mock_client
         mock_client.models.generate_content.side_effect = Exception("API error")
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
-        with pytest.raises(Exception, match="google.*API error"):
+        with pytest.raises(LLMProviderError):
             provider.generate_completion(sample_prompt)
 
     @patch("app.providers.google_provider.genai.Client")
     def test_generate_structured_completion_success(
         self,
         mock_client_class,
-        mock_openai_api_key,
+        mock_google_api_key,
         sample_prompt,
         sample_json_schema,
         mock_json_response,
@@ -118,7 +123,7 @@ class TestGoogleProvider:
 
         mock_client.models.generate_content.return_value = mock_response
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         result = provider.generate_structured_completion(
             sample_prompt, sample_json_schema, temperature=0.7, max_tokens=1000
         )
@@ -130,7 +135,7 @@ class TestGoogleProvider:
     def test_generate_structured_completion_json_error(
         self,
         mock_client_class,
-        mock_openai_api_key,
+        mock_google_api_key,
         sample_prompt,
         sample_json_schema,
     ):
@@ -143,7 +148,7 @@ class TestGoogleProvider:
 
         mock_client.models.generate_content.return_value = mock_response
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
         with pytest.raises(Exception, match="Failed to parse JSON response"):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)
@@ -152,7 +157,7 @@ class TestGoogleProvider:
     def test_generate_structured_completion_api_error(
         self,
         mock_client_class,
-        mock_openai_api_key,
+        mock_google_api_key,
         sample_prompt,
         sample_json_schema,
     ):
@@ -161,18 +166,18 @@ class TestGoogleProvider:
         mock_client_class.return_value = mock_client
         mock_client.models.generate_content.side_effect = Exception("API error")
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
-        with pytest.raises(Exception, match="google.*API error"):
+        with pytest.raises(LLMProviderError):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_count_tokens(self, mock_client_class, mock_openai_api_key):
+    def test_count_tokens(self, mock_client_class, mock_google_api_key):
         """Test token counting approximation."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
         text = "This is a test string for token counting."
         token_count = provider.count_tokens(text)
@@ -181,23 +186,23 @@ class TestGoogleProvider:
         assert token_count == expected_count
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_count_tokens_empty_string(self, mock_client_class, mock_openai_api_key):
+    def test_count_tokens_empty_string(self, mock_client_class, mock_google_api_key):
         """Test token counting with empty string."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
         token_count = provider.count_tokens("")
         assert token_count == 0
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_get_available_models(self, mock_client_class, mock_openai_api_key):
+    def test_get_available_models(self, mock_client_class, mock_google_api_key):
         """Test getting list of available models."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
         models = provider.get_available_models()
 
@@ -213,7 +218,7 @@ class TestGoogleProvider:
     def test_empty_completion_response(
         self,
         mock_client_class,
-        mock_openai_api_key,
+        mock_google_api_key,
         sample_prompt,
     ):
         """Test handling of empty completion response."""
@@ -225,7 +230,7 @@ class TestGoogleProvider:
 
         mock_client.models.generate_content.return_value = mock_response
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         result = provider.generate_completion(sample_prompt)
 
         assert result == ""
@@ -235,7 +240,7 @@ class TestBatchAPI:
     """Test suite for batch API functionality."""
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_create_batch_job(self, mock_client_class, mock_openai_api_key):
+    def test_create_batch_job(self, mock_client_class, mock_google_api_key):
         """Test creating a batch job."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
@@ -244,7 +249,7 @@ class TestBatchAPI:
         mock_batch_job.name = "batches/batch-123"
         mock_client.batches.create.return_value = mock_batch_job
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         job_name = provider.create_batch_job(
             prompts=["Prompt 1", "Prompt 2"],
             display_name="test-batch",
@@ -255,32 +260,32 @@ class TestBatchAPI:
 
     @patch("app.providers.google_provider.genai.Client")
     def test_create_batch_job_empty_prompts(
-        self, mock_client_class, mock_openai_api_key
+        self, mock_client_class, mock_google_api_key
     ):
         """Test creating a batch job with empty prompts raises ValueError."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
         with pytest.raises(ValueError, match="cannot be empty"):
             provider.create_batch_job(prompts=[])
 
     @patch("app.providers.google_provider.genai.Client")
     def test_create_batch_job_exceeds_max_size(
-        self, mock_client_class, mock_openai_api_key
+        self, mock_client_class, mock_google_api_key
     ):
         """Test creating a batch job exceeding max size raises ValueError."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
         with pytest.raises(ValueError, match="exceeds maximum"):
             provider.create_batch_job(prompts=["prompt"] * 1001)
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_get_batch_job_status(self, mock_client_class, mock_openai_api_key):
+    def test_get_batch_job_status(self, mock_client_class, mock_google_api_key):
         """Test getting batch job status."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
@@ -289,7 +294,7 @@ class TestBatchAPI:
         mock_batch_job.state.name = "JOB_STATE_RUNNING"
         mock_client.batches.get.return_value = mock_batch_job
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         status = provider.get_batch_job_status("batches/batch-123")
 
         assert status == "JOB_STATE_RUNNING"
@@ -298,7 +303,7 @@ class TestBatchAPI:
     @patch("app.providers.google_provider.genai.Client")
     @patch("app.providers.google_provider.time.sleep")
     def test_wait_for_batch_job_success(
-        self, mock_sleep, mock_client_class, mock_openai_api_key
+        self, mock_sleep, mock_client_class, mock_google_api_key
     ):
         """Test waiting for a batch job to complete successfully."""
         mock_client = MagicMock()
@@ -318,7 +323,7 @@ class TestBatchAPI:
 
         mock_client.batches.get.side_effect = [mock_running_job, mock_completed_job]
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         result = provider.wait_for_batch_job(
             "batches/batch-123",
             poll_interval=0.1,
@@ -333,7 +338,7 @@ class TestBatchAPI:
     @patch("app.providers.google_provider.time.sleep")
     @patch("app.providers.google_provider.time.time")
     def test_wait_for_batch_job_timeout(
-        self, mock_time, mock_sleep, mock_client_class, mock_openai_api_key
+        self, mock_time, mock_sleep, mock_client_class, mock_google_api_key
     ):
         """Test batch job timeout."""
         mock_client = MagicMock()
@@ -345,7 +350,7 @@ class TestBatchAPI:
 
         mock_time.side_effect = [0, 0, 100, 200]
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
         with pytest.raises(TimeoutError, match="did not complete within"):
             provider.wait_for_batch_job(
@@ -355,7 +360,7 @@ class TestBatchAPI:
             )
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_list_batch_jobs(self, mock_client_class, mock_openai_api_key):
+    def test_list_batch_jobs(self, mock_client_class, mock_google_api_key):
         """Test listing batch jobs."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
@@ -370,7 +375,7 @@ class TestBatchAPI:
 
         mock_client.batches.list.return_value = iter([mock_job_1, mock_job_2])
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         jobs = provider.list_batch_jobs(limit=10)
 
         assert len(jobs) == 2
@@ -378,29 +383,29 @@ class TestBatchAPI:
         assert jobs[1]["state"] == "JOB_STATE_RUNNING"
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_cancel_batch_job(self, mock_client_class, mock_openai_api_key):
+    def test_cancel_batch_job(self, mock_client_class, mock_google_api_key):
         """Test cancelling a batch job."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         provider.cancel_batch_job("batches/batch-123")
 
         mock_client.batches.cancel.assert_called_once_with(name="batches/batch-123")
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_delete_batch_job(self, mock_client_class, mock_openai_api_key):
+    def test_delete_batch_job(self, mock_client_class, mock_google_api_key):
         """Test deleting a batch job."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         provider.delete_batch_job("batches/batch-123")
 
         mock_client.batches.delete.assert_called_once_with(name="batches/batch-123")
 
     @patch("app.providers.google_provider.genai.Client")
-    def test_batch_job_with_errors(self, mock_client_class, mock_openai_api_key):
+    def test_batch_job_with_errors(self, mock_client_class, mock_google_api_key):
         """Test batch job result extraction with errors."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
@@ -414,7 +419,7 @@ class TestBatchAPI:
             Mock(response=None, error="Rate limit exceeded", key="request-1"),
         ]
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         result = provider._extract_batch_results(mock_completed_job)
 
         assert result.successful_requests == 1
@@ -431,7 +436,7 @@ class TestAsyncMethods:
     async def test_generate_completion_async(
         self,
         mock_client_class,
-        mock_openai_api_key,
+        mock_google_api_key,
         sample_prompt,
         mock_completion_response,
     ):
@@ -444,7 +449,7 @@ class TestAsyncMethods:
 
         mock_client.aio.models.generate_content = MagicMock(return_value=mock_response)
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
 
         async def mock_generate_content(*args, **kwargs):
             return mock_response
@@ -459,12 +464,106 @@ class TestAsyncMethods:
 
     @pytest.mark.asyncio
     @patch("app.providers.google_provider.genai.Client")
-    async def test_cleanup(self, mock_client_class, mock_openai_api_key):
+    async def test_generate_structured_completion_async_api_error(
+        self, mock_client_class, mock_google_api_key, sample_prompt, sample_json_schema
+    ):
+        """Test error handling in async structured completion.
+
+        Google API errors may arrive as google.api_core.exceptions or plain
+        Exception subclasses depending on the SDK version. The provider wraps
+        them in LLMProviderError via _handle_api_error.
+        """
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        async def mock_generate_content(*args, **kwargs):
+            raise Exception("API quota exceeded")
+
+        mock_client.aio.models.generate_content = mock_generate_content
+
+        provider = GoogleProvider(api_key=mock_google_api_key)
+
+        with pytest.raises(LLMProviderError):
+            await provider.generate_structured_completion_async(
+                sample_prompt, sample_json_schema
+            )
+
+    @pytest.mark.asyncio
+    @patch("app.providers.google_provider.genai.Client")
+    async def test_cleanup(self, mock_client_class, mock_google_api_key):
         """Test cleanup method closes client."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
-        provider = GoogleProvider(api_key=mock_openai_api_key)
+        provider = GoogleProvider(api_key=mock_google_api_key)
         await provider.cleanup()
 
         mock_client.close.assert_called_once()
+
+
+class TestGoogleModelParsing:
+    """Tests for the Google model name parsing helper."""
+
+    def test_parse_gemini_model_with_prefix(self):
+        """Test parsing a model name with the 'models/' prefix."""
+        assert _parse_google_model_name("models/gemini-2.5-pro") == "gemini-2.5-pro"
+
+    def test_parse_gemini_model_without_prefix(self):
+        """Test parsing a Gemini model name without 'models/' prefix."""
+        assert (
+            _parse_google_model_name("gemini-3-pro-preview") == "gemini-3-pro-preview"
+        )
+
+    def test_parse_non_gemini_model(self):
+        """Test that non-Gemini models return None."""
+        assert _parse_google_model_name("models/text-bison-001") is None
+
+    def test_parse_none(self):
+        """Test that None input returns None."""
+        assert _parse_google_model_name(None) is None
+
+    def test_parse_empty_string(self):
+        """Test that empty string returns None (not a Gemini model)."""
+        assert _parse_google_model_name("") is None
+
+
+class TestPreviewModelIdentifiers:
+    """Tests for preview model identification.
+
+    Uses pattern matching instead of exact model names for resilience
+    against model list updates.
+    """
+
+    @patch("app.providers.google_provider.genai.Client")
+    def test_preview_models_present(self, mock_client_class, mock_google_api_key):
+        """Verify at least one preview model exists in the static list."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        provider = GoogleProvider(api_key=mock_google_api_key)
+        models = provider.get_available_models()
+        preview_models = [m for m in models if m.endswith("-preview")]
+
+        assert (
+            len(preview_models) > 0
+        ), f"Expected at least one preview model, got: {models}"
+
+    @patch("app.providers.google_provider.genai.Client")
+    def test_preview_models_follow_naming_convention(
+        self, mock_client_class, mock_google_api_key
+    ):
+        """Verify preview models follow the gemini-N-variant-preview pattern."""
+        import re
+
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        provider = GoogleProvider(api_key=mock_google_api_key)
+        models = provider.get_available_models()
+        preview_models = [m for m in models if m.endswith("-preview")]
+
+        for model in preview_models:
+            assert re.match(r"gemini-\d+-\w+-preview", model), (
+                f"Preview model '{model}' doesn't match expected pattern "
+                f"'gemini-N-variant-preview'"
+            )

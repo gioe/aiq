@@ -69,6 +69,18 @@ def mock_json_response() -> dict:
 
 
 @pytest.fixture
+def mock_anthropic_api_key() -> str:
+    """Fixture providing a mock Anthropic API key for testing."""
+    return "sk-ant-test-mock-api-key-12345"
+
+
+@pytest.fixture
+def mock_google_api_key() -> str:
+    """Fixture providing a mock Google API key for testing."""
+    return "google-test-mock-api-key-12345"
+
+
+@pytest.fixture
 def mock_xai_api_key() -> str:
     """Fixture providing a mock xAI API key for testing."""
     return "xai-test-mock-api-key-12345"
