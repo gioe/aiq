@@ -23,6 +23,7 @@ import logging
 from typing import Optional
 
 from app.core.config import settings
+from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND
 from app.models.models import DifficultyLevel, QuestionType
 from libs.observability import observability
 
@@ -336,6 +337,40 @@ class ApplicationMetrics:
             )
         except Exception as e:
             logger.debug(f"Failed to record test abandoned metric: {e}")
+
+    def record_iq_score(
+        self,
+        score: float,
+        adaptive: bool = False,
+    ) -> None:
+        """
+        Record an IQ score as a histogram for distribution analysis.
+
+        Args:
+            score: The calculated IQ score
+            adaptive: Whether this was from an adaptive (CAT) test
+        """
+        if not self._initialized:
+            return
+
+        if score < IQ_CI_LOWER_BOUND or score > IQ_CI_UPPER_BOUND:
+            logger.warning(
+                f"IQ score {score} outside expected range "
+                f"[{IQ_CI_LOWER_BOUND}, {IQ_CI_UPPER_BOUND}]"
+            )
+
+        try:
+            observability.record_metric(
+                name="test.iq_score",
+                value=score,
+                labels={
+                    "test.adaptive": str(adaptive).lower(),
+                },
+                metric_type="histogram",
+                unit="1",
+            )
+        except Exception as e:
+            logger.debug(f"Failed to record IQ score metric: {e}")
 
     def record_questions_generated(
         self,
