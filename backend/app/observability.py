@@ -480,6 +480,31 @@ class ApplicationMetrics:
         except Exception as e:
             logger.debug(f"Failed to record questions served metric: {e}")
 
+    def record_notification(self, success: bool, notification_type: str) -> None:
+        """
+        Record an APNs notification delivery attempt.
+
+        Args:
+            success: Whether the notification was delivered successfully
+            notification_type: Type of notification (e.g. "test_reminder", "logout_all")
+        """
+        if not self._initialized:
+            return
+
+        try:
+            observability.record_metric(
+                name="notifications.apns",
+                value=1,
+                labels={
+                    "notification.success": str(success).lower(),
+                    "notification.type": notification_type,
+                },
+                metric_type="counter",
+                unit="1",
+            )
+        except Exception as e:
+            logger.debug(f"Failed to record notification metric: {e}")
+
     def record_user_registration(self) -> None:
         """
         Record a new user registration.

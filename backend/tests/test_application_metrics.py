@@ -185,3 +185,51 @@ class TestRecordIqScore:
             m.record_iq_score(score=100.0, adaptive=False)
 
             mock_obs.record_metric.assert_not_called()
+
+
+class TestRecordNotification:
+    """Unit tests for record_notification()."""
+
+    def test_emits_counter_with_success_true(self, initialized_metrics):
+        """record_notification(success=True) emits notifications.apns counter."""
+        with patch("app.observability.observability") as mock_obs:
+            initialized_metrics.record_notification(
+                success=True, notification_type="test_reminder"
+            )
+
+            mock_obs.record_metric.assert_called_once_with(
+                name="notifications.apns",
+                value=1,
+                labels={
+                    "notification.success": "true",
+                    "notification.type": "test_reminder",
+                },
+                metric_type="counter",
+                unit="1",
+            )
+
+    def test_emits_counter_with_success_false(self, initialized_metrics):
+        """record_notification(success=False) emits notifications.apns counter."""
+        with patch("app.observability.observability") as mock_obs:
+            initialized_metrics.record_notification(
+                success=False, notification_type="logout_all"
+            )
+
+            mock_obs.record_metric.assert_called_once_with(
+                name="notifications.apns",
+                value=1,
+                labels={
+                    "notification.success": "false",
+                    "notification.type": "logout_all",
+                },
+                metric_type="counter",
+                unit="1",
+            )
+
+    def test_noop_when_not_initialized(self):
+        """No metrics emitted when ApplicationMetrics is not initialized."""
+        m = ApplicationMetrics()
+        with patch("app.observability.observability") as mock_obs:
+            m.record_notification(success=True, notification_type="test_reminder")
+
+            mock_obs.record_metric.assert_not_called()
