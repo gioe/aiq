@@ -82,6 +82,7 @@ from app.core.validity_analysis import (
 from app.core.graceful_failure import graceful_failure
 from app.core.cat.engine import CATSession, CATSessionManager
 from app.core.cat.item_selection import select_next_item
+from app.observability import metrics
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -544,6 +545,8 @@ def start_test(
             session_id=test_session.id,
             question_count=1,
         )
+        metrics.record_test_started(adaptive=True, question_count=1)
+        metrics.record_questions_served(count=1, adaptive=True)
 
         # Convert question to response format
         questions_response = [
@@ -628,6 +631,10 @@ def start_test(
             session_id=test_session.id,
             question_count=len(unseen_questions),
         )
+        metrics.record_test_started(
+            adaptive=False, question_count=len(unseen_questions)
+        )
+        metrics.record_questions_served(count=len(unseen_questions), adaptive=False)
 
         # Convert questions to response format
         questions_response = [
@@ -719,6 +726,11 @@ def _finalize_adaptive_session(
         accuracy=(cat_result.correct_count / cat_result.items_administered * 100.0)
         if cat_result.items_administered > 0
         else 0.0,
+    )
+    metrics.record_test_completed(
+        adaptive=True,
+        question_count=cat_result.items_administered,
+        duration_seconds=float(completion_time_seconds),
     )
     invalidate_user_cache(user_id)
     invalidate_reliability_report_cache()
@@ -944,6 +956,8 @@ def submit_adaptive_response(
     except IntegrityError:
         db.rollback()
         raise_conflict(ErrorMessages.duplicate_response(request.question_id))
+
+    metrics.record_questions_served(count=1, adaptive=True)
 
     next_question_response = question_to_response(
         next_question, include_explanation=False
@@ -1182,6 +1196,10 @@ def abandon_test(
         user_id=current_user.id,
         session_id=session_id,
         answered_count=responses_saved,
+    )
+    metrics.record_test_abandoned(
+        adaptive=bool(test_session.is_adaptive),
+        questions_answered=responses_saved,
     )
 
     return TestSessionAbandonResponse(
@@ -1850,6 +1868,11 @@ def submit_test(
         iq_score=score_result.iq_score,
         duration_seconds=completion_time_seconds,
         accuracy=score_result.accuracy_percentage,
+    )
+    metrics.record_test_completed(
+        adaptive=bool(test_session.is_adaptive),
+        question_count=response_count,
+        duration_seconds=float(completion_time_seconds),
     )
     invalidate_user_cache(user_id)
     invalidate_reliability_report_cache()

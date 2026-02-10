@@ -34,6 +34,7 @@ from app.schemas.generation_runs import (
     QuestionGenerationRunSummary,
 )
 
+from app.observability import metrics as app_metrics
 from ._dependencies import verify_admin_token, verify_service_key
 
 router = APIRouter()
@@ -603,6 +604,35 @@ async def create_generation_run(
         db.add(db_run)
         db.commit()
         db.refresh(db_run)
+
+        # Record business metrics for questions generated
+        if run_data.type_metrics and run_data.difficulty_metrics:
+            # Cross-product is not available; record per (type, difficulty) by
+            # distributing each type's count proportionally across difficulties.
+            # Rounding may cause the sum to differ slightly from the original
+            # type_count, which is acceptable for observability metrics.
+            total_by_difficulty = sum(run_data.difficulty_metrics.values())
+            if total_by_difficulty > 0:
+                for q_type, type_count in run_data.type_metrics.items():
+                    if type_count <= 0:
+                        continue
+                    for difficulty, diff_count in run_data.difficulty_metrics.items():
+                        proportion = diff_count / total_by_difficulty
+                        estimated = round(type_count * proportion)
+                        if estimated > 0:
+                            app_metrics.record_questions_generated(
+                                count=estimated,
+                                question_type=q_type,
+                                difficulty=difficulty,
+                            )
+        elif run_data.type_metrics:
+            for q_type, count in run_data.type_metrics.items():
+                if count > 0:
+                    app_metrics.record_questions_generated(
+                        count=count,
+                        question_type=q_type,
+                        difficulty="medium",
+                    )
 
         return QuestionGenerationRunCreateResponse(
             id=int(db_run.id),
