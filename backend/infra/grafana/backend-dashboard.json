@@ -46,7 +46,7 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "rate(http_server_request_duration_seconds_count[$__rate_interval])",
+          "expr": "rate(http_server_request_duration_count[$__rate_interval])",
           "legendFormat": "{{http_route}} {{http_method}} {{http_status_code}}"
         }
       ],
@@ -74,15 +74,15 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(http_server_request_duration_seconds_bucket[$__rate_interval]))",
+          "expr": "histogram_quantile(0.50, rate(http_server_request_duration_bucket[$__rate_interval]))",
           "legendFormat": "p50"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(http_server_request_duration_seconds_bucket[$__rate_interval]))",
+          "expr": "histogram_quantile(0.95, rate(http_server_request_duration_bucket[$__rate_interval]))",
           "legendFormat": "p95"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(http_server_request_duration_seconds_bucket[$__rate_interval]))",
+          "expr": "histogram_quantile(0.99, rate(http_server_request_duration_bucket[$__rate_interval]))",
           "legendFormat": "p99"
         }
       ],
@@ -112,7 +112,7 @@
       },
       "targets": [
         {
-          "expr": "increase(http_server_request_duration_seconds_count{http_status_code=~\"5..\"}[$__range])",
+          "expr": "increase(http_server_request_duration_count{http_status_code=~\"5..\"}[$__range])",
           "legendFormat": "5xx Errors"
         }
       ],
@@ -147,15 +147,15 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(db_query_duration_seconds_bucket[$__rate_interval]))",
+          "expr": "histogram_quantile(0.50, sum by (le, db_table) (rate(db_query_duration_bucket[$__rate_interval])))",
           "legendFormat": "p50 {{db_table}}"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[$__rate_interval]))",
+          "expr": "histogram_quantile(0.95, sum by (le, db_table) (rate(db_query_duration_bucket[$__rate_interval])))",
           "legendFormat": "p95 {{db_table}}"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(db_query_duration_seconds_bucket[$__rate_interval]))",
+          "expr": "histogram_quantile(0.99, sum by (le, db_table) (rate(db_query_duration_bucket[$__rate_interval])))",
           "legendFormat": "p99 {{db_table}}"
         }
       ],
@@ -180,7 +180,7 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "increase(db_query_duration_seconds_count[$__range])",
+          "expr": "increase(db_query_duration_count[$__range])",
           "legendFormat": "{{db_operation}} ({{db_table}})"
         }
       ],
@@ -243,15 +243,15 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "increase(test_sessions_started_total[$__range])",
+          "expr": "increase(test_sessions_started[$__range])",
           "legendFormat": "Started"
         },
         {
-          "expr": "increase(test_sessions_completed_total[$__range])",
+          "expr": "increase(test_sessions_completed[$__range])",
           "legendFormat": "Completed"
         },
         {
-          "expr": "increase(test_sessions_abandoned_total[$__range])",
+          "expr": "increase(test_sessions_abandoned[$__range])",
           "legendFormat": "Abandoned"
         }
       ],
@@ -282,7 +282,7 @@
       },
       "targets": [
         {
-          "expr": "increase(test_sessions_abandoned_total[$__range]) / (increase(test_sessions_completed_total[$__range]) + increase(test_sessions_abandoned_total[$__range]))",
+          "expr": "increase(test_sessions_abandoned[$__range]) / (increase(test_sessions_completed[$__range]) + increase(test_sessions_abandoned[$__range])) and (increase(test_sessions_completed[$__range]) + increase(test_sessions_abandoned[$__range])) > 0",
           "legendFormat": "Abandonment Rate"
         }
       ],
@@ -310,11 +310,11 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(test_sessions_duration_seconds_bucket[$__rate_interval]))",
+          "expr": "histogram_quantile(0.50, rate(test_sessions_duration_bucket[$__rate_interval]))",
           "legendFormat": "p50"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(test_sessions_duration_seconds_bucket[$__rate_interval]))",
+          "expr": "histogram_quantile(0.95, rate(test_sessions_duration_bucket[$__rate_interval]))",
           "legendFormat": "p95"
         }
       ],
@@ -421,7 +421,7 @@
       },
       "targets": [
         {
-          "expr": "increase(users_registrations_total[$__range])",
+          "expr": "increase(users_registrations[$__range])",
           "legendFormat": "Registrations"
         }
       ],
@@ -452,7 +452,7 @@
       },
       "targets": [
         {
-          "expr": "increase(auth_login_total{auth_success=\"true\"}[$__range]) / increase(auth_login_total[$__range])",
+          "expr": "increase(auth_login{auth_success=\"true\"}[$__range]) / increase(auth_login[$__range]) and increase(auth_login[$__range]) > 0",
           "legendFormat": "Login Success Rate"
         }
       ],
@@ -477,11 +477,11 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "increase(auth_login_total{auth_success=\"true\"}[$__range])",
+          "expr": "increase(auth_login{auth_success=\"true\"}[$__range])",
           "legendFormat": "Success"
         },
         {
-          "expr": "increase(auth_login_total{auth_success=\"false\"}[$__range])",
+          "expr": "increase(auth_login{auth_success=\"false\"}[$__range])",
           "legendFormat": "Failure"
         }
       ],
@@ -513,7 +513,7 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "increase(questions_generated_total[$__range])",
+          "expr": "increase(questions_generated[$__range])",
           "legendFormat": "{{question_type}} ({{question_difficulty}})"
         }
       ],
@@ -542,7 +542,7 @@
       },
       "targets": [
         {
-          "expr": "increase(questions_served_total[$__range])",
+          "expr": "increase(questions_served[$__range])",
           "legendFormat": "Served"
         }
       ],
@@ -574,11 +574,11 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "increase(notifications_apns_total{notification_success=\"true\"}[$__range])",
+          "expr": "increase(notifications_apns{notification_success=\"true\"}[$__range])",
           "legendFormat": "Success ({{notification_type}})"
         },
         {
-          "expr": "increase(notifications_apns_total{notification_success=\"false\"}[$__range])",
+          "expr": "increase(notifications_apns{notification_success=\"false\"}[$__range])",
           "legendFormat": "Failure ({{notification_type}})"
         }
       ],
@@ -609,7 +609,7 @@
       },
       "targets": [
         {
-          "expr": "increase(notifications_apns_total{notification_success=\"true\"}[$__range]) / increase(notifications_apns_total[$__range])",
+          "expr": "increase(notifications_apns{notification_success=\"true\"}[$__range]) / increase(notifications_apns[$__range]) and increase(notifications_apns[$__range]) > 0",
           "legendFormat": "APNs Success Rate"
         }
       ],
@@ -641,7 +641,7 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "increase(app_errors_total[$__range])",
+          "expr": "increase(app_errors[$__range])",
           "legendFormat": "{{error_type}}"
         }
       ],
@@ -672,7 +672,7 @@
       },
       "targets": [
         {
-          "expr": "increase(app_errors_total[$__range])",
+          "expr": "increase(app_errors[$__range])",
           "legendFormat": "Total Errors"
         }
       ],
