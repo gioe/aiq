@@ -652,6 +652,84 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
         XCTAssertEqual(router.depth(in: .history), 1, "history navigation should be preserved")
     }
 
+    // MARK: - Race Condition and Concurrent Processing Tests
+
+    /// Test that defer block resets flag even when navigation fails
+    func testProcessingFlag_ResetsOnNavigationFailure() async {
+        // Given - mock handler configured to fail
+        mockDeepLinkHandler.handleNavigationResult = false
+
+        // When - first navigation fails
+        let result1 = await sut.navigate(to: .testResults(id: 123), source: .pushNotification, originalURL: "aiq://test/results/123")
+
+        // Then - should return failed
+        XCTAssertEqual(result1, .failed(.testResults(id: 123)), "first navigation should fail")
+
+        // When - second navigation attempt (flag should be reset from defer)
+        mockDeepLinkHandler.handleNavigationResult = true
+        let result2 = await sut.navigate(to: .settings)
+
+        // Then - second should succeed (flag was reset by defer block)
+        XCTAssertEqual(result2, .navigated(tab: .settings), "second navigation should succeed after failed first")
+    }
+
+    /// Test that defer block resets flag even when invalid deep link
+    func testProcessingFlag_ResetsAfterInvalidDeepLink() async {
+        // Given - invalid deep link
+        let result1 = await sut.navigate(to: .invalid)
+
+        // Then - should return invalid
+        XCTAssertEqual(result1, .invalid, "invalid deep link should return .invalid")
+
+        // When - valid deep link follows
+        let result2 = await sut.navigate(to: .settings)
+
+        // Then - should process successfully (flag reset by defer)
+        XCTAssertEqual(result2, .navigated(tab: .settings), "should process after invalid deep link")
+    }
+
+    /// Test that defer block resets flag for all navigation paths
+    func testProcessingFlag_ResetsForAllNavigationPaths() async {
+        // Test 1: Settings path
+        let settingsResult = await sut.navigate(to: .settings)
+        XCTAssertEqual(settingsResult, .navigated(tab: .settings), "settings should navigate")
+
+        // Test 2: Test results path (with success)
+        mockDeepLinkHandler.handleNavigationResult = true
+        let testResultsSuccess = await sut.navigate(to: .testResults(id: 123), source: .pushNotification, originalURL: "aiq://test/results/123")
+        XCTAssertEqual(testResultsSuccess, .navigated(tab: .dashboard), "test results should navigate")
+
+        // Test 3: Test results path (with failure)
+        mockDeepLinkHandler.handleNavigationResult = false
+        let testResultsFailure = await sut.navigate(to: .testResults(id: 456), source: .pushNotification, originalURL: "aiq://test/results/456")
+        XCTAssertEqual(testResultsFailure, .failed(.testResults(id: 456)), "test results should fail")
+
+        // Test 4: Resume test path
+        mockDeepLinkHandler.handleNavigationResult = true
+        let resumeResult = await sut.navigate(to: .resumeTest(sessionId: 789), source: .pushNotification, originalURL: "aiq://test/resume/789")
+        XCTAssertEqual(resumeResult, .navigated(tab: .dashboard), "resume test should navigate")
+
+        // Test 5: Invalid path
+        let invalidResult = await sut.navigate(to: .invalid)
+        XCTAssertEqual(invalidResult, .invalid, "invalid should return .invalid")
+
+        // Final test: Verify flag was reset after all paths by successfully navigating again
+        let finalResult = await sut.navigate(to: .settings)
+        XCTAssertEqual(finalResult, .navigated(tab: .settings), "flag should be reset after all navigation paths")
+    }
+
+    /// Test that subsequent deep links process normally after first completes
+    func testProcessingFlag_SubsequentLinksProcessNormally() async {
+        // When - process multiple deep links sequentially
+        for iteration in 1 ... 5 {
+            let result = await sut.navigate(to: .settings, source: .unknown, originalURL: "iteration-\(iteration)")
+
+            // Then - each should succeed (flag properly reset)
+            XCTAssertEqual(result, .navigated(tab: .settings), "iteration \(iteration) should succeed")
+            XCTAssertEqual(selectedTab, .settings, "tab should be settings for iteration \(iteration)")
+        }
+    }
+
     // MARK: - DeepLinkNavigationResult Equatable Tests
 
     /// Test that DeepLinkNavigationResult equality works correctly

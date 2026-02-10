@@ -640,6 +640,149 @@ final class AppRouterTests: XCTestCase {
         XCTAssertEqual(sut.depth, 2, "Dashboard should still have 2 routes")
     }
 
+    // MARK: - Route Equality Exhaustive Tests
+
+    /// Test that every Route case is handled correctly in equality comparison
+    ///
+    /// This test acts as a compile-time guard. If a new route case is added to the Route enum,
+    /// this test will need to be updated, ensuring all cases are explicitly tested for equality.
+    func testRouteEquality_AllCases_ExplicitlyTested() {
+        // Given - Create instances of every route case
+        let mockSubmittedResult = createMockSubmittedTestResult()
+        let mockTestResult = createMockTestResult()
+
+        let welcome1 = Route.welcome
+        let welcome2 = Route.welcome
+        let registration1 = Route.registration
+        let registration2 = Route.registration
+        let testTakingNoSession1 = Route.testTaking()
+        let testTakingNoSession2 = Route.testTaking()
+        let testTakingWithSession1 = Route.testTaking(sessionId: 123)
+        let testTakingWithSession2 = Route.testTaking(sessionId: 123)
+        let testTakingDifferentSession = Route.testTaking(sessionId: 456)
+        let adaptiveTestTaking1 = Route.adaptiveTestTaking
+        let adaptiveTestTaking2 = Route.adaptiveTestTaking
+        let testResults1 = Route.testResults(result: mockSubmittedResult, isFirstTest: false)
+        let testResults2 = Route.testResults(result: mockSubmittedResult, isFirstTest: false)
+        let testResultsFirstTest = Route.testResults(result: mockSubmittedResult, isFirstTest: true)
+        let testDetail1 = Route.testDetail(result: mockTestResult, userAverage: 110)
+        let testDetail2 = Route.testDetail(result: mockTestResult, userAverage: 110)
+        let testDetailDifferentAvg = Route.testDetail(result: mockTestResult, userAverage: 105)
+        let notificationSettings1 = Route.notificationSettings
+        let notificationSettings2 = Route.notificationSettings
+        let help1 = Route.help
+        let help2 = Route.help
+        let feedback1 = Route.feedback
+        let feedback2 = Route.feedback
+
+        // Then - Test equality for identical routes
+        XCTAssertEqual(welcome1, welcome2, "welcome routes should be equal")
+        XCTAssertEqual(registration1, registration2, "registration routes should be equal")
+        XCTAssertEqual(testTakingNoSession1, testTakingNoSession2, "testTaking without sessionId should be equal")
+        XCTAssertEqual(testTakingWithSession1, testTakingWithSession2, "testTaking with same sessionId should be equal")
+        XCTAssertEqual(adaptiveTestTaking1, adaptiveTestTaking2, "adaptiveTestTaking routes should be equal")
+        XCTAssertEqual(testResults1, testResults2, "testResults with same data should be equal")
+        XCTAssertEqual(testDetail1, testDetail2, "testDetail with same data should be equal")
+        XCTAssertEqual(notificationSettings1, notificationSettings2, "notificationSettings routes should be equal")
+        XCTAssertEqual(help1, help2, "help routes should be equal")
+        XCTAssertEqual(feedback1, feedback2, "feedback routes should be equal")
+
+        // Then - Test inequality for different routes of same type
+        XCTAssertNotEqual(testTakingNoSession1, testTakingWithSession1, "testTaking with/without sessionId should differ")
+        XCTAssertNotEqual(testTakingWithSession1, testTakingDifferentSession, "testTaking with different sessionId should differ")
+        XCTAssertNotEqual(testResults1, testResultsFirstTest, "testResults with different isFirstTest should differ")
+        XCTAssertNotEqual(testDetail1, testDetailDifferentAvg, "testDetail with different userAverage should differ")
+
+        // Then - Test inequality across different route types (sampling to keep test maintainable)
+        XCTAssertNotEqual(welcome1, registration1, "different route types should not be equal")
+        XCTAssertNotEqual(testTakingNoSession1, adaptiveTestTaking1, "testTaking and adaptiveTestTaking should differ")
+        XCTAssertNotEqual(testResults1, testDetail1, "testResults and testDetail should differ")
+        XCTAssertNotEqual(notificationSettings1, help1, "notificationSettings and help should differ")
+        XCTAssertNotEqual(help1, feedback1, "help and feedback should differ")
+    }
+
+    /// Test that all Route cases can be pushed to and popped from router correctly
+    func testAllRouteCases_CanBePushedAndPopped() {
+        // Given - Router on dashboard
+        sut.currentTab = .dashboard
+
+        let mockSubmittedResult = createMockSubmittedTestResult()
+        let mockTestResult = createMockTestResult()
+
+        // Define all route cases to test
+        let allRoutes: [Route] = [
+            .welcome,
+            .registration,
+            .testTaking(),
+            .testTaking(sessionId: 123),
+            .adaptiveTestTaking,
+            .testResults(result: mockSubmittedResult, isFirstTest: false),
+            .testDetail(result: mockTestResult, userAverage: 110),
+            .notificationSettings,
+            .help,
+            .feedback
+        ]
+
+        // When/Then - Push each route and verify depth increases
+        for (index, route) in allRoutes.enumerated() {
+            sut.push(route, in: .dashboard)
+            XCTAssertEqual(sut.depth(in: .dashboard), index + 1, "depth should increase after pushing \(route)")
+        }
+
+        // When/Then - Pop all routes and verify depth decreases
+        for (index, _) in allRoutes.enumerated().reversed() {
+            XCTAssertEqual(sut.depth(in: .dashboard), index + 1, "depth should be \(index + 1) before pop")
+            sut.pop(from: .dashboard)
+        }
+
+        // Then - Should be back at root
+        XCTAssertTrue(sut.isAtRoot(in: .dashboard), "should be at root after popping all routes")
+    }
+
+    /// Test that navigateTo replaces stack correctly for each route type
+    func testNavigateTo_ReplacesStackCorrectly_ForAllRouteTypes() {
+        // Given - Router with existing navigation
+        sut.currentTab = .dashboard
+        sut.push(.help, in: .dashboard)
+        sut.push(.feedback, in: .dashboard)
+        XCTAssertEqual(sut.depth(in: .dashboard), 2, "setup: should have 2 routes")
+
+        let mockSubmittedResult = createMockSubmittedTestResult()
+        let mockTestResult = createMockTestResult()
+
+        // Define test cases: each route type to navigate to
+        let navigationTestCases: [(route: Route, description: String)] = [
+            (.welcome, "welcome"),
+            (.registration, "registration"),
+            (.testTaking(), "testTaking without sessionId"),
+            (.testTaking(sessionId: 999), "testTaking with sessionId"),
+            (.adaptiveTestTaking, "adaptiveTestTaking"),
+            (.testResults(result: mockSubmittedResult, isFirstTest: true), "testResults"),
+            (.testDetail(result: mockTestResult, userAverage: 100), "testDetail"),
+            (.notificationSettings, "notificationSettings"),
+            (.help, "help"),
+            (.feedback, "feedback")
+        ]
+
+        // When/Then - Test navigateTo for each route type
+        for testCase in navigationTestCases {
+            // Reset to initial state with 2 routes
+            sut.popToRoot(in: .dashboard)
+            sut.push(.help, in: .dashboard)
+            sut.push(.feedback, in: .dashboard)
+
+            // Navigate to the route (should replace stack)
+            sut.navigateTo(testCase.route, in: .dashboard)
+
+            // Verify stack was replaced (should have 1 route)
+            XCTAssertEqual(
+                sut.depth(in: .dashboard),
+                1,
+                "navigateTo(\(testCase.description)) should replace stack with 1 route"
+            )
+        }
+    }
+
     // MARK: - Helper Methods
 
     /// Create a mock SubmittedTestResult for testing

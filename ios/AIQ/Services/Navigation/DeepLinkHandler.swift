@@ -168,6 +168,26 @@ protocol DeepLinkHandlerProtocol {
 /// but logs a warning. This lenient behavior allows forward compatibility while alerting
 /// developers to potentially malformed links.
 ///
+/// ## Settings Route Leniency
+/// The settings route exhibits special lenient parsing behavior:
+/// - Base URL: `aiq://settings` or `https://aiq.app/settings` parses as `.settings`
+/// - Extra components: `aiq://settings/notifications` also parses as `.settings`
+/// - Extra components are logged as warnings and tracked via analytics
+///   (error type: `malformed_settings_extra_components`)
+///
+/// **Rationale:**
+/// - Enables forward compatibility if we later introduce settings
+///   sub-paths (e.g., `settings/notifications`, `settings/privacy`)
+/// - Prevents user-facing errors from stale or malformed deep links
+/// - Analytics tracking helps identify if users are receiving incorrect link formats
+/// - Tab-level navigation: Settings navigation is handled by switching
+///   tabs, not pushing routes, so sub-path routing is not yet implemented
+///
+/// **Future Enhancement:**
+/// If sub-path routing is needed (e.g., to deep link directly to notification settings), the parser can be
+/// extended to recognize specific patterns like `settings/notifications` → `.notificationSettings` without
+/// breaking existing behavior.
+///
 /// Usage:
 /// ```swift
 /// let handler = DeepLinkHandler()
@@ -373,6 +393,15 @@ struct DeepLinkHandler: DeepLinkHandlerProtocol {
                 Deep link has extra path components that will be ignored: \
                 \(pathComponents, privacy: .auto) in URL: \(originalURL, privacy: .auto)
                 """
+            )
+
+            // Track analytics for malformed settings deep links
+            // This helps identify if users are receiving incorrect deep link formats
+            // or if we need to support additional settings sub-paths in the future
+            analyticsService.trackDeepLinkNavigationFailed(
+                errorType: "malformed_settings_extra_components",
+                source: "unknown",
+                url: originalURL.absoluteString
             )
         }
         return .settings
