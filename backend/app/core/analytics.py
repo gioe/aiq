@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.models import (
+    NotificationType,
     Response,
     TestSession,
     TestStatus,
@@ -230,7 +231,7 @@ class AnalyticsTracker:
 
     @staticmethod
     def track_notification_sent(
-        notification_type: str,
+        notification_type: NotificationType,
         user_id: Optional[int] = None,
         device_token_prefix: Optional[str] = None,
     ) -> None:
@@ -246,7 +247,7 @@ class AnalyticsTracker:
 
     @staticmethod
     def track_notification_failed(
-        notification_type: str,
+        notification_type: NotificationType,
         error: Optional[str] = None,
         error_type: Optional[str] = None,
         user_id: Optional[int] = None,

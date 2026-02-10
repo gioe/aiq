@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.models.models import NotificationType
 from app.observability import ApplicationMetrics
 
 
@@ -194,7 +195,7 @@ class TestRecordNotification:
         """record_notification(success=True) emits notifications.apns counter."""
         with patch("app.observability.observability") as mock_obs:
             initialized_metrics.record_notification(
-                success=True, notification_type="test_reminder"
+                success=True, notification_type=NotificationType.TEST_REMINDER
             )
 
             mock_obs.record_metric.assert_called_once_with(
@@ -212,7 +213,7 @@ class TestRecordNotification:
         """record_notification(success=False) emits notifications.apns counter."""
         with patch("app.observability.observability") as mock_obs:
             initialized_metrics.record_notification(
-                success=False, notification_type="logout_all"
+                success=False, notification_type=NotificationType.LOGOUT_ALL
             )
 
             mock_obs.record_metric.assert_called_once_with(
@@ -230,12 +231,19 @@ class TestRecordNotification:
         """No metrics emitted when ApplicationMetrics is not initialized."""
         m = ApplicationMetrics()
         with patch("app.observability.observability") as mock_obs:
-            m.record_notification(success=True, notification_type="test_reminder")
+            m.record_notification(
+                success=True, notification_type=NotificationType.TEST_REMINDER
+            )
 
             mock_obs.record_metric.assert_not_called()
 
     @pytest.mark.parametrize(
-        "notification_type", ["test_reminder", "day_30_reminder", "logout_all"]
+        "notification_type",
+        [
+            NotificationType.TEST_REMINDER,
+            NotificationType.DAY_30_REMINDER,
+            NotificationType.LOGOUT_ALL,
+        ],
     )
     def test_valid_notification_types_accepted(
         self, initialized_metrics, notification_type
@@ -247,23 +255,3 @@ class TestRecordNotification:
             )
 
             mock_obs.record_metric.assert_called_once()
-
-    def test_invalid_notification_type_skipped(self, initialized_metrics):
-        """Invalid notification_type logs warning and skips metric."""
-        with patch("app.observability.observability") as mock_obs:
-            initialized_metrics.record_notification(
-                success=True, notification_type="invalid_type"
-            )
-
-            mock_obs.record_metric.assert_not_called()
-
-    def test_notification_type_normalized_to_lowercase(self, initialized_metrics):
-        """Notification type is normalized to lowercase before validation."""
-        with patch("app.observability.observability") as mock_obs:
-            initialized_metrics.record_notification(
-                success=True, notification_type="TEST_REMINDER"
-            )
-
-            mock_obs.record_metric.assert_called_once()
-            labels = mock_obs.record_metric.call_args.kwargs["labels"]
-            assert labels["notification.type"] == "test_reminder"
