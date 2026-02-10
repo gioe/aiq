@@ -13,6 +13,12 @@ pip install -r requirements.txt
 alembic upgrade head
 ```
 
+> **Important:** The backend imports shared libraries from `libs/`. Ensure `PYTHONPATH` includes the repo root:
+> ```bash
+> export PYTHONPATH="${PYTHONPATH}:$(cd .. && pwd)"
+> ```
+> In the Docker container, this is handled automatically (`PYTHONPATH=/app:/app/backend`).
+
 > **Note:** Rate limiting is enabled by default. During local development, you may want to set `RATE_LIMIT_ENABLED=False` in your `.env` file to avoid hitting limits (e.g., 5 login attempts per 5 minutes).
 
 Start the server:

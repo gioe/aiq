@@ -216,6 +216,12 @@ class SpanContext:
         Events are time-stamped annotations that can include attributes.
         Use them to record significant occurrences during the span's lifetime.
 
+        Note:
+            Events are only recorded to the OTEL span. Sentry does not have an equivalent
+            span event API, so add_event() calls are not forwarded to Sentry. If you need
+            to record significant events for Sentry, use observability.capture_message()
+            or observability.record_event() instead.
+
         Args:
             name: The event name (e.g., "cache_hit", "retry_attempt").
             attributes: Optional attributes to attach to the event.
@@ -662,6 +668,14 @@ class ObservabilityFacade:
                 Use low-cardinality values (e.g., endpoint names, not user IDs).
             fingerprint: Custom grouping fingerprint. Override Sentry's automatic
                 error grouping when needed.
+
+        Note:
+            The following context keys are reserved and auto-injected:
+            - "service": dict with name, version, and environment from config
+            - "trace": dict with trace_id and span_id from the active OTEL span
+            User-provided context is merged with these reserved keys. If you
+            provide "service" or "trace" keys, they will overwrite the auto-injected
+            values.
 
         Returns:
             Event ID if captured, None if skipped (not initialized, backend

@@ -101,7 +101,9 @@ class TestBackendObservabilityConfig:
             config = load_config(config_path=backend_config_path)
 
             assert config.otel.metrics_enabled is True
-            assert config.otel.traces_enabled is True
+            assert (
+                config.otel.traces_enabled is False
+            )  # Traces routed to Sentry, not OTLP
             assert config.otel.prometheus_enabled is True
             assert config.otel.insecure is False
 

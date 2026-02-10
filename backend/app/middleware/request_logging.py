@@ -131,17 +131,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 else:
                     span.set_status("ok")
 
-                # Record request count metric
-                observability.record_metric(
-                    "http.server.request_count",
-                    value=1,
-                    labels={
-                        "http.method": method,
-                        "http.route": route_path,
-                        "http.status_code": str(status_code),
-                    },
-                    metric_type="counter",
-                )
+                # Note: http.server.requests metric is recorded by PerformanceMonitoringMiddleware
+                # to avoid double-counting. This middleware focuses on logging and span management.
 
                 # Log response with structured fields
                 extra_fields = {
