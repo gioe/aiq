@@ -23,6 +23,7 @@ import logging
 from typing import Optional
 
 from app.core.config import settings
+from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND
 from app.models.models import DifficultyLevel, QuestionType
 from libs.observability import observability
 
@@ -34,10 +35,6 @@ MAX_EXPECTED_TEST_DURATION_SECONDS = 86400
 # Valid question types and difficulty levels for metrics
 VALID_QUESTION_TYPES = {e.value for e in QuestionType}
 VALID_DIFFICULTY_LEVELS = {e.value for e in DifficultyLevel}
-
-# IQ score bounds (from app.core.scoring)
-IQ_SCORE_LOWER_BOUND = 40
-IQ_SCORE_UPPER_BOUND = 160
 
 
 class ApplicationMetrics:
@@ -356,10 +353,10 @@ class ApplicationMetrics:
         if not self._initialized:
             return
 
-        if score < IQ_SCORE_LOWER_BOUND or score > IQ_SCORE_UPPER_BOUND:
+        if score < IQ_CI_LOWER_BOUND or score > IQ_CI_UPPER_BOUND:
             logger.warning(
                 f"IQ score {score} outside expected range "
-                f"[{IQ_SCORE_LOWER_BOUND}, {IQ_SCORE_UPPER_BOUND}]"
+                f"[{IQ_CI_LOWER_BOUND}, {IQ_CI_UPPER_BOUND}]"
             )
 
         try:
