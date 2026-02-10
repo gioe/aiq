@@ -1706,6 +1706,20 @@ def main() -> int:
                     unit="s",
                 )
 
+                # Emit embedding cache hit/miss counters (TASK-1142)
+                assert deduplicator is not None
+                cache_stats = deduplicator.get_stats()["cache"]
+                observability.record_metric(
+                    "embedding.cache.hit",
+                    value=cache_stats.get("hits", 0),
+                    metric_type="counter",
+                )
+                observability.record_metric(
+                    "embedding.cache.miss",
+                    value=cache_stats.get("misses", 0),
+                    metric_type="counter",
+                )
+
         # Database insertion
         inserted_count = 0
 

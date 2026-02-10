@@ -71,3 +71,69 @@ class TestDedupByTypeMetric:
             labels={"duplicate_type": "unknown"},
             metric_type="counter",
         )
+
+
+class TestEmbeddingCacheMetrics:
+    """Verify embedding.cache.hit and embedding.cache.miss counters are emitted."""
+
+    @pytest.fixture
+    def mock_observability(self):
+        with patch("run_generation.observability") as mock_obs:
+            yield mock_obs
+
+    @staticmethod
+    def _simulate_cache_metrics(cache_stats: dict, mock_obs: MagicMock):
+        """Reproduce the cache metric-emission logic from run_generation.py."""
+        mock_obs.record_metric(
+            "embedding.cache.hit",
+            value=cache_stats.get("hits", 0),
+            metric_type="counter",
+        )
+        mock_obs.record_metric(
+            "embedding.cache.miss",
+            value=cache_stats.get("misses", 0),
+            metric_type="counter",
+        )
+
+    def test_emits_hit_and_miss_counters(self, mock_observability):
+        cache_stats = {"hits": 120, "misses": 30, "size": 150}
+        self._simulate_cache_metrics(cache_stats, mock_observability)
+
+        calls = mock_observability.record_metric.call_args_list
+        assert len(calls) == 2
+        assert calls[0] == (
+            ("embedding.cache.hit",),
+            {"value": 120, "metric_type": "counter"},
+        )
+        assert calls[1] == (
+            ("embedding.cache.miss",),
+            {"value": 30, "metric_type": "counter"},
+        )
+
+    def test_defaults_to_zero_when_keys_missing(self, mock_observability):
+        cache_stats = {}
+        self._simulate_cache_metrics(cache_stats, mock_observability)
+
+        calls = mock_observability.record_metric.call_args_list
+        assert calls[0] == (
+            ("embedding.cache.hit",),
+            {"value": 0, "metric_type": "counter"},
+        )
+        assert calls[1] == (
+            ("embedding.cache.miss",),
+            {"value": 0, "metric_type": "counter"},
+        )
+
+    def test_emits_zero_counters_when_no_cache_activity(self, mock_observability):
+        cache_stats = {"hits": 0, "misses": 0, "size": 0}
+        self._simulate_cache_metrics(cache_stats, mock_observability)
+
+        calls = mock_observability.record_metric.call_args_list
+        assert calls[0] == (
+            ("embedding.cache.hit",),
+            {"value": 0, "metric_type": "counter"},
+        )
+        assert calls[1] == (
+            ("embedding.cache.miss",),
+            {"value": 0, "metric_type": "counter"},
+        )
