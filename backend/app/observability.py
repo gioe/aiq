@@ -372,6 +372,29 @@ class ApplicationMetrics:
         except Exception as e:
             logger.debug(f"Failed to record IQ score metric: {e}")
 
+    def record_login(self, success: bool) -> None:
+        """
+        Record a login attempt.
+
+        Args:
+            success: Whether the login was successful
+        """
+        if not self._initialized:
+            return
+
+        try:
+            observability.record_metric(
+                name="auth.login",
+                value=1,
+                labels={
+                    "auth.success": str(success).lower(),
+                },
+                metric_type="counter",
+                unit="1",
+            )
+        except Exception as e:
+            logger.debug(f"Failed to record login metric: {e}")
+
     def record_questions_generated(
         self,
         count: int,

@@ -105,6 +105,44 @@ class TestRecordTestCompleted:
             assert counter_call.kwargs["unit"] == "1"
 
 
+class TestRecordLogin:
+    """Unit tests for record_login()."""
+
+    def test_emits_counter_with_success_true(self, initialized_metrics):
+        """record_login(success=True) emits auth.login counter with auth.success=true."""
+        with patch("app.observability.observability") as mock_obs:
+            initialized_metrics.record_login(success=True)
+
+            mock_obs.record_metric.assert_called_once_with(
+                name="auth.login",
+                value=1,
+                labels={"auth.success": "true"},
+                metric_type="counter",
+                unit="1",
+            )
+
+    def test_emits_counter_with_success_false(self, initialized_metrics):
+        """record_login(success=False) emits auth.login counter with auth.success=false."""
+        with patch("app.observability.observability") as mock_obs:
+            initialized_metrics.record_login(success=False)
+
+            mock_obs.record_metric.assert_called_once_with(
+                name="auth.login",
+                value=1,
+                labels={"auth.success": "false"},
+                metric_type="counter",
+                unit="1",
+            )
+
+    def test_noop_when_not_initialized(self):
+        """No metrics emitted when ApplicationMetrics is not initialized."""
+        m = ApplicationMetrics()
+        with patch("app.observability.observability") as mock_obs:
+            m.record_login(success=True)
+
+            mock_obs.record_metric.assert_not_called()
+
+
 class TestRecordIqScore:
     """Unit tests for record_iq_score()."""
 
