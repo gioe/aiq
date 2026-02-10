@@ -734,6 +734,34 @@
       ],
       "title": "Embedding Cache Hit Rate",
       "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "stacking": { "mode": "none" }
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 77 },
+      "id": 45,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (difficulty) (rate(generation_failure_total[$__rate_interval]))",
+          "legendFormat": "{{difficulty}}"
+        }
+      ],
+      "title": "Generation Failures by Difficulty",
+      "type": "timeseries"
     }
   ],
   "schemaVersion": 39,
