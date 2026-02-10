@@ -281,15 +281,25 @@ class ApplicationMetrics:
             logger.warning(f"Suspicious test duration {duration_seconds}s (> 24 hours)")
 
         try:
+            labels = {
+                "test.adaptive": str(adaptive).lower(),
+                "test.question_count": str(question_count),
+            }
+
             observability.record_metric(
                 name="test.sessions.completed",
                 value=1,
-                labels={
-                    "test.adaptive": str(adaptive).lower(),
-                    "test.question_count": str(question_count),
-                },
+                labels=labels,
                 metric_type="counter",
                 unit="1",
+            )
+
+            observability.record_metric(
+                name="test.sessions.duration",
+                value=duration_seconds,
+                labels=labels,
+                metric_type="histogram",
+                unit="s",
             )
         except Exception as e:
             logger.debug(f"Failed to record test completed metric: {e}")
