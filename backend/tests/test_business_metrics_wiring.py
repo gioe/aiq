@@ -227,6 +227,82 @@ class TestAdaptiveNextMetrics:
         assert call_kwargs["adaptive"] is True
 
 
+class TestLoginMetrics:
+    """Metrics emitted by POST /v1/auth/login."""
+
+    @patch("app.api.v1.auth.metrics")
+    def test_successful_login_emits_record_login_true(
+        self, mock_metrics, client, db_session
+    ):
+        """Successful login records record_login(success=True)."""
+        from app.core.security import hash_password
+
+        from app.models import User
+
+        user = User(
+            email="login_metrics@example.com",
+            password_hash=hash_password("SecurePass123!"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+
+        response = client.post(
+            "/v1/auth/login",
+            json={
+                "email": "login_metrics@example.com",
+                "password": "SecurePass123!",  # pragma: allowlist secret
+            },
+        )
+        assert response.status_code == 200
+
+        mock_metrics.record_login.assert_called_once_with(success=True)
+
+    @patch("app.api.v1.auth.metrics")
+    def test_user_not_found_emits_record_login_false(self, mock_metrics, client):
+        """Login with non-existent user records record_login(success=False)."""
+        response = client.post(
+            "/v1/auth/login",
+            json={
+                "email": "nonexistent@example.com",
+                "password": "SomePass123!",  # pragma: allowlist secret
+            },
+        )
+        assert response.status_code == 401
+
+        mock_metrics.record_login.assert_called_once_with(success=False)
+
+    @patch("app.api.v1.auth.metrics")
+    def test_wrong_password_emits_record_login_false(
+        self, mock_metrics, client, db_session
+    ):
+        """Login with wrong password records record_login(success=False)."""
+        from app.core.security import hash_password
+
+        from app.models import User
+
+        user = User(
+            email="wrong_pw_metrics@example.com",
+            password_hash=hash_password("CorrectPass123!"),
+            first_name="Test",
+            last_name="User",
+        )
+        db_session.add(user)
+        db_session.commit()
+
+        response = client.post(
+            "/v1/auth/login",
+            json={
+                "email": "wrong_pw_metrics@example.com",
+                "password": "WrongPass123!",  # pragma: allowlist secret
+            },
+        )
+        assert response.status_code == 401
+
+        mock_metrics.record_login.assert_called_once_with(success=False)
+
+
 class TestRegisterUserMetrics:
     """Metrics emitted by POST /v1/auth/register."""
 

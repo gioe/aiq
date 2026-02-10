@@ -192,6 +192,7 @@ def login_user(
             user_agent=user_agent,
             error_reason="user_not_found",
         )
+        metrics.record_login(success=False)
         raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
     # Verify password
@@ -207,6 +208,7 @@ def login_user(
             user_agent=user_agent,
             error_reason="invalid_password",
         )
+        metrics.record_login(success=False)
         raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)
 
     # Update last login timestamp
@@ -235,6 +237,7 @@ def login_user(
         user_id=int(user.id),
         email=user.email,
     )
+    metrics.record_login(success=True)
 
     # Log successful login (user_id only, no PII)
     logger.info(f"User login successful: user_id={user.id}")
