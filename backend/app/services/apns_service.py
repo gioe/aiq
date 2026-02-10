@@ -10,6 +10,7 @@ from aioapns import APNs, NotificationRequest, PushType
 
 from app.core.analytics import AnalyticsTracker
 from app.core.config import settings
+from app.models.models import NotificationType
 from app.observability import metrics
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ class APNsService:
         badge: Optional[int] = None,
         sound: Optional[str] = "default",
         data: Optional[Dict] = None,
-        notification_type: Optional[str] = None,
+        notification_type: Optional[NotificationType] = None,
         user_id: Optional[int] = None,
     ) -> bool:
         """
@@ -128,7 +129,7 @@ class APNsService:
             badge: Optional badge count to display on app icon
             sound: Notification sound (default: "default", None for silent)
             data: Optional custom data payload
-            notification_type: Type identifier for analytics tracking (e.g. "logout_all", "test_reminder")
+            notification_type: Type of notification for analytics tracking
             user_id: Optional user ID for analytics tracking
 
         Returns:
@@ -209,7 +210,7 @@ class APNsService:
     async def send_batch_notifications(
         self,
         notifications: List[Dict],
-        notification_type: Optional[str] = None,
+        notification_type: Optional[NotificationType] = None,
     ) -> Dict[str, int]:
         """
         Send notifications to multiple devices.
@@ -297,8 +298,8 @@ async def send_test_reminder_notification(
             title=title,
             body=body,
             badge=1,
-            data={"type": "test_reminder"},
-            notification_type="test_reminder",
+            data={"type": NotificationType.TEST_REMINDER.value},
+            notification_type=NotificationType.TEST_REMINDER,
         )
 
         return result
@@ -349,8 +350,11 @@ async def send_logout_all_notification(
             title=title,
             body=body,
             sound="default",
-            data={"type": "logout_all", "deep_link": "aiq://login"},
-            notification_type="logout_all",
+            data={
+                "type": NotificationType.LOGOUT_ALL.value,
+                "deep_link": "aiq://login",
+            },
+            notification_type=NotificationType.LOGOUT_ALL,
             user_id=user_id,
         )
 

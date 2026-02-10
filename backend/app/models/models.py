@@ -46,6 +46,14 @@ class DifficultyLevel(str, enum.Enum):
     HARD = "hard"
 
 
+class NotificationType(str, enum.Enum):
+    """Notification type enumeration for APNs push notifications."""
+
+    TEST_REMINDER = "test_reminder"
+    DAY_30_REMINDER = "day_30_reminder"
+    LOGOUT_ALL = "logout_all"
+
+
 class TestStatus(str, enum.Enum):
     """Test session status enumeration."""
 
