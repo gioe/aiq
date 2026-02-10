@@ -233,3 +233,37 @@ class TestRecordNotification:
             m.record_notification(success=True, notification_type="test_reminder")
 
             mock_obs.record_metric.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "notification_type", ["test_reminder", "day_30_reminder", "logout_all"]
+    )
+    def test_valid_notification_types_accepted(
+        self, initialized_metrics, notification_type
+    ):
+        """All valid notification types are accepted and emit metrics."""
+        with patch("app.observability.observability") as mock_obs:
+            initialized_metrics.record_notification(
+                success=True, notification_type=notification_type
+            )
+
+            mock_obs.record_metric.assert_called_once()
+
+    def test_invalid_notification_type_skipped(self, initialized_metrics):
+        """Invalid notification_type logs warning and skips metric."""
+        with patch("app.observability.observability") as mock_obs:
+            initialized_metrics.record_notification(
+                success=True, notification_type="invalid_type"
+            )
+
+            mock_obs.record_metric.assert_not_called()
+
+    def test_notification_type_normalized_to_lowercase(self, initialized_metrics):
+        """Notification type is normalized to lowercase before validation."""
+        with patch("app.observability.observability") as mock_obs:
+            initialized_metrics.record_notification(
+                success=True, notification_type="TEST_REMINDER"
+            )
+
+            mock_obs.record_metric.assert_called_once()
+            labels = mock_obs.record_metric.call_args.kwargs["labels"]
+            assert labels["notification.type"] == "test_reminder"

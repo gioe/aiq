@@ -36,6 +36,9 @@ MAX_EXPECTED_TEST_DURATION_SECONDS = 86400
 VALID_QUESTION_TYPES = {e.value for e in QuestionType}
 VALID_DIFFICULTY_LEVELS = {e.value for e in DifficultyLevel}
 
+# Valid notification types for APNs metrics
+VALID_NOTIFICATION_TYPES = {"test_reminder", "day_30_reminder", "logout_all"}
+
 
 class ApplicationMetrics:
     """
@@ -489,6 +492,14 @@ class ApplicationMetrics:
             notification_type: Type of notification (e.g. "test_reminder", "logout_all")
         """
         if not self._initialized:
+            return
+
+        notification_type = notification_type.lower()
+        if notification_type not in VALID_NOTIFICATION_TYPES:
+            logger.warning(
+                f"Invalid notification_type '{notification_type}', "
+                f"expected one of {VALID_NOTIFICATION_TYPES}, skipping"
+            )
             return
 
         try:
