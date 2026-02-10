@@ -63,7 +63,7 @@ struct ToastView: View {
                 accessibilityLabel: "toast.dismiss".localized,
                 foregroundColor: .white
             )
-            .accessibilityIdentifier("toast.dismissButton")
+            .accessibilityIdentifier(AccessibilityIdentifiers.ToastView.dismissButton)
         }
         .padding(DesignSystem.Spacing.lg)
         .background(type.backgroundColor)

@@ -394,3 +394,10 @@ struct RegistrationView: View {
         RegistrationView()
     }
 }
+
+#Preview("Large Text") {
+    NavigationStack {
+        RegistrationView()
+    }
+    .environment(\.sizeCategory, .accessibilityLarge)
+}

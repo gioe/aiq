@@ -90,18 +90,21 @@ struct HistoryView: View {
                                 value: "\(viewModel.totalTestsTaken)",
                                 icon: "list.clipboard.fill"
                             )
+                            .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.testsTakenStat)
 
                             HistoryStatCard(
                                 label: "Average IQ",
                                 value: "\(avgScore)",
                                 icon: "chart.line.uptrend.xyaxis"
                             )
+                            .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.averageIQStat)
 
                             HistoryStatCard(
                                 label: "Best Score",
                                 value: "\(bestScore)",
                                 icon: "star.fill"
                             )
+                            .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.bestScoreStat)
                         }
                         .padding(.horizontal)
                     }
@@ -286,4 +289,11 @@ private struct LoadMoreButton: View {
     NavigationStack {
         HistoryView()
     }
+}
+
+#Preview("Large Text") {
+    NavigationStack {
+        HistoryView()
+    }
+    .environment(\.sizeCategory, .accessibilityLarge)
 }

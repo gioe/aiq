@@ -57,6 +57,8 @@ struct NotificationSettingsView: View {
                 .disabled(!viewModel.canToggle)
                 .labelsHidden()
                 .accessibilityIdentifier(AccessibilityIdentifiers.NotificationSettings.enableNotificationsToggle)
+                .accessibilityLabel("Enable push notifications")
+                .accessibilityHint("Double tap to toggle test reminder notifications")
             }
             .padding(.vertical, 8)
 
@@ -90,6 +92,8 @@ struct NotificationSettingsView: View {
                 .buttonStyle(.plain)
                 .padding(.top, 8)
                 .accessibilityIdentifier(AccessibilityIdentifiers.NotificationSettings.permissionButton)
+                .accessibilityLabel("Open notification settings")
+                .accessibilityHint("Opens system settings to enable notification permissions")
             }
         }
         .task {
@@ -120,4 +124,15 @@ struct NotificationSettingsView: View {
             Text("Notifications")
         }
     }
+}
+
+#Preview("Large Text") {
+    List {
+        Section {
+            NotificationSettingsView()
+        } header: {
+            Text("Notifications")
+        }
+    }
+    .environment(\.sizeCategory, .accessibilityLarge)
 }
