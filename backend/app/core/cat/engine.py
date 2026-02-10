@@ -6,6 +6,7 @@ a Computerized Adaptive Testing (CAT) session. The engine is stateless between
 requests—all state is stored in the CATSession object.
 """
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -19,6 +20,69 @@ from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND, IQ_POPULATION
 from app.models.models import QuestionType
 
 logger = logging.getLogger(__name__)
+
+
+def compute_prior_theta(
+    previous_thetas: List[float],
+    previous_ses: List[float],
+    include_abandoned: bool = True,
+    min_items_for_abandoned: int = 5,
+) -> tuple[float, float]:
+    """
+    Compute a prior ability estimate from a user's previous test sessions.
+
+    Uses precision-weighted averaging of previous theta estimates, where
+    precision = 1/SE². This gives more weight to sessions with lower SE
+    (more items administered, better estimate quality).
+
+    Abandoned sessions are included if they have enough items for a
+    meaningful estimate (controlled by min_items_for_abandoned, which
+    should be checked by the caller when filtering sessions).
+
+    Args:
+        previous_thetas: List of final theta estimates from past sessions.
+        previous_ses: List of corresponding SE values. Must be same length
+            as previous_thetas and all values must be positive.
+        include_abandoned: Whether abandoned session data was included
+            (informational only; filtering happens at the caller level).
+        min_items_for_abandoned: Minimum items an abandoned session must
+            have to be included (informational; enforced by caller).
+
+    Returns:
+        Tuple of (prior_mean, prior_sd) for initializing a new CAT session.
+        If no valid sessions are provided, returns the population prior (0.0, 1.0).
+    """
+    if not previous_thetas or not previous_ses:
+        return (0.0, 1.0)
+
+    if len(previous_thetas) != len(previous_ses):
+        raise ValueError(
+            f"previous_thetas length ({len(previous_thetas)}) must match "
+            f"previous_ses length ({len(previous_ses)})"
+        )
+
+    # Precision-weighted average: weight_i = 1 / SE_i^2
+    total_precision = 0.0
+    weighted_sum = 0.0
+    for theta, se in zip(previous_thetas, previous_ses):
+        if se <= 0:
+            logger.warning(f"Skipping session with non-positive SE: {se}")
+            continue
+        precision = 1.0 / (se**2)
+        total_precision += precision
+        weighted_sum += theta * precision
+
+    if total_precision == 0:
+        return (0.0, 1.0)
+
+    prior_mean = weighted_sum / total_precision
+    prior_sd = 1.0 / math.sqrt(total_precision)
+
+    # Clamp to reasonable bounds
+    prior_mean = max(-3.0, min(3.0, prior_mean))
+    prior_sd = max(0.1, min(1.0, prior_sd))
+
+    return (prior_mean, prior_sd)
 
 
 @dataclass
@@ -45,9 +109,13 @@ class CATSession:
     domain_coverage: Dict[str, int]  # Domain → count of items shown
     correct_count: int  # Total correct responses
     started_at: datetime
-    theta_history: List[float] = field(
-        default_factory=list
-    )  # Theta after each response
+    # Theta estimate recorded after each item response. Used by the theta_stable
+    # stopping criterion to detect convergence (|theta_t - theta_{t-1}| < threshold).
+    # Design: stored as a flat list rather than a rolling window because:
+    # 1. Full history enables post-hoc analysis of convergence trajectories
+    # 2. Max length is bounded by MAX_ITEMS (15), so memory is trivial
+    # 3. Persisted to TestSession.theta_history for shadow CAT comparison
+    theta_history: List[float] = field(default_factory=list)
 
 
 @dataclass
@@ -101,6 +169,10 @@ class CATSessionManager:
     PRIOR_THETA = 0.0  # Default prior ability
     PRIOR_SE = 1.0  # Default prior SE
     IQ_MEAN = 100  # IQ scale mean (Wechsler convention)
+    DELTA_THETA_THRESHOLD = 0.03  # Max theta change for convergence
+    SE_STABILIZATION_THRESHOLD = (
+        0.35  # SE must be below this for theta_stable to trigger
+    )
 
     def __init__(self):
         """Initialize CATSessionManager with domain weights from settings."""
@@ -300,6 +372,8 @@ class CATSessionManager:
             min_items=self.MIN_ITEMS,
             max_items=self.MAX_ITEMS,
             min_items_per_domain=self.MIN_ITEMS_PER_DOMAIN,
+            delta_theta_threshold=self.DELTA_THETA_THRESHOLD,
+            se_stabilization_threshold=self.SE_STABILIZATION_THRESHOLD,
         )
 
         if decision.should_stop:

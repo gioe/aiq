@@ -26,7 +26,17 @@ import logging
 import math
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Sequence,
+    Set,
+    cast,
+    runtime_checkable,
+)
 
 from app.core.cat.content_balancing import (
     CONTENT_BALANCE_TOLERANCE,
@@ -38,6 +48,32 @@ logger = logging.getLogger(__name__)
 # Exposure control: select randomly from the top-K most informative items.
 # K=5 is the standard "randomesque" method (Kingsbury & Zara, 1989).
 RANDOMESQUE_K = 5
+
+
+@runtime_checkable
+class CalibratedItem(Protocol):
+    """Protocol for items with calibrated IRT parameters.
+
+    Attribute types use Any for irt_discrimination and irt_difficulty to support
+    both Question (Optional[float]) and SimulatedItem (float) without mypy
+    invariance issues. The select_next_item function filters for non-None values.
+    """
+
+    @property
+    def id(self) -> int:
+        ...
+
+    @property
+    def irt_discrimination(self) -> float | None:
+        ...
+
+    @property
+    def irt_difficulty(self) -> float | None:
+        ...
+
+    @property
+    def question_type(self) -> Any:
+        ...
 
 
 @dataclass
@@ -90,7 +126,7 @@ def fisher_information_2pl(
 
 
 def select_next_item(
-    item_pool: List,
+    item_pool: Sequence[CalibratedItem],
     theta_estimate: float,
     administered_items: Set[int],
     domain_coverage: Dict[str, int],
@@ -134,6 +170,16 @@ def select_next_item(
     Returns:
         A Question instance from the pool, or None if no eligible items remain.
     """
+    # Validate domain weights
+    # Tolerance for floating-point rounding when summing weight fractions
+    WEIGHT_SUM_TOLERANCE = 0.01
+    if target_weights:
+        if any(w < 0 for w in target_weights.values()):
+            raise ValueError("Domain weights must be non-negative")
+        weight_sum = sum(target_weights.values())
+        if abs(weight_sum - 1.0) > WEIGHT_SUM_TOLERANCE:
+            raise ValueError(f"Domain weights must sum to ~1.0, got {weight_sum:.3f}")
+
     # Step 1: Filter out administered and seen items, require calibrated params
     excluded_ids = administered_items
     if seen_question_ids is not None:
@@ -174,6 +220,9 @@ def select_next_item(
     # Step 3: Compute Fisher information for each eligible item
     candidates = []
     for item in eligible:
+        # Type assertion: we already filtered for non-None values above
+        assert item.irt_discrimination is not None
+        assert item.irt_difficulty is not None
         info = fisher_information_2pl(
             theta=theta_estimate,
             discrimination=item.irt_discrimination,
@@ -199,13 +248,13 @@ def select_next_item(
 
 
 def _apply_content_balancing(
-    eligible: List,
+    eligible: Sequence[CalibratedItem],
     domain_coverage: Dict[str, int],
     target_weights: Dict[str, float],
     items_administered: int,
     min_items_per_domain: int,
     max_items: int,
-) -> List:
+) -> List[CalibratedItem]:
     """
     Apply content balancing constraints to the eligible item pool.
 
@@ -273,7 +322,7 @@ def _apply_content_balancing(
                 )
                 return preferred
 
-    return eligible
+    return cast(List[CalibratedItem], list(eligible))
 
 
 def _apply_exposure_control(

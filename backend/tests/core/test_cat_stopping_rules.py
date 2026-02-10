@@ -437,8 +437,8 @@ class TestEdgeCases:
         assert result.should_stop is False
         assert result.details["content_balanced"] is False
 
-    def test_all_items_in_one_domain_after_waiver(self):
-        """All items in a single domain should still stop after waiver."""
+    def test_all_items_in_one_domain_after_waiver_threshold(self):
+        """All items in one domain should NOT trigger waiver (insufficient domain diversity)."""
         coverage = {
             "pattern": 10,
             "logic": 0,
@@ -452,9 +452,31 @@ class TestEdgeCases:
             num_items=10,
             domain_coverage=coverage,
         )
+        # Domain diversity requirement (MIN_DOMAINS_FOR_WAIVER=4) blocks the waiver
+        assert result.should_stop is False
+        assert result.details["content_balance_waived"] is False
+        assert result.details["domains_with_items"] == 1
+
+    def test_waiver_with_sufficient_domain_diversity(self):
+        """Waiver should fire when enough domains have items."""
+        coverage = {
+            "pattern": 3,
+            "logic": 3,
+            "verbal": 2,
+            "spatial": 2,
+            "math": 0,
+            "memory": 0,
+        }
+        result = check_stopping_criteria(
+            se=0.10,
+            num_items=10,
+            domain_coverage=coverage,
+        )
+        # 4 domains have items, waiver threshold met
         assert result.should_stop is True
         assert result.reason == "se_threshold"
         assert result.details["content_balance_waived"] is True
+        assert result.details["domains_with_items"] == 4
 
     def test_empty_domain_coverage(self):
         """Empty domain coverage dict should work (no domains to check)."""
