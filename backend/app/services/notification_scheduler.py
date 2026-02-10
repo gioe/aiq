@@ -10,6 +10,7 @@ from sqlalchemy import and_
 from app.models import User, TestResult
 from app.core.config import settings
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
+from app.models.models import NotificationType
 
 # Day 30 reminder configuration
 DAY_30_REMINDER_DAYS = 30  # Days after first test to send reminder
@@ -29,7 +30,9 @@ def calculate_next_test_date(last_test_date: datetime) -> datetime:
     return last_test_date + timedelta(days=settings.TEST_CADENCE_DAYS)
 
 
-def generate_deep_link(notification_type: str, result_id: Optional[int] = None) -> str:
+def generate_deep_link(
+    notification_type: NotificationType, result_id: Optional[int] = None
+) -> str:
     """
     Generate a deep link URL for a notification.
 
@@ -387,7 +390,9 @@ class NotificationScheduler:
 
             # Generate deep link to user's last test result
             latest_result_id = user_to_latest_result.get(user.id)
-            deep_link = generate_deep_link("test_reminder", latest_result_id)
+            deep_link = generate_deep_link(
+                NotificationType.TEST_REMINDER, latest_result_id
+            )
 
             notifications.append(
                 {
@@ -396,7 +401,7 @@ class NotificationScheduler:
                     "body": body,
                     "badge": 1,
                     "data": {
-                        "type": "test_reminder",
+                        "type": NotificationType.TEST_REMINDER.value,
                         "user_id": str(user.id),
                         "deep_link": deep_link,
                     },
@@ -409,7 +414,7 @@ class NotificationScheduler:
         try:
             await apns_service.connect()
             results = await apns_service.send_batch_notifications(
-                notifications, notification_type="test_reminder"
+                notifications, notification_type=NotificationType.TEST_REMINDER
             )
 
             return {
@@ -481,7 +486,9 @@ class NotificationScheduler:
 
             # Generate deep link to user's first test result
             first_result_id = user_to_first_result.get(user.id)
-            deep_link = generate_deep_link("day_30_reminder", first_result_id)
+            deep_link = generate_deep_link(
+                NotificationType.DAY_30_REMINDER, first_result_id
+            )
 
             user_id_to_notification_index[user.id] = len(notifications)
             notifications.append(
@@ -494,7 +501,7 @@ class NotificationScheduler:
                     # No sound for provisional notifications (silent delivery)
                     "sound": None,
                     "data": {
-                        "type": "day_30_reminder",
+                        "type": NotificationType.DAY_30_REMINDER.value,
                         "user_id": str(user.id),
                         "days_since_first_test": 30,
                         "days_until_next_test": 60,
@@ -517,7 +524,7 @@ class NotificationScheduler:
         try:
             await apns_service.connect()
             results = await apns_service.send_batch_notifications(
-                notifications, notification_type="day_30_reminder"
+                notifications, notification_type=NotificationType.DAY_30_REMINDER
             )
 
             # Mark all users as having received the notification to prevent duplicates

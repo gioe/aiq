@@ -24,7 +24,7 @@ from typing import Optional
 
 from app.core.config import settings
 from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND
-from app.models.models import DifficultyLevel, QuestionType
+from app.models.models import DifficultyLevel, NotificationType, QuestionType
 from libs.observability import observability
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ VALID_QUESTION_TYPES = {e.value for e in QuestionType}
 VALID_DIFFICULTY_LEVELS = {e.value for e in DifficultyLevel}
 
 # Valid notification types for APNs metrics
-VALID_NOTIFICATION_TYPES = {"test_reminder", "day_30_reminder", "logout_all"}
+VALID_NOTIFICATION_TYPES = {e.value for e in NotificationType}
 
 
 class ApplicationMetrics:
