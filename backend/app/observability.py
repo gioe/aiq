@@ -36,9 +36,6 @@ MAX_EXPECTED_TEST_DURATION_SECONDS = 86400
 VALID_QUESTION_TYPES = {e.value for e in QuestionType}
 VALID_DIFFICULTY_LEVELS = {e.value for e in DifficultyLevel}
 
-# Valid notification types for APNs metrics
-VALID_NOTIFICATION_TYPES = {e.value for e in NotificationType}
-
 
 class ApplicationMetrics:
     """
@@ -483,23 +480,17 @@ class ApplicationMetrics:
         except Exception as e:
             logger.debug(f"Failed to record questions served metric: {e}")
 
-    def record_notification(self, success: bool, notification_type: str) -> None:
+    def record_notification(
+        self, success: bool, notification_type: NotificationType
+    ) -> None:
         """
         Record an APNs notification delivery attempt.
 
         Args:
             success: Whether the notification was delivered successfully
-            notification_type: Type of notification (e.g. "test_reminder", "logout_all")
+            notification_type: Type of notification enum value
         """
         if not self._initialized:
-            return
-
-        notification_type = notification_type.lower()
-        if notification_type not in VALID_NOTIFICATION_TYPES:
-            logger.warning(
-                f"Invalid notification_type '{notification_type}', "
-                f"expected one of {VALID_NOTIFICATION_TYPES}, skipping"
-            )
             return
 
         try:
@@ -508,7 +499,7 @@ class ApplicationMetrics:
                 value=1,
                 labels={
                     "notification.success": str(success).lower(),
-                    "notification.type": notification_type,
+                    "notification.type": notification_type.value,
                 },
                 metric_type="counter",
                 unit="1",

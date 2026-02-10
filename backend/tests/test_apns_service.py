@@ -4,6 +4,7 @@ Tests for the Apple Push Notification service (APNs) integration.
 import pytest
 from unittest.mock import AsyncMock, patch
 
+from app.models.models import NotificationType
 from app.services.apns_service import (
     APNsService,
     send_logout_all_notification,
@@ -381,12 +382,12 @@ class TestSendNotificationMetricsWiring:
                 device_token="abc123def456",
                 title="Test",
                 body="Test",
-                notification_type="test_reminder",
+                notification_type=NotificationType.TEST_REMINDER,
             )
 
             assert result is True
             mock_metrics.record_notification.assert_called_once_with(
-                success=True, notification_type="test_reminder"
+                success=True, notification_type=NotificationType.TEST_REMINDER
             )
 
     @pytest.mark.asyncio
@@ -402,12 +403,12 @@ class TestSendNotificationMetricsWiring:
                 device_token="abc123def456",
                 title="Test",
                 body="Test",
-                notification_type="logout_all",
+                notification_type=NotificationType.LOGOUT_ALL,
             )
 
             assert result is False
             mock_metrics.record_notification.assert_called_once_with(
-                success=False, notification_type="logout_all"
+                success=False, notification_type=NotificationType.LOGOUT_ALL
             )
 
     @pytest.mark.asyncio

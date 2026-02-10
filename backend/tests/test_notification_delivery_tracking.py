@@ -8,6 +8,7 @@ import pytest
 from unittest.mock import AsyncMock, patch
 
 from app.core.analytics import AnalyticsTracker, EventType
+from app.models.models import NotificationType
 from app.services.apns_service import (
     APNsService,
     send_test_reminder_notification,
@@ -22,7 +23,7 @@ class TestAnalyticsTrackerNotificationMethods:
         """Test track_notification_sent emits correct event."""
         with patch.object(AnalyticsTracker, "track_event") as mock_track:
             AnalyticsTracker.track_notification_sent(
-                notification_type="logout_all",
+                notification_type=NotificationType.LOGOUT_ALL,
                 user_id=42,
                 device_token_prefix="abc12345",
             )
@@ -40,7 +41,7 @@ class TestAnalyticsTrackerNotificationMethods:
         """Test track_notification_failed emits correct event."""
         with patch.object(AnalyticsTracker, "track_event") as mock_track:
             AnalyticsTracker.track_notification_failed(
-                notification_type="test_reminder",
+                notification_type=NotificationType.TEST_REMINDER,
                 error="Connection refused",
                 user_id=7,
                 device_token_prefix="def67890",
@@ -61,7 +62,7 @@ class TestAnalyticsTrackerNotificationMethods:
         """Test track_notification_sent works with only required fields."""
         with patch.object(AnalyticsTracker, "track_event") as mock_track:
             AnalyticsTracker.track_notification_sent(
-                notification_type="day_30_reminder",
+                notification_type=NotificationType.DAY_30_REMINDER,
             )
 
             mock_track.assert_called_once_with(
@@ -89,13 +90,13 @@ class TestAPNsServiceDeliveryTracking:
                 device_token="abc123def456gh",
                 title="Test",
                 body="Test body",
-                notification_type="logout_all",
+                notification_type=NotificationType.LOGOUT_ALL,
                 user_id=42,
             )
 
             assert result is True
             mock_sent.assert_called_once_with(
-                notification_type="logout_all",
+                notification_type=NotificationType.LOGOUT_ALL,
                 user_id=42,
                 device_token_prefix="abc123def456",  # pragma: allowlist secret
             )
@@ -112,12 +113,12 @@ class TestAPNsServiceDeliveryTracking:
                 device_token="abc123def456gh",
                 title="Test",
                 body="Test body",
-                notification_type="logout_all",
+                notification_type=NotificationType.LOGOUT_ALL,
             )
 
             assert result is True
             mock_sent.assert_called_once_with(
-                notification_type="logout_all",
+                notification_type=NotificationType.LOGOUT_ALL,
                 user_id=None,
                 device_token_prefix="abc123def456",  # pragma: allowlist secret
             )
@@ -135,13 +136,13 @@ class TestAPNsServiceDeliveryTracking:
                 device_token="abc123def456gh",
                 title="Test",
                 body="Test body",
-                notification_type="test_reminder",
+                notification_type=NotificationType.TEST_REMINDER,
                 user_id=7,
             )
 
             assert result is False
             mock_failed.assert_called_once_with(
-                notification_type="test_reminder",
+                notification_type=NotificationType.TEST_REMINDER,
                 error="APNs error",
                 error_type="Exception",
                 user_id=7,
@@ -205,7 +206,7 @@ class TestBatchNotificationDeliveryTracking:
 
         with patch.object(AnalyticsTracker, "track_notification_sent") as mock_sent:
             result = await service.send_batch_notifications(
-                notifications, notification_type="test_reminder"
+                notifications, notification_type=NotificationType.TEST_REMINDER
             )
 
             assert result["success"] == 2
@@ -225,11 +226,11 @@ class TestBatchNotificationDeliveryTracking:
 
         with patch.object(AnalyticsTracker, "track_notification_sent") as mock_sent:
             await service.send_batch_notifications(
-                notifications, notification_type="test_reminder"
+                notifications, notification_type=NotificationType.TEST_REMINDER
             )
 
             mock_sent.assert_called_once_with(
-                notification_type="test_reminder",
+                notification_type=NotificationType.TEST_REMINDER,
                 user_id=99,
                 device_token_prefix="token1aaa",
             )
@@ -255,7 +256,7 @@ class TestBatchNotificationDeliveryTracking:
                 AnalyticsTracker, "track_notification_failed"
             ) as mock_failed:
                 result = await service.send_batch_notifications(
-                    notifications, notification_type="test_reminder"
+                    notifications, notification_type=NotificationType.TEST_REMINDER
                 )
 
                 assert result["success"] == 1
@@ -294,7 +295,7 @@ class TestConvenienceFunctionTracking:
 
                     assert result is True
                     mock_sent.assert_called_once_with(
-                        notification_type="logout_all",
+                        notification_type=NotificationType.LOGOUT_ALL,
                         user_id=42,
                         device_token_prefix="test_token_a",
                     )
@@ -331,7 +332,7 @@ class TestConvenienceFunctionTracking:
 
                     assert result is False
                     mock_failed.assert_called_once_with(
-                        notification_type="logout_all",
+                        notification_type=NotificationType.LOGOUT_ALL,
                         error="Connection refused",
                         error_type="Exception",
                         user_id=42,
@@ -364,7 +365,7 @@ class TestConvenienceFunctionTracking:
 
                     assert result is True
                     mock_sent.assert_called_once_with(
-                        notification_type="logout_all",
+                        notification_type=NotificationType.LOGOUT_ALL,
                         user_id=None,
                         device_token_prefix="test_token_a",
                     )
@@ -395,7 +396,7 @@ class TestConvenienceFunctionTracking:
 
                     assert result is True
                     mock_sent.assert_called_once_with(
-                        notification_type="test_reminder",
+                        notification_type=NotificationType.TEST_REMINDER,
                         user_id=None,
                         device_token_prefix="test_token_a",
                     )
