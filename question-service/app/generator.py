@@ -452,6 +452,7 @@ class QuestionGenerator:
                     labels={
                         "provider": provider_name,
                         "question_type": question_type.value,
+                        "difficulty": difficulty.value,
                     },
                     metric_type="counter",
                 )
@@ -478,6 +479,7 @@ class QuestionGenerator:
                     labels={
                         "provider": provider_name,
                         "question_type": question_type.value,
+                        "difficulty": difficulty.value,
                     },
                     metric_type="counter",
                 )
@@ -1064,6 +1066,7 @@ class QuestionGenerator:
                     labels={
                         "provider": provider_name,
                         "question_type": question_type.value,
+                        "difficulty": difficulty.value,
                     },
                     metric_type="counter",
                 )
@@ -1090,6 +1093,7 @@ class QuestionGenerator:
                     labels={
                         "provider": provider_name,
                         "question_type": question_type.value,
+                        "difficulty": difficulty.value,
                     },
                     metric_type="counter",
                 )
@@ -1936,6 +1940,7 @@ class QuestionGenerator:
                     labels={
                         "provider": provider_name,
                         "question_type": question_type.value,
+                        "difficulty": difficulty.value,
                     },
                     metric_type="counter",
                 )
@@ -2205,6 +2210,7 @@ class QuestionGenerator:
                     labels={
                         "provider": provider_name,
                         "question_type": original_question.question_type.value,
+                        "difficulty": original_question.difficulty_level.value,
                     },
                     metric_type="counter",
                 )
