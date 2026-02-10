@@ -605,7 +605,12 @@ class TestXAIProvider:
     def test_empty_choices_list(
         self, mock_openai_class, mock_xai_api_key, sample_prompt
     ):
-        """Test handling when API returns an empty choices list."""
+        """Test that empty choices list raises an error.
+
+        The xAI provider catches all Exception types in _make_request and
+        wraps them via _handle_api_error, so the IndexError from accessing
+        choices[0] on an empty list becomes an LLMProviderError.
+        """
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
 
@@ -616,14 +621,17 @@ class TestXAIProvider:
 
         provider = XAIProvider(api_key=mock_xai_api_key)
 
-        with pytest.raises((IndexError, LLMProviderError)):
+        with pytest.raises(LLMProviderError):
             provider.generate_completion(sample_prompt)
 
     @patch("app.providers.xai_provider.OpenAI")
     def test_empty_choices_list_structured(
         self, mock_openai_class, mock_xai_api_key, sample_prompt, sample_json_schema
     ):
-        """Test handling when API returns empty choices for structured completion."""
+        """Test that empty choices list raises an error for structured completion.
+
+        See test_empty_choices_list for details on error handling behavior.
+        """
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
 
@@ -634,5 +642,5 @@ class TestXAIProvider:
 
         provider = XAIProvider(api_key=mock_xai_api_key)
 
-        with pytest.raises((IndexError, LLMProviderError)):
+        with pytest.raises(LLMProviderError):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)

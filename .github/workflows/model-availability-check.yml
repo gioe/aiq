@@ -27,7 +27,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Google model availability tests
-        if: env.GOOGLE_API_KEY != ''
+        if: ${{ secrets.GOOGLE_API_KEY != '' }}
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}/question-service:${{ github.workspace }}/libs
@@ -37,7 +37,7 @@ jobs:
             --run-integration -v
 
       - name: Run OpenAI model availability tests
-        if: env.OPENAI_API_KEY != ''
+        if: ${{ secrets.OPENAI_API_KEY != '' }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}/question-service:${{ github.workspace }}/libs
@@ -47,7 +47,7 @@ jobs:
             --run-integration -v
 
       - name: Run xAI model availability tests
-        if: env.XAI_API_KEY != ''
+        if: ${{ secrets.XAI_API_KEY != '' }}
         env:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}/question-service:${{ github.workspace }}/libs
@@ -57,7 +57,7 @@ jobs:
             --run-integration -v
 
       - name: Run Anthropic model availability tests
-        if: env.ANTHROPIC_API_KEY != ''
+        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}/question-service:${{ github.workspace }}/libs
