@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from openai import OpenAIError
 
+from app.providers.base import LLMProviderError
 from app.providers.openai_provider import OpenAIProvider
 
 
@@ -131,7 +132,7 @@ class TestOpenAIProvider:
 
         provider = OpenAIProvider(api_key=mock_openai_api_key)
 
-        with pytest.raises(Exception, match="openai.*API error"):
+        with pytest.raises(LLMProviderError):
             provider.generate_completion(sample_prompt)
 
     @patch("app.providers.openai_provider.OpenAI")
@@ -205,7 +206,7 @@ class TestOpenAIProvider:
 
         provider = OpenAIProvider(api_key=mock_openai_api_key)
 
-        with pytest.raises(Exception, match="openai.*API error"):
+        with pytest.raises(LLMProviderError):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)
 
     @patch("app.providers.openai_provider.OpenAI")
@@ -378,3 +379,39 @@ class TestOpenAIProvider:
 
         # Verify the provider's default model was not mutated
         assert provider.model == "gpt-4-turbo-preview"
+
+    @patch("app.providers.openai_provider.OpenAI")
+    def test_empty_choices_list(
+        self, mock_openai_class, mock_openai_api_key, sample_prompt
+    ):
+        """Test handling when API returns an empty choices list."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_response = Mock()
+        mock_response.choices = []
+
+        mock_client.chat.completions.create.return_value = mock_response
+
+        provider = OpenAIProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises((IndexError, LLMProviderError)):
+            provider.generate_completion(sample_prompt)
+
+    @patch("app.providers.openai_provider.OpenAI")
+    def test_empty_choices_list_structured(
+        self, mock_openai_class, mock_openai_api_key, sample_prompt, sample_json_schema
+    ):
+        """Test handling when API returns empty choices for structured completion."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_response = Mock()
+        mock_response.choices = []
+
+        mock_client.chat.completions.create.return_value = mock_response
+
+        provider = OpenAIProvider(api_key=mock_openai_api_key)
+
+        with pytest.raises((IndexError, LLMProviderError)):
+            provider.generate_structured_completion(sample_prompt, sample_json_schema)

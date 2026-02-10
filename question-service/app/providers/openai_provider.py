@@ -513,12 +513,14 @@ class OpenAIProvider(BaseLLMProvider):
             - gpt-4-turbo-preview, gpt-4 (GPT-4 series)
             - gpt-3.5-turbo (faster, cheaper, legacy)
         """
+        # Last reviewed: 2026-02-10
+        # Docs: https://platform.openai.com/docs/models
         return [
             # GPT-5 series (newest)
             "gpt-5.2",
             "gpt-5.1",
             "gpt-5",
-            # Reasoning models (o-series)
+            # Reasoning models (o-series) — use max_completion_tokens, not max_tokens
             "o4-mini",
             "o3",
             "o3-mini",
@@ -553,15 +555,13 @@ class OpenAIProvider(BaseLLMProvider):
             # Filter to models that support chat completions
             # Chat models typically include gpt-*, o1*, o3*, o4*, etc.
             chat_model_prefixes = ("gpt-", "o1", "o3", "o4")
-            return sorted(
-                [
-                    model.id
-                    for model in models.data
-                    if any(
-                        model.id.startswith(prefix) for prefix in chat_model_prefixes
-                    )
-                ]
-            )
+            result = []
+            for model in models.data:
+                if any(model.id.startswith(prefix) for prefix in chat_model_prefixes):
+                    result.append(model.id)
+                else:
+                    logger.debug(f"Filtered out non-chat model: {model.id}")
+            return sorted(result)
         except openai.OpenAIError:
             raise
 

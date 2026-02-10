@@ -64,6 +64,28 @@ class BatchJobResult:
 MIN_STRUCTURED_COMPLETION_TOKENS = 4000
 
 
+def _parse_google_model_name(raw_name: Optional[str]) -> Optional[str]:
+    """Extract and normalize a Gemini model name from the Google API response.
+
+    The Google API returns model names in the format "models/gemini-2.5-pro".
+    This function strips the "models/" prefix and filters to Gemini models only.
+
+    Args:
+        raw_name: Raw model name from the API (e.g., "models/gemini-2.5-pro")
+
+    Returns:
+        Normalized model name (e.g., "gemini-2.5-pro") or None if not a Gemini model
+    """
+    if raw_name is None:
+        return None
+    name = raw_name
+    if name.startswith("models/"):
+        name = name[7:]
+    if name.startswith("gemini-"):
+        return name
+    return None
+
+
 class GoogleProvider(BaseLLMProvider):
     """Google Gen AI integration for question generation and evaluation.
 
@@ -1016,6 +1038,8 @@ class GoogleProvider(BaseLLMProvider):
             Run integration tests to verify model availability:
             pytest tests/providers/test_provider_model_availability_integration.py --run-integration
         """
+        # Last reviewed: 2026-02-10
+        # Docs: https://ai.google.dev/gemini-api/docs/models/gemini
         return [
             "gemini-3-pro-preview",
             "gemini-3-flash-preview",
@@ -1040,13 +1064,11 @@ class GoogleProvider(BaseLLMProvider):
         try:
             model_names: list[str] = []
             for model in self._client.models.list():
-                name = model.name
-                if name is None:
-                    continue
-                if name.startswith("models/"):
-                    name = name[7:]
-                if name.startswith("gemini-"):
-                    model_names.append(name)
+                parsed = _parse_google_model_name(model.name)
+                if parsed is not None:
+                    model_names.append(parsed)
+                else:
+                    logger.debug(f"Filtered out non-Gemini model: {model.name}")
             return sorted(model_names)
         except Exception:
             raise

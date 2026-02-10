@@ -60,10 +60,16 @@ The service supports four LLM providers for question generation:
 |----------|----------------|-----|
 | OpenAI | gpt-5.2, gpt-5, o4-mini, o3, gpt-4o | `openai` |
 | Anthropic | claude-sonnet-4-5-20250929 | `anthropic` |
-| Google | gemini-3-pro-preview | `google-generativeai` |
-| xAI | grok-4 | Custom via `httpx` |
+| Google | gemini-3-pro-preview | `google-genai` |
+| xAI | grok-4 | `openai` (OpenAI-compatible API) |
 
 Provider implementations are in `app/providers/`.
+
+> **Note on reasoning models:** OpenAI's o-series models (o1, o3, o4-mini) use
+> internal chain-of-thought reasoning that consumes the completion token budget.
+> The OpenAI provider automatically uses `max_completion_tokens` (with a 4x
+> multiplier) instead of `max_tokens` for these models. See
+> `OpenAIProvider._token_limit_kwargs()` for details.
 
 ### Question Types
 

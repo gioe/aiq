@@ -27,7 +27,7 @@ ANTHROPIC_MODELS: list[str] = [
     "claude-opus-4-20250514",
     # Claude 3.x models (legacy)
     "claude-3-7-sonnet-20250219",
-    "claude-3-5-sonnet-20241022",
+    # claude-3-5-sonnet-20241022 removed: deprecated by Anthropic
     "claude-3-haiku-20240307",
 ]
 

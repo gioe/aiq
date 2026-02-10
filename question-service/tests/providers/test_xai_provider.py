@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from openai import OpenAIError
 
+from app.providers.base import LLMProviderError
 from app.providers.xai_provider import XAIProvider
 
 
@@ -130,7 +131,7 @@ class TestXAIProvider:
 
         provider = XAIProvider(api_key=mock_xai_api_key)
 
-        with pytest.raises(Exception, match="xai.*API error"):
+        with pytest.raises(LLMProviderError):
             provider.generate_completion(sample_prompt)
 
     @patch("app.providers.xai_provider.OpenAI")
@@ -151,7 +152,7 @@ class TestXAIProvider:
         provider = XAIProvider(api_key=mock_xai_api_key)
 
         # Generic exceptions get classified as network errors
-        with pytest.raises(Exception, match="network_error"):
+        with pytest.raises(LLMProviderError):
             provider.generate_completion(sample_prompt)
 
     @patch("app.providers.xai_provider.OpenAI")
@@ -289,7 +290,7 @@ class TestXAIProvider:
 
         provider = XAIProvider(api_key=mock_xai_api_key)
 
-        with pytest.raises(Exception, match="xai.*API error"):
+        with pytest.raises(LLMProviderError):
             provider.generate_structured_completion(sample_prompt, sample_json_schema)
 
     @patch("app.providers.xai_provider.OpenAI")
@@ -599,3 +600,39 @@ class TestXAIProvider:
             provider._validate_model_once("another-unknown-model")
 
         assert "another-unknown-model" in caplog.text
+
+    @patch("app.providers.xai_provider.OpenAI")
+    def test_empty_choices_list(
+        self, mock_openai_class, mock_xai_api_key, sample_prompt
+    ):
+        """Test handling when API returns an empty choices list."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_response = Mock()
+        mock_response.choices = []
+
+        mock_client.chat.completions.create.return_value = mock_response
+
+        provider = XAIProvider(api_key=mock_xai_api_key)
+
+        with pytest.raises((IndexError, LLMProviderError)):
+            provider.generate_completion(sample_prompt)
+
+    @patch("app.providers.xai_provider.OpenAI")
+    def test_empty_choices_list_structured(
+        self, mock_openai_class, mock_xai_api_key, sample_prompt, sample_json_schema
+    ):
+        """Test handling when API returns empty choices for structured completion."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_response = Mock()
+        mock_response.choices = []
+
+        mock_client.chat.completions.create.return_value = mock_response
+
+        provider = XAIProvider(api_key=mock_xai_api_key)
+
+        with pytest.raises((IndexError, LLMProviderError)):
+            provider.generate_structured_completion(sample_prompt, sample_json_schema)

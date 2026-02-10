@@ -585,6 +585,8 @@ class XAIProvider(BaseLLMProvider):
             - grok-4: Latest flagship model with exceptional math performance (alias for latest stable version)
             - grok-3: Previous generation flagship
         """
+        # Last reviewed: 2026-02-10
+        # Docs: https://docs.x.ai/docs/models
         return [
             "grok-4",
             "grok-3",
@@ -606,9 +608,13 @@ class XAIProvider(BaseLLMProvider):
         try:
             models = self.client.models.list()
             # Filter to grok models
-            return sorted(
-                [model.id for model in models.data if model.id.startswith("grok")]
-            )
+            result = []
+            for model in models.data:
+                if model.id.startswith("grok"):
+                    result.append(model.id)
+                else:
+                    logger.debug(f"Filtered out non-Grok model: {model.id}")
+            return sorted(result)
         except Exception:
             raise
 
