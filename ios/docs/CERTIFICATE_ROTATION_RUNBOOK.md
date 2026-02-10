@@ -173,6 +173,12 @@ These files are essential for certificate pinning incident response:
 | [`ios/AIQ/TrustKit.plist`](../AIQ/TrustKit.plist) | Certificate pinning configuration with public key hashes |
 | [`ios/AIQ/AppDelegate.swift`](../AIQ/AppDelegate.swift) (lines 67-119) | TrustKit initialization and validation logic |
 
+**Automation Scripts:**
+
+| Script | Purpose |
+|--------|---------|
+| [`ios/scripts/check_certificate_expiration.sh`](../scripts/check_certificate_expiration.sh) | Automated certificate expiration monitoring with configurable warning thresholds |
+
 ## Emergency Procedures
 
 ### Scenario: Certificate Expired Before App Update
@@ -181,7 +187,7 @@ If users are experiencing connection failures due to expired certificates:
 
 1. **Immediate**: Check if Railway auto-renewed the certificate
 2. **If renewed**: Generate new hash and push emergency app update
-3. **Verify via TestFlight**: Before App Store submission, deploy the fix to TestFlight and verify API connectivity works with the new certificate hash
+3. **Verify via TestFlight (Release configuration)**: Before App Store submission, deploy the fix to TestFlight using **Release** configuration and verify API connectivity works with the new certificate hash. TrustKit certificate pinning is only active in Release builds — Debug builds bypass pinning. Always test certificate changes in Release configuration.
 4. **If not renewed**: Contact Railway support
 5. **Communication**: Post status update to users
 

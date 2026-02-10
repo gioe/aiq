@@ -105,6 +105,15 @@ enum DesignSystem {
 
         /// Medium delay (0.4s) for secondary element entrance
         static let medium: Double = 0.4
+
+        /// Medium-long delay (0.5s) for tertiary element entrance
+        static let mediumLong: Double = 0.5
+
+        /// Long delay (0.6s) for delayed element entrance
+        static let long: Double = 0.6
+
+        /// Extra long delay (0.8s) for final element entrance
+        static let extraLong: Double = 0.8
     }
 
     // MARK: - Icon Sizes

@@ -30,10 +30,16 @@ This document outlines the coding standards and best practices for the AIQ iOS a
   - [Date and Time Edge Cases](#date-and-time-edge-cases)
 - [Networking](#networking)
 - [Design System](#design-system)
+  - [Animation Delays](#animation-delays)
+  - [Timeouts](#timeouts)
 - [Documentation](#documentation)
   - [Documenting Lifecycle and Concurrency Constraints](#documenting-lifecycle-and-concurrency-constraints)
+  - [Localization Readiness](#localization-readiness)
 - [Testing](#testing)
   - [Test Isolation and Shared Resources](#test-isolation-and-shared-resources)
+  - [Mock Reset Pattern](#mock-reset-pattern)
+  - [XCTSkip Usage Guidelines](#xctskip-usage-guidelines)
+  - [MockDataFactory Usage](#mockdatafactory-usage)
   - [Testing Factory Methods and Initialization](#testing-factory-methods-and-initialization)
   - [Test Helper Anti-Patterns](#test-helper-anti-patterns)
 - [Code Formatting](#code-formatting)
@@ -49,11 +55,16 @@ This document outlines the coding standards and best practices for the AIQ iOS a
   - [Swift Package Manager vs CocoaPods](#swift-package-manager-vs-cocoapods)
   - [Version Pinning Strategy](#version-pinning-strategy)
   - [Dependency Update Process](#dependency-update-process)
+  - [Dependency Removal Process](#dependency-removal-process)
+  - [Transitive Dependencies](#transitive-dependencies)
   - [Security Audit Requirements](#security-audit-requirements)
   - [Evaluating Dependency Health](#evaluating-dependency-health)
   - [Documentation Requirements](#documentation-requirements)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Git and Version Control](#git-and-version-control)
+- [App Lifecycle](#app-lifecycle)
+- [Logging Standards](#logging-standards)
+- [Swift Language Features](#swift-language-features)
 - [Recommended Enhancements](#recommended-enhancements)
 
 ---
@@ -441,11 +452,26 @@ enum ColorPalette {
 }
 ```
 
-### Acronyms
+### Acronym Capitalization
 
-Keep acronyms lowercase except when starting a name:
-- Good: `apiClient`, `iqScore`, `URLSession`
-- Bad: `APIClient`, `IQScore`, `urlSession`
+Follow Swift API Design Guidelines for acronyms:
+
+```swift
+// ✅ Correct — acronyms follow case convention of their position
+let userID: String      // "ID" at end of camelCase → uppercase
+let apiClient: APIClient // "API" at start of type name → uppercase
+let urlString: String    // "url" at start of variable → lowercase
+let httpMethod: String   // "http" at start of variable → lowercase
+var iqScore: Int         // "iq" at start of variable → lowercase
+class IQScoreView {}     // "IQ" at start of type name → uppercase
+
+// ❌ Incorrect
+let UserId: String       // Mixed conventions
+let API_client: String   // Snake case
+let Url: String          // Capitalized like a type name
+```
+
+**Rule:** Acronyms at the start of a variable/parameter name are lowercase. Acronyms at the start of a type/protocol name or end of any name are uppercase.
 
 ### Delegate Protocols
 
@@ -528,6 +554,23 @@ let request = URLRequest(url: endpoint)
 - Return `Self` to enable chaining
 - Keep method names short but descriptive
 
+**Codebase Example — Request Building:**
+
+The `LoggingMiddleware` in `Packages/AIQAPIClient` demonstrates a clean middleware pattern that could be extended with fluent configuration:
+
+```swift
+// Current usage
+let middleware = LoggingMiddleware(logLevel: .debug, sensitiveHeaders: ["authorization"])
+
+// Fluent alternative (if configuration grows complex):
+let middleware = LoggingMiddleware()
+    .withLogLevel(.debug)
+    .redactingHeaders(["authorization", "x-api-key"])
+    .withTimingEnabled(true)
+```
+
+Use the fluent pattern when a type has more than 3-4 configuration options. For simpler types, a standard initializer is preferred.
+
 ### Mutating and Non-Mutating Method Pairs
 
 Follow Swift standard library conventions for mutating/non-mutating pairs:
@@ -582,12 +625,29 @@ func fetchData(closure: @escaping (Result<Data, Error>) -> Void)  // describes t
 func fetchData(callback: @escaping (Result<Data, Error>) -> Void) // acceptable but less specific
 ```
 
+#### Callback Naming
+
+Prefer `on`-prefixed names for closure parameters that act as callbacks:
+
+```swift
+// ✅ Preferred
+func fetchData(onComplete: @escaping (Result<Data, Error>) -> Void)
+func show(onDismiss: (() -> Void)? = nil)
+
+// ✅ Also acceptable — when the action is more descriptive
+func fetchData(completion: @escaping (Result<Data, Error>) -> Void)
+func animate(finished: @escaping () -> Void)
+```
+
+The `on` prefix signals to callers that the closure is invoked as a callback. However, `completion` and other descriptive names are acceptable when they improve readability at the call site.
+
 **Common closure parameter names:**
-- `completion` - for async operations that finish
+- `completion` / `onComplete` - for async operations that finish
 - `transform` - for mapping operations
 - `predicate` - for filtering conditions
 - `configure` - for configuration closures
 - `onSuccess`/`onFailure` - for split result handling
+- `onDismiss` - for dismissal callbacks
 
 ### Generic Type Parameters
 
@@ -1946,6 +2006,45 @@ Use `DesignSystem.Animation` for consistent motion:
 
 Available animations: `quick`, `standard`, `smooth`, `bouncy`
 
+### Animation Delays
+
+Use `DesignSystem.AnimationDelay` for staggered entrance animations:
+
+```swift
+// Staggered element entrance
+.animation(DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.short), value: isAnimating)
+.animation(DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.medium), value: isAnimating)
+.animation(DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.long), value: isAnimating)
+```
+
+Available delays: `short` (0.2s), `medium` (0.4s), `mediumLong` (0.5s), `long` (0.6s), `extraLong` (0.8s)
+
+### Timeouts
+
+Use centralized timeout constants instead of hardcoded values. Define timeout constants close to their usage context:
+
+```swift
+// In the relevant service or configuration
+enum APITimeouts {
+    static let defaultRequest: TimeInterval = 30
+    static let uploadRequest: TimeInterval = 60
+    static let healthCheck: TimeInterval = 10
+}
+
+// In test configuration
+enum TestTimeouts {
+    static let asyncWait: TimeInterval = 2.0
+    static let networkMock: TimeInterval = 5.0
+    static let uiAnimation: TimeInterval = 1.0
+}
+```
+
+**Guidelines:**
+- Group related timeouts in domain-specific enums
+- Use `TimeInterval` type for all timeout values
+- Name constants descriptively — `defaultRequest` not `timeout1`
+- Never hardcode timeout values in test assertions or network calls
+
 ---
 
 ## Documentation
@@ -2019,6 +2118,24 @@ private func handleResponse() {
     // ...
 }
 ```
+
+### Localization Readiness
+
+While full localization is listed as a Recommended Enhancement, all new views should be localization-ready:
+
+```swift
+// ✅ Good - String literals centralized and ready for localization
+Text("Privacy & Terms")          // Can be wrapped in NSLocalizedString later
+Text("Your privacy matters")
+
+// ❌ Bad - String concatenation that breaks localization
+Text("Question " + String(number) + " of " + String(total))
+
+// ✅ Good - Use string interpolation (localizable)
+Text("Question \(number) of \(total)")
+```
+
+**For onboarding views specifically:** All user-facing strings in onboarding flows should avoid concatenation patterns that would break when localized to languages with different word order.
 
 ### Documenting Lifecycle and Concurrency Constraints
 
@@ -2187,6 +2304,59 @@ override func tearDown() async throws {
 - Test isolation issues become obvious when tests fail independently
 - Debugging is easier when each test is self-contained
 
+### Mock Reset Pattern
+
+Mock objects should implement a `reset()` method to clear all recorded state between test invocations. This prevents test pollution while keeping mock objects reusable.
+
+**Implementation:**
+
+```swift
+actor MockAPIClient: APIClientProtocol {
+    var requestCalled = false
+    var mockResponse: Any?
+    var mockError: Error?
+    var requestCount = 0
+
+    func reset() {
+        requestCalled = false
+        mockResponse = nil
+        mockError = nil
+        requestCount = 0
+    }
+
+    func request<T: Decodable>(...) async throws -> T {
+        requestCalled = true
+        requestCount += 1
+        // ... implementation
+    }
+}
+```
+
+**Usage in Tests:**
+
+```swift
+override func setUp() async throws {
+    try await super.setUp()
+    mockService = MockAPIClient()
+    // Fresh mock state for each test — no reset() needed in setUp
+    // because a new instance is created
+    sut = DashboardViewModel(apiClient: mockService)
+}
+
+// OR, when sharing a mock across tests in a class:
+override func setUp() async throws {
+    try await super.setUp()
+    await mockService.reset()  // Reset shared mock state
+    sut = DashboardViewModel(apiClient: mockService)
+}
+```
+
+**Guidelines:**
+- Create new mock instances per test (preferred) OR call `reset()` in `setUp()`
+- Never call `reset()` in `tearDown()` — that hides dependencies between tests
+- The `reset()` method should clear ALL mutable state: flags, counters, stored responses, and errors
+- For actor-based mocks, `reset()` must be called with `await`
+
 ### Mocking
 
 Create protocol-based mocks in `AIQTests/Mocks/`:
@@ -2213,6 +2383,15 @@ actor MockAPIClient: APIClientProtocol {
 }
 ```
 
+**Middleware Testing:**
+
+Middleware components (like `LoggingMiddleware`) should conform to `ClientMiddleware` protocol for testability. Test them by:
+1. Creating the middleware with specific configuration
+2. Passing a mock `next` handler that returns controlled responses
+3. Verifying the middleware passes requests through unchanged and handles errors correctly
+
+See `AIQAPIClientTests/LoggingMiddlewareTests.swift` for the reference implementation.
+
 ### Test Naming
 
 Use descriptive test names following the pattern: `test<Method>_<Scenario>_<ExpectedBehavior>`
@@ -2222,6 +2401,38 @@ func testFetchDashboardData_Success()
 func testFetchDashboardData_ErrorHandling()
 func testFetchDashboardData_CacheBehavior()
 ```
+
+### XCTSkip Usage Guidelines
+
+Use `XCTSkip` to conditionally skip tests that cannot run in certain environments, rather than letting them fail or removing them entirely.
+
+**Valid Use Cases:**
+
+```swift
+// Environment-dependent resources
+throw XCTSkip("TrustKit.plist not found - skipping test (OK in unit test bundle)")
+
+// Build configuration requirements
+throw XCTSkip("This test only applies to DEBUG builds")
+
+// Backend connectivity requirements (UI tests)
+throw XCTSkip("Requires backend connection and valid test account")
+```
+
+**Message Format Guidelines:**
+- Start with what's missing or required: `"Requires backend connection"`
+- Add parenthetical context when the skip is expected: `"(OK in unit test bundle)"`
+- Be specific about why the test is skipped, not just that it is
+
+**When to Use XCTSkip vs Other Approaches:**
+
+| Situation | Approach |
+|-----------|----------|
+| Test needs a resource that may not exist | `XCTSkip` with descriptive message |
+| Test needs a specific build configuration | `XCTSkip` with `#if` check or runtime detection |
+| Test is temporarily broken | `XCTSkip` with issue reference — NOT commenting out |
+| Test is permanently irrelevant | Delete the test entirely |
+| Test needs backend connectivity | `XCTSkip` in UI tests that need real backend |
 
 ### Async Testing
 
@@ -2377,6 +2588,33 @@ actor MockSlowService: ServiceProtocol {
 | Test cache expiration | `Task.sleep()` (unavoidable) | - |
 | Test debounce/throttle | `Task.sleep()` (unavoidable) | - |
 
+#### Valid Uses of Controlled Delays in Tests
+
+While `Task.sleep()` should never be used for synchronization, **controlled delays in mock objects** are valid for simulating real-world latency in concurrency tests:
+
+```swift
+// ✅ Valid - Controlled delay in mock to simulate slow network
+actor MockAuthService {
+    private var refreshDelay: TimeInterval = 0
+
+    func setRefreshDelay(_ delay: TimeInterval) {
+        refreshDelay = delay
+    }
+
+    func refreshToken() async throws -> Token {
+        if refreshDelay > 0 {
+            try await Task.sleep(nanoseconds: UInt64(refreshDelay * 1_000_000_000))
+        }
+        return mockToken
+    }
+}
+
+// Test: Verify 10 concurrent requests share one refresh
+await mockAuthService.setRefreshDelay(0.2)  // 200ms to ensure overlap
+```
+
+The key distinction: delays in **mock implementations** to create test conditions are acceptable. Delays in **test assertions** to wait for results are not.
+
 ### Safe Test Data Encoding
 
 When creating JSON data for decoding tests, use `XCTUnwrap()` instead of force unwrapping:
@@ -2530,6 +2768,26 @@ func testProductionConfiguration_SatisfiesAllFactories() {
 - When creating a new factory method in `ViewModelFactory`
 - When adding a new service registration in `ServiceConfiguration`
 - As part of any DI infrastructure changes
+
+### MockDataFactory Usage
+
+`MockDataFactory` (in `AIQ/Models/MockDataFactory.swift`) provides two categories of mock data:
+
+**Factory Methods** (`make*`): Create individual mock objects with customizable parameters. Use these when tests need specific values:
+```swift
+let result = MockDataFactory.makeTestResult(id: 1, iqScore: 120, ...)
+```
+
+**Sample Collections** (`sample*`): Pre-built arrays of mock data for previews and list-based UI testing. Use these for SwiftUI previews and when specific values don't matter:
+```swift
+// In SwiftUI previews
+HistoryView(results: MockDataFactory.sampleTestHistory)
+```
+
+**When to use which:**
+- **Tests that assert specific values** → Use `make*` factory methods
+- **SwiftUI previews** → Use `sample*` collections
+- **Integration tests needing realistic data** → Use `sample*` collections or combine multiple `make*` calls
 
 ### UI Testing Helpers
 
@@ -4393,6 +4651,42 @@ Dependencies should be updated regularly to receive security patches and bug fix
 
 5. **Verify in staging:** For critical dependencies (Firebase, networking), verify in TestFlight build
 
+### Dependency Removal Process
+
+When removing a dependency:
+
+1. **Verify no remaining usage:** Search the entire codebase for imports and references
+   ```bash
+   grep -r "import DependencyName" ios/
+   grep -r "DependencyName" ios/ --include="*.swift"
+   ```
+2. **Remove the SPM package reference** from `Package.swift` or Xcode project settings
+3. **Remove from `Package.resolved`** by running `swift package resolve`
+4. **Update documentation:** Remove from the dependency table in this file
+5. **Clean build:** Perform a clean build to verify no compilation errors
+6. **Run full test suite** to catch any runtime dependencies
+7. **Create dedicated PR** — don't bundle removal with other changes
+
+### Transitive Dependencies
+
+Be aware of transitive (indirect) dependencies pulled in by direct dependencies:
+
+```
+AIQ App
+├── Firebase iOS SDK (direct)
+│   ├── GoogleUtilities (transitive)
+│   ├── nanopb (transitive)
+│   └── PromisesObjC (transitive)
+├── TrustKit (direct, no transitive deps)
+└── swift-openapi-runtime (direct)
+    └── swift-http-types (transitive)
+```
+
+**Guidelines:**
+- Never import transitive dependencies directly — if you need functionality from a transitive dependency, add it as a direct dependency
+- When evaluating a new dependency, check its `Package.swift` for transitive dependencies that might conflict with existing packages
+- SPM handles version resolution automatically, but conflicts between transitive dependencies can cause resolution failures
+
 ### Security Audit Requirements
 
 **For New Dependencies:**
@@ -4849,6 +5143,139 @@ git push origin v1.2.3
 - Review your diff before committing
 - Keep commits atomic and focused
 - Build and test before pushing
+
+---
+
+## App Lifecycle
+
+### Application States
+
+The app handles these lifecycle transitions:
+
+| State | Description | Key Actions |
+|-------|-------------|-------------|
+| **Launch** | App starts fresh | Initialize services, check auth state, restore saved state |
+| **Foreground** | App becomes active | Refresh data, resume timers, check notifications |
+| **Background** | App enters background | Save state, pause timers, flush analytics |
+| **Termination** | App is terminated | Persist critical state (handled by background transition) |
+
+### ScenePhase Handling
+
+Use SwiftUI's `ScenePhase` for lifecycle management instead of UIKit's `UIApplicationDelegate` methods:
+
+```swift
+@main
+struct AIQApp: App {
+    @Environment(\.scenePhase) var scenePhase
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                // Resume operations
+            case .inactive:
+                // Prepare for background
+            case .background:
+                // Save state, flush data
+            @unknown default:
+                break
+            }
+        }
+    }
+}
+```
+
+### AppDelegate Integration
+
+For functionality requiring `UIApplicationDelegate` (push notifications, deep links):
+
+```swift
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        // Handle device token
+    }
+}
+
+// In App struct
+@UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+```
+
+---
+
+## Logging Standards
+
+### Log Levels
+
+Use appropriate log levels for different scenarios:
+
+| Level | Use For | Example |
+|-------|---------|---------|
+| `debug` | Development-only details | Network request/response bodies |
+| `info` | Normal operations worth recording | User logged in, test started |
+| `warning` | Recoverable issues | Network retry, cache miss |
+| `error` | Failures requiring attention | API error, authentication failure |
+
+### Logging in Production
+
+- **Never log sensitive data** (tokens, passwords, personal information)
+- Use `LoggingMiddleware` for API call logging with automatic header redaction
+- Log levels are environment-aware: `debug` in DEBUG builds, `error` in RELEASE
+- See `LoggingMiddleware` in `Packages/AIQAPIClient` for the reference implementation
+
+### Structured Logging Pattern
+
+```swift
+// ✅ Good - Structured, searchable
+print("📤 [operationID] GET /v1/users/123")
+print("❌ [operationID] Error after 0.45s: unauthorized")
+
+// ❌ Bad - Unstructured, hard to filter
+print("error happened")
+print("something went wrong with the request")
+```
+
+---
+
+## Swift Language Features
+
+### Primary Associated Types (Swift 5.7+)
+
+Use primary associated types for cleaner generic constraints:
+
+```swift
+// ✅ Good - Primary associated type (Swift 5.7+)
+func fetch<C: Collection<TestResult>>(_ items: C) { }
+
+// Also good - for simpler cases
+func fetch(_ items: some Collection<TestResult>) { }
+
+// ❌ Verbose - Old-style where clause
+func fetch<C: Collection>(_ items: C) where C.Element == TestResult { }
+```
+
+**Note:** Primary associated types require Swift 5.7+ (Xcode 14+). The AIQ project's minimum deployment target supports this.
+
+### Opaque Return Types
+
+Use `some` for return types to hide implementation details:
+
+```swift
+// ✅ Good - Hides concrete view type
+var body: some View {
+    VStack { ... }
+}
+
+// ✅ Good - Protocol with primary associated type
+func makeItems() -> some Collection<Item> {
+    [item1, item2]
+}
+```
 
 ---
 

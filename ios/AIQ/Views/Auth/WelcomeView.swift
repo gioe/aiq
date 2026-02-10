@@ -123,7 +123,7 @@ struct WelcomeView: View {
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                         .animation(
-                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.6),
+                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.long),
                             value: isAnimating
                         )
 
@@ -149,7 +149,9 @@ struct WelcomeView: View {
                         .padding(.top, DesignSystem.Spacing.sm)
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .animation(
-                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.8),
+                            reduceMotion
+                                ? nil
+                                : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.extraLong),
                             value: isAnimating
                         )
 
