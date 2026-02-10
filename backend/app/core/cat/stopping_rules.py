@@ -54,6 +54,11 @@ MIN_ITEMS_PER_DOMAIN = 1
 # overall coverage has been established
 CONTENT_BALANCE_WAIVER_THRESHOLD = 10
 
+# Minimum number of distinct domains that must have ≥1 item before the content
+# balance waiver can apply. Prevents tests that cover only 2-3 domains from
+# being considered "balanced enough" just because they're long enough.
+MIN_DOMAINS_FOR_WAIVER = 4
+
 # Theta stabilization: maximum change in theta between consecutive estimates
 # If |theta_t - theta_(t-1)| < DELTA_THETA_THRESHOLD, estimates have converged
 DELTA_THETA_THRESHOLD = 0.03
@@ -117,6 +122,7 @@ def check_stopping_criteria(
         - Before content_balance_waiver_threshold items: all domains must have
           >= min_items_per_domain items
         - After content_balance_waiver_threshold items: content balance is waived
+          IF at least MIN_DOMAINS_FOR_WAIVER domains have been covered
 
     Theta stabilization (supplementary criterion):
         - If |theta_t - theta_(t-1)| < delta_theta_threshold AND
@@ -176,11 +182,16 @@ def check_stopping_criteria(
         domain_coverage=domain_coverage,
         min_items_per_domain=min_items_per_domain,
     )
-    content_balance_waived = num_items >= content_balance_waiver_threshold
+    domains_with_items = sum(1 for count in domain_coverage.values() if count > 0)
+    content_balance_waived = (
+        num_items >= content_balance_waiver_threshold
+        and domains_with_items >= MIN_DOMAINS_FOR_WAIVER
+    )
     content_requirement_satisfied = content_balanced or content_balance_waived
 
     details["content_balanced"] = content_balanced
     details["content_balance_waived"] = content_balance_waived
+    details["domains_with_items"] = domains_with_items
 
     # Check theta stabilization (if applicable)
     theta_stable = False

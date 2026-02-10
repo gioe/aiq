@@ -78,7 +78,7 @@ class CalibrationRunner:
                 current_job = self._jobs.get(self._current_running_job_id)
                 if current_job and current_job.status == "running":
                     raise RuntimeError(
-                        f"Calibration job already running: {self._current_running_job_id}"
+                        f"[IRT-CAL] Calibration job already running: {self._current_running_job_id}"
                     )
 
             # Generate unique job ID
@@ -106,7 +106,7 @@ class CalibrationRunner:
             )
             thread.start()
 
-        logger.info(f"Started calibration job: {job_id}")
+        logger.info(f"[IRT-CAL] Started calibration job: {job_id}")
         return job
 
     def _evict_old_jobs(self) -> None:
@@ -147,7 +147,7 @@ class CalibrationRunner:
             db = SessionLocal()
 
             logger.info(
-                f"Calibration job {job_id} started in thread: "
+                f"[IRT-CAL] Calibration job {job_id} started in thread: "
                 f"question_ids={'all' if question_ids is None else len(question_ids)}, "
                 f"min_responses={min_responses}, bootstrap_se={bootstrap_se}"
             )
@@ -174,13 +174,13 @@ class CalibrationRunner:
                     }
 
             logger.info(
-                f"Calibration job {job_id} completed: "
+                f"[IRT-CAL] Calibration job {job_id} completed: "
                 f"{summary['calibrated']} calibrated, {summary['skipped']} skipped"
             )
 
         except CalibrationError as e:
             # CalibrationError is expected - handle gracefully
-            logger.warning(f"Calibration job {job_id} failed: {e.message}")
+            logger.warning(f"[IRT-CAL] Calibration job {job_id} failed: {e.message}")
             with self._lock:
                 job = self._jobs.get(job_id)
                 if job:
@@ -190,7 +190,9 @@ class CalibrationRunner:
 
         except Exception as e:
             # Unexpected error - log full traceback
-            logger.exception(f"Calibration job {job_id} failed with unexpected error")
+            logger.exception(
+                f"[IRT-CAL] Calibration job {job_id} failed with unexpected error"
+            )
             with self._lock:
                 job = self._jobs.get(job_id)
                 if job:

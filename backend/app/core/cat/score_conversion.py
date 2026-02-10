@@ -35,6 +35,24 @@ Score Equating (CTT vs IRT):
     the ability estimate, providing a much wider and more precise measurement
     range. CTT equating is valid only for non-adaptive, fixed-form tests with
     moderate mean difficulty (b ≈ 0). For adaptive tests, IRT scoring is required.
+
+Confidence Interval Comparison (CTT vs IRT):
+    CTT CI: Uses SEM = SD × sqrt(1 - reliability)
+        - Requires an external reliability estimate (e.g., Cronbach's alpha)
+        - Assumes measurement error is constant across the ability range
+        - Appropriate for fixed-form tests where all examinees take the same items
+
+    IRT CI: Uses SE(θ) = posterior SD from EAP estimation
+        - Computed directly from the posterior distribution (no external estimate needed)
+        - Varies by ability level (adaptive items → lower SE at the examinee's ability)
+        - Appropriate for adaptive tests where items differ per examinee
+
+    When to use which:
+        - Fixed-form test with CTT scoring → CTT CI
+        - Adaptive test (CAT) with IRT scoring → IRT CI
+        - Shadow CAT comparison (retrospective) → Both, for validation
+        - Equated scores (CTT accuracy mapped to IRT theta via logit) → IRT CI
+          (the CTT CI formula doesn't apply after the logit transform)
 """
 
 import logging
@@ -235,6 +253,14 @@ def calculate_domain_scores_from_responses(
             correct_count=correct,
             accuracy=round(accuracy, 3),
         )
+
+    logger.debug(
+        "Domain scores calculated: %s",
+        {
+            domain: f"{score.correct_count}/{score.items_administered} ({score.accuracy:.1%})"
+            for domain, score in result.items()
+        },
+    )
 
     return result
 

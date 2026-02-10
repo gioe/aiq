@@ -691,6 +691,7 @@ class ShadowCATResult(Base):
     __table_args__ = (
         Index("idx_shadow_cat_results_executed_at", "executed_at"),
         Index("idx_shadow_cat_results_delta", "theta_iq_delta"),
+        Index("idx_shadow_cat_results_test_session_id", "test_session_id"),
     )
 
 
@@ -959,6 +960,7 @@ class CalibrationRun(Base):
     __table_args__ = (
         Index("ix_irt_calibration_runs_started_at", "started_at"),
         Index("ix_irt_calibration_runs_status", "status"),
+        Index("ix_irt_calibration_runs_status_completed_at", "status", "completed_at"),
     )
 
 
