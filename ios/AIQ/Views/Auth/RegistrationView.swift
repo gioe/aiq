@@ -216,7 +216,7 @@ struct RegistrationView: View {
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                     .animation(
-                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.4),
+                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.medium),
                         value: isAnimating
                     )
 
@@ -320,7 +320,9 @@ struct RegistrationView: View {
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                     .animation(
-                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.5),
+                        reduceMotion
+                            ? nil
+                            : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.mediumLong),
                         value: isAnimating
                     )
 
@@ -342,7 +344,7 @@ struct RegistrationView: View {
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                     .animation(
-                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.6),
+                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.long),
                         value: isAnimating
                     )
 
@@ -368,7 +370,7 @@ struct RegistrationView: View {
                     .padding(.top, DesignSystem.Spacing.sm)
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .animation(
-                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.8),
+                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.extraLong),
                         value: isAnimating
                     )
 

@@ -96,7 +96,7 @@ struct PrivacyConsentView: View {
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                         .animation(
-                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.2),
+                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.short),
                             value: isAnimating
                         )
 
@@ -129,7 +129,9 @@ struct PrivacyConsentView: View {
                         .padding(.horizontal, DesignSystem.Spacing.xl)
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .animation(
-                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.4),
+                            reduceMotion
+                                ? nil
+                                : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.medium),
                             value: isAnimating
                         )
 
@@ -143,7 +145,7 @@ struct PrivacyConsentView: View {
                         .padding(.top, DesignSystem.Spacing.xl)
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .animation(
-                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(0.6),
+                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.long),
                             value: isAnimating
                         )
 
