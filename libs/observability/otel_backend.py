@@ -5,6 +5,8 @@ metrics recording, distributed tracing, and log forwarding.
 
 The init() function supports multiple exporters (console, OTLP) and
 handles authentication for services like Grafana Cloud via OTLP headers.
+
+Requires opentelemetry-api>=1.20.0 and opentelemetry-sdk>=1.20.0.
 """
 
 from __future__ import annotations
@@ -27,6 +29,9 @@ if TYPE_CHECKING:
     from libs.observability.config import OTELConfig
 
 logger = logging.getLogger(__name__)
+
+# Default service version when none is configured
+_DEFAULT_SERVICE_VERSION = "0.0.0-unknown"
 
 
 def _parse_otlp_headers(headers_str: str) -> dict[str, str]:
@@ -111,6 +116,7 @@ def _validate_metric_name(name: str) -> tuple[bool, str | None]:
     if not _METRIC_NAME_PATTERN.match(name):
         return False, (
             f"Metric name '{name}' does not follow conventions. "
+            "Names must match ^[a-z][a-z0-9_.]*$ (e.g., 'http.server.requests'). "
             "Use lowercase letters, numbers, underscores, and dots. "
             "Must start with a letter."
         )
@@ -218,6 +224,11 @@ class OTELBackend:
             Does not raise exceptions. Failures are logged and return False.
             Calling init() multiple times logs a warning and returns True
             if already initialized.
+
+            Exception handling strategy:
+            - ImportError: OTEL packages not installed (warning, graceful fallback)
+            - General Exception: Unexpected error (error with traceback)
+            - Never raises; always returns False on failure
         """
         if not self._config.enabled:
             logger.debug("OpenTelemetry initialization skipped (disabled)")
@@ -350,7 +361,7 @@ class OTELBackend:
         trace.set_tracer_provider(tracer_provider)
         self._tracer_provider = tracer_provider
 
-        version = self._config.service_version or "1.0.0"
+        version = self._config.service_version or _DEFAULT_SERVICE_VERSION
         self._tracer = trace.get_tracer(
             self._config.service_name,
             instrumenting_library_version=version,
@@ -425,7 +436,7 @@ class OTELBackend:
             metrics.set_meter_provider(meter_provider)
             self._meter_provider = meter_provider
 
-        version = self._config.service_version or "1.0.0"
+        version = self._config.service_version or _DEFAULT_SERVICE_VERSION
         self._meter = metrics.get_meter(self._config.service_name, version=version)
 
         logger.info(
@@ -438,6 +449,14 @@ class OTELBackend:
 
         Sets up LoggerProvider and attaches a handler to the Python root logger
         to forward logs to the configured exporter.
+
+        Warning:
+            This method attaches a LoggingHandler to Python's root logger at NOTSET level.
+            This means ALL log messages (DEBUG and above) from every logger in the process
+            will be forwarded to the OTEL exporter. This is a global side effect that persists
+            for the lifetime of the process. The handler is not removed on shutdown().
+            To limit log forwarding, configure log levels on individual loggers rather than
+            relying on the root logger level.
 
         Args:
             resource: OpenTelemetry Resource with service attributes.

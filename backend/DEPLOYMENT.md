@@ -521,6 +521,18 @@ routing:
 
 Values use `${ENV_VAR}` or `${ENV_VAR:default}` syntax for environment variable substitution.
 
+#### Configuration Precedence
+
+Observability configuration is loaded with the following precedence (highest to lowest):
+
+1. **Explicit overrides** passed to `observability.init()` (e.g., `service_name="..."`)
+2. **Environment variables** via `${ENV_VAR}` or `${ENV_VAR:default}` substitution in YAML
+3. **Service-specific YAML** (`backend/config/observability.yaml` or `question-service/config/observability.yaml`)
+4. **Default YAML** (`libs/observability/config/default.yaml`)
+5. **Dataclass defaults** (in `libs/observability/config.py`)
+
+For the full observability facade API reference and examples, see `libs/observability/README.md`.
+
 **Note:** The backend also supports legacy environment variables (`OTEL_OTLP_ENDPOINT`) in `app/core/config.py` for the tracing module. For consistency, set both:
 - `OTEL_EXPORTER_OTLP_ENDPOINT` (for observability.yaml)
 - `OTEL_OTLP_ENDPOINT` (for legacy tracing in config.py)
@@ -590,6 +602,16 @@ The backend exports custom application metrics:
 | `db.query.duration` | Histogram | Database query performance |
 | `test.sessions.active` | UpDownCounter | Number of active test sessions |
 | `app.errors` | Counter | Application errors by type |
+
+#### Multi-Worker Limitations
+
+When running with multiple Gunicorn workers, be aware of these metric behaviors:
+
+- **UpDownCounter** (`test.sessions.active`): Tracks deltas (increments/decrements). On process restart, the counter resets to 0 which may cause temporary drift in reported values. For accurate absolute values of session counts, query the database directly.
+
+- **Observable Gauges**: Use per-process callbacks that maintain separate state in each Gunicorn worker. This means each worker reports its own gauge values, which may not reflect the true application-wide state.
+
+For production monitoring of absolute values (e.g., total active sessions), prefer querying the authoritative data source (database) rather than relying on aggregated gauge metrics from multiple workers.
 
 ### Sample Queries
 

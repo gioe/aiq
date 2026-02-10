@@ -6,10 +6,10 @@ sentry:
   enabled: true
   dsn: ${SENTRY_DSN}
   environment: ${ENV:development}
-  release: ${RELEASE}
+  release: ${RELEASE:unknown}
   traces_sample_rate: 0.1
-  profiles_sample_rate: 0.0
-  send_default_pii: false
+  profiles_sample_rate: 0.0  # Sentry profiling disabled to reduce data volume (0.0 = off, 1.0 = all)
+  send_default_pii: false    # Never send PII (emails, IPs) to Sentry
 
 otel:
   enabled: true
@@ -27,5 +27,7 @@ routing:
   errors: sentry
   # Metrics: OTEL/Prometheus for Grafana dashboards
   metrics: otel
-  # Traces: OTEL for question-service (simpler than backend)
+  # Traces: OTEL only for question-service (batch service, OTEL traces alone sufficient)
+  # Question-service uses 'otel' because it's a batch service where OTEL traces
+  # alone are sufficient without needing Sentry Performance correlation
   traces: otel

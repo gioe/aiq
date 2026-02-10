@@ -5,7 +5,7 @@ sentry:
   enabled: true
   dsn: ${SENTRY_DSN}
   environment: ${ENV:development}
-  release: ${RELEASE}
+  release: ${RELEASE:unknown}
   traces_sample_rate: 0.1
   profiles_sample_rate: 0.0
   send_default_pii: false
