@@ -5,10 +5,12 @@ import XCTest
 /// Tests for DeepLinkHandler URL parsing functionality
 final class DeepLinkHandlerTests: XCTestCase {
     var sut: DeepLinkHandler!
+    var mockAnalytics: MockAnalyticsService!
 
     override func setUp() {
         super.setUp()
-        sut = DeepLinkHandler()
+        mockAnalytics = MockAnalyticsService()
+        sut = DeepLinkHandler(analyticsService: mockAnalytics)
     }
 
     // MARK: - URL Scheme Tests - Test Results
@@ -1260,5 +1262,85 @@ final class DeepLinkHandlerTests: XCTestCase {
         XCTAssertEqual(DeepLinkSource.urlScheme.rawValue, "url_scheme")
         XCTAssertEqual(DeepLinkSource.universalLink.rawValue, "universal_link")
         XCTAssertEqual(DeepLinkSource.unknown.rawValue, "unknown")
+    }
+
+    // MARK: - Analytics Tracking Tests
+
+    /// Test that malformed settings deep links track analytics for extra path components
+    func testParseSettings_WithExtraComponents_TracksAnalytics() {
+        // Given - URL with extra path components after settings
+        let url = URL(string: "aiq://settings/notifications")!
+
+        // When - parsing the URL
+        let result = sut.parse(url)
+
+        // Then - should parse as .settings (lenient behavior)
+        XCTAssertEqual(result, .settings, "should parse as settings despite extra components")
+
+        // Then - should track analytics for malformed deep link
+        XCTAssertTrue(mockAnalytics.trackDeepLinkFailedCalled, "should track failed navigation for malformed settings")
+        XCTAssertEqual(
+            mockAnalytics.lastFailedErrorType,
+            "malformed_settings_extra_components",
+            "should use correct error type"
+        )
+        XCTAssertEqual(mockAnalytics.lastFailedSource, "unknown", "should use unknown source for parsing errors")
+        XCTAssertEqual(mockAnalytics.lastFailedURL, url.absoluteString, "should track original URL")
+    }
+
+    /// Test that malformed settings deep links with multiple extra components track analytics
+    func testParseSettings_WithMultipleExtraComponents_TracksAnalytics() {
+        // Given - URL with multiple extra path components
+        let url = URL(string: "https://aiq.app/settings/notifications/push/detail")!
+
+        // When - parsing the URL
+        let result = sut.parse(url)
+
+        // Then - should parse as .settings
+        XCTAssertEqual(result, .settings, "should parse as settings despite multiple extra components")
+
+        // Then - should track analytics
+        XCTAssertTrue(mockAnalytics.trackDeepLinkFailedCalled, "should track failed navigation")
+        XCTAssertEqual(
+            mockAnalytics.lastFailedErrorType,
+            "malformed_settings_extra_components",
+            "should use correct error type for multiple components"
+        )
+    }
+
+    /// Test that well-formed settings deep links do NOT track failure analytics
+    func testParseSettings_Valid_DoesNotTrackFailureAnalytics() {
+        // Given - Valid settings URL without extra components
+        let url = URL(string: "aiq://settings")!
+
+        // When - parsing the URL
+        let result = sut.parse(url)
+
+        // Then - should parse as .settings
+        XCTAssertEqual(result, .settings, "should parse as settings")
+
+        // Then - should NOT track failure analytics (no malformation)
+        XCTAssertFalse(
+            mockAnalytics.trackDeepLinkFailedCalled,
+            "should not track failure for well-formed settings URL"
+        )
+    }
+
+    /// Test that settings deep link with trailing slash does NOT track failure analytics
+    func testParseSettings_WithTrailingSlash_DoesNotTrackFailureAnalytics() {
+        // Given - Settings URL with trailing slash (still well-formed)
+        let url = URL(string: "aiq://settings/")!
+
+        // When - parsing the URL
+        let result = sut.parse(url)
+
+        // Then - should parse as .settings
+        XCTAssertEqual(result, .settings, "should parse as settings")
+
+        // Then - should NOT track failure analytics (trailing slash is not an extra component)
+        XCTAssertFalse(
+            mockAnalytics.trackDeepLinkFailedCalled,
+            "should not track failure for settings URL with trailing slash"
+        )
     }
 }

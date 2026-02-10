@@ -313,9 +313,96 @@ final class DashboardNavigationTests: XCTestCase {
         super.tearDown()
     }
 
+    // MARK: - UI-Level Integration Tests
+
+    /// Test that navigating to test when user has no active session pushes correct route
+    func testNavigateToTest_NoActiveSession_PushesNewTestRoute() {
+        // Given - no active test session
+        sut.currentTab = .dashboard
+        let hasActiveSession = false
+
+        // When - user taps "Take Test" button (simulating DashboardView navigation logic)
+        if hasActiveSession {
+            sut.push(.testTaking(sessionId: 123))
+        } else if Constants.Features.adaptiveTesting {
+            sut.push(.adaptiveTestTaking)
+        } else {
+            sut.push(.testTaking())
+        }
+
+        // Then - should push new test route (no sessionId)
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "should push 1 route")
+        XCTAssertFalse(sut.isAtRoot(in: .dashboard), "should not be at root")
+    }
+
+    /// Test that navigating after completing a test (test results flow) works correctly
+    func testNavigateAfterTestCompletion_TestResultsFlow_RouteChainWorks() {
+        // Given - user completes a test
+        sut.currentTab = .dashboard
+        let mockResult = createMockSubmittedTestResult()
+
+        // When - navigate to test taking
+        sut.push(.testTaking())
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "should have test taking route")
+
+        // When - test completes and navigate to results (replacing stack)
+        sut.navigateTo(.testResults(result: mockResult, isFirstTest: false), in: .dashboard)
+
+        // Then - should have replaced with test results route
+        XCTAssertEqual(sut.depth(in: .dashboard), 1, "should have 1 route after replacement")
+
+        // Then - can navigate back to dashboard root
+        sut.popToRoot(in: .dashboard)
+        XCTAssertTrue(sut.isAtRoot(in: .dashboard), "should be back at root")
+    }
+
+    /// Test that navigating in dashboard doesn't affect other tabs' state
+    func testDashboardNavigation_DoesNotAffectOtherTabsState() {
+        // Given - all tabs have navigation state
+        sut.push(.testDetail(result: createMockTestResult(), userAverage: 110), in: .history)
+        sut.push(.help, in: .settings)
+        sut.push(.notificationSettings, in: .settings)
+
+        XCTAssertEqual(sut.depth(in: .history), 1, "setup: history should have 1 route")
+        XCTAssertEqual(sut.depth(in: .settings), 2, "setup: settings should have 2 routes")
+
+        // When - navigate in dashboard tab
+        sut.currentTab = .dashboard
+        sut.push(.testTaking())
+        sut.push(.help)
+
+        // Then - dashboard has new navigation
+        XCTAssertEqual(sut.depth(in: .dashboard), 2, "dashboard should have 2 routes")
+
+        // Then - other tabs' state is preserved (tab isolation)
+        XCTAssertEqual(sut.depth(in: .history), 1, "history state should be preserved")
+        XCTAssertEqual(sut.depth(in: .settings), 2, "settings state should be preserved")
+
+        // Then - verify can switch to other tabs and state is intact
+        sut.currentTab = .history
+        XCTAssertEqual(sut.depth(in: .history), 1, "history depth preserved after switch")
+        XCTAssertFalse(sut.isAtRoot(in: .history), "history not at root after switch")
+
+        sut.currentTab = .settings
+        XCTAssertEqual(sut.depth(in: .settings), 2, "settings depth preserved after switch")
+    }
+
     // MARK: - Helper Methods
 
     private func createMockTestResult(id: Int = 1) -> TestResult {
+        MockDataFactory.makeTestResult(
+            id: id,
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 115,
+            totalQuestions: 30,
+            correctAnswers: 24,
+            accuracyPercentage: 80.0,
+            completedAt: Date()
+        )
+    }
+
+    private func createMockSubmittedTestResult(id: Int = 1) -> SubmittedTestResult {
         MockDataFactory.makeTestResult(
             id: id,
             testSessionId: 100,

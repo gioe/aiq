@@ -62,34 +62,27 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
 
     /// Test that testResults deep link successfully navigates with API success
     func testTestResults_FullFlow_APISuccess_PushesRoute() async {
-        // Given - mock API returns test result
-        let mockResult = createMockTestResult(id: 123)
-        mockAPIService.getTestResultsResponse = mockResult
+        // Given - router starts on settings tab
         router.currentTab = .settings
+        let mockResult = createMockTestResult(id: 123)
 
-        // When - navigating through service
-        let result = await sut.navigate(
-            to: .testResults(id: 123),
+        // When - navigating through service using helper
+        _ = await navigateAndAssert(
+            .testResults(id: 123),
+            expectedTab: .dashboard,
+            apiResponse: mockResult,
             source: .pushNotification,
             originalURL: "aiq://test/results/123"
         )
 
-        // Then - should navigate to dashboard tab
-        XCTAssertEqual(result, .navigated(tab: .dashboard), "should return navigated to dashboard")
-        XCTAssertEqual(selectedTab, .dashboard, "should switch to dashboard tab")
-        XCTAssertEqual(router.currentTab, .dashboard, "router should be on dashboard tab")
-
-        // Then - API should be called with correct ID
-        XCTAssertTrue(mockAPIService.getTestResultsCalled, "should call getTestResults")
-        XCTAssertEqual(mockAPIService.lastGetTestResultsId, 123, "should pass correct result ID")
-
-        // Then - route should be pushed to dashboard navigation stack
-        XCTAssertEqual(router.depth(in: .dashboard), 1, "dashboard should have 1 route pushed")
+        // Then - verify API call and route state using helpers
+        assertAPICalledWith(id: 123)
+        assertRouteCount(in: .dashboard, expected: 1)
         XCTAssertFalse(router.isAtRoot(in: .dashboard), "dashboard should not be at root")
 
         // Then - other tabs' navigation should be preserved
-        XCTAssertEqual(router.depth(in: .history), 0, "history should remain at root")
-        XCTAssertEqual(router.depth(in: .settings), 0, "settings should remain at root")
+        assertRouteCount(in: .history, expected: 0)
+        assertRouteCount(in: .settings, expected: 0)
     }
 
     /// Test that testResults deep link clears existing dashboard navigation before pushing
@@ -116,19 +109,16 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
         // Given - other tabs have navigation state
         router.push(.help, in: .settings)
         router.push(.testDetail(result: createMockTestResult(id: 999), userAverage: 100), in: .history)
-        XCTAssertEqual(router.depth(in: .settings), 1, "setup: settings should have 1 route")
-        XCTAssertEqual(router.depth(in: .history), 1, "setup: history should have 1 route")
+        assertRouteCount(in: .settings, expected: 1)
+        assertRouteCount(in: .history, expected: 1)
 
-        // Given - mock API returns test result
+        // When - navigating to test results using helper
         let mockResult = createMockTestResult(id: 789)
-        mockAPIService.getTestResultsResponse = mockResult
+        _ = await navigateAndAssert(.testResults(id: 789), expectedTab: .dashboard, apiResponse: mockResult)
 
-        // When - navigating to test results
-        _ = await sut.navigate(to: .testResults(id: 789))
-
-        // Then - other tabs should preserve their navigation
-        XCTAssertEqual(router.depth(in: .settings), 1, "settings should still have 1 route")
-        XCTAssertEqual(router.depth(in: .history), 1, "history should still have 1 route")
+        // Then - other tabs should preserve their navigation using helper
+        assertRouteCount(in: .settings, expected: 1)
+        assertRouteCount(in: .history, expected: 1)
     }
 
     // MARK: - Resume Test: Full flow with route verification
@@ -246,6 +236,37 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
 
         // Then - route should NOT be pushed
         XCTAssertEqual(router.depth(in: .dashboard), 0, "should not push route after server error")
+    }
+
+    /// Test that user with no test results (404 not found) fails gracefully
+    ///
+    /// Scenario: New user receives a deep link to test results but they have no test history yet
+    /// (e.g., they were sent a notification by mistake or a stale link).
+    /// The API returns 404 notFound, and the navigation should fail without pushing a route.
+    func testTestResults_UserHasNoTestResults_ReturnsFailed_NoRoutePushed() async {
+        // Given - mock API returns notFound error (user has no test results)
+        mockAPIService.getTestResultsError = APIError.notFound()
+
+        // Given - router starts on dashboard
+        router.currentTab = .dashboard
+
+        // When - navigating to test results deep link
+        let result = await sut.navigate(
+            to: .testResults(id: 123),
+            source: .pushNotification,
+            originalURL: "aiq://test/results/123"
+        )
+
+        // Then - should return failed
+        XCTAssertEqual(result, .failed(.testResults(id: 123)), "should return failed when user has no test results")
+
+        // Then - API should be called with correct ID
+        XCTAssertTrue(mockAPIService.getTestResultsCalled, "should call getTestResults")
+        XCTAssertEqual(mockAPIService.lastGetTestResultsId, 123, "should pass correct result ID")
+
+        // Then - route should NOT be pushed (user has no results to display)
+        XCTAssertEqual(router.depth(in: .dashboard), 0, "should not push route when result not found")
+        XCTAssertTrue(router.isAtRoot(in: .dashboard), "dashboard should remain at root")
     }
 
     // MARK: - Full flow from notification payload with API success
@@ -392,7 +413,116 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
         XCTAssertEqual(router.depth(in: .dashboard), 1, "should have 1 route after second navigation")
     }
 
+    // MARK: - Concurrent Navigation Tests
+
+    /// Test concurrent deep link handling using unstructured Task concurrency
+    ///
+    /// This test verifies that the service's `isProcessingDeepLink` flag prevents concurrent
+    /// deep link processing. The guard exists for the case where SwiftUI's `onReceive` creates
+    /// `Task {}` blocks, allowing multiple Tasks to start before the first completes.
+    ///
+    /// We use `Task {}` (unstructured concurrency) to simulate overlapping navigation attempts,
+    /// which is exactly how the real code works in MainTabView.
+    func testConcurrentNavigation_SecondCallDropped() async {
+        // Given - Create a slow mock handler that introduces delay
+        let slowHandler = SlowMockDeepLinkHandler(delaySeconds: 0.1)
+        let concurrentSut = DeepLinkNavigationService(
+            router: router,
+            deepLinkHandler: slowHandler,
+            tabSelectionHandler: { [self] newTab in
+                selectedTab = newTab
+            }
+        )
+
+        // When - Start first navigation via unstructured Task (simulating SwiftUI onReceive)
+        // This mirrors: .onReceive(deepLinkPublisher) { _ in Task { await service.navigate(...) } }
+        let firstExpectation = XCTestExpectation(description: "First navigation completes")
+        var firstResult: DeepLinkNavigationResult?
+        Task { @MainActor in
+            firstResult = await concurrentSut.navigate(
+                to: .testResults(id: 123),
+                source: .pushNotification,
+                originalURL: "aiq://test/results/123"
+            )
+            firstExpectation.fulfill()
+        }
+
+        // When - Immediately start second navigation via another unstructured Task
+        // The isProcessingDeepLink flag is set synchronously before the first Task suspends
+        let secondExpectation = XCTestExpectation(description: "Second navigation completes")
+        var secondResult: DeepLinkNavigationResult?
+        Task { @MainActor in
+            secondResult = await concurrentSut.navigate(
+                to: .settings,
+                source: .pushNotification,
+                originalURL: "aiq://settings"
+            )
+            secondExpectation.fulfill()
+        }
+
+        // Wait for both Tasks to complete
+        await fulfillment(of: [firstExpectation, secondExpectation], timeout: 2.0)
+
+        // Then - One should succeed and the other should be dropped
+        // Due to @MainActor serialization, the first Task runs its synchronous prefix
+        // (including setting isProcessingDeepLink = true) before the second Task starts.
+        XCTAssertEqual(firstResult, .navigated(tab: .dashboard), "first navigation should succeed")
+        XCTAssertEqual(secondResult, .dropped, "second navigation should be dropped while first is processing")
+
+        // When - After both complete, a new navigation should work normally
+        let thirdResult = await concurrentSut.navigate(to: .settings)
+        XCTAssertEqual(thirdResult, .navigated(tab: .settings), "navigation should work after concurrent processing completes")
+    }
+
     // MARK: - Helper Methods
+
+    /// Navigate to a deep link and assert navigation success
+    ///
+    /// - Parameters:
+    ///   - deepLink: The deep link to navigate to
+    ///   - expectedTab: The tab expected after navigation
+    ///   - apiResponse: Optional test result to set as API response before navigation
+    ///   - source: Source of deep link (defaults to .pushNotification)
+    ///   - originalURL: Original URL string (defaults to empty)
+    private func navigateAndAssert(
+        _ deepLink: DeepLink,
+        expectedTab: TabDestination,
+        apiResponse: TestResult? = nil,
+        source: DeepLinkSource = .pushNotification,
+        originalURL: String = ""
+    ) async -> DeepLinkNavigationResult {
+        // Set API response if provided
+        if let apiResponse {
+            mockAPIService.getTestResultsResponse = apiResponse
+        }
+
+        // Navigate
+        let result = await sut.navigate(to: deepLink, source: source, originalURL: originalURL)
+
+        // Assert successful navigation to expected tab
+        XCTAssertEqual(result, .navigated(tab: expectedTab), "should navigate to \(expectedTab)")
+        XCTAssertEqual(selectedTab, expectedTab, "should switch to \(expectedTab) tab")
+        XCTAssertEqual(router.currentTab, expectedTab, "router should be on \(expectedTab) tab")
+
+        return result
+    }
+
+    /// Assert that API was called with expected ID
+    ///
+    /// - Parameter id: Expected result ID passed to API
+    private func assertAPICalledWith(id: Int) {
+        XCTAssertTrue(mockAPIService.getTestResultsCalled, "should call getTestResults API")
+        XCTAssertEqual(mockAPIService.lastGetTestResultsId, id, "should call API with ID \(id)")
+    }
+
+    /// Assert that a specific tab's navigation stack has expected depth
+    ///
+    /// - Parameters:
+    ///   - tab: The tab to check
+    ///   - expected: Expected depth
+    private func assertRouteCount(in tab: TabDestination, expected: Int) {
+        XCTAssertEqual(router.depth(in: tab), expected, "\(tab) should have \(expected) route(s)")
+    }
 
     private func createMockTestResult(id: Int = 1) -> TestResult {
         MockDataFactory.makeTestResult(
@@ -405,6 +535,59 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
             accuracyPercentage: 80.0,
             completedAt: Date()
         )
+    }
+}
+
+// MARK: - Slow Mock Deep Link Handler (for concurrent testing)
+
+/// Mock handler that introduces artificial delay to test concurrent processing guard
+///
+/// This handler is used to test the `isProcessingDeepLink` flag in DeepLinkNavigationService
+/// by creating a scenario where navigation takes long enough for a second navigation attempt
+/// to start while the first is still processing.
+@MainActor
+private final class SlowMockDeepLinkHandler: DeepLinkHandlerProtocol {
+    private let delaySeconds: Double
+    private let realHandler: DeepLinkHandler
+
+    init(delaySeconds: Double) {
+        self.delaySeconds = delaySeconds
+        realHandler = DeepLinkHandler()
+    }
+
+    func parse(_ url: URL) -> DeepLink {
+        realHandler.parse(url)
+    }
+
+    func handleNavigation(
+        _: DeepLink,
+        router _: AppRouter,
+        tab _: TabDestination?,
+        source _: DeepLinkSource,
+        originalURL _: String
+    ) async -> Bool {
+        // Introduce artificial delay to simulate slow navigation
+        try? await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000))
+
+        // For settings, return true immediately (settings handled at tab level)
+        // For other deep links, would normally call real handler, but for testing we just succeed
+        return true
+    }
+
+    func trackNavigationSuccess(
+        _ deepLink: DeepLink,
+        source: DeepLinkSource,
+        originalURL: String
+    ) {
+        realHandler.trackNavigationSuccess(deepLink, source: source, originalURL: originalURL)
+    }
+
+    func trackParseFailed(
+        error: DeepLinkError,
+        source: DeepLinkSource,
+        originalURL: String
+    ) {
+        realHandler.trackParseFailed(error: error, source: source, originalURL: originalURL)
     }
 }
 

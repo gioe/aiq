@@ -154,6 +154,8 @@ The app uses TrustKit for SSL certificate pinning to prevent man-in-the-middle (
 
 The app uses Apple Push Notification service (APNs) for test reminders.
 
+For server-side APNs configuration and token management, see [Backend Documentation](../backend/README.md).
+
 ### APNs Environment Configuration
 
 **Entitlements file:** `AIQ/AIQ.entitlements`
