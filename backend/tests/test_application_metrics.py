@@ -103,3 +103,36 @@ class TestRecordTestCompleted:
             assert counter_call.kwargs["value"] == 1
             assert counter_call.kwargs["metric_type"] == "counter"
             assert counter_call.kwargs["unit"] == "1"
+
+
+class TestRecordIqScore:
+    """Unit tests for record_iq_score()."""
+
+    def test_emits_histogram(self, initialized_metrics):
+        """record_iq_score emits a histogram with the score value."""
+        with patch("app.observability.observability") as mock_obs:
+            initialized_metrics.record_iq_score(score=115.0, adaptive=False)
+
+            mock_obs.record_metric.assert_called_once_with(
+                name="test.iq_score",
+                value=115.0,
+                labels={"test.adaptive": "false"},
+                metric_type="histogram",
+                unit="1",
+            )
+
+    def test_adaptive_label_true(self, initialized_metrics):
+        """Adaptive label is 'true' for CAT tests."""
+        with patch("app.observability.observability") as mock_obs:
+            initialized_metrics.record_iq_score(score=100.0, adaptive=True)
+
+            call = mock_obs.record_metric.call_args
+            assert call.kwargs["labels"]["test.adaptive"] == "true"
+
+    def test_noop_when_not_initialized(self):
+        """No metrics emitted when ApplicationMetrics is not initialized."""
+        m = ApplicationMetrics()
+        with patch("app.observability.observability") as mock_obs:
+            m.record_iq_score(score=100.0, adaptive=False)
+
+            mock_obs.record_metric.assert_not_called()

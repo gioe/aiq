@@ -732,6 +732,7 @@ def _finalize_adaptive_session(
         question_count=cat_result.items_administered,
         duration_seconds=float(completion_time_seconds),
     )
+    metrics.record_iq_score(score=cat_result.iq_score, adaptive=True)
     invalidate_user_cache(user_id)
     invalidate_reliability_report_cache()
 
@@ -1873,6 +1874,9 @@ def submit_test(
         adaptive=bool(test_session.is_adaptive),
         question_count=response_count,
         duration_seconds=float(completion_time_seconds),
+    )
+    metrics.record_iq_score(
+        score=score_result.iq_score, adaptive=bool(test_session.is_adaptive)
     )
     invalidate_user_cache(user_id)
     invalidate_reliability_report_cache()
