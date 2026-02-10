@@ -569,6 +569,7 @@ Custom business metrics are also exported via OTEL. Note: OTEL metric names use 
 | `judge.approved` | Counter | Questions approved by judge |
 | `judge.rejected` | Counter | Questions rejected by judge |
 | `dedup.duplicates_removed` | Counter | Duplicate questions removed |
+| `dedup.by_type` | Counter | Duplicates removed by type (`duplicate_type` label) |
 | `db.questions_inserted` | Counter | Questions inserted into database |
 | `question.generation.latency` | Histogram | Per-question generation latency by provider (seconds) |
 | `question.generation.cost` | Counter | Per-question generation cost by provider (USD) |
@@ -604,5 +605,5 @@ ENABLE_PROMETHEUS_METRICS=false
 
 ---
 
-**Last Updated**: February 8, 2026
+**Last Updated**: February 10, 2026
 **Maintained By**: AIQ Engineering Team
