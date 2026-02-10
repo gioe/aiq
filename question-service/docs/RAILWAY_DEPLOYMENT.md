@@ -569,7 +569,7 @@ Custom business metrics are also exported via OTEL. Note: OTEL metric names use 
 | `judge.approved` | Counter | Questions approved by judge |
 | `judge.rejected` | Counter | Questions rejected by judge |
 | `dedup.duplicates_removed` | Counter | Duplicate questions removed |
-| `dedup.by_type` | Counter | Duplicates removed by type (`duplicate_type` label) |
+| `dedup.by_type` | Counter | Duplicates removed by type (`duplicate_type`: `exact`, `semantic`, `unknown`) |
 | `db.questions_inserted` | Counter | Questions inserted into database |
 | `question.generation.latency` | Histogram | Per-question generation latency by provider (seconds) |
 | `question.generation.cost` | Counter | Per-question generation cost by provider (USD) |
