@@ -48,6 +48,10 @@ class BaseUITest: XCTestCase {
     /// This provides a consistent timeout for network-dependent operations.
     let networkTimeout: TimeInterval = 10.0
 
+    /// Extended timeout for network error scenarios (60 seconds)
+    /// Use this for network error recovery tests where timeouts may be long.
+    let networkErrorTimeout: TimeInterval = 60.0
+
     // MARK: - Thread Sleep Delays
 
     /// App termination delay for lifecycle operations (0.5 seconds)
@@ -192,6 +196,27 @@ class BaseUITest: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    /// Take a screenshot after verifying element exists
+    /// - Parameters:
+    ///   - name: Name for the screenshot
+    ///   - element: Element that must exist before taking screenshot
+    ///   - file: Source file (default: caller's file)
+    ///   - line: Source line (default: caller's line)
+    func takeVerifiedScreenshot(
+        named name: String,
+        verifying element: XCUIElement,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(
+            element.exists,
+            "Element must exist before taking screenshot '\(name)'",
+            file: file,
+            line: line
+        )
+        takeScreenshot(named: name)
     }
 
     /// Verify that an element exists and optionally take a screenshot on failure

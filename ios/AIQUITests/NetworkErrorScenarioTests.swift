@@ -75,6 +75,25 @@ final class NetworkErrorScenarioTests: BaseUITest {
         navHelper = NavigationHelper(app: app, timeout: standardTimeout)
     }
 
+    // MARK: - Helper Methods
+
+    /// Verify network error message in error view
+    /// - Parameter errorView: The error view containing the message
+    /// - Returns: true if error message mentions network/connection issues
+    private func verifyNetworkErrorMessage(in errorView: XCUIElement) -> Bool {
+        let errorViewLabels = errorView.staticTexts.allElementsBoundByIndex
+        for label in errorViewLabels {
+            let text = label.label.lowercased()
+            if text.contains("network") ||
+                text.contains("connection") ||
+                text.contains("internet") ||
+                text.contains("offline") {
+                return true
+            }
+        }
+        return false
+    }
+
     override func tearDownWithError() throws {
         loginHelper = nil
         testHelper = nil
@@ -138,26 +157,14 @@ final class NetworkErrorScenarioTests: BaseUITest {
         wait(for: errorView, timeout: extendedTimeout)
 
         // Verify error message mentions network/connection (scoped to error view)
-        let errorViewLabels = errorView.staticTexts.allElementsBoundByIndex
-        var foundNetworkMessage = false
-
-        for label in errorViewLabels {
-            let text = label.label.lowercased()
-            if text.contains("network") ||
-                text.contains("connection") ||
-                text.contains("internet") ||
-                text.contains("offline") {
-                foundNetworkMessage = true
-                break
-            }
-        }
-
+        let foundNetworkMessage = verifyNetworkErrorMessage(in: errorView)
         XCTAssertTrue(
             foundNetworkMessage,
             "Error message should mention network/connection issue"
         )
 
         // Verify error does NOT contain technical jargon (scoped to error view)
+        let errorViewLabels = errorView.staticTexts.allElementsBoundByIndex
         for label in errorViewLabels {
             let text = label.label
             XCTAssertFalse(
@@ -238,7 +245,7 @@ final class NetworkErrorScenarioTests: BaseUITest {
         testHelper.submitButton.tap()
 
         // Wait for timeout error (may take 30+ seconds depending on configured timeout)
-        let timeoutError = errorView.waitForExistence(timeout: 60.0)
+        let timeoutError = errorView.waitForExistence(timeout: networkErrorTimeout)
         XCTAssertTrue(timeoutError, "Timeout error view should appear")
 
         takeScreenshot(named: "APITimeout_Submission_02_TimeoutError")
@@ -269,7 +276,7 @@ final class NetworkErrorScenarioTests: BaseUITest {
         testHelper.submitButton.tap()
 
         // Wait for error
-        wait(for: errorView, timeout: 60.0)
+        wait(for: errorView, timeout: networkErrorTimeout)
 
         // Verify error message mentions timeout or slow connection (scoped to error view)
         let errorViewLabels = errorView.staticTexts.allElementsBoundByIndex
@@ -319,7 +326,7 @@ final class NetworkErrorScenarioTests: BaseUITest {
         testHelper.submitButton.tap()
 
         // Wait for error
-        wait(for: errorView, timeout: 60.0)
+        wait(for: errorView, timeout: networkErrorTimeout)
         takeScreenshot(named: "APITimeout_Submission_Retry_01_Error")
 
         // Note: Restore normal network conditions before retry
@@ -551,6 +558,57 @@ final class NetworkErrorScenarioTests: BaseUITest {
         )
 
         takeScreenshot(named: "NetworkError_Accessibility")
+    }
+
+    // MARK: - Non-Retryable Error Tests
+
+    func testNonRetryableError_401_NoRetryButtonShown() throws {
+        // Skip: Requires mock error simulation
+        throw XCTSkip("Requires 401 Unauthorized error simulation")
+
+        // This test verifies that non-retryable auth errors don't show retry button
+
+        // Setup: Configure app to mock 401 error
+        app.launchArguments.append("-MockNetworkError")
+        app.launchArguments.append("-ErrorCode")
+        app.launchArguments.append("401")
+
+        // Precondition: User attempts login or starts test
+        loginHelper.login(email: validEmail, password: validPassword, waitForDashboard: false)
+
+        // Wait for error view to appear
+        let errorAppeared = errorView.waitForExistence(timeout: networkErrorTimeout)
+        XCTAssertTrue(errorAppeared, "Error view should appear for 401 error")
+
+        takeScreenshot(named: "NonRetryableError_401_ErrorView")
+
+        // Verify retry button does NOT exist (401 is not retryable)
+        XCTAssertFalse(retryButton.exists, "Retry button should not exist for 401 Unauthorized error")
+    }
+
+    func testNonRetryableError_403_NoRetryButtonShown() throws {
+        // Skip: Requires mock error simulation
+        throw XCTSkip("Requires 403 Forbidden error simulation")
+
+        // This test verifies that non-retryable permission errors don't show retry button
+
+        // Setup: Configure app to mock 403 error
+        app.launchArguments.append("-MockNetworkError")
+        app.launchArguments.append("-ErrorCode")
+        app.launchArguments.append("403")
+
+        // Precondition: User attempts action requiring permissions
+        loginHelper.login(email: validEmail, password: validPassword, waitForDashboard: true)
+        testHelper.startTestButton.tap()
+
+        // Wait for error view to appear
+        let errorAppeared = errorView.waitForExistence(timeout: networkErrorTimeout)
+        XCTAssertTrue(errorAppeared, "Error view should appear for 403 error")
+
+        takeScreenshot(named: "NonRetryableError_403_ErrorView")
+
+        // Verify retry button does NOT exist (403 is not retryable)
+        XCTAssertFalse(retryButton.exists, "Retry button should not exist for 403 Forbidden error")
     }
 
     // MARK: - Integration Tests

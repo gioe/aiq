@@ -92,6 +92,21 @@ final class ToastManagerTests: XCTestCase {
         XCTAssertEqual(sut.currentToast?.type, .warning, "Should show warning type")
     }
 
+    func testRapidSuccession_LastToastWins() {
+        // Given
+        let toastCount = 5
+
+        // When - Show multiple toasts in rapid succession
+        for i in 0 ..< toastCount {
+            sut.show("Toast \(i)", type: .info)
+        }
+
+        // Then - Last toast should be the one displayed
+        XCTAssertNotNil(sut.currentToast, "A toast should be displayed")
+        XCTAssertEqual(sut.currentToast?.message, "Toast 4", "Last toast should win in rapid succession")
+        XCTAssertEqual(sut.currentToast?.type, .info, "Toast type should match")
+    }
+
     // MARK: - Dismiss Tests
 
     func testDismiss_ClearsCurrentToast() {

@@ -284,6 +284,7 @@ final class TestTakingFlowTests: BaseUITest {
             // Assert expected UI state before screenshot
             XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
             assertExists(testHelper.questionText, "Question text should be visible")
+            XCTAssertFalse(nextButton.isEnabled, "Next button should be disabled when question is unanswered")
             takeScreenshot(named: "NextButtonStateUnanswered")
         }
     }

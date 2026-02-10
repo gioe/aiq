@@ -31,17 +31,27 @@ struct PageIndicator: View {
     /// Spacing between dots
     private let dotSpacing: CGFloat = 8
 
+    /// Validated total pages (minimum 1)
+    private var validTotalPages: Int {
+        max(1, totalPages)
+    }
+
+    /// Validated current page (clamped to valid range)
+    private var validCurrentPage: Int {
+        max(0, min(currentPage, validTotalPages - 1))
+    }
+
     var body: some View {
         HStack(spacing: dotSpacing) {
-            ForEach(0 ..< totalPages, id: \.self) { index in
+            ForEach(0 ..< validTotalPages, id: \.self) { index in
                 Circle()
-                    .fill(index == currentPage ? ColorPalette.primary : ColorPalette.textSecondary)
+                    .fill(index == validCurrentPage ? ColorPalette.primary : ColorPalette.textSecondary)
                     .frame(width: dotSize, height: dotSize)
-                    .animation(.easeInOut(duration: 0.2), value: currentPage)
+                    .animation(.easeInOut(duration: 0.2), value: validCurrentPage)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Page \(currentPage + 1) of \(totalPages)")
+        .accessibilityLabel("Page \(validCurrentPage + 1) of \(validTotalPages)")
         .accessibilityIdentifier(AccessibilityIdentifiers.PageIndicator.container)
     }
 }
