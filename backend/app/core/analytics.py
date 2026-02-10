@@ -240,7 +240,7 @@ class AnalyticsTracker:
             EventType.NOTIFICATION_SENT,
             user_id=user_id,
             properties={
-                "notification_type": notification_type,
+                "notification_type": notification_type.value,
                 "device_token_prefix": device_token_prefix,
             },
         )
@@ -258,7 +258,7 @@ class AnalyticsTracker:
             EventType.NOTIFICATION_FAILED,
             user_id=user_id,
             properties={
-                "notification_type": notification_type,
+                "notification_type": notification_type.value,
                 "error": error,
                 "error_type": error_type,
                 "device_token_prefix": device_token_prefix,

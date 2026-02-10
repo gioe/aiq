@@ -32,7 +32,7 @@ class TestAnalyticsTrackerNotificationMethods:
                 EventType.NOTIFICATION_SENT,
                 user_id=42,
                 properties={
-                    "notification_type": NotificationType.LOGOUT_ALL,
+                    "notification_type": "logout_all",
                     "device_token_prefix": "abc12345",
                 },
             )
@@ -51,7 +51,7 @@ class TestAnalyticsTrackerNotificationMethods:
                 EventType.NOTIFICATION_FAILED,
                 user_id=7,
                 properties={
-                    "notification_type": NotificationType.TEST_REMINDER,
+                    "notification_type": "test_reminder",
                     "error": "Connection refused",
                     "error_type": None,
                     "device_token_prefix": "def67890",
@@ -69,7 +69,7 @@ class TestAnalyticsTrackerNotificationMethods:
                 EventType.NOTIFICATION_SENT,
                 user_id=None,
                 properties={
-                    "notification_type": NotificationType.DAY_30_REMINDER,
+                    "notification_type": "day_30_reminder",
                     "device_token_prefix": None,
                 },
             )
