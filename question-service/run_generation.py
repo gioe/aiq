@@ -1366,6 +1366,11 @@ def main() -> int:
                         >= min_score,
                         judge_model=evaluated_question.judge_model,
                     )
+                    observability.record_metric(
+                        "judge.evaluation_score",
+                        value=evaluated_question.evaluation.overall_score,
+                        metric_type="histogram",
+                    )
             else:
                 # Sequential evaluation
                 judge_span.set_attribute("mode", "sync")
@@ -1396,6 +1401,11 @@ def main() -> int:
                             approved=evaluated_question.evaluation.overall_score
                             >= min_score,
                             judge_model=evaluated_question.judge_model,
+                        )
+                        observability.record_metric(
+                            "judge.evaluation_score",
+                            value=evaluated_question.evaluation.overall_score,
+                            metric_type="histogram",
                         )
 
                     except Exception as e:
