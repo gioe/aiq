@@ -30,12 +30,16 @@ This document outlines the coding standards and best practices for the AIQ iOS a
   - [Date and Time Edge Cases](#date-and-time-edge-cases)
 - [Networking](#networking)
 - [Design System](#design-system)
+  - [Animation Delays](#animation-delays)
+  - [Timeouts](#timeouts)
 - [Documentation](#documentation)
   - [Documenting Lifecycle and Concurrency Constraints](#documenting-lifecycle-and-concurrency-constraints)
+  - [Localization Readiness](#localization-readiness)
 - [Testing](#testing)
   - [Test Isolation and Shared Resources](#test-isolation-and-shared-resources)
   - [Mock Reset Pattern](#mock-reset-pattern)
   - [XCTSkip Usage Guidelines](#xctskip-usage-guidelines)
+  - [MockDataFactory Usage](#mockdatafactory-usage)
   - [Testing Factory Methods and Initialization](#testing-factory-methods-and-initialization)
   - [Test Helper Anti-Patterns](#test-helper-anti-patterns)
 - [Code Formatting](#code-formatting)
@@ -448,9 +452,7 @@ enum ColorPalette {
 }
 ```
 
-### Acronyms
-
-#### Acronym Capitalization
+### Acronym Capitalization
 
 Follow Swift API Design Guidelines for acronyms:
 
@@ -623,7 +625,7 @@ func fetchData(closure: @escaping (Result<Data, Error>) -> Void)  // describes t
 func fetchData(callback: @escaping (Result<Data, Error>) -> Void) // acceptable but less specific
 ```
 
-**Callback Naming (Preferred Convention):**
+#### Callback Naming
 
 Prefer `on`-prefixed names for closure parameters that act as callbacks:
 
