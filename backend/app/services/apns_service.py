@@ -10,6 +10,7 @@ from aioapns import APNs, NotificationRequest, PushType
 
 from app.core.analytics import AnalyticsTracker
 from app.core.config import settings
+from app.observability import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +176,9 @@ class APNsService:
             logger.info(f"Successfully sent notification to device: {token_prefix}...")
 
             if notification_type:
+                metrics.record_notification(
+                    success=True, notification_type=notification_type
+                )
                 AnalyticsTracker.track_notification_sent(
                     notification_type=notification_type,
                     user_id=user_id,
@@ -189,6 +193,9 @@ class APNsService:
             )
 
             if notification_type:
+                metrics.record_notification(
+                    success=False, notification_type=notification_type
+                )
                 AnalyticsTracker.track_notification_failed(
                     notification_type=notification_type,
                     error=str(e),

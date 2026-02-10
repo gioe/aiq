@@ -366,6 +366,68 @@ class TestAPNsService:
         assert result["failed"] == 0
 
 
+class TestSendNotificationMetricsWiring:
+    """Tests that send_notification emits notification metrics correctly."""
+
+    @pytest.mark.asyncio
+    async def test_success_emits_record_notification_true(self):
+        """Successful send_notification calls metrics.record_notification(success=True)."""
+        service = APNsService()
+        mock_client = AsyncMock()
+        service._client = mock_client
+
+        with patch("app.services.apns_service.metrics") as mock_metrics:
+            result = await service.send_notification(
+                device_token="abc123def456",
+                title="Test",
+                body="Test",
+                notification_type="test_reminder",
+            )
+
+            assert result is True
+            mock_metrics.record_notification.assert_called_once_with(
+                success=True, notification_type="test_reminder"
+            )
+
+    @pytest.mark.asyncio
+    async def test_failure_emits_record_notification_false(self):
+        """Failed send_notification calls metrics.record_notification(success=False)."""
+        service = APNsService()
+        mock_client = AsyncMock()
+        mock_client.send_notification.side_effect = Exception("APNs error")
+        service._client = mock_client
+
+        with patch("app.services.apns_service.metrics") as mock_metrics:
+            result = await service.send_notification(
+                device_token="abc123def456",
+                title="Test",
+                body="Test",
+                notification_type="logout_all",
+            )
+
+            assert result is False
+            mock_metrics.record_notification.assert_called_once_with(
+                success=False, notification_type="logout_all"
+            )
+
+    @pytest.mark.asyncio
+    async def test_no_metric_when_notification_type_is_none(self):
+        """No metric emitted when notification_type is not provided."""
+        service = APNsService()
+        mock_client = AsyncMock()
+        service._client = mock_client
+
+        with patch("app.services.apns_service.metrics") as mock_metrics:
+            result = await service.send_notification(
+                device_token="abc123def456",
+                title="Test",
+                body="Test",
+            )
+
+            assert result is True
+            mock_metrics.record_notification.assert_not_called()
+
+
 class TestSendTestReminderNotification:
     """Tests for the send_test_reminder_notification convenience function."""
 
