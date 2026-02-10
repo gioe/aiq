@@ -446,6 +446,15 @@ class QuestionGenerator:
                     subtype=subtype,
                     model=actual_model,
                 )
+                _safe_record_metric(
+                    "generation.failure",
+                    value=1,
+                    labels={
+                        "provider": provider_name,
+                        "question_type": question_type.value,
+                    },
+                    metric_type="counter",
+                )
                 raise
             except Exception as e:
                 span.set_attribute("success", False)
@@ -462,6 +471,15 @@ class QuestionGenerator:
                     operation="generation",
                     subtype=subtype,
                     model=actual_model,
+                )
+                _safe_record_metric(
+                    "generation.failure",
+                    value=1,
+                    labels={
+                        "provider": provider_name,
+                        "question_type": question_type.value,
+                    },
+                    metric_type="counter",
                 )
                 raise
 
@@ -1040,6 +1058,15 @@ class QuestionGenerator:
                     subtype=subtype,
                     model=actual_model,
                 )
+                _safe_record_metric(
+                    "generation.failure",
+                    value=1,
+                    labels={
+                        "provider": provider_name,
+                        "question_type": question_type.value,
+                    },
+                    metric_type="counter",
+                )
                 raise
             except Exception as e:
                 span.set_attribute("success", False)
@@ -1056,6 +1083,15 @@ class QuestionGenerator:
                     operation="generation_async",
                     subtype=subtype,
                     model=actual_model,
+                )
+                _safe_record_metric(
+                    "generation.failure",
+                    value=1,
+                    labels={
+                        "provider": provider_name,
+                        "question_type": question_type.value,
+                    },
+                    metric_type="counter",
                 )
                 raise
 
@@ -1894,6 +1930,15 @@ class QuestionGenerator:
                     subtype=subtype,
                     model=actual_model,
                 )
+                _safe_record_metric(
+                    "generation.failure",
+                    value=1,
+                    labels={
+                        "provider": provider_name,
+                        "question_type": question_type.value,
+                    },
+                    metric_type="counter",
+                )
                 raise
 
     def get_available_providers(self) -> List[str]:
@@ -2153,6 +2198,15 @@ class QuestionGenerator:
                     operation="regeneration",
                     subtype=original_question.sub_type,
                     model=actual_model,
+                )
+                _safe_record_metric(
+                    "generation.failure",
+                    value=1,
+                    labels={
+                        "provider": provider_name,
+                        "question_type": original_question.question_type.value,
+                    },
+                    metric_type="counter",
                 )
                 raise
 
