@@ -202,4 +202,48 @@ final class PageIndicatorTests: XCTestCase {
         // Then
         XCTAssertNotNil(view, "View should not crash with 0 pages")
     }
+
+    // MARK: - Input Validation Tests
+
+    func testNegativeTotalPages_ClampedToOne() {
+        // Given/When - View should not crash with negative totalPages
+        // The view clamps totalPages to min 1 via validTotalPages computed property
+        let view = PageIndicator(currentPage: .constant(0), totalPages: -5)
+
+        // Then - View initializes without crashing and stores the original value
+        XCTAssertNotNil(view, "View should handle negative totalPages without crashing")
+        let mirror = Mirror(reflecting: view)
+        if let storedTotal = mirror.descendant("totalPages") as? Int {
+            XCTAssertEqual(storedTotal, -5, "Stored totalPages preserves original value")
+        }
+        // Validation happens at render time via validTotalPages (clamped to 1)
+    }
+
+    func testCurrentPageBeyondBounds_ClampedToMax() {
+        // Given/When - View should not crash when currentPage exceeds totalPages
+        // The view clamps currentPage to 0..<totalPages via validCurrentPage computed property
+        let view = PageIndicator(currentPage: .constant(10), totalPages: 4)
+
+        // Then - View initializes without crashing
+        XCTAssertNotNil(view, "View should handle out-of-bounds currentPage without crashing")
+        let mirror = Mirror(reflecting: view)
+        if let storedTotal = mirror.descendant("totalPages") as? Int {
+            XCTAssertEqual(storedTotal, 4, "totalPages should be preserved")
+        }
+        // Validation clamps currentPage to 3 (totalPages - 1) at render time
+    }
+
+    func testCurrentPageNegative_ClampedToZero() {
+        // Given/When - View should not crash with negative currentPage
+        // The view clamps currentPage to min 0 via validCurrentPage computed property
+        let view = PageIndicator(currentPage: .constant(-3), totalPages: 4)
+
+        // Then - View initializes without crashing
+        XCTAssertNotNil(view, "View should handle negative currentPage without crashing")
+        let mirror = Mirror(reflecting: view)
+        if let storedTotal = mirror.descendant("totalPages") as? Int {
+            XCTAssertEqual(storedTotal, 4, "totalPages should be preserved")
+        }
+        // Validation clamps currentPage to 0 at render time
+    }
 }

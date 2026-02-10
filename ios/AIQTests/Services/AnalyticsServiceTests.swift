@@ -311,6 +311,47 @@ final class AnalyticsServiceTests: XCTestCase {
         XCTAssertEqual(testSut.eventQueueCount, 10, "Should have 10 events remaining")
     }
 
+    func testAutoSubmitWhenFull_SubmitsWhenBufferReachesCapacity() async {
+        // Create a separate SUT with autoSubmitWhenFull enabled
+        let testSut = AnalyticsService(
+            userDefaults: mockUserDefaults,
+            networkMonitor: mockNetworkMonitor,
+            urlSession: mockURLSession,
+            secureStorage: mockSecureStorage,
+            batchInterval: 1000.0,
+            startTimer: false,
+            autoSubmitWhenFull: true
+        )
+
+        // Given - Set up mock handler to track submissions with expectation
+        let submissionExpectation = expectation(description: "Auto-submission occurs")
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            submissionExpectation.fulfill()
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            let responseData = try XCTUnwrap("""
+            {"success": true, "events_received": 50, "message": "Success"}
+            """.data(using: .utf8))
+            return (response, responseData)
+        }
+
+        // When - Add events up to max batch size
+        let maxBatchSize = testSut.maxBatchSize
+        for i in 0 ..< maxBatchSize {
+            testSut.track(event: .userLogin, properties: ["index": i])
+        }
+
+        // Then - Wait for auto-submission with timeout
+        await fulfillment(of: [submissionExpectation], timeout: 2.0)
+        XCTAssertGreaterThanOrEqual(requestCount, 1, "Should auto-submit when buffer reaches capacity")
+    }
+
     func testSubmitBatch_IncludesCorrectMetadata() async {
         // Given
         sut.track(event: .userLogin)

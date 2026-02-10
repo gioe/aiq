@@ -531,6 +531,75 @@ final class AuthenticationFlowTests: BaseUITest {
         takeScreenshot(named: "SuccessfulLoginAfterRetry")
     }
 
+    // MARK: - LoginHelper Error Detection Tests
+
+    func testErrorContains_ReturnsFalseForNonMatchingText() throws {
+        // Skip: Requires backend connection
+        throw XCTSkip("Requires backend connection and error simulation")
+
+        // Attempt login with invalid credentials to trigger error
+        loginHelper.login(email: validEmail, password: invalidPassword, waitForDashboard: false)
+
+        // Wait for error to appear
+        wait(for: app.staticTexts.firstMatch, timeout: extendedTimeout)
+        XCTAssertTrue(loginHelper.hasError, "Error should be displayed")
+
+        // Verify errorContains returns false for non-matching text
+        XCTAssertFalse(
+            loginHelper.errorContains("This text should not match"),
+            "errorContains should return false for non-matching text"
+        )
+        XCTAssertFalse(
+            loginHelper.errorContains("Random string 12345"),
+            "errorContains should return false for random text"
+        )
+
+        takeScreenshot(named: "ErrorContains_NegativeTest")
+    }
+
+    func testHasAuthenticationError_ReturnsFalseWhenNoError() throws {
+        // Skip: Requires specific UI state
+        throw XCTSkip("Requires backend connection")
+
+        // Verify we're on welcome screen with no error
+        XCTAssertTrue(loginHelper.isOnWelcomeScreen, "Should be on welcome screen")
+
+        // Verify hasAuthenticationError returns false when no error is shown
+        XCTAssertFalse(
+            loginHelper.hasAuthenticationError,
+            "hasAuthenticationError should return false when no error is displayed"
+        )
+
+        takeScreenshot(named: "NoAuthError_NegativeTest")
+    }
+
+    func testHasAuthenticationError_ReturnsFalseForNonAuthError() throws {
+        // Skip: Requires network error simulation
+        throw XCTSkip("Requires network error simulation (non-auth error)")
+
+        // This test would trigger a network error (not an auth error)
+        // and verify that hasAuthenticationError returns false
+
+        // Setup: Configure app to mock network error
+        app.launchArguments.append("-MockNetworkError")
+        relaunchWithScenario("loggedOut")
+
+        // Attempt login (should fail with network error, not auth error)
+        loginHelper.login(email: validEmail, password: validPassword, waitForDashboard: false)
+
+        // Wait for error to appear
+        wait(for: app.staticTexts.firstMatch, timeout: extendedTimeout)
+        XCTAssertTrue(loginHelper.hasError, "Some error should be displayed")
+
+        // Verify hasAuthenticationError returns false for non-auth error
+        XCTAssertFalse(
+            loginHelper.hasAuthenticationError,
+            "hasAuthenticationError should return false for network errors"
+        )
+
+        takeScreenshot(named: "NonAuthError_NegativeTest")
+    }
+
     // MARK: - Integration Tests
 
     func testFullAuthenticationCycle_LoginAndLogout() throws {

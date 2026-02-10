@@ -225,7 +225,11 @@ class NavigationHelper {
         }
 
         let tabButton = app.buttons[identifier]
-        return tabButton.exists && tabButton.isSelected
+        let quickTimeout: TimeInterval = 2.0
+        guard tabButton.waitForExistence(timeout: quickTimeout) else {
+            return false
+        }
+        return tabButton.isSelected
     }
 
     // MARK: - Navigation Bar Actions
@@ -306,6 +310,17 @@ class NavigationHelper {
     }
 
     // MARK: - Wait Helpers
+
+    /// Wait for navigation to a specific screen
+    /// - Parameters:
+    ///   - screen: The screen to navigate to
+    ///   - customTimeout: Optional custom timeout (defaults to standard timeout)
+    /// - Returns: true if navigation to screen completes within timeout
+    @discardableResult
+    func waitForNavigationTo(screen: Screen, timeout customTimeout: TimeInterval? = nil) -> Bool {
+        let waitTimeout = customTimeout ?? timeout
+        return verifyOnScreen(screen, timeout: waitTimeout)
+    }
 
     /// Wait for any navigation to complete (navigation bar becomes stable)
     /// - Parameter customTimeout: Optional custom timeout

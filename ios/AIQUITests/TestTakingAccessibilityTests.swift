@@ -54,6 +54,28 @@ final class TestTakingAccessibilityTests: BaseUITest {
         try super.tearDownWithError()
     }
 
+    // MARK: - Helper Methods
+
+    /// Navigate to the next question and wait for navigation to complete
+    /// - Returns: true if navigation succeeded, false otherwise
+    @discardableResult
+    private func navigateToNextQuestion() -> Bool {
+        let nextButton = app.buttons["testTakingView.nextButton"]
+        guard wait(for: nextButton, timeout: standardTimeout), nextButton.isEnabled else {
+            return false
+        }
+
+        nextButton.tap()
+
+        // Wait for Previous button to become enabled (indicates we're on question 2+)
+        let previousButton = app.buttons["testTakingView.previousButton"]
+        let enabledPredicate = NSPredicate(format: "isEnabled == true")
+        let enabledExpectation = XCTNSPredicateExpectation(predicate: enabledPredicate, object: previousButton)
+        let waitResult = XCTWaiter.wait(for: [enabledExpectation], timeout: standardTimeout)
+
+        return waitResult == .completed
+    }
+
     // MARK: - VoiceOver Labels on Question Elements
 
     func testQuestionCard_HasAccessibilityLabel() throws {
@@ -277,23 +299,12 @@ final class TestTakingAccessibilityTests: BaseUITest {
             firstOption.tap()
         }
 
-        let nextButton = app.buttons["testTakingView.nextButton"]
-        if wait(for: nextButton, timeout: standardTimeout) && nextButton.isEnabled {
-            nextButton.tap()
-        }
-
-        // Wait for navigation by checking Previous button becomes enabled
-        // (Previous is disabled on first question, enabled on second)
-        let previousButton = app.buttons["testTakingView.previousButton"]
-        let predicate = NSPredicate(format: "isEnabled == true")
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: previousButton)
-        let waitResult = XCTWaiter.wait(for: [expectation], timeout: standardTimeout)
-
-        guard waitResult == .completed else {
-            XCTFail("Previous button did not become enabled within timeout - navigation may have failed")
+        guard navigateToNextQuestion() else {
+            XCTFail("Failed to navigate to next question")
             return
         }
 
+        let previousButton = app.buttons["testTakingView.previousButton"]
         XCTAssertTrue(
             previousButton.exists,
             "Previous button should exist"
@@ -467,14 +478,7 @@ final class TestTakingAccessibilityTests: BaseUITest {
         }
 
         // Step 3: Navigate to next question
-        let nextButton = app.buttons["testTakingView.nextButton"]
-        if wait(for: nextButton, timeout: standardTimeout) && nextButton.isEnabled {
-            nextButton.tap()
-            // Wait for Previous button to become enabled (indicates we're on question 2+)
-            let previousButton = app.buttons["testTakingView.previousButton"]
-            let enabledPredicate = NSPredicate(format: "isEnabled == true")
-            let enabledExpectation = XCTNSPredicateExpectation(predicate: enabledPredicate, object: previousButton)
-            _ = XCTWaiter.wait(for: [enabledExpectation], timeout: standardTimeout)
+        if navigateToNextQuestion() {
             takeScreenshot(named: "AccessibilityFlow_Step3_NextQuestion")
         }
 
