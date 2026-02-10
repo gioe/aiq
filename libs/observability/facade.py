@@ -793,6 +793,12 @@ class ObservabilityFacade:
             )
         return None
 
+    def get_prometheus_registry(self) -> Any:
+        """Return the Prometheus CollectorRegistry from the OTEL backend, or None."""
+        if self._otel_backend is not None:
+            return self._otel_backend.prometheus_registry
+        return None
+
     def record_metric(
         self,
         name: str,

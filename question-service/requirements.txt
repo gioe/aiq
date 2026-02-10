@@ -28,7 +28,6 @@ uvicorn[standard]==0.32.1
 
 # Observability (Prometheus metrics)
 prometheus-client>=0.21.0
-prometheus-fastapi-instrumentator>=7.0.0
 
 # Observability (Sentry and OpenTelemetry via libs/observability)
 sentry-sdk[opentelemetry]>=2.0.0

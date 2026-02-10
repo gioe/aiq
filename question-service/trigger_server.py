@@ -23,10 +23,7 @@ from typing import AsyncGenerator, Dict, Optional
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
-
-from prometheus_client import REGISTRY
-from prometheus_fastapi_instrumentator import Instrumentator
+from starlette.responses import JSONResponse, Response as StarletteResponse
 
 from app.config import settings
 from app.logging_config import setup_logging  # noqa: E402
@@ -261,7 +258,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         "Observability initialized: service=aiq-question-service-trigger, env=%s",
         settings.env,
     )
+
     yield
+
     observability.flush(timeout=5.0)
     observability.shutdown()
 
@@ -287,36 +286,29 @@ app = FastAPI(
 # Add rate limiting middleware (skip health check and metrics)
 app.add_middleware(RateLimitMiddleware, skip_paths=["/health", "/metrics"])
 
-# Prometheus metrics instrumentation
-if settings.enable_prometheus_metrics:
-    # Clear FastAPI Instrumentator's default HTTP collectors to avoid duplicate
-    # registration on module reload (common in test scenarios with importlib.reload).
-    # These collectors are recreated by instrumentator.instrument() below.
-    # Guard to test/dev only: REGISTRY._names_to_collectors is a private attribute
-    # that could change in future prometheus_client versions. In production with
-    # single-module-load, this cleanup is unnecessary (no reload occurs).
-    if settings.env in ("development", "test"):
-        collectors_to_remove = [
-            c
-            for c in list(REGISTRY._names_to_collectors.values())
-            if hasattr(c, "_name")
-            and c._name.startswith(("http_requests", "http_request"))
-        ]
-        for collector in collectors_to_remove:
-            try:
-                REGISTRY.unregister(collector)
-            except (ValueError, KeyError) as e:
-                logger.debug(f"Failed to unregister Prometheus collector: {e}")
+# Instrument HTTP metrics via OTEL (replaces prometheus-fastapi-instrumentator).
+# Must be called at module level before the app starts.
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor  # noqa: E402
 
-    instrumentator = Instrumentator(
-        excluded_handlers=["/health", "/metrics"],
-        should_instrument_requests_inprogress=True,
+FastAPIInstrumentor.instrument_app(app, excluded_urls="health,metrics")
+
+
+@app.get("/metrics", include_in_schema=False)
+async def prometheus_metrics():
+    """Expose OTEL metrics in Prometheus format."""
+    registry = observability.get_prometheus_registry()
+    if registry is None:
+        return StarletteResponse(
+            content="# Metrics not available\n",
+            media_type="text/plain; version=0.0.4",
+        )
+    from prometheus_client import generate_latest
+
+    return StarletteResponse(
+        content=generate_latest(registry),
+        media_type="text/plain; version=0.0.4",
     )
-    instrumentator.instrument(
-        app, metric_namespace="aiq", metric_subsystem="question_service"
-    )
-    instrumentator.expose(app, include_in_schema=False)
-    logger.info("Prometheus metrics enabled at /metrics")
+
 
 # Admin token from environment
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")

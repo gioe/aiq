@@ -547,15 +547,14 @@ Metrics are pushed directly to Grafana Cloud via OTLP (configured in `config/obs
 
 ### Metrics Available
 
-The `/metrics` endpoint provides Prometheus-format metrics for local scraping. These same metrics are also pushed to Grafana Cloud via OTLP:
+The `/metrics` endpoint provides Prometheus-format metrics for local scraping. All metrics (HTTP and custom) flow through the OTEL MeterProvider and are pushed to Grafana Cloud via OTLP.
+
+HTTP metrics are recorded by `opentelemetry-instrumentation-fastapi`:
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `aiq_question_service_http_requests_total` | Counter | Request count by handler, status, method |
-| `aiq_question_service_http_request_duration_seconds` | Histogram | Request latency |
-| `aiq_question_service_http_request_size_bytes` | Histogram | Request body sizes |
-| `aiq_question_service_http_response_size_bytes` | Histogram | Response body sizes |
-| `aiq_question_service_http_requests_inprogress` | Gauge | Concurrent requests |
+| `http_server_request_duration_seconds` | Histogram | Request latency by route, method, status code |
+| `http_server_active_requests` | UpDownCounter | Concurrent in-flight requests |
 
 Custom business metrics are also exported via OTEL. Note: OTEL metric names use dots (e.g. `trigger.job.duration`) but Prometheus converts these to underscores (e.g. `trigger_job_duration`) when scraped.
 

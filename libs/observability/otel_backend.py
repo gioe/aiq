@@ -198,6 +198,12 @@ class OTELBackend:
         self._meter_provider: MeterProvider | None = None
         self._tracer_provider: TracerProvider | None = None
         self._logger_provider: LoggerProvider | None = None
+        self._prometheus_registry: Any = None
+
+    @property
+    def prometheus_registry(self) -> Any:
+        """Return the Prometheus CollectorRegistry used by the metric reader, or None."""
+        return self._prometheus_registry
 
     def init(self) -> bool:
         """Initialize OpenTelemetry metrics, tracing, and logging.
@@ -406,8 +412,11 @@ class OTELBackend:
         if self._config.prometheus_enabled:
             try:
                 from opentelemetry.exporter.prometheus import PrometheusMetricReader
+                from prometheus_client import CollectorRegistry
 
-                readers.append(PrometheusMetricReader())
+                registry = CollectorRegistry()
+                readers.append(PrometheusMetricReader(registry=registry))
+                self._prometheus_registry = registry
             except ImportError:
                 logger.debug("Prometheus metric reader not available")
 
