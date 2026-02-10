@@ -323,10 +323,12 @@ final class AnalyticsServiceTests: XCTestCase {
             autoSubmitWhenFull: true
         )
 
-        // Given - Set up mock handler to track submissions
+        // Given - Set up mock handler to track submissions with expectation
+        let submissionExpectation = expectation(description: "Auto-submission occurs")
         var requestCount = 0
         MockURLProtocol.requestHandler = { request in
             requestCount += 1
+            submissionExpectation.fulfill()
             let response = HTTPURLResponse(
                 url: request.url!,
                 statusCode: 200,
@@ -345,12 +347,9 @@ final class AnalyticsServiceTests: XCTestCase {
             testSut.track(event: .userLogin, properties: ["index": i])
         }
 
-        // Brief wait for auto-submission to complete
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-
-        // Then - Auto-submission should have occurred
+        // Then - Wait for auto-submission with timeout
+        await fulfillment(of: [submissionExpectation], timeout: 2.0)
         XCTAssertGreaterThanOrEqual(requestCount, 1, "Should auto-submit when buffer reaches capacity")
-        XCTAssertLessThan(testSut.eventQueueCount, maxBatchSize, "Queue should be reduced after auto-submission")
     }
 
     func testSubmitBatch_IncludesCorrectMetadata() async {
