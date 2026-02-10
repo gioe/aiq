@@ -67,7 +67,7 @@ struct AdaptiveProgressHeader: View {
                         )
                 }
             }
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .contain)
             .accessibilityLabel(domainCoverageLabel)
             .accessibilityIdentifier(AccessibilityIdentifiers.AdaptiveTestView.domainIndicator)
         }

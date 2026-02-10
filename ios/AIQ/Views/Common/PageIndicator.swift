@@ -42,7 +42,7 @@ struct PageIndicator: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Page \(currentPage + 1) of \(totalPages)")
-        .accessibilityValue("Page indicator")
+        .accessibilityIdentifier(AccessibilityIdentifiers.PageIndicator.container)
     }
 }
 

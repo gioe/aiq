@@ -1,5 +1,7 @@
 import SwiftUI
 
+// swiftlint:disable type_body_length
+
 /// Main view for taking an IQ test
 struct TestTakingView: View {
     @StateObject private var viewModel: TestTakingViewModel
@@ -67,6 +69,7 @@ struct TestTakingView: View {
             if viewModel.isSubmitting {
                 LoadingOverlay(message: "Submitting your test...")
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.loadingOverlay)
             }
         }
         .navigationTitle("IQ Test")
@@ -367,12 +370,12 @@ struct TestTakingView: View {
                         } else {
                             // Standard questions: show question card and answer input separately
                             QuestionCardView(question: question)
-                            .transition(
-                                reduceMotion ? .opacity : .asymmetric(
-                                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                .transition(
+                                    reduceMotion ? .opacity : .asymmetric(
+                                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                                        removal: .move(edge: .leading).combined(with: .opacity)
+                                    )
                                 )
-                            )
 
                             // Answer input
                             AnswerInputView(
@@ -516,6 +519,7 @@ struct TestTakingView: View {
                 .scaleEffect(reduceMotion ? 1.0 : (showCompletionAnimation ? 1.0 : 0.5))
                 .opacity(showCompletionAnimation ? 1.0 : 0.0)
                 .rotationEffect(.degrees(reduceMotion ? 0 : (showCompletionAnimation ? 0 : -180)))
+                .accessibilityHidden(true)
 
             VStack(spacing: 12) {
                 Text("Test Completed!")
@@ -523,18 +527,21 @@ struct TestTakingView: View {
                     .fontWeight(.bold)
                     .opacity(showCompletionAnimation ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successTitle)
 
                 Text("Your answers have been submitted")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .opacity(showCompletionAnimation ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successSubtitle)
 
                 Text("You answered \(viewModel.answeredCount) out of \(viewModel.questions.count) questions")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .opacity(showCompletionAnimation ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successAnswerCount)
             }
             .onAppear {
                 // Staggered animations for text elements
@@ -554,19 +561,24 @@ struct TestTakingView: View {
                             router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
                         }
                     },
-                    isLoading: false
+                    isLoading: false,
+                    accessibilityId: AccessibilityIdentifiers.TestTakingView.viewResultsButton
                 )
 
                 Button("Return to Dashboard") {
                     router.popToRoot()
                 }
                 .buttonStyle(.bordered)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.returnToDashboardButton)
             }
             .padding(.horizontal)
         }
         .padding()
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successOverlay)
     }
 }
+
+// swiftlint:enable type_body_length
 
 // MARK: - Preview
 
@@ -574,4 +586,11 @@ struct TestTakingView: View {
     NavigationStack {
         TestTakingView()
     }
+}
+
+#Preview("Large Text") {
+    NavigationStack {
+        TestTakingView()
+    }
+    .environment(\.sizeCategory, .accessibilityLarge)
 }

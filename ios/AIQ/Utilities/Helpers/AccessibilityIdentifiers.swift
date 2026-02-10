@@ -109,6 +109,13 @@ enum AccessibilityIdentifiers {
         static let timeWarningBanner = "testTakingView.timeWarningBanner"
         static let questionNavigationGrid = "testTakingView.questionNavigationGrid"
         static let loadingOverlay = "testTakingView.loadingOverlay"
+        static let successOverlay = "testTakingView.successOverlay"
+        static let successIcon = "testTakingView.successIcon"
+        static let successTitle = "testTakingView.successTitle"
+        static let successSubtitle = "testTakingView.successSubtitle"
+        static let successAnswerCount = "testTakingView.successAnswerCount"
+        static let viewResultsButton = "testTakingView.viewResultsButton"
+        static let returnToDashboardButton = "testTakingView.returnToDashboardButton"
 
         /// Generate identifier for answer button at specific index
         static func answerButton(at index: Int) -> String {
@@ -170,6 +177,9 @@ enum AccessibilityIdentifiers {
         static let emptyStateView = "historyView.emptyStateView"
         static let chartView = "historyView.chartView"
         static let testListPrefix = "historyView.testRow" // Append index: testRow.0, testRow.1, etc.
+        static let testsTakenStat = "historyView.testsTakenStat"
+        static let averageIQStat = "historyView.averageIQStat"
+        static let bestScoreStat = "historyView.bestScoreStat"
 
         /// Generate identifier for test row at specific index
         static func testRow(at index: Int) -> String {
@@ -191,6 +201,30 @@ enum AccessibilityIdentifiers {
         static let loadingView = "common.loadingView"
         static let errorView = "common.errorView"
         static let retryButton = "common.retryButton"
+    }
+
+    // MARK: - Toast View
+
+    enum ToastView {
+        static let dismissButton = "toast.dismissButton"
+    }
+
+    // MARK: - Empty State View
+
+    enum EmptyStateView {
+        static let actionButton = "emptyStateView.actionButton"
+    }
+
+    // MARK: - Loading Overlay
+
+    enum LoadingOverlay {
+        static let container = "loadingOverlay.container"
+    }
+
+    // MARK: - Page Indicator
+
+    enum PageIndicator {
+        static let container = "pageIndicator.container"
     }
 
     // MARK: - Error Banner

@@ -96,6 +96,7 @@ struct TestDetailView: View {
                 .foregroundColor(.secondary)
                 .opacity(showAnimation ? 1.0 : 0.0)
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestDetailView.dateLabel)
+                .accessibilityLabel("Test completed on \(formatFullDate(testResult.completedAt))")
         }
         .padding(24)
         .frame(maxWidth: .infinity)
