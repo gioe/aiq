@@ -384,6 +384,7 @@ class QuestionGenerator:
                     labels={
                         "question_type": question_type_str,
                         "provider": provider_name,
+                        "difficulty": difficulty.value,
                     },
                     metric_type="histogram",
                     unit="s",
@@ -401,6 +402,7 @@ class QuestionGenerator:
                         labels={
                             "question_type": question_type_str,
                             "provider": provider_name,
+                            "difficulty": difficulty.value,
                         },
                         metric_type="counter",
                         unit="usd",
@@ -990,6 +992,7 @@ class QuestionGenerator:
                     labels={
                         "question_type": question_type_str,
                         "provider": provider_name,
+                        "difficulty": difficulty.value,
                     },
                     metric_type="histogram",
                     unit="s",
@@ -1007,6 +1010,7 @@ class QuestionGenerator:
                         labels={
                             "question_type": question_type_str,
                             "provider": provider_name,
+                            "difficulty": difficulty.value,
                         },
                         metric_type="counter",
                         unit="usd",
@@ -1861,6 +1865,7 @@ class QuestionGenerator:
                     labels={
                         "question_type": question_type_str,
                         "provider": provider_name,
+                        "difficulty": difficulty.value,
                     },
                     metric_type="histogram",
                     unit="s",
@@ -1877,6 +1882,7 @@ class QuestionGenerator:
                         labels={
                             "question_type": question_type_str,
                             "provider": provider_name,
+                            "difficulty": difficulty.value,
                         },
                         metric_type="counter",
                         unit="usd",
@@ -2124,6 +2130,7 @@ class QuestionGenerator:
                     labels={
                         "question_type": question_type_str,
                         "provider": provider_name,
+                        "difficulty": original_question.difficulty_level.value,
                     },
                     metric_type="histogram",
                     unit="s",
@@ -2140,6 +2147,7 @@ class QuestionGenerator:
                         labels={
                             "question_type": question_type_str,
                             "provider": provider_name,
+                            "difficulty": original_question.difficulty_level.value,
                         },
                         metric_type="counter",
                         unit="usd",
