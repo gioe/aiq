@@ -1667,6 +1667,16 @@ def main() -> int:
                             duplicate_type=result.duplicate_type,
                         )
 
+                        if result.is_duplicate:
+                            observability.record_metric(
+                                "dedup.by_type",
+                                value=1,
+                                labels={
+                                    "duplicate_type": result.duplicate_type or "unknown"
+                                },
+                                metric_type="counter",
+                            )
+
                     except Exception as e:
                         logger.error(f"Deduplication check failed: {e}")
                         observability.capture_error(
