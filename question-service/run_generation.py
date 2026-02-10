@@ -24,6 +24,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -1319,6 +1320,7 @@ def main() -> int:
         approved_questions = []
         rejected_questions = []
 
+        evaluation_start = time.perf_counter()
         with observability.start_span(
             "phase2_judge_evaluation",
             attributes={
@@ -1439,6 +1441,14 @@ def main() -> int:
                 f"({approval_rate:.1f}%)"
             )
             logger.info(f"Rejected: {len(rejected_questions)}")
+
+            observability.record_metric(
+                "pipeline.stage.duration",
+                value=time.perf_counter() - evaluation_start,
+                labels={"stage": "evaluation"},
+                metric_type="histogram",
+                unit="s",
+            )
 
         # Salvage phase: attempt to repair or reclassify rejected questions
         if rejected_questions:
@@ -1590,6 +1600,7 @@ def main() -> int:
             logger.info("PHASE 3: Deduplication")
             logger.info("=" * 80)
 
+            dedup_start = time.perf_counter()
             with observability.start_span(
                 "phase3_deduplication",
                 attributes={"approved_count": len(approved_questions)},
@@ -1677,6 +1688,14 @@ def main() -> int:
                 logger.info(f"\nUnique questions: {len(unique_questions)}")
                 logger.info(f"Duplicates removed: {duplicate_count}")
 
+                observability.record_metric(
+                    "pipeline.stage.duration",
+                    value=time.perf_counter() - dedup_start,
+                    labels={"stage": "dedup"},
+                    metric_type="histogram",
+                    unit="s",
+                )
+
         # Database insertion
         inserted_count = 0
 
@@ -1685,6 +1704,7 @@ def main() -> int:
             logger.info("PHASE 4: Database Insertion")
             logger.info("=" * 80)
 
+            storage_start = time.perf_counter()
             with observability.start_span(
                 "phase4_db_insertion",
                 attributes={"questions_to_insert": len(unique_questions)},
@@ -1724,6 +1744,14 @@ def main() -> int:
                     "db.questions_inserted",
                     value=inserted_count,
                     metric_type="counter",
+                )
+
+                observability.record_metric(
+                    "pipeline.stage.duration",
+                    value=time.perf_counter() - storage_start,
+                    labels={"stage": "storage"},
+                    metric_type="histogram",
+                    unit="s",
                 )
 
             logger.info(
