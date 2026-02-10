@@ -35,6 +35,10 @@ MAX_EXPECTED_TEST_DURATION_SECONDS = 86400
 VALID_QUESTION_TYPES = {e.value for e in QuestionType}
 VALID_DIFFICULTY_LEVELS = {e.value for e in DifficultyLevel}
 
+# IQ score bounds (from app.core.scoring)
+IQ_SCORE_LOWER_BOUND = 40
+IQ_SCORE_UPPER_BOUND = 160
+
 
 class ApplicationMetrics:
     """
@@ -351,6 +355,12 @@ class ApplicationMetrics:
         """
         if not self._initialized:
             return
+
+        if score < IQ_SCORE_LOWER_BOUND or score > IQ_SCORE_UPPER_BOUND:
+            logger.warning(
+                f"IQ score {score} outside expected range "
+                f"[{IQ_SCORE_LOWER_BOUND}, {IQ_SCORE_UPPER_BOUND}]"
+            )
 
         try:
             observability.record_metric(
