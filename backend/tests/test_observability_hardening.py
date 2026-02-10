@@ -13,6 +13,7 @@ for the backend's observability implementation including:
 - Observability configuration
 """
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 
