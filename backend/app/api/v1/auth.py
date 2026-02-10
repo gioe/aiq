@@ -55,6 +55,7 @@ from app.core.security_audit import (
     get_user_agent_from_request,
 )
 from app.services.email_service import send_password_reset_email
+from app.observability import metrics
 
 logger = logging.getLogger(__name__)
 security_logger = SecurityAuditLogger()
@@ -138,6 +139,7 @@ def register_user(
         user_id=int(new_user.id),
         email=new_user.email,
     )
+    metrics.record_user_registration()
 
     # Log successful registration (user_id only, no PII)
     logger.info(f"User registration successful: user_id={new_user.id}")
