@@ -1,6 +1,6 @@
 """Add composite and FK indexes for IRT/CAT tables
 
-Revision ID: d0e1f2g3h4i5
+Revision ID: 8e384d712031
 Revises: c9d0e1f2g3h4
 Create Date: 2026-02-10
 
@@ -14,7 +14,7 @@ from typing import Sequence, Union
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "d0e1f2g3h4i5"  # pragma: allowlist secret
+revision: str = "8e384d712031"  # pragma: allowlist secret
 down_revision: Union[str, None] = "c9d0e1f2g3h4"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,11 +25,13 @@ def upgrade() -> None:
         "ix_irt_calibration_runs_status_completed_at",
         "irt_calibration_runs",
         ["status", "completed_at"],
+        if_not_exists=True,
     )
     op.create_index(
         "idx_shadow_cat_results_test_session_id",
         "shadow_cat_results",
         ["test_session_id"],
+        if_not_exists=True,
     )
 
 
