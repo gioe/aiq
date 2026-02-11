@@ -9,9 +9,14 @@
 // NOTE: Optional properties like `answerOptions` and `explanation` are not generated
 // by the Swift OpenAPI Generator due to limitations with `anyOf: [type, null]` patterns.
 // When this limitation is resolved, additional helpers can be added here.
+//
+// i18n CONSIDERATION: The display strings in this file (e.g., "Pattern Recognition",
+// "Logical Reasoning", difficulty levels) are currently hardcoded in English.
+// If multi-language support is added to the app, these strings should be moved to
+// the main app's Localizable.strings file and accessed via String(localized:).
+// The API client package should remain language-agnostic and return raw values.
 
 import Foundation
-import SwiftUI
 
 public extension Components.Schemas.QuestionResponse {
     // MARK: - Question Type Display
@@ -48,17 +53,19 @@ public extension Components.Schemas.QuestionResponse {
         difficultyLevel.capitalized
     }
 
-    /// Difficulty badge color for UI display
-    var difficultyColor: Color {
+    /// Difficulty badge color name for UI display
+    /// Returns a string name that can be mapped to SwiftUI Color in the main app
+    /// - Returns: "green" for easy, "orange" for medium, "red" for hard, "gray" for unknown
+    var difficultyColorName: String {
         switch difficultyLevel.lowercased() {
         case "easy":
-            .green
+            "green"
         case "medium":
-            .orange
+            "orange"
         case "hard":
-            .red
+            "red"
         default:
-            .gray
+            "gray"
         }
     }
 
