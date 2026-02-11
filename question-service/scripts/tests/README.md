@@ -1,25 +1,32 @@
-# Scripts Tests
+# Bootstrap Script Tests
 
-This directory contains tests for bash scripts in the `scripts/` directory.
+This directory contains tests for bash scripts in `question-service/scripts/`.
 
 ## Test Files
 
 - `test_bootstrap_inventory_sh.py` - Tests for `bootstrap_inventory.sh`
+- `test_log_utils.py` - Tests for `log_utils.py`
+- `test_parse_success_run.sh` - Tests for `parse_success_run_line` function
+- `test_write_per_type_metrics.sh` - Tests for `write_per_type_metrics` function
 
 ## Running Tests
 
 ```bash
 # Run all script tests
-pytest scripts/tests/
+pytest question-service/scripts/tests/
 
 # Run specific test file
-pytest scripts/tests/test_bootstrap_inventory_sh.py
+pytest question-service/scripts/tests/test_bootstrap_inventory_sh.py
 
 # Run with verbose output
-pytest scripts/tests/ -v
+pytest question-service/scripts/tests/ -v
 
 # Run specific test class
-pytest scripts/tests/test_bootstrap_inventory_sh.py::TestBootstrapShCountValidation -v
+pytest question-service/scripts/tests/test_bootstrap_inventory_sh.py::TestBootstrapShCountValidation -v
+
+# Run bash test scripts directly
+bash question-service/scripts/tests/test_parse_success_run.sh
+bash question-service/scripts/tests/test_write_per_type_metrics.sh
 ```
 
 ## Approach
@@ -36,17 +43,6 @@ Tests use short timeouts (5 seconds) and generally avoid running the actual gene
 - Using `--help` flag to exit early
 - Testing validation failures that exit before generation
 - Using clean environments (no API keys) to fail at pre-flight checks
-
-## Coverage
-
-Current test coverage for `bootstrap_inventory.sh`:
-- Argument parsing: --count, --types, --dry-run, --no-async, --max-retries, --help
-- Count validation: numeric check, range (1-10000), boundary conditions
-- Type validation: invalid types, valid types, comma-separated lists
-- Low count warning: warns when count < 3
-- Pre-flight checks: API key validation, jq availability
-- Environment variables: QUESTIONS_PER_TYPE override
-- Combined flags: multiple flags together
 
 ## Adding Tests
 

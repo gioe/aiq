@@ -633,8 +633,8 @@ python scripts/bootstrap_inventory.py --quiet
 **Bash Script (Legacy):**
 ```bash
 # From project root
-./scripts/bootstrap_inventory.sh
-./scripts/bootstrap_inventory.sh --dry-run --count 15 --types math
+./question-service/scripts/bootstrap_inventory.sh
+./question-service/scripts/bootstrap_inventory.sh --dry-run --count 15 --types math
 ```
 
 ### Python vs Bash Script Comparison

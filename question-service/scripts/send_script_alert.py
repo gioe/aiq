@@ -6,12 +6,12 @@ types fail during generation. It provides a bridge between bash orchestration
 and the Python alerting infrastructure.
 
 Usage:
-    python send_script_alert.py --failed-count N --failed-types "type1,type2,..." \
-        [--error-details "error message"]
+    python question-service/scripts/send_script_alert.py --failed-count N \
+        --failed-types "type1,type2,..." [--error-details "error message"]
 
 Example:
-    python send_script_alert.py --failed-count 3 --failed-types "math,verbal,logic" \
-        --error-details "API rate limits exceeded"
+    python question-service/scripts/send_script_alert.py --failed-count 3 \
+        --failed-types "math,verbal,logic" --error-details "API rate limits exceeded"
 """
 
 import argparse
@@ -68,7 +68,7 @@ def build_alert_message(
         lines.extend([f"Error Details: {error_details}", ""])
 
     # NOTE: These recommended actions are intentionally duplicated from
-    # question-service/app/alerting.py (AlertManager._build_alert_message, SCRIPT_FAILURE case).
+    # app/alerting.py (AlertManager._build_alert_message, SCRIPT_FAILURE case).
     # This script is standalone to avoid importing the full question-service app module
     # (which requires API keys and other config). If updating these actions, also update
     # the corresponding section in alerting.py.
@@ -79,7 +79,7 @@ def build_alert_message(
             "2. Review LLM provider status pages for outages",
             "3. Verify API keys are valid and have sufficient quota",
             "4. Check network connectivity to LLM providers",
-            "5. Re-run failed types individually: ./scripts/bootstrap_inventory.sh --types <type>",
+            "5. Re-run failed types individually: ./question-service/scripts/bootstrap_inventory.sh --types <type>",
         ]
     )
 
@@ -127,7 +127,9 @@ def send_email_alert(
         alert_message = build_alert_message(failed_count, failed_types, error_details)
 
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"[AIQ] CRITICAL: {failed_count} Question Types Failed in Bootstrap"
+        msg[
+            "Subject"
+        ] = f"[AIQ] CRITICAL: {failed_count} Question Types Failed in Bootstrap"
         msg["From"] = from_email
         msg["To"] = ", ".join(to_emails)
 
@@ -163,8 +165,7 @@ def write_alert_file(
         True if file was written successfully
     """
     script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent
-    question_service_dir = project_root / "question-service"
+    question_service_dir = script_dir.parent
 
     alert_file_path = os.environ.get(
         "ALERT_FILE_PATH",

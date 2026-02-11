@@ -6,7 +6,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-DB_PATH = "tasks.db"
+DB_PATH = "taskdb/tasks.db"
 AGENTS_DIR = Path(".claude/agents")
 
 # Agent definitions with their specializations

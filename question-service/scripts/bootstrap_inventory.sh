@@ -13,7 +13,7 @@
 # Default target: 50 questions per stratum = 900 total questions
 #
 # Usage:
-#   ./scripts/bootstrap_inventory.sh [OPTIONS]
+#   ./question-service/scripts/bootstrap_inventory.sh [OPTIONS]
 #
 # Options:
 #   --count N           Total questions per type (distributed across difficulties)
@@ -145,22 +145,22 @@ Options:
 Examples:
   # Generate full inventory: 150 questions per type = 900 total target
   # (50 per stratum across 6 types x 3 difficulties = 18 strata)
-  ./scripts/bootstrap_inventory.sh
+  ./question-service/scripts/bootstrap_inventory.sh
 
   # Generate only math questions (150 questions across 3 difficulties)
-  ./scripts/bootstrap_inventory.sh --types math
+  ./question-service/scripts/bootstrap_inventory.sh --types math
 
   # Generate pattern and logic questions
-  ./scripts/bootstrap_inventory.sh --types pattern,logic
+  ./question-service/scripts/bootstrap_inventory.sh --types pattern,logic
 
   # Generate more questions per type (300 = 100 per difficulty)
-  ./scripts/bootstrap_inventory.sh --count 300
+  ./question-service/scripts/bootstrap_inventory.sh --count 300
 
   # Dry run to test without database writes
-  ./scripts/bootstrap_inventory.sh --dry-run --count 15 --types math
+  ./question-service/scripts/bootstrap_inventory.sh --dry-run --count 15 --types math
 
   # Stable mode for troubleshooting (no async)
-  ./scripts/bootstrap_inventory.sh --no-async --count 30 --types verbal
+  ./question-service/scripts/bootstrap_inventory.sh --no-async --count 30 --types verbal
 
 Environment Variables:
   QUESTIONS_PER_TYPE   Override default questions per type ($DEFAULT_QUESTIONS_PER_TYPE)
@@ -242,9 +242,9 @@ for type in $TYPES; do
     fi
 done
 
-# Find project root (where this script is in scripts/)
+# Find project root (this script is in question-service/scripts/)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 QUESTION_SERVICE_DIR="$PROJECT_ROOT/question-service"
 
 # Verify question-service directory exists

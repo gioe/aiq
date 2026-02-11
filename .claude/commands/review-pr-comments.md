@@ -104,10 +104,10 @@ Only defer comments that are purely cosmetic or about code this PR did NOT chang
 2. Create a task in the local SQLite database. First check if a similar task already exists:
    ```bash
    # Check for existing similar tasks
-   sqlite3 -header -column tasks.db "SELECT id, summary FROM tasks WHERE summary LIKE '%<keyword>%' AND status != 'Done'"
+   sqlite3 -header -column taskdb/tasks.db "SELECT id, summary FROM tasks WHERE summary LIKE '%<keyword>%' AND status != 'Done'"
 
    # If no duplicate, create the task
-   sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at)
+   sqlite3 taskdb/tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at)
      VALUES ('[Deferred] <brief description>', 'Deferred from PR #{{pr_number}} review.\n\nOriginal comment: <comment text>\n\nReason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'))"
    ```
 

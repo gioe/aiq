@@ -14,9 +14,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Optional
 
-import pytest
-
-SCRIPT_PATH = Path(__file__).parent.parent / "bootstrap_inventory.sh"
+SCRIPT_PATH = Path(__file__).resolve().parent.parent / "bootstrap_inventory.sh"
 
 
 def run_script(
@@ -81,7 +79,10 @@ class TestBootstrapShArgumentValidation:
         """Unknown options should fail with exit code 2."""
         result = run_script(["--unknown-flag"])
         assert result.returncode == 2
-        assert "Error: Unknown option" in result.stdout or "Error: Unknown option" in result.stderr
+        assert (
+            "Error: Unknown option" in result.stdout
+            or "Error: Unknown option" in result.stderr
+        )
 
     def test_count_missing_value(self):
         """--count without a value should fail."""
@@ -244,7 +245,9 @@ class TestBootstrapShTypeValidation:
 
     def test_all_types_passes(self):
         """All valid types should pass validation."""
-        result = run_script(["--types", "pattern,logic,spatial,math,verbal,memory", "--help"])
+        result = run_script(
+            ["--types", "pattern,logic,spatial,math,verbal,memory", "--help"]
+        )
         assert result.returncode == 0
 
     def test_type_with_spaces_in_list_accepted(self):
@@ -265,7 +268,12 @@ class TestBootstrapShPreflightChecks:
             "HOME": os.environ.get("HOME", ""),
         }
         # Explicitly unset all API key variables
-        for key in ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "XAI_API_KEY"]:
+        for key in [
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GOOGLE_API_KEY",
+            "XAI_API_KEY",
+        ]:
             if key in clean_env:
                 del clean_env[key]
 
@@ -325,7 +333,12 @@ class TestBootstrapShPreflightChecks:
     def test_any_api_key_sufficient(self):
         """Any single API key should be sufficient."""
         # Test that script doesn't require all keys, just one
-        for api_key in ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "XAI_API_KEY"]:
+        for api_key in [
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GOOGLE_API_KEY",
+            "XAI_API_KEY",
+        ]:
             env = {
                 "PATH": os.environ.get("PATH", ""),
                 "HOME": os.environ.get("HOME", ""),
@@ -370,14 +383,19 @@ class TestBootstrapShCombinedFlags:
 
     def test_all_flags_together(self):
         """All flags together should be valid."""
-        result = run_script([
-            "--count", "5",
-            "--types", "math,logic",
-            "--dry-run",
-            "--no-async",
-            "--max-retries", "2",
-            "--help",
-        ])
+        result = run_script(
+            [
+                "--count",
+                "5",
+                "--types",
+                "math,logic",
+                "--dry-run",
+                "--no-async",
+                "--max-retries",
+                "2",
+                "--help",
+            ]
+        )
         assert result.returncode == 0
 
     def test_count_and_types_valid(self):

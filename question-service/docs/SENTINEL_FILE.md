@@ -59,4 +59,4 @@ External monitoring tools can integrate with the sentinel file in several ways:
 | JSON parsing | Read `failed_count` and `failed_types` for detailed failure information |
 | Timestamp comparison | Parse the `timestamp` field to determine failure recency |
 
-The bash script (`scripts/bootstrap_inventory.sh`) contains equivalent failure-detection logic via `send_multi_type_failure_alert()`. Both the Python and bash implementations use the same `CRITICAL_FAILURE_THRESHOLD` of 3 failed types.
+The bash script (`question-service/scripts/bootstrap_inventory.sh`) contains equivalent failure-detection logic via `send_multi_type_failure_alert()`. Both the Python and bash implementations use the same `CRITICAL_FAILURE_THRESHOLD` of 3 failed types.

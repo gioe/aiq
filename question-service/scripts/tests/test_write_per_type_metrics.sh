@@ -19,8 +19,8 @@ NC='\033[0m'
 
 # Find script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-BOOTSTRAP_SCRIPT="$PROJECT_ROOT/scripts/bootstrap_inventory.sh"
+PROJECT_ROOT="$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")"
+BOOTSTRAP_SCRIPT="$PROJECT_ROOT/question-service/scripts/bootstrap_inventory.sh"
 
 # Counters
 TESTS_RUN=0

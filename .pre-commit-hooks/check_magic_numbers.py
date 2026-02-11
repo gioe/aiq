@@ -18,7 +18,7 @@ Examples of acceptable patterns:
     x / 2                     # OK - common math operation
 
 Usage:
-    python scripts/check_magic_numbers.py [files...]
+    python .pre-commit-hooks/check_magic_numbers.py [files...]
 
     If no files are provided, checks all non-test .py files in backend/app
     and question-service/app directories.
