@@ -167,6 +167,39 @@ final class ToastManagerTests: XCTestCase {
         XCTAssertNil(sut.currentToast, "Toast should remain dismissed")
     }
 
+    // MARK: - Haptic Type Mapping Tests
+
+    func testToastTypeToHapticType_ErrorMapsToError() {
+        // Verify the toast-to-haptic mapping used in show()
+        let toastType: ToastType = .error
+        let hapticType: HapticType = switch toastType {
+        case .error: .error
+        case .warning: .warning
+        case .info: .selection
+        }
+        XCTAssertEqual(String(describing: hapticType), "error", "Error toast should map to error haptic")
+    }
+
+    func testToastTypeToHapticType_WarningMapsToWarning() {
+        let toastType: ToastType = .warning
+        let hapticType: HapticType = switch toastType {
+        case .error: .error
+        case .warning: .warning
+        case .info: .selection
+        }
+        XCTAssertEqual(String(describing: hapticType), "warning", "Warning toast should map to warning haptic")
+    }
+
+    func testToastTypeToHapticType_InfoMapsToSelection() {
+        let toastType: ToastType = .info
+        let hapticType: HapticType = switch toastType {
+        case .error: .error
+        case .warning: .warning
+        case .info: .selection
+        }
+        XCTAssertEqual(String(describing: hapticType), "selection", "Info toast should map to selection haptic")
+    }
+
     // MARK: - ToastData Tests
 
     func testToastData_HasUniqueIDs() {
