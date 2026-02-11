@@ -20,6 +20,9 @@ from pathlib import Path
 from typing import Any
 
 
+HTTP_METHODS = {"get", "post", "put", "delete", "patch", "options", "head", "trace"}
+
+
 class BreakingChange:
     """Represents a breaking change detected in the API."""
 
@@ -65,8 +68,7 @@ def detect_removed_endpoints(
         old_methods = old_paths[path]
         new_methods = new_paths[path]
         for method in old_methods:
-            # Skip non-HTTP method keys like "parameters", "servers", etc.
-            if method in ["parameters", "servers", "summary", "description"]:
+            if method.lower() not in HTTP_METHODS:
                 continue
             if method not in new_methods:
                 changes.append(

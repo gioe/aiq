@@ -42,6 +42,8 @@ def validate_openapi_spec(spec: dict) -> tuple[bool, str]:
     Validate the OpenAPI specification structure.
 
     Performs basic structural validation to ensure the spec is well-formed.
+    Note: $ref validation only covers components/schemas references, not
+    refs in paths, parameters, or request/response bodies.
 
     Args:
         spec: The OpenAPI specification dictionary to validate

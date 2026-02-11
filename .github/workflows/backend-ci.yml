@@ -192,11 +192,6 @@ jobs:
           cd backend
           python export_openapi.py
 
-      - name: Cleanup temporary database
-        if: always()
-        run: |
-          rm -f backend/openapi_export.db
-
       - name: Check for changes
         id: git-check
         run: |
@@ -215,3 +210,8 @@ jobs:
             echo "Push failed, retrying ($i/3)..."
             sleep 5
           done
+
+      - name: Cleanup temporary database
+        if: always()
+        run: |
+          rm -f backend/openapi_export.db
