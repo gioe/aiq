@@ -188,6 +188,7 @@ struct HistoryView: View {
                 }
             }
             .padding(.vertical)
+            .adaptiveContentWidth()
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.scrollView)
         .refreshable {

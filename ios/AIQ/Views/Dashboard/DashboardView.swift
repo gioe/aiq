@@ -113,6 +113,7 @@ struct DashboardView: View {
                 Spacer()
             }
             .padding(DesignSystem.Spacing.lg)
+            .adaptiveContentWidth()
         }
         .refreshable {
             await viewModel.refreshDashboard()
@@ -431,6 +432,7 @@ struct DashboardView: View {
                 Spacer()
             }
             .padding(DesignSystem.Spacing.lg)
+            .adaptiveContentWidth()
         }
         .refreshable {
             await viewModel.refreshDashboard()

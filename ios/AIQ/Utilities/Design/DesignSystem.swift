@@ -134,6 +134,14 @@ enum DesignSystem {
         /// Huge icon size (64pt) - for empty states, etc.
         static let huge: CGFloat = 64
     }
+
+    // MARK: - Adaptive Layout
+
+    enum Layout {
+        /// Maximum readable content width for iPad and large displays (700pt)
+        /// Content wider than this becomes harder to read and scan
+        static let readableContentWidth: CGFloat = 700
+    }
 }
 
 // MARK: - Shadow Style
@@ -168,5 +176,33 @@ extension View {
     /// - Parameter size: The padding size (xs, sm, md, lg, xl, xxl, xxxl)
     func padding(_: DesignSystem.Spacing.Type) -> some View {
         padding(DesignSystem.Spacing.md)
+    }
+
+    /// Apply adaptive content width constraint for optimal readability on iPad
+    /// - On compact width (iPhone): no constraint, content uses full width
+    /// - On regular width (iPad): constrains content to readable width and centers it
+    /// - Parameter maxWidth: Maximum width for content (default: readableContentWidth)
+    func adaptiveContentWidth(maxWidth: CGFloat = DesignSystem.Layout.readableContentWidth) -> some View {
+        modifier(AdaptiveContentWidthModifier(maxWidth: maxWidth))
+    }
+}
+
+// MARK: - Adaptive Content Width Modifier
+
+/// View modifier that constrains content width on iPad for better readability
+private struct AdaptiveContentWidthModifier: ViewModifier {
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    let maxWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        if horizontalSizeClass == .regular {
+            // iPad: constrain width and center
+            content
+                .frame(maxWidth: maxWidth)
+                .frame(maxWidth: .infinity) // Center within parent
+        } else {
+            // iPhone: use full width
+            content
+        }
     }
 }
