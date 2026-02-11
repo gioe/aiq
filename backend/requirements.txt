@@ -1,13 +1,13 @@
 # Database
-SQLAlchemy==2.0.36
-alembic==1.14.0
-psycopg2-binary==2.9.10
+SQLAlchemy==2.0.46
+alembic==1.18.4
+psycopg2-binary==2.9.11
 
 # Configuration
 python-dotenv==1.2.1
 
 # Statistical/Mathematical
-scipy==1.16.3
+scipy==1.17.0
 scikit-learn==1.8.0
 factor-analyzer==0.5.1
 py-irt==0.1.1
@@ -15,11 +15,11 @@ girth==0.8.0
 catsim==0.20.0
 
 # FastAPI and server (will be used in later phases)
-fastapi==0.115.0
-uvicorn[standard]==0.32.1
+fastapi==0.128.7
+uvicorn[standard]==0.40.0
 gunicorn==22.0.0
-pydantic==2.10.0
-pydantic-settings==2.6.1
+pydantic==2.12.5
+pydantic-settings==2.12.0
 email-validator==2.3.0
 
 # Authentication (will be used in later phases)
@@ -32,8 +32,8 @@ python-multipart==0.0.22
 aioapns==3.3
 
 # Admin Dashboard
-sqladmin==0.16.1
-itsdangerous==2.1.2  # Required for session middleware
+sqladmin==0.23.0
+itsdangerous==2.2.0  # Required for session middleware
 psutil==5.9.8  # Process and system monitoring
 
 # Redis (for distributed rate limiting in multi-worker deployments)
@@ -44,21 +44,21 @@ sentry-sdk[fastapi,opentelemetry]>=2.0.0
 pyyaml>=6.0  # Required by libs/observability for config parsing
 
 # Distributed Tracing and Observability (OpenTelemetry)
-opentelemetry-api==1.30.0
-opentelemetry-sdk==1.30.0
-opentelemetry-instrumentation-fastapi==0.51b0
-opentelemetry-instrumentation-sqlalchemy==0.51b0
-opentelemetry-instrumentation-logging==0.51b0
-opentelemetry-exporter-otlp==1.30.0
-opentelemetry-exporter-prometheus==0.51b0
-prometheus-client==0.21.0
+opentelemetry-api==1.39.1
+opentelemetry-sdk==1.39.1
+opentelemetry-instrumentation-fastapi==0.60b1
+opentelemetry-instrumentation-sqlalchemy==0.60b1
+opentelemetry-instrumentation-logging==0.60b1
+opentelemetry-exporter-otlp==1.39.1
+opentelemetry-exporter-prometheus==0.60b1
+prometheus-client==0.24.1
 
 # Development
 pytest==7.4.3
 pytest-asyncio==0.21.1
 httpx==0.28.1
-responses==0.25.0  # For mocking HTTP requests in tests
+responses==0.25.8  # For mocking HTTP requests in tests
 black==24.3.0
 flake8==6.1.0
-mypy==1.7.1
+mypy==1.19.1
 pre-commit==3.5.0
