@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
@@ -19,6 +20,7 @@ from bootstrap_inventory import (  # noqa: E402
     BootstrapInventory,
     CRITICAL_FAILURE_THRESHOLD,
     EventLogger,
+    MAX_EVENT_FILE_SIZE_BYTES,
     ProgressReporter,
     SENSITIVE_PATTERNS,
     TypeResult,
@@ -2643,6 +2645,10 @@ class TestEventLogRotation:
                 with open(logger.events_file, "w") as f:
                     f.write("x" * 150)
 
+                # Force rotation check on next write (optimization skips
+                # stat() calls except every _ROTATION_CHECK_INTERVAL writes)
+                logger._write_count = logger._ROTATION_CHECK_INTERVAL - 1
+
                 # This should trigger rotation
                 logger.log_event("test", "started")
 
@@ -3276,3 +3282,955 @@ class TestInsertQuestionsBatch:
 
         assert result == 0
         bootstrap.database.insert_evaluated_questions_batch.assert_not_called()
+
+
+class TestEventLoggerRotationOptimization:
+    """Tests for EventLogger rotation check optimization (AC#10)."""
+
+    @pytest.fixture
+    def log_dir(self):
+        """Create temporary log directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir)
+
+    def test_rotation_check_uses_write_counter(self, log_dir):
+        """Test that rotation check only happens every _ROTATION_CHECK_INTERVAL writes."""
+        event_logger = EventLogger(log_dir)
+
+        # Write less than _ROTATION_CHECK_INTERVAL times
+        for i in range(50):
+            event_logger.log_event("test", "info", count=i)
+
+        # Counter should be at 50
+        assert event_logger._write_count == 50
+
+        # File should exist but rotation should not have been checked
+        # (we can't easily verify this without mocking stat(), but we can verify
+        # the counter is working as expected)
+        assert event_logger.events_file.exists()
+
+    def test_rotation_happens_after_interval_writes(self, log_dir):
+        """Test rotation still happens after _ROTATION_CHECK_INTERVAL writes."""
+        event_logger = EventLogger(log_dir)
+
+        # Create a large initial file that exceeds the rotation threshold
+        with open(event_logger.events_file, "w") as f:
+            # Write 11MB of data to exceed MAX_EVENT_FILE_SIZE_BYTES (10MB)
+            f.write("x" * (11 * 1024 * 1024))
+
+        initial_size = event_logger.events_file.stat().st_size
+        assert initial_size > MAX_EVENT_FILE_SIZE_BYTES
+
+        # Write exactly _ROTATION_CHECK_INTERVAL events to trigger rotation check
+        for i in range(EventLogger._ROTATION_CHECK_INTERVAL):
+            event_logger.log_event("test", "info", count=i)
+
+        # After _ROTATION_CHECK_INTERVAL writes, rotation should have happened
+        # Original file should be renamed, new file should exist and be smaller
+        assert event_logger.events_file.exists()
+        new_size = event_logger.events_file.stat().st_size
+        assert new_size < initial_size
+
+        # Counter should reset after rotation
+        assert event_logger._write_count == 0
+
+    def test_counter_resets_after_rotation(self, log_dir):
+        """Test write counter resets to 0 after rotation."""
+        event_logger = EventLogger(log_dir)
+
+        # Create large file to force rotation
+        with open(event_logger.events_file, "w") as f:
+            f.write("x" * (11 * 1024 * 1024))
+
+        # Trigger rotation by writing _ROTATION_CHECK_INTERVAL events
+        for i in range(EventLogger._ROTATION_CHECK_INTERVAL):
+            event_logger.log_event("test", "info", count=i)
+
+        # Counter should be reset to 0
+        assert event_logger._write_count == 0
+
+        # Write a few more events
+        for i in range(10):
+            event_logger.log_event("test", "info", count=i)
+
+        # Counter should now be 10
+        assert event_logger._write_count == 10
+
+    def test_no_rotation_check_before_interval(self, log_dir):
+        """Test that rotation check is skipped before reaching the interval."""
+        event_logger = EventLogger(log_dir)
+
+        # Create large file
+        with open(event_logger.events_file, "w") as f:
+            f.write("x" * (11 * 1024 * 1024))
+
+        # Write fewer than _ROTATION_CHECK_INTERVAL events
+        for i in range(EventLogger._ROTATION_CHECK_INTERVAL - 1):
+            event_logger.log_event("test", "info", count=i)
+
+        # File should still be large (rotation should not have happened)
+        current_size = event_logger.events_file.stat().st_size
+        assert current_size > MAX_EVENT_FILE_SIZE_BYTES
+
+        # Counter should be at _ROTATION_CHECK_INTERVAL - 1
+        assert event_logger._write_count == EventLogger._ROTATION_CHECK_INTERVAL - 1
+
+
+class TestBootstrapAlerterConfigurablePath:
+    """Tests for BootstrapAlerter configurable sentinel path (AC#5)."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def log_dir(self):
+        """Create temporary log directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir)
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test_alerter_path")
+
+    def test_explicit_path_parameter(self, event_logger, log_dir, logger):
+        """Test explicit failure_flag_path parameter takes priority."""
+        custom_path = "/tmp/custom_failure.flag"
+
+        alerter = BootstrapAlerter(
+            alert_manager=None,
+            event_logger=event_logger,
+            logger=logger,
+            log_dir=log_dir,
+            failure_flag_path=custom_path,
+        )
+
+        assert alerter._failure_flag_path == Path(custom_path)
+
+    def test_env_var_fallback(self, event_logger, log_dir, logger):
+        """Test env var BOOTSTRAP_FAILURE_FLAG_PATH is used if no explicit path."""
+        env_path = "/tmp/env_failure.flag"
+
+        with patch.dict(os.environ, {"BOOTSTRAP_FAILURE_FLAG_PATH": env_path}):
+            alerter = BootstrapAlerter(
+                alert_manager=None,
+                event_logger=event_logger,
+                logger=logger,
+                log_dir=log_dir,
+                failure_flag_path=None,  # No explicit path
+            )
+
+            assert alerter._failure_flag_path == Path(env_path)
+
+    def test_default_path(self, event_logger, log_dir, logger):
+        """Test default path is log_dir/bootstrap_failure.flag."""
+        with patch.dict(os.environ, {}, clear=True):
+            # Clear env var to ensure default is used
+            if "BOOTSTRAP_FAILURE_FLAG_PATH" in os.environ:
+                del os.environ["BOOTSTRAP_FAILURE_FLAG_PATH"]
+
+            alerter = BootstrapAlerter(
+                alert_manager=None,
+                event_logger=event_logger,
+                logger=logger,
+                log_dir=log_dir,
+                failure_flag_path=None,
+            )
+
+            expected_path = log_dir / BootstrapAlerter.DEFAULT_FAILURE_FLAG_FILENAME
+            assert alerter._failure_flag_path == expected_path
+
+    def test_explicit_path_overrides_env_var(self, event_logger, log_dir, logger):
+        """Test explicit path takes priority over env var."""
+        custom_path = "/tmp/custom_override.flag"
+        env_path = "/tmp/env_should_be_ignored.flag"
+
+        with patch.dict(os.environ, {"BOOTSTRAP_FAILURE_FLAG_PATH": env_path}):
+            alerter = BootstrapAlerter(
+                alert_manager=None,
+                event_logger=event_logger,
+                logger=logger,
+                log_dir=log_dir,
+                failure_flag_path=custom_path,
+            )
+
+            assert alerter._failure_flag_path == Path(custom_path)
+            assert alerter._failure_flag_path != Path(env_path)
+
+
+class TestEmailFormatValidation:
+    """Tests for email format validation in AlertManager (AC#6)."""
+
+    def test_valid_email_formats(self):
+        """Test AlertManager accepts valid email formats."""
+        from app.alerting import AlertManager
+
+        valid_emails = [
+            "test@example.com",
+            "user.name@domain.co.uk",
+            "admin+tag@company.io",
+            "first.last@sub.domain.com",
+        ]
+
+        for email in valid_emails:
+            alert_manager = AlertManager(
+                email_enabled=True,
+                smtp_host="smtp.example.com",
+                smtp_port=587,
+                smtp_username="user",
+                smtp_password="pass",  # pragma: allowlist secret
+                from_email=email,
+                to_emails=[email],
+                alert_file_path=None,
+            )
+
+            assert alert_manager.email_enabled is True
+
+    def test_invalid_from_email_disables_alerts(self):
+        """Test invalid from_email format disables email alerts."""
+        from app.alerting import AlertManager
+
+        invalid_from_emails = [
+            "not-an-email",
+            "@example.com",
+            "missing-at-sign.com",
+            "missing@domain",
+            "spaces in@email.com",
+            "",
+        ]
+
+        for invalid_email in invalid_from_emails:
+            alert_manager = AlertManager(
+                email_enabled=True,
+                smtp_host="smtp.example.com",
+                smtp_port=587,
+                smtp_username="user",
+                smtp_password="pass",  # pragma: allowlist secret
+                from_email=invalid_email,
+                to_emails=["valid@example.com"],
+                alert_file_path=None,
+            )
+
+            assert alert_manager.email_enabled is False
+
+    def test_invalid_to_emails_disables_alerts(self):
+        """Test invalid to_emails format disables email alerts."""
+        from app.alerting import AlertManager
+
+        invalid_recipients = [
+            ["not-an-email"],
+            ["valid@example.com", "invalid"],
+            ["@example.com"],
+            ["missing@domain"],
+        ]
+
+        for recipients in invalid_recipients:
+            alert_manager = AlertManager(
+                email_enabled=True,
+                smtp_host="smtp.example.com",
+                smtp_port=587,
+                smtp_username="user",
+                smtp_password="pass",  # pragma: allowlist secret
+                from_email="valid@example.com",
+                to_emails=recipients,
+                alert_file_path=None,
+            )
+
+            assert alert_manager.email_enabled is False
+
+    def test_valid_emails_keep_alerts_enabled(self):
+        """Test valid from_email and to_emails keep alerts enabled."""
+        from app.alerting import AlertManager
+
+        alert_manager = AlertManager(
+            email_enabled=True,
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            smtp_username="user",
+            smtp_password="pass",  # pragma: allowlist secret
+            from_email="sender@example.com",
+            to_emails=["recipient1@example.com", "recipient2@example.com"],
+            alert_file_path=None,
+        )
+
+        assert alert_manager.email_enabled is True
+
+    def test_mixed_valid_invalid_recipients_disables_alerts(self):
+        """Test that any invalid recipient disables all email alerts."""
+        from app.alerting import AlertManager
+
+        alert_manager = AlertManager(
+            email_enabled=True,
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            smtp_username="user",
+            smtp_password="pass",  # pragma: allowlist secret
+            from_email="valid@example.com",
+            to_emails=["valid@example.com", "invalid-email", "another@valid.com"],
+            alert_file_path=None,
+        )
+
+        assert alert_manager.email_enabled is False
+
+
+class TestBatchApiIntegration:
+    """Tests for batch API integration (AC#9)."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test_batch_api")
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration."""
+        return BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=True,
+            use_async=True,
+            use_batch=True,
+            max_retries=2,
+        )
+
+    @pytest.mark.asyncio
+    async def test_generate_type_with_batch_api_success(
+        self, config, event_logger, logger
+    ):
+        """Test _generate_type_with_batch_api with mocked Google provider."""
+        from app.models import QuestionType
+        from app.providers.google_provider import GoogleProvider
+
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock Google provider
+        mock_google_provider = Mock(spec=GoogleProvider)
+        mock_batch_result = Mock()
+        mock_batch_result.successful_requests = 15
+        mock_batch_result.failed_requests = 0
+        mock_batch_result.total_requests = 15
+        mock_batch_result.responses = [
+            {
+                "key": f"request-{i}",
+                "text": json.dumps(
+                    {
+                        "question_text": f"What is {i} + 1?",
+                        "correct_answer": "B",
+                        "answer_options": ["A", "B", "C", "D"],
+                        "explanation": f"The answer is {i + 1}",
+                    }
+                ),
+            }
+            for i in range(15)
+        ]
+        mock_google_provider.generate_batch_completions_async = AsyncMock(
+            return_value=mock_batch_result
+        )
+
+        # Mock pipeline
+        mock_pipeline = Mock()
+        mock_pipeline.generator.providers = {"google": mock_google_provider}
+        bootstrap.pipeline = mock_pipeline
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.batch_generation_size = 100
+            mock_settings.batch_generation_timeout = 300
+
+            result = await bootstrap._generate_type_with_batch_api(
+                QuestionType.MATH, 15
+            )
+
+        assert result["generated"] == 15
+        assert result["target"] == 15
+        assert len(result["questions"]) == 15
+        # Batch API returns dict objects, not GeneratedQuestion objects
+        assert result["questions"][0]["question_text"] == "What is 0 + 1?"
+
+    @pytest.mark.asyncio
+    async def test_batch_api_chunking_large_batch(self, config, event_logger, logger):
+        """Test batch chunking when prompts exceed limit."""
+        from app.models import QuestionType
+        from app.providers.google_provider import GoogleProvider
+
+        # Request 300 questions to force chunking
+        config = BootstrapConfig(
+            questions_per_type=300,
+            types=["math"],
+            dry_run=True,
+            use_async=True,
+            use_batch=True,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock Google provider
+        mock_google_provider = Mock(spec=GoogleProvider)
+
+        # Mock batch result - called multiple times for chunks
+        call_count = 0
+
+        async def mock_batch_generation(
+            prompts, display_name, temperature, max_tokens, poll_interval, timeout
+        ):
+            nonlocal call_count
+            call_count += 1
+            mock_result = Mock()
+            chunk_size = len(prompts)
+            mock_result.successful_requests = chunk_size
+            mock_result.failed_requests = 0
+            mock_result.total_requests = chunk_size
+            mock_result.responses = [
+                {
+                    "key": f"request-{i}",
+                    "text": json.dumps(
+                        {
+                            "question_text": f"Question {i}?",
+                            "correct_answer": "A",
+                            "answer_options": ["A", "B", "C", "D"],
+                            "explanation": f"Explanation {i}",
+                        }
+                    ),
+                }
+                for i in range(chunk_size)
+            ]
+            return mock_result
+
+        mock_google_provider.generate_batch_completions_async = mock_batch_generation
+
+        # Mock pipeline
+        mock_pipeline = Mock()
+        mock_pipeline.generator.providers = {"google": mock_google_provider}
+        bootstrap.pipeline = mock_pipeline
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.batch_generation_size = (
+                100  # Small chunk size to force chunking
+            )
+            mock_settings.batch_generation_timeout = 300
+
+            result = await bootstrap._generate_type_with_batch_api(
+                QuestionType.MATH, 300
+            )
+
+        # Should have been called 3 times (300 / 100 = 3 chunks)
+        assert call_count == 3
+        assert result["generated"] == 300
+        assert len(result["questions"]) == 300
+
+    @pytest.mark.asyncio
+    async def test_batch_api_error_handling(self, config, event_logger, logger):
+        """Test batch error handling."""
+        from app.models import QuestionType
+        from app.providers.google_provider import GoogleProvider
+
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock Google provider that raises an error
+        mock_google_provider = Mock(spec=GoogleProvider)
+        mock_google_provider.generate_batch_completions_async = AsyncMock(
+            side_effect=Exception("Batch API timeout")
+        )
+
+        # Mock pipeline
+        mock_pipeline = Mock()
+        mock_pipeline.generator.providers = {"google": mock_google_provider}
+        bootstrap.pipeline = mock_pipeline
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.batch_generation_size = 100
+            mock_settings.batch_generation_timeout = 300
+
+            # Should raise the exception
+            with pytest.raises(Exception, match="Batch API timeout"):
+                await bootstrap._generate_type_with_batch_api(QuestionType.MATH, 15)
+
+    @pytest.mark.asyncio
+    async def test_batch_api_partial_failures(self, config, event_logger, logger):
+        """Test batch API with partial failures."""
+        from app.models import QuestionType
+        from app.providers.google_provider import GoogleProvider
+
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock Google provider with some failures
+        mock_google_provider = Mock(spec=GoogleProvider)
+        mock_batch_result = Mock()
+        mock_batch_result.successful_requests = 12  # 3 failed out of 15
+        mock_batch_result.failed_requests = 3
+        mock_batch_result.total_requests = 15
+        mock_batch_result.responses = [
+            {
+                "key": f"request-{i}",
+                "text": json.dumps(
+                    {
+                        "question_text": f"Question {i}?",
+                        "correct_answer": "A",
+                        "answer_options": ["A", "B", "C", "D"],
+                        "explanation": f"Explanation {i}",
+                    }
+                ),
+            }
+            for i in range(12)  # Only 12 successful
+        ]
+        mock_google_provider.generate_batch_completions_async = AsyncMock(
+            return_value=mock_batch_result
+        )
+
+        # Mock pipeline
+        mock_pipeline = Mock()
+        mock_pipeline.generator.providers = {"google": mock_google_provider}
+        bootstrap.pipeline = mock_pipeline
+
+        with patch("bootstrap_inventory.settings") as mock_settings:
+            mock_settings.batch_generation_size = 100
+            mock_settings.batch_generation_timeout = 300
+
+            result = await bootstrap._generate_type_with_batch_api(
+                QuestionType.MATH, 15
+            )
+
+        # Should only get successful results
+        assert result["generated"] == 12
+        assert result["target"] == 15
+        assert len(result["questions"]) == 12
+
+
+class TestFullPipelineIntegration:
+    """Tests for full pipeline integration (AC#11)."""
+
+    @pytest.fixture
+    def event_logger(self):
+        """Create test event logger."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield EventLogger(Path(tmpdir))
+
+    @pytest.fixture
+    def logger(self):
+        """Create test logger."""
+        import logging
+
+        return logging.getLogger("test_pipeline")
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration."""
+        return BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=False,
+            use_async=True,
+            max_retries=2,
+        )
+
+    def _make_generated_questions(self, count):
+        """Helper to create generated questions."""
+        from app.models import (
+            DifficultyLevel,
+            GeneratedQuestion,
+            QuestionType,
+        )
+
+        return [
+            GeneratedQuestion(
+                question_text=f"Question {i}?",
+                question_type=QuestionType.MATH,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer=str(i % 4),
+                answer_options=["0", "1", "2", "3"],
+                explanation=f"Explanation {i}",
+                source_llm="openai",
+                source_model="gpt-4",
+            )
+            for i in range(count)
+        ]
+
+    def _make_evaluated_questions(self, count, approved=True):
+        """Helper to create evaluated questions."""
+        from app.models import (
+            DifficultyLevel,
+            EvaluatedQuestion,
+            EvaluationScore,
+            GeneratedQuestion,
+            QuestionType,
+        )
+
+        return [
+            EvaluatedQuestion(
+                question=GeneratedQuestion(
+                    question_text=f"Question {i}?",
+                    question_type=QuestionType.MATH,
+                    difficulty_level=DifficultyLevel.EASY,
+                    correct_answer=str(i % 4),
+                    answer_options=["0", "1", "2", "3"],
+                    explanation=f"Explanation {i}",
+                    source_llm="openai",
+                    source_model="gpt-4",
+                ),
+                evaluation=EvaluationScore(
+                    clarity_score=0.9,
+                    difficulty_score=0.8,
+                    validity_score=0.85,
+                    formatting_score=0.95,
+                    creativity_score=0.7,
+                    overall_score=0.84,
+                ),
+                judge_model="openai/gpt-4",
+                approved=approved,
+            )
+            for i in range(count)
+        ]
+
+    @pytest.mark.asyncio
+    async def test_full_pipeline_generate_evaluate_dedupe_insert(
+        self, config, event_logger, logger
+    ):
+        """Test full pipeline: generate → evaluate → deduplicate → insert."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock pipeline for generation (generates 5 questions per difficulty = 15 total)
+        mock_pipeline = Mock()
+
+        # Create 5 questions for each call (3 calls for 3 difficulty levels)
+        def make_batch_with_5():
+            batch = Mock()
+            batch.questions = self._make_generated_questions(5)
+            return batch
+
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=[
+                make_batch_with_5(),
+                make_batch_with_5(),
+                make_batch_with_5(),
+            ]
+        )
+
+        # Mock judge for evaluation - return the same number as input
+        mock_judge = Mock()
+
+        async def mock_eval(questions):
+            # Return evaluated versions of the input questions
+            return self._make_evaluated_questions(len(questions), approved=True)
+
+        mock_judge.evaluate_questions_list_async = AsyncMock(side_effect=mock_eval)
+
+        # Mock database for deduplication and insertion
+        mock_database = Mock()
+        mock_database.get_questions_by_type.return_value = []  # No existing questions
+        mock_database.insert_evaluated_questions_batch.return_value = list(
+            range(1, 16)
+        )  # IDs 1-15
+
+        bootstrap.pipeline = mock_pipeline
+        bootstrap.judge = mock_judge
+        bootstrap.database = mock_database
+        bootstrap.existing_questions = []
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        # Verify full pipeline executed
+        assert result.success is True
+        assert result.generated == 15
+        assert result.inserted == 15
+        assert result.approval_rate == pytest.approx(100.0)
+
+        # Verify each phase was called
+        # Pipeline should be called 3 times (once per difficulty)
+        assert mock_pipeline.generate_questions_async.call_count == 3
+        # Judge should be called once with all 15 questions
+        assert mock_judge.evaluate_questions_list_async.call_count == 1
+        mock_database.insert_evaluated_questions_batch.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_pipeline_dry_run_skips_insertion(self, event_logger, logger):
+        """Test dry run skips database insertion."""
+        config = BootstrapConfig(
+            questions_per_type=15,
+            types=["math"],
+            dry_run=True,  # Dry run mode
+            use_async=True,
+        )
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock pipeline
+        mock_pipeline = Mock()
+
+        def make_batch_with_5():
+            batch = Mock()
+            batch.questions = self._make_generated_questions(5)
+            return batch
+
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=[
+                make_batch_with_5(),
+                make_batch_with_5(),
+                make_batch_with_5(),
+            ]
+        )
+
+        # Mock judge
+        mock_judge = Mock()
+
+        async def mock_eval(questions):
+            return self._make_evaluated_questions(len(questions), approved=True)
+
+        mock_judge.evaluate_questions_list_async = AsyncMock(side_effect=mock_eval)
+
+        # Mock database
+        mock_database = Mock()
+        mock_database.get_questions_by_type.return_value = []
+
+        bootstrap.pipeline = mock_pipeline
+        bootstrap.judge = mock_judge
+        bootstrap.database = mock_database
+        bootstrap.existing_questions = []
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        # Should succeed but not insert
+        assert result.success is True
+        assert result.generated == 15
+        assert result.inserted == 0  # Dry run doesn't insert
+
+        # Database insertion should not be called
+        mock_database.insert_evaluated_questions_batch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_pipeline_partial_judge_failures(self, config, event_logger, logger):
+        """Test pipeline handles partial judge failures."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock pipeline
+        mock_pipeline = Mock()
+
+        def make_batch_with_5():
+            batch = Mock()
+            batch.questions = self._make_generated_questions(5)
+            return batch
+
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=[
+                make_batch_with_5(),
+                make_batch_with_5(),
+                make_batch_with_5(),
+            ]
+        )
+
+        # Mock judge with 10 approved (high scores), 5 rejected (low scores)
+        mock_judge = Mock()
+
+        async def mock_eval(questions):
+            from app.models import (
+                DifficultyLevel,
+                EvaluatedQuestion,
+                EvaluationScore,
+                GeneratedQuestion,
+                QuestionType,
+            )
+
+            # Return 10 high-score (approved) and 5 low-score (rejected) questions
+            # High scores will pass the min_score threshold
+            evaluated = []
+            for i in range(len(questions)):
+                # First 10 get high scores (above min_score threshold ~0.7)
+                if i < 10:
+                    score = 0.84
+                else:
+                    score = 0.50  # Below min_score threshold
+
+                evaluated.append(
+                    EvaluatedQuestion(
+                        question=GeneratedQuestion(
+                            question_text=f"Question {i}?",
+                            question_type=QuestionType.MATH,
+                            difficulty_level=DifficultyLevel.EASY,
+                            correct_answer=str(i % 4),
+                            answer_options=["0", "1", "2", "3"],
+                            explanation=f"Explanation {i}",
+                            source_llm="openai",
+                            source_model="gpt-4",
+                        ),
+                        evaluation=EvaluationScore(
+                            clarity_score=score,
+                            difficulty_score=score,
+                            validity_score=score,
+                            formatting_score=score,
+                            creativity_score=score,
+                            overall_score=score,
+                        ),
+                        judge_model="openai/gpt-4",
+                        approved=(i < 10),
+                    )
+                )
+            return evaluated
+
+        mock_judge.evaluate_questions_list_async = AsyncMock(side_effect=mock_eval)
+
+        # Mock database
+        mock_database = Mock()
+        mock_database.get_questions_by_type.return_value = []
+        mock_database.insert_evaluated_questions_batch.return_value = list(range(1, 11))
+
+        bootstrap.pipeline = mock_pipeline
+        bootstrap.judge = mock_judge
+        bootstrap.database = mock_database
+        bootstrap.existing_questions = []
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        # Should succeed with partial approval
+        assert result.success is True
+        assert result.generated == 15
+        assert result.inserted == 10  # Only approved questions
+        assert result.approval_rate == pytest.approx(66.67, rel=0.1)
+
+        # Only approved questions should be inserted
+        insert_call = mock_database.insert_evaluated_questions_batch.call_args
+        inserted_questions = insert_call[0][0]
+        assert len(inserted_questions) == 10
+        assert all(q.approved for q in inserted_questions)
+
+    @pytest.mark.asyncio
+    async def test_pipeline_deduplication(self, config, event_logger, logger):
+        """Test pipeline deduplication removes existing questions."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock pipeline
+        mock_pipeline = Mock()
+
+        def make_batch_with_5():
+            batch = Mock()
+            batch.questions = self._make_generated_questions(5)
+            return batch
+
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=[
+                make_batch_with_5(),
+                make_batch_with_5(),
+                make_batch_with_5(),
+            ]
+        )
+
+        # Mock judge
+        mock_judge = Mock()
+
+        async def mock_eval(questions):
+            return self._make_evaluated_questions(len(questions), approved=True)
+
+        mock_judge.evaluate_questions_list_async = AsyncMock(side_effect=mock_eval)
+
+        # Mock database with 5 existing questions that match
+        mock_database = Mock()
+        existing_questions = [
+            {"id": i, "question_text": f"Question {i}?"}
+            for i in range(5)  # First 5 are duplicates
+        ]
+        mock_database.get_questions_by_type.return_value = existing_questions
+        mock_database.insert_evaluated_questions_batch.return_value = list(
+            range(1, 11)
+        )  # 10 unique
+
+        # Mock deduplicator
+        mock_deduplicator = Mock()
+        # First 5 questions are duplicates, rest are unique
+        duplicate_count = [0]
+
+        def mock_check_duplicate(question_text):
+            is_duplicate = duplicate_count[0] < 5
+            duplicate_count[0] += 1
+            return is_duplicate
+
+        mock_deduplicator.check_duplicate.side_effect = mock_check_duplicate
+
+        bootstrap.pipeline = mock_pipeline
+        bootstrap.judge = mock_judge
+        bootstrap.database = mock_database
+        bootstrap.deduplicator = mock_deduplicator
+        bootstrap.existing_questions = []
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        # Should succeed with deduplication attempted
+        assert result.success is True
+        assert result.generated == 15
+
+        # Verify deduplication was attempted
+        # The deduplicator should be called for each question to check for duplicates
+        assert mock_deduplicator.check_duplicate.called
+
+        # Database insertion should be called
+        mock_database.insert_evaluated_questions_batch.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_pipeline_generation_failure(self, config, event_logger, logger):
+        """Test pipeline handles generation failures."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock pipeline to fail
+        mock_pipeline = Mock()
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=Exception("API rate limit exceeded")
+        )
+
+        bootstrap.pipeline = mock_pipeline
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        # Should fail gracefully
+        assert result.success is False
+        assert "API rate limit exceeded" in result.error_message
+        assert result.generated == 0
+        assert result.inserted == 0
+
+    @pytest.mark.asyncio
+    async def test_pipeline_evaluation_failure(self, config, event_logger, logger):
+        """Test pipeline handles evaluation failures."""
+        bootstrap = BootstrapInventory(config, event_logger, logger)
+
+        # Mock pipeline
+        mock_pipeline = Mock()
+
+        def make_batch_with_5():
+            batch = Mock()
+            batch.questions = self._make_generated_questions(5)
+            return batch
+
+        mock_pipeline.generate_questions_async = AsyncMock(
+            side_effect=[
+                make_batch_with_5(),
+                make_batch_with_5(),
+                make_batch_with_5(),
+            ]
+        )
+
+        # Mock judge to fail - also need to make the fallback fail
+        mock_judge = Mock()
+        mock_judge.evaluate_questions_list_async = AsyncMock(
+            side_effect=Exception("Judge service unavailable")
+        )
+        mock_judge.evaluate_question = Mock(
+            side_effect=Exception("Judge service unavailable")
+        )
+
+        bootstrap.pipeline = mock_pipeline
+        bootstrap.judge = mock_judge
+
+        result = await bootstrap._process_type_with_retries("math")
+
+        # The code handles judge failures gracefully by catching exceptions
+        # and continuing. Since all 15 questions fail evaluation, we get 0 approved,
+        # resulting in a 0% approval rate, but it doesn't fail the whole process.
+        assert result.success is True  # Process succeeds but with 0 approved
+        assert result.generated == 15
+        assert result.approval_rate == pytest.approx(0.0)
