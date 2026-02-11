@@ -34,6 +34,14 @@ class MetricsTracker:
     This class provides methods to record various metrics and generate
     comprehensive reports about pipeline execution.
 
+    Thread Safety:
+        MetricsTracker is NOT thread-safe. It does not use locks because the
+        question generation pipeline runs on a single asyncio event loop using
+        cooperative multitasking (only one coroutine executes at a time). This
+        is safe for concurrent asyncio tasks but NOT for multi-threaded access.
+        If thread-safe metrics are needed, use ``CostTracker`` (which has locks)
+        or the ``libs.observability`` module instead.
+
     .. deprecated::
         MetricsTracker is deprecated. Use `libs.observability.observability.record_metric()`
         for new metrics. MetricsTracker remains for backward compatibility with existing
@@ -234,6 +242,10 @@ class MetricsTracker:
 
     def record_embedding_cache_stats(self, hits: int, misses: int, size: int) -> None:
         """Record embedding cache performance statistics.
+
+        Note: This method overwrites the previous stats rather than accumulating.
+        Each call replaces the stored hits, misses, and size values entirely.
+        Call this once at the end of a pipeline run with final totals.
 
         Args:
             hits: Number of cache hits

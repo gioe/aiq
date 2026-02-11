@@ -6,9 +6,10 @@ costs for different LLM providers.
 
 import logging
 import threading
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Deque, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,10 @@ MODEL_PRICING: Dict[str, Dict[str, float]] = {
 # Default pricing for unknown models (conservative estimate)
 DEFAULT_PRICING: Dict[str, float] = {"input": 10.00, "output": 30.00}
 
+# Maximum number of usage records to retain.
+# Prevents memory leaks in long-running processes by evicting oldest entries.
+COST_HISTORY_LIMIT = 1000
+
 
 def get_model_pricing(model: str) -> Dict[str, float]:
     """Get pricing for a specific model.
@@ -104,7 +109,14 @@ def get_model_pricing(model: str) -> Dict[str, float]:
     Returns:
         Dictionary with 'input' and 'output' prices per 1M tokens
     """
-    return MODEL_PRICING.get(model, DEFAULT_PRICING)
+    pricing = MODEL_PRICING.get(model)
+    if pricing is None:
+        logger.info(
+            f"No pricing found for model '{model}', using default estimate "
+            f"(${DEFAULT_PRICING['input']}/1M input, ${DEFAULT_PRICING['output']}/1M output)"
+        )
+        return DEFAULT_PRICING
+    return pricing
 
 
 def calculate_cost(token_usage: TokenUsage) -> float:
@@ -165,7 +177,9 @@ class CostTracker:
     def reset(self) -> None:
         """Reset all cost tracking data."""
         with self._lock:
-            self._usage_records: List[Dict[str, Any]] = []
+            self._usage_records: Deque[Dict[str, Any]] = deque(
+                maxlen=COST_HISTORY_LIMIT
+            )
             self._by_provider: Dict[str, ProviderCostSummary] = {}
             self._total_cost: float = 0.0
             self._total_input_tokens: int = 0
@@ -181,6 +195,12 @@ class CostTracker:
         Returns:
             Cost for this API call in USD
         """
+        if token_usage.input_tokens is None or token_usage.output_tokens is None:
+            logger.warning(
+                f"Null token counts in usage for {token_usage.provider}/{token_usage.model}: "
+                f"input_tokens={token_usage.input_tokens}, output_tokens={token_usage.output_tokens}"
+            )
+
         cost = calculate_cost(token_usage)
 
         with self._lock:
@@ -264,7 +284,7 @@ class CostTracker:
                 "total_output_tokens": self._total_output_tokens,
                 "total_tokens": self._total_input_tokens + self._total_output_tokens,
                 "by_provider": provider_summaries,
-                "recent_records": self._usage_records[-10:],  # Last 10 records
+                "recent_records": list(self._usage_records)[-10:],  # Last 10 records
             }
 
 

@@ -1,11 +1,15 @@
 """Tests for the benchmark module."""
 
+import json
+
 from unittest.mock import patch
 
 import pytest
 
 from app.benchmark import (
+    AVAILABLE_PROVIDERS,
     BenchmarkResult,
+    _print_provider_summary,
     benchmark_provider,
     generate_output,
     parse_args,
@@ -271,3 +275,163 @@ class TestParseArgs:
             assert args.parallel is True
             assert args.all is True
             assert args.questions == 50
+
+    def test_single_provider_flag(self) -> None:
+        """Test parsing --provider flag."""
+        with patch("sys.argv", ["benchmark", "--provider", "anthropic"]):
+            args = parse_args()
+            assert args.provider == "anthropic"
+            assert args.questions == 10  # default
+
+    def test_comma_separated_providers(self) -> None:
+        """Test parsing --providers with comma-separated list."""
+        with patch("sys.argv", ["benchmark", "--providers", "openai,anthropic"]):
+            args = parse_args()
+            assert args.providers == "openai,anthropic"
+
+    def test_output_flag(self) -> None:
+        """Test parsing --output flag."""
+        with patch(
+            "sys.argv",
+            ["benchmark", "--provider", "openai", "--output", "results.json"],
+        ):
+            args = parse_args()
+            assert args.output == "results.json"
+
+    def test_dry_run_flag(self) -> None:
+        """Test parsing --dry-run flag."""
+        with patch("sys.argv", ["benchmark", "--provider", "openai", "--dry-run"]):
+            args = parse_args()
+            assert args.dry_run is True
+
+    def test_verbose_flag(self) -> None:
+        """Test parsing --verbose flag."""
+        with patch("sys.argv", ["benchmark", "--provider", "openai", "--verbose"]):
+            args = parse_args()
+            assert args.verbose is True
+
+
+class TestPrintProviderSummary:
+    """Tests for _print_provider_summary extracted helper."""
+
+    def test_prints_formatted_output(self, capsys) -> None:
+        """Test that _print_provider_summary prints correctly to stderr."""
+        result = BenchmarkResult("openai")
+        result.record_success(2000.0)
+        result.record_success(3000.0)
+        result.total_input_tokens = 2000
+        result.total_output_tokens = 1000
+        result.total_cost_usd = 0.03
+
+        _print_provider_summary("openai", result)
+
+        captured = capsys.readouterr()
+        assert "Results for openai:" in captured.err
+        assert "Generated: 2" in captured.err
+        assert "Failed: 0" in captured.err
+        assert "Avg Latency:" in captured.err
+        assert "P95 Latency:" in captured.err
+        assert "Total Tokens: 3,000" in captured.err
+        assert "Estimated Cost: $0.0300" in captured.err
+
+    def test_prints_for_failed_result(self, capsys) -> None:
+        """Test _print_provider_summary with only failures."""
+        result = BenchmarkResult("anthropic")
+        result.record_failure()
+        result.record_failure()
+
+        _print_provider_summary("anthropic", result)
+
+        captured = capsys.readouterr()
+        assert "Results for anthropic:" in captured.err
+        assert "Generated: 0" in captured.err
+        assert "Failed: 2" in captured.err
+
+
+class TestBenchmarkResultPercentiles:
+    """Additional tests for BenchmarkResult percentile calculations."""
+
+    def test_percentile_linear_interpolation(self) -> None:
+        """Test that percentile calculation uses linear interpolation."""
+        result = BenchmarkResult("openai")
+        # With 4 values: [100, 200, 300, 400]
+        # p50 should be between 200 and 300
+        percentile = result._calculate_percentile([100, 200, 300, 400], 0.50)
+        assert percentile == pytest.approx(250.0)
+
+    def test_percentile_at_boundaries(self) -> None:
+        """Test percentile at 0 and 1.0 boundaries."""
+        result = BenchmarkResult("openai")
+        values = [100, 200, 300, 400, 500]
+
+        p0 = result._calculate_percentile(values, 0.0)
+        p100 = result._calculate_percentile(values, 1.0)
+
+        assert p0 == pytest.approx(100.0)
+        assert p100 == pytest.approx(500.0)
+
+    def test_get_summary_mixed_success_failure(self) -> None:
+        """Test summary with both successes and failures."""
+        result = BenchmarkResult("openai")
+        result.record_success(1000.0)
+        result.record_success(2000.0)
+        result.record_failure()
+
+        summary = result.get_summary()
+        assert summary["questions_generated"] == 2
+        assert summary["questions_failed"] == 1
+
+
+class TestGenerateOutputSerialization:
+    """Tests for generate_output JSON serialization."""
+
+    def test_output_is_json_serializable(self) -> None:
+        """Test that output can be serialized to JSON."""
+        result = BenchmarkResult("openai")
+        result.record_success(2000.0)
+        result.total_input_tokens = 500
+        result.total_output_tokens = 200
+        result.total_cost_usd = 0.01
+
+        output = generate_output(
+            providers=["openai"],
+            num_questions=5,
+            results={"openai": result},
+        )
+
+        json_str = json.dumps(output)
+        parsed = json.loads(json_str)
+        assert parsed["results"]["openai"]["questions_generated"] == 1
+
+    def test_output_multiple_providers(self) -> None:
+        """Test output with multiple providers."""
+        results = {}
+        for provider in ["openai", "anthropic"]:
+            result = BenchmarkResult(provider)
+            result.record_success(2000.0)
+            results[provider] = result
+
+        output = generate_output(
+            providers=["openai", "anthropic"],
+            num_questions=5,
+            results=results,
+        )
+
+        assert len(output["results"]) == 2
+        assert "openai" in output["results"]
+        assert "anthropic" in output["results"]
+
+
+class TestAvailableProviders:
+    """Tests for AVAILABLE_PROVIDERS constant."""
+
+    def test_contains_expected_providers(self) -> None:
+        """Test that all expected providers are listed."""
+        assert "openai" in AVAILABLE_PROVIDERS
+        assert "anthropic" in AVAILABLE_PROVIDERS
+        assert "google" in AVAILABLE_PROVIDERS
+        assert "xai" in AVAILABLE_PROVIDERS
+
+    def test_provider_count(self) -> None:
+        """Test the number of available providers."""
+        assert len(AVAILABLE_PROVIDERS) == 4

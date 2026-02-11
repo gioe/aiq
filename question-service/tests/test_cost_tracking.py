@@ -1,8 +1,11 @@
 """Tests for cost tracking module."""
 
+import logging
+
 import pytest
 
 from app.cost_tracking import (
+    COST_HISTORY_LIMIT,
     MODEL_PRICING,
     CompletionResult,
     CostTracker,
@@ -461,3 +464,261 @@ class TestCostTrackerThreadSafety:
             summary["by_provider"]["openai"]["total_calls"]
             == num_threads * records_per_thread
         )
+
+
+class TestCostTrackerDeque:
+    """Tests for deque-based usage records in CostTracker."""
+
+    def test_usage_records_bounded(self):
+        """Test that _usage_records is bounded at COST_HISTORY_LIMIT."""
+        tracker = CostTracker()
+        tracker.reset()
+
+        for i in range(COST_HISTORY_LIMIT + 100):
+            usage = TokenUsage(
+                input_tokens=100 + i,
+                output_tokens=50,
+                model="gpt-4",
+                provider="openai",
+            )
+            tracker.record_usage(usage)
+
+        assert len(tracker._usage_records) == COST_HISTORY_LIMIT
+
+    def test_usage_records_evicts_oldest(self):
+        """Test that oldest records are evicted when limit is reached."""
+        tracker = CostTracker()
+        tracker.reset()
+
+        for i in range(COST_HISTORY_LIMIT + 50):
+            usage = TokenUsage(
+                input_tokens=i,
+                output_tokens=0,
+                model="gpt-4",
+                provider="openai",
+            )
+            tracker.record_usage(usage)
+
+        records = list(tracker._usage_records)
+        # First record should be from iteration 50 (items 0-49 evicted)
+        assert records[0]["input_tokens"] == 50
+        assert records[-1]["input_tokens"] == COST_HISTORY_LIMIT + 49
+
+    def test_totals_not_affected_by_deque_limit(self):
+        """Test that aggregate totals are correct even after deque eviction."""
+        tracker = CostTracker()
+        tracker.reset()
+
+        total_records = COST_HISTORY_LIMIT + 100
+        for _ in range(total_records):
+            usage = TokenUsage(
+                input_tokens=100,
+                output_tokens=50,
+                model="gpt-4",
+                provider="openai",
+            )
+            tracker.record_usage(usage)
+
+        summary = tracker.get_summary()
+        # Totals should reflect ALL records, not just what's in the deque
+        assert summary["total_input_tokens"] == total_records * 100
+        assert summary["total_output_tokens"] == total_records * 50
+        assert summary["by_provider"]["openai"]["total_calls"] == total_records
+
+
+class TestCostEstimationLogging:
+    """Tests for logging when cost estimation uses defaults."""
+
+    def test_known_model_no_warning(self, caplog):
+        """Test that known models don't trigger estimation logging."""
+        with caplog.at_level(logging.INFO):
+            pricing = get_model_pricing("gpt-4")
+
+        assert pricing["input"] == pytest.approx(30.00)
+        assert "No pricing found" not in caplog.text
+
+    def test_unknown_model_logs_info(self, caplog):
+        """Test that unknown models log an info message about default pricing."""
+        with caplog.at_level(logging.INFO):
+            pricing = get_model_pricing("unknown-future-model")
+
+        assert pricing["input"] == pytest.approx(10.00)
+        assert pricing["output"] == pytest.approx(30.00)
+        assert "No pricing found for model 'unknown-future-model'" in caplog.text
+        assert "using default estimate" in caplog.text
+
+
+class TestNullTokenUsageWarning:
+    """Tests for warning when token counts are None."""
+
+    def test_null_input_tokens_warns(self, caplog):
+        """Test that None input_tokens triggers a warning."""
+        tracker = CostTracker()
+        tracker.reset()
+
+        usage = TokenUsage(
+            input_tokens=None,
+            output_tokens=50,
+            model="gpt-4",
+            provider="openai",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            tracker.record_usage(usage)
+
+        assert "Null token counts" in caplog.text
+        assert "input_tokens=None" in caplog.text
+
+    def test_null_output_tokens_warns(self, caplog):
+        """Test that None output_tokens triggers a warning."""
+        tracker = CostTracker()
+        tracker.reset()
+
+        usage = TokenUsage(
+            input_tokens=100,
+            output_tokens=None,
+            model="gpt-4",
+            provider="openai",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            tracker.record_usage(usage)
+
+        assert "Null token counts" in caplog.text
+        assert "output_tokens=None" in caplog.text
+
+    def test_valid_tokens_no_warning(self, caplog):
+        """Test that valid token counts don't trigger a warning."""
+        tracker = CostTracker()
+        tracker.reset()
+
+        usage = TokenUsage(
+            input_tokens=100,
+            output_tokens=50,
+            model="gpt-4",
+            provider="openai",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            tracker.record_usage(usage)
+
+        assert "Null token counts" not in caplog.text
+
+
+class TestRealisticCostTrackingIntegration:
+    """Integration tests with realistic token usage from actual LLM providers."""
+
+    def test_realistic_question_generation_pipeline(self):
+        """Test cost tracking for a realistic question generation scenario.
+
+        Simulates a pipeline generating 10 questions across multiple providers,
+        with realistic token counts based on actual API responses.
+        """
+        tracker = CostTracker()
+        tracker.reset()
+
+        # Simulate generation phase: 5 questions via GPT-5.2
+        for i in range(5):
+            usage = TokenUsage(
+                input_tokens=2500 + (i * 100),  # ~2500-2900 tokens prompt
+                output_tokens=800 + (i * 50),  # ~800-1000 tokens response
+                model="gpt-5.2",
+                provider="openai",
+            )
+            tracker.record_usage(usage)
+
+        # Simulate generation phase: 5 questions via Claude Sonnet
+        for i in range(5):
+            usage = TokenUsage(
+                input_tokens=2800 + (i * 100),  # ~2800-3200 tokens prompt
+                output_tokens=900 + (i * 50),  # ~900-1100 tokens response
+                model="claude-sonnet-4-5-20250929",
+                provider="anthropic",
+            )
+            tracker.record_usage(usage)
+
+        # Simulate evaluation phase: 10 questions judged by GPT-4o
+        for i in range(10):
+            usage = TokenUsage(
+                input_tokens=1500 + (i * 50),  # ~1500-1950 tokens
+                output_tokens=200 + (i * 10),  # ~200-290 tokens
+                model="gpt-4o",
+                provider="openai",
+            )
+            tracker.record_usage(usage)
+
+        summary = tracker.get_summary()
+
+        # Verify totals
+        assert summary["total_tokens"] > 0
+        assert summary["total_cost_usd"] > 0
+
+        # Verify provider breakdown
+        assert "openai" in summary["by_provider"]
+        assert "anthropic" in summary["by_provider"]
+
+        openai_summary = summary["by_provider"]["openai"]
+        anthropic_summary = summary["by_provider"]["anthropic"]
+
+        # OpenAI: 5 generations + 10 evaluations = 15 calls
+        assert openai_summary["total_calls"] == 15
+        # Anthropic: 5 generations
+        assert anthropic_summary["total_calls"] == 5
+
+        # Verify model breakdown within providers
+        assert "gpt-5.2" in openai_summary["cost_by_model"]
+        assert "gpt-4o" in openai_summary["cost_by_model"]
+        assert "claude-sonnet-4-5-20250929" in anthropic_summary["cost_by_model"]
+
+        # Verify costs are reasonable (not zero, not astronomical)
+        total_cost = summary["total_cost_usd"]
+        assert 0.001 < total_cost < 1.0  # Reasonable range for 20 API calls
+
+        # Verify token breakdown
+        assert "gpt-5.2" in openai_summary["tokens_by_model"]
+        gpt5_tokens = openai_summary["tokens_by_model"]["gpt-5.2"]
+        assert gpt5_tokens["input"] > 0
+        assert gpt5_tokens["output"] > 0
+
+    def test_multi_provider_cost_comparison(self):
+        """Test that cost tracking correctly compares costs across providers."""
+        tracker = CostTracker()
+        tracker.reset()
+
+        # Same workload on two different providers
+        workload = [
+            {"input_tokens": 2000, "output_tokens": 800},
+            {"input_tokens": 3000, "output_tokens": 1200},
+            {"input_tokens": 2500, "output_tokens": 1000},
+        ]
+
+        for w in workload:
+            # GPT-4o: $2.50/1M input, $10/1M output
+            tracker.record_usage(
+                TokenUsage(
+                    input_tokens=w["input_tokens"],
+                    output_tokens=w["output_tokens"],
+                    model="gpt-4o",
+                    provider="openai",
+                )
+            )
+            # Claude Sonnet: $3/1M input, $15/1M output
+            tracker.record_usage(
+                TokenUsage(
+                    input_tokens=w["input_tokens"],
+                    output_tokens=w["output_tokens"],
+                    model="claude-sonnet-4-5-20250929",
+                    provider="anthropic",
+                )
+            )
+
+        summary = tracker.get_summary()
+
+        openai_cost = summary["by_provider"]["openai"]["total_cost_usd"]
+        anthropic_cost = summary["by_provider"]["anthropic"]["total_cost_usd"]
+
+        # Claude Sonnet is more expensive per token than GPT-4o
+        assert anthropic_cost > openai_cost
+        # Both should be very small amounts for this workload
+        assert openai_cost > 0
+        assert anthropic_cost > 0
