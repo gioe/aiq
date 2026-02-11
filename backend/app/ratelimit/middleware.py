@@ -13,8 +13,11 @@ from typing import Callable, Optional, Awaitable, TypedDict
 
 from .limiter import RateLimiter
 from app.core.ip_extraction import get_secure_client_ip
+from app.core.security_audit import SecurityAuditLogger
 
 logger = logging.getLogger(__name__)
+
+_security_logger = SecurityAuditLogger()
 
 
 class EndpointLimitConfig(TypedDict):
@@ -128,7 +131,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         allowed, metadata = self.limiter.check(identifier, limit=limit, window=window)
 
         if not allowed:
-            # Rate limit exceeded
+            # Log rate limit event for security monitoring
+            client_ip = get_secure_client_ip(request)
+            _security_logger.log_rate_limit_exceeded(
+                ip=client_ip,
+                path=path,
+                limit=metadata.get("limit", 0),
+            )
             return self._rate_limit_response(metadata)
 
         # Process request

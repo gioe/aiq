@@ -135,6 +135,13 @@ class SecurityAuditLogger:
     and request correlation ID automatically.
     """
 
+    @staticmethod
+    def _enrich_with_request_id(log_data: dict) -> None:
+        """Add request_id from context to log data if available."""
+        request_id = request_id_context.get()
+        if request_id:
+            log_data["request_id"] = request_id
+
     def log_auth_attempt(
         self,
         email: str,
@@ -172,10 +179,7 @@ class SecurityAuditLogger:
             if error_reason:
                 log_data["error_reason"] = error_reason
 
-            # Add request_id from context if available
-            request_id = request_id_context.get()
-            if request_id:
-                log_data["request_id"] = request_id
+            self._enrich_with_request_id(log_data)
 
             if success:
                 logger.info(
@@ -215,10 +219,7 @@ class SecurityAuditLogger:
             if token_jti:
                 log_data["token_jti_partial"] = _partial_token_jti(token_jti)
 
-            # Add request_id from context if available
-            request_id = request_id_context.get()
-            if request_id:
-                log_data["request_id"] = request_id
+            self._enrich_with_request_id(log_data)
 
             logger.warning(f"Token validation failed: {reason}", extra=log_data)
         except Exception:
@@ -251,10 +252,7 @@ class SecurityAuditLogger:
             if user_id:
                 log_data["user_id"] = user_id
 
-            # Add request_id from context if available
-            request_id = request_id_context.get()
-            if request_id:
-                log_data["request_id"] = request_id
+            self._enrich_with_request_id(log_data)
 
             logger.info("Token revoked", extra=log_data)
         except Exception:
@@ -285,10 +283,7 @@ class SecurityAuditLogger:
                 "action": action,
             }
 
-            # Add request_id from context if available
-            request_id = request_id_context.get()
-            if request_id:
-                log_data["request_id"] = request_id
+            self._enrich_with_request_id(log_data)
 
             logger.warning(
                 f"Permission denied for user {user_id}: {action} on {resource}",
@@ -322,10 +317,7 @@ class SecurityAuditLogger:
                 "success": success,
             }
 
-            # Add request_id from context if available
-            request_id = request_id_context.get()
-            if request_id:
-                log_data["request_id"] = request_id
+            self._enrich_with_request_id(log_data)
 
             if success:
                 logger.info("Admin authentication successful", extra=log_data)
@@ -363,10 +355,7 @@ class SecurityAuditLogger:
                 "success": success,
             }
 
-            # Add request_id from context if available
-            request_id = request_id_context.get()
-            if request_id:
-                log_data["request_id"] = request_id
+            self._enrich_with_request_id(log_data)
 
             if success:
                 logger.info("Service authentication successful", extra=log_data)
@@ -416,10 +405,7 @@ class SecurityAuditLogger:
                 "success": success,
             }
 
-            # Add request_id from context if available
-            request_id = request_id_context.get()
-            if request_id:
-                log_data["request_id"] = request_id
+            self._enrich_with_request_id(log_data)
 
             logger.info(
                 f"Password reset {stage} for {masked_email}: {'success' if success else 'failed'}",
@@ -427,6 +413,39 @@ class SecurityAuditLogger:
             )
         except Exception:
             _fallback_logger.exception("Failed to log password reset security event")
+
+    def log_rate_limit_exceeded(
+        self,
+        ip: str,
+        path: str,
+        limit: int,
+    ) -> None:
+        """
+        Log a rate limit exceeded event.
+
+        Args:
+            ip: Client IP address
+            path: Request path that was rate limited
+            limit: The rate limit that was exceeded
+        """
+        try:
+            log_data = {
+                "event_type": SecurityEventType.RATE_LIMIT_EXCEEDED.value,
+                "client_ip": ip,
+                "path": path,
+                "limit": limit,
+            }
+
+            self._enrich_with_request_id(log_data)
+
+            logger.warning(
+                f"Rate limit exceeded for {ip} on {path} (limit: {limit})",
+                extra=log_data,
+            )
+        except Exception:
+            _fallback_logger.exception(
+                "Failed to log rate limit exceeded security event"
+            )
 
     def log_account_event(
         self,
@@ -449,10 +468,7 @@ class SecurityAuditLogger:
                 "user_id": user_id,
             }
 
-            # Add request_id from context if available
-            request_id = request_id_context.get()
-            if request_id:
-                log_data["request_id"] = request_id
+            self._enrich_with_request_id(log_data)
 
             logger.info(
                 f"Account {event_type.value.split('.')[-1]} for user {user_id}",

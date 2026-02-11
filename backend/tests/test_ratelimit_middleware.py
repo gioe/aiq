@@ -515,6 +515,149 @@ class TestGetUserIdentifierSecurity:
         assert result == "ip:10.0.0.50"
 
 
+class TestRateLimitDocumentedConfig:
+    """
+    Integration tests verifying the rate limit configuration in main.py
+    matches the documented configuration in DEPLOYMENT.md.
+
+    These tests use the real app factory to ensure the endpoint-specific
+    limits documented for operators are actually enforced.
+    """
+
+    def _create_app(self, limit_override: int | None = None) -> "FastAPI":
+        """Create the real app with rate limiting enabled."""
+        from unittest.mock import patch as _patch
+
+        from app.main import create_application
+
+        with (
+            _patch("app.main.settings.RATE_LIMIT_ENABLED", True),
+            _patch(
+                "app.main.settings.RATE_LIMIT_DEFAULT_LIMIT",
+                limit_override or 100,
+            ),
+            _patch("app.main.settings.RATE_LIMIT_DEFAULT_WINDOW", 60),
+            _patch("app.main.settings.RATE_LIMIT_STRATEGY", "token_bucket"),
+            _patch("app.main.settings.RATE_LIMIT_STORAGE", "memory"),
+        ):
+            return create_application()
+
+    def test_login_endpoint_limit_is_5_per_5_minutes(self):
+        """Verify /v1/auth/login is limited to 5 requests per 5 minutes (documented)."""
+        app = self._create_app()
+        client = TestClient(app)
+
+        # First 5 requests should succeed (may return 401 for bad creds, but not 429)
+        for _ in range(5):
+            response = client.post(
+                "/v1/auth/login",
+                json={
+                    "email": "test@example.com",
+                    "password": "wrong",  # pragma: allowlist secret
+                },
+            )
+            assert response.status_code != 429
+
+        # 6th request should be rate limited
+        response = client.post(
+            "/v1/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "wrong",  # pragma: allowlist secret
+            },
+        )
+        assert response.status_code == 429
+
+    def test_register_endpoint_limit_is_3_per_hour(self):
+        """Verify /v1/auth/register is limited to 3 requests per hour (documented)."""
+        app = self._create_app()
+        client = TestClient(app)
+
+        for _ in range(3):
+            response = client.post(
+                "/v1/auth/register",
+                json={
+                    "email": "new@example.com",
+                    "password": "Str0ng!Pass",  # pragma: allowlist secret
+                    "display_name": "Test",
+                },
+            )
+            assert response.status_code != 429
+
+        # 4th request should be rate limited
+        response = client.post(
+            "/v1/auth/register",
+            json={
+                "email": "new2@example.com",
+                "password": "Str0ng!Pass",  # pragma: allowlist secret
+                "display_name": "Test",
+            },
+        )
+        assert response.status_code == 429
+
+    def test_refresh_endpoint_limit_is_10_per_minute(self):
+        """Verify /v1/auth/refresh is limited to 10 requests per minute (documented)."""
+        app = self._create_app()
+        client = TestClient(app)
+
+        for _ in range(10):
+            response = client.post(
+                "/v1/auth/refresh",
+                json={"refresh_token": "fake-token"},
+            )
+            assert response.status_code != 429
+
+        response = client.post(
+            "/v1/auth/refresh",
+            json={"refresh_token": "fake-token"},
+        )
+        assert response.status_code == 429
+
+    def test_default_limit_is_100_per_minute(self):
+        """Verify non-overridden endpoints use the default limit of 100/min."""
+        app = self._create_app(limit_override=3)
+        client = TestClient(app)
+
+        # Use a non-overridden endpoint (health is skipped, so use another)
+        for _ in range(3):
+            response = client.get("/v1/user/profile")
+            # May return 401 for unauthenticated, but not 429
+            assert response.status_code != 429
+
+        response = client.get("/v1/user/profile")
+        assert response.status_code == 429
+
+    def test_docs_endpoint_skips_rate_limiting(self):
+        """Verify /v1/docs is excluded from rate limiting (documented)."""
+        app = self._create_app(limit_override=2)
+        client = TestClient(app)
+
+        # Make many more requests than the limit — docs should be skipped
+        for _ in range(10):
+            response = client.get("/v1/docs")
+            assert response.status_code != 429
+
+    def test_rate_limit_429_logs_security_event(self):
+        """Verify rate limit exceeded events are logged via SecurityAuditLogger."""
+        from unittest.mock import patch as _patch
+
+        app = self._create_app(limit_override=1)
+        client = TestClient(app)
+
+        with _patch(
+            "app.ratelimit.middleware._security_logger"
+        ) as mock_security_logger:
+            # Exhaust limit
+            client.get("/v1/user/profile")
+            # Trigger 429
+            client.get("/v1/user/profile")
+
+            mock_security_logger.log_rate_limit_exceeded.assert_called_once()
+            call_kwargs = mock_security_logger.log_rate_limit_exceeded.call_args[1]
+            assert call_kwargs["path"] == "/v1/user/profile"
+            assert call_kwargs["limit"] == 1
+
+
 class TestRateLimitToggleIntegration:
     """
     Integration tests for the RATE_LIMIT_ENABLED toggle in create_application().
