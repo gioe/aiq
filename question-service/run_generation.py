@@ -1152,7 +1152,20 @@ def main() -> int:
 
             # If no questions needed (all strata are at target), exit early
             if generation_plan.total_questions == 0:
-                logger.info("All strata are at or above target - no generation needed")
+                logger.info("Auto-balance early exit: all strata at or above target")
+                logger.info(
+                    f"  Thresholds: healthy={args.healthy_threshold}, "
+                    f"warning={args.warning_threshold}, "
+                    f"target_per_stratum={args.target_per_stratum}"
+                )
+                logger.info(
+                    f"  Analyzed {len(analysis.strata)} strata, "
+                    f"{analysis.total_questions} total active questions"
+                )
+                logger.info(
+                    f"  Below target: {len(analysis.strata_below_target)}, "
+                    f"Critical: {len(analysis.critical_strata)}"
+                )
                 write_heartbeat(
                     status="completed",
                     exit_code=EXIT_SUCCESS,
