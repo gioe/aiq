@@ -98,7 +98,9 @@ def extract_last_error(
 
         # Continue collecting traceback lines
         elif in_traceback and include_traceback:
-            if traceback_continuation_pattern.match(line_stripped) or line_stripped.startswith(" "):
+            if traceback_continuation_pattern.match(
+                line_stripped
+            ) or line_stripped.startswith(" "):
                 current_block.append(line_stripped)
             elif line_stripped:
                 # Check if this is the final exception line (e.g., "ValueError: bad input")

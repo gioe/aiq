@@ -81,4 +81,4 @@ When performing these operations, always use the corresponding skill instead of 
 | Running iOS tests | `/run-ios-test` | `xcodebuild test` |
 | Adding Swift files to Xcode | `/xcode-file-manager` | Manual project.pbxproj edits |
 | Running question-service tests | `/run-question-service-tests` | `cd question-service && pytest` |
-| Running scripts/tests | `/run-scripts-tests` | `pytest scripts/tests/` |
+| Running bootstrap script tests | `/run-scripts-tests` | `pytest question-service/scripts/tests/` |

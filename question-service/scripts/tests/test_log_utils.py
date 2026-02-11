@@ -1,10 +1,11 @@
 """Tests for log_utils module."""
-import tempfile
+import sys
 from pathlib import Path
 
-import pytest
+# Add question-service/scripts to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.log_utils import (
+from log_utils import (  # noqa: E402
     extract_last_error,
     extract_last_error_clean,
     strip_ansi_codes,
@@ -234,7 +235,7 @@ class TestRealWorldLogFormat:
             "Running: /venv/bin/python run_generation.py --types pattern\n"
             "Started: 2026-01-25T14:37:04-05:00\n"
             "2026-01-25 14:37:06,311 - root - \x1b[32mINFO\x1b[0m - logging:setup:166 - Logging started\n"
-            "HEARTBEAT: {\"status\": \"started\"}\n"
+            'HEARTBEAT: {"status": "started"}\n'
             "2026-01-25 14:37:06,314 - app - \x1b[31mERROR\x1b[0m - generator:gen:50 - API call failed\n"
             "2026-01-25 14:37:06,315 - app - \x1b[32mINFO\x1b[0m - pipeline:run:100 - Retrying...\n"
         )
