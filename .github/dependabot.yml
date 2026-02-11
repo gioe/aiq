@@ -20,6 +20,11 @@ updates:
       prefix: "[deps]"
     reviewers:
       - "gioe"
+    groups:
+      python-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
   # Python dependencies for question-service
   - package-ecosystem: "pip"
@@ -38,6 +43,11 @@ updates:
       prefix: "[deps]"
     reviewers:
       - "gioe"
+    groups:
+      python-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
   # Swift Package Manager dependencies for iOS (API Client package)
   - package-ecosystem: "swift"
@@ -57,6 +67,11 @@ updates:
       prefix: "[deps]"
     reviewers:
       - "gioe"
+    groups:
+      swift-all:
+        update-types:
+          - "minor"
+          - "patch"
 
   # Swift Package Manager dependencies for iOS (Main Xcode project)
   - package-ecosystem: "swift"
@@ -76,6 +91,11 @@ updates:
       prefix: "[deps]"
     reviewers:
       - "gioe"
+    groups:
+      swift-all:
+        update-types:
+          - "minor"
+          - "patch"
 
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
@@ -93,3 +113,8 @@ updates:
       prefix: "[deps]"
     reviewers:
       - "gioe"
+    groups:
+      github-actions-all:
+        update-types:
+          - "minor"
+          - "patch"

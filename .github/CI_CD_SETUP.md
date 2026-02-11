@@ -1,188 +1,173 @@
 # CI/CD Setup Guide
 
-This document explains the CI/CD pipeline configuration for the AIQ iOS application.
+This document describes the CI/CD pipeline configuration for the AIQ project. All workflows live in `.github/workflows/` and trigger automatically on pull requests and pushes to `main`.
 
-## Overview
+## Pipeline Overview
 
-The iOS CI/CD pipeline is configured in `.github/workflows/ios-ci.yml` and runs automatically on:
-- Pull requests that modify iOS code or the workflow file
-- Pushes to the `main` branch
+| Workflow | File | Trigger Paths | Runner |
+|----------|------|---------------|--------|
+| **Backend CI** | `backend-ci.yml` | `backend/**`, `libs/**` | ubuntu-latest |
+| **Question Service CI** | `question-service-ci.yml` | `question-service/**` | ubuntu-latest |
+| **iOS CI** | `ios-ci.yml` | `ios/**`, `backend/**`, `docs/api/**` | macos-15 |
+| **Pre-commit Checks** | `pre-commit.yml` | All files | ubuntu-latest |
+| **Close Jira on Merge** | `close-jira-on-merge.yml` | PR merge events | ubuntu-latest |
+| **Claude Code** | `claude.yml` | `@claude` mentions in issues/PRs | ubuntu-latest |
+| **Claude Code Review** | `claude-code-review.yml` | PR open/synchronize | ubuntu-latest |
+| **Certificate Monitor** | `certificate-monitor.yml` | Weekly cron (Mon 9am UTC) | ubuntu-latest |
+| **Model Availability** | `model-availability-check.yml` | Weekly cron (Mon 8am UTC) | ubuntu-latest |
 
-## Pipeline Jobs
+## Backend CI
 
-### 1. `lint-and-build`
+**File:** `.github/workflows/backend-ci.yml`
 
-Validates code quality and builds the project.
+### Jobs
+
+#### 1. `test`
+
+Runs linting, type checking, database migrations, and tests against a PostgreSQL service container.
 
 **Steps:**
 1. Checkout code
-2. Install SwiftLint and SwiftFormat
+2. Set up Python 3.13 (with pip cache)
+3. Install dependencies from `backend/requirements.txt`
+4. Run Black formatting check
+5. Run Flake8 linting
+6. Run MyPy type checking
+7. Run Alembic database migrations
+8. Run pytest
+
+**Services:** PostgreSQL 14 (`postgres:14`) on port 5432
+
+**Environment Variables:**
+| Variable | Value |
+|----------|-------|
+| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/iq_tracker_test` | <!-- pragma: allowlist secret -->
+| `SECRET_KEY` | `test-secret-key` |
+| `JWT_SECRET_KEY` | `test-jwt-secret-key` |
+| `ADMIN_TOKEN` | `test-admin-token` |
+| `SERVICE_API_KEY` | `test-service-key` |
+| `PYTHONPATH` | `${{ github.workspace }}` |
+
+#### 2. `export-openapi`
+
+Exports the OpenAPI spec and auto-commits it on `main`. Only runs after `test` passes and only on pushes to `main`.
+
+**Steps:**
+1. Checkout code (full history)
+2. Install dependencies
+3. Export OpenAPI spec via `backend/export_openapi.py`
+4. If `docs/api/openapi.json` changed, commit and push with retry logic
+
+**Commit message:** `chore: Update OpenAPI spec [skip ci]`
+
+## Question Service CI
+
+**File:** `.github/workflows/question-service-ci.yml`
+
+### Jobs
+
+#### 1. `test`
+
+Runs linting, type checking, and unit tests.
+
+**Steps:**
+1. Checkout code
+2. Set up Python 3.13 (with pip cache)
+3. Install dependencies from `question-service/requirements.txt`
+4. Run Black formatting check
+5. Run Flake8 linting
+6. Run MyPy type checking
+7. Run pytest
+
+#### 2. `integration-tests`
+
+Runs integration tests that call the Google Gemini API. Only runs on `main` after `test` passes.
+
+**Timeout:** 10 minutes
+
+**Required Secrets:**
+| Secret | Purpose |
+|--------|---------|
+| `GOOGLE_API_KEY` | Authenticate with Google Gemini API |
+
+If the secret is not configured, integration tests are skipped gracefully.
+
+## iOS CI
+
+**File:** `.github/workflows/ios-ci.yml`
+
+**Note:** iOS CI also triggers on `backend/**` and `docs/api/**` changes because the iOS app depends on the OpenAPI spec generated from the backend.
+
+### Jobs
+
+#### 1. `lint-and-build`
+
+Validates code quality, verifies the OpenAPI spec is in sync, and builds the project.
+
+**Steps:**
+1. Checkout code
+2. Install SwiftLint and SwiftFormat via Homebrew
 3. Run SwiftLint (strict mode)
 4. Run SwiftFormat (lint mode)
 5. List available simulators
-6. Build iOS project
-7. Run unit tests (AIQTests target)
-8. Upload unit test results on failure
+6. Verify OpenAPI spec sync between `docs/api/openapi.json` and iOS package
+7. Build iOS project
+8. Run unit tests (AIQTests target)
+9. Upload test results on failure
 
 **Duration:** ~5-10 minutes
 
-### 2. `ui-tests`
+#### 2. `ui-tests`
 
-Runs comprehensive UI tests for the application.
-
-**Dependencies:**
-- Requires `lint-and-build` job to pass first
-- Uses GitHub Secrets for test credentials
+Runs UI tests after `lint-and-build` passes.
 
 **Steps:**
 1. Checkout code
-2. List available simulators
-3. Create and boot iPhone 16 Pro simulator
-4. Run UI tests with credentials from secrets
-5. Upload UI test results (both success and failure)
+2. Boot iPhone 16 Pro simulator
+3. Run UI tests with credentials from secrets
+4. Upload test results (on both success and failure)
 
 **Duration:** ~15-25 minutes (timeout: 30 minutes)
+
+**Required Secrets:**
+| Secret | Purpose |
+|--------|---------|
+| `AIQ_TEST_EMAIL` | Test account email |
+| `AIQ_TEST_PASSWORD` | Test account password |
 
 **Test Coverage:**
 - Authentication flow (login/logout)
 - Registration flow
-- Test-taking flow (complete test flow)
+- Test-taking flow
 - Test abandonment handling
 - Deep link navigation
 - Error handling and recovery
 
-## Required GitHub Secrets
+### Test Result Artifacts
 
-The UI tests require two repository secrets to be configured:
+| Artifact | Uploaded | Retention |
+|----------|----------|-----------|
+| `ios-unit-test-results` | On failure | 7 days |
+| `ui-test-results-failure` | On failure | 7 days |
+| `ui-test-results-success` | On success | 3 days |
 
-### Setting Up Secrets
+To view: download the xcresult bundle from the workflow run's Artifacts section and open in Xcode.
 
-1. Go to your GitHub repository
-2. Navigate to: Settings > Secrets and variables > Actions
-3. Click "New repository secret"
-4. Add the following secrets:
-
-| Secret Name | Description | Example |
-|-------------|-------------|---------|
-| `AIQ_TEST_EMAIL` | Email address for test account | `test@example.com` |
-| `AIQ_TEST_PASSWORD` | Password for test account | `SecurePassword123!` |
-
-### Test Account Requirements
-
-The test account must:
-- Exist in the backend database
-- Have valid credentials
-- Be accessible from GitHub Actions runners
-- Not be used for production data
-
-**Security Note:** These credentials are stored securely by GitHub and are never exposed in logs or PR comments.
-
-## Test Result Artifacts
-
-### Unit Test Results
-
-**Artifact Name:** `ios-unit-test-results`
-**Uploaded:** Only on failure
-**Retention:** 7 days
-**Contents:** xcresult bundle from unit tests
-
-### UI Test Results - Failure
-
-**Artifact Name:** `ui-test-results-failure`
-**Uploaded:** Only on test failure
-**Retention:** 7 days
-**Contents:** xcresult bundle with test logs, screenshots, and performance data
-
-### UI Test Results - Success
-
-**Artifact Name:** `ui-test-results-success`
-**Uploaded:** Only on test success
-**Retention:** 3 days
-**Contents:** xcresult bundle for verification
-
-### Viewing Test Results
-
-1. Go to the failed/successful workflow run in GitHub Actions
-2. Scroll to the bottom to the "Artifacts" section
-3. Download the appropriate xcresult bundle
-4. Open in Xcode:
-   ```bash
-   open path/to/TestResults.xcresult
-   ```
-
-The xcresult bundle contains:
-- Detailed test logs
-- Screenshots of failures
-- Performance metrics
-- Code coverage data (if enabled)
-
-## Simulator Configuration
-
-The UI tests use:
-- **Device:** iPhone 16 Pro
-- **OS:** Latest available iOS version
-- **Created dynamically:** New simulator instance for each run
-- **Boot verification:** Uses `xcrun simctl bootstatus -b` to ensure ready state
-
-## How Tests Block PRs
-
-1. UI test job runs after build succeeds
-2. If any UI test fails, the job fails
-3. Failed job appears as a failed check on the PR
-4. PR cannot be merged until all checks pass (if branch protection is enabled)
-
-## Troubleshooting
-
-### UI Tests Failing with Authentication Errors
-
-**Cause:** Missing or incorrect GitHub Secrets
-
-**Solution:**
-1. Verify secrets are set: Settings > Secrets and variables > Actions
-2. Check secret names match exactly: `AIQ_TEST_EMAIL` and `AIQ_TEST_PASSWORD`
-3. Verify test account exists in backend
-4. Ensure backend is accessible from GitHub Actions runners
-
-### Simulator Boot Timeout
-
-**Cause:** Simulator taking too long to boot
-
-**Solution:**
-1. Check GitHub Actions status page for macOS runner issues
-2. Re-run the job (temporary infrastructure issue)
-3. If persistent, consider increasing timeout in workflow
-
-### Tests Passing Locally but Failing in CI
-
-**Cause:** Environment differences or timing issues
-
-**Solution:**
-1. Download xcresult bundle from CI
-2. Check for timing issues (network latency, slower CI runners)
-3. Review test helper wait timeouts
-4. Consider adding explicit waits for UI elements
-
-### Test Artifacts Not Uploading
-
-**Cause:** Path mismatch or test results not generated
-
-**Solution:**
-1. Check that `-resultBundlePath` is correct in xcodebuild command
-2. Verify tests are actually running (check logs)
-3. Ensure `ios/TestResults/` directory is created
-
-## Running UI Tests Locally
-
-To run the same tests locally with credentials:
+### Running iOS Tests Locally
 
 ```bash
 cd ios
 
-# Set environment variables
+# Unit tests
+xcodebuild test \
+  -project AIQ.xcodeproj \
+  -scheme AIQ \
+  -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
+
+# UI tests (requires credentials)
 export AIQ_TEST_EMAIL="your-test-email@example.com"
 export AIQ_TEST_PASSWORD="your-test-password"
-
-# Run UI tests
 xcodebuild test \
   -project AIQ.xcodeproj \
   -scheme AIQ \
@@ -191,63 +176,155 @@ xcodebuild test \
   -only-testing:AIQUITests
 ```
 
-Or run directly in Xcode:
-1. Open AIQ.xcodeproj
-2. Product > Scheme > Edit Scheme
-3. Select "Test" action
-4. Go to Arguments tab
-5. Add environment variables:
-   - `AIQ_TEST_EMAIL` = your test email
-   - `AIQ_TEST_PASSWORD` = your test password
-6. Run tests: Cmd+U
+## Pre-commit Checks
 
-## Performance Considerations
+**File:** `.github/workflows/pre-commit.yml`
 
-### Job Timeouts
+Runs on all PRs and pushes to `main`. Executes pre-commit hooks for both `backend/` and `question-service/` directories.
 
-- `lint-and-build`: Default (6 hours, unlikely to hit)
-- `ui-tests`: 30 minutes
+**Note:** Currently configured with `|| true` so failures don't block PRs. This is informational only.
 
-If tests consistently approach timeout:
-1. Review test efficiency
-2. Consider test parallelization
-3. Optimize setup/teardown
-4. Remove unnecessary waits
+## Close Jira on Merge
 
-### Artifact Storage
+**File:** `.github/workflows/close-jira-on-merge.yml`
 
-Artifacts consume GitHub storage:
-- Free tier: 500 MB storage, 2 GB transfer/month
-- Pro tier: 1 GB storage, 10 GB transfer/month
+Triggers when a PR is merged. Extracts a ticket ID from the PR title (format: `[TASK-123] Description` or any `[PREFIX-123]` pattern) and:
+1. Finds the appropriate "Done" transition (matches Done, Closed, Complete, or Resolved)
+2. Transitions the Jira ticket (skips gracefully if no matching transition is available)
+3. Adds a comment with the PR link and merge author
 
-Current retention periods are optimized:
-- Failures: 7 days (debugging priority)
-- Successes: 3 days (verification only)
+**Required Secrets:**
+| Secret | Purpose |
+|--------|---------|
+| `JIRA_EMAIL` | Jira service account email |
+| `JIRA_API_TOKEN` | Jira API token |
+| `JIRA_DOMAIN` | Jira domain (e.g., `gioematt.atlassian.net`) |
 
-## Future Enhancements
+## Claude Code
 
-Potential improvements to consider:
+**File:** `.github/workflows/claude.yml`
 
-1. **Test Sharding:** Split UI tests across multiple jobs for faster execution
-2. **Flaky Test Retry:** Automatically retry failed tests once
-3. **Test Result Comments:** Post test summary as PR comment
-4. **Notifications:** Slack/Discord notifications for failures
-5. **Code Coverage:** Enable and track code coverage metrics
-6. **Test Analytics:** Track test execution time and flakiness over time
-7. **Matrix Testing:** Test on multiple iOS versions/devices
-8. **Screenshot Comparison:** Visual regression testing
+Invokes the Claude Code GitHub Action when `@claude` is mentioned in issue comments, PR review comments, or issue bodies.
+
+**Required Secrets:**
+| Secret | Purpose |
+|--------|---------|
+| `CLAUDE_CODE_OAUTH_TOKEN` | Authenticate with Claude Code |
+
+## Claude Code Review
+
+**File:** `.github/workflows/claude-code-review.yml`
+
+Runs an automated Claude Code review on every PR when opened or updated. Reviews code quality, potential bugs, performance, security, and test coverage. Posts review feedback as a PR comment.
+
+**Required Secrets:**
+| Secret | Purpose |
+|--------|---------|
+| `CLAUDE_CODE_OAUTH_TOKEN` | Authenticate with Claude Code |
+
+## Certificate Monitor
+
+**File:** `.github/workflows/certificate-monitor.yml`
+
+Runs weekly (Monday 9am UTC) and on manual dispatch. Checks the Railway backend SSL certificate against the TrustKit pinned hashes in `ios/AIQ/TrustKit.plist`. Creates a GitHub issue if:
+- Certificate is expiring within 30 days (warning)
+- Certificate has expired (critical)
+- Certificate hash doesn't match pinned hashes (critical)
+
+Deduplicates issues to avoid flooding.
+
+## Model Availability Check
+
+**File:** `.github/workflows/model-availability-check.yml`
+
+Runs weekly (Monday 8am UTC) and on manual dispatch. Tests that the AI model APIs used by the question-service are still available and responding. Checks Google, OpenAI, xAI, and Anthropic providers (each conditional on its API key secret being configured).
+
+**Required Secrets:**
+| Secret | Purpose |
+|--------|---------|
+| `GOOGLE_API_KEY` | Google Gemini API access |
+| `OPENAI_API_KEY` | OpenAI API access |
+| `XAI_API_KEY` | xAI API access |
+| `ANTHROPIC_API_KEY` | Anthropic API access |
+
+## Required GitHub Secrets Summary
+
+| Secret | Used By |
+|--------|---------|
+| `AIQ_TEST_EMAIL` | iOS CI (UI tests) |
+| `AIQ_TEST_PASSWORD` | iOS CI (UI tests) |
+| `GOOGLE_API_KEY` | Question Service CI, Model Availability Check |
+| `JIRA_EMAIL` | Close Jira on Merge |
+| `JIRA_API_TOKEN` | Close Jira on Merge |
+| `JIRA_DOMAIN` | Close Jira on Merge |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code, Claude Code Review |
+| `OPENAI_API_KEY` | Model Availability Check |
+| `XAI_API_KEY` | Model Availability Check |
+| `ANTHROPIC_API_KEY` | Model Availability Check |
+
+To configure: Repository Settings > Secrets and variables > Actions > New repository secret.
+
+## How Tests Block PRs
+
+1. Each CI workflow runs checks specific to the changed files
+2. If any check fails, the job fails and appears as a failed check on the PR
+3. Failed jobs prevent merging (when branch protection is enabled)
+4. Path-based triggering ensures only relevant pipelines run
+
+## Troubleshooting
+
+### Backend: Database Migration Failures
+
+**Cause:** Alembic migration fails against the PostgreSQL service container.
+
+**Solution:**
+1. Run migrations locally: `cd backend && alembic upgrade head`
+2. Check for conflicting migration heads: `alembic heads`
+3. Ensure `DATABASE_URL` is set correctly in your environment
+
+### Backend: MyPy Type Errors
+
+**Cause:** New code has type annotation issues.
+
+**Solution:**
+1. Run locally: `cd backend && mypy app/`
+2. Ensure `PYTHONPATH` includes the repo root (for `libs/` imports)
+
+### Question Service: Integration Tests Skipped
+
+**Cause:** `GOOGLE_API_KEY` secret not configured.
+
+**Solution:** This is expected on PRs (secrets are only available on `main`). Integration tests run on merge to `main`.
+
+### iOS: OpenAPI Spec Out of Sync
+
+**Cause:** Backend OpenAPI spec was updated but iOS copy wasn't synced.
+
+**Solution:**
+1. Run: `cd ios && scripts/sync_openapi_spec.sh`
+2. Commit the updated spec
+
+### iOS: Simulator Boot Timeout
+
+**Cause:** macOS runner issue.
+
+**Solution:** Re-run the job. If persistent, check GitHub Actions status page.
+
+### iOS: Tests Passing Locally but Failing in CI
+
+**Solution:**
+1. Download xcresult from CI artifacts
+2. Check for timing issues (CI runners are slower)
+3. Review wait timeouts in test helpers
+
+### Pre-commit: Failures Not Blocking
+
+**Note:** Pre-commit checks run with `|| true` and don't currently block PRs. Run `pre-commit run --all-files` locally before committing.
 
 ## Related Documentation
 
-- [iOS Coding Standards](/Users/mattgioe/aiq/ios/docs/CODING_STANDARDS.md)
-- [UI Test Helpers](/Users/mattgioe/aiq/ios/AIQUITests/Helpers/README.md)
-- [Pull Request Template](/.github/PULL_REQUEST_TEMPLATE.md)
-
-## Support
-
-For issues with the CI/CD pipeline:
-1. Check this documentation first
-2. Review recent workflow runs for patterns
-3. Download and inspect xcresult bundles
-4. Check GitHub Actions status page
-5. Review test logs for specific error messages
+- [Dependabot Configuration](../docs/infrastructure/DEPENDABOT.md)
+- [iOS Coding Standards](../ios/docs/CODING_STANDARDS.md)
+- [UI Test Helpers](../ios/AIQUITests/Helpers/README.md)
+- [Pull Request Template](PULL_REQUEST_TEMPLATE.md)
+- [Backend Deployment](../backend/DEPLOYMENT.md)
