@@ -85,9 +85,9 @@ struct ToastView: View {
 
     private var accessibilityTypeLabel: String {
         switch type {
-        case .error: "Error"
-        case .warning: "Warning"
-        case .info: "Information"
+        case .error: "toast.type.error".localized
+        case .warning: "toast.type.warning".localized
+        case .info: "toast.type.info".localized
         }
     }
 }

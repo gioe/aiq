@@ -69,6 +69,9 @@ struct TestResultsView: View {
                 }
             }
             .onAppear {
+                // Trigger success haptic when results are displayed
+                ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.success)
+
                 if reduceMotion {
                     showAnimation = true
                 } else {

@@ -9,23 +9,29 @@ struct PrimaryButton: View {
     var accessibilityId: String?
 
     var body: some View {
-        Button(action: action) {
-            HStack {
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.8)
-                        .accessibilityHidden(true) // Hide visual loading indicator
+        Button(
+            action: {
+                ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.light)
+                action()
+            },
+            label: {
+                HStack {
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.8)
+                            .accessibilityHidden(true) // Hide visual loading indicator
+                    }
+                    Text(title)
+                        .font(Typography.button)
+                        .frame(maxWidth: .infinity)
                 }
-                Text(title)
-                    .font(Typography.button)
-                    .frame(maxWidth: .infinity)
+                .padding(DesignSystem.Spacing.lg)
+                .background(isDisabled ? ColorPalette.textSecondary : ColorPalette.primary)
+                .foregroundColor(.white)
+                .cornerRadius(DesignSystem.CornerRadius.md)
             }
-            .padding(DesignSystem.Spacing.lg)
-            .background(isDisabled ? ColorPalette.textSecondary : ColorPalette.primary)
-            .foregroundColor(.white)
-            .cornerRadius(DesignSystem.CornerRadius.md)
-        }
+        )
         .disabled(isDisabled || isLoading)
         .accessibilityLabel(title)
         .accessibilityHint(accessibilityHintText)

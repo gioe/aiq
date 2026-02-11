@@ -82,6 +82,14 @@ class ToastManager: ObservableObject, ToastManagerProtocol {
         let typeDesc = String(describing: type)
         Self.logger.info("Showing toast: \(message, privacy: .public) (type: \(typeDesc, privacy: .public))")
 
+        // Trigger haptic feedback based on toast type
+        let hapticType: HapticType = switch type {
+        case .error: .error
+        case .warning: .warning
+        case .info: .selection
+        }
+        ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(hapticType)
+
         // Cancel existing dismiss work item if any
         dismissWorkItem?.cancel()
 

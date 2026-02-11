@@ -715,3 +715,8 @@
 "toast.deeplink.invalid" = "Unable to open this link";
 "toast.deeplink.navigation.failed" = "Unable to load content";
 "toast.deeplink.resume.unavailable" = "Test resumption is not yet available";
+
+// Toast Type Labels (Accessibility)
+"toast.type.error" = "Error";
+"toast.type.warning" = "Warning";
+"toast.type.info" = "Information";

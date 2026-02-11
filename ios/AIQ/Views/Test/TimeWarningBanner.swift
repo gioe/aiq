@@ -56,6 +56,9 @@ struct TimeWarningBanner: View {
         .opacity(isVisible ? 1 : 0)
         .offset(y: reduceMotion ? 0 : (isVisible ? 0 : -20))
         .onAppear {
+            // Trigger warning haptic when time warning appears
+            ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.warning)
+
             if reduceMotion {
                 isVisible = true
             } else {

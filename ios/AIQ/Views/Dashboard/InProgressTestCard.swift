@@ -27,6 +27,9 @@ struct InProgressTestCard: View {
             actionButtons
         }
         .padding(DesignSystem.Spacing.lg)
+        .onAppear {
+            ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.prepare()
+        }
         .background(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
                 .fill(ColorPalette.backgroundSecondary)

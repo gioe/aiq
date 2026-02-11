@@ -10,13 +10,19 @@ struct IconButton: View {
     var size: CGFloat = 44
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .foregroundColor(foregroundColor)
-                .fontWeight(.semibold)
-                .frame(width: size, height: size)
-                .contentShape(Rectangle())
-        }
+        Button(
+            action: {
+                ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.selection)
+                action()
+            },
+            label: {
+                Image(systemName: icon)
+                    .foregroundColor(foregroundColor)
+                    .fontWeight(.semibold)
+                    .frame(width: size, height: size)
+                    .contentShape(Rectangle())
+            }
+        )
         .accessibilityLabel(accessibilityLabel)
     }
 }
