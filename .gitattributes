@@ -1,0 +1,4 @@
+# Mark OpenAPI specs as generated files for better diff behavior
+docs/api/openapi.json linguist-generated=true
+ios/AIQ/openapi.json linguist-generated=true
+ios/Packages/AIQAPIClient/Sources/AIQAPIClient/openapi.json linguist-generated=true
