@@ -3,11 +3,15 @@ Database base configuration for SQLAlchemy models.
 
 This module uses SQLAlchemy 2.0 style with DeclarativeBase and Mapped types
 for proper type checking support. See BCQ-035 for migration details.
+
+Async support (TASK-1161): async_engine, AsyncSessionLocal, and get_async_db
+are provided alongside the sync equivalents for incremental migration.
 """
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from sqlalchemy.pool import QueuePool
-from typing import Generator
+from sqlalchemy.pool import AsyncAdaptedQueuePool, QueuePool
+from typing import AsyncGenerator, Generator
 import os
 from dotenv import load_dotenv
 
@@ -54,6 +58,29 @@ engine = create_engine(
 # Create SessionLocal class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# --- Async engine and session (TASK-1161) ---
+# Convert sync URL to async driver URL:
+#   postgresql://...  -> postgresql+asyncpg://...
+#   sqlite:///...     -> sqlite+aiosqlite:///...
+_ASYNC_DATABASE_URL = DATABASE_URL.replace(
+    "postgresql://", "postgresql+asyncpg://"
+).replace("sqlite:///", "sqlite+aiosqlite:///")
+
+async_engine = create_async_engine(
+    _ASYNC_DATABASE_URL,
+    echo=DEBUG,
+    poolclass=AsyncAdaptedQueuePool,
+    pool_size=POOL_SIZE,
+    max_overflow=POOL_MAX_OVERFLOW,
+    pool_timeout=POOL_TIMEOUT,
+    pool_recycle=POOL_RECYCLE,
+    pool_pre_ping=POOL_PRE_PING,
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    async_engine, class_=AsyncSession, expire_on_commit=False
+)
+
 
 class Base(DeclarativeBase):
     """
@@ -86,3 +113,18 @@ def get_db() -> Generator:
         raise
     finally:
         db.close()
+
+
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Async dependency function to get database session.
+
+    Yields an async database session and ensures proper cleanup.
+    Mirrors get_db() behavior for async endpoints.
+    """
+    async with AsyncSessionLocal() as db:
+        try:
+            yield db
+        except Exception:
+            await db.rollback()
+            raise

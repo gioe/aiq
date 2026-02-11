@@ -1,7 +1,15 @@
 """
 Models package for AIQ backend.
 """
-from .base import Base, engine, SessionLocal, get_db
+from .base import (
+    Base,
+    engine,
+    SessionLocal,
+    get_db,
+    async_engine,
+    AsyncSessionLocal,
+    get_async_db,
+)
 from .models import (
     User,
     Question,
@@ -30,6 +38,9 @@ __all__ = [
     "engine",
     "SessionLocal",
     "get_db",
+    "async_engine",
+    "AsyncSessionLocal",
+    "get_async_db",
     "User",
     "Question",
     "UserQuestion",
