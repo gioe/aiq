@@ -434,6 +434,37 @@ This enables instant notifications for deployment failures, service crashes, and
 - **1 GB RAM** minimum
 - **Monitor metrics** and scale as needed
 
+### Multi-Worker Considerations
+
+When running with multiple Gunicorn workers, the following services require Redis for cross-worker coordination:
+
+**Token Blacklist (JWT Revocation)**
+
+The token blacklist stores revoked JWTs so that logged-out tokens are rejected. By default, it uses in-memory storage which is **not shared across workers**.
+
+| Deployment | Storage | Behavior |
+|------------|---------|----------|
+| Single worker | In-memory (default) | Works correctly |
+| Multiple workers | In-memory (default) | A token revoked in one worker may still be accepted by another worker until it expires naturally |
+| Multiple workers | Redis (recommended) | Revoked tokens are rejected by all workers immediately |
+
+To enable Redis-backed token blacklist:
+```bash
+TOKEN_BLACKLIST_REDIS_URL=redis://your-redis-host:6379/1
+```
+
+The in-memory fallback supports up to 10,000 keys (~333 logouts/minute with 30-minute token expiry). If Redis becomes unavailable at runtime, the blacklist gracefully falls back to in-memory storage and logs a warning.
+
+**Rate Limiting**
+
+Similarly, rate limiting uses in-memory storage by default. With multiple workers, each worker tracks its own rate limit counters, effectively multiplying the allowed rate by the number of workers.
+
+To enable shared rate limiting:
+```bash
+RATE_LIMIT_STORAGE=redis
+RATE_LIMIT_REDIS_URL=redis://your-redis-host:6379/0
+```
+
 ## Custom Domain (Optional)
 
 1. Railway dashboard → Service → **"Settings"** → **"Domains"**

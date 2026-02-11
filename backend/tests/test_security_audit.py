@@ -466,3 +466,209 @@ class TestSecurityEventType:
 
         for name in expected:
             assert hasattr(SecurityEventType, name)
+
+
+class TestSecurityAuditLoggerExceptionHandling:
+    """Tests verifying SecurityAuditLogger never propagates exceptions."""
+
+    @pytest.fixture
+    def audit_logger(self):
+        """Provide SecurityAuditLogger instance."""
+        return SecurityAuditLogger()
+
+    @pytest.fixture
+    def failing_logger(self):
+        """Mock the module logger to raise exceptions."""
+        with patch("app.core.security_audit.logger") as mock:
+            mock.info.side_effect = RuntimeError("logging infrastructure down")
+            mock.warning.side_effect = RuntimeError("logging infrastructure down")
+            yield mock
+
+    @pytest.fixture
+    def mock_fallback_logger(self):
+        """Mock the fallback logger to verify it's called."""
+        with patch("app.core.security_audit._fallback_logger") as mock:
+            yield mock
+
+    def test_auth_attempt_exception_uses_fallback(
+        self, audit_logger, failing_logger, mock_fallback_logger
+    ):
+        """Test log_auth_attempt uses fallback logger when primary fails."""
+        audit_logger.log_auth_attempt(
+            email="user@example.com",
+            success=True,
+            ip="192.168.1.1",
+        )
+        mock_fallback_logger.exception.assert_called_once_with(
+            "Failed to log auth attempt security event"
+        )
+
+    def test_token_validation_failure_exception_uses_fallback(
+        self, audit_logger, failing_logger, mock_fallback_logger
+    ):
+        """Test log_token_validation_failure uses fallback logger when primary fails."""
+        audit_logger.log_token_validation_failure(reason="expired", ip="192.168.1.1")
+        mock_fallback_logger.exception.assert_called_once_with(
+            "Failed to log token validation failure security event"
+        )
+
+    def test_token_revoked_exception_uses_fallback(
+        self, audit_logger, failing_logger, mock_fallback_logger
+    ):
+        """Test log_token_revoked uses fallback logger when primary fails."""
+        audit_logger.log_token_revoked(ip="192.168.1.1")
+        mock_fallback_logger.exception.assert_called_once_with(
+            "Failed to log token revoked security event"
+        )
+
+    def test_permission_denied_exception_uses_fallback(
+        self, audit_logger, failing_logger, mock_fallback_logger
+    ):
+        """Test log_permission_denied uses fallback logger when primary fails."""
+        audit_logger.log_permission_denied(
+            user_id="123", resource="test", action="delete", ip="192.168.1.1"
+        )
+        mock_fallback_logger.exception.assert_called_once_with(
+            "Failed to log permission denied security event"
+        )
+
+    def test_admin_auth_exception_uses_fallback(
+        self, audit_logger, failing_logger, mock_fallback_logger
+    ):
+        """Test log_admin_auth_attempt uses fallback logger when primary fails."""
+        audit_logger.log_admin_auth_attempt(success=True, ip="192.168.1.1")
+        mock_fallback_logger.exception.assert_called_once_with(
+            "Failed to log admin auth attempt security event"
+        )
+
+    def test_service_auth_exception_uses_fallback(
+        self, audit_logger, failing_logger, mock_fallback_logger
+    ):
+        """Test log_service_auth_attempt uses fallback logger when primary fails."""
+        audit_logger.log_service_auth_attempt(success=True, ip="192.168.1.1")
+        mock_fallback_logger.exception.assert_called_once_with(
+            "Failed to log service auth attempt security event"
+        )
+
+    def test_password_reset_exception_uses_fallback(
+        self, audit_logger, failing_logger, mock_fallback_logger
+    ):
+        """Test log_password_reset uses fallback logger when primary fails."""
+        audit_logger.log_password_reset(
+            email="user@example.com",
+            stage="initiated",
+            success=True,
+            ip="192.168.1.1",
+        )
+        mock_fallback_logger.exception.assert_called_once_with(
+            "Failed to log password reset security event"
+        )
+
+    def test_rate_limit_exceeded_exception_uses_fallback(
+        self, audit_logger, failing_logger, mock_fallback_logger
+    ):
+        """Test log_rate_limit_exceeded uses fallback logger when primary fails."""
+        audit_logger.log_rate_limit_exceeded(
+            ip="192.168.1.1", path="/v1/auth/login", limit=5
+        )
+        mock_fallback_logger.exception.assert_called_once_with(
+            "Failed to log rate limit exceeded security event"
+        )
+
+    def test_account_event_exception_uses_fallback(
+        self, audit_logger, failing_logger, mock_fallback_logger
+    ):
+        """Test log_account_event uses fallback logger when primary fails."""
+        audit_logger.log_account_event(
+            user_id="123",
+            event_type=SecurityEventType.ACCOUNT_CREATED,
+            ip="192.168.1.1",
+        )
+        mock_fallback_logger.exception.assert_called_once_with(
+            "Failed to log account event security event"
+        )
+
+
+class TestSecurityAuditLoggerRateLimitEvent:
+    """Tests for the rate limit exceeded logging method."""
+
+    @pytest.fixture
+    def audit_logger(self):
+        return SecurityAuditLogger()
+
+    @pytest.fixture
+    def mock_logger(self):
+        with patch("app.core.security_audit.logger") as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_request_id_context(self):
+        with patch("app.core.security_audit.request_id_context") as mock:
+            mock.get.return_value = "test-request-id-456"
+            yield mock
+
+    def test_log_rate_limit_exceeded(
+        self, audit_logger, mock_logger, mock_request_id_context
+    ):
+        """Test logging rate limit exceeded event."""
+        audit_logger.log_rate_limit_exceeded(
+            ip="10.0.0.1",
+            path="/v1/auth/login",
+            limit=5,
+        )
+
+        mock_logger.warning.assert_called_once()
+        call_args = mock_logger.warning.call_args
+
+        assert "Rate limit exceeded" in call_args[0][0]
+        assert "10.0.0.1" in call_args[0][0]
+        assert "/v1/auth/login" in call_args[0][0]
+
+        extra = call_args[1]["extra"]
+        assert extra["event_type"] == SecurityEventType.RATE_LIMIT_EXCEEDED.value
+        assert extra["client_ip"] == "10.0.0.1"
+        assert extra["path"] == "/v1/auth/login"
+        assert extra["limit"] == 5
+        assert extra["request_id"] == "test-request-id-456"
+
+    def test_log_rate_limit_exceeded_without_request_id(
+        self, audit_logger, mock_logger
+    ):
+        """Test rate limit logging when no request_id context is available."""
+        audit_logger.log_rate_limit_exceeded(
+            ip="10.0.0.1",
+            path="/v1/test/start",
+            limit=100,
+        )
+
+        call_args = mock_logger.warning.call_args
+        extra = call_args[1]["extra"]
+        assert "request_id" not in extra
+
+
+class TestEnrichWithRequestId:
+    """Tests for the _enrich_with_request_id static method."""
+
+    def test_adds_request_id_when_available(self):
+        """Test that request_id is added when context has a value."""
+        with patch("app.core.security_audit.request_id_context") as mock_ctx:
+            mock_ctx.get.return_value = "req-abc-123"
+            log_data = {"event_type": "test"}
+            SecurityAuditLogger._enrich_with_request_id(log_data)
+            assert log_data["request_id"] == "req-abc-123"
+
+    def test_skips_request_id_when_none(self):
+        """Test that request_id is not added when context returns None."""
+        with patch("app.core.security_audit.request_id_context") as mock_ctx:
+            mock_ctx.get.return_value = None
+            log_data = {"event_type": "test"}
+            SecurityAuditLogger._enrich_with_request_id(log_data)
+            assert "request_id" not in log_data
+
+    def test_skips_request_id_when_empty_string(self):
+        """Test that request_id is not added when context returns empty string."""
+        with patch("app.core.security_audit.request_id_context") as mock_ctx:
+            mock_ctx.get.return_value = ""
+            log_data = {"event_type": "test"}
+            SecurityAuditLogger._enrich_with_request_id(log_data)
+            assert "request_id" not in log_data

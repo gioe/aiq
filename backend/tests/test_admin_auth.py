@@ -179,6 +179,87 @@ class TestAdminAuth:
         assert True
 
 
+class TestAdminAuthIntegration:
+    """
+    Integration tests for admin authentication using the real app factory.
+
+    Tests the full login/logout/authenticate flow through the SessionMiddleware
+    and AdminAuth backend, not just unit-level mocks.
+    """
+
+    ADMIN_PASSWORD = "correct-password"
+
+    @pytest.fixture
+    def admin_client(self):
+        """Create a TestClient with admin enabled and patches active."""
+        from starlette.testclient import TestClient
+
+        from app.main import create_application
+
+        password_hash = hash_password(self.ADMIN_PASSWORD)
+
+        with (
+            patch("app.main.settings.ADMIN_ENABLED", True),
+            patch("app.main.settings.ADMIN_USERNAME", "admin"),
+            patch("app.main.settings.ADMIN_PASSWORD_HASH", password_hash),
+            patch("app.main.settings.SECRET_KEY", "test-secret-key-for-sessions"),
+            patch("app.admin.auth.settings.ADMIN_USERNAME", "admin"),
+            patch("app.admin.auth.settings.ADMIN_PASSWORD_HASH", password_hash),
+        ):
+            app = create_application()
+            yield TestClient(app)
+
+    def test_admin_login_sets_session_cookie(self, admin_client):
+        """Test that successful admin login sets a session cookie."""
+        response = admin_client.post(
+            "/admin/login",
+            data={"username": "admin", "password": self.ADMIN_PASSWORD},
+            follow_redirects=False,
+        )
+
+        # SQLAdmin redirects on successful login
+        assert response.status_code in (302, 303)
+        # Should have a session cookie set
+        cookie_header = response.headers.get("set-cookie", "")
+        assert "admin_session" in cookie_header
+
+    def test_admin_login_wrong_password(self, admin_client):
+        """Test that failed admin login returns 400."""
+        response = admin_client.post(
+            "/admin/login",
+            data={"username": "admin", "password": "wrong-password"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 400
+
+    def test_admin_session_cookie_has_max_age(self, admin_client):
+        """Test that admin session cookie has max_age configured (4 hours)."""
+        response = admin_client.post(
+            "/admin/login",
+            data={"username": "admin", "password": self.ADMIN_PASSWORD},
+            follow_redirects=False,
+        )
+
+        cookie_header = response.headers.get("set-cookie", "")
+        assert "admin_session" in cookie_header
+        # SessionMiddleware sets max_age=14400 (4 hours)
+        assert "14400" in cookie_header
+
+    def test_admin_logout_redirects(self, admin_client):
+        """Test that admin logout clears session and redirects."""
+        # Login first
+        admin_client.post(
+            "/admin/login",
+            data={"username": "admin", "password": self.ADMIN_PASSWORD},
+            follow_redirects=False,
+        )
+
+        # Logout
+        response = admin_client.get("/admin/logout", follow_redirects=False)
+        assert response.status_code in (302, 303)
+
+
 class TestAdminConfigValidation:
     """Tests for admin configuration validation at startup."""
 
