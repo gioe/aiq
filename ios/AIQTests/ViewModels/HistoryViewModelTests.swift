@@ -3,10 +3,18 @@ import XCTest
 
 @testable import AIQ
 
+// MARK: - Mock Storage
+
+class MockHistoryPreferencesStorage: HistoryPreferencesStorageProtocol {
+    var sortOrder: TestHistorySortOrder = .newestFirst
+    var dateFilter: TestHistoryDateFilter = .all
+}
+
 @MainActor
 final class HistoryViewModelTests: XCTestCase {
     var sut: HistoryViewModel!
     var mockService: MockOpenAPIService!
+    var mockStorage: MockHistoryPreferencesStorage!
     var testUserDefaults: UserDefaults!
     var testSuiteName: String!
 
@@ -21,7 +29,8 @@ final class HistoryViewModelTests: XCTestCase {
         testUserDefaults = UserDefaults(suiteName: testSuiteName)!
 
         mockService = MockOpenAPIService()
-        sut = HistoryViewModel(apiService: mockService)
+        mockStorage = MockHistoryPreferencesStorage()
+        sut = HistoryViewModel(apiService: mockService, preferencesStorage: mockStorage)
 
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
     }
@@ -388,31 +397,29 @@ final class HistoryViewModelTests: XCTestCase {
         XCTAssertEqual(sut.sortOrder, .newestFirst)
 
         // When - Changing sort order to oldestFirst
-        sut.sortOrder = .oldestFirst
+        sut.setSortOrder(.oldestFirst)
 
-        // Then - Value should persist in UserDefaults
-        let savedValue = UserDefaults.standard.string(forKey: sortOrderStorageKey)
+        // Then - Value should persist in storage
         XCTAssertEqual(
-            savedValue,
-            TestHistorySortOrder.oldestFirst.rawValue,
-            "OldestFirst sort order should persist to UserDefaults"
+            mockStorage.sortOrder,
+            .oldestFirst,
+            "OldestFirst sort order should persist to storage"
         )
     }
 
     /// Test that sort order persists when changed back to newestFirst
     func testSortOrder_PersistsToUserDefaults_WhenChangedBackToNewestFirst() {
         // Given - Starting with oldestFirst
-        sut.sortOrder = .oldestFirst
+        sut.setSortOrder(.oldestFirst)
 
         // When - Changing back to newestFirst
-        sut.sortOrder = .newestFirst
+        sut.setSortOrder(.newestFirst)
 
         // Then - NewestFirst selection should persist
-        let savedValue = UserDefaults.standard.string(forKey: sortOrderStorageKey)
         XCTAssertEqual(
-            savedValue,
-            TestHistorySortOrder.newestFirst.rawValue,
-            "NewestFirst sort order should persist to UserDefaults"
+            mockStorage.sortOrder,
+            .newestFirst,
+            "NewestFirst sort order should persist to storage"
         )
     }
 
@@ -422,153 +429,143 @@ final class HistoryViewModelTests: XCTestCase {
         XCTAssertEqual(sut.dateFilter, .all)
 
         // When - Changing filter to lastMonth
-        sut.dateFilter = .lastMonth
+        sut.setDateFilter(.lastMonth)
 
-        // Then - Value should persist in UserDefaults
-        let savedValue = UserDefaults.standard.string(forKey: dateFilterStorageKey)
+        // Then - Value should persist in storage
         XCTAssertEqual(
-            savedValue,
-            TestHistoryDateFilter.lastMonth.rawValue,
-            "LastMonth filter should persist to UserDefaults"
+            mockStorage.dateFilter,
+            .lastMonth,
+            "LastMonth filter should persist to storage"
         )
     }
 
     /// Test that date filter persists when changed to lastSixMonths
     func testDateFilter_PersistsToUserDefaults_WhenChangedToLastSixMonths() {
         // Given - Starting with default filter, reset to ensure clean state
-        sut.dateFilter = .all
+        sut.setDateFilter(.all)
         XCTAssertEqual(sut.dateFilter, .all)
 
         // When - Changing filter to lastSixMonths
-        sut.dateFilter = .lastSixMonths
+        sut.setDateFilter(.lastSixMonths)
 
-        // Then - Value should persist in UserDefaults
-        let savedValue = UserDefaults.standard.string(forKey: dateFilterStorageKey)
+        // Then - Value should persist in storage
         XCTAssertEqual(
-            savedValue,
-            TestHistoryDateFilter.lastSixMonths.rawValue,
-            "LastSixMonths filter should persist to UserDefaults"
+            mockStorage.dateFilter,
+            .lastSixMonths,
+            "LastSixMonths filter should persist to storage"
         )
     }
 
     /// Test that date filter persists when changed to lastYear
     func testDateFilter_PersistsToUserDefaults_WhenChangedToLastYear() {
         // Given - Starting with default filter, reset to ensure clean state
-        sut.dateFilter = .all
+        sut.setDateFilter(.all)
         XCTAssertEqual(sut.dateFilter, .all)
 
         // When - Changing filter to lastYear
-        sut.dateFilter = .lastYear
+        sut.setDateFilter(.lastYear)
 
-        // Then - Value should persist in UserDefaults
-        let savedValue = UserDefaults.standard.string(forKey: dateFilterStorageKey)
+        // Then - Value should persist in storage
         XCTAssertEqual(
-            savedValue,
-            TestHistoryDateFilter.lastYear.rawValue,
-            "LastYear filter should persist to UserDefaults"
+            mockStorage.dateFilter,
+            .lastYear,
+            "LastYear filter should persist to storage"
         )
     }
 
     /// Test that date filter persists when changed back to all
     func testDateFilter_PersistsToUserDefaults_WhenChangedBackToAll() {
         // Given - Starting with lastMonth filter
-        sut.dateFilter = .lastMonth
+        sut.setDateFilter(.lastMonth)
 
         // When - Changing back to all
-        sut.dateFilter = .all
+        sut.setDateFilter(.all)
 
         // Then - All filter selection should persist
-        let savedValue = UserDefaults.standard.string(forKey: dateFilterStorageKey)
         XCTAssertEqual(
-            savedValue,
-            TestHistoryDateFilter.all.rawValue,
-            "All filter should persist to UserDefaults"
+            mockStorage.dateFilter,
+            .all,
+            "All filter should persist to storage"
         )
     }
 
-    /// Test that sort order is restored from UserDefaults when oldestFirst was previously selected
+    /// Test that sort order is restored from storage when oldestFirst was previously selected
     func testSortOrder_RestoresFromUserDefaults_WhenOldestFirstWasPreviouslySelected() {
         // Given - OldestFirst was previously selected and saved
-        UserDefaults.standard.set(
-            TestHistorySortOrder.oldestFirst.rawValue,
-            forKey: sortOrderStorageKey
-        )
+        let newMockStorage = MockHistoryPreferencesStorage()
+        newMockStorage.sortOrder = .oldestFirst
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiService: mockService)
+        let newViewModel = HistoryViewModel(apiService: mockService, preferencesStorage: newMockStorage)
 
         // Then - Should restore oldestFirst sort order
         XCTAssertEqual(
             newViewModel.sortOrder,
             .oldestFirst,
-            "OldestFirst sort order should be restored from UserDefaults"
+            "OldestFirst sort order should be restored from storage"
         )
     }
 
-    /// Test that date filter is restored from UserDefaults when lastMonth was previously selected
+    /// Test that date filter is restored from storage when lastMonth was previously selected
     func testDateFilter_RestoresFromUserDefaults_WhenLastMonthWasPreviouslySelected() {
         // Given - LastMonth was previously selected and saved
-        UserDefaults.standard.set(
-            TestHistoryDateFilter.lastMonth.rawValue,
-            forKey: dateFilterStorageKey
-        )
+        let newMockStorage = MockHistoryPreferencesStorage()
+        newMockStorage.dateFilter = .lastMonth
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiService: mockService)
+        let newViewModel = HistoryViewModel(apiService: mockService, preferencesStorage: newMockStorage)
 
         // Then - Should restore lastMonth filter
         XCTAssertEqual(
             newViewModel.dateFilter,
             .lastMonth,
-            "LastMonth filter should be restored from UserDefaults"
+            "LastMonth filter should be restored from storage"
         )
     }
 
-    /// Test that date filter is restored from UserDefaults when lastSixMonths was previously selected
+    /// Test that date filter is restored from storage when lastSixMonths was previously selected
     func testDateFilter_RestoresFromUserDefaults_WhenLastSixMonthsWasPreviouslySelected() {
         // Given - LastSixMonths was previously selected and saved
-        UserDefaults.standard.set(
-            TestHistoryDateFilter.lastSixMonths.rawValue,
-            forKey: dateFilterStorageKey
-        )
+        let newMockStorage = MockHistoryPreferencesStorage()
+        newMockStorage.dateFilter = .lastSixMonths
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiService: mockService)
+        let newViewModel = HistoryViewModel(apiService: mockService, preferencesStorage: newMockStorage)
 
         // Then - Should restore lastSixMonths filter
         XCTAssertEqual(
             newViewModel.dateFilter,
             .lastSixMonths,
-            "LastSixMonths filter should be restored from UserDefaults"
+            "LastSixMonths filter should be restored from storage"
         )
     }
 
-    /// Test that date filter is restored from UserDefaults when lastYear was previously selected
+    /// Test that date filter is restored from storage when lastYear was previously selected
     func testDateFilter_RestoresFromUserDefaults_WhenLastYearWasPreviouslySelected() {
         // Given - LastYear was previously selected and saved
-        UserDefaults.standard.set(
-            TestHistoryDateFilter.lastYear.rawValue,
-            forKey: dateFilterStorageKey
-        )
+        let newMockStorage = MockHistoryPreferencesStorage()
+        newMockStorage.dateFilter = .lastYear
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiService: mockService)
+        let newViewModel = HistoryViewModel(apiService: mockService, preferencesStorage: newMockStorage)
 
         // Then - Should restore lastYear filter
         XCTAssertEqual(
             newViewModel.dateFilter,
             .lastYear,
-            "LastYear filter should be restored from UserDefaults"
+            "LastYear filter should be restored from storage"
         )
     }
 
     /// Test that invalid stored sort order falls back to default
     func testSortOrder_FallsBackToDefault_WhenStoredValueIsInvalid() {
-        // Given - Invalid sort order value in UserDefaults
-        UserDefaults.standard.set("InvalidSortOrder", forKey: sortOrderStorageKey)
+        // Given - Storage that returns an invalid value falls back to default in storage layer
+        // This is tested by the storage implementation returning .newestFirst when rawValue is invalid
+        let testStorage = HistoryPreferencesStorage(userDefaults: testUserDefaults)
+        testUserDefaults.set("InvalidSortOrder", forKey: sortOrderStorageKey)
 
         // When - Creating a new ViewModel instance
-        let newViewModel = HistoryViewModel(apiService: mockService)
+        let newViewModel = HistoryViewModel(apiService: mockService, preferencesStorage: testStorage)
 
         // Then - Should fall back to default (.newestFirst)
         XCTAssertEqual(
@@ -580,11 +577,13 @@ final class HistoryViewModelTests: XCTestCase {
 
     /// Test that invalid stored date filter falls back to default
     func testDateFilter_FallsBackToDefault_WhenStoredValueIsInvalid() {
-        // Given - Invalid date filter value in UserDefaults
-        UserDefaults.standard.set("InvalidDateFilter", forKey: dateFilterStorageKey)
+        // Given - Storage that returns an invalid value falls back to default in storage layer
+        // This is tested by the storage implementation returning .all when rawValue is invalid
+        let testStorage = HistoryPreferencesStorage(userDefaults: testUserDefaults)
+        testUserDefaults.set("InvalidDateFilter", forKey: dateFilterStorageKey)
 
         // When - Creating a new ViewModel instance
-        let newViewModel = HistoryViewModel(apiService: mockService)
+        let newViewModel = HistoryViewModel(apiService: mockService, preferencesStorage: testStorage)
 
         // Then - Should fall back to default (.all)
         XCTAssertEqual(
@@ -597,17 +596,18 @@ final class HistoryViewModelTests: XCTestCase {
     /// Test that both filters can be persisted and restored together
     func testFilters_PersistAndRestoreTogether() {
         // Given - Set both filters to non-default values
-        sut.sortOrder = .oldestFirst
-        sut.dateFilter = .lastSixMonths
+        sut.setSortOrder(.oldestFirst)
+        sut.setDateFilter(.lastSixMonths)
 
         // Verify persistence
-        let savedSortOrder = UserDefaults.standard.string(forKey: sortOrderStorageKey)
-        let savedDateFilter = UserDefaults.standard.string(forKey: dateFilterStorageKey)
-        XCTAssertEqual(savedSortOrder, TestHistorySortOrder.oldestFirst.rawValue)
-        XCTAssertEqual(savedDateFilter, TestHistoryDateFilter.lastSixMonths.rawValue)
+        XCTAssertEqual(mockStorage.sortOrder, .oldestFirst)
+        XCTAssertEqual(mockStorage.dateFilter, .lastSixMonths)
 
         // When - Creating a new ViewModel instance (simulating app restart)
-        let newViewModel = HistoryViewModel(apiService: mockService)
+        let newMockStorage = MockHistoryPreferencesStorage()
+        newMockStorage.sortOrder = .oldestFirst
+        newMockStorage.dateFilter = .lastSixMonths
+        let newViewModel = HistoryViewModel(apiService: mockService, preferencesStorage: newMockStorage)
 
         // Then - Both filters should be restored
         XCTAssertEqual(
@@ -620,21 +620,20 @@ final class HistoryViewModelTests: XCTestCase {
             .lastSixMonths,
             "Date filter should be restored"
         )
-
-        UserDefaults.standard.removeObject(forKey: dateFilterStorageKey)
     }
 
     /// Test that storage keys use correct reverse-DNS notation
     func testFilterPersistence_UsesCorrectStorageKeys() {
         // This test verifies the storage keys match the expected format
 
-        // Given/When - Set filter values
-        sut.sortOrder = .oldestFirst
-        sut.dateFilter = .lastMonth
+        // Given/When - Set filter values using real storage to test keys
+        let testStorage = HistoryPreferencesStorage(userDefaults: testUserDefaults)
+        testStorage.sortOrder = .oldestFirst
+        testStorage.dateFilter = .lastMonth
 
         // Then - Verify storage keys exist with correct naming convention
-        let sortOrderExists = UserDefaults.standard.object(forKey: sortOrderStorageKey) != nil
-        let dateFilterExists = UserDefaults.standard.object(forKey: dateFilterStorageKey) != nil
+        let sortOrderExists = testUserDefaults.object(forKey: sortOrderStorageKey) != nil
+        let dateFilterExists = testUserDefaults.object(forKey: dateFilterStorageKey) != nil
 
         XCTAssertTrue(sortOrderExists, "Sort order should be stored with key: \(sortOrderStorageKey)")
         XCTAssertTrue(dateFilterExists, "Date filter should be stored with key: \(dateFilterStorageKey)")
@@ -642,8 +641,6 @@ final class HistoryViewModelTests: XCTestCase {
         // Verify the keys follow reverse-DNS notation (com.aiq.*)
         XCTAssertTrue(sortOrderStorageKey.hasPrefix("com.aiq."), "Storage key should use reverse-DNS notation")
         XCTAssertTrue(dateFilterStorageKey.hasPrefix("com.aiq."), "Storage key should use reverse-DNS notation")
-
-        UserDefaults.standard.removeObject(forKey: dateFilterStorageKey)
     }
 
     // MARK: - Filter Application Behavior Tests
@@ -819,17 +816,12 @@ final class HistoryViewModelTests: XCTestCase {
     /// Test that restored filters are applied when fetching data
     func testRestoredFilters_AreApplied_WhenFetchingData() async {
         // Given - Previously saved filters
-        UserDefaults.standard.set(
-            TestHistorySortOrder.oldestFirst.rawValue,
-            forKey: sortOrderStorageKey
-        )
-        UserDefaults.standard.set(
-            TestHistoryDateFilter.lastMonth.rawValue,
-            forKey: dateFilterStorageKey
-        )
+        let newMockStorage = MockHistoryPreferencesStorage()
+        newMockStorage.sortOrder = .oldestFirst
+        newMockStorage.dateFilter = .lastMonth
 
         // Create new ViewModel (simulating app restart)
-        let newViewModel = HistoryViewModel(apiService: mockService)
+        let newViewModel = HistoryViewModel(apiService: mockService, preferencesStorage: newMockStorage)
 
         // Load test data
         let oldWithinMonth = Date().addingTimeInterval(-86400 * 20)

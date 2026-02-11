@@ -1,19 +1,25 @@
 @testable import AIQ
 import XCTest
 
+// MARK: - Mock Storage
+
+class MockOnboardingStorage: OnboardingStorageProtocol {
+    var hasCompletedOnboarding: Bool = false
+    var didSkipOnboarding: Bool = false
+}
+
 @MainActor
 final class OnboardingViewModelTests: XCTestCase {
     var sut: OnboardingViewModel!
+    var mockStorage: MockOnboardingStorage!
 
     override func setUp() {
         super.setUp()
-        // Reset UserDefaults for testing
-        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
-        sut = OnboardingViewModel()
+        mockStorage = MockOnboardingStorage()
+        sut = OnboardingViewModel(storage: mockStorage)
     }
 
     override func tearDown() {
-        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
         super.tearDown()
     }
 
@@ -221,41 +227,56 @@ final class OnboardingViewModelTests: XCTestCase {
         XCTAssertTrue(sut.hasCompletedOnboarding, "Multiple calls should keep hasCompletedOnboarding as true")
     }
 
-    // MARK: - AppStorage Persistence Tests
+    // MARK: - Storage Persistence Tests
 
-    func testAppStorage_PersistsCompletionState() {
+    func testStorage_PersistsCompletionState() {
         // Given
         XCTAssertFalse(sut.hasCompletedOnboarding, "Precondition: should start as false")
 
         // When
         sut.completeOnboarding()
 
-        // Then - Create new instance to verify persistence
-        let newViewModel = OnboardingViewModel()
-        XCTAssertTrue(newViewModel.hasCompletedOnboarding, "hasCompletedOnboarding should be persisted via @AppStorage")
+        // Then - Verify persistence in storage
+        XCTAssertTrue(mockStorage.hasCompletedOnboarding, "hasCompletedOnboarding should be persisted to storage")
+
+        // Create new instance to verify persistence
+        let newMockStorage = MockOnboardingStorage()
+        newMockStorage.hasCompletedOnboarding = true
+        let newViewModel = OnboardingViewModel(storage: newMockStorage)
+        XCTAssertTrue(newViewModel.hasCompletedOnboarding, "hasCompletedOnboarding should be restored from storage")
     }
 
-    func testAppStorage_DefaultValueWhenNotSet() {
-        // Given - Clean UserDefaults
-        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+    func testStorage_DefaultValueWhenNotSet() {
+        // Given - Clean storage
+        let freshStorage = MockOnboardingStorage()
 
         // When - Create fresh instance
-        let freshViewModel = OnboardingViewModel()
+        let freshViewModel = OnboardingViewModel(storage: freshStorage)
 
         // Then
         XCTAssertFalse(freshViewModel.hasCompletedOnboarding, "hasCompletedOnboarding should default to false")
+        XCTAssertFalse(freshViewModel.didSkipOnboarding, "didSkipOnboarding should default to false")
     }
 
-    func testAppStorage_SkipOnboardingPersistsState() {
+    func testStorage_SkipOnboardingPersistsState() {
         // Given
         XCTAssertFalse(sut.hasCompletedOnboarding, "Precondition: should start as false")
+        XCTAssertFalse(sut.didSkipOnboarding, "Precondition: should start as false")
 
         // When
         sut.skipOnboarding()
 
-        // Then - Create new instance to verify persistence
-        let newViewModel = OnboardingViewModel()
-        XCTAssertTrue(newViewModel.hasCompletedOnboarding, "skipOnboarding should persist via @AppStorage")
+        // Then - Verify persistence in storage
+        XCTAssertTrue(mockStorage.hasCompletedOnboarding, "hasCompletedOnboarding should be persisted to storage")
+        XCTAssertTrue(mockStorage.didSkipOnboarding, "didSkipOnboarding should be persisted to storage")
+
+        // Create new instance to verify persistence
+        let newMockStorage = MockOnboardingStorage()
+        newMockStorage.hasCompletedOnboarding = true
+        newMockStorage.didSkipOnboarding = true
+        let newViewModel = OnboardingViewModel(storage: newMockStorage)
+        XCTAssertTrue(newViewModel.hasCompletedOnboarding, "hasCompletedOnboarding should be restored from storage")
+        XCTAssertTrue(newViewModel.didSkipOnboarding, "didSkipOnboarding should be restored from storage")
     }
 
     // MARK: - Integration Tests
