@@ -202,7 +202,7 @@ Assuming 50% approval rate and 20% deduplication rate:
 
 ### Metrics Currently Tracked
 
-The `MetricsTracker` class (`app/metrics.py`) captures:
+The `RunSummary` class (`app/run_summary.py`) and observability facade capture:
 
 **Generation Metrics:**
 - `questions_requested` - Target count
@@ -244,9 +244,8 @@ The `MetricsTracker` class (`app/metrics.py`) captures:
 
 ### Reporting Destinations
 
-1. **Console**: `MetricsTracker.print_summary()`
-2. **JSON file**: `MetricsTracker.save_summary(path)`
-3. **Backend API**: `RunReporter` posts to `/v1/admin/generation-runs`
+1. **Observability facade**: OpenTelemetry metrics and Sentry error capture
+2. **Backend API**: `RunReporter` posts `RunSummary` data to `/v1/admin/generation-runs`
 4. **Heartbeat file**: `logs/heartbeat.json` for scheduler monitoring
 
 ### Recommended Additional Tracking

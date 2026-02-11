@@ -21,7 +21,6 @@ from .circuit_breaker import (
 )
 from .cost_tracking import calculate_cost
 from .generator_config import get_generator_config, is_generator_config_initialized
-from .metrics import get_metrics_tracker
 from .models import (
     DifficultyLevel,
     GeneratedQuestion,
@@ -35,9 +34,7 @@ from .providers.google_provider import GoogleProvider
 from .providers.openai_provider import OpenAIProvider
 from .providers.xai_provider import XAIProvider
 
-# Import observability facade for dual-write metrics pattern and Sentry error capture
-# This dual-write approach allows metrics to flow to both the legacy MetricsTracker
-# (for pipeline reporting) and the new OTEL-based observability system.
+# Import observability facade for metrics and Sentry error capture
 # TODO: Remove sys.path manipulation once libs.observability is a proper package
 try:
     from libs.observability import observability
@@ -372,12 +369,8 @@ class QuestionGenerator:
                 latency = time.perf_counter() - start_time
                 span.set_attribute("generation_duration", latency)
 
-                # Record routing and latency metrics (TASK-575)
-                metrics = get_metrics_tracker()
+                # Record latency and cost metrics
                 question_type_str = question_type.value
-                metrics.record_question_latency(question_type_str, latency)
-
-                # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
                     "question.generation.latency",
                     value=latency,
@@ -390,12 +383,8 @@ class QuestionGenerator:
                     unit="s",
                 )
 
-                # Record cost per question type if token usage is available
                 if completion_result and completion_result.token_usage:
                     cost = calculate_cost(completion_result.token_usage)
-                    metrics.record_question_cost(question_type_str, cost)
-
-                    # ALSO record to observability facade (with error handling)
                     _safe_record_metric(
                         "question.generation.cost",
                         value=cost,
@@ -620,7 +609,6 @@ class QuestionGenerator:
         # Determine provider selection strategy
         specialist_provider = None
         specialist_model: Optional[str] = None
-        metrics = get_metrics_tracker()
         question_type_str = question_type.value
 
         if use_specialist_routing:
@@ -633,15 +621,6 @@ class QuestionGenerator:
                     f"{question_type.value} questions"
                     + (f" with model {specialist_model}" if specialist_model else "")
                 )
-                # Record routing decision (TASK-575)
-                metrics.record_routing_decision(
-                    question_type=question_type_str,
-                    provider=specialist_provider,
-                    model=specialist_model,
-                    is_specialist=True,
-                )
-
-                # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
                     "question.routing.decision",
                     value=1,
@@ -698,15 +677,6 @@ class QuestionGenerator:
                     if new_provider is None:
                         failed_questions += 1
                     elif is_fallback:
-                        # Record fallback (TASK-575)
-                        metrics.record_provider_fallback(
-                            question_type=question_type_str,
-                            primary_provider=original_provider,
-                            fallback_provider=new_provider,
-                            reason="circuit_breaker_open",
-                        )
-
-                        # ALSO record to observability facade (with error handling)
                         _safe_record_metric(
                             "question.provider.fallback",
                             value=1,
@@ -980,12 +950,8 @@ class QuestionGenerator:
                 latency = time.perf_counter() - start_time
                 span.set_attribute("generation_duration", latency)
 
-                # Record routing and latency metrics (TASK-575)
-                metrics = get_metrics_tracker()
+                # Record latency and cost metrics
                 question_type_str = question_type.value
-                metrics.record_question_latency(question_type_str, latency)
-
-                # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
                     "question.generation.latency",
                     value=latency,
@@ -998,12 +964,8 @@ class QuestionGenerator:
                     unit="s",
                 )
 
-                # Record cost per question type if token usage is available
                 if completion_result and completion_result.token_usage:
                     cost = calculate_cost(completion_result.token_usage)
-                    metrics.record_question_cost(question_type_str, cost)
-
-                    # ALSO record to observability facade (with error handling)
                     _safe_record_metric(
                         "question.generation.cost",
                         value=cost,
@@ -1154,7 +1116,6 @@ class QuestionGenerator:
         # Determine provider selection strategy
         specialist_provider = None
         specialist_model: Optional[str] = None
-        metrics = get_metrics_tracker()
         question_type_str = question_type.value
 
         if use_specialist_routing:
@@ -1167,15 +1128,6 @@ class QuestionGenerator:
                     f"{question_type.value} questions (async)"
                     + (f" with model {specialist_model}" if specialist_model else "")
                 )
-                # Record routing decision (TASK-575)
-                metrics.record_routing_decision(
-                    question_type=question_type_str,
-                    provider=specialist_provider,
-                    model=specialist_model,
-                    is_specialist=True,
-                )
-
-                # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
                     "question.routing.decision",
                     value=1,
@@ -1854,11 +1806,7 @@ class QuestionGenerator:
                 span.set_attribute("generation_duration", latency)
 
                 # Record metrics
-                metrics = get_metrics_tracker()
                 question_type_str = question_type.value
-                metrics.record_question_latency(question_type_str, latency)
-
-                # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
                     "question.generation.latency",
                     value=latency,
@@ -1873,9 +1821,6 @@ class QuestionGenerator:
 
                 if completion_result and completion_result.token_usage:
                     cost = calculate_cost(completion_result.token_usage)
-                    metrics.record_question_cost(question_type_str, cost)
-
-                    # ALSO record to observability facade (with error handling)
                     _safe_record_metric(
                         "question.generation.cost",
                         value=cost,
@@ -2119,11 +2064,7 @@ class QuestionGenerator:
                 span.set_attribute("generation_duration", latency)
 
                 # Record metrics
-                metrics = get_metrics_tracker()
                 question_type_str = original_question.question_type.value
-                metrics.record_question_latency(question_type_str, latency)
-
-                # ALSO record to observability facade (with error handling)
                 _safe_record_metric(
                     "question.generation.latency",
                     value=latency,
@@ -2138,9 +2079,6 @@ class QuestionGenerator:
 
                 if completion_result and completion_result.token_usage:
                     cost = calculate_cost(completion_result.token_usage)
-                    metrics.record_question_cost(question_type_str, cost)
-
-                    # ALSO record to observability facade (with error handling)
                     _safe_record_metric(
                         "question.generation.cost",
                         value=cost,

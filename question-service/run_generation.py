@@ -46,7 +46,7 @@ from app.alerting import (  # noqa: E402
 )
 from app.config import settings  # noqa: E402
 from app.logging_config import setup_logging  # noqa: E402
-from app.metrics import MetricsTracker  # noqa: E402
+from app.run_summary import RunSummary  # noqa: E402
 from app.models import DifficultyLevel, QuestionType  # noqa: E402
 from app.reporter import RunReporter  # noqa: E402
 
@@ -893,8 +893,8 @@ def main() -> int:
     logger.info("=" * 80)
 
     try:
-        # Initialize metrics
-        metrics = MetricsTracker()
+        # Initialize run summary
+        metrics = RunSummary()
         metrics.start_run()
 
         # Initialize alert manager
@@ -1251,6 +1251,13 @@ def main() -> int:
 
             stats = job_result["statistics"]
             generated_questions = job_result["questions"]
+
+            # Populate run summary with generation results
+            metrics.questions_requested = stats["target_questions"]
+            metrics.questions_generated = stats["questions_generated"]
+            metrics.generation_failures = (
+                stats["target_questions"] - stats["questions_generated"]
+            )
 
             gen_span.set_attribute("questions_generated", stats["questions_generated"])
             gen_span.set_attribute("target_questions", stats["target_questions"])
@@ -1769,7 +1776,7 @@ def main() -> int:
                                 "question_type": evaluated_question.question.question_type.value,
                             },
                         )
-                        metrics.record_insertion_failure(error=str(e), count=1)
+                        metrics.record_insertion_failure(count=1)
                         continue
 
                 insert_span.set_attribute("inserted_count", inserted_count)
@@ -1797,7 +1804,7 @@ def main() -> int:
 
         # Final summary
         metrics.end_run()
-        summary = metrics.get_summary()
+        summary = metrics.to_summary_dict()
 
         logger.info("\n" + "=" * 80)
         logger.info("FINAL SUMMARY")
@@ -1872,7 +1879,7 @@ def main() -> int:
         if run_reporter:
             min_score = args.min_score or settings.min_judge_score
             run_id = run_reporter.report_run(
-                metrics_tracker=metrics,
+                summary=summary,
                 exit_code=exit_code,
                 environment=settings.env,
                 triggered_by=args.triggered_by,

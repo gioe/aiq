@@ -1,5 +1,7 @@
 # Unified Observability Abstraction Layer
 
+> **Status: COMPLETED** — The observability facade (`libs/observability/`) is implemented and integrated. MetricsTracker was removed in favor of a lightweight `RunSummary` dataclass for API reporting, with all runtime metrics flowing through the observability facade. See `question-service/app/run_summary.py`.
+
 ## Overview
 
 Build a single, unified observability abstraction that wraps both Sentry and OpenTelemetry, providing a clean domain API for application code while intelligently routing errors, metrics, and traces to the appropriate backend systems.

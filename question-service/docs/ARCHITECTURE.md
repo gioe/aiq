@@ -234,7 +234,7 @@ flowchart TB
     end
 
     subgraph Observability["Observability Layer"]
-        METRICS["MetricsTracker<br/>app/metrics.py"]
+        SUMMARY["RunSummary<br/>app/run_summary.py"]
         REPORTER["RunReporter<br/>app/reporter.py"]
         ALERTING["AlertManager<br/>app/alerting.py"]
     end
@@ -292,7 +292,7 @@ classDiagram
         -judge: QuestionJudge
         -deduplicator: QuestionDeduplicator
         -database: DatabaseService
-        -metrics: MetricsTracker
+        -summary: RunSummary
         +generate_questions(type, difficulty, count)
         +generate_full_question_set(per_type)
     }

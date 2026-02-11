@@ -757,7 +757,7 @@ question-service/
 │   ├── deduplicator.py          # Duplicate detection
 │   ├── generator.py             # Question generation
 │   ├── logging_config.py        # Logging setup
-│   ├── metrics.py               # Metrics tracking
+│   ├── run_summary.py           # Run summary for API reporting
 │   ├── models.py                # Data models
 │   ├── pipeline.py              # Main generation pipeline
 │   ├── prompts.py               # LLM prompts

@@ -1,5 +1,7 @@
 # Question-Service Observability Alignment
 
+> **Status: COMPLETED** — The question-service now uses the shared observability facade (`libs/observability/`). The internal `MetricsTracker` has been removed and replaced with a lightweight `RunSummary` dataclass (`app/run_summary.py`) for backend API reporting only. All runtime metrics flow through OpenTelemetry via the observability facade.
+
 ## Overview
 
 This plan adds OpenTelemetry instrumentation to the question-service to match the backend's observability capabilities, enabling unified monitoring and tracing across the AIQ platform in Grafana Cloud.

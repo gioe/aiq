@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 import httpx
 
 from app.reporter import RunReporter
-from app.metrics import MetricsTracker
+from app.run_summary import RunSummary
 
 
 @pytest.fixture
@@ -21,30 +21,26 @@ def reporter():
 
 
 @pytest.fixture
-def populated_metrics_tracker():
-    """Create a MetricsTracker with sample data."""
-    tracker = MetricsTracker()
-    tracker.start_run()
+def populated_summary_dict():
+    """Create a RunSummary with sample data, return its summary dict."""
+    s = RunSummary()
+    s.start_run()
 
     # Record generation metrics
-    tracker.record_generation_request(50)
+    s.questions_requested = 50
     for _ in range(45):
-        tracker.record_generation_success(
+        s.record_generation_success(
             provider="openai",
             question_type="pattern_recognition",
             difficulty="medium",
         )
-    for _ in range(3):
-        tracker.record_generation_failure(
-            provider="openai",
-            error="Rate limit exceeded",
-        )
+    s.generation_failures = 3
 
     # Record evaluation metrics
     for i in range(40):
         score = 0.7 + (i % 10) * 0.03
         approved = score >= 0.75
-        tracker.record_evaluation_success(
+        s.record_evaluation_success(
             score=score,
             approved=approved,
             judge_model="openai/gpt-4",
@@ -52,28 +48,28 @@ def populated_metrics_tracker():
 
     # Record deduplication metrics
     for _ in range(35):
-        tracker.record_duplicate_check(is_duplicate=False)
+        s.record_duplicate_check(is_duplicate=False)
     for _ in range(3):
-        tracker.record_duplicate_check(is_duplicate=True, duplicate_type="exact")
+        s.record_duplicate_check(is_duplicate=True, duplicate_type="exact")
     for _ in range(2):
-        tracker.record_duplicate_check(is_duplicate=True, duplicate_type="semantic")
+        s.record_duplicate_check(is_duplicate=True, duplicate_type="semantic")
 
     # Record database metrics
-    tracker.record_insertion_success(count=30)
-    tracker.record_insertion_failure(error="Duplicate key", count=2)
+    s.record_insertion_success(count=30)
+    s.record_insertion_failure(count=2)
 
-    tracker.end_run()
-    return tracker
+    s.end_run()
+    return s.to_summary_dict()
 
 
 @pytest.fixture
-def minimal_metrics_tracker():
-    """Create a MetricsTracker with minimal data (failed run)."""
-    tracker = MetricsTracker()
-    tracker.start_run()
-    tracker.record_generation_request(50)
-    tracker.end_run()
-    return tracker
+def minimal_summary_dict():
+    """Create a RunSummary with minimal data (failed run), return its summary dict."""
+    s = RunSummary()
+    s.start_run()
+    s.questions_requested = 50
+    s.end_run()
+    return s.to_summary_dict()
 
 
 class TestRunReporterInit:
@@ -200,9 +196,9 @@ class TestBuildProviderMetrics:
 class TestTransformMetricsToPayload:
     """Tests for _transform_metrics_to_payload method."""
 
-    def test_transform_basic(self, reporter, populated_metrics_tracker):
+    def test_transform_basic(self, reporter, populated_summary_dict):
         """Test basic transformation of metrics to payload."""
-        summary = populated_metrics_tracker.get_summary()
+        summary = populated_summary_dict
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=0,
@@ -225,9 +221,9 @@ class TestTransformMetricsToPayload:
         assert "type_metrics" in payload
         assert "difficulty_metrics" in payload
 
-    def test_transform_with_config_versions(self, reporter, populated_metrics_tracker):
+    def test_transform_with_config_versions(self, reporter, populated_summary_dict):
         """Test transformation with configuration versions."""
-        summary = populated_metrics_tracker.get_summary()
+        summary = populated_summary_dict
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=0,
@@ -240,9 +236,9 @@ class TestTransformMetricsToPayload:
         assert payload["judge_config_version"] == "v1.0"
         assert payload["min_judge_score_threshold"] == pytest.approx(0.75)
 
-    def test_transform_failed_run(self, reporter, minimal_metrics_tracker):
+    def test_transform_failed_run(self, reporter, minimal_summary_dict):
         """Test transformation of a failed run."""
-        summary = minimal_metrics_tracker.get_summary()
+        summary = minimal_summary_dict
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=2,
@@ -258,7 +254,7 @@ class TestTransformMetricsToPayload:
 class TestReportRun:
     """Tests for report_run method."""
 
-    def test_report_run_success(self, reporter, populated_metrics_tracker):
+    def test_report_run_success(self, reporter, populated_summary_dict):
         """Test successful run reporting."""
         mock_response = MagicMock()
         mock_response.status_code = 201
@@ -270,7 +266,7 @@ class TestReportRun:
             mock_client.return_value.__enter__.return_value = mock_client_instance
 
             result = reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
                 environment="production",
                 triggered_by="scheduler",
@@ -279,7 +275,7 @@ class TestReportRun:
             assert result == 123
             mock_client_instance.post.assert_called_once()
 
-    def test_report_run_http_error(self, reporter, populated_metrics_tracker):
+    def test_report_run_http_error(self, reporter, populated_summary_dict):
         """Test run reporting with HTTP error."""
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -291,13 +287,13 @@ class TestReportRun:
             mock_client.return_value.__enter__.return_value = mock_client_instance
 
             result = reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 
             assert result is None
 
-    def test_report_run_connection_error(self, reporter, populated_metrics_tracker):
+    def test_report_run_connection_error(self, reporter, populated_summary_dict):
         """Test run reporting with connection error."""
         with patch("httpx.Client") as mock_client:
             mock_client_instance = MagicMock()
@@ -307,13 +303,13 @@ class TestReportRun:
             mock_client.return_value.__enter__.return_value = mock_client_instance
 
             result = reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 
             assert result is None
 
-    def test_report_run_timeout_error(self, reporter, populated_metrics_tracker):
+    def test_report_run_timeout_error(self, reporter, populated_summary_dict):
         """Test run reporting with timeout error."""
         with patch("httpx.Client") as mock_client:
             mock_client_instance = MagicMock()
@@ -323,13 +319,13 @@ class TestReportRun:
             mock_client.return_value.__enter__.return_value = mock_client_instance
 
             result = reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 
             assert result is None
 
-    def test_report_run_unexpected_error(self, reporter, populated_metrics_tracker):
+    def test_report_run_unexpected_error(self, reporter, populated_summary_dict):
         """Test run reporting with unexpected error."""
         with patch("httpx.Client") as mock_client:
             mock_client_instance = MagicMock()
@@ -337,7 +333,7 @@ class TestReportRun:
             mock_client.return_value.__enter__.return_value = mock_client_instance
 
             result = reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 
@@ -417,9 +413,9 @@ class TestEndToEnd:
     def test_full_workflow(self, reporter):
         """Test full workflow of creating tracker, populating, and reporting."""
         # Create and populate tracker
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(10)
+        tracker.questions_requested = 10
 
         for i in range(8):
             tracker.record_generation_success(
@@ -452,7 +448,7 @@ class TestEndToEnd:
             mock_client.return_value.__enter__.return_value = mock_client_instance
 
             result = reporter.report_run(
-                metrics_tracker=tracker,
+                summary=tracker.to_summary_dict(),
                 exit_code=0,
                 environment="development",
                 triggered_by="manual",
@@ -480,7 +476,7 @@ class TestEndToEnd:
 class TestIntegrationScenarios:
     """Integration tests verifying complete request/response scenarios."""
 
-    def test_report_run_complete_scenario(self, populated_metrics_tracker):
+    def test_report_run_complete_scenario(self, populated_summary_dict):
         """Test report_run with complete request verification."""
         captured_data = {}
 
@@ -505,7 +501,7 @@ class TestIntegrationScenarios:
             )
 
             result = reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
                 environment="staging",
                 triggered_by="webhook",
@@ -576,7 +572,7 @@ class TestIntegrationScenarios:
             assert captured_data["json"]["environment"] == "production"
             assert captured_data["json"]["triggered_by"] == "scheduler"
 
-    def test_report_run_with_all_configuration_options(self, populated_metrics_tracker):
+    def test_report_run_with_all_configuration_options(self, populated_summary_dict):
         """Test report_run with all configuration options provided."""
         captured_data = {}
 
@@ -599,7 +595,7 @@ class TestIntegrationScenarios:
             )
 
             reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
                 environment="production",
                 triggered_by="scheduler",
@@ -634,9 +630,9 @@ class TestIntegrationScenarios:
             mock_client.return_value.__enter__.return_value = mock_client_instance
 
             # Create a detailed tracker with all metric types
-            tracker = MetricsTracker()
+            tracker = RunSummary()
             tracker.start_run()
-            tracker.record_generation_request(20)
+            tracker.questions_requested = 20
 
             # Generation metrics
             for _ in range(15):
@@ -645,8 +641,7 @@ class TestIntegrationScenarios:
                     question_type="pattern_recognition",
                     difficulty="medium",
                 )
-            for _ in range(5):
-                tracker.record_generation_failure(provider="openai", error="Error")
+            tracker.generation_failures = 5
 
             # Evaluation metrics
             for i in range(15):
@@ -667,7 +662,7 @@ class TestIntegrationScenarios:
 
             # Database metrics
             tracker.record_insertion_success(count=8)
-            tracker.record_insertion_failure(error="Error", count=2)
+            tracker.record_insertion_failure(count=2)
 
             tracker.end_run()
 
@@ -677,7 +672,7 @@ class TestIntegrationScenarios:
             )
 
             reporter.report_run(
-                metrics_tracker=tracker,
+                summary=tracker.to_summary_dict(),
                 exit_code=0,
             )
 
@@ -712,12 +707,12 @@ class TestPayloadTransformationEdgeCases:
 
     def test_transform_with_zero_questions(self, reporter):
         """Test transformation when no questions were requested."""
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(0)
+        tracker.questions_requested = 0
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=2,
@@ -730,17 +725,13 @@ class TestPayloadTransformationEdgeCases:
 
     def test_transform_with_all_failures(self, reporter):
         """Test transformation when all generation attempts failed."""
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(10)
-        for _ in range(10):
-            tracker.record_generation_failure(
-                provider="openai",
-                error="API error",
-            )
+        tracker.questions_requested = 10
+        tracker.generation_failures = 10
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=2,
@@ -753,9 +744,9 @@ class TestPayloadTransformationEdgeCases:
 
     def test_transform_with_all_duplicates(self, reporter):
         """Test transformation when all questions are duplicates."""
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(5)
+        tracker.questions_requested = 5
         for _ in range(5):
             tracker.record_generation_success(
                 provider="anthropic",
@@ -772,7 +763,7 @@ class TestPayloadTransformationEdgeCases:
             tracker.record_duplicate_check(is_duplicate=True, duplicate_type="semantic")
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=3,
@@ -785,9 +776,9 @@ class TestPayloadTransformationEdgeCases:
 
     def test_transform_with_extreme_scores(self, reporter):
         """Test transformation with extreme judge scores."""
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(3)
+        tracker.questions_requested = 3
         for _ in range(3):
             tracker.record_generation_success(
                 provider="google",
@@ -800,7 +791,7 @@ class TestPayloadTransformationEdgeCases:
         tracker.record_evaluation_success(score=1.0, approved=True, judge_model="a/b")
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=0,
@@ -845,9 +836,9 @@ class TestPayloadTransformationEdgeCases:
 
     def test_transform_with_multiple_providers(self, reporter):
         """Test transformation with questions from multiple providers."""
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(12)
+        tracker.questions_requested = 12
 
         providers = ["openai", "anthropic", "google", "xai"]
         for i, provider in enumerate(providers):
@@ -860,7 +851,7 @@ class TestPayloadTransformationEdgeCases:
 
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=0,
@@ -873,9 +864,9 @@ class TestPayloadTransformationEdgeCases:
 
     def test_transform_with_mixed_difficulties(self, reporter):
         """Test transformation with mixed difficulty levels."""
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(6)
+        tracker.questions_requested = 6
 
         for diff in ["easy", "easy", "medium", "medium", "hard", "hard"]:
             tracker.record_generation_success(
@@ -886,7 +877,7 @@ class TestPayloadTransformationEdgeCases:
 
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=0,
@@ -900,9 +891,9 @@ class TestPayloadTransformationEdgeCases:
         Legacy question type values (e.g., "pattern_recognition") should be
         normalized to canonical backend values (e.g., "pattern") in the payload.
         """
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(6)
+        tracker.questions_requested = 6
 
         legacy_types = [
             "pattern_recognition",
@@ -921,7 +912,7 @@ class TestPayloadTransformationEdgeCases:
 
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=0,
@@ -943,9 +934,7 @@ class TestPayloadTransformationEdgeCases:
 class TestGracefulFailureHandling:
     """Tests for graceful failure handling in RunReporter."""
 
-    def test_report_run_logs_connection_error(
-        self, reporter, populated_metrics_tracker
-    ):
+    def test_report_run_logs_connection_error(self, reporter, populated_summary_dict):
         """Test that connection errors are logged, not raised."""
         with patch("httpx.Client") as mock_client:
             mock_client_instance = MagicMock()
@@ -956,7 +945,7 @@ class TestGracefulFailureHandling:
 
             # Should not raise exception
             result = reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 
@@ -979,7 +968,7 @@ class TestGracefulFailureHandling:
             assert result is None
 
     def test_report_run_handles_malformed_response(
-        self, reporter, populated_metrics_tracker
+        self, reporter, populated_summary_dict
     ):
         """Test handling of malformed JSON response."""
         mock_response = MagicMock()
@@ -993,13 +982,13 @@ class TestGracefulFailureHandling:
 
             # Should handle the exception gracefully
             result = reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 
             assert result is None
 
-    def test_report_run_handles_4xx_errors(self, reporter, populated_metrics_tracker):
+    def test_report_run_handles_4xx_errors(self, reporter, populated_summary_dict):
         """Test handling of 4xx client errors."""
         for status_code in [400, 401, 403, 404, 422]:
             mock_response = MagicMock()
@@ -1012,13 +1001,13 @@ class TestGracefulFailureHandling:
                 mock_client.return_value.__enter__.return_value = mock_client_instance
 
                 result = reporter.report_run(
-                    metrics_tracker=populated_metrics_tracker,
+                    summary=populated_summary_dict,
                     exit_code=0,
                 )
 
                 assert result is None, f"Expected None for status code {status_code}"
 
-    def test_report_run_handles_5xx_errors(self, reporter, populated_metrics_tracker):
+    def test_report_run_handles_5xx_errors(self, reporter, populated_summary_dict):
         """Test handling of 5xx server errors."""
         for status_code in [500, 502, 503, 504]:
             mock_response = MagicMock()
@@ -1031,7 +1020,7 @@ class TestGracefulFailureHandling:
                 mock_client.return_value.__enter__.return_value = mock_client_instance
 
                 result = reporter.report_run(
-                    metrics_tracker=populated_metrics_tracker,
+                    summary=populated_summary_dict,
                     exit_code=0,
                 )
 
@@ -1094,7 +1083,7 @@ class TestURLConstruction:
         )
         assert reporter.backend_url == "https://secure.example.com"
 
-    def test_full_endpoint_url_used(self, populated_metrics_tracker):
+    def test_full_endpoint_url_used(self, populated_summary_dict):
         """Test that the full endpoint URL is correctly used in requests."""
         captured_url = None
 
@@ -1117,7 +1106,7 @@ class TestURLConstruction:
             )
 
             reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 
@@ -1130,7 +1119,7 @@ class TestURLConstruction:
 class TestHeaderHandling:
     """Tests for HTTP header handling."""
 
-    def test_service_key_header_included(self, populated_metrics_tracker):
+    def test_service_key_header_included(self, populated_summary_dict):
         """Test that X-Service-Key header is included in requests."""
         captured_headers = None
 
@@ -1153,13 +1142,13 @@ class TestHeaderHandling:
             )
 
             reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 
             assert captured_headers["X-Service-Key"] == "my-secret-service-key"
 
-    def test_content_type_header_included(self, populated_metrics_tracker):
+    def test_content_type_header_included(self, populated_summary_dict):
         """Test that Content-Type header is set to application/json."""
         captured_headers = None
 
@@ -1182,7 +1171,7 @@ class TestHeaderHandling:
             )
 
             reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 
@@ -1194,30 +1183,16 @@ class TestErrorSummaryTransformation:
 
     def test_error_summary_with_classified_errors(self, reporter):
         """Test error summary includes classified error information."""
-        from app.error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity
-
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(5)
-
-        # Record failures with classified errors
-        classified_error = ClassifiedError(
-            category=ErrorCategory.RATE_LIMIT,
-            severity=ErrorSeverity.HIGH,
-            provider="openai",
-            original_error="RateLimitError",
-            message="Rate limit exceeded for openai",
-            is_retryable=True,
-        )
-        tracker.record_generation_failure(
-            provider="openai",
-            error="Rate limit exceeded",
-            classified_error=classified_error,
-        )
+        tracker.questions_requested = 5
+        tracker.generation_failures = 1
+        tracker.errors_by_category["rate_limit"] = 1
+        tracker.errors_by_severity["high"] = 1
 
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=3,
@@ -1229,9 +1204,9 @@ class TestErrorSummaryTransformation:
 
     def test_error_summary_empty_when_no_errors(self, reporter):
         """Test error summary is None when no errors occurred."""
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(1)
+        tracker.questions_requested = 1
         tracker.record_generation_success(
             provider="openai",
             question_type="pattern_recognition",
@@ -1239,7 +1214,7 @@ class TestErrorSummaryTransformation:
         )
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=0,
@@ -1254,12 +1229,12 @@ class TestDatetimeSerialization:
 
     def test_datetime_serialized_as_iso_format(self, reporter):
         """Test that datetime fields are serialized as ISO format strings."""
-        tracker = MetricsTracker()
+        tracker = RunSummary()
         tracker.start_run()
-        tracker.record_generation_request(1)
+        tracker.questions_requested = 1
         tracker.end_run()
 
-        summary = tracker.get_summary()
+        summary = tracker.to_summary_dict()
         payload = reporter._transform_metrics_to_payload(
             summary=summary,
             exit_code=0,
@@ -1320,7 +1295,7 @@ class TestTimeoutConfiguration:
         )
         assert reporter.timeout == pytest.approx(120.0)
 
-    def test_timeout_passed_to_client(self, populated_metrics_tracker):
+    def test_timeout_passed_to_client(self, populated_summary_dict):
         """Test that timeout is passed to httpx.Client."""
         with patch("httpx.Client") as mock_client:
             mock_client_instance = MagicMock()
@@ -1337,7 +1312,7 @@ class TestTimeoutConfiguration:
             )
 
             reporter.report_run(
-                metrics_tracker=populated_metrics_tracker,
+                summary=populated_summary_dict,
                 exit_code=0,
             )
 

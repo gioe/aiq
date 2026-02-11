@@ -10,7 +10,6 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-from .metrics import MetricsTracker
 from .type_mapping import normalize_difficulty_metrics, normalize_type_metrics
 
 logger = logging.getLogger(__name__)
@@ -25,7 +24,7 @@ HTTP_STATUS_CREATED = 201
 class RunReporter:
     """Reports generation run metrics to the backend API.
 
-    This class handles the transformation of MetricsTracker data into
+    This class handles the transformation of a run summary dict into
     the API payload format and manages HTTP communication with the backend.
     Connection failures are handled gracefully (logged, not raised) to
     ensure the generation pipeline continues even if reporting fails.
@@ -75,10 +74,10 @@ class RunReporter:
         judge_config_version: Optional[str] = None,
         min_judge_score_threshold: Optional[float] = None,
     ) -> Dict[str, Any]:
-        """Transform MetricsTracker summary to API payload format.
+        """Transform run summary dict to API payload format.
 
         Args:
-            summary: Output from MetricsTracker.get_summary()
+            summary: Output from RunSummary.to_summary_dict()
             exit_code: Exit code from the generation run (0-6)
             environment: Environment name (production, staging, development)
             triggered_by: Trigger source (scheduler, manual, webhook)
@@ -240,7 +239,7 @@ class RunReporter:
 
     def report_run(
         self,
-        metrics_tracker: MetricsTracker,
+        summary: Dict[str, Any],
         exit_code: int,
         environment: Optional[str] = None,
         triggered_by: Optional[str] = None,
@@ -250,12 +249,12 @@ class RunReporter:
     ) -> Optional[int]:
         """Report a completed generation run to the backend API.
 
-        This method transforms the metrics summary and sends it to the backend.
+        This method transforms the run summary and sends it to the backend.
         Connection failures are logged but not raised to ensure the pipeline
         continues even if reporting fails.
 
         Args:
-            metrics_tracker: MetricsTracker instance with run data
+            summary: Run summary dict (from RunSummary.to_summary_dict())
             exit_code: Exit code from the generation run (0-6)
             environment: Environment name (production, staging, development)
             triggered_by: Trigger source (scheduler, manual, webhook)
@@ -267,9 +266,6 @@ class RunReporter:
             Created run ID if successful, None if reporting failed
         """
         try:
-            # Get summary from metrics tracker
-            summary = metrics_tracker.get_summary()
-
             # Transform to API payload
             payload = self._transform_metrics_to_payload(
                 summary=summary,

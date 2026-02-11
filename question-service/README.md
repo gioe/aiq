@@ -474,7 +474,7 @@ question-service/
 │   ├── judge.py               # Question evaluation
 │   ├── judge_config.py        # YAML judge configuration loader
 │   ├── logging_config.py      # Logging setup
-│   ├── metrics.py             # Run metrics tracking
+│   ├── run_summary.py         # Lightweight run summary for API reporting
 │   ├── models.py              # Pydantic models
 │   ├── pipeline.py            # Orchestration
 │   ├── prompts.py             # Prompt templates, gold-standard examples, sub-types
