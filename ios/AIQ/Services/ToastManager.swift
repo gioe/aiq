@@ -82,7 +82,7 @@ class ToastManager: ObservableObject, ToastManagerProtocol {
         let typeDesc = String(describing: type)
         Self.logger.info("Showing toast: \(message, privacy: .public) (type: \(typeDesc, privacy: .public))")
 
-        // Trigger haptic feedback based on toast type
+        // Map toast types to haptics: info uses selection for subtle feedback
         let hapticType: HapticType = switch type {
         case .error: .error
         case .warning: .warning

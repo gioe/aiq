@@ -64,6 +64,24 @@ final class ServiceConfigurationTests: XCTestCase {
         XCTAssertTrue(answerStorage is LocalAnswerStorage, "Resolved instance should be LocalAnswerStorage")
     }
 
+    func testHapticManagerProtocolIsRegistered() {
+        // Given & When
+        let hapticManager = container.resolve(HapticManagerProtocol.self)
+
+        // Then
+        XCTAssertNotNil(hapticManager, "HapticManagerProtocol should be registered")
+        XCTAssertTrue(hapticManager is HapticManager, "Resolved instance should be HapticManager")
+    }
+
+    func testToastManagerProtocolIsRegistered() {
+        // Given & When
+        let toastManager = container.resolve(ToastManagerProtocol.self)
+
+        // Then
+        XCTAssertNotNil(toastManager, "ToastManagerProtocol should be registered")
+        XCTAssertTrue(toastManager is ToastManager, "Resolved instance should be ToastManager")
+    }
+
     // MARK: - Integration Tests
 
     func testAllServicesAreRegistered() {

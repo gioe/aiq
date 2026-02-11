@@ -716,7 +716,7 @@
 "toast.deeplink.navigation.failed" = "Unable to load content";
 "toast.deeplink.resume.unavailable" = "Test resumption is not yet available";
 
-// Toast Type Labels (Accessibility)
+// Toast Type Labels - Used by VoiceOver to announce toast notification type
 "toast.type.error" = "Error";
 "toast.type.warning" = "Warning";
 "toast.type.info" = "Information";
