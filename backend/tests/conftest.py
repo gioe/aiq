@@ -10,27 +10,50 @@ project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from typing import Generator, Dict, Any  # noqa: E402
+from typing import AsyncGenerator, Generator, Dict, Any  # noqa: E402
 from unittest.mock import patch, AsyncMock  # noqa: E402
 
 import pytest  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.ext.asyncio import (  # noqa: E402
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
 
-from app.models import Base, get_db, User, Question, UserQuestion  # noqa: E402
+from app.models import (  # noqa: E402
+    Base,
+    get_db,
+    get_async_db,
+    User,
+    Question,
+    UserQuestion,
+)
 from app.models.models import QuestionType, DifficultyLevel  # noqa: E402
 from app.main import app  # noqa: E402
 from app.core.security import hash_password, create_access_token  # noqa: E402
 from app.core.config import settings  # noqa: E402
 
-# Use SQLite in-memory database for tests
+# Use SQLite for sync tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Async test engine (aiosqlite)
+ASYNC_SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test_async.db"
+
+async_test_engine = create_async_engine(
+    ASYNC_SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+AsyncTestingSessionLocal = async_sessionmaker(
+    async_test_engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
 @pytest.fixture(scope="function")
@@ -235,3 +258,39 @@ def mock_apns_setup(
                 "apns_class": mock_apns,
                 "apns_instance": mock_apns_instance,
             }
+
+
+# --- Async fixtures (TASK-1161) ---
+
+
+@pytest.fixture(scope="function")
+async def async_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Create a fresh async database session for each test.
+    """
+    async with async_test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async with AsyncTestingSessionLocal() as session:
+        yield session
+
+    async with async_test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest.fixture(scope="function")
+async def async_client(
+    async_db_session: AsyncSession,
+) -> AsyncGenerator[AsyncClient, None]:
+    """
+    Create an async test client with async database dependency override.
+    """
+
+    async def override_get_async_db() -> AsyncGenerator[AsyncSession, None]:
+        yield async_db_session
+
+    app.dependency_overrides[get_async_db] = override_get_async_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    app.dependency_overrides.pop(get_async_db, None)
