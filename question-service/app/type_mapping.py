@@ -44,9 +44,20 @@ LEGACY_DIFFICULTY_MAPPING: Dict[str, str] = {
 def normalize_question_type(question_type: str) -> str:
     """Normalize a question type string to the canonical backend value.
 
-    This function handles both legacy enum values (e.g., "pattern_recognition")
-    and current canonical values (e.g., "pattern"), returning the canonical
-    backend-compatible value.
+    Handles both legacy enum values (e.g., ``"pattern_recognition"``) and
+    current canonical values (e.g., ``"pattern"``).
+
+    Mapping examples::
+
+        "pattern_recognition" -> "pattern"
+        "logical_reasoning"   -> "logic"
+        "spatial_reasoning"   -> "spatial"
+        "mathematical"        -> "math"
+        "verbal_reasoning"    -> "verbal"
+        "memory"              -> "memory"  (unchanged)
+
+    Note: Lookup is case-sensitive and does not strip whitespace. Pass
+    pre-cleaned values only.
 
     Args:
         question_type: Question type string (legacy or canonical)
@@ -69,6 +80,10 @@ def normalize_question_type(question_type: str) -> str:
 def normalize_difficulty(difficulty: str) -> str:
     """Normalize a difficulty level string to the canonical backend value.
 
+    Valid values are ``"easy"``, ``"medium"``, and ``"hard"``. Currently
+    there are no legacy mappings, so the input must exactly match one of
+    these canonical values (case-sensitive).
+
     Args:
         difficulty: Difficulty level string
 
@@ -90,9 +105,12 @@ def normalize_difficulty(difficulty: str) -> str:
 def normalize_type_metrics(type_metrics: Dict[str, int]) -> Dict[str, int]:
     """Normalize a dictionary of question type metrics to canonical values.
 
-    This consolidates metrics that may have legacy keys into canonical keys.
-    For example, if metrics contain both "pattern" and "pattern_recognition",
-    they will be merged under "pattern".
+    Consolidates metrics that may have legacy keys into canonical keys.
+    For example, if metrics contain both ``"pattern"`` and
+    ``"pattern_recognition"``, their counts are summed under ``"pattern"``.
+
+    Unrecognised keys are preserved as-is (not dropped) so they surface
+    in downstream debugging rather than silently disappearing.
 
     Args:
         type_metrics: Dictionary mapping question types to counts

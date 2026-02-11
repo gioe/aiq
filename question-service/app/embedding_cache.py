@@ -8,7 +8,9 @@ stored using SHA-256 hashes of normalized text as cache keys.
 import hashlib
 import json
 import logging
+import threading
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -46,53 +48,79 @@ class EmbeddingCacheBackend(ABC):
 
 
 class InMemoryEmbeddingCache(EmbeddingCacheBackend):
-    """In-memory embedding cache backend.
+    """In-memory embedding cache backend with LRU eviction.
 
-    Simple dictionary-based cache for development or when Redis is unavailable.
+    Uses an OrderedDict for LRU eviction when max_size is reached.
+    All operations are thread-safe via a reentrant lock.
     Note: Data is lost on process restart and not shared between workers.
     """
 
-    def __init__(self) -> None:
-        """Initialize empty cache."""
-        self._cache: Dict[str, np.ndarray] = {}
+    DEFAULT_MAX_SIZE = 10_000
+
+    def __init__(self, max_size: int = DEFAULT_MAX_SIZE) -> None:
+        """Initialize cache with optional size limit.
+
+        Args:
+            max_size: Maximum number of embeddings to store. When exceeded,
+                the least recently used entry is evicted. Defaults to 10,000.
+        """
+        if max_size < 1:
+            raise ValueError(f"max_size must be at least 1, got {max_size}")
+        self._max_size = max_size
+        self._cache: OrderedDict[str, np.ndarray] = OrderedDict()
+        self._lock = threading.Lock()
         self._hits = 0
         self._misses = 0
+        self._evictions = 0
 
     def get(self, key: str) -> Optional[np.ndarray]:
-        """Get embedding from cache."""
-        embedding = self._cache.get(key)
-        if embedding is not None:
-            self._hits += 1
-        else:
-            self._misses += 1
-        return embedding
+        """Get embedding from cache, promoting to most recently used."""
+        with self._lock:
+            embedding = self._cache.get(key)
+            if embedding is not None:
+                self._hits += 1
+                self._cache.move_to_end(key)
+            else:
+                self._misses += 1
+            return embedding
 
     def set(self, key: str, embedding: np.ndarray, ttl: Optional[int] = None) -> None:
-        """Store embedding in cache.
+        """Store embedding in cache with LRU eviction.
 
         Note: TTL is ignored for in-memory cache as embeddings are deterministic.
         """
-        self._cache[key] = embedding
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+            self._cache[key] = embedding
+            while len(self._cache) > self._max_size:
+                self._cache.popitem(last=False)
+                self._evictions += 1
 
     def clear(self) -> None:
         """Clear all cached embeddings."""
-        count = len(self._cache)
-        self._cache.clear()
-        self._hits = 0
-        self._misses = 0
+        with self._lock:
+            count = len(self._cache)
+            self._cache.clear()
+            self._hits = 0
+            self._misses = 0
+            self._evictions = 0
         logger.info(f"Cleared {count} cached embeddings from in-memory cache")
 
     def get_stats(self) -> Dict[str, Any]:
         """Return cache statistics."""
-        total = self._hits + self._misses
-        hit_rate = self._hits / total if total > 0 else 0.0
-        return {
-            "backend": "in_memory",
-            "size": len(self._cache),
-            "hits": self._hits,
-            "misses": self._misses,
-            "hit_rate": hit_rate,
-        }
+        with self._lock:
+            total = self._hits + self._misses
+            hit_rate = self._hits / total if total > 0 else 0.0
+            return {
+                "backend": "in_memory",
+                "size": len(self._cache),
+                "max_size": self._max_size,
+                "hits": self._hits,
+                "misses": self._misses,
+                "evictions": self._evictions,
+                "hit_rate": hit_rate,
+            }
 
     def close(self) -> None:
         """Close backend (no-op for in-memory)."""
@@ -364,11 +392,22 @@ class HybridEmbeddingCache:
             self._backend = InMemoryEmbeddingCache()
 
     def _normalize_text(self, text: str) -> str:
-        """Normalize text for consistent cache keys."""
+        """Normalize text for consistent cache keys.
+
+        Applies case-insensitive matching and whitespace stripping so that
+        "Hello World", "hello world", and "  HELLO WORLD  " all resolve to the
+        same cache entry. This prevents duplicate API calls for trivially
+        different inputs.
+        """
         return text.strip().lower()
 
     def _compute_key(self, text: str, model: str) -> str:
-        """Compute SHA-256 hash key for text and model combination."""
+        """Compute SHA-256 hash key for text and model combination.
+
+        Keys are scoped by model name so that the same text cached under
+        ``text-embedding-3-small`` is not confused with a different model's
+        embedding. The format is ``SHA256("{model}:{normalized_text}")``.
+        """
         normalized = self._normalize_text(text)
         key_input = f"{model}:{normalized}"
         return hashlib.sha256(key_input.encode("utf-8")).hexdigest()

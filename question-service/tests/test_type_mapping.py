@@ -197,6 +197,55 @@ class TestNormalizeDifficultyMetrics:
         assert normalize_difficulty_metrics({}) == {}
 
 
+class TestEdgeCases:
+    """Edge case tests for type mapping functions."""
+
+    def test_normalize_question_type_empty_string(self):
+        """Test that empty string raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown question type"):
+            normalize_question_type("")
+
+    def test_normalize_difficulty_empty_string(self):
+        """Test that empty string raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown difficulty level"):
+            normalize_difficulty("")
+
+    def test_normalize_question_type_case_sensitive(self):
+        """Test that normalization is case-sensitive (uppercase is rejected)."""
+        with pytest.raises(ValueError, match="Unknown question type"):
+            normalize_question_type("Pattern")
+
+    def test_normalize_difficulty_case_sensitive(self):
+        """Test that normalization is case-sensitive (uppercase is rejected)."""
+        with pytest.raises(ValueError, match="Unknown difficulty level"):
+            normalize_difficulty("Easy")
+
+    def test_normalize_type_metrics_all_unknown(self):
+        """Test metrics with only unknown keys are preserved."""
+        metrics = {"foo": 5, "bar": 3}
+        normalized = normalize_type_metrics(metrics)
+        assert normalized == {"foo": 5, "bar": 3}
+
+    def test_normalize_difficulty_metrics_all_unknown(self):
+        """Test difficulty metrics with only unknown keys are preserved."""
+        metrics = {"extreme": 2, "nightmare": 1}
+        normalized = normalize_difficulty_metrics(metrics)
+        assert normalized == {"extreme": 2, "nightmare": 1}
+
+    def test_normalize_type_metrics_mixed_legacy_and_unknown(self):
+        """Test metrics with both legacy values and unknown keys."""
+        metrics = {"pattern_recognition": 5, "unknown": 3}
+        normalized = normalize_type_metrics(metrics)
+        assert normalized["pattern"] == 5
+        assert normalized["unknown"] == 3
+
+    def test_normalize_type_metrics_zero_counts(self):
+        """Test metrics with zero counts are preserved."""
+        metrics = {"pattern": 0, "logic": 0}
+        normalized = normalize_type_metrics(metrics)
+        assert normalized == {"pattern": 0, "logic": 0}
+
+
 class TestIntegration:
     """Integration tests for type mapping with realistic data."""
 

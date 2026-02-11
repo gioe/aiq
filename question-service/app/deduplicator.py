@@ -17,6 +17,7 @@ import numpy as np
 from openai import OpenAI
 
 from .embedding_cache import HybridEmbeddingCache
+from .embedding_utils import generate_embedding
 from .models import GeneratedQuestion
 
 # Import observability facade for distributed tracing
@@ -420,8 +421,9 @@ class QuestionDeduplicator:
     def _get_embedding(self, text: str) -> np.ndarray:
         """Generate embedding vector for text using OpenAI API with caching.
 
-        Uses an in-memory cache to avoid redundant API calls for the same text.
-        Cache keys are SHA-256 hashes of normalized (stripped, lowercased) text.
+        Uses the embedding cache to avoid redundant API calls for the same text.
+        Cache keys are SHA-256 hashes of normalized (stripped, lowercased) text
+        scoped by model name.
 
         Args:
             text: Text to generate embedding for
@@ -432,23 +434,15 @@ class QuestionDeduplicator:
         Raises:
             Exception: If API call fails
         """
-        # Check cache first (includes model in key to prevent stale cache after model change)
         cached = self._embedding_cache.get(text, self.embedding_model)
         if cached is not None:
             return cached
 
         try:
-            response = self.openai_client.embeddings.create(
-                input=text,
-                model=self.embedding_model,
-                timeout=30.0,  # TASK-629: Prevent indefinite blocking on API calls
+            embedding_array = generate_embedding(
+                self.openai_client, text, self.embedding_model
             )
-            embedding = response.data[0].embedding
-            embedding_array = np.array(embedding)
-
-            # Cache the result with model in key
             self._embedding_cache.set(text, self.embedding_model, embedding_array)
-
             return embedding_array
 
         except Exception as e:
