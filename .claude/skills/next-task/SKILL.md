@@ -15,7 +15,7 @@ The primary interface for working with tasks from the local `tasks.db` SQLite da
 Finds the highest-priority task that is ready to work on (no incomplete dependencies) and **automatically begins working on it**.
 
 ```bash
-sqlite3 -header -column tasks.db "
+sqlite3 -header -column taskdb/tasks.db "
 SELECT t.id, t.summary, t.priority, t.priority_score, t.domain, t.assignee, t.description
 FROM tasks t
 WHERE t.status = 'To Do'
@@ -41,7 +41,7 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
 
 1. **Fetch the task** from the local database:
    ```bash
-   sqlite3 -header -column tasks.db "SELECT * FROM tasks WHERE id = <id>"
+   sqlite3 -header -column taskdb/tasks.db "SELECT * FROM tasks WHERE id = <id>"
    ```
 
 2. **Start task metrics tracking**:
@@ -51,7 +51,7 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
 
 3. **Update the task status** to In Progress:
    ```bash
-   sqlite3 tasks.db "UPDATE tasks SET status = 'In Progress', updated_at = datetime('now') WHERE id = <id>"
+   sqlite3 taskdb/tasks.db "UPDATE tasks SET status = 'In Progress', updated_at = datetime('now') WHERE id = <id>"
    ```
 
 4. **Extract task details** including:
@@ -100,7 +100,7 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
 
 12. **Update the task status and PR URL**:
     ```bash
-    sqlite3 tasks.db "UPDATE tasks SET github_pr = '<pr_url>', updated_at = datetime('now') WHERE id = <id>"
+    sqlite3 taskdb/tasks.db "UPDATE tasks SET github_pr = '<pr_url>', updated_at = datetime('now') WHERE id = <id>"
     ```
 
 13. **Review loop - iterate until Claude approves**:
@@ -182,13 +182,13 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     For each Category B comment:
     1. **Check for duplicates first** using `/check-dupes`:
        ```bash
-       python3 scripts/check_duplicates.py check "[Deferred] <brief description>" --domain <domain>
+       python3 .claude/scripts/check_duplicates.py check "[Deferred] <brief description>" --domain <domain>
        ```
        - If exit code 1 (duplicates found): skip the INSERT and log which existing task covers it.
        - If exit code 0 (no duplicates): proceed to create the task.
     2. Create a task in the local SQLite database (with 60-day expiry):
        ```bash
-       sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
+       sqlite3 taskdb/tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
          VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.\n\nOriginal comment: <comment text>\n\nReason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'), datetime('now', '+60 days'))"
        ```
     3. Document in `.github/DEFERRED_REVIEW_ITEMS.md`
@@ -207,13 +207,13 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
     If there are any, for each one:
     1. **Check for duplicates first** using `/check-dupes`:
        ```bash
-       python3 scripts/check_duplicates.py check "[Deferred] <brief description>" --domain <domain>
+       python3 .claude/scripts/check_duplicates.py check "[Deferred] <brief description>" --domain <domain>
        ```
        - If exit code 1 (duplicates found): skip the INSERT and log which existing task covers it.
        - If exit code 0 (no duplicates): proceed to create the task.
     2. Create the task (with 60-day expiry):
        ```bash
-       sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
+       sqlite3 taskdb/tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
          VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.
 
 Original comment: <comment text>
@@ -228,7 +228,7 @@ Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now
 
     **Step 14c: Update task status to Done**
     ```bash
-    sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
+    sqlite3 taskdb/tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
     ```
 
 15. **End task metrics tracking**:
@@ -238,7 +238,7 @@ Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now
 
 16. **Check for newly unblocked tasks**:
     ```bash
-    sqlite3 -header -column tasks.db "
+    sqlite3 -header -column taskdb/tasks.db "
     SELECT t.id, t.summary, t.priority
     FROM tasks t
     JOIN task_dependencies d ON t.id = d.task_id
@@ -251,7 +251,7 @@ Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now
 When called with `done <id>`:
 
 ```bash
-sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
+sqlite3 taskdb/tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
 ```
 
 Then show newly unblocked tasks.
@@ -261,7 +261,7 @@ Then show newly unblocked tasks.
 When called with `view <id>`:
 
 ```bash
-sqlite3 -header -column tasks.db "SELECT * FROM tasks WHERE id = <id>"
+sqlite3 -header -column taskdb/tasks.db "SELECT * FROM tasks WHERE id = <id>"
 ```
 
 ### List Top N Ready Tasks
@@ -269,7 +269,7 @@ sqlite3 -header -column tasks.db "SELECT * FROM tasks WHERE id = <id>"
 When called with `list <n>` or just a number:
 
 ```bash
-sqlite3 -header -column tasks.db "
+sqlite3 -header -column taskdb/tasks.db "
 SELECT t.id, t.summary, t.priority, t.domain, t.assignee
 FROM tasks t
 WHERE t.status = 'To Do'
@@ -300,7 +300,7 @@ Get next ready task for that assignee only.
 When called with `blocked`:
 
 ```bash
-sqlite3 -header -column tasks.db "
+sqlite3 -header -column taskdb/tasks.db "
 SELECT t.id, t.summary, t.priority,
   (SELECT GROUP_CONCAT(d.depends_on_id) FROM task_dependencies d WHERE d.task_id = t.id) as blocked_by
 FROM tasks t
@@ -319,7 +319,7 @@ ORDER BY t.id
 When called with `wip` or `in-progress`:
 
 ```bash
-sqlite3 -header -column tasks.db "SELECT id, summary, priority, domain, assignee, github_pr FROM tasks WHERE status = 'In Progress'"
+sqlite3 -header -column taskdb/tasks.db "SELECT id, summary, priority, domain, assignee, github_pr FROM tasks WHERE status = 'In Progress'"
 ```
 
 ### Preview Next Task (without starting)
@@ -329,7 +329,7 @@ When called with `preview`:
 Show the next ready task but do NOT start working on it. Just display the task details and stop.
 
 ```bash
-sqlite3 -header -column tasks.db "
+sqlite3 -header -column taskdb/tasks.db "
 SELECT t.id, t.summary, t.priority, t.domain, t.assignee, t.description
 FROM tasks t
 WHERE t.status = 'To Do'

@@ -15,12 +15,12 @@ Manages task dependencies in the local `tasks.db` SQLite database. Dependencies 
 Make a task depend on another task (the dependency must be completed first):
 
 ```bash
-python3 scripts/manage_dependencies.py add <task_id> <depends_on_id>
+python3 .claude/scripts/manage_dependencies.py add <task_id> <depends_on_id>
 ```
 
 Example: Task 5 cannot start until Task 3 is done:
 ```bash
-python3 scripts/manage_dependencies.py add 5 3
+python3 .claude/scripts/manage_dependencies.py add 5 3
 ```
 
 ### Remove a dependency
@@ -28,7 +28,7 @@ python3 scripts/manage_dependencies.py add 5 3
 Remove a dependency relationship:
 
 ```bash
-python3 scripts/manage_dependencies.py remove <task_id> <depends_on_id>
+python3 .claude/scripts/manage_dependencies.py remove <task_id> <depends_on_id>
 ```
 
 ### List dependencies for a task
@@ -36,7 +36,7 @@ python3 scripts/manage_dependencies.py remove <task_id> <depends_on_id>
 Show all tasks that must be completed before a specific task can start:
 
 ```bash
-python3 scripts/manage_dependencies.py list <task_id>
+python3 .claude/scripts/manage_dependencies.py list <task_id>
 ```
 
 ### List dependents of a task
@@ -44,7 +44,7 @@ python3 scripts/manage_dependencies.py list <task_id>
 Show all tasks that are waiting on a specific task:
 
 ```bash
-python3 scripts/manage_dependencies.py dependents <task_id>
+python3 .claude/scripts/manage_dependencies.py dependents <task_id>
 ```
 
 ### Show blocked tasks
@@ -52,7 +52,7 @@ python3 scripts/manage_dependencies.py dependents <task_id>
 List all tasks that cannot be started because their dependencies are incomplete:
 
 ```bash
-python3 scripts/manage_dependencies.py blocked
+python3 .claude/scripts/manage_dependencies.py blocked
 ```
 
 ### Show ready tasks
@@ -60,7 +60,7 @@ python3 scripts/manage_dependencies.py blocked
 List all tasks that are ready to start (all dependencies complete or no dependencies):
 
 ```bash
-python3 scripts/manage_dependencies.py ready
+python3 .claude/scripts/manage_dependencies.py ready
 ```
 
 ### Show all dependencies
@@ -68,7 +68,7 @@ python3 scripts/manage_dependencies.py ready
 Display all dependency relationships in the system:
 
 ```bash
-python3 scripts/manage_dependencies.py all
+python3 .claude/scripts/manage_dependencies.py all
 ```
 
 ## Usage Examples
@@ -76,25 +76,25 @@ python3 scripts/manage_dependencies.py all
 **Setting up a dependency chain:**
 ```bash
 # Task 10 (Deploy feature) depends on Task 8 (Write tests)
-python3 scripts/manage_dependencies.py add 10 8
+python3 .claude/scripts/manage_dependencies.py add 10 8
 
 # Task 8 (Write tests) depends on Task 5 (Implement feature)
-python3 scripts/manage_dependencies.py add 8 5
+python3 .claude/scripts/manage_dependencies.py add 8 5
 ```
 
 **Checking what's blocking a task:**
 ```bash
-python3 scripts/manage_dependencies.py list 10
+python3 .claude/scripts/manage_dependencies.py list 10
 ```
 
 **Finding what a completed task unblocks:**
 ```bash
-python3 scripts/manage_dependencies.py dependents 5
+python3 .claude/scripts/manage_dependencies.py dependents 5
 ```
 
 **Finding work that can be started now:**
 ```bash
-python3 scripts/manage_dependencies.py ready
+python3 .claude/scripts/manage_dependencies.py ready
 ```
 
 ## Validation

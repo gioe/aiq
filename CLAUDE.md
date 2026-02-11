@@ -65,7 +65,7 @@ Before committing, run pre-commit hooks locally (`pre-commit run --all-files`) a
 
 ## Task Queue
 
-The project task database is the SQLite DB at the project root (`tasks.db`), not Claude Code's internal task list. Always use the project's SQLite database when working with the task queue.
+The project task database is the SQLite DB at `taskdb/tasks.db`, not Claude Code's internal task list. Always use the project's SQLite database when working with the task queue.
 
 ## General Rules
 
@@ -80,3 +80,5 @@ When performing these operations, always use the corresponding skill instead of 
 | Building iOS project | `/build-ios-project` | `xcodebuild build` |
 | Running iOS tests | `/run-ios-test` | `xcodebuild test` |
 | Adding Swift files to Xcode | `/xcode-file-manager` | Manual project.pbxproj edits |
+| Running question-service tests | `/run-question-service-tests` | `cd question-service && pytest` |
+| Running scripts/tests | `/run-scripts-tests` | `pytest scripts/tests/` |

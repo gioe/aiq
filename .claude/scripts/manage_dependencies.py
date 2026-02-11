@@ -5,7 +5,7 @@ import argparse
 import sqlite3
 import sys
 
-DB_PATH = "tasks.db"
+DB_PATH = "taskdb/tasks.db"
 
 DEPENDENCIES_SCHEMA = """
 CREATE TABLE IF NOT EXISTS task_dependencies (

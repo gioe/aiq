@@ -64,7 +64,7 @@ Extract recommendations from the analysis file. Look for:
 #### 4a. Get All Open Tasks
 
 ```bash
-sqlite3 -header -column tasks.db "SELECT id, summary, description, status, priority, domain FROM tasks WHERE status != 'Done' ORDER BY id"
+sqlite3 -header -column taskdb/tasks.db "SELECT id, summary, description, status, priority, domain FROM tasks WHERE status != 'Done' ORDER BY id"
 ```
 
 #### 4b. Check for Duplicates with `/check-dupes`
@@ -72,7 +72,7 @@ sqlite3 -header -column tasks.db "SELECT id, summary, description, status, prior
 For each recommendation, run the dedup utility:
 
 ```bash
-python3 scripts/check_duplicates.py check "<recommendation summary>" --domain <domain> --threshold 0.6 --json
+python3 .claude/scripts/check_duplicates.py check "<recommendation summary>" --domain <domain> --threshold 0.6 --json
 ```
 
 Interpret results by similarity score:
@@ -264,7 +264,7 @@ Wait for explicit approval before proceeding.
 After approval, insert each task:
 
 ```bash
-sqlite3 tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, assignee, task_type, created_at, updated_at)
+sqlite3 taskdb/tasks.db "INSERT INTO tasks (summary, description, status, priority, domain, assignee, task_type, created_at, updated_at)
 VALUES (
   '<summary>',
   '<description>',
@@ -281,7 +281,7 @@ VALUES (
 Capture the inserted task IDs for dependency linking:
 
 ```bash
-sqlite3 tasks.db "SELECT last_insert_rowid()"
+sqlite3 taskdb/tasks.db "SELECT last_insert_rowid()"
 ```
 
 ### Step 9: Add Dependencies
@@ -289,7 +289,7 @@ sqlite3 tasks.db "SELECT last_insert_rowid()"
 If dependencies were identified and approved, add them:
 
 ```bash
-python3 scripts/manage_dependencies.py add <task_id> <depends_on_id>
+python3 .claude/scripts/manage_dependencies.py add <task_id> <depends_on_id>
 ```
 
 ### Step 10: Generate Summary Report
@@ -330,7 +330,7 @@ Run `/next-task` to start working on the highest priority task.
 Show the final state:
 
 ```bash
-sqlite3 -header -column tasks.db "SELECT id, summary, priority, domain, assignee FROM tasks WHERE status = 'To Do' ORDER BY CASE priority WHEN 'Highest' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, id DESC LIMIT 10"
+sqlite3 -header -column taskdb/tasks.db "SELECT id, summary, priority, domain, assignee FROM tasks WHERE status = 'To Do' ORDER BY CASE priority WHEN 'Highest' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END, id DESC LIMIT 10"
 ```
 
 ## Error Handling
@@ -348,7 +348,7 @@ Duplicate detection is performed **early in Step 4** using `/check-dupes`, befor
 
 For each recommendation, run:
 ```bash
-python3 scripts/check_duplicates.py check "<summary>" --domain <domain> --threshold 0.6 --json
+python3 .claude/scripts/check_duplicates.py check "<summary>" --domain <domain> --threshold 0.6 --json
 ```
 
 The tool normalizes summaries (strips `[Deferred]`/`[Enhancement]` prefixes, lowercases, collapses whitespace) and uses `SequenceMatcher` to compute similarity scores.

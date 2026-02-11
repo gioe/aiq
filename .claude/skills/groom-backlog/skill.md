@@ -14,7 +14,7 @@ Before analyzing the backlog, close any deferred tasks that have passed their 60
 
 ```bash
 # Check how many deferred tasks have expired
-sqlite3 -header -column tasks.db "
+sqlite3 -header -column taskdb/tasks.db "
 SELECT COUNT(*) as expired_count
 FROM tasks
 WHERE summary LIKE '%[Deferred]%'
@@ -24,7 +24,7 @@ WHERE summary LIKE '%[Deferred]%'
 "
 
 # Auto-close expired deferred tasks
-sqlite3 tasks.db "
+sqlite3 taskdb/tasks.db "
 UPDATE tasks
 SET status = 'Done',
     closed_reason = 'expired',
@@ -48,14 +48,14 @@ Query all open tasks from the local SQLite database:
 
 ```bash
 # Get all open tasks (not Done)
-sqlite3 -header -column tasks.db "SELECT id, summary, status, priority, domain, assignee FROM tasks WHERE status != 'Done' ORDER BY priority DESC, id"
+sqlite3 -header -column taskdb/tasks.db "SELECT id, summary, status, priority, domain, assignee FROM tasks WHERE status != 'Done' ORDER BY priority DESC, id"
 
 # Get full details for analysis
-sqlite3 -header -column tasks.db "SELECT * FROM tasks WHERE status != 'Done'"
+sqlite3 -header -column taskdb/tasks.db "SELECT * FROM tasks WHERE status != 'Done'"
 
 # Get dependency information - blocked tasks and all dependencies
-python3 scripts/manage_dependencies.py blocked
-python3 scripts/manage_dependencies.py all
+python3 .claude/scripts/manage_dependencies.py blocked
+python3 .claude/scripts/manage_dependencies.py all
 ```
 
 ## Step 2: Scan for Duplicates and Categorize Tasks
@@ -65,7 +65,7 @@ python3 scripts/manage_dependencies.py all
 Before categorizing, run the dedup scanner to identify duplicate tasks:
 
 ```bash
-python3 scripts/check_duplicates.py scan --status "To Do"
+python3 .claude/scripts/check_duplicates.py scan --status "To Do"
 ```
 
 Any pairs found should be included in **Category B (Candidates for Deletion)** with reason "duplicate" and the matching task ID. The higher-ID task in each pair is the candidate for closure (keep the original).
@@ -79,7 +79,7 @@ Tasks where the acceptance criteria has already been implemented in the codebase
 
 1. **Verify against code**: For each task, read the description and search the codebase to determine if the work has already been completed
 2. **Evidence required**: Provide specific file paths, function names, or code snippets that demonstrate the criteria is met
-3. **Mark as Done**: Use SQLite to update the status: `sqlite3 tasks.db "UPDATE tasks SET status = 'Done' WHERE id = <id>"`
+3. **Mark as Done**: Use SQLite to update the status: `sqlite3 taskdb/tasks.db "UPDATE tasks SET status = 'Done' WHERE id = <id>"`
 
 ### Category B: Candidates for Deletion
 Tasks that should be removed from the backlog:
@@ -94,7 +94,7 @@ Tasks that should be removed from the backlog:
 
 **IMPORTANT**: Before recommending deletion, check if other tasks depend on this task:
 ```bash
-python3 scripts/manage_dependencies.py dependents <id>
+python3 .claude/scripts/manage_dependencies.py dependents <id>
 ```
 If other tasks depend on it, do NOT recommend deletion unless those dependent tasks are also being deleted or the dependency should be removed.
 
@@ -115,10 +115,10 @@ Tasks that don't have an agent assignee. These should be assigned to the appropr
 
 ```bash
 # Check for unassigned tasks
-sqlite3 -header -column tasks.db "SELECT id, summary, domain FROM tasks WHERE status != 'Done' AND assignee IS NULL"
+sqlite3 -header -column taskdb/tasks.db "SELECT id, summary, domain FROM tasks WHERE status != 'Done' AND assignee IS NULL"
 
 # Preview agent assignments
-python3 scripts/assign_tasks_to_agents.py assign --dry-run
+python3 .claude/scripts/assign_tasks_to_agents.py assign --dry-run
 ```
 
 Available agents (in `.claude/agents/`):
@@ -139,7 +139,7 @@ Before taking action, gather additional context:
 
 ```bash
 # View details of a specific task
-sqlite3 -header -column tasks.db "SELECT * FROM tasks WHERE id = <id>"
+sqlite3 -header -column taskdb/tasks.db "SELECT * FROM tasks WHERE id = <id>"
 ```
 
 Also review:
@@ -216,23 +216,23 @@ Only after user approval, execute the changes:
 
 ### For Done Transitions (Acceptance Criteria Met):
 ```bash
-sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
+sqlite3 taskdb/tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
 ```
 
 ### For Deletions (duplicate/obsolete):
 ```bash
 # For duplicates:
-sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'duplicate', updated_at = datetime('now') WHERE id = <id>"
+sqlite3 taskdb/tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'duplicate', updated_at = datetime('now') WHERE id = <id>"
 
 # For obsolete/won't-do:
-sqlite3 tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'wont_do', updated_at = datetime('now') WHERE id = <id>"
+sqlite3 taskdb/tasks.db "UPDATE tasks SET status = 'Done', closed_reason = 'wont_do', updated_at = datetime('now') WHERE id = <id>"
 ```
 
 **Note:** Prefer closing with a reason over `DELETE`. This preserves history and keeps metrics accurate.
 
 ### For Priority Changes:
 ```bash
-sqlite3 tasks.db "UPDATE tasks SET priority = '<New Priority>' WHERE id = <id>"
+sqlite3 taskdb/tasks.db "UPDATE tasks SET priority = '<New Priority>' WHERE id = <id>"
 ```
 
 Valid priority values (trigger-enforced): Highest, High, Medium, Low, Lowest
@@ -240,10 +240,10 @@ Valid priority values (trigger-enforced): Highest, High, Medium, Low, Lowest
 ### For Agent Assignments:
 ```bash
 # Assign all unassigned tasks automatically
-python3 scripts/assign_tasks_to_agents.py assign
+python3 .claude/scripts/assign_tasks_to_agents.py assign
 
 # Or assign a specific task manually
-sqlite3 tasks.db "UPDATE tasks SET assignee = '<agent-name>' WHERE id = <id>"
+sqlite3 taskdb/tasks.db "UPDATE tasks SET assignee = '<agent-name>' WHERE id = <id>"
 ```
 
 Valid agent names: ios-engineer, fastapi-architect, database-engineer, statistical-analysis-scientist, python-code-guardian, technical-product-manager, project-code-reviewer
@@ -251,7 +251,7 @@ Valid agent names: ios-engineer, fastapi-architect, database-engineer, statistic
 ### After Each Change:
 Confirm the change was applied:
 ```bash
-sqlite3 -header -column tasks.db "SELECT id, summary, status, priority FROM tasks WHERE id = <id>"
+sqlite3 -header -column taskdb/tasks.db "SELECT id, summary, status, priority FROM tasks WHERE id = <id>"
 ```
 
 ## Step 7: Compute Priority Scores
@@ -285,7 +285,7 @@ No age bonus — within a tier, `ORDER BY priority_score DESC, id` naturally imp
 
 ```bash
 # Update priority_score for all open tasks
-sqlite3 tasks.db "
+sqlite3 taskdb/tasks.db "
 UPDATE tasks SET priority_score = (
   -- Base priority (wide spread: 20 points per tier)
   CASE priority
@@ -309,7 +309,7 @@ WHERE status != 'Done';
 "
 
 # Verify the scores
-sqlite3 -header -column tasks.db "
+sqlite3 -header -column taskdb/tasks.db "
 SELECT id, summary, priority, priority_score
 FROM tasks
 WHERE status = 'To Do'
@@ -364,7 +364,7 @@ After all changes are complete, provide a summary:
 
 Show final backlog state:
 ```bash
-sqlite3 -header -column tasks.db "SELECT id, summary, status, priority, domain, assignee FROM tasks WHERE status != 'Done' ORDER BY priority DESC, id"
+sqlite3 -header -column taskdb/tasks.db "SELECT id, summary, status, priority, domain, assignee FROM tasks WHERE status != 'Done' ORDER BY priority DESC, id"
 ```
 
 ## Canonical Values (Enforced by SQLite Triggers)
@@ -404,7 +404,7 @@ Always set `closed_reason` when marking a task Done. Use `completed` for work th
 
 ## Error Handling
 
-- If the database doesn't exist, inform the user: "Database not found. Run `python3 scripts/jira_to_sqlite.py` to sync tasks first."
+- If the database doesn't exist, inform the user: "Database not found. Run `python3 .claude/scripts/jira_to_sqlite.py` to sync tasks first."
 - If a task ID doesn't exist, report the error and continue with other tasks
 - If no open tasks are found, report "No open tasks found in the backlog"
 

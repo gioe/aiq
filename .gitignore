@@ -87,6 +87,7 @@ logs/
 
 # Database
 *.db
+!taskdb/tasks.db
 *.sqlite
 *.sqlite3
 

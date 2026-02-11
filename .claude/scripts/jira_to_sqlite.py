@@ -5,7 +5,7 @@ import sqlite3
 import subprocess
 import json
 
-DB_PATH = "tasks.db"
+DB_PATH = "taskdb/tasks.db"
 PROJECT = "BTS"
 BATCH_SIZE = 100  # Jira CLI max per request
 
