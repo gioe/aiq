@@ -68,6 +68,11 @@ struct DashboardView: View {
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingContainerView()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentView)) { _ in
+            Task {
+                await viewModel.refreshDashboard()
+            }
+        }
     }
 
     // MARK: - Dashboard Content
@@ -113,6 +118,7 @@ struct DashboardView: View {
                 Spacer()
             }
             .padding(DesignSystem.Spacing.lg)
+            .adaptiveContentWidth()
         }
         .refreshable {
             await viewModel.refreshDashboard()
@@ -431,6 +437,7 @@ struct DashboardView: View {
                 Spacer()
             }
             .padding(DesignSystem.Spacing.lg)
+            .adaptiveContentWidth()
         }
         .refreshable {
             await viewModel.refreshDashboard()

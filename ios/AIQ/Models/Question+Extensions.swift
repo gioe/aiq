@@ -6,7 +6,7 @@ import Foundation
 // Extensions for the Question type (Components.Schemas.QuestionResponse)
 //
 // This file provides additional extensions beyond what's available in the AIQAPIClient package.
-// The core UI properties (questionTypeDisplay, difficultyColor, etc.) are provided in
+// The core UI properties (questionTypeDisplay, difficultyColorName, etc.) are provided in
 // QuestionResponse+UI.swift in the AIQAPIClient package.
 //
 // Pattern: Following TASK-368 and TASK-365, we extend generated types rather than duplicating them.

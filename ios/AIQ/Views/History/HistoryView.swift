@@ -75,6 +75,11 @@ struct HistoryView: View {
         .onChange(of: viewModel.dateFilter) { _ in
             viewModel.applyFiltersAndSort()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentView)) { _ in
+            Task {
+                await viewModel.refreshHistory()
+            }
+        }
     }
 
     private var historyList: some View {
@@ -188,6 +193,7 @@ struct HistoryView: View {
                 }
             }
             .padding(.vertical)
+            .adaptiveContentWidth()
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.scrollView)
         .refreshable {

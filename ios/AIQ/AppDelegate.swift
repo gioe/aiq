@@ -417,4 +417,7 @@ extension Notification.Name {
 
     /// Posted when a deep link is received (URL scheme or universal link)
     static let deepLinkReceived = Notification.Name("deepLinkReceived")
+
+    /// Posted when user triggers refresh via keyboard shortcut (⌘R)
+    static let refreshCurrentView = Notification.Name("refreshCurrentView")
 }

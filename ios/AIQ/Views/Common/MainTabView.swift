@@ -74,6 +74,7 @@ struct MainTabView: View {
             // Reset navigation service when view disappears to prevent stale state
             navigationService = nil
         }
+        .background(keyboardShortcutButtons)
         .onReceive(
             NotificationCenter.default.publisher(for: .deepLinkReceived)
                 .receive(on: DispatchQueue.main)
@@ -222,6 +223,57 @@ struct MainTabView: View {
         )
         navigationService = service
         return service
+    }
+
+    // MARK: - Keyboard Shortcuts
+
+    /// Hidden buttons with keyboard shortcuts for iPad navigation
+    /// These provide ⌘1/2/3 tab switching, ⌘N for new test, and ⌘R for refresh
+    @ViewBuilder
+    private var keyboardShortcutButtons: some View {
+        Group {
+            // Tab switching shortcuts
+            Button("Dashboard") {
+                selectedTab = .dashboard
+            }
+            .keyboardShortcut("1", modifiers: .command)
+            .hidden()
+
+            Button("History") {
+                selectedTab = .history
+            }
+            .keyboardShortcut("2", modifiers: .command)
+            .hidden()
+
+            Button("Settings") {
+                selectedTab = .settings
+            }
+            .keyboardShortcut("3", modifiers: .command)
+            .hidden()
+
+            // Action shortcuts
+            Button("Start New Test") {
+                // Switch to dashboard first, then push test route after
+                // a brief delay to ensure the tab switch completes
+                selectedTab = .dashboard
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    if Constants.Features.adaptiveTesting {
+                        router.push(.adaptiveTestTaking, in: .dashboard)
+                    } else {
+                        router.push(.testTaking(), in: .dashboard)
+                    }
+                }
+            }
+            .keyboardShortcut("n", modifiers: .command)
+            .hidden()
+
+            Button("Refresh") {
+                // Post notification that views can observe for refresh
+                NotificationCenter.default.post(name: .refreshCurrentView, object: nil)
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .hidden()
+        }
     }
 }
 
