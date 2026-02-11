@@ -67,11 +67,12 @@ _ASYNC_DRIVER_MAP = {
     "postgresql+psycopg2": "postgresql+asyncpg",
     "sqlite": "sqlite+aiosqlite",
 }
-_async_driver = _ASYNC_DRIVER_MAP.get(
-    _sync_url.drivername, _ASYNC_DRIVER_MAP.get(_sync_url.get_backend_name())
-)
+_async_driver = _ASYNC_DRIVER_MAP.get(_sync_url.drivername)
 if _async_driver is None:
-    raise ValueError(f"No async driver mapping for: {_sync_url.drivername}")
+    raise ValueError(
+        f"No async driver mapping for: {_sync_url.drivername}. "
+        f"Supported: {list(_ASYNC_DRIVER_MAP.keys())}"
+    )
 _ASYNC_DATABASE_URL = str(_sync_url.set(drivername=_async_driver))
 
 async_engine = create_async_engine(

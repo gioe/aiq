@@ -43,13 +43,11 @@ async def test_async_session_crud(async_db_session: AsyncSession):
 async def test_get_async_db_yields_session():
     """get_async_db dependency yields an AsyncSession."""
     gen = get_async_db()
-    session = await gen.__anext__()
-    assert isinstance(session, AsyncSession)
-    # Properly close the generator
     try:
-        await gen.__anext__()
-    except StopAsyncIteration:
-        pass
+        session = await gen.__anext__()
+        assert isinstance(session, AsyncSession)
+    finally:
+        await gen.aclose()
 
 
 async def test_async_session_rollback_on_error(async_db_session: AsyncSession):
