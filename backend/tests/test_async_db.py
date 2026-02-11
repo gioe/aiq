@@ -5,6 +5,7 @@ Validates that the async engine, session, and fixtures work correctly.
 """
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User, get_async_db
@@ -70,7 +71,7 @@ async def test_async_session_rollback_on_error(async_db_session: AsyncSession):
         last_name="Test",
     )
     async_db_session.add(duplicate)
-    with pytest.raises(Exception):
+    with pytest.raises(IntegrityError):
         await async_db_session.commit()
 
     await async_db_session.rollback()

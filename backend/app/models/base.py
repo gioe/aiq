@@ -7,7 +7,7 @@ for proper type checking support. See BCQ-035 for migration details.
 Async support (TASK-1161): async_engine, AsyncSessionLocal, and get_async_db
 are provided alongside the sync equivalents for incremental migration.
 """
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import AsyncAdaptedQueuePool, QueuePool
@@ -59,12 +59,20 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- Async engine and session (TASK-1161) ---
-# Convert sync URL to async driver URL:
-#   postgresql://...  -> postgresql+asyncpg://...
-#   sqlite:///...     -> sqlite+aiosqlite:///...
-_ASYNC_DATABASE_URL = DATABASE_URL.replace(
-    "postgresql://", "postgresql+asyncpg://"
-).replace("sqlite:///", "sqlite+aiosqlite:///")
+# Convert sync URL to async driver URL using SQLAlchemy's URL API
+# to handle all driver variants (postgresql, postgresql+psycopg2, etc.)
+_sync_url = make_url(DATABASE_URL)
+_ASYNC_DRIVER_MAP = {
+    "postgresql": "postgresql+asyncpg",
+    "postgresql+psycopg2": "postgresql+asyncpg",
+    "sqlite": "sqlite+aiosqlite",
+}
+_async_driver = _ASYNC_DRIVER_MAP.get(
+    _sync_url.drivername, _ASYNC_DRIVER_MAP.get(_sync_url.get_backend_name())
+)
+if _async_driver is None:
+    raise ValueError(f"No async driver mapping for: {_sync_url.drivername}")
+_ASYNC_DATABASE_URL = str(_sync_url.set(drivername=_async_driver))
 
 async_engine = create_async_engine(
     _ASYNC_DATABASE_URL,
