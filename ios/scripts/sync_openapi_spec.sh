@@ -26,7 +26,8 @@ else
     echo "OpenAPI spec in package is up to date"
 fi
 
-# Also sync to legacy location (kept for backward compatibility, can be removed later)
+# Sync to legacy location (referenced by Xcode project build plugin)
+# TODO: Remove once Xcode project is updated to only use the package location
 if [ ! -f "$DEST_LEGACY" ] || [ "$SOURCE" -nt "$DEST_LEGACY" ]; then
     cp "$SOURCE" "$DEST_LEGACY"
     echo "Synced OpenAPI spec to $DEST_LEGACY (legacy)"
