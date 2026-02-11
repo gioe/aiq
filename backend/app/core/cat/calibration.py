@@ -80,8 +80,8 @@ class ItemCalibrationResult(TypedDict):
 
     difficulty: float
     discrimination: float
-    se_difficulty: float
-    se_discrimination: float
+    se_difficulty: Optional[float]
+    se_discrimination: Optional[float]
     information_peak: float
 
 
@@ -273,8 +273,10 @@ def calibrate_questions_2pl(
         ) from e
 
     # Compute bootstrap standard errors if requested
-    se_discrimination = np.zeros(n_filtered)
-    se_difficulty = np.zeros(n_filtered)
+    # Initialize with NaN so that missing SEs are stored as NULL, not zero.
+    # Zero SE would be misinterpreted as perfect precision by downstream analyses.
+    se_discrimination = np.full(n_filtered, np.nan)
+    se_difficulty = np.full(n_filtered, np.nan)
 
     if bootstrap_se and n_users >= MIN_EXAMINEES_FOR_BOOTSTRAP:
         try:
@@ -293,7 +295,7 @@ def calibrate_questions_2pl(
             se_discrimination = bootstrap_result["Standard Errors"]["Discrimination"]
             se_difficulty = bootstrap_result["Standard Errors"]["Difficulty"].ravel()
         except Exception as e:
-            logger.warning(f"Bootstrap SE computation failed, using zeros: {e}")
+            logger.warning(f"Bootstrap SE computation failed, SEs unavailable: {e}")
     elif bootstrap_se and n_users < MIN_EXAMINEES_FOR_BOOTSTRAP:
         logger.warning(
             "Skipping bootstrap SE: insufficient examinees "
@@ -305,11 +307,17 @@ def calibrate_questions_2pl(
     for idx, qid in enumerate(filtered_question_ids):
         b = float(est_difficulty[idx])
         a = float(est_discrimination[idx])
+        se_b = float(se_difficulty[idx]) if np.isfinite(se_difficulty[idx]) else None
+        se_a = (
+            float(se_discrimination[idx])
+            if np.isfinite(se_discrimination[idx])
+            else None
+        )
         results[qid] = {
             "difficulty": b,
             "discrimination": a,
-            "se_difficulty": float(se_difficulty[idx]),
-            "se_discrimination": float(se_discrimination[idx]),
+            "se_difficulty": se_b,
+            "se_discrimination": se_a,
             "information_peak": b,  # For 2PL, information peaks at θ = b
         }
 

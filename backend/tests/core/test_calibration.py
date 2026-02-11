@@ -205,6 +205,37 @@ class TestCalibrateQuestions2PL:
         with pytest.raises(CalibrationError, match="too sparse"):
             calibrate_questions_2pl(responses=responses, bootstrap_se=False)
 
+    def test_bootstrap_se_none_for_small_samples(self):
+        """Standard errors should be None when n_users < MIN_EXAMINEES_FOR_BOOTSTRAP."""
+        n_items = 10
+        n_examinees = 20  # Below the 30-examinee bootstrap threshold
+        rng = np.random.default_rng(42)
+        true_a = rng.uniform(0.8, 1.8, n_items)
+        true_b = rng.normal(0, 1.0, n_items)
+
+        responses = _generate_2pl_responses(
+            n_items, n_examinees, true_a, true_b, seed=42
+        )
+
+        results = calibrate_questions_2pl(
+            responses=responses,
+            bootstrap_se=True,
+        )
+
+        for qid, params in results.items():
+            assert (
+                params["se_difficulty"] is None
+            ), f"SE difficulty should be None for small sample, got {params['se_difficulty']}"
+            assert params["se_discrimination"] is None, (
+                f"SE discrimination should be None for small sample, "
+                f"got {params['se_discrimination']}"
+            )
+            # Point estimates should still be valid
+            assert isinstance(params["difficulty"], float)
+            assert isinstance(params["discrimination"], float)
+            assert np.isfinite(params["difficulty"])
+            assert np.isfinite(params["discrimination"])
+
     def test_question_ids_filter(self):
         """Only requested question_ids should be calibrated."""
         n_items = 20
@@ -254,12 +285,20 @@ class TestCalibrateQuestions2PL:
             assert (
                 set(params.keys()) == expected_keys
             ), f"Item {qid} missing keys: {expected_keys - set(params.keys())}"
-            # All values should be finite floats
+            # Non-SE values should be finite floats; SE values may be None
+            # when bootstrap was not computed
             for key, value in params.items():
-                assert isinstance(
-                    value, float
-                ), f"Item {qid} {key} should be float, got {type(value)}"
-                assert np.isfinite(value), f"Item {qid} {key} is not finite: {value}"
+                if key in ("se_difficulty", "se_discrimination"):
+                    assert value is None or isinstance(
+                        value, float
+                    ), f"Item {qid} {key} should be None or float, got {type(value)}"
+                else:
+                    assert isinstance(
+                        value, float
+                    ), f"Item {qid} {key} should be float, got {type(value)}"
+                    assert np.isfinite(
+                        value
+                    ), f"Item {qid} {key} is not finite: {value}"
 
 
 class TestBuildPriorsFromCTT:
