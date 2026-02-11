@@ -13,7 +13,7 @@ packages:
 settings:
   SWIFT_VERSION: 5.9
   IPHONEOS_DEPLOYMENT_TARGET: 16.0
-  TARGETED_DEVICE_FAMILY: 1  # iPhone only
+  TARGETED_DEVICE_FAMILY: "1,2"  # iPhone and iPad
   ENABLE_PREVIEWS: YES
 
 targets:
