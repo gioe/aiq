@@ -2,6 +2,7 @@
 Notification scheduling service for determining which users should receive
 test reminder notifications based on the 3-month testing cadence.
 """
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
@@ -11,6 +12,8 @@ from app.models import User, TestResult
 from app.core.config import settings
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
 from app.models.models import NotificationType
+
+logger = logging.getLogger(__name__)
 
 # Day 30 reminder configuration
 DAY_30_REMINDER_DAYS = 30  # Days after first test to send reminder
@@ -417,6 +420,15 @@ class NotificationScheduler:
                 notifications, notification_type=NotificationType.TEST_REMINDER
             )
 
+            if results["failed"] > 0:
+                logger.warning(
+                    "Test reminder batch had failures: "
+                    "sent=%d, success=%d, failed=%d",
+                    len(notifications),
+                    results["success"],
+                    results["failed"],
+                )
+
             return {
                 "total": len(notifications),
                 "success": results["success"],
@@ -526,6 +538,15 @@ class NotificationScheduler:
             results = await apns_service.send_batch_notifications(
                 notifications, notification_type=NotificationType.DAY_30_REMINDER
             )
+
+            if results["failed"] > 0:
+                logger.warning(
+                    "Day 30 reminder batch had failures: "
+                    "sent=%d, success=%d, failed=%d",
+                    len(notifications),
+                    results["success"],
+                    results["failed"],
+                )
 
             # Mark all users as having received the notification to prevent duplicates
             # We mark all users even if some individual sends failed, because:

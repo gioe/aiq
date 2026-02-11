@@ -10,6 +10,7 @@ project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+from typing import Generator, Dict, Any  # noqa: E402
 from unittest.mock import patch, AsyncMock  # noqa: E402
 
 import pytest  # noqa: E402
@@ -202,7 +203,9 @@ def mark_questions_seen(db_session, test_user, test_questions):
 
 
 @pytest.fixture
-def mock_apns_setup(tmp_path):
+def mock_apns_setup(
+    tmp_path,
+) -> Generator[Dict[str, Any], None, None]:
     """
     Shared fixture for APNs convenience function tests.
 

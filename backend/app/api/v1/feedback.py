@@ -84,15 +84,23 @@ def _create_rate_limiter_storage() -> RateLimiterStorage:
     return InMemoryStorage(max_keys=settings.RATE_LIMIT_MAX_KEYS)
 
 
-# Initialize rate limiter with Redis fallback
-feedback_storage = _create_rate_limiter_storage()
-feedback_strategy = TokenBucketStrategy(feedback_storage)
-feedback_limiter = RateLimiter(
-    strategy=feedback_strategy,
-    storage=feedback_storage,
-    default_limit=FEEDBACK_RATE_LIMIT_MAX_REQUESTS,
-    default_window=FEEDBACK_RATE_LIMIT_WINDOW_SECONDS,
-)
+# Lazy-initialized rate limiter: created on first use to avoid module-import
+# side effects (network calls to Redis, log noise during test collection).
+_feedback_limiter: Optional[RateLimiter] = None
+
+
+def _get_feedback_limiter() -> RateLimiter:
+    global _feedback_limiter
+    if _feedback_limiter is None:
+        storage = _create_rate_limiter_storage()
+        strategy = TokenBucketStrategy(storage)
+        _feedback_limiter = RateLimiter(
+            strategy=strategy,
+            storage=storage,
+            default_limit=FEEDBACK_RATE_LIMIT_MAX_REQUESTS,
+            default_window=FEEDBACK_RATE_LIMIT_WINDOW_SECONDS,
+        )
+    return _feedback_limiter
 
 
 def _get_client_ip(request: Request) -> str:
@@ -222,7 +230,8 @@ async def submit_feedback(
     # If the rate limiter fails (e.g., Redis connection issue), allow the request
     # to proceed since feedback collection is more important than strict rate limiting
     try:
-        allowed, metadata = feedback_limiter.check(client_ip)
+        limiter = _get_feedback_limiter()
+        allowed, metadata = limiter.check(client_ip)
         if not allowed:
             retry_after = metadata.get("retry_after", 3600)
             raise HTTPException(

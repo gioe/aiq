@@ -954,8 +954,15 @@ def submit_adaptive_response(
     # the app-level check (lines 793-804)
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+        logger.debug(
+            "IntegrityError during adaptive response submission "
+            "(session_id=%s, question_id=%s): %s",
+            test_session.id,
+            request.question_id,
+            type(e).__name__,
+        )
         raise_conflict(ErrorMessages.duplicate_response(request.question_id))
 
     metrics.record_questions_served(count=1, adaptive=True)
@@ -1846,8 +1853,15 @@ def submit_test(
         db.commit()
         db.refresh(test_session)
         db.refresh(test_result)
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+        logger.debug(
+            "IntegrityError during batch response submission "
+            "(session_id=%s, user_id=%s): %s",
+            test_session.id,
+            user_id,
+            type(e).__name__,
+        )
         # If we hit a duplicate response in batch submission, return 409
         # The error message won't specify which question, but this is a rare edge case
         raise_conflict(

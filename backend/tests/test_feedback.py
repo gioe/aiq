@@ -17,15 +17,16 @@ def clear_rate_limits():
     This fixture runs before each test to ensure rate limits don't
     interfere with test execution.
     """
-    from app.api.v1.feedback import feedback_limiter
+    from app.api.v1.feedback import _get_feedback_limiter
 
+    limiter = _get_feedback_limiter()
     # Clear the in-memory storage before each test
-    feedback_limiter.storage.clear()
+    limiter.storage.clear()
 
     yield
 
     # Optionally clear again after test
-    feedback_limiter.storage.clear()
+    limiter.storage.clear()
 
 
 class TestFeedbackSubmissionSuccess:
@@ -1105,7 +1106,7 @@ class TestRateLimiterErrorHandling:
 
         # Mock the rate limiter check to raise an exception
         with patch(
-            "app.api.v1.feedback.feedback_limiter.check",
+            "app.api.v1.feedback._feedback_limiter.check",
             side_effect=RuntimeError("Redis connection failed"),
         ):
             response = client.post("/v1/feedback/submit", json=feedback_data)
@@ -1135,7 +1136,7 @@ class TestRateLimiterErrorHandling:
         }
 
         with patch(
-            "app.api.v1.feedback.feedback_limiter.check",
+            "app.api.v1.feedback._feedback_limiter.check",
             side_effect=ConnectionError("Storage backend unavailable"),
         ):
             with patch("app.api.v1.feedback.logger") as mock_logger:
@@ -1160,7 +1161,7 @@ class TestRateLimiterErrorHandling:
         }
 
         with patch(
-            "app.api.v1.feedback.feedback_limiter.check",
+            "app.api.v1.feedback._feedback_limiter.check",
             side_effect=TimeoutError("Rate limiter timed out"),
         ):
             with patch("app.api.v1.feedback.logger") as mock_logger:
@@ -1210,7 +1211,7 @@ class TestRateLimiterErrorHandling:
 
         # Simulate a Redis-like error
         with patch(
-            "app.api.v1.feedback.feedback_limiter.check",
+            "app.api.v1.feedback._feedback_limiter.check",
             side_effect=Exception(
                 "READONLY You can't write against a read only replica"
             ),
@@ -1235,7 +1236,7 @@ class TestRateLimiterErrorHandling:
             }
 
             with patch(
-                "app.api.v1.feedback.feedback_limiter.check",
+                "app.api.v1.feedback._feedback_limiter.check",
                 side_effect=RuntimeError("Rate limiter unavailable"),
             ):
                 response = client.post("/v1/feedback/submit", json=feedback_data)
@@ -1421,3 +1422,23 @@ class TestCreateRateLimiterStorage:
 
             # Verify it's an instance of the abstract class
             assert isinstance(storage, RateLimiterStorage)
+
+
+class TestLazyRateLimiterInitialization:
+    """Tests for lazy initialization of the feedback rate limiter."""
+
+    def test_get_feedback_limiter_returns_rate_limiter(self):
+        """Test that _get_feedback_limiter returns a RateLimiter instance."""
+        from app.api.v1.feedback import _get_feedback_limiter
+        from app.ratelimit.limiter import RateLimiter
+
+        limiter = _get_feedback_limiter()
+        assert isinstance(limiter, RateLimiter)
+
+    def test_get_feedback_limiter_returns_same_instance(self):
+        """Test that repeated calls return the same cached instance."""
+        from app.api.v1.feedback import _get_feedback_limiter
+
+        limiter1 = _get_feedback_limiter()
+        limiter2 = _get_feedback_limiter()
+        assert limiter1 is limiter2

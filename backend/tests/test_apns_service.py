@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from app.models.models import NotificationType
 from app.services.apns_service import (
     APNsService,
+    DEVICE_TOKEN_PREFIX_LENGTH,
     send_logout_all_notification,
     send_test_reminder_notification,
 )
@@ -482,7 +483,6 @@ class TestSendTestReminderNotification:
     ):
         """Test that send_test_reminder_notification logs exceptions with logger.exception when connect fails."""
         mock_apns_setup["apns_class"].side_effect = Exception("Connection failed")
-        mock_apns_setup["apns_class"].return_value = None
 
         with patch("app.services.apns_service.logger") as mock_logger:
             result = await send_test_reminder_notification(
@@ -543,7 +543,6 @@ class TestSendLogoutAllNotification:
     ):
         """Test that send_logout_all_notification logs exceptions with logger.exception when connect fails."""
         mock_apns_setup["apns_class"].side_effect = Exception("Connection failed")
-        mock_apns_setup["apns_class"].return_value = None
 
         with patch("app.services.apns_service.logger") as mock_logger:
             result = await send_logout_all_notification(
@@ -554,3 +553,95 @@ class TestSendLogoutAllNotification:
             mock_logger.exception.assert_called_once_with(
                 "Failed to send logout-all notification (user_id=42, device_token_prefix=test_token_1)"
             )
+
+
+class TestDeviceTokenEdgeCases:
+    """Tests for edge cases in device token handling within notification functions."""
+
+    @pytest.mark.asyncio
+    async def test_send_notification_empty_token(self):
+        """Test send_notification with an empty string token."""
+        service = APNsService()
+        mock_client = AsyncMock()
+        mock_client.send_notification.side_effect = Exception("BadDeviceToken")
+        service._client = mock_client
+
+        result = await service.send_notification(
+            device_token="", title="Test", body="Test"
+        )
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_notification_none_token_prefix(self):
+        """Test that token_prefix is None when device_token is empty."""
+        service = APNsService()
+        mock_client = AsyncMock()
+        service._client = mock_client
+
+        with patch("app.services.apns_service.logger") as mock_logger:
+            await service.send_notification(device_token="", title="Test", body="Test")
+            # Verify logging used None prefix for empty token
+            log_msg = str(mock_logger.info.call_args)
+            assert "None" in log_msg
+
+    @pytest.mark.asyncio
+    async def test_send_notification_short_token(self):
+        """Test send_notification with a token shorter than prefix length."""
+        service = APNsService()
+        mock_client = AsyncMock()
+        service._client = mock_client
+
+        short_token = "abc"
+        assert len(short_token) < DEVICE_TOKEN_PREFIX_LENGTH
+
+        result = await service.send_notification(
+            device_token=short_token, title="Test", body="Test"
+        )
+
+        assert result is True
+        # Verify the token was passed through to the notification request
+        call_args = mock_client.send_notification.call_args
+        request = call_args[0][0]
+        assert request.device_token == short_token
+
+    @pytest.mark.asyncio
+    async def test_send_test_reminder_empty_token(self, mock_apns_setup):
+        """Test send_test_reminder_notification with empty token produces correct log prefix."""
+        mock_apns_setup["apns_instance"].send_notification.side_effect = Exception(
+            "BadDeviceToken"
+        )
+
+        with patch("app.services.apns_service.logger"):
+            result = await send_test_reminder_notification(device_token="")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_logout_all_empty_token(self, mock_apns_setup):
+        """Test send_logout_all_notification with empty token handles gracefully."""
+        mock_apns_setup["apns_instance"].send_notification.side_effect = Exception(
+            "BadDeviceToken"
+        )
+
+        with patch("app.services.apns_service.logger"):
+            result = await send_logout_all_notification(device_token="", user_id=1)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_batch_skips_when_not_connected(self):
+        """Test batch send returns correct failure count when not connected."""
+        service = APNsService()
+        # Explicitly ensure no client
+        service._client = None
+
+        notifications = [
+            {"device_token": "", "title": "T", "body": "B"},
+            {"device_token": "valid_token", "title": "T", "body": "B"},
+        ]
+
+        result = await service.send_batch_notifications(notifications)
+
+        assert result["success"] == 0
+        assert result["failed"] == 2
