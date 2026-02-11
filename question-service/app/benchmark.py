@@ -300,6 +300,23 @@ async def create_generator_for_provider(provider_name: str) -> QuestionGenerator
         raise ValueError(f"Unknown provider: {provider_name}")
 
 
+def _print_provider_summary(provider: str, result: "BenchmarkResult") -> None:
+    """Print a formatted benchmark summary for a single provider.
+
+    Args:
+        provider: Provider name
+        result: BenchmarkResult with metrics
+    """
+    summary = result.get_summary()
+    print(f"\nResults for {provider}:", file=sys.stderr)
+    print(f"  Generated: {summary['questions_generated']}", file=sys.stderr)
+    print(f"  Failed: {summary['questions_failed']}", file=sys.stderr)
+    print(f"  Avg Latency: {summary['avg_latency_ms']}ms", file=sys.stderr)
+    print(f"  P95 Latency: {summary['p95_latency_ms']}ms", file=sys.stderr)
+    print(f"  Total Tokens: {summary['total_tokens']:,}", file=sys.stderr)
+    print(f"  Estimated Cost: ${summary['estimated_cost']:.4f}", file=sys.stderr)
+
+
 async def run_benchmarks(
     providers: List[str],
     num_questions: int,
@@ -340,6 +357,12 @@ async def run_benchmarks(
             BENCHMARK_TIMEOUT_SECONDS * num_questions * PARALLEL_TIMEOUT_MULTIPLIER
         )
 
+        print(
+            f"Starting {len(providers)} provider benchmarks concurrently "
+            f"({num_questions} questions each)...",
+            file=sys.stderr,
+        )
+
         # Run all provider benchmarks concurrently with overall timeout
         benchmark_tasks = [
             benchmark_provider(
@@ -362,6 +385,7 @@ async def run_benchmarks(
             return results
 
         # Process results
+        completed_count = 0
         for provider, benchmark_result in zip(providers, benchmark_results):
             if isinstance(benchmark_result, BaseException):
                 logger.exception(
@@ -373,20 +397,16 @@ async def run_benchmarks(
                 results[provider] = failed_result
             else:
                 results[provider] = benchmark_result
+                completed_count += 1
+
+        print(
+            f"Parallel benchmarks complete: {completed_count}/{len(providers)} succeeded",
+            file=sys.stderr,
+        )
 
         # Print all summaries after parallel execution completes
         for provider in providers:
-            result = results[provider]
-            summary = result.get_summary()
-            print(f"\nResults for {provider}:", file=sys.stderr)
-            print(f"  Generated: {summary['questions_generated']}", file=sys.stderr)
-            print(f"  Failed: {summary['questions_failed']}", file=sys.stderr)
-            print(f"  Avg Latency: {summary['avg_latency_ms']}ms", file=sys.stderr)
-            print(f"  P95 Latency: {summary['p95_latency_ms']}ms", file=sys.stderr)
-            print(f"  Total Tokens: {summary['total_tokens']:,}", file=sys.stderr)
-            print(
-                f"  Estimated Cost: ${summary['estimated_cost']:.4f}", file=sys.stderr
-            )
+            _print_provider_summary(provider, results[provider])
     else:
         # Sequential execution (original behavior)
         for provider in providers:
@@ -397,17 +417,7 @@ async def run_benchmarks(
             result = await benchmark_provider(provider, num_questions, dry_run=dry_run)
             results[provider] = result
 
-            # Print summary
-            summary = result.get_summary()
-            print(f"\nResults for {provider}:", file=sys.stderr)
-            print(f"  Generated: {summary['questions_generated']}", file=sys.stderr)
-            print(f"  Failed: {summary['questions_failed']}", file=sys.stderr)
-            print(f"  Avg Latency: {summary['avg_latency_ms']}ms", file=sys.stderr)
-            print(f"  P95 Latency: {summary['p95_latency_ms']}ms", file=sys.stderr)
-            print(f"  Total Tokens: {summary['total_tokens']:,}", file=sys.stderr)
-            print(
-                f"  Estimated Cost: ${summary['estimated_cost']:.4f}", file=sys.stderr
-            )
+            _print_provider_summary(provider, result)
 
     return results
 
@@ -512,7 +522,10 @@ Examples:
     parser.add_argument(
         "--parallel",
         action="store_true",
-        help="Run provider benchmarks in parallel (reduces total time but may affect accuracy due to resource contention)",
+        help="Run all provider benchmarks concurrently instead of one at a time. "
+        "Reduces total wall-clock time but latency measurements may be higher "
+        "due to shared CPU/network resources. Best for cost comparisons; "
+        "use sequential mode for accurate latency baselines.",
     )
 
     # Logging

@@ -947,6 +947,57 @@ class TestSpecialistRoutingMetrics:
         assert decisions_list[-1]["question_type"] == "type_999"
 
 
+class TestConcurrentStageTimingMetrics:
+    """Tests for concurrent async stage timing in MetricsTracker."""
+
+    @pytest.fixture
+    def tracker(self):
+        """Create a fresh metrics tracker for each test."""
+        tracker = MetricsTracker()
+        tracker.reset()
+        return tracker
+
+    @pytest.mark.asyncio
+    async def test_sequential_async_stage_timing(self, tracker):
+        """Test that async tasks timing stages sequentially works correctly."""
+        import asyncio
+
+        async def run_generation():
+            with tracker.time_stage("generation"):
+                await asyncio.sleep(0.03)
+
+        async def run_evaluation():
+            with tracker.time_stage("evaluation"):
+                await asyncio.sleep(0.02)
+
+        # Run sequentially (as in the real pipeline)
+        await run_generation()
+        await run_evaluation()
+
+        durations = tracker.get_stage_durations()
+        assert durations["generation"] >= 0.03
+        assert durations["evaluation"] >= 0.02
+
+    @pytest.mark.asyncio
+    async def test_accumulated_stage_timing_across_async_iterations(self, tracker):
+        """Test that stage timings accumulate across multiple async iterations."""
+        import asyncio
+
+        async def process_batch(batch_num: int):
+            with tracker.time_stage("generation"):
+                await asyncio.sleep(0.01)
+            with tracker.time_stage("evaluation"):
+                await asyncio.sleep(0.01)
+
+        # Simulate 3 sequential pipeline batches
+        for i in range(3):
+            await process_batch(i)
+
+        durations = tracker.get_stage_durations()
+        assert durations["generation"] >= 0.03
+        assert durations["evaluation"] >= 0.03
+
+
 class TestAllDequeCollections:
     """Tests for all deque-based collections (TASK-592)."""
 
