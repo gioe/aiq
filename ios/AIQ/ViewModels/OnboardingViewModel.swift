@@ -1,4 +1,5 @@
-import SwiftUI
+import Combine
+import Foundation
 
 /// ViewModel for managing onboarding flow state
 /// Does NOT inherit from BaseViewModel as this is simple navigation state with no API calls
@@ -10,15 +11,27 @@ class OnboardingViewModel: ObservableObject {
     @Published var currentPage: Int = 0
 
     /// Whether onboarding has been completed
-    @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding: Bool = false
+    @Published var hasCompletedOnboarding: Bool = false
 
     /// Whether the user skipped onboarding (used to show info card on dashboard)
-    @AppStorage("didSkipOnboarding") var didSkipOnboarding: Bool = false
+    @Published var didSkipOnboarding: Bool = false
+
+    // MARK: - Private Properties
+
+    private let storage: OnboardingStorageProtocol
 
     // MARK: - Constants
 
     /// Total number of onboarding pages
     private let totalPages = Constants.Onboarding.totalPages
+
+    // MARK: - Initialization
+
+    init(storage: OnboardingStorageProtocol = OnboardingStorage()) {
+        self.storage = storage
+        hasCompletedOnboarding = storage.hasCompletedOnboarding
+        didSkipOnboarding = storage.didSkipOnboarding
+    }
 
     // MARK: - Public Methods
 
@@ -31,12 +44,14 @@ class OnboardingViewModel: ObservableObject {
     /// Skip the onboarding flow and mark as completed
     func skipOnboarding() {
         didSkipOnboarding = true
+        storage.didSkipOnboarding = true
         completeOnboarding()
     }
 
     /// Mark onboarding as completed
     func completeOnboarding() {
         hasCompletedOnboarding = true
+        storage.hasCompletedOnboarding = true
     }
 
     /// Returns true if the current page is the final onboarding page.

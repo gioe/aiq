@@ -1,6 +1,5 @@
 import Combine
 import Foundation
-import SwiftUI
 
 /// Sort order for test history
 enum TestHistorySortOrder: String, CaseIterable, Identifiable {
@@ -47,11 +46,11 @@ class HistoryViewModel: BaseViewModel {
 
     /// Sort order with persistence across app launches.
     /// Defaults to .newestFirst on first launch or if stored value is invalid.
-    @AppStorage("com.aiq.historySortOrder") var sortOrder: TestHistorySortOrder = .newestFirst
+    @Published var sortOrder: TestHistorySortOrder = .newestFirst
 
     /// Date filter with persistence across app launches.
     /// Defaults to .all on first launch or if stored value is invalid.
-    @AppStorage("com.aiq.historyDateFilter") var dateFilter: TestHistoryDateFilter = .all
+    @Published var dateFilter: TestHistoryDateFilter = .all
 
     // MARK: - Pagination State
 
@@ -67,6 +66,7 @@ class HistoryViewModel: BaseViewModel {
     // MARK: - Private Properties
 
     private let apiService: OpenAPIServiceProtocol
+    private let preferencesStorage: HistoryPreferencesStorageProtocol
     private var allTestHistory: [TestResult] = []
     private var cachedInsights: PerformanceInsights?
 
@@ -78,9 +78,13 @@ class HistoryViewModel: BaseViewModel {
 
     // MARK: - Initialization
 
-    init(apiService: OpenAPIServiceProtocol) {
+    init(apiService: OpenAPIServiceProtocol, preferencesStorage: HistoryPreferencesStorageProtocol) {
         self.apiService = apiService
+        self.preferencesStorage = preferencesStorage
         super.init()
+        // Load stored preferences after initialization
+        sortOrder = preferencesStorage.sortOrder
+        dateFilter = preferencesStorage.dateFilter
     }
 
     // MARK: - Public Methods
@@ -223,12 +227,14 @@ class HistoryViewModel: BaseViewModel {
     /// Update sort order and refresh display
     func setSortOrder(_ order: TestHistorySortOrder) {
         sortOrder = order
+        preferencesStorage.sortOrder = order
         applyFiltersAndSort()
     }
 
     /// Update date filter and refresh display
     func setDateFilter(_ filter: TestHistoryDateFilter) {
         dateFilter = filter
+        preferencesStorage.dateFilter = filter
         applyFiltersAndSort()
     }
 

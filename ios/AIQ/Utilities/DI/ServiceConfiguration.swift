@@ -68,6 +68,12 @@ enum ServiceConfiguration {
         let biometricAuthManager = BiometricAuthManager()
         container.register(BiometricAuthManagerProtocol.self, instance: biometricAuthManager)
 
+        let historyPreferencesStorage = HistoryPreferencesStorage()
+        container.register(HistoryPreferencesStorageProtocol.self, instance: historyPreferencesStorage)
+
+        let onboardingStorage = OnboardingStorage()
+        container.register(OnboardingStorageProtocol.self, instance: onboardingStorage)
+
         guard let serverURL = URL(string: AppConfig.apiBaseURL) else {
             fatalError("Invalid API base URL: \(AppConfig.apiBaseURL)")
         }

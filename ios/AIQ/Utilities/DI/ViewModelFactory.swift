@@ -56,7 +56,10 @@ enum ViewModelFactory {
         guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
             fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
         }
-        return HistoryViewModel(apiService: apiService)
+        guard let preferencesStorage = container.resolve(HistoryPreferencesStorageProtocol.self) else {
+            fatalError("HistoryPreferencesStorageProtocol not registered in ServiceContainer")
+        }
+        return HistoryViewModel(apiService: apiService, preferencesStorage: preferencesStorage)
     }
 
     // MARK: - Test Taking
