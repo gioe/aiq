@@ -55,6 +55,21 @@ BOOTSTRAP_N_PROCESSORS = 1  # Use 1 for Railway single-core; increase for multi-
 P_VALUE_CLAMP_MIN = 0.01  # Prevent log(0) in logit transform
 P_VALUE_CLAMP_MAX = 0.99  # Prevent log(0) in logit transform
 
+# --- Convergence diagnostic thresholds ---
+
+# girth's internal discrimination bounds are [0.2, 5.0]; items near
+# the boundary likely hit the optimizer fence rather than converging.
+DISCRIMINATION_LOWER_BOUND = 0.21
+DISCRIMINATION_UPPER_BOUND = 4.99
+
+# Difficulty values beyond ±6 are psychometrically implausible and
+# suggest the MML algorithm may not have converged for those items.
+DIFFICULTY_EXTREME_THRESHOLD = 6.0
+
+# If AIC delta (null - final) is ≤ 0 the model didn't improve over
+# the null, suggesting non-convergence or uninformative data.
+MIN_AIC_IMPROVEMENT = 0.0
+
 # --- Validation fit thresholds ---
 
 GOOD_FIT_CORRELATION = 0.80  # Pearson r indicating strong IRT-CTT agreement
@@ -138,6 +153,74 @@ def _p_to_logit_difficulty(p: float) -> float:
     """
     p_clamped = max(P_VALUE_CLAMP_MIN, min(P_VALUE_CLAMP_MAX, p))
     return -math.log(p_clamped / (1 - p_clamped))
+
+
+def _check_convergence_diagnostics(
+    result: Dict[str, Any],
+    n_items: int,
+    n_users: int,
+) -> None:
+    """Log warnings when girth twopl_mml results suggest convergence issues.
+
+    Checks for:
+    - Non-finite parameter estimates (NaN/Inf)
+    - Discrimination values at optimizer bounds (0.2 or 5.0)
+    - Extreme difficulty values beyond ±6
+    - AIC delta ≤ 0 (model no better than null)
+    """
+    discrimination = result["Discrimination"]
+    difficulty = result["Difficulty"]
+
+    # 1. Non-finite parameters
+    non_finite_a = int(np.count_nonzero(~np.isfinite(discrimination)))
+    non_finite_b = int(np.count_nonzero(~np.isfinite(difficulty)))
+    if non_finite_a or non_finite_b:
+        logger.warning(
+            f"Convergence issue: {non_finite_a} non-finite discrimination and "
+            f"{non_finite_b} non-finite difficulty estimates "
+            f"({n_items} items, {n_users} examinees)"
+        )
+
+    # 2. Discrimination at optimizer bounds (girth uses fminbound 0.2–5.0)
+    finite_a = discrimination[np.isfinite(discrimination)]
+    if finite_a.size:
+        at_lower = int(np.count_nonzero(finite_a <= DISCRIMINATION_LOWER_BOUND))
+        at_upper = int(np.count_nonzero(finite_a >= DISCRIMINATION_UPPER_BOUND))
+        if at_lower or at_upper:
+            logger.warning(
+                f"Convergence issue: {at_lower} items at lower discrimination "
+                f"bound (≤{DISCRIMINATION_LOWER_BOUND}), {at_upper} at upper "
+                f"bound (≥{DISCRIMINATION_UPPER_BOUND}). These items may not "
+                f"have converged."
+            )
+
+    # 3. Extreme difficulty values
+    finite_b = difficulty[np.isfinite(difficulty)]
+    if finite_b.size:
+        extreme_b = int(
+            np.count_nonzero(np.abs(finite_b) > DIFFICULTY_EXTREME_THRESHOLD)
+        )
+        if extreme_b:
+            logger.warning(
+                f"Convergence issue: {extreme_b} items with extreme difficulty "
+                f"(|b| > {DIFFICULTY_EXTREME_THRESHOLD}). These items may have "
+                f"unreliable parameter estimates."
+            )
+
+    # 4. AIC model improvement check
+    aic = result.get("AIC")
+    if aic and aic.get("delta") is not None:
+        delta = float(aic["delta"])
+        if delta <= MIN_AIC_IMPROVEMENT:
+            logger.warning(
+                f"Convergence issue: AIC delta={delta:.2f} (null − final). "
+                f"Model did not improve over null; parameters may be unreliable."
+            )
+        else:
+            logger.info(
+                f"MML convergence diagnostics: AIC delta={delta:.2f}, "
+                f"BIC delta={float(result.get('BIC', {}).get('delta', 0)):.2f}"
+            )
 
 
 def calibrate_questions_2pl(
@@ -265,6 +348,10 @@ def calibrate_questions_2pl(
         result = girth.twopl_mml(filtered_matrix)
         est_discrimination = result["Discrimination"]
         est_difficulty = result["Difficulty"]
+        try:
+            _check_convergence_diagnostics(result, n_filtered, n_users)
+        except Exception as diag_err:
+            logger.warning(f"Convergence diagnostics failed: {diag_err}")
     except Exception as e:
         raise CalibrationError(
             "2PL MML estimation failed",

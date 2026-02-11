@@ -11,6 +11,7 @@ Tests cover:
 """
 
 from datetime import datetime
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -19,6 +20,7 @@ from app.core.cat.calibration import (
     FIT_GOOD,
     FIT_INSUFFICIENT,
     CalibrationError,
+    _check_convergence_diagnostics,
     build_priors_from_ctt,
     calibrate_questions_2pl,
     run_calibration_job,
@@ -299,6 +301,144 @@ class TestCalibrateQuestions2PL:
                     assert np.isfinite(
                         value
                     ), f"Item {qid} {key} is not finite: {value}"
+
+
+class TestConvergenceDiagnostics:
+    """Tests for _check_convergence_diagnostics (TASK-905).
+
+    Uses mock.patch on the logger since the app logger has propagate=False
+    which prevents caplog from capturing records.
+    """
+
+    _LOGGER_PATH = "app.core.cat.calibration.logger"
+
+    @staticmethod
+    def _make_result(discrimination=None, difficulty=None, aic_delta=10.0):
+        """Build a minimal girth-style result dict for testing."""
+        if discrimination is None:
+            discrimination = np.array([1.0, 1.2, 0.8])
+        if difficulty is None:
+            difficulty = np.array([0.0, -0.5, 0.5])
+        return {
+            "Discrimination": np.asarray(discrimination, dtype=float),
+            "Difficulty": np.asarray(difficulty, dtype=float),
+            "AIC": {"final": 100.0, "null": 100.0 + aic_delta, "delta": aic_delta},
+            "BIC": {"final": 100.0, "null": 100.0 + aic_delta, "delta": aic_delta},
+        }
+
+    @staticmethod
+    def _warning_messages(mock_logger):
+        """Extract all warning message strings from a mock logger."""
+        return [
+            call.args[0] % call.args[1:] if len(call.args) > 1 else call.args[0]
+            for call in mock_logger.warning.call_args_list
+        ]
+
+    @staticmethod
+    def _info_messages(mock_logger):
+        """Extract all info message strings from a mock logger."""
+        return [
+            call.args[0] % call.args[1:] if len(call.args) > 1 else call.args[0]
+            for call in mock_logger.info.call_args_list
+        ]
+
+    def test_clean_result_no_warnings(self):
+        """Well-behaved parameters should produce no warnings."""
+        result = self._make_result()
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            assert mock_logger.warning.call_count == 0
+
+    def test_non_finite_discrimination_warns(self):
+        """Non-finite discrimination (NaN) should trigger a warning."""
+        result = self._make_result(discrimination=[1.0, np.nan, 0.8])
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            warnings = self._warning_messages(mock_logger)
+            assert any("non-finite" in w for w in warnings)
+
+    def test_non_finite_difficulty_warns(self):
+        """Inf difficulty values should trigger a warning."""
+        result = self._make_result(difficulty=[0.0, np.inf, -0.5])
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            warnings = self._warning_messages(mock_logger)
+            assert any("non-finite" in w for w in warnings)
+
+    def test_discrimination_at_lower_bound_warns(self):
+        """Discrimination at girth's lower optimizer bound should warn."""
+        result = self._make_result(discrimination=[0.20, 1.0, 1.2])
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            warnings = self._warning_messages(mock_logger)
+            assert any("lower discrimination bound" in w for w in warnings)
+
+    def test_discrimination_at_upper_bound_warns(self):
+        """Discrimination at girth's upper optimizer bound should warn."""
+        result = self._make_result(discrimination=[1.0, 5.0, 1.2])
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            warnings = self._warning_messages(mock_logger)
+            assert any("upper bound" in w for w in warnings)
+
+    def test_extreme_difficulty_warns(self):
+        """Difficulty beyond ±6 should trigger a warning."""
+        result = self._make_result(difficulty=[0.0, 7.0, -0.5])
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            warnings = self._warning_messages(mock_logger)
+            assert any("extreme difficulty" in w for w in warnings)
+
+    def test_negative_aic_delta_warns(self):
+        """AIC delta ≤ 0 (no model improvement) should warn."""
+        result = self._make_result(aic_delta=-2.0)
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            warnings = self._warning_messages(mock_logger)
+            assert any("AIC delta" in w for w in warnings)
+
+    def test_zero_aic_delta_warns(self):
+        """AIC delta exactly 0 should warn."""
+        result = self._make_result(aic_delta=0.0)
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            warnings = self._warning_messages(mock_logger)
+            assert any("AIC delta" in w for w in warnings)
+
+    def test_positive_aic_delta_logs_info(self):
+        """Positive AIC delta should log info-level diagnostics."""
+        result = self._make_result(aic_delta=15.0)
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            info_msgs = self._info_messages(mock_logger)
+            assert any("AIC delta=15.00" in m for m in info_msgs)
+
+    def test_multiple_issues_all_logged(self):
+        """Multiple convergence issues should each produce a warning."""
+        result = self._make_result(
+            discrimination=[0.20, 5.0, np.nan],
+            difficulty=[7.0, np.inf, -0.5],
+            aic_delta=-1.0,
+        )
+        with patch(self._LOGGER_PATH) as mock_logger:
+            _check_convergence_diagnostics(result, n_items=3, n_users=100)
+            warnings = self._warning_messages(mock_logger)
+            assert any("non-finite" in w for w in warnings)
+            assert any(
+                "lower discrimination bound" in w or "upper bound" in w
+                for w in warnings
+            )
+            assert any("extreme difficulty" in w for w in warnings)
+            assert any("AIC delta" in w for w in warnings)
+
+    def test_missing_aic_key_no_error(self):
+        """Result without AIC key should not raise."""
+        result = {
+            "Discrimination": np.array([1.0, 1.2]),
+            "Difficulty": np.array([0.0, -0.5]),
+        }
+        with patch(self._LOGGER_PATH):
+            _check_convergence_diagnostics(result, n_items=2, n_users=50)
 
 
 class TestBuildPriorsFromCTT:
