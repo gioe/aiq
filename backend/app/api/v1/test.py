@@ -961,7 +961,7 @@ def submit_adaptive_response(
             "(session_id=%s, question_id=%s): %s",
             test_session.id,
             request.question_id,
-            e,
+            type(e).__name__,
         )
         raise_conflict(ErrorMessages.duplicate_response(request.question_id))
 
@@ -1860,7 +1860,7 @@ def submit_test(
             "(session_id=%s, user_id=%s): %s",
             test_session.id,
             user_id,
-            e,
+            type(e).__name__,
         )
         # If we hit a duplicate response in batch submission, return 409
         # The error message won't specify which question, but this is a rare edge case
