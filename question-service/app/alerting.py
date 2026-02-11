@@ -6,6 +6,7 @@ low inventory alerts for question strata.
 """
 
 import logging
+import re
 import smtplib
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 
 from .error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity
+
+# Basic email format validation pattern (RFC 5322 simplified)
+_EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +82,23 @@ class AlertManager:
                     "Email alerts will not be sent."
                 )
                 self.email_enabled = False
+            else:
+                # Validate email formats
+                if from_email and not _EMAIL_PATTERN.match(from_email):
+                    logger.warning(
+                        f"Invalid from_email format: {from_email}. "
+                        "Email alerts will not be sent."
+                    )
+                    self.email_enabled = False
+                invalid_recipients = [
+                    e for e in self.to_emails if not _EMAIL_PATTERN.match(e)
+                ]
+                if invalid_recipients:
+                    logger.warning(
+                        f"Invalid recipient email format(s): {invalid_recipients}. "
+                        "Email alerts will not be sent."
+                    )
+                    self.email_enabled = False
 
         logger.info(
             f"AlertManager initialized: email_enabled={self.email_enabled}, "

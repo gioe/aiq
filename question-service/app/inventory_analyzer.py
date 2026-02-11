@@ -181,7 +181,7 @@ class InventoryAnalyzer:
         session = self.db.get_session()
         try:
             # Query database for active question counts grouped by type and difficulty
-            # Only count active questions with normal quality flag
+            # Only count questions where is_active == True (deactivated questions are excluded)
             stratum_counts = (
                 session.query(
                     QuestionModel.question_type,

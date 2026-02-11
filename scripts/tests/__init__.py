@@ -1,1 +1,1 @@
-# Tests for scripts utilities
+"""Tests for scripts in the scripts/ directory."""

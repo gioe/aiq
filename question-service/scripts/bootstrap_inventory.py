@@ -38,6 +38,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import random
 import re
 import sys
@@ -596,6 +597,11 @@ class ProgressReporter:
 class EventLogger:
     """Structured event logger for monitoring integration."""
 
+    # Check file size every N writes instead of on every write to reduce
+    # syscall overhead. A typical JSONL event is ~200 bytes, so 100 writes
+    # is ~20KB — well within the 10MB rotation threshold.
+    _ROTATION_CHECK_INTERVAL = 100
+
     def __init__(self, log_dir: Path):
         """Initialize the event logger.
 
@@ -605,15 +611,24 @@ class EventLogger:
         self.log_dir = log_dir
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.events_file = self.log_dir / "bootstrap_events.jsonl"
+        self._write_count = 0
 
     def _rotate_if_needed(self) -> None:
-        """Rotate the event log file if it exceeds the size limit."""
+        """Rotate the event log file if it exceeds the size limit.
+
+        Only performs the stat() syscall every _ROTATION_CHECK_INTERVAL writes
+        to avoid per-write overhead.
+        """
+        self._write_count += 1
+        if self._write_count % self._ROTATION_CHECK_INTERVAL != 0:
+            return
         if (
             self.events_file.exists()
             and self.events_file.stat().st_size > MAX_EVENT_FILE_SIZE_BYTES
         ):
             rotated_file = self.log_dir / f"bootstrap_events_{int(time.time())}.jsonl"
             self.events_file.rename(rotated_file)
+            self._write_count = 0
 
     def log_event(
         self,
@@ -628,7 +643,7 @@ class EventLogger:
             status: Status of the event (e.g., "started", "success", "failed")
             **kwargs: Additional fields to include in the event
         """
-        # Rotate log file if it exceeds size limit
+        # Rotate log file if it exceeds size limit (checked periodically)
         self._rotate_if_needed()
 
         event = {
@@ -653,8 +668,8 @@ class BootstrapAlerter:
     CRITICAL_FAILURE_THRESHOLD (3 types).
     """
 
-    # Sentinel file path for external monitoring
-    FAILURE_FLAG_PATH = "logs/bootstrap_failure.flag"
+    # Default sentinel file name for external monitoring
+    DEFAULT_FAILURE_FLAG_FILENAME = "bootstrap_failure.flag"
 
     def __init__(
         self,
@@ -662,6 +677,7 @@ class BootstrapAlerter:
         event_logger: EventLogger,
         logger: logging.Logger,
         log_dir: Path,
+        failure_flag_path: Optional[str] = None,
     ):
         """Initialize the bootstrap alerter.
 
@@ -670,12 +686,32 @@ class BootstrapAlerter:
             event_logger: Event logger for structured logging
             logger: Python logger for console/file logging
             log_dir: Directory for log files
+            failure_flag_path: Custom path for the sentinel file. If not provided,
+                falls back to BOOTSTRAP_FAILURE_FLAG_PATH env var, then to
+                log_dir/bootstrap_failure.flag.
         """
         self.alert_manager = alert_manager
         self.event_logger = event_logger
         self.logger = logger
         self.log_dir = log_dir
         self._alert_sent = False
+        self._failure_flag_path = self._resolve_failure_flag_path(failure_flag_path)
+
+    def _resolve_failure_flag_path(self, explicit_path: Optional[str]) -> Path:
+        """Resolve the sentinel file path from explicit arg, env var, or default.
+
+        Args:
+            explicit_path: Explicitly provided path (highest priority)
+
+        Returns:
+            Resolved Path for the sentinel file
+        """
+        if explicit_path:
+            return Path(explicit_path)
+        env_path = os.environ.get("BOOTSTRAP_FAILURE_FLAG_PATH")
+        if env_path:
+            return Path(env_path)
+        return self.log_dir / self.DEFAULT_FAILURE_FLAG_FILENAME
 
     def check_and_alert(self, results: List["TypeResult"]) -> bool:
         """Check results and send alert if critical failure threshold is met.
@@ -830,7 +866,7 @@ class BootstrapAlerter:
             error_details: First error message for context
         """
         try:
-            flag_path = self.log_dir / "bootstrap_failure.flag"
+            flag_path = self._failure_flag_path
             flag_path.parent.mkdir(parents=True, exist_ok=True)
 
             timestamp = datetime.now(timezone.utc).isoformat()
@@ -1640,7 +1676,10 @@ class BootstrapInventory:
         """Process a single question type with semaphore-based rate limiting.
 
         This wrapper acquires the semaphore before processing to limit
-        concurrent type generations.
+        concurrent type generations. The semaphore acts as a bounded counter:
+        at most ``max_parallel`` coroutines can hold it simultaneously. When
+        all slots are taken, additional coroutines suspend at ``async with``
+        until a slot is released, preventing API rate-limit exhaustion.
 
         Args:
             question_type: Question type to process
@@ -1650,6 +1689,10 @@ class BootstrapInventory:
         Returns:
             TypeResult with generation results
         """
+        # The ``async with`` acquires the semaphore (decrementing its internal
+        # counter). If the counter is already 0, this coroutine suspends here
+        # until another coroutine exits its ``async with`` block and releases
+        # the semaphore. This ensures at most max_parallel types run at once.
         async with semaphore:
             self.progress.type_start(
                 type_index,
@@ -1868,22 +1911,36 @@ class BootstrapInventory:
     async def _process_types_parallel(self) -> List[TypeResult]:
         """Process all types in parallel with semaphore-based rate limiting.
 
-        Creates tasks for all types and uses asyncio.gather with
-        return_exceptions=True to handle partial failures gracefully.
+        Concurrency model:
+            All question types are submitted as concurrent coroutines via
+            ``asyncio.gather``, but a shared ``asyncio.Semaphore`` limits how
+            many run simultaneously (controlled by ``config.max_parallel``).
+
+            ``asyncio.gather(*tasks, return_exceptions=True)`` schedules all
+            coroutines on the event loop at once. When a coroutine raises an
+            exception, ``return_exceptions=True`` captures it as a value in
+            the results list instead of propagating it — this means one type
+            failing does not cancel other types. The results list preserves
+            input order, so ``results[i]`` corresponds to ``config.types[i]``.
 
         Returns:
             List of TypeResult objects (one per type)
         """
-        # Create semaphore to limit concurrency
+        # Semaphore(max_parallel) allows at most max_parallel coroutines to
+        # proceed past ``async with semaphore`` at the same time. The rest
+        # suspend until a slot is freed. This prevents overwhelming LLM APIs.
         semaphore = asyncio.Semaphore(self.config.max_parallel)
 
-        # Create tasks for all types
+        # Create coroutine objects for all types. These are not yet running;
+        # they begin executing when passed to asyncio.gather below.
         tasks = []
         for i, question_type in enumerate(self.config.types, 1):
             task = self._process_type_with_semaphore(question_type, semaphore, i)
             tasks.append(task)
 
-        # Execute all tasks concurrently with exception handling
+        # gather() runs all coroutines concurrently on the event loop.
+        # return_exceptions=True: exceptions become result values rather than
+        # propagating, ensuring partial failures don't cancel other types.
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Process results and handle exceptions
