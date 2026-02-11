@@ -107,7 +107,7 @@ repos:
     hooks:
       - id: check-float-comparisons
         name: check-float-comparisons
-        entry: python scripts/check_float_comparisons.py
+        entry: python .pre-commit-hooks/check_float_comparisons.py
         language: python
         files: ^(backend|question-service)/.*test_.*\.py$
         types: [python]
@@ -117,7 +117,7 @@ repos:
     hooks:
       - id: check-magic-numbers
         name: check-magic-numbers
-        entry: python scripts/check_magic_numbers.py
+        entry: python .pre-commit-hooks/check_magic_numbers.py
         language: python
         files: ^(backend|question-service)/app/.*\.py$
         exclude: ^.*/test_.*\.py$

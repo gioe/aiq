@@ -16,7 +16,7 @@ Examples of acceptable patterns:
     assert flag is True                      # OK - not a numeric comparison
 
 Usage:
-    python scripts/check_float_comparisons.py [files...]
+    python .pre-commit-hooks/check_float_comparisons.py [files...]
 
     If no files are provided, checks all test_*.py files in the repository.
 """
