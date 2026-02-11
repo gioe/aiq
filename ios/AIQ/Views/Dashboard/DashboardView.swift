@@ -68,6 +68,11 @@ struct DashboardView: View {
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingContainerView()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentView)) { _ in
+            Task {
+                await viewModel.refreshDashboard()
+            }
+        }
     }
 
     // MARK: - Dashboard Content

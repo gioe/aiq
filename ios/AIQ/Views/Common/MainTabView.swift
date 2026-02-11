@@ -253,13 +253,15 @@ struct MainTabView: View {
 
             // Action shortcuts
             Button("Start New Test") {
-                // Switch to dashboard and push test taking route
+                // Switch to dashboard first, then push test route after
+                // a brief delay to ensure the tab switch completes
                 selectedTab = .dashboard
-                // Determine test type based on Constants.Features.adaptiveTesting
-                if Constants.Features.adaptiveTesting {
-                    router.push(.adaptiveTestTaking, in: .dashboard)
-                } else {
-                    router.push(.testTaking(), in: .dashboard)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    if Constants.Features.adaptiveTesting {
+                        router.push(.adaptiveTestTaking, in: .dashboard)
+                    } else {
+                        router.push(.testTaking(), in: .dashboard)
+                    }
                 }
             }
             .keyboardShortcut("n", modifiers: .command)
