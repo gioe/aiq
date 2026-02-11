@@ -28,6 +28,11 @@ from openai import OpenAI
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
+from .embedding_utils import (
+    DEFAULT_EMBEDDING_MODEL as EMBEDDING_MODEL,
+    generate_embedding_safe,
+    generate_embeddings_batch,
+)
 from .models import EvaluatedQuestion, GeneratedQuestion
 
 # Import observability facade for distributed tracing
@@ -44,10 +49,6 @@ logger = logging.getLogger(__name__)
 # - 2.0: Enhanced prompts with IQ testing context and examples
 # - 2.1: Added stimulus field for memory questions (TASK-732-736)
 PROMPT_VERSION = "2.1"
-
-# Embedding configuration (TASK-433)
-EMBEDDING_MODEL = "text-embedding-3-small"  # OpenAI model for generating embeddings
-EMBEDDING_DIMENSION = 1536  # Dimension of text-embedding-3-small embeddings
 
 
 class Base(DeclarativeBase):
@@ -172,9 +173,7 @@ class DatabaseService:
     def _generate_embedding(self, text: str) -> Optional[List[float]]:
         """Generate embedding vector for text using OpenAI API.
 
-        This method computes a semantic embedding for the given text using
-        the text-embedding-3-small model. Embeddings are used for efficient
-        semantic similarity comparison during deduplication.
+        Delegates to the shared ``generate_embedding_safe`` utility.
 
         Args:
             text: Text to generate embedding for (typically question_text)
@@ -182,36 +181,8 @@ class DatabaseService:
         Returns:
             List of 1536 floats representing the embedding, or None if
             OpenAI client is not configured or API call fails.
-
-        Note:
-            - Returns None gracefully on failure to allow question insertion
-              to proceed without embeddings (can be backfilled later)
-            - Logs errors at DEBUG level to avoid cluttering logs with
-              expected failures (e.g., missing API key in dev environments)
         """
-        if not self.openai_client:
-            logger.debug("Skipping embedding generation - OpenAI client not configured")
-            return None
-
-        try:
-            response = self.openai_client.embeddings.create(
-                input=text,
-                model=EMBEDDING_MODEL,
-            )
-            embedding = response.data[0].embedding
-
-            # Validate embedding dimension
-            if len(embedding) != EMBEDDING_DIMENSION:
-                logger.warning(
-                    f"Expected {EMBEDDING_DIMENSION} dimensions, got {len(embedding)}"
-                )
-
-            logger.debug(f"Generated embedding for text: {text[:50]}...")
-            return embedding
-
-        except Exception as e:
-            logger.debug(f"Failed to generate embedding: {str(e)}")
-            return None
+        return generate_embedding_safe(self.openai_client, text, EMBEDDING_MODEL)
 
     def insert_question(
         self,
@@ -387,14 +358,24 @@ class DatabaseService:
             embeddings_computed = 0
 
             try:
-                # Note: No mapping needed - QuestionType enum values now match backend directly
+                # Generate embeddings in a single batch API call for efficiency
+                embeddings: List[Optional[List[float]]] = [None] * len(questions)
+                if self.openai_client:
+                    try:
+                        texts = [q.question_text for q in questions]
+                        batch_results = generate_embeddings_batch(
+                            self.openai_client, texts, EMBEDDING_MODEL
+                        )
+                        for i, emb in enumerate(batch_results):
+                            embeddings[i] = emb.tolist()
+                            embeddings_computed += 1
+                    except Exception as e:
+                        logger.debug(
+                            f"Batch embedding generation failed, proceeding without: {e}"
+                        )
+
                 for i, question in enumerate(questions):
                     judge_score = judge_scores[i] if judge_scores else None
-
-                    # Generate embedding for each question (TASK-433)
-                    embedding = self._generate_embedding(question.question_text)
-                    if embedding:
-                        embeddings_computed += 1
 
                     db_question = QuestionModel(
                         question_text=question.question_text,
@@ -411,7 +392,7 @@ class DatabaseService:
                         judge_score=judge_score,
                         prompt_version=PROMPT_VERSION,
                         is_active=True,
-                        question_embedding=embedding,  # TASK-433: Store pre-computed embedding
+                        question_embedding=embeddings[i],
                     )
 
                     session.add(db_question)

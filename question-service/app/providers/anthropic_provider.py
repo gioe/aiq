@@ -8,6 +8,7 @@ import anthropic
 from anthropic import Anthropic, AsyncAnthropic
 
 from ..cost_tracking import CompletionResult, TokenUsage
+from ..text_utils import strip_markdown_code_blocks as _strip_markdown_code_blocks
 from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
@@ -148,15 +149,7 @@ class AnthropicProvider(BaseLLMProvider):
                     content = response.content[0].text
                     logger.debug(f"Anthropic API response content: {content[:500]}")
 
-                    # Strip markdown code fences if present
-                    content = content.strip()
-                    if content.startswith("```json"):
-                        content = content[7:]  # Remove ```json
-                    elif content.startswith("```"):
-                        content = content[3:]  # Remove ```
-                    if content.endswith("```"):
-                        content = content[:-3]  # Remove trailing ```
-                    content = content.strip()
+                    content = _strip_markdown_code_blocks(content)
 
                     return json.loads(content)
 
@@ -287,15 +280,7 @@ class AnthropicProvider(BaseLLMProvider):
                         f"Anthropic API async response content: {content[:500]}"
                     )
 
-                    # Strip markdown code fences if present
-                    content = content.strip()
-                    if content.startswith("```json"):
-                        content = content[7:]  # Remove ```json
-                    elif content.startswith("```"):
-                        content = content[3:]  # Remove ```
-                    if content.endswith("```"):
-                        content = content[:-3]  # Remove trailing ```
-                    content = content.strip()
+                    content = _strip_markdown_code_blocks(content)
 
                     return json.loads(content)
 
@@ -412,15 +397,7 @@ class AnthropicProvider(BaseLLMProvider):
                     raw_content = response.content[0].text
                     logger.debug(f"Anthropic API response content: {raw_content[:500]}")
 
-                    # Strip markdown code fences if present
-                    raw_content = raw_content.strip()
-                    if raw_content.startswith("```json"):
-                        raw_content = raw_content[7:]  # Remove ```json
-                    elif raw_content.startswith("```"):
-                        raw_content = raw_content[3:]  # Remove ```
-                    if raw_content.endswith("```"):
-                        raw_content = raw_content[:-3]  # Remove trailing ```
-                    raw_content = raw_content.strip()
+                    raw_content = _strip_markdown_code_blocks(raw_content)
 
                     content = json.loads(raw_content)
                 else:
@@ -550,15 +527,7 @@ class AnthropicProvider(BaseLLMProvider):
                         f"Anthropic API async response content: {raw_content[:500]}"
                     )
 
-                    # Strip markdown code fences if present
-                    raw_content = raw_content.strip()
-                    if raw_content.startswith("```json"):
-                        raw_content = raw_content[7:]  # Remove ```json
-                    elif raw_content.startswith("```"):
-                        raw_content = raw_content[3:]  # Remove ```
-                    if raw_content.endswith("```"):
-                        raw_content = raw_content[:-3]  # Remove trailing ```
-                    raw_content = raw_content.strip()
+                    raw_content = _strip_markdown_code_blocks(raw_content)
 
                     content = json.loads(raw_content)
                 else:

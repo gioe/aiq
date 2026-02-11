@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 from openai import AsyncOpenAI, OpenAI
 
 from ..cost_tracking import CompletionResult, TokenUsage
+from ..text_utils import strip_markdown_code_blocks as _strip_markdown_code_blocks
 from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
@@ -142,15 +143,7 @@ class XAIProvider(BaseLLMProvider):
                 content = response.choices[0].message.content
                 logger.debug(f"xAI API response content: {content[:500]}")
 
-                # Strip markdown code fences if present (defensive)
-                content = content.strip()
-                if content.startswith("```json"):
-                    content = content[7:]
-                elif content.startswith("```"):
-                    content = content[3:]
-                if content.endswith("```"):
-                    content = content[:-3]
-                content = content.strip()
+                content = _strip_markdown_code_blocks(content)
 
                 return json.loads(content)
 
@@ -275,15 +268,7 @@ class XAIProvider(BaseLLMProvider):
                 content = response.choices[0].message.content
                 logger.debug(f"xAI API async response content: {content[:500]}")
 
-                # Strip markdown code fences if present (defensive)
-                content = content.strip()
-                if content.startswith("```json"):
-                    content = content[7:]
-                elif content.startswith("```"):
-                    content = content[3:]
-                if content.endswith("```"):
-                    content = content[:-3]
-                content = content.strip()
+                content = _strip_markdown_code_blocks(content)
 
                 return json.loads(content)
 
@@ -401,15 +386,7 @@ class XAIProvider(BaseLLMProvider):
                 content_str = response.choices[0].message.content or "{}"
                 logger.debug(f"xAI API response content: {content_str[:500]}")
 
-                # Strip markdown code fences if present (defensive)
-                content_str = content_str.strip()
-                if content_str.startswith("```json"):
-                    content_str = content_str[7:]
-                elif content_str.startswith("```"):
-                    content_str = content_str[3:]
-                if content_str.endswith("```"):
-                    content_str = content_str[:-3]
-                content_str = content_str.strip()
+                content_str = _strip_markdown_code_blocks(content_str)
 
                 content = json.loads(content_str)
 
@@ -537,15 +514,7 @@ class XAIProvider(BaseLLMProvider):
                 content_str = response.choices[0].message.content or "{}"
                 logger.debug(f"xAI API async response content: {content_str[:500]}")
 
-                # Strip markdown code fences if present (defensive)
-                content_str = content_str.strip()
-                if content_str.startswith("```json"):
-                    content_str = content_str[7:]
-                elif content_str.startswith("```"):
-                    content_str = content_str[3:]
-                if content_str.endswith("```"):
-                    content_str = content_str[:-3]
-                content_str = content_str.strip()
+                content_str = _strip_markdown_code_blocks(content_str)
 
                 content = json.loads(content_str)
 

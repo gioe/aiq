@@ -19,10 +19,11 @@ Transitions:
 import logging
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Deque, Dict, List, Optional, TypeVar
 
 from .config import settings
 
@@ -95,6 +96,9 @@ class CircuitBreakerConfig:
         )
 
 
+MAX_STATE_CHANGES_HISTORY = 50
+
+
 @dataclass
 class CircuitBreakerStats:
     """Statistics for a circuit breaker instance."""
@@ -106,7 +110,9 @@ class CircuitBreakerStats:
     total_calls: int = 0
     total_failures: int = 0
     total_successes: int = 0
-    state_changes: List[Dict[str, Any]] = field(default_factory=list)
+    state_changes: Deque[Dict[str, Any]] = field(
+        default_factory=lambda: deque(maxlen=MAX_STATE_CHANGES_HISTORY)
+    )
     last_failure_time: Optional[float] = None
     last_state_change_time: Optional[float] = None
     recent_calls: List[bool] = field(default_factory=list)
@@ -184,7 +190,7 @@ class CircuitBreakerStats:
             "total_successes": self.total_successes,
             "error_rate": self.get_error_rate(),
             "state_changes_count": len(self.state_changes),
-            "recent_state_changes": self.state_changes[-5:],
+            "recent_state_changes": list(self.state_changes)[-5:],
         }
 
 
@@ -263,15 +269,20 @@ class CircuitBreaker:
         """Check and perform state transitions based on current conditions.
 
         Must be called while holding the lock.
+
+        Only OPEN state requires a timed transition check. CLOSED and HALF_OPEN
+        states transition based on call outcomes recorded in record_success/record_failure.
         """
-        if self._stats.state == CircuitState.OPEN:
-            if self._stats.last_failure_time is not None:
-                elapsed = time.time() - self._stats.last_failure_time
-                if elapsed >= self.config.recovery_timeout:
-                    self._transition_to(
-                        CircuitState.HALF_OPEN,
-                        f"Recovery timeout ({self.config.recovery_timeout}s) elapsed",
-                    )
+        if self._stats.state != CircuitState.OPEN:
+            return
+
+        if self._stats.last_failure_time is not None:
+            elapsed = time.time() - self._stats.last_failure_time
+            if elapsed >= self.config.recovery_timeout:
+                self._transition_to(
+                    CircuitState.HALF_OPEN,
+                    f"Recovery timeout ({self.config.recovery_timeout}s) elapsed",
+                )
 
     def _transition_to(self, new_state: CircuitState, reason: str) -> None:
         """Transition to a new state.
