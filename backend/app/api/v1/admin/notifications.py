@@ -4,6 +4,8 @@ Notification admin endpoints.
 Endpoints for triggering and managing push notifications,
 including Day 30 reminders for provisional notification testing.
 """
+import logging
+import threading
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -17,6 +19,14 @@ from app.services.notification_scheduler import (
 )
 
 from ._dependencies import verify_admin_token
+
+logger = logging.getLogger(__name__)
+
+# In-process lock to prevent concurrent Day 30 reminder sends.
+# This protects against duplicate sends when the same process receives
+# overlapping admin API calls. For multi-process deployments, the
+# day_30_reminder_sent_at database column provides deduplication.
+_day_30_send_lock = threading.Lock()
 
 router = APIRouter()
 
@@ -82,16 +92,30 @@ async def send_day_30_reminders(
           -H "X-Admin-Token: your-admin-token"
         ```
     """
-    scheduler = NotificationScheduler(db)
-    results = await scheduler.send_day_30_reminder_notifications()
+    acquired = _day_30_send_lock.acquire(blocking=False)
+    if not acquired:
+        logger.warning("Day 30 reminder send already in progress, rejecting request")
+        return Day30ReminderResponse(
+            message="Day 30 reminder send already in progress",
+            users_found=0,
+            notifications_sent=0,
+            success=0,
+            failed=0,
+        )
 
-    return Day30ReminderResponse(
-        message="Day 30 reminder notifications processed",
-        users_found=results.get("users_found", 0),
-        notifications_sent=results["total"],
-        success=results["success"],
-        failed=results["failed"],
-    )
+    try:
+        scheduler = NotificationScheduler(db)
+        results = await scheduler.send_day_30_reminder_notifications()
+
+        return Day30ReminderResponse(
+            message="Day 30 reminder notifications processed",
+            users_found=results.get("users_found", 0),
+            notifications_sent=results["total"],
+            success=results["success"],
+            failed=results["failed"],
+        )
+    finally:
+        _day_30_send_lock.release()
 
 
 @router.get(

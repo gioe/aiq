@@ -273,3 +273,69 @@ class TestDay30RemindersSend:
         )
 
         assert response.status_code == 401
+
+
+class TestDay30DistributedLocking:
+    """Tests for the in-process lock that prevents concurrent Day 30 sends."""
+
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_concurrent_send_returns_already_in_progress(self, client, admin_headers):
+        """Test that a second concurrent send returns 'already in progress' response."""
+        from app.api.v1.admin.notifications import _day_30_send_lock
+
+        # Acquire the lock before making the request to simulate concurrency
+        _day_30_send_lock.acquire()
+        try:
+            response = client.post(
+                "/v1/admin/day-30-reminders/send",
+                headers=admin_headers,
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "already in progress" in data["message"]
+            assert data["users_found"] == 0
+            assert data["notifications_sent"] == 0
+        finally:
+            _day_30_send_lock.release()
+
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
+    def test_lock_released_after_successful_send(
+        self, client, admin_headers, user_not_eligible_for_day_30
+    ):
+        """Test that the lock is released after send completes successfully."""
+        from app.api.v1.admin.notifications import _day_30_send_lock
+
+        # First call should succeed
+        response = client.post(
+            "/v1/admin/day-30-reminders/send",
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+
+        # Lock should be available — second call should also succeed
+        assert not _day_30_send_lock.locked()
+
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.services.apns_service.APNsService")
+    def test_lock_released_even_on_error(
+        self, mock_apns_class, client, admin_headers, user_eligible_for_day_30
+    ):
+        """Test that the lock is released even when the scheduler raises."""
+        from app.api.v1.admin.notifications import _day_30_send_lock
+
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock(side_effect=Exception("APNs unavailable"))
+        mock_apns.disconnect = AsyncMock()
+        mock_apns_class.return_value = mock_apns
+
+        # The request may fail, but the lock must be released
+        try:
+            client.post(
+                "/v1/admin/day-30-reminders/send",
+                headers=admin_headers,
+            )
+        except Exception:
+            pass
+
+        assert not _day_30_send_lock.locked()

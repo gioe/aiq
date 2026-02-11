@@ -3,6 +3,7 @@ Tests for notification scheduling service.
 """
 import pytest
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
 from app.core.datetime_utils import utc_now
 from sqlalchemy.orm import Session
@@ -565,3 +566,62 @@ class TestGetUsersForDay30Reminder:
 
         # User should NOT be returned because they already received the reminder
         assert len(users) == 0
+
+
+class TestNotificationFailureLogging:
+    """Tests that notification batch failures are logged as warnings."""
+
+    @pytest.mark.asyncio
+    async def test_day_30_failures_logged(self, db_session, user_with_device_token):
+        """Test that Day 30 batch failures are logged with warning."""
+        # Create test result from 30 days ago to make user eligible
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+
+        scheduler = NotificationScheduler(db_session)
+
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock()
+        mock_apns.disconnect = AsyncMock()
+        mock_apns.send_batch_notifications = AsyncMock(
+            return_value={"success": 0, "failed": 1}
+        )
+
+        with patch(
+            "app.services.apns_service.APNsService",
+            return_value=mock_apns,
+        ):
+            with patch("app.services.notification_scheduler.logger") as mock_logger:
+                results = await scheduler.send_day_30_reminder_notifications()
+
+                assert results["failed"] == 1
+                mock_logger.warning.assert_called_once()
+                warning_msg = str(mock_logger.warning.call_args)
+                assert "Day 30 reminder" in warning_msg
+
+    @pytest.mark.asyncio
+    async def test_day_30_no_warning_when_all_succeed(
+        self, db_session, user_with_device_token
+    ):
+        """Test that no warning is logged when all sends succeed."""
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+
+        scheduler = NotificationScheduler(db_session)
+
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock()
+        mock_apns.disconnect = AsyncMock()
+        mock_apns.send_batch_notifications = AsyncMock(
+            return_value={"success": 1, "failed": 0}
+        )
+
+        with patch(
+            "app.services.apns_service.APNsService",
+            return_value=mock_apns,
+        ):
+            with patch("app.services.notification_scheduler.logger") as mock_logger:
+                results = await scheduler.send_day_30_reminder_notifications()
+
+                assert results["success"] == 1
+                mock_logger.warning.assert_not_called()
