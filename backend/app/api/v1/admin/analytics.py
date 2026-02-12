@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.analytics import (
     InsufficientSampleError,
-    build_response_matrix,
+    async_build_response_matrix,
     calculate_g_loadings,
 )
 from app.core.datetime_utils import utc_now
@@ -448,13 +448,11 @@ async def get_factor_analysis(
     """
     try:
         # Build the response matrix from completed test sessions
-        response_matrix = await db.run_sync(
-            lambda session: build_response_matrix(
-                db=session,
-                min_responses_per_question=min_responses_per_question,
-                min_questions_per_session=10,
-                max_responses=max_responses,
-            )
+        response_matrix = await async_build_response_matrix(
+            db=db,
+            min_responses_per_question=min_responses_per_question,
+            min_questions_per_session=10,
+            max_responses=max_responses,
         )
 
         # Check if we have enough data

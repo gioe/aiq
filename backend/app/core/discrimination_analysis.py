@@ -25,8 +25,9 @@ from datetime import timedelta, timezone
 from datetime import datetime as dt
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.cache import cache_key as generate_cache_key, get_cache
@@ -926,6 +927,516 @@ def get_question_discrimination_detail(
     except SQLAlchemyError as e:
         # IDA-F020: Log at ERROR level only for direct database errors in this function.
         # Errors from calculate_percentile_rank() are handled above (re-raised without logging).
+        logger.error(
+            f"Database error fetching discrimination detail for question {question_id}: {e}",
+            exc_info=True,
+        )
+        raise DiscriminationAnalysisError(
+            message="Failed to fetch question discrimination detail due to database error",
+            original_error=e,
+            context={"question_id": question_id},
+        ) from e
+
+
+# =============================================================================
+# ASYNC VERSIONS FOR ASYNC ENDPOINTS
+# =============================================================================
+
+
+async def async_calculate_percentile_rank(
+    db: AsyncSession, discrimination: float
+) -> int:
+    """
+    Calculate percentile rank of a discrimination value (async version).
+
+    See calculate_percentile_rank() for full documentation.
+    """
+    try:
+        result = await db.execute(
+            select(func.count(Question.id)).where(Question.discrimination.isnot(None))
+        )
+        total_count = result.scalar()
+
+        if total_count is None or total_count == 0:
+            return 50
+
+        result = await db.execute(
+            select(func.count(Question.id)).where(
+                Question.discrimination.isnot(None),
+                Question.discrimination < discrimination,
+            )
+        )
+        lower_count = result.scalar()
+
+        if lower_count is None:
+            lower_count = 0
+
+        percentile = int((lower_count / total_count) * 100)
+        return max(0, min(100, percentile))
+
+    except SQLAlchemyError as e:
+        logger.debug(
+            f"Database error during percentile rank calculation: {e}",
+            exc_info=True,
+        )
+        raise DiscriminationAnalysisError(
+            message="Failed to calculate percentile rank due to database error",
+            original_error=e,
+            context={"discrimination": discrimination},
+        ) from e
+
+
+async def async_get_discrimination_report(
+    db: AsyncSession,
+    min_responses: int = 30,
+    action_list_limit: int = DEFAULT_ACTION_LIST_LIMIT,
+) -> Dict:
+    """
+    Generate comprehensive discrimination report (async version).
+
+    See get_discrimination_report() for full documentation.
+    """
+    logger.info(
+        f"Generating discrimination report (min_responses={min_responses}, "
+        f"action_list_limit={action_list_limit})"
+    )
+
+    # Check cache first (IDA-F004)
+    cache = get_cache()
+    params_hash = generate_cache_key(
+        min_responses=min_responses, action_list_limit=action_list_limit
+    )
+    full_cache_key = f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:{params_hash}"
+    cached_result = cache.get(full_cache_key)
+    if cached_result is not None:
+        logger.debug(f"Returning cached discrimination report (key={full_cache_key})")
+        return cached_result
+
+    # IDA-F018: Check error cache for fallback
+    error_cache_key = f"{ERROR_CACHE_KEY_PREFIX}:{params_hash}"
+    cached_error_result = cache.get(error_cache_key)
+    if cached_error_result is not None:
+        logger.info(
+            f"Returning cached error fallback report to prevent thundering herd "
+            f"(key={error_cache_key})"
+        )
+        return cached_error_result
+
+    try:
+        base_filter = [
+            Question.is_active == True,  # noqa: E712
+            Question.response_count >= min_responses,
+            Question.discrimination.isnot(None),
+        ]
+
+        # SUMMARY COUNTS
+        tier_stmt = select(
+            func.count(Question.id).label("total"),
+            func.sum(case((Question.discrimination >= 0.40, 1), else_=0)).label(
+                "excellent"
+            ),
+            func.sum(
+                case(
+                    (
+                        (Question.discrimination >= 0.30)
+                        & (Question.discrimination < 0.40),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("good"),
+            func.sum(
+                case(
+                    (
+                        (Question.discrimination >= 0.20)
+                        & (Question.discrimination < 0.30),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("acceptable"),
+            func.sum(
+                case(
+                    (
+                        (Question.discrimination >= 0.10)
+                        & (Question.discrimination < 0.20),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("poor"),
+            func.sum(
+                case(
+                    (
+                        (Question.discrimination >= 0.00)
+                        & (Question.discrimination < 0.10),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("very_poor"),
+            func.sum(case((Question.discrimination < 0.00, 1), else_=0)).label(
+                "negative"
+            ),
+            func.avg(Question.discrimination).label("mean_discrimination"),
+        ).where(*base_filter)
+
+        result = await db.execute(tier_stmt)
+        tier_result = result.first()
+
+        if tier_result is None:
+            logger.warning(
+                "Unexpected None result from tier count query - returning empty report"
+            )
+            return _get_empty_report()
+
+        total = tier_result.total or 0
+        tier_counts = {
+            "excellent": tier_result.excellent or 0,
+            "good": tier_result.good or 0,
+            "acceptable": tier_result.acceptable or 0,
+            "poor": tier_result.poor or 0,
+            "very_poor": tier_result.very_poor or 0,
+            "negative": tier_result.negative or 0,
+        }
+
+        logger.info(
+            f"Discrimination report summary: {total} questions with data "
+            f"(excellent={tier_counts['excellent']}, good={tier_counts['good']}, "
+            f"acceptable={tier_counts['acceptable']}, poor={tier_counts['poor']}, "
+            f"very_poor={tier_counts['very_poor']}, negative={tier_counts['negative']})"
+        )
+
+        # Quality distribution
+        if total > 0:
+            quality_distribution = {
+                "excellent_pct": round((tier_counts["excellent"] / total) * 100, 1),
+                "good_pct": round((tier_counts["good"] / total) * 100, 1),
+                "acceptable_pct": round((tier_counts["acceptable"] / total) * 100, 1),
+                "problematic_pct": round(
+                    (
+                        (
+                            tier_counts["poor"]
+                            + tier_counts["very_poor"]
+                            + tier_counts["negative"]
+                        )
+                        / total
+                    )
+                    * 100,
+                    1,
+                ),
+            }
+        else:
+            quality_distribution = {
+                "excellent_pct": 0.0,
+                "good_pct": 0.0,
+                "acceptable_pct": 0.0,
+                "problematic_pct": 0.0,
+            }
+
+        # BY_DIFFICULTY BREAKDOWN
+        diff_stmt = (
+            select(
+                Question.difficulty_level,
+                func.avg(Question.discrimination).label("mean_discrimination"),
+                func.sum(case((Question.discrimination < 0.00, 1), else_=0)).label(
+                    "negative_count"
+                ),
+            )
+            .where(*base_filter)
+            .group_by(Question.difficulty_level)
+        )
+
+        result = await db.execute(diff_stmt)
+        difficulty_results = {row[0]: row for row in result.all()}
+
+        by_difficulty: Dict[str, Dict] = {}
+        for level in DifficultyLevel:
+            if level in difficulty_results:
+                row = difficulty_results[level]
+                by_difficulty[level.value] = {
+                    "mean_discrimination": round(
+                        float(row.mean_discrimination or 0), 3
+                    ),
+                    "negative_count": row.negative_count or 0,
+                }
+            else:
+                by_difficulty[level.value] = {
+                    "mean_discrimination": 0.0,
+                    "negative_count": 0,
+                }
+
+        # BY_TYPE BREAKDOWN
+        type_stmt = (
+            select(
+                Question.question_type,
+                func.avg(Question.discrimination).label("mean_discrimination"),
+                func.sum(case((Question.discrimination < 0.00, 1), else_=0)).label(
+                    "negative_count"
+                ),
+            )
+            .where(*base_filter)
+            .group_by(Question.question_type)
+        )
+
+        result = await db.execute(type_stmt)
+        type_results = {row[0]: row for row in result.all()}
+
+        by_type: Dict[str, Dict] = {}
+        for qtype in QuestionType:
+            if qtype in type_results:
+                row = type_results[qtype]
+                by_type[qtype.value] = {
+                    "mean_discrimination": round(
+                        float(row.mean_discrimination or 0), 3
+                    ),
+                    "negative_count": row.negative_count or 0,
+                }
+            else:
+                by_type[qtype.value] = {
+                    "mean_discrimination": 0.0,
+                    "negative_count": 0,
+                }
+
+        # ACTION NEEDED
+        immediate_review: List[Dict] = []
+        monitor: List[Dict] = []
+
+        neg_stmt = (
+            select(
+                Question.id,
+                Question.discrimination,
+                Question.response_count,
+                Question.quality_flag,
+            )
+            .where(*base_filter, Question.discrimination < 0.00)
+            .order_by(Question.discrimination.asc())
+            .limit(action_list_limit)
+        )
+
+        result = await db.execute(neg_stmt)
+        for q in result.all():
+            immediate_review.append(
+                {
+                    "question_id": q.id,
+                    "discrimination": float(q.discrimination),
+                    "response_count": q.response_count,
+                    "reason": "Negative discrimination: high scorers missing this question more than low scorers",
+                    "quality_flag": q.quality_flag,
+                }
+            )
+
+        vp_stmt = (
+            select(
+                Question.id,
+                Question.discrimination,
+                Question.response_count,
+                Question.quality_flag,
+            )
+            .where(
+                *base_filter,
+                Question.discrimination >= 0.00,
+                Question.discrimination < 0.10,
+            )
+            .order_by(Question.discrimination.asc())
+            .limit(action_list_limit)
+        )
+
+        result = await db.execute(vp_stmt)
+        for q in result.all():
+            monitor.append(
+                {
+                    "question_id": q.id,
+                    "discrimination": float(q.discrimination),
+                    "response_count": q.response_count,
+                    "reason": "Very poor discrimination: not differentiating between ability levels",
+                    "quality_flag": q.quality_flag,
+                }
+            )
+
+        if immediate_review:
+            logger.warning(
+                f"Discrimination report: {len(immediate_review)} questions need immediate review "
+                f"(negative discrimination)"
+            )
+        if monitor:
+            logger.info(
+                f"Discrimination report: {len(monitor)} questions flagged for monitoring "
+                f"(very poor discrimination)"
+            )
+
+        # TRENDS
+        now = dt.now(timezone.utc)
+        seven_days_ago = now - timedelta(days=7)
+
+        mean_discrimination_30d = (
+            round(float(tier_result.mean_discrimination), 3)
+            if tier_result.mean_discrimination is not None
+            else None
+        )
+
+        result = await db.execute(
+            select(func.count(Question.id)).where(
+                Question.quality_flag == "under_review",
+                Question.quality_flag_updated_at >= seven_days_ago,
+                Question.quality_flag_reason.like("Negative discrimination%"),
+            )
+        )
+        new_negative_this_week = result.scalar() or 0
+
+        trends = {
+            "mean_discrimination_30d": mean_discrimination_30d,
+            "new_negative_this_week": new_negative_this_week,
+        }
+
+        report = {
+            "summary": {
+                "total_questions_with_data": total,
+                "excellent": tier_counts["excellent"],
+                "good": tier_counts["good"],
+                "acceptable": tier_counts["acceptable"],
+                "poor": tier_counts["poor"],
+                "very_poor": tier_counts["very_poor"],
+                "negative": tier_counts["negative"],
+            },
+            "quality_distribution": quality_distribution,
+            "by_difficulty": by_difficulty,
+            "by_type": by_type,
+            "action_needed": {
+                "immediate_review": immediate_review,
+                "monitor": monitor,
+            },
+            "trends": trends,
+        }
+
+        cache.set(full_cache_key, report, ttl=DISCRIMINATION_REPORT_CACHE_TTL)
+        logger.debug(
+            f"Cached discrimination report (key={full_cache_key}, ttl={DISCRIMINATION_REPORT_CACHE_TTL}s)"
+        )
+
+        return report
+
+    except SQLAlchemyError as e:
+        logger.error(
+            f"Database error during discrimination report generation: {e}",
+            exc_info=True,
+        )
+
+        empty_report = _get_empty_report()
+        cache.set(error_cache_key, empty_report, ttl=ERROR_CACHE_TTL)
+        logger.warning(
+            f"Cached error fallback report for {ERROR_CACHE_TTL}s to prevent "
+            f"thundering herd (key={error_cache_key})"
+        )
+
+        raise DiscriminationAnalysisError(
+            message="Failed to generate discrimination report due to database error",
+            original_error=e,
+            context={
+                "min_responses": min_responses,
+                "action_list_limit": action_list_limit,
+            },
+        ) from e
+
+
+async def async_get_question_discrimination_detail(
+    db: AsyncSession,
+    question_id: int,
+) -> Optional[Dict]:
+    """
+    Get detailed discrimination info for a specific question (async version).
+
+    See get_question_discrimination_detail() for full documentation.
+    """
+    logger.debug(f"Fetching discrimination detail for question {question_id}")
+
+    try:
+        result = await db.execute(select(Question).where(Question.id == question_id))
+        question = result.scalar_one_or_none()
+
+        if not question:
+            logger.warning(
+                f"Question {question_id} not found for discrimination detail"
+            )
+            return None
+
+        disc_value: Optional[float] = (
+            float(question.discrimination)
+            if question.discrimination is not None
+            else None
+        )
+        response_count = question.response_count or 0
+        quality_tier = get_quality_tier(disc_value)
+        quality_flag = question.quality_flag
+
+        logger.debug(
+            f"Question {question_id} discrimination detail: "
+            f"value={disc_value}, tier={quality_tier}, responses={response_count}, flag={quality_flag}"
+        )
+
+        percentile_rank = None
+        if disc_value is not None:
+            percentile_rank = await async_calculate_percentile_rank(db, disc_value)
+
+        type_avg = None
+        compared_to_type_avg = None
+        if disc_value is not None:
+            result = await db.execute(
+                select(func.avg(Question.discrimination)).where(
+                    Question.question_type == question.question_type,
+                    Question.discrimination.isnot(None),
+                    Question.is_active == True,  # noqa: E712
+                )
+            )
+            type_avg_result = result.scalar()
+            if type_avg_result is not None:
+                type_avg = float(type_avg_result)  # type: ignore[arg-type]
+                diff = disc_value - type_avg
+                if abs(diff) < COMPARISON_TOLERANCE:
+                    compared_to_type_avg = "at"
+                elif diff > 0:
+                    compared_to_type_avg = "above"
+                else:
+                    compared_to_type_avg = "below"
+
+        difficulty_avg = None
+        compared_to_difficulty_avg = None
+        if disc_value is not None:
+            result = await db.execute(
+                select(func.avg(Question.discrimination)).where(
+                    Question.difficulty_level == question.difficulty_level,
+                    Question.discrimination.isnot(None),
+                    Question.is_active == True,  # noqa: E712
+                )
+            )
+            difficulty_avg_result = result.scalar()
+            if difficulty_avg_result is not None:
+                difficulty_avg = float(difficulty_avg_result)  # type: ignore[arg-type]
+                diff = disc_value - difficulty_avg
+                if abs(diff) < COMPARISON_TOLERANCE:
+                    compared_to_difficulty_avg = "at"
+                elif diff > 0:
+                    compared_to_difficulty_avg = "above"
+                else:
+                    compared_to_difficulty_avg = "below"
+
+        history: List[Dict] = []
+
+        return {
+            "question_id": question_id,
+            "discrimination": disc_value,
+            "quality_tier": quality_tier,
+            "response_count": response_count,
+            "compared_to_type_avg": compared_to_type_avg,
+            "compared_to_difficulty_avg": compared_to_difficulty_avg,
+            "percentile_rank": percentile_rank,
+            "quality_flag": quality_flag,
+            "history": history,
+        }
+
+    except DiscriminationAnalysisError:
+        raise
+    except SQLAlchemyError as e:
         logger.error(
             f"Database error fetching discrimination detail for question {question_id}: {e}",
             exc_info=True,

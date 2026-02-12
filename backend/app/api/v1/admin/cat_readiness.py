@@ -8,7 +8,10 @@ CAT activates only when all 6 domains meet the configured thresholds.
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.cat.readiness import evaluate_cat_readiness, serialize_readiness_result
+from app.core.cat.readiness import (
+    async_evaluate_cat_readiness,
+    serialize_readiness_result,
+)
 from app.core.datetime_utils import utc_now
 from app.core.system_config import (
     async_get_cat_readiness_status,
@@ -106,8 +109,7 @@ async def evaluate_readiness(
           -H "X-Admin-Token: token"
         ```
     """
-    # evaluate_cat_readiness is still sync (complex IRT queries) - use run_sync
-    result = await db.run_sync(lambda session: evaluate_cat_readiness(session))
+    result = await async_evaluate_cat_readiness(db)
 
     now = utc_now()
 
