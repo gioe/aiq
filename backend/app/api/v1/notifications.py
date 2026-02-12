@@ -1,10 +1,13 @@
 """
 Notification endpoints for device token registration and preferences.
 """
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+import logging
 
-from app.models import get_db, User
+from fastapi import APIRouter, Depends
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import get_async_db, User
 from app.schemas.notifications import (
     DeviceTokenRegister,
     DeviceTokenResponse,
@@ -12,16 +15,18 @@ from app.schemas.notifications import (
     NotificationPreferencesResponse,
 )
 from app.core.auth import get_current_user
-from app.core.db_error_handling import handle_db_error
+from app.core.error_responses import ErrorMessages, raise_server_error
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
 @router.post("/register-device", response_model=DeviceTokenResponse)
-def register_device_token(
+async def register_device_token(
     token_data: DeviceTokenRegister,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Register or update the APNs device token for the current user.
@@ -33,27 +38,32 @@ def register_device_token(
     Args:
         token_data: Device token registration data
         current_user: Current authenticated user
-        db: Database session
+        db: Async database session
 
     Returns:
         Success response with confirmation message
     """
-    with handle_db_error(db, "register device token"):
-        # Update the user's device token
+    try:
         current_user.apns_device_token = token_data.device_token
-        db.commit()
-        db.refresh(current_user)
-
-        return DeviceTokenResponse(
-            success=True,
-            message="Device token registered successfully",
+        await db.commit()
+        await db.refresh(current_user)
+    except SQLAlchemyError as e:
+        await db.rollback()
+        logger.error(f"Database error during device token registration: {e}")
+        raise_server_error(
+            ErrorMessages.database_operation_failed("register device token")
         )
+
+    return DeviceTokenResponse(
+        success=True,
+        message="Device token registered successfully",
+    )
 
 
 @router.delete("/register-device", response_model=DeviceTokenResponse)
-def unregister_device_token(
+async def unregister_device_token(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Unregister the APNs device token for the current user.
@@ -63,28 +73,33 @@ def unregister_device_token(
 
     Args:
         current_user: Current authenticated user
-        db: Database session
+        db: Async database session
 
     Returns:
         Success response with confirmation message
     """
-    with handle_db_error(db, "unregister device token"):
-        # Clear the user's device token
+    try:
         current_user.apns_device_token = None
-        db.commit()
-        db.refresh(current_user)
-
-        return DeviceTokenResponse(
-            success=True,
-            message="Device token unregistered successfully",
+        await db.commit()
+        await db.refresh(current_user)
+    except SQLAlchemyError as e:
+        await db.rollback()
+        logger.error(f"Database error during device token unregistration: {e}")
+        raise_server_error(
+            ErrorMessages.database_operation_failed("unregister device token")
         )
+
+    return DeviceTokenResponse(
+        success=True,
+        message="Device token unregistered successfully",
+    )
 
 
 @router.put("/preferences", response_model=NotificationPreferencesResponse)
-def update_notification_preferences(
+async def update_notification_preferences(
     preferences: NotificationPreferences,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Update notification preferences for the current user.
@@ -95,25 +110,30 @@ def update_notification_preferences(
     Args:
         preferences: Notification preferences
         current_user: Current authenticated user
-        db: Database session
+        db: Async database session
 
     Returns:
         Updated notification preferences
     """
-    with handle_db_error(db, "update notification preferences"):
-        # Update the user's notification preference
+    try:
         current_user.notification_enabled = preferences.notification_enabled
-        db.commit()
-        db.refresh(current_user)
-
-        return NotificationPreferencesResponse(
-            notification_enabled=current_user.notification_enabled,
-            message="Notification preferences updated successfully",
+        await db.commit()
+        await db.refresh(current_user)
+    except SQLAlchemyError as e:
+        await db.rollback()
+        logger.error(f"Database error during notification preference update: {e}")
+        raise_server_error(
+            ErrorMessages.database_operation_failed("update notification preferences")
         )
+
+    return NotificationPreferencesResponse(
+        notification_enabled=current_user.notification_enabled,
+        message="Notification preferences updated successfully",
+    )
 
 
 @router.get("/preferences", response_model=NotificationPreferencesResponse)
-def get_notification_preferences(
+async def get_notification_preferences(
     current_user: User = Depends(get_current_user),
 ):
     """

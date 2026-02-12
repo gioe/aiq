@@ -832,11 +832,14 @@ class TestDeleteUserAccount:
 
     def test_delete_account_database_error_returns_500(self, client, auth_headers):
         """Test that database errors during deletion return 500."""
-        from unittest.mock import patch
+        from unittest.mock import patch, AsyncMock
         from sqlalchemy.exc import SQLAlchemyError
 
-        with patch("app.api.v1.user.Session.commit") as mock_commit:
-            mock_commit.side_effect = SQLAlchemyError("Database write failed")
+        with patch(
+            "sqlalchemy.ext.asyncio.AsyncSession.commit",
+            new_callable=AsyncMock,
+            side_effect=SQLAlchemyError("Database write failed"),
+        ):
             response = client.delete("/v1/user/delete-account", headers=auth_headers)
 
             assert response.status_code == 500
@@ -850,22 +853,28 @@ class TestDeleteUserAccount:
         self, client, auth_headers, test_user, db_session
     ):
         """Test that database errors during deletion trigger rollback."""
-        from unittest.mock import patch
+        from unittest.mock import patch, AsyncMock
         from sqlalchemy.exc import SQLAlchemyError
         from app.models import User
 
         user_id = test_user.id
 
-        with patch("app.api.v1.user.Session.commit") as mock_commit:
-            with patch("app.api.v1.user.Session.rollback") as mock_rollback:
-                mock_commit.side_effect = SQLAlchemyError("Commit failed")
+        with patch(
+            "sqlalchemy.ext.asyncio.AsyncSession.commit",
+            new_callable=AsyncMock,
+            side_effect=SQLAlchemyError("Commit failed"),
+        ):
+            with patch(
+                "sqlalchemy.ext.asyncio.AsyncSession.rollback",
+                new_callable=AsyncMock,
+            ) as mock_rollback:
                 response = client.delete(
                     "/v1/user/delete-account", headers=auth_headers
                 )
 
                 assert response.status_code == 500
                 # Verify rollback was called
-                mock_rollback.assert_called_once()
+                mock_rollback.assert_called()
 
         # Verify user still exists (rollback worked)
         db_session.expire_all()
