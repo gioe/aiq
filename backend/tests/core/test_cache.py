@@ -28,6 +28,16 @@ class TestSimpleCacheGetSet:
         cache.set("key", "second")
         assert cache.get("key") == "second"
 
+    def test_set_overwrites_ttl(self):
+        cache = SimpleCache()
+        with patch("app.core.cache.time") as mock_time:
+            mock_time.time.return_value = 1000.0
+            cache.set("key", "first", ttl=100)
+            cache.set("key", "second", ttl=50)
+
+        _, expiry = cache._cache["key"]
+        assert expiry == pytest.approx(1050.0)
+
     def test_stores_various_types(self):
         cache = SimpleCache()
         cache.set("int", 42)
@@ -38,7 +48,8 @@ class TestSimpleCacheGetSet:
         assert cache.get("int") == 42
         assert cache.get("list") == [1, 2, 3]
         assert cache.get("dict") == {"a": 1}
-        # None value is stored but indistinguishable from cache miss
+        # None value is stored but get() can't distinguish it from a miss
+        assert "none" in cache._cache
         assert cache.get("none") is None
 
     def test_default_ttl_is_300_seconds(self):
@@ -159,6 +170,18 @@ class TestSimpleCacheCleanupExpired:
         cache.set("key", "value", ttl=9999)
         removed = cache.cleanup_expired()
         assert removed == 0
+
+    def test_cleanup_at_exact_expiry_boundary(self):
+        cache = SimpleCache()
+        with patch("app.core.cache.time") as mock_time:
+            mock_time.time.return_value = 1000.0
+            cache.set("key", "value", ttl=10)
+
+            mock_time.time.return_value = 1010.0
+            removed = cache.cleanup_expired()
+
+        assert removed == 1
+        assert "key" not in cache._cache
 
     def test_cleanup_on_empty_cache(self):
         cache = SimpleCache()
