@@ -13,6 +13,8 @@ Common configuration keys:
 from app.core.datetime_utils import utc_now
 from typing import Any, Optional
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.models.models import SystemConfig
@@ -243,3 +245,86 @@ def set_domain_population_stats(
         The SystemConfig instance
     """
     return set_config(db, "domain_population_stats", stats)
+
+
+# Async versions for async endpoints
+
+
+async def async_get_config(db: AsyncSession, key: str, default: Any = None) -> Any:
+    """
+    Get a configuration value from the SystemConfig table (async version).
+
+    Args:
+        db: Async database session
+        key: Configuration key to retrieve
+        default: Default value to return if key doesn't exist
+
+    Returns:
+        The configuration value, or default if not found
+    """
+    result = await db.execute(select(SystemConfig).where(SystemConfig.key == key))
+    config = result.scalar_one_or_none()
+    if config is None:
+        return default
+    return config.value
+
+
+async def async_is_weighted_scoring_enabled(db: AsyncSession) -> bool:
+    """
+    Check if weighted scoring is enabled (async version).
+
+    Args:
+        db: Async database session
+
+    Returns:
+        True if weighted scoring is enabled, False otherwise (default)
+    """
+    config = await async_get_config(db, "use_weighted_scoring", {"enabled": False})
+    return config.get("enabled", False)
+
+
+async def async_get_domain_weights(db: AsyncSession) -> Optional[dict[str, float]]:
+    """
+    Get the configured domain weights for weighted scoring (async version).
+
+    Args:
+        db: Async database session
+
+    Returns:
+        Dictionary mapping domain names to weights, or None if not configured
+    """
+    return await async_get_config(db, "domain_weights")
+
+
+async def async_is_cat_enabled(db: AsyncSession) -> bool:
+    """
+    Check if CAT (Computerized Adaptive Testing) is enabled (async version).
+
+    Single-row lookup suitable for the hot path in start_test().
+
+    Args:
+        db: Async database session
+
+    Returns:
+        True if CAT is enabled, False otherwise (default)
+    """
+    config = await async_get_config(db, "cat_readiness")
+    if config is None:
+        return False
+    return config.get("enabled", False)
+
+
+async def async_get_domain_population_stats(
+    db: AsyncSession,
+) -> Optional[dict[str, dict[str, float]]]:
+    """
+    Get domain population statistics for percentile calculations (async version).
+
+    Args:
+        db: Async database session
+
+    Returns:
+        Dictionary mapping domain names to their stats (mean_accuracy, sd_accuracy),
+        or None if not configured
+    """
+    return await async_get_config(db, "domain_population_stats")

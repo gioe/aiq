@@ -13,6 +13,7 @@ import random
 from collections.abc import Sequence
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Question, UserQuestion
 from app.models.models import QuestionType, DifficultyLevel
@@ -362,6 +363,391 @@ def select_stratified_questions(
         )
 
         fallback_questions = fallback_query.limit(still_needed).all()
+
+        # IDA-006: Log warning when using final fallback
+        if fallback_questions:
+            avg_disc = sum(
+                q.discrimination
+                for q in fallback_questions
+                if q.discrimination is not None
+            ) / max(
+                1, len([q for q in fallback_questions if q.discrimination is not None])
+            )
+            logger.warning(
+                f"Final fallback: selected {len(fallback_questions)} additional "
+                f"questions (avg discrimination: {avg_disc:.3f})"
+            )
+
+        selected_questions.extend(fallback_questions)
+
+        # Track fallback questions in actual composition
+        for q in fallback_questions:
+            diff_level = q.difficulty_level.value
+            domain = q.question_type.value
+            actual_composition["difficulty"][diff_level] = (
+                actual_composition["difficulty"].get(diff_level, 0) + 1
+            )
+            actual_composition["domain"][domain] = (
+                actual_composition["domain"].get(domain, 0) + 1
+            )
+
+    # Track domain distribution in actual composition
+    if not actual_composition["domain"]:  # If empty (from fallback only)
+        for question in selected_questions:
+            domain = question.question_type.value
+            actual_composition["domain"][domain] = (
+                actual_composition["domain"].get(domain, 0) + 1
+            )
+
+    actual_composition["total"] = len(selected_questions)
+
+    # Randomize presentation order to avoid position-difficulty confounds.
+    # The stratified composition (difficulty/domain balance) is preserved;
+    # only the sequence in which questions are shown is shuffled.
+    random.shuffle(selected_questions)
+
+    return selected_questions, actual_composition
+
+
+# Async versions for async endpoints
+
+
+async def _async_select_anchor_items(
+    db: AsyncSession, user_id: int, seen_question_ids: Sequence[int]
+) -> dict[QuestionType, list[Question]]:
+    """
+    Select anchor items for each cognitive domain (async version).
+
+    Anchor items are curated questions used for IRT calibration. This function
+    attempts to select MIN_ANCHORS_PER_DOMAIN unseen anchor items per domain.
+
+    Based on TASK-850: Anchor item designation for IRT calibration.
+
+    Args:
+        db: Async database session
+        user_id: User ID to filter out seen questions
+        seen_question_ids: List of question IDs the user has already seen
+
+    Returns:
+        Dictionary mapping QuestionType to list of selected anchor Questions.
+        Empty list for a domain if no unseen anchors are available.
+
+    Quality Filters Applied:
+    - is_anchor = True
+    - is_active = True
+    - quality_flag = "normal"
+    - discrimination >= 0 or NULL (excludes negative discrimination)
+    """
+    anchor_items: dict[QuestionType, list[Question]] = {}
+    all_question_types = list(QuestionType)
+
+    for question_type in all_question_types:
+        # Query for unseen anchor items of this type
+        stmt = select(Question).where(
+            Question.is_anchor == True,  # noqa: E712
+            Question.is_active == True,  # noqa: E712
+            Question.quality_flag == "normal",
+            Question.question_type == question_type,
+            # Exclude negative discrimination, allow NULL (new anchors)
+            or_(Question.discrimination >= 0, Question.discrimination.is_(None)),
+        )
+
+        if seen_question_ids:
+            stmt = stmt.where(~Question.id.in_(seen_question_ids))
+
+        # Order by discrimination descending (prefer high-discrimination anchors)
+        stmt = stmt.order_by(Question.discrimination.desc().nullslast())
+
+        # Get up to MIN_ANCHORS_PER_DOMAIN anchor items
+        stmt = stmt.limit(MIN_ANCHORS_PER_DOMAIN)
+        result = await db.execute(stmt)
+        anchors = result.scalars().all()
+
+        if len(anchors) < MIN_ANCHORS_PER_DOMAIN:
+            logger.warning(
+                f"Could not find {MIN_ANCHORS_PER_DOMAIN} unseen anchor items "
+                f"for domain {question_type.value}. Found {len(anchors)}. "
+                f"User may have seen all anchors for this domain."
+            )
+
+        anchor_items[question_type] = list(anchors)
+
+    return anchor_items
+
+
+async def async_select_stratified_questions(
+    db: AsyncSession, user_id: int, total_count: int
+) -> tuple[list[Question], dict]:
+    """
+    Select questions using stratified sampling (async version).
+
+    Implements P11-005: Stratified question selection algorithm.
+    Balances both difficulty level and cognitive domain distribution.
+
+    Based on:
+    - IQ_TEST_RESEARCH_FINDINGS.txt, Part 5.4 (Test Construction)
+    - IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #8
+
+    Question Filtering (IDA-005):
+    - Excludes questions with is_active = False
+    - Excludes questions with quality_flag != "normal" (under_review, deactivated)
+
+    Discrimination Preference (IDA-006):
+    Selection priority for questions within each stratum:
+    1. Exclude is_active = False
+    2. Exclude quality_flag != "normal"
+    3. Exclude negative discrimination (discrimination < 0)
+    4. Prefer discrimination >= 0.30 (good+)
+    5. Fall back to discrimination >= 0.20 (acceptable)
+    6. Fall back to any positive discrimination or NULL (new questions)
+
+    Questions are ordered by discrimination descending with NULLs last,
+    preferring high-discrimination items when available.
+
+    Args:
+        db: Async database session
+        user_id: User ID to filter out seen questions
+        total_count: Total number of questions to select
+
+    Returns:
+        Tuple of (selected_questions, composition_metadata)
+        composition_metadata contains actual distribution for tracking
+
+    Algorithm:
+    1. Calculate target counts per difficulty level (20/50/30 split)
+    2. For each difficulty, distribute across cognitive domains according to configured weights
+    3. Fall back gracefully if insufficient questions in specific strata
+    """
+    # Get list of seen question IDs for this user
+    seen_question_ids_query = select(UserQuestion.question_id).where(
+        UserQuestion.user_id == user_id
+    )
+    result = await db.execute(seen_question_ids_query)
+    seen_question_ids = result.scalars().all()
+
+    # Pre-select anchor items for IRT calibration (TASK-850)
+    # Each domain should have at least MIN_ANCHORS_PER_DOMAIN anchor items
+    anchor_items_by_type = await _async_select_anchor_items(
+        db, user_id, seen_question_ids
+    )
+    selected_questions: list[Question] = []
+
+    # Count anchors per difficulty level so we can reduce difficulty targets
+    anchors_per_difficulty: dict[DifficultyLevel, int] = {}
+    for question_type, anchors in anchor_items_by_type.items():
+        for anchor in anchors:
+            anchors_per_difficulty[anchor.difficulty_level] = (
+                anchors_per_difficulty.get(anchor.difficulty_level, 0) + 1
+            )
+            selected_questions.append(anchor)
+
+    total_anchors = len(selected_questions)
+
+    # Calculate target distribution based on config
+    difficulty_targets: dict[DifficultyLevel, int] = {
+        DifficultyLevel.EASY: int(
+            total_count * settings.TEST_DIFFICULTY_DISTRIBUTION["easy"]
+        ),
+        DifficultyLevel.MEDIUM: int(
+            total_count * settings.TEST_DIFFICULTY_DISTRIBUTION["medium"]
+        ),
+        DifficultyLevel.HARD: int(
+            total_count * settings.TEST_DIFFICULTY_DISTRIBUTION["hard"]
+        ),
+    }
+
+    # Adjust for rounding errors - ensure we request exactly total_count
+    current_total = sum(difficulty_targets.values())
+    if current_total < total_count:
+        # Add remaining to medium difficulty
+        difficulty_targets[DifficultyLevel.MEDIUM] += total_count - current_total
+
+    # Reduce difficulty targets by anchors already selected for each difficulty.
+    # This ensures anchors count toward the total without exceeding total_count.
+    for anchor_diff, anchor_count in anchors_per_difficulty.items():
+        difficulty_targets[anchor_diff] = max(
+            0, difficulty_targets[anchor_diff] - anchor_count
+        )
+
+    # If anchors landed in difficulties with small quotas, some reductions may
+    # not fully account for all anchors. Distribute any remaining surplus
+    # reduction to the largest difficulty target.
+    reduced_total = sum(difficulty_targets.values())
+    if reduced_total + total_anchors > total_count:
+        surplus = (reduced_total + total_anchors) - total_count
+        # Reduce from the largest target first (medium is typically largest)
+        for diff in sorted(difficulty_targets, key=lambda d: -difficulty_targets[d]):
+            reduction = min(surplus, difficulty_targets[diff])
+            difficulty_targets[diff] -= reduction
+            surplus -= reduction
+            if surplus == 0:
+                break
+
+    all_question_types = list(QuestionType)
+    actual_composition: dict = {
+        "difficulty": {},
+        "domain": {},
+        "total": 0,
+        "anchor_count": total_anchors,
+        "anchors_per_domain": {
+            qt.value: len(anchor_items_by_type[qt]) for qt in all_question_types
+        },
+    }
+
+    # For each difficulty level, select questions distributed across domains
+    for difficulty, target_count in difficulty_targets.items():
+        if target_count == 0:
+            continue
+
+        # Calculate weighted allocation using largest-remainder method
+        # 1. Multiply target_count by each domain's weight
+        weighted_counts = {
+            qt: target_count * settings.TEST_DOMAIN_WEIGHTS[qt.value]
+            for qt in all_question_types
+        }
+
+        # 2. Floor all values to get initial allocation
+        domain_allocation = {qt: int(weighted_counts[qt]) for qt in all_question_types}
+
+        # 3. Distribute remaining slots to domains with largest fractional remainders
+        allocated_total = sum(domain_allocation.values())
+        remaining_slots = target_count - allocated_total
+
+        if remaining_slots > 0:
+            # Calculate fractional remainders
+            remainders = {
+                qt: weighted_counts[qt] - domain_allocation[qt]
+                for qt in all_question_types
+            }
+            # Sort by remainder descending, then by domain name for determinism
+            sorted_domains = sorted(
+                remainders.keys(), key=lambda qt: (-remainders[qt], qt.value)
+            )
+            # Distribute remaining slots
+            for i in range(remaining_slots):
+                domain_allocation[sorted_domains[i]] += 1
+
+        difficulty_questions = []
+
+        # Try to get questions from each domain
+        for question_type in all_question_types:
+            domain_count = domain_allocation[question_type]
+
+            if domain_count <= 0:
+                continue
+
+            # Query for unseen questions of this difficulty and type
+            # Excludes flagged questions (IDA-005)
+            # Excludes negative discrimination and prefers high discrimination (IDA-006)
+            stmt = select(Question).where(
+                Question.is_active == True,  # noqa: E712
+                Question.quality_flag == "normal",  # IDA-005: Exclude flagged
+                Question.difficulty_level == difficulty,
+                Question.question_type == question_type,
+                # IDA-006: Exclude negative discrimination, allow NULL (new questions)
+                or_(Question.discrimination >= 0, Question.discrimination.is_(None)),
+            )
+
+            # Exclude seen questions AND already-selected anchor items
+            excluded_ids = list(seen_question_ids) if seen_question_ids else []
+            already_selected_ids = [q.id for q in selected_questions]
+            all_excluded_ids = excluded_ids + already_selected_ids
+
+            if all_excluded_ids:
+                stmt = stmt.where(~Question.id.in_(all_excluded_ids))
+
+            # IDA-006: Order by discrimination descending (NULLs last)
+            # This prefers high-discrimination questions when available
+            stmt = stmt.order_by(Question.discrimination.desc().nullslast())
+            stmt = stmt.limit(domain_count)
+            result = await db.execute(stmt)
+            questions = result.scalars().all()
+
+            difficulty_questions.extend(questions)
+
+        # If we didn't get enough questions with strict stratification,
+        # fill remainder from any unseen questions of this difficulty
+        if len(difficulty_questions) < target_count:
+            all_selected_ids = [q.id for q in selected_questions]
+            difficulty_question_ids = [q.id for q in difficulty_questions]
+            all_excluded = all_selected_ids + difficulty_question_ids
+            additional_needed = target_count - len(difficulty_questions)
+
+            stmt = select(Question).where(
+                Question.is_active == True,  # noqa: E712
+                Question.quality_flag == "normal",  # IDA-005: Exclude flagged
+                Question.difficulty_level == difficulty,
+                # IDA-006: Exclude negative discrimination, allow NULL
+                or_(Question.discrimination >= 0, Question.discrimination.is_(None)),
+            )
+
+            if seen_question_ids:
+                combined_ids = list(seen_question_ids) + all_excluded
+                stmt = stmt.where(~Question.id.in_(combined_ids))
+            else:
+                stmt = stmt.where(~Question.id.in_(all_excluded))
+
+            # IDA-006: Order by discrimination descending (NULLs last)
+            stmt = stmt.order_by(Question.discrimination.desc().nullslast())
+            stmt = stmt.limit(additional_needed)
+            result = await db.execute(stmt)
+            additional_questions = result.scalars().all()
+
+            # IDA-006: Log warning when falling back to difficulty-level selection
+            if additional_questions:
+                avg_disc = sum(
+                    q.discrimination
+                    for q in additional_questions
+                    if q.discrimination is not None
+                ) / max(
+                    1,
+                    len(
+                        [
+                            q
+                            for q in additional_questions
+                            if q.discrimination is not None
+                        ]
+                    ),
+                )
+                logger.warning(
+                    f"Difficulty fallback: selected {len(additional_questions)} "
+                    f"additional questions for {difficulty.value} difficulty "
+                    f"(avg discrimination: {avg_disc:.3f})"
+                )
+
+            difficulty_questions.extend(additional_questions)
+
+        selected_questions.extend(difficulty_questions)
+
+        # Track actual composition: difficulty questions + anchors at this level
+        anchors_at_difficulty = anchors_per_difficulty.get(difficulty, 0)
+        actual_composition["difficulty"][difficulty.value] = (
+            len(difficulty_questions) + anchors_at_difficulty
+        )
+
+    # Final fallback: If we still don't have enough questions, get any unseen questions
+    if len(selected_questions) < total_count:
+        already_selected_ids = [q.id for q in selected_questions]
+        still_needed = total_count - len(selected_questions)
+
+        stmt = select(Question).where(
+            Question.is_active == True,  # noqa: E712
+            Question.quality_flag == "normal",  # IDA-005: Exclude flagged
+            # IDA-006: Exclude negative discrimination, allow NULL
+            or_(Question.discrimination >= 0, Question.discrimination.is_(None)),
+        )
+
+        if seen_question_ids:
+            combined_ids = list(seen_question_ids) + already_selected_ids
+            stmt = stmt.where(~Question.id.in_(combined_ids))
+        else:
+            stmt = stmt.where(~Question.id.in_(already_selected_ids))
+
+        # IDA-006: Order by discrimination descending (NULLs last)
+        stmt = stmt.order_by(Question.discrimination.desc().nullslast())
+        stmt = stmt.limit(still_needed)
+        fallback_result = await db.execute(stmt)
+        fallback_questions: list[Question] = list(fallback_result.scalars().all())
 
         # IDA-006: Log warning when using final fallback
         if fallback_questions:

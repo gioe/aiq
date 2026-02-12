@@ -21,6 +21,8 @@ import statistics
 from typing import Dict, List, Any, Optional
 
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Response, Question, DifficultyLevel
 
@@ -303,6 +305,205 @@ def _create_empty_analysis() -> Dict[str, Any]:
         "validity_concern": False,
         "rapid_response_count": 0,
         "extended_response_count": 0,
+    }
+
+
+async def async_analyze_response_times(
+    db: AsyncSession, session_id: int
+) -> Dict[str, Any]:
+    """
+    Analyze response time patterns for a test session (async version).
+
+    This function calculates timing statistics and detects anomalies that
+    may indicate validity concerns. It is designed to be called after test
+    submission to populate the response_time_flags field in TestResult.
+
+    Args:
+        db: Async database session
+        session_id: ID of the test session to analyze
+
+    Returns:
+        Dictionary containing timing analysis (same format as sync version)
+
+    Edge Cases Handled:
+        - No responses in session: Returns empty analysis with validity_concern=False
+        - All responses missing time data: Returns partial analysis
+        - Single response: Calculates mean/median, no std deviation
+        - Extremely skewed distributions: Uses median for robustness
+
+    Reference:
+        docs/methodology/plans/PLAN-TIME-STANDARDIZATION.md (TS-004)
+    """
+    # Get all responses for this session with their question data
+    stmt = (
+        select(Response, Question)
+        .join(Question, Response.question_id == Question.id)
+        .where(Response.test_session_id == session_id)
+    )
+    result = await db.execute(stmt)
+    responses = result.all()
+
+    # Handle edge case: no responses
+    if not responses:
+        logger.warning(f"No responses found for session {session_id}")
+        return _create_empty_analysis()
+
+    # Separate responses with and without time data
+    responses_with_time: List[Dict[str, Any]] = []
+    responses_without_time = 0
+
+    for response, question in responses:
+        if response.time_spent_seconds is not None:
+            responses_with_time.append(
+                {
+                    "question_id": response.question_id,
+                    "time_seconds": response.time_spent_seconds,
+                    "is_correct": response.is_correct,
+                    "difficulty": question.difficulty_level.value,
+                }
+            )
+        else:
+            responses_without_time += 1
+
+    # Handle edge case: no time data at all
+    if not responses_with_time:
+        logger.info(f"No time data for session {session_id}, skipping analysis")
+        return {
+            "total_time_seconds": 0,
+            "mean_time_per_question": None,
+            "median_time_per_question": None,
+            "std_time_per_question": None,
+            "response_count": 0,
+            "responses_without_time": responses_without_time,
+            "anomalies": [],
+            "flags": ["no_time_data"],
+            "validity_concern": False,
+            "rapid_response_count": 0,
+            "extended_response_count": 0,
+        }
+
+    # Calculate basic time statistics
+    times = [r["time_seconds"] for r in responses_with_time]
+    total_time = sum(times)
+    mean_time = statistics.mean(times)
+    median_time = statistics.median(times)
+
+    # Calculate standard deviation (requires at least 2 data points)
+    std_time: Optional[float] = None
+    if len(times) >= 2:
+        try:
+            std_time = statistics.stdev(times)
+        except statistics.StatisticsError:
+            std_time = None
+
+    # Detect anomalies
+    anomalies = []
+    rapid_count = 0
+    extended_count = 0
+
+    for r in responses_with_time:
+        time_seconds = r["time_seconds"]
+        question_id = r["question_id"]
+        difficulty = r["difficulty"]
+
+        # Calculate z-score if we have std deviation
+        z_score = None
+        if std_time and std_time > 0:
+            z_score = (time_seconds - mean_time) / std_time
+
+        # Check for too-fast responses
+        if time_seconds < MIN_RESPONSE_TIME_SECONDS:
+            anomalies.append(
+                {
+                    "question_id": question_id,
+                    "time_seconds": time_seconds,
+                    "anomaly_type": "too_fast",
+                    "z_score": z_score,
+                    "difficulty": difficulty,
+                }
+            )
+            rapid_count += 1
+        # Check for too-fast responses on hard questions
+        elif (
+            difficulty == DifficultyLevel.HARD.value
+            and time_seconds < MIN_HARD_RESPONSE_TIME_SECONDS
+        ):
+            anomalies.append(
+                {
+                    "question_id": question_id,
+                    "time_seconds": time_seconds,
+                    "anomaly_type": "too_fast_hard",
+                    "z_score": z_score,
+                    "difficulty": difficulty,
+                }
+            )
+            rapid_count += 1
+        # Check for too-slow responses
+        elif time_seconds > MAX_RESPONSE_TIME_SECONDS:
+            anomalies.append(
+                {
+                    "question_id": question_id,
+                    "time_seconds": time_seconds,
+                    "anomaly_type": "too_slow",
+                    "z_score": z_score,
+                    "difficulty": difficulty,
+                }
+            )
+            extended_count += 1
+
+    # Generate summary flags
+    flags = []
+
+    # Flag rushed sessions
+    if mean_time < MIN_AVERAGE_TIME_SECONDS:
+        flags.append("rushed_session")
+
+    # Flag sessions with multiple rapid responses (>20% of responses)
+    rapid_threshold = len(responses_with_time) * 0.2
+    if rapid_count > rapid_threshold:
+        flags.append("multiple_rapid_responses")
+
+    # Flag sessions with extended times (>10% of responses)
+    extended_threshold = len(responses_with_time) * 0.1
+    if extended_count > extended_threshold:
+        flags.append("multiple_extended_times")
+
+    # Flag sessions with missing time data (>50% missing)
+    total_responses = len(responses_with_time) + responses_without_time
+    if responses_without_time > total_responses * 0.5:
+        flags.append("incomplete_time_data")
+
+    # Determine overall validity concern
+    # A validity concern exists if:
+    # - Session is rushed (average < 15 seconds)
+    # - More than 20% of responses are too fast
+    # - More than 3 responses are too slow (suggesting lookup)
+    validity_concern = (
+        "rushed_session" in flags
+        or "multiple_rapid_responses" in flags
+        or extended_count > EXTENDED_RESPONSE_VALIDITY_THRESHOLD
+    )
+
+    logger.info(
+        f"Analyzed session {session_id}: "
+        f"{len(responses_with_time)} responses with time data, "
+        f"mean={mean_time:.1f}s, "
+        f"anomalies={len(anomalies)}, "
+        f"validity_concern={validity_concern}"
+    )
+
+    return {
+        "total_time_seconds": total_time,
+        "mean_time_per_question": round(mean_time, 2),
+        "median_time_per_question": round(median_time, 2),
+        "std_time_per_question": round(std_time, 2) if std_time else None,
+        "response_count": len(responses_with_time),
+        "responses_without_time": responses_without_time,
+        "anomalies": anomalies,
+        "flags": flags,
+        "validity_concern": validity_concern,
+        "rapid_response_count": rapid_count,
+        "extended_response_count": extended_count,
     }
 
 

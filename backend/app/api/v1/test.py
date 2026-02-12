@@ -4,8 +4,8 @@ Test session management endpoints.
 import logging
 import threading
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import case, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, case, func
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
 from typing import Optional, TypedDict, TYPE_CHECKING
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
 
-from app.models import get_db, User, Question, TestSession, UserQuestion
+from app.models import get_async_db, User, Question, TestSession, UserQuestion
 from app.models.models import TestStatus
 from app.core.error_responses import (
     ErrorMessages,
@@ -50,27 +50,30 @@ from app.core.scoring import (
     calculate_domain_scores,
     calculate_all_domain_percentiles,
     get_strongest_weakest_domains,
-    get_cached_reliability,
+    async_get_cached_reliability,
     calculate_sem,
     calculate_confidence_interval,
     IQ_POPULATION_SD,
 )
 from app.core.system_config import (
-    is_weighted_scoring_enabled,
-    get_domain_weights,
-    get_domain_population_stats,
-    is_cat_enabled,
+    async_is_weighted_scoring_enabled,
+    async_get_domain_weights,
+    async_get_domain_population_stats,
+    async_is_cat_enabled,
 )
-from app.core.time_analysis import analyze_response_times, get_session_time_summary
+from app.core.time_analysis import (
+    async_analyze_response_times,
+    get_session_time_summary,
+)
 from app.core.config import settings
 from app.core.cache import invalidate_user_cache
 from app.core.reliability import invalidate_reliability_report_cache
 from app.core.analytics import AnalyticsTracker
 from app.core.question_analytics import update_question_statistics
-from app.core.test_composition import select_stratified_questions
+from app.core.test_composition import async_select_stratified_questions
 from app.core.distractor_analysis import (
-    update_distractor_stats,
-    update_session_quartile_stats,
+    async_update_distractor_stats,
+    async_update_session_quartile_stats,
 )
 from app.core.question_utils import question_to_response
 from app.core.validity_analysis import (
@@ -92,14 +95,14 @@ logger = logging.getLogger(__name__)
 CONFIDENCE_INTERVAL_LEVEL = 0.95
 
 
-def get_session_questions(
-    db: Session, user_id: int, session_id: int, include_explanation: bool = False
+async def get_session_questions(
+    db: AsyncSession, user_id: int, session_id: int, include_explanation: bool = False
 ) -> list:
     """
     Fetch questions for a specific test session.
 
     Args:
-        db: Database session
+        db: Async database session
         user_id: User ID
         session_id: Test session ID
         include_explanation: Whether to include explanations in response
@@ -107,15 +110,16 @@ def get_session_questions(
     Returns:
         List of questions in response format
     """
-    session_question_ids = (
-        db.query(UserQuestion.question_id)
-        .filter(
+    stmt = (
+        select(UserQuestion.question_id)
+        .where(
             UserQuestion.user_id == user_id,
             UserQuestion.test_session_id == session_id,
         )
         .order_by(UserQuestion.id)
-        .all()
     )
+    result = await db.execute(stmt)
+    session_question_ids = result.all()
     question_ids = [q_id for (q_id,) in session_question_ids]
 
     if not question_ids:
@@ -125,12 +129,9 @@ def get_session_questions(
     ordering = case(
         {id: index for index, id in enumerate(question_ids)}, value=Question.id
     )
-    questions = (
-        db.query(Question)
-        .filter(Question.id.in_(question_ids))
-        .order_by(ordering)
-        .all()
-    )
+    q_stmt = select(Question).where(Question.id.in_(question_ids)).order_by(ordering)
+    q_result = await db.execute(q_stmt)
+    questions = q_result.scalars().all()
 
     return [
         question_to_response(q, include_explanation=include_explanation)
@@ -138,12 +139,12 @@ def get_session_questions(
     ]
 
 
-def count_session_responses(db: Session, session_id: int) -> int:
+async def count_session_responses(db: AsyncSession, session_id: int) -> int:
     """
     Count the number of responses for a test session.
 
     Args:
-        db: Database session
+        db: Async database session
         session_id: Test session ID
 
     Returns:
@@ -151,7 +152,9 @@ def count_session_responses(db: Session, session_id: int) -> int:
     """
     from app.models.models import Response
 
-    return db.query(Response).filter(Response.test_session_id == session_id).count()
+    stmt = select(func.count(Response.id)).where(Response.test_session_id == session_id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 def verify_session_ownership(test_session: TestSession, user_id: int) -> None:
@@ -185,7 +188,7 @@ def verify_session_in_progress(test_session: TestSession) -> None:
         )
 
 
-def get_test_session_or_404(db: Session, session_id: int) -> TestSession:
+async def get_test_session_or_404(db: AsyncSession, session_id: int) -> TestSession:
     """
     Fetch a test session by ID or raise 404 if not found.
 
@@ -193,7 +196,7 @@ def get_test_session_or_404(db: Session, session_id: int) -> TestSession:
     and raising HTTPException with 404 status if the session doesn't exist.
 
     Args:
-        db: Database session
+        db: Async database session
         session_id: Test session ID to fetch
 
     Returns:
@@ -202,7 +205,9 @@ def get_test_session_or_404(db: Session, session_id: int) -> TestSession:
     Raises:
         HTTPException: 404 if test session not found
     """
-    test_session = db.query(TestSession).filter(TestSession.id == session_id).first()
+    stmt = select(TestSession).where(TestSession.id == session_id)
+    result = await db.execute(stmt)
+    test_session = result.scalar_one_or_none()
 
     if not test_session:
         raise_not_found(ErrorMessages.TEST_SESSION_NOT_FOUND)
@@ -210,9 +215,9 @@ def get_test_session_or_404(db: Session, session_id: int) -> TestSession:
     return test_session
 
 
-def build_test_result_response(
+async def build_test_result_response(
     test_result,
-    db: Optional[Session] = None,
+    db: Optional[AsyncSession] = None,
     population_stats: Optional[dict[str, dict[str, float]]] = None,
 ) -> TestResultResponse:
     """
@@ -249,7 +254,7 @@ def build_test_result_response(
 
         # Fetch population stats if not provided and db is available
         if population_stats is None and db is not None:
-            population_stats = get_domain_population_stats(db)
+            population_stats = await async_get_domain_population_stats(db)
 
         # Calculate domain percentiles if we have population stats
         if population_stats:
@@ -295,25 +300,25 @@ def build_test_result_response(
     )
 
 
-def get_eligible_cat_item_pool(db: Session, user_id: int) -> list:
+async def get_eligible_cat_item_pool(db: AsyncSession, user_id: int) -> list:
     """
     Get all calibrated questions that the user has not seen.
 
     Args:
-        db: Database session
+        db: Async database session
         user_id: User ID
 
     Returns:
         List of Question instances with IRT parameters
     """
     # Get IDs of questions the user has already seen
-    seen_question_ids = (
-        db.query(UserQuestion.question_id).filter(UserQuestion.user_id == user_id).all()
-    )
+    stmt = select(UserQuestion.question_id).where(UserQuestion.user_id == user_id)
+    result = await db.execute(stmt)
+    seen_question_ids = result.all()
     seen_ids = {qid for (qid,) in seen_question_ids}
 
     # Query calibrated questions (with IRT parameters) that user hasn't seen
-    query = db.query(Question).filter(
+    q_stmt = select(Question).where(
         Question.is_active == True,  # noqa: E712
         Question.quality_flag == "normal",
         Question.irt_difficulty.isnot(None),
@@ -322,35 +327,37 @@ def get_eligible_cat_item_pool(db: Session, user_id: int) -> list:
     )
 
     if seen_ids:
-        query = query.filter(Question.id.notin_(seen_ids))
+        q_stmt = q_stmt.where(Question.id.notin_(seen_ids))
 
-    eligible_questions = query.all()
+    result = await db.execute(q_stmt)
+    eligible_questions = result.scalars().all()
 
-    return eligible_questions
+    return list(eligible_questions)
 
 
-def get_user_prior_theta(db: Session, user_id: int) -> float:
+async def get_user_prior_theta(db: AsyncSession, user_id: int) -> float:
     """
     Get the user's prior ability estimate from their last completed adaptive session.
 
     Args:
-        db: Database session
+        db: Async database session
         user_id: User ID
 
     Returns:
         Prior theta estimate (0.0 if no prior session)
     """
-    last_adaptive_session = (
-        db.query(TestSession)
-        .filter(
+    stmt = (
+        select(TestSession)
+        .where(
             TestSession.user_id == user_id,
             TestSession.status == TestStatus.COMPLETED,
             TestSession.is_adaptive == True,  # noqa: E712
             TestSession.final_theta.isnot(None),
         )
         .order_by(TestSession.completed_at.desc())
-        .first()
     )
+    result = await db.execute(stmt)
+    last_adaptive_session = result.scalar_one_or_none()
 
     if last_adaptive_session and last_adaptive_session.final_theta is not None:
         logger.info(
@@ -364,7 +371,7 @@ def get_user_prior_theta(db: Session, user_id: int) -> float:
 
 
 @router.post("/start", response_model=StartTestResponse)
-def start_test(
+async def start_test(
     question_count: int = Query(
         default=settings.TEST_TOTAL_QUESTIONS,
         ge=1,
@@ -376,7 +383,7 @@ def start_test(
         description="Use adaptive (CAT) test delivery (returns single question)",
     ),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Start a new test session for the current user.
@@ -413,16 +420,17 @@ def start_test(
         - DB-level is a last-resort safeguard for race conditions
         - The DB constraint guarantees correctness even if app logic is bypassed
     """
+    # Capture user_id early to avoid lazy-load issues after potential rollback
+    user_id = current_user.id
+
     # BCQ-045: Application-level active session check (provides session_id for UX)
     # See docstring "Active Session Prevention Strategy" for why both checks exist
-    active_session = (
-        db.query(TestSession)
-        .filter(
-            TestSession.user_id == current_user.id,
-            TestSession.status == TestStatus.IN_PROGRESS,
-        )
-        .first()
+    stmt = select(TestSession).where(
+        TestSession.user_id == user_id,
+        TestSession.status == TestStatus.IN_PROGRESS,
     )
+    result = await db.execute(stmt)
+    active_session = result.scalar_one_or_none()
 
     if active_session:
         raise_bad_request(ErrorMessages.active_session_exists(active_session.id))
@@ -430,16 +438,17 @@ def start_test(
     # Check 6-month test cadence: user cannot take another test within 180 days
     # of their last completed test
     cadence_cutoff = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-    recent_completed_session = (
-        db.query(TestSession)
-        .filter(
-            TestSession.user_id == current_user.id,
+    stmt = (
+        select(TestSession)
+        .where(
+            TestSession.user_id == user_id,
             TestSession.status == TestStatus.COMPLETED,
             TestSession.completed_at > cadence_cutoff,
         )
         .order_by(TestSession.completed_at.desc())
-        .first()
     )
+    result = await db.execute(stmt)
+    recent_completed_session = result.scalar_one_or_none()
 
     if recent_completed_session:
         # Calculate next eligible date
@@ -461,18 +470,17 @@ def start_test(
         # Adaptive CAT path: return single question selected via MFI
         if question_count != settings.TEST_TOTAL_QUESTIONS:
             logger.warning(
-                f"User {current_user.id} requested adaptive=true with "
+                f"User {user_id} requested adaptive=true with "
                 f"question_count={question_count}. "
                 "question_count is ignored in adaptive mode."
             )
 
         logger.info(
-            f"Starting adaptive test for user {current_user.id} "
-            f"(adaptive=true parameter)"
+            f"Starting adaptive test for user {user_id} " f"(adaptive=true parameter)"
         )
 
         # Get eligible calibrated item pool and validate before creating session
-        item_pool = get_eligible_cat_item_pool(db, current_user.id)
+        item_pool = await get_eligible_cat_item_pool(db, user_id)
 
         if not item_pool:
             raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
@@ -481,11 +489,11 @@ def start_test(
         # creating the database session, so we don't create records we'd
         # immediately rollback if selection fails
         cat_manager = CATSessionManager()
-        prior_theta = get_user_prior_theta(db, current_user.id)
+        prior_theta = await get_user_prior_theta(db, user_id)
 
         # Use a temporary session_id=0; we'll update after flush
         cat_session = cat_manager.initialize(
-            user_id=current_user.id,
+            user_id=user_id,
             session_id=0,
             prior_theta=prior_theta,
         )
@@ -505,7 +513,7 @@ def start_test(
 
         # Item selection succeeded — now create the database session
         test_session = TestSession(
-            user_id=current_user.id,
+            user_id=user_id,
             status=TestStatus.IN_PROGRESS,
             started_at=utc_now(),
             composition_metadata=None,
@@ -515,11 +523,11 @@ def start_test(
         db.add(test_session)
 
         try:
-            db.flush()
+            await db.flush()
         except IntegrityError:
-            db.rollback()
+            await db.rollback()
             logger.warning(
-                f"Race condition detected: user {current_user.id} attempted to start "
+                f"Race condition detected: user {user_id} attempted to start "
                 "multiple test sessions concurrently"
             )
             raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
@@ -529,19 +537,19 @@ def start_test(
 
         # Mark the selected question as seen
         user_question = UserQuestion(
-            user_id=current_user.id,
+            user_id=user_id,
             question_id=selected_question.id,
             test_session_id=test_session.id,
             seen_at=utc_now(),
         )
         db.add(user_question)
 
-        db.commit()
-        db.refresh(test_session)
+        await db.commit()
+        await db.refresh(test_session)
 
         # Track analytics event
         AnalyticsTracker.track_test_started(
-            user_id=current_user.id,
+            user_id=user_id,
             session_id=test_session.id,
             question_count=1,
         )
@@ -564,19 +572,22 @@ def start_test(
     else:
         # Fixed-form path: existing behavior unchanged
         # TASK-835: Check if CAT is enabled for this test (system-level flag)
-        cat_active = is_cat_enabled(db)
+        cat_active = await async_is_cat_enabled(db)
 
         if cat_active:
             logger.info(
-                f"CAT enabled for user {current_user.id}: "
+                f"CAT enabled for user {user_id}: "
                 "adaptive item selection will be used in future; "
                 "falling back to stratified selection for now"
             )
 
         # P11-005: Use stratified question selection for balanced test composition
-        unseen_questions, composition_metadata = select_stratified_questions(
+        (
+            unseen_questions,
+            composition_metadata,
+        ) = await async_select_stratified_questions(
             db=db,
-            user_id=current_user.id,
+            user_id=user_id,
             total_count=question_count,
         )
 
@@ -590,7 +601,7 @@ def start_test(
 
         # P11-006: Create new test session with composition metadata
         test_session = TestSession(
-            user_id=current_user.id,
+            user_id=user_id,
             status=TestStatus.IN_PROGRESS,
             started_at=utc_now(),
             composition_metadata=composition_metadata,
@@ -599,15 +610,15 @@ def start_test(
         db.add(test_session)
 
         try:
-            db.flush()  # Get the session ID without committing yet
+            await db.flush()  # Get the session ID without committing yet
         except IntegrityError:
             # BCQ-006/BCQ-045: Database-level race condition prevention
             # This catches the rare case where two requests pass the app-level check
             # simultaneously. Returns 409 without session_id (lost due to rollback).
             # See docstring "Active Session Prevention Strategy" for full explanation.
-            db.rollback()
+            await db.rollback()
             logger.warning(
-                f"Race condition detected: user {current_user.id} attempted to start "
+                f"Race condition detected: user {user_id} attempted to start "
                 "multiple test sessions concurrently"
             )
             raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
@@ -615,19 +626,19 @@ def start_test(
         # Mark questions as seen for this user
         for question in unseen_questions:
             user_question = UserQuestion(
-                user_id=current_user.id,
+                user_id=user_id,
                 question_id=question.id,
                 test_session_id=test_session.id,
                 seen_at=utc_now(),
             )
             db.add(user_question)
 
-        db.commit()
-        db.refresh(test_session)
+        await db.commit()
+        await db.refresh(test_session)
 
         # Track analytics event
         AnalyticsTracker.track_test_started(
-            user_id=current_user.id,
+            user_id=user_id,
             session_id=test_session.id,
             question_count=len(unseen_questions),
         )
@@ -648,8 +659,8 @@ def start_test(
         )
 
 
-def _finalize_adaptive_session(
-    db: Session,
+async def _finalize_adaptive_session(
+    db: AsyncSession,
     test_session: TestSession,
     cat_manager: CATSessionManager,
     cat_session: CATSession,
@@ -663,7 +674,7 @@ def _finalize_adaptive_session(
     and returns the final AdaptiveNextResponse.
 
     Args:
-        db: Database session
+        db: Async database session
         test_session: The test session to finalize
         cat_manager: CATSessionManager instance
         cat_session: The in-memory CAT session
@@ -715,8 +726,8 @@ def _finalize_adaptive_session(
         ci_upper=ci_upper,
     )
     db.add(test_result)
-    db.commit()
-    db.refresh(test_result)
+    await db.commit()
+    await db.refresh(test_result)
 
     AnalyticsTracker.track_test_completed(
         user_id=user_id,
@@ -736,7 +747,7 @@ def _finalize_adaptive_session(
     invalidate_user_cache(user_id)
     invalidate_reliability_report_cache()
 
-    result_response = build_test_result_response(test_result, db=db)
+    result_response = await build_test_result_response(test_result, db=db)
 
     return AdaptiveNextResponse(
         next_question=None,
@@ -750,10 +761,10 @@ def _finalize_adaptive_session(
 
 
 @router.post("/next", response_model=AdaptiveNextResponse)
-def submit_adaptive_response(
+async def submit_adaptive_response(
     request: AdaptiveResponseRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Submit a single response during an adaptive (CAT) test and get the next question.
@@ -778,7 +789,7 @@ def submit_adaptive_response(
     user_id = current_user.id
 
     # Step 1: Fetch and validate the test session
-    test_session = get_test_session_or_404(db, request.session_id)
+    test_session = await get_test_session_or_404(db, request.session_id)
     verify_session_ownership(test_session, user_id)
     verify_session_in_progress(test_session)
 
@@ -790,34 +801,33 @@ def submit_adaptive_response(
         raise_bad_request(ErrorMessages.ANSWER_REQUIRED)
 
     # Step 3: Verify the question was served in this session
-    served_question = (
-        db.query(UserQuestion)
-        .filter(
-            UserQuestion.user_id == user_id,
-            UserQuestion.test_session_id == test_session.id,
-            UserQuestion.question_id == request.question_id,
-        )
-        .first()
+    stmt = select(UserQuestion).where(
+        UserQuestion.user_id == user_id,
+        UserQuestion.test_session_id == test_session.id,
+        UserQuestion.question_id == request.question_id,
     )
+    result = await db.execute(stmt)
+    served_question = result.scalar_one_or_none()
 
     if not served_question:
         raise_bad_request(ErrorMessages.question_not_served(request.question_id))
 
     # Step 4: Prevent duplicate submissions for the same question
-    existing_response = (
-        db.query(ResponseModel)
-        .filter(
-            ResponseModel.test_session_id == test_session.id,
-            ResponseModel.question_id == request.question_id,
-        )
-        .first()
+    dup_stmt = select(ResponseModel).where(
+        ResponseModel.test_session_id == test_session.id,
+        ResponseModel.question_id == request.question_id,
     )
+    result = await db.execute(dup_stmt)
+    existing_response = result.scalar_one_or_none()
 
     if existing_response:
         raise_conflict(ErrorMessages.duplicate_response(request.question_id))
 
     # Step 5: Fetch the question and determine correctness
-    question = db.query(Question).filter(Question.id == request.question_id).first()
+    result = await db.execute(
+        select(Question).where(Question.id == request.question_id)
+    )
+    question = result.scalar_one_or_none()
 
     if not question:
         raise_not_found(ErrorMessages.question_not_found(request.question_id))
@@ -829,13 +839,14 @@ def submit_adaptive_response(
     # Step 6: Reconstruct CAT session state from database
     # Query previous responses BEFORE adding the current one to avoid
     # double-counting if SQLAlchemy autoflush behavior changes.
-    previous_responses = (
-        db.query(ResponseModel, Question)
+    prev_stmt = (
+        select(ResponseModel, Question)
         .join(Question, ResponseModel.question_id == Question.id)
-        .filter(ResponseModel.test_session_id == test_session.id)
+        .where(ResponseModel.test_session_id == test_session.id)
         .order_by(ResponseModel.id)
-        .all()
     )
+    result = await db.execute(prev_stmt)
+    previous_responses = result.all()
 
     # Step 7: Store the Response record (after replay query)
     response = ResponseModel(
@@ -848,11 +859,11 @@ def submit_adaptive_response(
         time_spent_seconds=request.time_spent_seconds,
     )
     db.add(response)
-    db.flush()
+    await db.flush()
 
     # Step 8: Initialize CAT engine and replay history
     cat_manager = CATSessionManager()
-    prior_theta = get_user_prior_theta(db, user_id)
+    prior_theta = await get_user_prior_theta(db, user_id)
     cat_session = cat_manager.initialize(
         user_id=user_id,
         session_id=test_session.id,
@@ -909,7 +920,7 @@ def submit_adaptive_response(
 
     # Step 11: Check if the test should stop
     if step_result.should_stop:
-        return _finalize_adaptive_session(
+        return await _finalize_adaptive_session(
             db,
             test_session,
             cat_manager,
@@ -919,7 +930,7 @@ def submit_adaptive_response(
         )
 
     # Step 12: Test continues — select next question
-    item_pool = get_eligible_cat_item_pool(db, user_id)
+    item_pool = await get_eligible_cat_item_pool(db, user_id)
     administered_ids = set(cat_session.administered_items)
 
     next_question = select_next_item(
@@ -931,7 +942,7 @@ def submit_adaptive_response(
     )
 
     if not next_question:
-        return _finalize_adaptive_session(
+        return await _finalize_adaptive_session(
             db,
             test_session,
             cat_manager,
@@ -953,9 +964,9 @@ def submit_adaptive_response(
     # IntegrityError catch is a safety net for race conditions that bypass
     # the app-level check (lines 793-804)
     try:
-        db.commit()
+        await db.commit()
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         logger.debug(
             "IntegrityError during adaptive response submission "
             "(session_id=%s, question_id=%s): %s",
@@ -981,10 +992,10 @@ def submit_adaptive_response(
 
 
 @router.get("/session/{session_id}", response_model=TestSessionStatusResponse)
-def get_test_session(
+async def get_test_session(
     session_id: int,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Get details for a specific test session.
@@ -1000,18 +1011,18 @@ def get_test_session(
     Raises:
         HTTPException: If session not found or doesn't belong to user
     """
-    test_session = get_test_session_or_404(db, session_id)
+    test_session = await get_test_session_or_404(db, session_id)
 
     # Verify session belongs to current user
     verify_session_ownership(test_session, current_user.id)
 
     # Count responses for this session
-    questions_count = count_session_responses(db, session_id)
+    questions_count = await count_session_responses(db, session_id)
 
     # If session is in_progress, retrieve the questions for this session
     questions_response = None
     if test_session.status == TestStatus.IN_PROGRESS:
-        questions_response = get_session_questions(
+        questions_response = await get_session_questions(
             db, current_user.id, session_id, include_explanation=False
         )
 
@@ -1023,9 +1034,9 @@ def get_test_session(
 
 
 @router.get("/active", response_model=Optional[TestSessionStatusResponse])
-def get_active_test_session(
+async def get_active_test_session(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Get the user's active (in_progress) test session if any.
@@ -1037,23 +1048,21 @@ def get_active_test_session(
     Returns:
         Active test session or None
     """
-    active_session = (
-        db.query(TestSession)
-        .filter(
-            TestSession.user_id == current_user.id,
-            TestSession.status == TestStatus.IN_PROGRESS,
-        )
-        .first()
+    stmt = select(TestSession).where(
+        TestSession.user_id == current_user.id,
+        TestSession.status == TestStatus.IN_PROGRESS,
     )
+    result = await db.execute(stmt)
+    active_session = result.scalar_one_or_none()
 
     if not active_session:
         return None
 
     # Count responses for this session
-    questions_count = count_session_responses(db, active_session.id)
+    questions_count = await count_session_responses(db, active_session.id)
 
     # Get questions for the active session
-    questions_response = get_session_questions(
+    questions_response = await get_session_questions(
         db, current_user.id, active_session.id, include_explanation=False
     )
 
@@ -1065,10 +1074,10 @@ def get_active_test_session(
 
 
 @router.get("/progress", response_model=TestProgressResponse)
-def get_test_progress(
+async def get_test_progress(
     session_id: int = Query(..., description="Test session ID"),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Get progress information for an active adaptive (CAT) test session.
@@ -1091,7 +1100,7 @@ def get_test_progress(
     from app.models.models import Response as ResponseModel
 
     # Step 1: Fetch and validate the test session
-    test_session = get_test_session_or_404(db, session_id)
+    test_session = await get_test_session_or_404(db, session_id)
     verify_session_ownership(test_session, current_user.id)
     verify_session_in_progress(test_session)
 
@@ -1099,17 +1108,18 @@ def get_test_progress(
         raise_bad_request(ErrorMessages.SESSION_NOT_ADAPTIVE)
 
     # Step 2: Query previous responses with their questions for CAT state reconstruction
-    previous_responses = (
-        db.query(ResponseModel, Question)
+    stmt = (
+        select(ResponseModel, Question)
         .join(Question, ResponseModel.question_id == Question.id)
-        .filter(ResponseModel.test_session_id == test_session.id)
+        .where(ResponseModel.test_session_id == test_session.id)
         .order_by(ResponseModel.id)
-        .all()
     )
+    result = await db.execute(stmt)
+    previous_responses = result.all()
 
     # Step 3: Initialize CAT engine and replay history to reconstruct state
     cat_manager = CATSessionManager()
-    prior_theta = get_user_prior_theta(db, current_user.id)
+    prior_theta = await get_user_prior_theta(db, current_user.id)
     cat_session = cat_manager.initialize(
         user_id=current_user.id,
         session_id=test_session.id,
@@ -1158,10 +1168,10 @@ def get_test_progress(
 
 
 @router.post("/{session_id}/abandon", response_model=TestSessionAbandonResponse)
-def abandon_test(
+async def abandon_test(
     session_id: int,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Abandon an in-progress test session.
@@ -1181,7 +1191,7 @@ def abandon_test(
     Raises:
         HTTPException: If session not found, not authorized, or already completed
     """
-    test_session = get_test_session_or_404(db, session_id)
+    test_session = await get_test_session_or_404(db, session_id)
 
     # Verify session belongs to current user
     verify_session_ownership(test_session, current_user.id)
@@ -1190,14 +1200,14 @@ def abandon_test(
     verify_session_in_progress(test_session)
 
     # Count any responses that were saved during the test
-    responses_saved = count_session_responses(db, session_id)
+    responses_saved = await count_session_responses(db, session_id)
 
     # Mark session as abandoned
     test_session.status = TestStatus.ABANDONED
     test_session.completed_at = utc_now()
 
-    db.commit()
-    db.refresh(test_session)
+    await db.commit()
+    await db.refresh(test_session)
 
     # Track analytics event
     AnalyticsTracker.track_test_abandoned(
@@ -1262,8 +1272,8 @@ class SEMCalculationResult(TypedDict):
 TIME_LIMIT_SECONDS = 1800
 
 
-def _validate_submission(
-    db: Session,
+async def _validate_submission(
+    db: AsyncSession,
     submission: ResponseSubmission,
     user_id: int,
 ) -> SubmissionValidationResult:
@@ -1284,7 +1294,7 @@ def _validate_submission(
     Raises:
         HTTPException: If validation fails
     """
-    test_session = get_test_session_or_404(db, submission.session_id)
+    test_session = await get_test_session_or_404(db, submission.session_id)
 
     # Verify session belongs to current user
     verify_session_ownership(test_session, user_id)
@@ -1298,14 +1308,12 @@ def _validate_submission(
 
     # Fetch all questions that were part of this test session
     # (questions seen by user at the time of session start)
-    session_question_ids = (
-        db.query(UserQuestion.question_id)
-        .filter(
-            UserQuestion.user_id == user_id,
-            UserQuestion.seen_at >= test_session.started_at,
-        )
-        .all()
+    stmt = select(UserQuestion.question_id).where(
+        UserQuestion.user_id == user_id,
+        UserQuestion.seen_at >= test_session.started_at,
     )
+    result = await db.execute(stmt)
+    session_question_ids = result.all()
     valid_question_ids = {q_id for (q_id,) in session_question_ids}
 
     # Validate all question_ids in submission belong to this session
@@ -1316,7 +1324,10 @@ def _validate_submission(
         raise_bad_request(ErrorMessages.invalid_question_ids(invalid_questions))
 
     # Fetch questions to compare answers
-    questions = db.query(Question).filter(Question.id.in_(submitted_question_ids)).all()
+    result = await db.execute(
+        select(Question).where(Question.id.in_(submitted_question_ids))
+    )
+    questions = result.scalars().all()
     questions_dict = {q.id: q for q in questions}
 
     return {
@@ -1326,8 +1337,8 @@ def _validate_submission(
     }
 
 
-def _process_responses(
-    db: Session,
+async def _process_responses(
+    db: AsyncSession,
     submission: ResponseSubmission,
     test_session: TestSession,
     user_id: int,
@@ -1396,7 +1407,7 @@ def _process_responses(
             f"update distractor stats for question {resp_item.question_id}",
             logger,
         ):
-            update_distractor_stats(
+            await async_update_distractor_stats(
                 db=db,
                 question_id=resp_item.question_id,
                 selected_answer=resp_item.user_answer.strip(),
@@ -1409,8 +1420,8 @@ def _process_responses(
     }
 
 
-def _complete_session_and_calculate_score(
-    db: Session,
+async def _complete_session_and_calculate_score(
+    db: AsyncSession,
     test_session: TestSession,
     submission: ResponseSubmission,
     response_objects: list["ResponseModel"],
@@ -1461,8 +1472,8 @@ def _complete_session_and_calculate_score(
     domain_scores = calculate_domain_scores(response_objects, questions_dict)
 
     # DW-014: Calculate IQ score using weighted or equal weights based on config
-    use_weighted = is_weighted_scoring_enabled(db)
-    domain_weights = get_domain_weights(db) if use_weighted else None
+    use_weighted = await async_is_weighted_scoring_enabled(db)
+    domain_weights = await async_get_domain_weights(db) if use_weighted else None
 
     if use_weighted and domain_weights:
         score_result = calculate_weighted_iq_score(
@@ -1494,7 +1505,7 @@ def _complete_session_and_calculate_score(
     )
 
 
-def _analyze_response_times(db: Session, session_id: int) -> Optional[dict]:
+async def _analyze_response_times(db: AsyncSession, session_id: int) -> Optional[dict]:
     """
     Analyze response times for anomaly detection.
 
@@ -1511,7 +1522,7 @@ def _analyze_response_times(db: Session, session_id: int) -> Optional[dict]:
         logger,
         log_level=logging.ERROR,
     ):
-        time_analysis = analyze_response_times(db, session_id)
+        time_analysis = await async_analyze_response_times(db, session_id)
         response_time_flags = get_session_time_summary(time_analysis)
 
         if response_time_flags.get("validity_concern"):
@@ -1630,8 +1641,8 @@ def _run_validity_analysis(
     }
 
 
-def _calculate_sem_and_ci(
-    db: Session, session_id: int, iq_score: int
+async def _calculate_sem_and_ci(
+    db: AsyncSession, session_id: int, iq_score: int
 ) -> SEMCalculationResult:
     """
     Calculate Standard Error of Measurement and confidence interval.
@@ -1653,7 +1664,7 @@ def _calculate_sem_and_ci(
         logger,
     ):
         # Get cached reliability coefficient (Cronbach's alpha)
-        reliability = get_cached_reliability(db)
+        reliability = await async_get_cached_reliability(db)
 
         if reliability is not None:
             standard_error = calculate_sem(reliability)
@@ -1681,8 +1692,8 @@ def _calculate_sem_and_ci(
     }
 
 
-def _run_post_submission_updates(
-    db: Session,
+async def _run_post_submission_updates(
+    db: AsyncSession,
     session_id: int,
     correct_count: int,
     response_count: int,
@@ -1704,14 +1715,14 @@ def _run_post_submission_updates(
         logger,
         log_level=logging.ERROR,
     ):
-        update_question_statistics(db, session_id)
+        await update_question_statistics(db, session_id)
 
     # DA-007: Update quartile-based distractor stats after test completion
     with graceful_failure(
         f"update distractor quartile stats for session {session_id}",
         logger,
     ):
-        update_session_quartile_stats(
+        await async_update_session_quartile_stats(
             db=db,
             test_session_id=session_id,
             correct_answers=correct_count,
@@ -1755,10 +1766,10 @@ def _trigger_shadow_cat(session_id: int) -> None:
 
 
 @router.post("/submit", response_model=SubmitTestResponse)
-def submit_test(
+async def submit_test(
     submission: ResponseSubmission,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Submit responses for a test session.
@@ -1783,12 +1794,12 @@ def submit_test(
     user_id = current_user.id
 
     # Step 1: Validate submission
-    validation_result = _validate_submission(db, submission, user_id)
+    validation_result = await _validate_submission(db, submission, user_id)
     test_session = validation_result["test_session"]
     questions_dict = validation_result["questions_dict"]
 
     # Step 2: Process responses
-    processing_result = _process_responses(
+    processing_result = await _process_responses(
         db, submission, test_session, user_id, questions_dict
     )
     response_count = processing_result["response_count"]
@@ -1802,7 +1813,7 @@ def submit_test(
         domain_scores,
         score_result,
         percentile,
-    ) = _complete_session_and_calculate_score(
+    ) = await _complete_session_and_calculate_score(
         db,
         test_session,
         submission,
@@ -1813,7 +1824,7 @@ def submit_test(
     )
 
     # Step 4: Analyze response times
-    response_time_flags = _analyze_response_times(db, test_session.id)
+    response_time_flags = await _analyze_response_times(db, test_session.id)
 
     # Step 5: Run validity analysis
     validity_result = _run_validity_analysis(
@@ -1824,7 +1835,7 @@ def submit_test(
     )
 
     # Step 6: Calculate SEM and confidence interval
-    sem_result = _calculate_sem_and_ci(db, test_session.id, score_result.iq_score)
+    sem_result = await _calculate_sem_and_ci(db, test_session.id, score_result.iq_score)
 
     # Step 7: Create TestResult record
     test_result = TestResult(
@@ -1850,11 +1861,11 @@ def submit_test(
     # Step 8: Commit all changes
     # IntegrityError catch is a safety net for race conditions in batch submissions
     try:
-        db.commit()
-        db.refresh(test_session)
-        db.refresh(test_result)
+        await db.commit()
+        await db.refresh(test_session)
+        await db.refresh(test_result)
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         logger.debug(
             "IntegrityError during batch response submission "
             "(session_id=%s, user_id=%s): %s",
@@ -1869,7 +1880,7 @@ def submit_test(
         )
 
     # Step 9: Run post-submission updates (non-critical)
-    _run_post_submission_updates(
+    await _run_post_submission_updates(
         db,
         test_session.id,
         correct_count,
@@ -1904,7 +1915,7 @@ def submit_test(
             _trigger_shadow_cat(test_session.id)
 
     # Step 11: Build and return response
-    result_response = build_test_result_response(test_result, db=db)
+    result_response = await build_test_result_response(test_result, db=db)
 
     return SubmitTestResponse(
         session=TestSessionResponse.model_validate(test_session),
@@ -1915,10 +1926,10 @@ def submit_test(
 
 
 @router.get("/results/{result_id}", response_model=TestResultResponse)
-def get_test_result(
+async def get_test_result(
     result_id: int,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Get a specific test result by ID.
@@ -1937,7 +1948,8 @@ def get_test_result(
     from app.models.models import TestResult
 
     # Fetch the test result
-    test_result = db.query(TestResult).filter(TestResult.id == result_id).first()
+    result = await db.execute(select(TestResult).where(TestResult.id == result_id))
+    test_result = result.scalar_one_or_none()
 
     if not test_result:
         raise_not_found(ErrorMessages.TEST_RESULT_NOT_FOUND)
@@ -1946,11 +1958,11 @@ def get_test_result(
     if test_result.user_id != current_user.id:
         raise_forbidden(ErrorMessages.RESULT_ACCESS_DENIED)
 
-    return build_test_result_response(test_result, db=db)
+    return await build_test_result_response(test_result, db=db)
 
 
 @router.get("/history", response_model=PaginatedTestHistoryResponse)
-def get_test_history(
+async def get_test_history(
     limit: int = Query(
         default=DEFAULT_HISTORY_PAGE_SIZE,
         ge=1,
@@ -1963,7 +1975,7 @@ def get_test_history(
         description="Number of results to skip for pagination",
     ),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Get historical test results for the current user with pagination.
@@ -1982,28 +1994,28 @@ def get_test_history(
     from app.models.models import TestResult
 
     # Get total count for pagination (single efficient count query)
-    total_count = (
-        db.query(func.count(TestResult.id))
-        .filter(TestResult.user_id == current_user.id)
-        .scalar()
+    result = await db.execute(
+        select(func.count(TestResult.id)).where(TestResult.user_id == current_user.id)
     )
+    total_count = result.scalar_one()
 
     # Fetch paginated test results for the user, ordered by completion date
-    test_results = (
-        db.query(TestResult)
-        .filter(TestResult.user_id == current_user.id)
+    stmt = (
+        select(TestResult)
+        .where(TestResult.user_id == current_user.id)
         .order_by(TestResult.completed_at.desc())
         .offset(offset)
         .limit(limit)
-        .all()
     )
+    result = await db.execute(stmt)
+    test_results = result.scalars().all()
 
     # Pre-fetch population stats once to avoid N+1 queries
-    population_stats = get_domain_population_stats(db)
+    population_stats = await async_get_domain_population_stats(db)
 
     # Convert to response format (pass pre-fetched stats to avoid N+1 queries)
     results = [
-        build_test_result_response(test_result, population_stats=population_stats)
+        await build_test_result_response(test_result, population_stats=population_stats)
         for test_result in test_results
     ]
 

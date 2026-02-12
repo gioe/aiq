@@ -22,10 +22,14 @@ Reference:
     docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-006)
 """
 
+import asyncio
 import logging
-from typing import Dict, List
+from typing import Dict, List, TYPE_CHECKING
 
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.core.datetime_utils import utc_now
@@ -647,3 +651,51 @@ def get_reliability_report(
     )
 
     return report
+
+
+async def async_get_reliability_report(
+    db: "AsyncSession",
+    min_sessions: int = 100,
+    min_retest_pairs: int = 30,
+    use_cache: bool = True,
+) -> Dict:
+    """
+    Generate comprehensive reliability report (async version).
+
+    This is a wrapper that runs the sync version in a thread pool since
+    the reliability system uses complex sync database operations.
+
+    Note: This function creates a separate sync session to run the sync reliability
+    calculations. This is necessary because the reliability module has complex
+    data loading patterns that haven't been converted to async yet. Because it
+    uses a separate session, it only sees committed data — uncommitted changes
+    from the caller's async session will not be visible. This is acceptable
+    because reliability calculations are read-only aggregations over historical data.
+
+    Args:
+        db: Async database session
+        min_sessions: Minimum sessions required for alpha/split-half calculations
+        min_retest_pairs: Minimum pairs required for test-retest calculation
+        use_cache: Whether to use caching (default True)
+
+    Returns:
+        Same format as get_reliability_report()
+    """
+    from app.models import SessionLocal
+
+    # Create a sync session for the reliability calculations
+    # We run this in a thread pool to avoid blocking the async event loop
+    def _run_sync_reliability_report():
+        sync_db = SessionLocal()
+        try:
+            return get_reliability_report(
+                sync_db,
+                min_sessions=min_sessions,
+                min_retest_pairs=min_retest_pairs,
+                use_cache=use_cache,
+            )
+        finally:
+            sync_db.close()
+
+    # Run the sync function in a thread pool
+    return await asyncio.to_thread(_run_sync_reliability_report)

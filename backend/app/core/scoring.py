@@ -48,6 +48,7 @@ from scipy.stats import norm
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from sqlalchemy.ext.asyncio import AsyncSession
     from app.models.models import Response, Question
 
 logger = logging.getLogger(__name__)
@@ -792,6 +793,84 @@ def get_cached_reliability(db: "Session") -> Optional[float]:
     try:
         # Get reliability report (uses caching internally)
         report = get_reliability_report(db)
+
+        # Extract Cronbach's alpha from internal consistency section
+        internal_consistency = report.get("internal_consistency", {})
+        alpha = internal_consistency.get("cronbachs_alpha")
+
+        # Return None if alpha couldn't be calculated
+        if alpha is None:
+            logger.debug("Reliability coefficient not available (insufficient data)")
+            return None
+
+        # Check minimum reliability threshold for meaningful SEM
+        # Below this threshold, CIs are too wide to be useful
+        if alpha < MIN_RELIABILITY_FOR_SEM:
+            logger.warning(
+                f"Reliability coefficient ({alpha:.3f}) below minimum threshold "
+                f"({MIN_RELIABILITY_FOR_SEM}) for meaningful confidence intervals. "
+                "CI calculation skipped."
+            )
+            return None
+
+        return alpha
+
+    except Exception as e:
+        # If anything goes wrong, return None to allow graceful degradation
+        # The test submission will proceed without CI data
+        logger.debug(f"Error retrieving reliability coefficient: {e}")
+        return None
+
+
+async def async_get_cached_reliability(db: "AsyncSession") -> Optional[float]:
+    """
+    Retrieve Cronbach's alpha from the reliability system with caching (async version).
+
+    This function provides a convenient way to get the current reliability
+    coefficient for use in SEM calculations. It leverages the existing
+    reliability report caching mechanism to avoid recalculating reliability
+    on every test submission.
+
+    The function enforces a minimum reliability threshold (MIN_RELIABILITY_FOR_SEM)
+    before returning a value. If reliability is below this threshold, the
+    confidence intervals would be too wide to be meaningful, so None is returned.
+
+    Args:
+        db: Async database session for querying reliability data.
+
+    Returns:
+        Cronbach's alpha coefficient if:
+        - Reliability calculation succeeded (sufficient data)
+        - Reliability meets minimum threshold (≥ 0.60)
+
+        None if:
+        - Insufficient data to calculate reliability
+        - Reliability coefficient is below minimum threshold
+        - Any error occurred during reliability calculation
+
+    Examples:
+        >>> reliability = await async_get_cached_reliability(db)
+        >>> if reliability is not None:
+        ...     sem = calculate_sem(reliability)
+        ...     ci = calculate_confidence_interval(score, sem)
+        ... else:
+        ...     # Cannot calculate meaningful CI, return None for CI fields
+        ...     pass
+
+    Note:
+        - Uses 5-minute cache from reliability module (RELIABILITY_REPORT_CACHE_TTL)
+        - Minimum sessions required for reliability: 100 (from reliability module)
+        - Minimum reliability for SEM: 0.60 (MIN_RELIABILITY_FOR_SEM)
+
+    Reference:
+        docs/plans/in-progress/PLAN-STANDARD-ERROR-OF-MEASUREMENT.md (SEM-003)
+    """
+    # Import here to avoid circular imports at module level
+    from app.core.reliability import async_get_reliability_report
+
+    try:
+        # Get reliability report (uses caching internally)
+        report = await async_get_reliability_report(db)
 
         # Extract Cronbach's alpha from internal consistency section
         internal_consistency = report.get("internal_consistency", {})

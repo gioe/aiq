@@ -15,6 +15,8 @@ Metrics calculated:
 """
 # mypy: disable-error-code="dict-item"
 import logging
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from typing import Dict, List
 import statistics
@@ -180,7 +182,9 @@ def calculate_point_biserial_correlation(
     return r_pb
 
 
-def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
+async def update_question_statistics(
+    db: AsyncSession, session_id: int
+) -> Dict[int, Dict]:
     """
     Update empirical statistics for all questions in a completed test session.
 
@@ -221,12 +225,13 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
         IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 390-420
     """
     # Get all responses from this session to know which questions to update
-    session_responses = (
-        db.query(Response.question_id)
-        .filter(Response.test_session_id == session_id)
+    stmt = (
+        select(Response.question_id)
+        .where(Response.test_session_id == session_id)
         .distinct()
-        .all()
     )
+    result = await db.execute(stmt)
+    session_responses = result.all()
 
     question_ids = [r.question_id for r in session_responses]
 
@@ -238,11 +243,11 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
 
     for question_id in question_ids:
         # Get all responses for this question across all users/sessions
-        all_responses = (
-            db.query(Response.is_correct, Response.user_id, Response.test_session_id)
-            .filter(Response.question_id == question_id)
-            .all()
-        )
+        stmt_resp = select(
+            Response.is_correct, Response.user_id, Response.test_session_id
+        ).where(Response.question_id == question_id)
+        result_resp = await db.execute(stmt_resp)
+        all_responses = result_resp.all()
 
         response_count = len(all_responses)
 
@@ -266,11 +271,11 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
 
             for response in all_responses:
                 # Get the test result for this session
-                test_result = (
-                    db.query(TestResult.correct_answers)
-                    .filter(TestResult.test_session_id == response.test_session_id)
-                    .first()
+                stmt_test = select(TestResult.correct_answers).where(
+                    TestResult.test_session_id == response.test_session_id
                 )
+                result_test = await db.execute(stmt_test)
+                test_result = result_test.first()
 
                 if test_result:
                     item_scores.append(1 if response.is_correct else 0)
@@ -284,7 +289,9 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
                 )
 
         # Update question statistics
-        question = db.query(Question).filter(Question.id == question_id).first()
+        stmt_q = select(Question).where(Question.id == question_id)
+        result_q = await db.execute(stmt_q)
+        question = result_q.scalar_one_or_none()
 
         if question:
             question.empirical_difficulty = empirical_difficulty
@@ -349,7 +356,7 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
             }
 
     # Commit all question updates
-    db.commit()
+    await db.commit()
 
     logger.info(
         f"Updated statistics for {len(results)} questions from session {session_id}"
@@ -361,7 +368,7 @@ def update_question_statistics(db: Session, session_id: int) -> Dict[int, Dict]:
     return results
 
 
-def get_question_statistics(db: Session, question_id: int) -> Dict:
+async def get_question_statistics(db: AsyncSession, question_id: int) -> Dict:
     """
     Get current performance statistics for a question.
 
@@ -379,7 +386,8 @@ def get_question_statistics(db: Session, question_id: int) -> Dict:
             "has_sufficient_data": bool
         }
     """
-    question = db.query(Question).filter(Question.id == question_id).first()
+    result = await db.execute(select(Question).where(Question.id == question_id))
+    question = result.scalar_one_or_none()
 
     if not question:
         return {
@@ -405,7 +413,9 @@ def get_question_statistics(db: Session, question_id: int) -> Dict:
     }
 
 
-def get_all_question_statistics(db: Session, min_responses: int = 0) -> List[Dict]:
+async def get_all_question_statistics(
+    db: AsyncSession, min_responses: int = 0
+) -> List[Dict]:
     """
     Get performance statistics for all questions.
 
@@ -416,9 +426,13 @@ def get_all_question_statistics(db: Session, min_responses: int = 0) -> List[Dic
     Returns:
         List of dictionaries with question statistics, ordered by response count DESC
     """
-    query = db.query(Question).filter(Question.response_count >= min_responses)
-
-    questions = query.order_by(Question.response_count.desc()).all()
+    stmt = (
+        select(Question)
+        .where(Question.response_count >= min_responses)
+        .order_by(Question.response_count.desc())
+    )
+    result = await db.execute(stmt)
+    questions = result.scalars().all()
 
     results = []
     for question in questions:
@@ -442,8 +456,8 @@ def get_all_question_statistics(db: Session, min_responses: int = 0) -> List[Dic
     return results
 
 
-def identify_problematic_questions(
-    db: Session, min_responses: int = 30
+async def identify_problematic_questions(
+    db: AsyncSession, min_responses: int = 30
 ) -> Dict[str, List[Dict]]:
     """
     Identify questions with poor psychometric properties.
@@ -472,14 +486,12 @@ def identify_problematic_questions(
         IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, lines 425-455
     """
     # Get all questions with sufficient data
-    questions = (
-        db.query(Question)
-        .filter(
-            Question.response_count >= min_responses,
-            Question.is_active == True,  # noqa: E712
-        )
-        .all()
+    stmt = select(Question).where(
+        Question.response_count >= min_responses,
+        Question.is_active == True,  # noqa: E712
     )
+    result = await db.execute(stmt)
+    questions = result.scalars().all()
 
     results = {
         "too_easy": [],

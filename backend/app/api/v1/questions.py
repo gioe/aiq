@@ -2,10 +2,10 @@
 Question serving endpoints for IQ tests.
 """
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_db, User, Question, UserQuestion
+from app.models import get_async_db, User, Question, UserQuestion
 from app.schemas.questions import UnseenQuestionsResponse
 from app.core.auth import get_current_user
 from app.core.question_utils import question_to_response
@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/unseen", response_model=UnseenQuestionsResponse)
-def get_unseen_questions(
+async def get_unseen_questions(
     count: int = Query(
         default=settings.TEST_TOTAL_QUESTIONS,
         ge=1,
@@ -24,7 +24,7 @@ def get_unseen_questions(
         description="Number of unseen questions to fetch (1-100)",
     ),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Get unseen questions for the current user.
@@ -52,17 +52,18 @@ def get_unseen_questions(
     )
 
     # Query for active questions the user hasn't seen
-    unseen_questions = (
-        db.query(Question)
-        .filter(
+    stmt = (
+        select(Question)
+        .where(
             and_(
                 Question.is_active == True,  # noqa: E712
                 ~Question.id.in_(seen_question_ids),
             )
         )
         .limit(count)
-        .all()
     )
+    result = await db.execute(stmt)
+    unseen_questions = result.scalars().all()
 
     # Check if we have enough questions
     if len(unseen_questions) < count:
