@@ -1023,7 +1023,9 @@ def update_session_quartile_stats(
     return result
 
 
-# Async versions for async endpoints
+# =============================================================================
+# ASYNC VERSIONS FOR ASYNC ENDPOINTS
+# =============================================================================
 
 
 async def _async_validate_and_prepare_distractor_update(
@@ -1374,3 +1376,352 @@ async def async_update_session_quartile_stats(
     )
 
     return result
+
+
+# =============================================================================
+# ASYNC VERSIONS FOR ADMIN ENDPOINTS
+# =============================================================================
+
+
+async def async_calculate_distractor_discrimination(
+    db: AsyncSession,
+    question_id: int,
+    min_responses: int = 40,
+) -> Dict[str, Any]:
+    """Calculate selection rates by ability quartile for each answer option (async version)."""
+    result = await db.execute(select(Question).where(Question.id == question_id))
+    question = result.scalar_one_or_none()
+
+    if not question:
+        logger.warning(f"Question {question_id} not found for discrimination analysis")
+        return {
+            "insufficient_data": True,
+            "total_responses": 0,
+            "min_required": min_responses,
+        }
+
+    if question.answer_options is None:
+        logger.debug(
+            f"Skipping discrimination analysis for question {question_id}: "
+            f"no answer_options (likely free-response)"
+        )
+        return {
+            "insufficient_data": True,
+            "total_responses": 0,
+            "min_required": min_responses,
+        }
+
+    stats = question.distractor_stats
+    if not stats:
+        return {
+            "insufficient_data": True,
+            "total_responses": 0,
+            "min_required": min_responses,
+        }
+
+    total_responses = sum(opt.get("count", 0) for opt in stats.values())
+    total_top_quartile = sum(opt.get("top_q", 0) for opt in stats.values())
+    total_bottom_quartile = sum(opt.get("bottom_q", 0) for opt in stats.values())
+
+    if total_responses < min_responses:
+        return {
+            "insufficient_data": True,
+            "total_responses": total_responses,
+            "min_required": min_responses,
+        }
+
+    options_analysis: Dict[str, Dict[str, Any]] = {}
+
+    for option_key, option_stats in stats.items():
+        count = option_stats.get("count", 0)
+        top_q = option_stats.get("top_q", 0)
+        bottom_q = option_stats.get("bottom_q", 0)
+
+        selection_rate = count / total_responses if total_responses > 0 else 0.0
+        top_quartile_rate = (
+            top_q / total_top_quartile if total_top_quartile > 0 else 0.0
+        )
+        bottom_quartile_rate = (
+            bottom_q / total_bottom_quartile if total_bottom_quartile > 0 else 0.0
+        )
+        discrimination_index = bottom_quartile_rate - top_quartile_rate
+
+        options_analysis[option_key] = {
+            "total_count": count,
+            "selection_rate": round(selection_rate, 4),
+            "top_quartile_count": top_q,
+            "bottom_quartile_count": bottom_q,
+            "top_quartile_rate": round(top_quartile_rate, 4),
+            "bottom_quartile_rate": round(bottom_quartile_rate, 4),
+            "discrimination_index": round(discrimination_index, 4),
+        }
+
+    return {
+        "question_id": question_id,
+        "total_responses": total_responses,
+        "quartile_responses": {
+            "top": total_top_quartile,
+            "bottom": total_bottom_quartile,
+        },
+        "options": options_analysis,
+    }
+
+
+async def async_analyze_distractor_effectiveness(
+    db: AsyncSession,
+    question_id: int,
+    min_responses: int = 50,
+) -> Dict[str, Any]:
+    """Analyze effectiveness of each distractor for a question (async version)."""
+    discrimination = await async_calculate_distractor_discrimination(
+        db, question_id, min_responses=min_responses
+    )
+
+    if discrimination.get("insufficient_data"):
+        return {
+            "insufficient_data": True,
+            "total_responses": discrimination.get("total_responses", 0),
+            "min_required": min_responses,
+        }
+
+    result = await db.execute(select(Question).where(Question.id == question_id))
+    question = result.scalar_one_or_none()
+    if not question:
+        return {
+            "insufficient_data": True,
+            "total_responses": 0,
+            "min_required": min_responses,
+        }
+
+    correct_answer = (
+        str(question.correct_answer).strip() if question.correct_answer else None
+    )
+
+    options_analysis: Dict[str, Dict[str, Any]] = {}
+    functioning_count = 0
+    weak_count = 0
+    non_functioning_count = 0
+    inverted_count = 0
+    recommendations: list[str] = []
+
+    for option_key, option_data in discrimination["options"].items():
+        selection_rate = option_data["selection_rate"]
+        discrimination_index = option_data["discrimination_index"]
+        is_correct = option_key == correct_answer
+
+        if selection_rate >= FUNCTIONING_THRESHOLD:
+            status = "functioning"
+            if not is_correct:
+                functioning_count += 1
+        elif selection_rate >= WEAK_THRESHOLD:
+            status = "weak"
+            if not is_correct:
+                weak_count += 1
+        else:
+            status = "non-functioning"
+            if not is_correct:
+                non_functioning_count += 1
+
+        if discrimination_index > DISCRIMINATION_THRESHOLD:
+            discrimination_cat = "good"
+        elif discrimination_index < -DISCRIMINATION_THRESHOLD:
+            discrimination_cat = "inverted"
+            if not is_correct:
+                inverted_count += 1
+        else:
+            discrimination_cat = "neutral"
+
+        options_analysis[option_key] = {
+            "is_correct": is_correct,
+            "selection_rate": selection_rate,
+            "status": status,
+            "discrimination": discrimination_cat,
+            "discrimination_index": discrimination_index,
+            "top_quartile_rate": option_data["top_quartile_rate"],
+            "bottom_quartile_rate": option_data["bottom_quartile_rate"],
+        }
+
+        if not is_correct:
+            if status == "non-functioning":
+                recommendations.append(
+                    f"Option '{option_key}' is non-functioning (selected by only "
+                    f"{selection_rate*100:.1f}% of respondents). Consider revising or replacing."
+                )
+            elif status == "weak":
+                recommendations.append(
+                    f"Option '{option_key}' is weak (selected by {selection_rate*100:.1f}% "
+                    f"of respondents). Consider strengthening its plausibility."
+                )
+
+            if discrimination_cat == "inverted":
+                recommendations.append(
+                    f"Option '{option_key}' has INVERTED discrimination: high-ability "
+                    f"test-takers select this more than low-ability. This may indicate "
+                    f"an ambiguous question or a distractor that's too attractive."
+                )
+
+    total_responses = discrimination["total_responses"]
+    effective_option_count = _calculate_effective_option_count(
+        discrimination["options"], total_responses
+    )
+
+    return {
+        "question_id": question_id,
+        "total_responses": total_responses,
+        "correct_answer": correct_answer,
+        "options": options_analysis,
+        "summary": {
+            "functioning_distractors": functioning_count,
+            "weak_distractors": weak_count,
+            "non_functioning_distractors": non_functioning_count,
+            "inverted_distractors": inverted_count,
+            "effective_option_count": round(effective_option_count, 2),
+        },
+        "recommendations": recommendations,
+    }
+
+
+async def async_get_bulk_distractor_summary(
+    db: AsyncSession,
+    min_responses: int = 50,
+    question_type: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Generate aggregate distractor statistics across all MC questions (async version)."""
+    from app.models.models import QuestionType
+
+    stmt = select(Question).where(
+        Question.is_active == True,  # noqa: E712
+        Question.answer_options.isnot(None),
+    )
+
+    if question_type:
+        try:
+            qt_enum = QuestionType(question_type.lower())
+            stmt = stmt.where(Question.question_type == qt_enum)
+        except ValueError:
+            logger.warning(f"Invalid question_type filter: {question_type}")
+
+    result = await db.execute(stmt)
+    questions = result.scalars().all()
+
+    total_analyzed = 0
+    below_threshold = 0
+    with_non_functioning = 0
+    with_inverted = 0
+
+    by_nf_count = {
+        "zero": 0,
+        "one": 0,
+        "two": 0,
+        "three_or_more": 0,
+    }
+
+    by_type: Dict[str, Dict[str, Any]] = {}
+    for qt in QuestionType:
+        by_type[qt.value] = {
+            "total_questions": 0,
+            "questions_with_issues": 0,
+            "effective_options_sum": 0.0,
+        }
+
+    worst_offenders: list[Dict[str, Any]] = []
+    effective_options_sum = 0.0
+
+    for question in questions:
+        stats = question.distractor_stats
+        if not stats:
+            below_threshold += 1
+            continue
+
+        total_responses = sum(opt.get("count", 0) for opt in stats.values())
+        if total_responses < min_responses:
+            below_threshold += 1
+            continue
+
+        total_analyzed += 1
+
+        analysis = await async_analyze_distractor_effectiveness(
+            db, int(question.id), min_responses
+        )
+
+        if analysis.get("insufficient_data"):
+            continue
+
+        summary = analysis.get("summary", {})
+        nf_count = summary.get("non_functioning_distractors", 0)
+        inv_count = summary.get("inverted_distractors", 0)
+        eff_options = summary.get("effective_option_count", 0.0)
+
+        effective_options_sum += eff_options
+
+        if nf_count == 0:
+            by_nf_count["zero"] += 1
+        elif nf_count == 1:
+            by_nf_count["one"] += 1
+        elif nf_count == 2:
+            by_nf_count["two"] += 1
+        else:
+            by_nf_count["three_or_more"] += 1
+
+        if nf_count > 0:
+            with_non_functioning += 1
+        if inv_count > 0:
+            with_inverted += 1
+
+        q_type = (
+            str(question.question_type.value) if question.question_type else "unknown"
+        )
+        if q_type in by_type:
+            by_type[q_type]["total_questions"] += 1
+            by_type[q_type]["effective_options_sum"] += eff_options
+            if nf_count > 0 or inv_count > 0:
+                by_type[q_type]["questions_with_issues"] += 1
+
+        issue_score = nf_count * 2 + inv_count
+        if issue_score > 0:
+            worst_offenders.append(
+                {
+                    "question_id": question.id,
+                    "question_type": q_type,
+                    "difficulty_level": (
+                        question.difficulty_level.value
+                        if question.difficulty_level
+                        else "unknown"
+                    ),
+                    "non_functioning_count": nf_count,
+                    "inverted_count": inv_count,
+                    "total_responses": total_responses,
+                    "effective_option_count": eff_options,
+                    "issue_score": issue_score,
+                }
+            )
+
+    worst_offenders.sort(key=lambda x: (-x["issue_score"], -x["total_responses"]))
+    top_10_offenders = worst_offenders[:10]
+
+    for offender in top_10_offenders:
+        del offender["issue_score"]
+
+    for q_type, type_stats in by_type.items():
+        if type_stats["total_questions"] > 0:
+            type_stats["avg_effective_options"] = round(
+                type_stats["effective_options_sum"] / type_stats["total_questions"], 2
+            )
+        else:
+            type_stats["avg_effective_options"] = None
+        del type_stats["effective_options_sum"]
+
+    avg_effective = (
+        round(effective_options_sum / total_analyzed, 2) if total_analyzed > 0 else None
+    )
+
+    return {
+        "total_questions_analyzed": total_analyzed,
+        "questions_below_threshold": below_threshold,
+        "questions_with_non_functioning_distractors": with_non_functioning,
+        "questions_with_inverted_distractors": with_inverted,
+        "by_non_functioning_count": by_nf_count,
+        "worst_offenders": top_10_offenders,
+        "by_question_type": by_type,
+        "avg_effective_option_count": avg_effective,
+    }
