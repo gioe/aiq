@@ -1,12 +1,12 @@
 ---
 name: check-dupes
-description: Check for duplicate tasks in the SQLite database before creating new tasks. Use before any INSERT into tasks.db.
+description: Check for duplicate tasks in the SQLite database before creating new tasks. Use before any INSERT into the task database.
 allowed-tools: Bash
 ---
 
 # Check Duplicates Skill
 
-Canonical deduplication gate for `tasks.db`. Run this **before** inserting any task to avoid creating redundant work.
+Canonical deduplication gate for `tusk`. Run this **before** inserting any task to avoid creating redundant work.
 
 ## Usage
 
@@ -66,11 +66,6 @@ python3 scripts/check_duplicates.py similar <id>
 | 0.60 - 0.82 | Partial overlap | Present to user for decision |
 | < 0.60 | New | Safe to create |
 
-The default threshold (0.82) is calibrated so that:
-- True duplicates (same task with/without `[Deferred]` prefix) score 1.0
-- Generic-prefix false positives ("Add integration test for X" vs "...for Y") peak at ~0.72
-- The gap between 0.72 and 0.82 provides a clean separation
-
 ### JSON Output
 
 Use `--json` for programmatic consumption:
@@ -78,7 +73,7 @@ Use `--json` for programmatic consumption:
 ```json
 {
   "duplicates": [
-    {"id": 42, "summary": "...", "domain": "iOS", "similarity": 0.95}
+    {"id": 42, "summary": "...", "domain": "Backend", "similarity": 0.95}
   ]
 }
 ```
@@ -86,22 +81,5 @@ Use `--json` for programmatic consumption:
 ## Integration Points
 
 This skill is referenced by:
-- **`/next-task`** — Steps 13c and 14a (before creating deferred tasks)
-- **`/analysis-to-tasks`** — Step 4b (replacing manual LIKE queries)
-- **`/groom-backlog`** — Step 2 (scanning for duplicate pairs)
-
-## Examples
-
-```bash
-# Pre-insert check
-python3 scripts/check_duplicates.py check "Add error handling for delete account" --domain iOS
-
-# Scan backlog for duplicates
-python3 scripts/check_duplicates.py scan --status "To Do"
-
-# Find tasks related to #42
-python3 scripts/check_duplicates.py similar 42
-
-# JSON output for scripting
-python3 scripts/check_duplicates.py check "unique task" --json
-```
+- **`/next-task`** — Before creating deferred tasks
+- **`/groom-backlog`** — Scanning for duplicate pairs
