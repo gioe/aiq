@@ -10,9 +10,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from app.models import get_db
+from app.models import get_async_db, get_db
 from app.services.notification_scheduler import (
     NotificationScheduler,
     get_users_for_day_30_reminder,
@@ -124,7 +125,7 @@ async def send_day_30_reminders(
 )
 async def preview_day_30_reminders(
     limit: int = Query(default=50, ge=1, le=100, description="Maximum users to return"),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -150,7 +151,7 @@ async def preview_day_30_reminders(
           -H "X-Admin-Token: your-admin-token"
         ```
     """
-    users = get_users_for_day_30_reminder(db)
+    users = await db.run_sync(lambda session: get_users_for_day_30_reminder(session))
 
     # Build preview list (limited)
     user_previews = [
