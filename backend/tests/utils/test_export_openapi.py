@@ -7,10 +7,11 @@ path validation, file writing, transform integration, and the --validate flag.
 import sys
 from pathlib import Path
 
-# Add project root to path for libs/ imports (matches CI PYTHONPATH config)
-project_root = Path(__file__).parent.parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
+# backend/ root for export_openapi imports; repo root for docs/api/openapi.json
+backend_root = Path(__file__).parent.parent.parent
+repo_root = backend_root.parent
+if str(backend_root) not in sys.path:
+    sys.path.insert(0, str(backend_root))
 
 import json  # noqa: E402
 from unittest.mock import patch, MagicMock  # noqa: E402
@@ -479,7 +480,7 @@ class TestOpenAPIConfigPresence:
 
     def test_openapi_spec_exists(self):
         """Verify that docs/api/openapi.json exists."""
-        spec_path = project_root / "docs" / "api" / "openapi.json"
+        spec_path = repo_root / "docs" / "api" / "openapi.json"
         assert spec_path.exists(), (
             f"OpenAPI spec not found at {spec_path}. "
             "Run 'cd backend && python export_openapi.py' to generate it."
@@ -487,7 +488,7 @@ class TestOpenAPIConfigPresence:
 
     def test_openapi_spec_is_valid_json(self):
         """Verify that the OpenAPI spec is valid JSON."""
-        spec_path = project_root / "docs" / "api" / "openapi.json"
+        spec_path = repo_root / "docs" / "api" / "openapi.json"
         if not spec_path.exists():
             pytest.skip("OpenAPI spec not found")
 
@@ -501,7 +502,7 @@ class TestOpenAPIConfigPresence:
 
     def test_openapi_spec_has_required_fields(self):
         """Verify that the OpenAPI spec has required top-level fields."""
-        spec_path = project_root / "docs" / "api" / "openapi.json"
+        spec_path = repo_root / "docs" / "api" / "openapi.json"
         if not spec_path.exists():
             pytest.skip("OpenAPI spec not found")
 
@@ -516,7 +517,7 @@ class TestOpenAPIConfigPresence:
 
     def test_openapi_spec_has_paths_defined(self):
         """Verify that the OpenAPI spec has at least some paths."""
-        spec_path = project_root / "docs" / "api" / "openapi.json"
+        spec_path = repo_root / "docs" / "api" / "openapi.json"
         if not spec_path.exists():
             pytest.skip("OpenAPI spec not found")
 
@@ -533,7 +534,7 @@ class TestGeneratedOpenAPIClient:
     @pytest.fixture(autouse=True)
     def load_spec(self):
         """Load the OpenAPI spec for all tests in this class."""
-        spec_path = project_root / "docs" / "api" / "openapi.json"
+        spec_path = repo_root / "docs" / "api" / "openapi.json"
         if not spec_path.exists():
             pytest.skip("OpenAPI spec not found")
 
