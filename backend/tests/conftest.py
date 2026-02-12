@@ -55,9 +55,47 @@ from app.models import (  # noqa: E402
     UserQuestion,
 )
 from app.models.models import QuestionType, DifficultyLevel  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
+
 from app.main import app  # noqa: E402
 from app.core.security import hash_password, create_access_token  # noqa: E402
 from app.core.config import settings  # noqa: E402
+
+
+@asynccontextmanager
+async def _test_lifespan(app):
+    """No-op lifespan for tests.
+
+    Skips production observability, tracing, token blacklist, and metrics
+    initialization.
+    """
+    yield
+
+
+# Neutralize the production lifespan on the singleton app.
+# Many test files import `from app.main import app` directly and wrap it
+# in TestClient — this prevents the production observability stack from
+# booting during those tests.
+app.router.lifespan_context = _test_lifespan
+
+
+def create_test_application():
+    """Create the production app with the lifespan disabled.
+
+    Use this instead of ``create_application()`` from ``app.main`` when
+    tests need a fresh app instance. Returns the full app (all routes,
+    middleware, exception handlers) without the production observability
+    stack.
+
+    See also: ``tests/ratelimit/conftest.py::create_test_app_with_rate_limiting``
+    for tests that need an even more minimal stub app.
+    """
+    from app.main import create_application
+
+    test_app = create_application()
+    test_app.router.lifespan_context = _test_lifespan
+    return test_app
+
 
 # Use SQLite for sync tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"

@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import create_application
+from tests.conftest import create_test_application
 
 
 class TestErrorTracking:
@@ -20,7 +20,7 @@ class TestErrorTracking:
     @pytest.fixture
     def test_app(self):
         """Create a fresh application instance for each test."""
-        return create_application()
+        return create_test_application()
 
     @pytest.fixture
     def client(self, test_app):

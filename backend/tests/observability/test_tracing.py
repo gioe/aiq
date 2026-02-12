@@ -46,6 +46,8 @@ class TestSetupTracing:
                 mock_settings.OTEL_SERVICE_NAME = "test-service"
                 mock_settings.OTEL_EXPORTER = "console"
                 mock_settings.OTEL_TRACES_SAMPLE_RATE = 1.0
+                mock_settings.OTEL_METRICS_ENABLED = False
+                mock_settings.OTEL_LOGS_ENABLED = False
 
                 from app.tracing.setup import setup_tracing
 
@@ -75,6 +77,8 @@ class TestSetupTracing:
                 mock_settings.OTEL_EXPORTER = "otlp"
                 mock_settings.OTEL_OTLP_ENDPOINT = "http://localhost:4317"
                 mock_settings.OTEL_TRACES_SAMPLE_RATE = 0.5
+                mock_settings.OTEL_METRICS_ENABLED = False
+                mock_settings.OTEL_LOGS_ENABLED = False
 
                 from app.tracing.setup import setup_tracing
 

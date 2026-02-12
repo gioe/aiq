@@ -194,7 +194,7 @@ class TestAdminAuthIntegration:
         """Create a TestClient with admin enabled and patches active."""
         from starlette.testclient import TestClient
 
-        from app.main import create_application
+        from tests.conftest import create_test_application
 
         password_hash = hash_password(self.ADMIN_PASSWORD)
 
@@ -206,7 +206,7 @@ class TestAdminAuthIntegration:
             patch("app.admin.auth.settings.ADMIN_USERNAME", "admin"),
             patch("app.admin.auth.settings.ADMIN_PASSWORD_HASH", password_hash),
         ):
-            app = create_application()
+            app = create_test_application()
             yield TestClient(app)
 
     def test_admin_login_sets_session_cookie(self, admin_client):

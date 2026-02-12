@@ -601,10 +601,10 @@ class TestExceptionHandlerMetrics:
     @pytest.mark.asyncio
     async def test_http_exception_handler_captures_error(self):
         """Test HTTP exception handler calls capture_error with context."""
-        from app.main import create_application
+        from tests.conftest import create_test_application
         from starlette.testclient import TestClient
 
-        app = create_application()
+        app = create_test_application()
 
         with patch("app.main.observability") as mock_observability:
             client = TestClient(app)
@@ -619,10 +619,10 @@ class TestExceptionHandlerMetrics:
     @pytest.mark.asyncio
     async def test_validation_error_handler_captures_error(self):
         """Test validation error handler calls capture_error with context."""
-        from app.main import create_application
+        from tests.conftest import create_test_application
         from starlette.testclient import TestClient
 
-        app = create_application()
+        app = create_test_application()
 
         with patch("app.main.observability") as mock_observability:
             client = TestClient(app)
