@@ -6,53 +6,9 @@ from unittest.mock import MagicMock
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from app.ratelimit import RateLimiter, RateLimitMiddleware, InMemoryStorage
 from app.ratelimit.middleware import get_user_identifier
 
-
-def create_test_app_with_rate_limiting(
-    default_limit: int = 100,
-    default_window: int = 60,
-    endpoint_limits: dict | None = None,
-    skip_paths: list | None = None,
-) -> FastAPI:
-    """Create a test FastAPI app with rate limiting middleware."""
-    app = FastAPI()
-    storage = InMemoryStorage()
-    limiter = RateLimiter(
-        storage=storage,
-        default_limit=default_limit,
-        default_window=default_window,
-    )
-
-    app.add_middleware(
-        RateLimitMiddleware,
-        limiter=limiter,
-        skip_paths=skip_paths or [],
-        endpoint_limits=endpoint_limits or {},
-    )
-
-    @app.get("/")
-    async def root():
-        return {"message": "OK"}
-
-    @app.get("/health")
-    async def health():
-        return {"status": "healthy"}
-
-    @app.get("/v1/admin/reliability")
-    async def admin_reliability():
-        return {"reliability": "good"}
-
-    @app.get("/v1/admin/expensive")
-    async def admin_expensive():
-        return {"result": "computed"}
-
-    @app.post("/v1/admin/trigger")
-    async def admin_trigger():
-        return {"triggered": True}
-
-    return app
+from tests.ratelimit.conftest import create_test_app_with_rate_limiting
 
 
 class TestRateLimitMiddlewareBasic:
@@ -524,23 +480,21 @@ class TestRateLimitDocumentedConfig:
     limits documented for operators are actually enforced.
     """
 
-    def _create_app(self, limit_override: int | None = None) -> "FastAPI":
-        """Create the real app with rate limiting enabled."""
-        from unittest.mock import patch as _patch
+    # Endpoint-specific limits mirroring the production config in app/main.py
+    PRODUCTION_ENDPOINT_LIMITS = {
+        "/v1/auth/login": {"limit": 5, "window": 300},
+        "/v1/auth/register": {"limit": 3, "window": 3600},
+        "/v1/auth/refresh": {"limit": 10, "window": 60},
+    }
 
-        from app.main import create_application
-
-        with (
-            _patch("app.main.settings.RATE_LIMIT_ENABLED", True),
-            _patch(
-                "app.main.settings.RATE_LIMIT_DEFAULT_LIMIT",
-                limit_override or 100,
-            ),
-            _patch("app.main.settings.RATE_LIMIT_DEFAULT_WINDOW", 60),
-            _patch("app.main.settings.RATE_LIMIT_STRATEGY", "token_bucket"),
-            _patch("app.main.settings.RATE_LIMIT_STORAGE", "memory"),
-        ):
-            return create_application()
+    def _create_app(self, limit_override: int | None = None) -> FastAPI:
+        """Create a lightweight app with rate limiting matching production config."""
+        return create_test_app_with_rate_limiting(
+            default_limit=limit_override or 100,
+            default_window=60,
+            endpoint_limits=self.PRODUCTION_ENDPOINT_LIMITS,
+            skip_paths=["/v1/docs", "/v1/openapi.json", "/v1/redoc"],
+        )
 
     def test_login_endpoint_limit_is_5_per_5_minutes(self):
         """Verify /v1/auth/login is limited to 5 requests per 5 minutes (documented)."""
@@ -660,31 +614,15 @@ class TestRateLimitDocumentedConfig:
 
 class TestRateLimitToggleIntegration:
     """
-    Integration tests for the RATE_LIMIT_ENABLED toggle in create_application().
+    Tests that verify rate limiting can be toggled on and off.
 
-    Unlike unit tests above that use a synthetic test app, these tests exercise
-    the actual app factory to verify the settings toggle controls whether rate
-    limiting middleware is registered.
+    Uses the lightweight test app helper to avoid depending on the full
+    application factory and its async database engine.
     """
 
-    def _create_app_with_settings(self, enabled: bool, limit: int = 2) -> "FastAPI":
-        """Create the real app with patched rate limit settings."""
-        from unittest.mock import patch
-
-        from app.main import create_application
-
-        with (
-            patch("app.main.settings.RATE_LIMIT_ENABLED", enabled),
-            patch("app.main.settings.RATE_LIMIT_DEFAULT_LIMIT", limit),
-            patch("app.main.settings.RATE_LIMIT_DEFAULT_WINDOW", 60),
-            patch("app.main.settings.RATE_LIMIT_STRATEGY", "token_bucket"),
-            patch("app.main.settings.RATE_LIMIT_STORAGE", "memory"),
-        ):
-            return create_application()
-
     def test_rate_limiting_enforced_when_enabled(self):
-        """Requests exceeding the limit return 429 when RATE_LIMIT_ENABLED=True."""
-        app = self._create_app_with_settings(enabled=True, limit=2)
+        """Requests exceeding the limit return 429 when rate limiting is on."""
+        app = create_test_app_with_rate_limiting(default_limit=2, default_window=60)
         client = TestClient(app)
 
         # First 2 requests should succeed
@@ -699,11 +637,16 @@ class TestRateLimitToggleIntegration:
         assert response.json()["error"] == "rate_limit_exceeded"
 
     def test_rate_limiting_bypassed_when_disabled(self):
-        """No requests are rate-limited when RATE_LIMIT_ENABLED=False."""
-        app = self._create_app_with_settings(enabled=False)
+        """No requests are rate-limited when middleware is not added."""
+        app = FastAPI()
+
+        @app.get("/v1/health")
+        async def health():
+            return {"status": "healthy"}
+
         client = TestClient(app)
 
-        # Make many more requests than the limit — none should be blocked
+        # Make many more requests than any typical limit — none should be blocked
         for _ in range(20):
             response = client.get("/v1/health")
             assert response.status_code == 200

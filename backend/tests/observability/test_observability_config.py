@@ -15,7 +15,9 @@ class TestBackendObservabilityConfig:
     @pytest.fixture
     def backend_config_path(self) -> str:
         """Return path to backend observability config."""
-        return str(Path(__file__).parent.parent / "config" / "observability.yaml")
+        return str(
+            Path(__file__).parent.parent.parent / "config" / "observability.yaml"
+        )
 
     def test_config_file_exists(self, backend_config_path: str) -> None:
         """Verify the backend observability config file exists."""
