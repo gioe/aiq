@@ -21,6 +21,8 @@ See docs/methodology/METHODOLOGY.md Section 5.4 for psychometric context.
 import logging
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.models import Question
@@ -1011,6 +1013,359 @@ def update_session_quartile_stats(
 
     # Commit all the changes made to question distractor_stats
     db.commit()
+
+    logger.info(
+        f"Updated quartile stats for session {test_session_id}: "
+        f"quartile={result['quartile']}, updated={result['questions_updated']}, "
+        f"skipped={result['questions_skipped']}"
+    )
+
+    return result
+
+
+# Async versions for async endpoints
+
+
+async def _async_validate_and_prepare_distractor_update(
+    db: AsyncSession,
+    question_id: int,
+    selected_answer: str,
+    operation_name: str,
+) -> Optional[Tuple[Question, Dict[str, Dict[str, int]], str]]:
+    """
+    Async version of validation and preparation for distractor updates.
+
+    Args:
+        db: Async database session
+        question_id: ID of the question to update
+        selected_answer: The answer option selected by the user
+        operation_name: Name of the calling operation (for logging)
+
+    Returns:
+        Tuple of (question, current_stats, normalized_answer) on success,
+        None on validation failure.
+    """
+    # Validate non-empty answer
+    if not selected_answer:
+        logger.warning(
+            f"{operation_name} called with empty selected_answer "
+            f"for question {question_id}"
+        )
+        return None
+
+    # Fetch question
+    result = await db.execute(select(Question).where(Question.id == question_id))
+    question = result.scalar_one_or_none()
+
+    if not question:
+        logger.error(f"Question {question_id} not found for {operation_name}")
+        return None
+
+    # Skip questions without answer_options (free-response questions)
+    if question.answer_options is None:
+        logger.debug(
+            f"Skipping {operation_name} for question {question_id}: "
+            f"no answer_options (likely free-response)"
+        )
+        return None
+
+    # Initialize distractor_stats if null
+    current_stats: Dict[str, Dict[str, int]] = question.distractor_stats or {}
+
+    # Normalize the selected answer for consistent storage
+    normalized_answer = str(selected_answer).strip()
+
+    # Validate that the selected answer is a valid option key
+    if normalized_answer not in question.answer_options:
+        logger.warning(
+            f"Invalid option '{normalized_answer}' for {operation_name} on question {question_id}. "
+            f"Valid options: {list(question.answer_options.keys())}"
+        )
+        return None
+
+    # Initialize stats for this option if not present
+    if normalized_answer not in current_stats:
+        current_stats[normalized_answer] = {
+            "count": 0,
+            "top_q": 0,
+            "bottom_q": 0,
+        }
+
+    return (question, current_stats, normalized_answer)
+
+
+async def async_update_distractor_stats(
+    db: AsyncSession,
+    question_id: int,
+    selected_answer: str,
+) -> bool:
+    """
+    Increment selection count for the chosen answer option (async version).
+
+    Called after each response is recorded to maintain real-time
+    distractor selection statistics. This function handles:
+    - Initializing distractor_stats if null
+    - Incrementing count for the selected option
+    - Graceful handling of invalid/missing options
+
+    Args:
+        db: Async database session
+        question_id: ID of the question
+        selected_answer: The answer option selected by the user
+
+    Returns:
+        True if stats were updated successfully, False otherwise
+
+    Note:
+        This function does NOT commit the transaction. The caller
+        is responsible for committing to allow batching of updates.
+    """
+    # Validate inputs and prepare data
+    result = await _async_validate_and_prepare_distractor_update(
+        db, question_id, selected_answer, "distractor stats update"
+    )
+    if result is None:
+        return False
+
+    question, current_stats, normalized_answer = result
+
+    # Increment selection count
+    current_stats[normalized_answer]["count"] += 1
+
+    # Update the question's distractor_stats
+    # SQLAlchemy requires explicit assignment for JSON field mutation detection
+    question.distractor_stats = current_stats
+
+    logger.debug(
+        f"Updated distractor stats for question {question_id}: "
+        f"option '{normalized_answer}' count={current_stats[normalized_answer]['count']}"
+    )
+
+    return True
+
+
+async def _async_update_distractor_quartile_stats(
+    db: AsyncSession,
+    question_id: int,
+    selected_answer: str,
+    is_top_quartile: bool,
+) -> bool:
+    """
+    Update quartile-based selection statistics for a distractor (async version).
+
+    Called after test completion when the user's ability quartile is known.
+    This enables discrimination analysis to identify options that attract
+    high-ability or low-ability test-takers disproportionately.
+
+    Args:
+        db: Async database session
+        question_id: ID of the question
+        selected_answer: The answer option selected by the user
+        is_top_quartile: True if user scored in top 25%, False if bottom 25%
+
+    Returns:
+        True if stats were updated successfully, False otherwise
+
+    Note:
+        This function does NOT commit the transaction.
+    """
+    # Validate inputs and prepare data
+    result = await _async_validate_and_prepare_distractor_update(
+        db, question_id, selected_answer, "distractor quartile stats update"
+    )
+    if result is None:
+        return False
+
+    question, current_stats, normalized_answer = result
+
+    # Increment the appropriate quartile counter
+    if is_top_quartile:
+        current_stats[normalized_answer]["top_q"] += 1
+    else:
+        current_stats[normalized_answer]["bottom_q"] += 1
+
+    # Update the question's distractor_stats
+    question.distractor_stats = current_stats
+    # Flag the JSONB column as modified so SQLAlchemy detects the change
+    flag_modified(question, "distractor_stats")
+
+    quartile_name = "top_q" if is_top_quartile else "bottom_q"
+    logger.debug(
+        f"Updated distractor quartile stats for question {question_id}: "
+        f"option '{normalized_answer}' {quartile_name}="
+        f"{current_stats[normalized_answer][quartile_name]}"
+    )
+
+    return True
+
+
+async def _async_determine_score_quartile(
+    db: AsyncSession,
+    correct_answers: int,
+    total_questions: int,
+    min_historical_results: int = 10,
+) -> Dict[str, Any]:
+    """
+    Determine if a test score falls in the top or bottom quartile (async version).
+
+    Compares the user's correct_answers against historical test results
+    to determine their quartile placement. This enables discrimination
+    analysis by tracking which options are preferred by high vs low scorers.
+
+    Args:
+        db: Async database session
+        correct_answers: Number of correct answers in the current test
+        total_questions: Total questions in the current test
+        min_historical_results: Minimum historical results required for comparison
+
+    Returns:
+        Dictionary with quartile determination (same format as sync version)
+    """
+    from app.models.models import TestResult
+
+    # Get historical test results for comparison
+    # Only consider tests with similar question count (+/- 20%)
+    min_questions = int(total_questions * 0.8)
+    max_questions = int(total_questions * 1.2)
+
+    stmt = select(TestResult.correct_answers).where(
+        TestResult.total_questions >= min_questions,
+        TestResult.total_questions <= max_questions,
+    )
+    result = await db.execute(stmt)
+    historical_scores = result.all()
+
+    # Extract scores into a list
+    scores = [score for (score,) in historical_scores]
+
+    # Check minimum data requirement
+    if len(scores) < min_historical_results:
+        logger.debug(
+            f"Insufficient historical data for quartile determination: "
+            f"have {len(scores)}, need {min_historical_results}"
+        )
+        return {
+            "quartile": "insufficient_data",
+            "is_top": None,
+            "historical_count": len(scores),
+        }
+
+    # Sort scores to find quartile boundaries
+    scores.sort()
+    n = len(scores)
+
+    # Calculate quartile boundaries
+    # Bottom quartile: 0-25th percentile
+    # Top quartile: 75th-100th percentile
+    bottom_quartile_threshold = scores[n // 4]  # 25th percentile
+    top_quartile_threshold = scores[3 * n // 4]  # 75th percentile
+
+    # Determine quartile membership
+    if correct_answers >= top_quartile_threshold:
+        return {
+            "quartile": "top",
+            "is_top": True,
+            "historical_count": n,
+        }
+    elif correct_answers <= bottom_quartile_threshold:
+        return {
+            "quartile": "bottom",
+            "is_top": False,
+            "historical_count": n,
+        }
+    else:
+        return {
+            "quartile": "middle",
+            "is_top": None,
+            "historical_count": n,
+        }
+
+
+async def async_update_session_quartile_stats(
+    db: AsyncSession,
+    test_session_id: int,
+    correct_answers: int,
+    total_questions: int,
+) -> Dict[str, Any]:
+    """
+    Update quartile-based distractor stats for all responses in a test session (async version).
+
+    Called after test completion when the user's total score is known.
+    This function:
+    1. Determines if the user is in top/bottom quartile based on historical scores
+    2. Updates quartile stats (top_q/bottom_q) for each question they answered
+    3. Only updates multiple-choice questions (skips free-response)
+
+    Args:
+        db: Async database session
+        test_session_id: ID of the completed test session
+        correct_answers: Number of correct answers in the test
+        total_questions: Total number of questions in the test
+
+    Returns:
+        Dictionary with update summary (same format as sync version)
+    """
+    from app.models.models import Response
+
+    # Determine user's quartile
+    quartile_result = await _async_determine_score_quartile(
+        db, correct_answers, total_questions
+    )
+
+    result = {
+        "session_id": test_session_id,
+        "quartile": quartile_result["quartile"],
+        "questions_updated": 0,
+        "questions_skipped": 0,
+    }
+
+    # If user is in middle 50% or insufficient data, don't update quartile stats
+    if quartile_result["is_top"] is None:
+        if result["quartile"] == "middle":
+            logger.debug(
+                f"Session {test_session_id} is in middle quartile; "
+                f"skipping quartile stats update"
+            )
+        else:
+            logger.debug(
+                f"Session {test_session_id}: insufficient historical data "
+                f"for quartile determination"
+            )
+        return result
+
+    # Get all responses for this session
+    stmt = select(Response).where(Response.test_session_id == test_session_id)
+    db_result = await db.execute(stmt)
+    responses = db_result.scalars().all()
+
+    if not responses:
+        logger.warning(f"No responses found for session {test_session_id}")
+        return result
+
+    # Update quartile stats for each response
+    is_top_quartile = quartile_result["is_top"]
+
+    for response in responses:
+        try:
+            success = await _async_update_distractor_quartile_stats(
+                db=db,
+                question_id=int(response.question_id),
+                selected_answer=str(response.user_answer),
+                is_top_quartile=is_top_quartile,
+            )
+            if success:
+                result["questions_updated"] += 1
+            else:
+                result["questions_skipped"] += 1
+        except Exception as e:
+            logger.warning(
+                f"Failed to update quartile stats for question {response.question_id} "
+                f"in session {test_session_id}: {e}"
+            )
+            result["questions_skipped"] += 1
+
+    # Commit all the changes made to question distractor_stats
+    await db.commit()
 
     logger.info(
         f"Updated quartile stats for session {test_session_id}: "

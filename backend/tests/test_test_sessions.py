@@ -4,6 +4,7 @@ Tests for test session management endpoints.
 
 import pytest
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock  # noqa: F401 (used by patch new_callable)
 
 
 class TestStartTest:
@@ -323,77 +324,115 @@ class TestStartTest:
         assert "session" in data
         assert data["session"]["status"] == "in_progress"
 
-    def test_concurrent_session_creation_returns_409(
-        self, client, auth_headers, test_questions, db_session
+    pass  # test_concurrent_session_creation_returns_409 moved to standalone async test below
+
+
+async def test_concurrent_session_creation_returns_409(
+    async_client, async_auth_headers, async_db_session, async_test_user
+):
+    """
+    Test that concurrent session creation attempts return 409 Conflict.
+
+    BCQ-006: This test verifies the IntegrityError handling when the
+    database-level partial unique index prevents duplicate in_progress
+    sessions. The actual race condition is prevented by the partial
+    unique index ix_test_sessions_user_active in PostgreSQL.
+
+    BCQ-044: Also verifies that a warning log is written when a concurrent
+    session creation is detected, including the user_id for debugging.
+
+    Note: This test uses mocking since SQLite (used in tests) doesn't
+    have the same partial unique index enforcement as PostgreSQL.
+    The production PostgreSQL database has the index that triggers
+    IntegrityError on duplicate in_progress sessions.
+
+    This test uses async fixtures because the endpoint uses AsyncSession
+    and we need to mock flush() on the exact session instance.
+    """
+    from unittest.mock import patch
+    from sqlalchemy.exc import IntegrityError
+    from sqlalchemy import select
+    from app.models import TestSession, Question
+    from app.models.models import (
+        TestStatus,
+        QuestionType,
+        DifficultyLevel,
+    )
+
+    # Create test questions in async session
+    for i, (qtype, diff) in enumerate(
+        [
+            (QuestionType.PATTERN, DifficultyLevel.EASY),
+            (QuestionType.LOGIC, DifficultyLevel.MEDIUM),
+            (QuestionType.MATH, DifficultyLevel.HARD),
+            (QuestionType.VERBAL, DifficultyLevel.MEDIUM),
+        ]
     ):
-        """
-        Test that concurrent session creation attempts return 409 Conflict.
-
-        BCQ-006: This test verifies the IntegrityError handling when the
-        database-level partial unique index prevents duplicate in_progress
-        sessions. The actual race condition is prevented by the partial
-        unique index ix_test_sessions_user_active in PostgreSQL.
-
-        BCQ-044: Also verifies that a warning log is written when a concurrent
-        session creation is detected, including the user_id for debugging.
-
-        Note: This test uses mocking since SQLite (used in tests) doesn't
-        have the same partial unique index enforcement as PostgreSQL.
-        The production PostgreSQL database has the index that triggers
-        IntegrityError on duplicate in_progress sessions.
-        """
-        from unittest.mock import patch
-        from sqlalchemy.exc import IntegrityError
-
-        # Start a test session first to verify normal operation
-        response1 = client.post("/v1/test/start?question_count=2", headers=auth_headers)
-        assert response1.status_code == 200
-
-        # Complete the first session so the user can start another
-        from app.models import TestSession, User
-        from app.models.models import TestStatus
-
-        session_id = response1.json()["session"]["id"]
-        session = (
-            db_session.query(TestSession).filter(TestSession.id == session_id).first()
+        q = Question(
+            question_text=f"Test question {i}",
+            question_type=qtype,
+            difficulty_level=diff,
+            correct_answer="A",
+            answer_options={"A": "a", "B": "b", "C": "c", "D": "d"},
+            source_llm="test",
+            judge_score=0.9,
+            is_active=True,
         )
-        session.status = TestStatus.COMPLETED
-        db_session.commit()
+        async_db_session.add(q)
+    await async_db_session.commit()
 
-        # Get the user_id for later verification in log message
-        user = db_session.query(User).first()
-        user_id = user.id
+    # Start a test session first to verify normal operation
+    response1 = await async_client.post(
+        "/v1/test/start?question_count=2", headers=async_auth_headers
+    )
+    assert response1.status_code == 200
 
-        # Now mock db.flush() to raise IntegrityError, simulating what
-        # PostgreSQL's partial unique index would do on a race condition
-        def mock_flush_with_integrity_error(self):
-            raise IntegrityError(
-                statement="INSERT INTO test_sessions",
-                params={},
-                orig=Exception("duplicate key value violates unique constraint"),
+    # Complete the first session so the user can start another
+    session_id = response1.json()["session"]["id"]
+    result = await async_db_session.execute(
+        select(TestSession).where(TestSession.id == session_id)
+    )
+    session = result.scalar_one()
+    session.status = TestStatus.COMPLETED
+    await async_db_session.commit()
+
+    user_id = async_test_user.id
+
+    # Now mock db.flush() to raise IntegrityError, simulating what
+    # PostgreSQL's partial unique index would do on a race condition.
+    # We patch flush on the specific async_db_session instance that the
+    # endpoint receives via the dependency override.
+    original_flush = async_db_session.flush
+
+    async def mock_flush(objects=None):
+        raise IntegrityError(
+            statement="INSERT INTO test_sessions",
+            params={},
+            orig=Exception("duplicate key value violates unique constraint"),
+        )
+
+    async_db_session.flush = mock_flush
+
+    # BCQ-044: Also mock the logger to verify warning is logged
+    try:
+        with patch("app.api.v1.test.logger") as mock_logger:
+            response2 = await async_client.post(
+                "/v1/test/start?question_count=2", headers=async_auth_headers
             )
+    finally:
+        async_db_session.flush = original_flush
 
-        # BCQ-044: Also mock the logger to verify warning is logged
-        with patch.object(
-            type(db_session),
-            "flush",
-            mock_flush_with_integrity_error,
-        ), patch("app.api.v1.test.logger") as mock_logger:
-            response2 = client.post(
-                "/v1/test/start?question_count=2", headers=auth_headers
-            )
+    # Should return 409 Conflict with appropriate message
+    assert response2.status_code == 409
+    assert "already in progress" in response2.json()["detail"]
 
-        # Should return 409 Conflict with appropriate message
-        assert response2.status_code == 409
-        assert "already in progress" in response2.json()["detail"]
-
-        # BCQ-044: Verify warning was logged with user_id context
-        assert mock_logger.warning.called, "Expected warning log on race condition"
-        warning_call_args = mock_logger.warning.call_args[0][0]
-        assert "Race condition detected" in warning_call_args
-        assert (
-            str(user_id) in warning_call_args
-        ), f"Expected user_id {user_id} in log message: {warning_call_args}"
+    # BCQ-044: Verify warning was logged with user_id context
+    assert mock_logger.warning.called, "Expected warning log on race condition"
+    warning_call_args = mock_logger.warning.call_args[0][0]
+    assert "Race condition detected" in warning_call_args
+    assert (
+        str(user_id) in warning_call_args
+    ), f"Expected user_id {user_id} in log message: {warning_call_args}"
 
 
 class TestGetTestSession:
@@ -1687,7 +1726,11 @@ class TestConfidenceIntervalIntegration:
 
         # Mock get_cached_reliability to return the mock reliability value
         # This mocks at the API endpoint level where the function is called
-        with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=0.85,
+        ):
             response = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -1761,7 +1804,11 @@ class TestConfidenceIntervalIntegration:
         }
 
         # Mock get_cached_reliability to return None (insufficient data)
-        with patch("app.api.v1.test.get_cached_reliability", return_value=None):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
             response = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -1825,7 +1872,11 @@ class TestConfidenceIntervalIntegration:
 
         # Mock get_cached_reliability to return None (simulating alpha < 0.60)
         # The actual threshold check happens inside get_cached_reliability
-        with patch("app.api.v1.test.get_cached_reliability", return_value=None):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
             response = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -1883,7 +1934,11 @@ class TestConfidenceIntervalIntegration:
         }
 
         # Mock get_cached_reliability to return a good reliability value
-        with patch("app.api.v1.test.get_cached_reliability", return_value=0.80):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=0.80,
+        ):
             response = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -1945,7 +2000,11 @@ class TestConfidenceIntervalIntegration:
 
         # Mock get_cached_reliability to return alpha = 0.80
         # Expected SEM = 15 * sqrt(1 - 0.80) = 15 * sqrt(0.20) ≈ 6.71
-        with patch("app.api.v1.test.get_cached_reliability", return_value=0.80):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=0.80,
+        ):
             response = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -2003,7 +2062,11 @@ class TestConfidenceIntervalIntegration:
 
         submission = {"session_id": session_id, "responses": responses}
 
-        with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=0.85,
+        ):
             response = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -2041,7 +2104,11 @@ class TestConfidenceIntervalIntegration:
 
         submission = {"session_id": session_id, "responses": responses}
 
-        with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=0.85,
+        ):
             submit_response = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -2084,7 +2151,11 @@ class TestConfidenceIntervalIntegration:
 
         submission = {"session_id": session_id, "responses": responses}
 
-        with patch("app.api.v1.test.get_cached_reliability", return_value=0.85):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=0.85,
+        ):
             client.post("/v1/test/submit", json=submission, headers=auth_headers)
 
         # Get history
@@ -2133,7 +2204,11 @@ class TestConfidenceIntervalIntegration:
         submission = {"session_id": session_id, "responses": responses}
 
         # 1. Check /submit endpoint - mock no reliability data
-        with patch("app.api.v1.test.get_cached_reliability", return_value=None):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
             submit_response = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -2190,7 +2265,11 @@ class TestConfidenceIntervalIntegration:
         submission = {"session_id": session_id, "responses": responses}
 
         # Mock high reliability for narrow CI
-        with patch("app.api.v1.test.get_cached_reliability", return_value=0.90):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=0.90,
+        ):
             response = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -2232,7 +2311,11 @@ class TestConfidenceIntervalIntegration:
         submission = {"session_id": session_id, "responses": responses}
 
         # Test with low reliability (0.60) - should have wider CI
-        with patch("app.api.v1.test.get_cached_reliability", return_value=0.60):
+        with patch(
+            "app.api.v1.test.async_get_cached_reliability",
+            new_callable=AsyncMock,
+            return_value=0.60,
+        ):
             response_low = client.post(
                 "/v1/test/submit", json=submission, headers=auth_headers
             )
@@ -2275,7 +2358,7 @@ class TestConfidenceIntervalIntegration:
 class TestGetTestSessionOr404:
     """Unit tests for get_test_session_or_404 helper function."""
 
-    def test_returns_session_when_found(self, db_session, test_user):
+    async def test_returns_session_when_found(self, async_db_session, async_test_user):
         """Test that helper returns session when it exists."""
         from app.api.v1.test import get_test_session_or_404
         from app.models import TestSession
@@ -2283,22 +2366,22 @@ class TestGetTestSessionOr404:
 
         # Create a test session
         session = TestSession(
-            user_id=test_user.id,
+            user_id=async_test_user.id,
             status=TestStatus.IN_PROGRESS,
         )
-        db_session.add(session)
-        db_session.commit()
-        db_session.refresh(session)
+        async_db_session.add(session)
+        await async_db_session.commit()
+        await async_db_session.refresh(session)
 
         # Call helper - should return the session
-        result = get_test_session_or_404(db_session, session.id)
+        result = await get_test_session_or_404(async_db_session, session.id)
 
         assert result is not None
         assert result.id == session.id
-        assert result.user_id == test_user.id
+        assert result.user_id == async_test_user.id
         assert result.status == TestStatus.IN_PROGRESS
 
-    def test_raises_404_when_session_not_found(self, db_session):
+    async def test_raises_404_when_session_not_found(self, async_db_session):
         """Test that helper raises HTTPException with 404 when session doesn't exist."""
         from app.api.v1.test import get_test_session_or_404
         from fastapi import HTTPException
@@ -2306,12 +2389,12 @@ class TestGetTestSessionOr404:
 
         # Call helper with non-existent session ID
         with pytest.raises(HTTPException) as exc_info:
-            get_test_session_or_404(db_session, 99999)
+            await get_test_session_or_404(async_db_session, 99999)
 
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "Test session not found."
 
-    def test_error_message_is_consistent(self, db_session):
+    async def test_error_message_is_consistent(self, async_db_session):
         """Test that error message format is consistent."""
         from app.api.v1.test import get_test_session_or_404
         from fastapi import HTTPException
@@ -2320,13 +2403,15 @@ class TestGetTestSessionOr404:
         # Try multiple non-existent IDs to verify consistent error message
         for session_id in [1, 100, 99999]:
             with pytest.raises(HTTPException) as exc_info:
-                get_test_session_or_404(db_session, session_id)
+                await get_test_session_or_404(async_db_session, session_id)
 
             # Verify consistent error format
             assert exc_info.value.status_code == 404
             assert exc_info.value.detail == "Test session not found."
 
-    def test_returns_session_regardless_of_status(self, db_session, test_user):
+    async def test_returns_session_regardless_of_status(
+        self, async_db_session, async_test_user
+    ):
         """Test that helper returns sessions in any status (not just in_progress)."""
         from app.api.v1.test import get_test_session_or_404
         from app.models import TestSession
@@ -2342,16 +2427,16 @@ class TestGetTestSessionOr404:
 
         for status in statuses:
             session = TestSession(
-                user_id=test_user.id,
+                user_id=async_test_user.id,
                 status=status,
                 completed_at=utc_now() if status != TestStatus.IN_PROGRESS else None,
             )
-            db_session.add(session)
-            db_session.commit()
-            db_session.refresh(session)
+            async_db_session.add(session)
+            await async_db_session.commit()
+            await async_db_session.refresh(session)
 
             # Helper should return session regardless of status
-            result = get_test_session_or_404(db_session, session.id)
+            result = await get_test_session_or_404(async_db_session, session.id)
 
             assert result is not None
             assert result.id == session.id

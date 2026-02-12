@@ -127,6 +127,7 @@ from .split_half import (
 # Reliability report (RE-006)
 from .report import (
     get_reliability_report,
+    async_get_reliability_report,
     get_reliability_interpretation,
     generate_reliability_recommendations,
     invalidate_reliability_report_cache,
