@@ -119,6 +119,36 @@ Before submitting code with database queries:
 - [ ] **Filter columns indexed**: Columns in WHERE clauses
 - [ ] **Sort columns indexed**: Columns in ORDER BY
 
+### Async SQLAlchemy 2.0 Patterns
+
+When writing async queries, use the SQLAlchemy 2.0 `select()` style. Avoid unnecessary subqueries.
+
+**Count queries:**
+```python
+# BAD - unnecessary subquery nesting
+count_result = await db.execute(
+    select(func.count()).select_from(
+        select(Model.id).where(Model.status == "active").subquery()
+    )
+)
+
+# GOOD - direct count
+count_result = await db.execute(
+    select(func.count()).select_from(Model).where(Model.status == "active")
+)
+total = count_result.scalar()
+```
+
+**Fetching rows:**
+```python
+# BAD - old-style query API (not available on AsyncSession)
+rows = db.query(Model).filter(Model.active == True).all()
+
+# GOOD - 2.0 select style
+result = await db.execute(select(Model).where(Model.active == True))
+rows = result.scalars().all()
+```
+
 ### Common Anti-Patterns
 
 **Unbounded queries:**

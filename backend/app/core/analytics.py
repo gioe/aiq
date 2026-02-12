@@ -574,11 +574,9 @@ async def async_build_response_matrix(
     total_response_count: Optional[int] = None
     if max_responses:
         count_result = await db.execute(
-            select(func.count()).select_from(
-                select(Response.id)
-                .where(Response.test_session_id.in_(session_ids))
-                .subquery()
-            )
+            select(func.count())
+            .select_from(Response)
+            .where(Response.test_session_id.in_(session_ids))
         )
         total_response_count = count_result.scalar()
 
