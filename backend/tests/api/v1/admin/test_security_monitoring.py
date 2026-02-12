@@ -10,7 +10,7 @@ Tests cover:
 - Password resets outside the correlation window
 """
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -643,7 +643,10 @@ class TestLogoutAllEventsPagination:
 class TestLogoutAllEventsErrorHandling:
     """Tests for error handling."""
 
-    @patch("app.api.v1.admin.security_monitoring.get_logout_all_stats")
+    @patch(
+        "app.api.v1.admin.security_monitoring.async_get_logout_all_stats",
+        new_callable=AsyncMock,
+    )
     def test_database_error_returns_error_response(
         self, mock_stats, client: TestClient, admin_headers: dict
     ):
