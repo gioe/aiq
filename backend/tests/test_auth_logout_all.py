@@ -6,9 +6,14 @@ Tests user-level token revocation via revocation epoch approach.
 import pytest
 from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
+
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.main import app
+from app.models import Base, get_db, get_async_db
 from app.core.token_blacklist import get_token_blacklist, init_token_blacklist
 
 
@@ -42,8 +47,44 @@ def init_blacklist():
 
 @pytest.fixture
 def client():
-    """Create a test client."""
-    return TestClient(app)
+    """Create a test client with both sync and async DB overrides.
+
+    Since auth dependencies now use get_async_db (TASK-1162), we must
+    override both get_db and get_async_db to use test databases.
+    """
+    _engine = create_engine(
+        "sqlite:///./test_logout_all.db",
+        connect_args={"check_same_thread": False},
+    )
+    _async_engine = create_async_engine(
+        "sqlite+aiosqlite:///./test_logout_all.db",
+        connect_args={"check_same_thread": False},
+    )
+    _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+    _AsyncSessionLocal = async_sessionmaker(
+        _async_engine, class_=AsyncSession, expire_on_commit=False
+    )
+
+    Base.metadata.create_all(bind=_engine)
+
+    def override_get_db():
+        db = _SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    async def override_get_async_db():
+        async with _AsyncSessionLocal() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_async_db] = override_get_async_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=_engine)
+    _engine.dispose()
 
 
 @pytest.fixture
@@ -505,29 +546,42 @@ class TestLogoutAllDatabaseErrors:
         access_token = test_user["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
 
-        # Mock database commit to raise an error
-        with patch("sqlalchemy.orm.Session.commit") as mock_commit:
+        # Auth endpoints now use AsyncSession (TASK-1162), so patch the async commit
+        with patch(
+            "sqlalchemy.ext.asyncio.AsyncSession.commit",
+            new_callable=AsyncMock,
+        ) as mock_commit:
             from sqlalchemy.exc import SQLAlchemyError
 
             mock_commit.side_effect = SQLAlchemyError("Database connection lost")
 
-            response = client.post("/v1/auth/logout-all", headers=headers)
-            assert response.status_code == 500
-            assert "error" in response.json()["detail"].lower()
+            # Also mock rollback so the error handler doesn't fail
+            with patch(
+                "sqlalchemy.ext.asyncio.AsyncSession.rollback",
+                new_callable=AsyncMock,
+            ):
+                response = client.post("/v1/auth/logout-all", headers=headers)
+                assert response.status_code == 500
+                assert "error" in response.json()["detail"].lower()
 
     def test_logout_all_rollback_on_error(self, client, test_user):
         """Test that logout-all rolls back transaction on error."""
         access_token = test_user["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
 
-        # This test verifies rollback is called by checking the implementation
-        # In practice, the rollback happens in the exception handler
-        with patch("sqlalchemy.orm.Session.commit") as mock_commit:
+        # Auth endpoints now use AsyncSession (TASK-1162)
+        with patch(
+            "sqlalchemy.ext.asyncio.AsyncSession.commit",
+            new_callable=AsyncMock,
+        ) as mock_commit:
             from sqlalchemy.exc import SQLAlchemyError
 
             mock_commit.side_effect = SQLAlchemyError("Test error")
 
-            with patch("sqlalchemy.orm.Session.rollback") as mock_rollback:
+            with patch(
+                "sqlalchemy.ext.asyncio.AsyncSession.rollback",
+                new_callable=AsyncMock,
+            ) as mock_rollback:
                 response = client.post("/v1/auth/logout-all", headers=headers)
                 assert response.status_code == 500
 
@@ -549,9 +603,9 @@ class TestLogoutAllPushNotification:
         tokens = response.json()
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-        from app.models import get_db, User
+        from app.models import User
 
-        db = next(get_db())
+        db = next(app.dependency_overrides[get_db]())
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = True
         user.apns_device_token = "fake_device_token_abc123"
@@ -580,9 +634,9 @@ class TestLogoutAllPushNotification:
         tokens = response.json()
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-        from app.models import get_db, User
+        from app.models import User
 
-        db = next(get_db())
+        db = next(app.dependency_overrides[get_db]())
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = False
         user.apns_device_token = "fake_device_token_abc123"
@@ -609,9 +663,9 @@ class TestLogoutAllPushNotification:
         tokens = response.json()
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-        from app.models import get_db, User
+        from app.models import User
 
-        db = next(get_db())
+        db = next(app.dependency_overrides[get_db]())
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = True
         user.apns_device_token = None
@@ -636,9 +690,9 @@ class TestLogoutAllPushNotification:
         tokens = response.json()
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-        from app.models import get_db, User
+        from app.models import User
 
-        db = next(get_db())
+        db = next(app.dependency_overrides[get_db]())
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = True
         user.apns_device_token = "fake_device_token_abc123"
@@ -665,9 +719,9 @@ class TestLogoutAllPushNotification:
         tokens = response.json()
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-        from app.models import get_db, User
+        from app.models import User
 
-        db = next(get_db())
+        db = next(app.dependency_overrides[get_db]())
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = True
         user.apns_device_token = "fake_device_token_abc123"
