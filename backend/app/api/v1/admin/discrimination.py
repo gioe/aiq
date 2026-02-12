@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.core.discrimination_analysis import (
-    get_discrimination_report,
-    get_question_discrimination_detail,
+    async_get_discrimination_report,
+    async_get_question_discrimination_detail,
     invalidate_discrimination_report_cache,
 )
 from app.models import Question, get_async_db
@@ -117,12 +117,10 @@ async def get_discrimination_report_endpoint(
         ```
     """
     try:
-        report_data = await db.run_sync(
-            lambda session: get_discrimination_report(
-                session,
-                min_responses=min_responses,
-                action_list_limit=action_list_limit,
-            )
+        report_data = await async_get_discrimination_report(
+            db,
+            min_responses=min_responses,
+            action_list_limit=action_list_limit,
         )
 
         return DiscriminationReportResponse(
@@ -202,9 +200,7 @@ async def get_discrimination_detail_endpoint(
         ```
     """
     try:
-        detail_data = await db.run_sync(
-            lambda session: get_question_discrimination_detail(session, question_id)
-        )
+        detail_data = await async_get_question_discrimination_detail(db, question_id)
 
         if detail_data is None:
             raise HTTPException(

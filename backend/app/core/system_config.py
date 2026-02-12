@@ -328,3 +328,76 @@ async def async_get_domain_population_stats(
         or None if not configured
     """
     return await async_get_config(db, "domain_population_stats")
+
+
+async def async_set_config(db: AsyncSession, key: str, value: Any) -> SystemConfig:
+    """Set a configuration value in the SystemConfig table (async version)."""
+    result = await db.execute(select(SystemConfig).where(SystemConfig.key == key))
+    config = result.scalar_one_or_none()
+
+    if config is None:
+        config = SystemConfig(key=key, value=value, updated_at=utc_now())
+        db.add(config)
+    else:
+        config.value = value
+        config.updated_at = utc_now()
+
+    await db.commit()
+    await db.refresh(config)
+    return config
+
+
+async def async_delete_config(db: AsyncSession, key: str) -> bool:
+    """Delete a configuration entry from the SystemConfig table (async version)."""
+    result = await db.execute(select(SystemConfig).where(SystemConfig.key == key))
+    config = result.scalar_one_or_none()
+    if config is None:
+        return False
+
+    await db.delete(config)
+    await db.commit()
+    return True
+
+
+async def async_get_all_configs(db: AsyncSession) -> dict[str, Any]:
+    """Get all configuration values from the SystemConfig table (async version)."""
+    result = await db.execute(select(SystemConfig))
+    configs = result.scalars().all()
+    return {str(config.key): config.value for config in configs}
+
+
+async def async_config_exists(db: AsyncSession, key: str) -> bool:
+    """Check if a configuration key exists (async version)."""
+    result = await db.execute(select(SystemConfig).where(SystemConfig.key == key))
+    return result.scalar_one_or_none() is not None
+
+
+async def async_set_domain_weights(
+    db: AsyncSession, weights: dict[str, float]
+) -> SystemConfig:
+    """Set the domain weights for weighted scoring (async version)."""
+    return await async_set_config(db, "domain_weights", weights)
+
+
+async def async_set_weighted_scoring_enabled(
+    db: AsyncSession, enabled: bool
+) -> SystemConfig:
+    """Enable or disable weighted scoring (async version)."""
+    return await async_set_config(db, "use_weighted_scoring", {"enabled": enabled})
+
+
+async def async_get_cat_readiness_status(db: AsyncSession) -> Optional[dict]:
+    """Get the full CAT readiness evaluation result (async version)."""
+    return await async_get_config(db, "cat_readiness")
+
+
+async def async_set_cat_readiness(db: AsyncSession, result: dict) -> SystemConfig:
+    """Persist a CAT readiness evaluation result (async version)."""
+    return await async_set_config(db, "cat_readiness", result)
+
+
+async def async_set_domain_population_stats(
+    db: AsyncSession, stats: dict[str, dict[str, float]]
+) -> SystemConfig:
+    """Set domain population statistics (async version)."""
+    return await async_set_config(db, "domain_population_stats", stats)

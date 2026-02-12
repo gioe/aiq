@@ -12,6 +12,8 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
@@ -122,6 +124,136 @@ def get_logout_all_stats(
         resets_by_user[uid].append(created_at)
 
     # Build per-user summaries with password reset correlation
+    events = []
+    users_with_resets = 0
+
+    for user_id, token_revoked_before in logout_users:
+        revoked_at = ensure_timezone_aware(token_revoked_before)
+        window_start = revoked_at - timedelta(hours=CORRELATION_WINDOW_HOURS)
+        window_end = revoked_at + timedelta(hours=CORRELATION_WINDOW_HOURS)
+
+        correlated_resets = []
+        for reset_created_at in resets_by_user.get(user_id, []):
+            reset_dt = ensure_timezone_aware(reset_created_at)
+            if window_start <= reset_dt <= window_end:
+                diff_minutes = (reset_dt - revoked_at).total_seconds() / 60.0
+                correlated_resets.append(
+                    PasswordResetCorrelation(
+                        reset_created_at=reset_dt,
+                        logout_all_at=revoked_at,
+                        time_difference_minutes=round(diff_minutes, 1),
+                    )
+                )
+
+        if correlated_resets:
+            users_with_resets += 1
+
+        events.append(
+            UserLogoutAllSummary(
+                user_id=user_id,
+                logout_all_at=revoked_at,
+                password_resets_in_window=len(correlated_resets),
+                correlated_resets=correlated_resets,
+            )
+        )
+
+    return LogoutAllStatsResponse(
+        total_events=total_events,
+        unique_users=total_events,
+        users_with_correlated_resets=users_with_resets,
+        time_range=TimeRange(start=start, end=now),
+        events=events,
+        page=page,
+        page_size=page_size,
+    )
+
+
+# =============================================================================
+# Async version for async endpoints
+# =============================================================================
+
+
+async def async_get_logout_all_stats(
+    db: AsyncSession, days: int, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE
+) -> LogoutAllStatsResponse:
+    """
+    Query logout-all events and correlate with password resets (async version).
+
+    See get_logout_all_stats() for full documentation.
+    """
+    page_size = min(page_size, MAX_PAGE_SIZE)
+    now = utc_now()
+
+    if days > 0:
+        start = now - timedelta(days=days)
+    else:
+        start = datetime(2020, 1, 1, tzinfo=timezone.utc)
+
+    # Total count
+    result = await db.execute(
+        select(func.count(User.id)).where(
+            User.token_revoked_before.isnot(None),
+            User.token_revoked_before >= start,
+        )
+    )
+    total_events = result.scalar() or 0
+
+    logger.debug(
+        "Found %d users with logout-all events in the last %d days",
+        total_events,
+        days,
+    )
+
+    if total_events == 0:
+        return LogoutAllStatsResponse(
+            total_events=0,
+            unique_users=0,
+            users_with_correlated_resets=0,
+            time_range=TimeRange(start=start, end=now),
+            events=[],
+            page=page,
+            page_size=page_size,
+        )
+
+    # Paginated logout users
+    offset = (page - 1) * page_size
+    result = await db.execute(
+        select(User.id, User.token_revoked_before)
+        .where(
+            User.token_revoked_before.isnot(None),
+            User.token_revoked_before >= start,
+        )
+        .order_by(User.token_revoked_before.desc())
+        .limit(page_size)
+        .offset(offset)
+    )
+    logout_users = result.all()
+
+    if not logout_users:
+        return LogoutAllStatsResponse(
+            total_events=total_events,
+            unique_users=total_events,
+            users_with_correlated_resets=0,
+            time_range=TimeRange(start=start, end=now),
+            events=[],
+            page=page,
+            page_size=page_size,
+        )
+
+    # Batch-load password resets
+    user_ids = [uid for uid, _ in logout_users]
+    result = await db.execute(
+        select(PasswordResetToken.user_id, PasswordResetToken.created_at).where(
+            PasswordResetToken.user_id.in_(user_ids)
+        )
+    )
+    all_resets = result.all()
+
+    resets_by_user: dict[int, list[datetime]] = defaultdict(list)
+    for uid, created_at in all_resets:
+        resets_by_user[uid].append(created_at)
+
+    # Build per-user summaries
     events = []
     users_with_resets = 0
 

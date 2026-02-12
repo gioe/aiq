@@ -17,8 +17,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.question_analytics import (
-    recalibrate_questions,
-    validate_difficulty_labels,
+    async_recalibrate_questions,
+    async_validate_difficulty_labels,
 )
 from app.models import get_async_db
 from app.schemas.calibration import (
@@ -96,9 +96,7 @@ async def get_calibration_health(
     """
     try:
         # Get validation results from core function
-        validation_results = await db.run_sync(
-            lambda session: validate_difficulty_labels(session, min_responses)
-        )
+        validation_results = await async_validate_difficulty_labels(db, min_responses)
 
         # Extract lists
         miscalibrated = validation_results["miscalibrated"]
@@ -276,14 +274,12 @@ async def recalibrate_difficulty_labels(
     """
     try:
         # Call core recalibration function
-        results = await db.run_sync(
-            lambda session: recalibrate_questions(
-                db=session,
-                min_responses=request.min_responses,
-                question_ids=request.question_ids,
-                severity_threshold=request.severity_threshold.value,
-                dry_run=request.dry_run,
-            )
+        results = await async_recalibrate_questions(
+            db=db,
+            min_responses=request.min_responses,
+            question_ids=request.question_ids,
+            severity_threshold=request.severity_threshold.value,
+            dry_run=request.dry_run,
         )
 
         # Convert recalibrated questions to schema

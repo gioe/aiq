@@ -10,13 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.analytics import (
     InsufficientSampleError,
-    build_response_matrix,
+    async_build_response_matrix,
     calculate_g_loadings,
 )
 from app.core.datetime_utils import utc_now
 from app.core.time_analysis import (
-    get_aggregate_response_time_analytics,
-    get_response_time_percentiles,
+    async_get_aggregate_response_time_analytics,
+    async_get_response_time_percentiles,
 )
 from app.models import get_async_db
 from app.schemas.factor_analysis import (
@@ -119,9 +119,7 @@ async def get_response_time_analytics(
     """
     try:
         # Get aggregate analytics from time_analysis module
-        analytics = await db.run_sync(
-            lambda session: get_aggregate_response_time_analytics(session)
-        )
+        analytics = await async_get_aggregate_response_time_analytics(db)
 
         # Build response using Pydantic models
         overall = OverallTimeStats(
@@ -232,9 +230,7 @@ async def get_detailed_response_time_analytics(
     - Percentile stats across all response times
     """
     try:
-        analytics = await db.run_sync(
-            lambda session: get_response_time_percentiles(session)
-        )
+        analytics = await async_get_response_time_percentiles(db)
 
         by_type_and_difficulty = [
             TypeDifficultyBreakdown(
@@ -452,13 +448,11 @@ async def get_factor_analysis(
     """
     try:
         # Build the response matrix from completed test sessions
-        response_matrix = await db.run_sync(
-            lambda session: build_response_matrix(
-                db=session,
-                min_responses_per_question=min_responses_per_question,
-                min_questions_per_session=10,
-                max_responses=max_responses,
-            )
+        response_matrix = await async_build_response_matrix(
+            db=db,
+            min_responses_per_question=min_responses_per_question,
+            min_questions_per_session=10,
+            max_responses=max_responses,
         )
 
         # Check if we have enough data

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
-from app.core.security_monitoring import MAX_PAGE_SIZE, get_logout_all_stats
+from app.core.security_monitoring import MAX_PAGE_SIZE, async_get_logout_all_stats
 from app.models import get_async_db
 from app.schemas.security_monitoring import LogoutAllStatsResponse, TimeRange
 
@@ -74,10 +74,8 @@ async def get_logout_all_events(
     """
     try:
         days = _TIME_RANGE_DAYS[time_range]
-        return await db.run_sync(
-            lambda session: get_logout_all_stats(
-                session, days=days, page=page, page_size=page_size
-            )
+        return await async_get_logout_all_stats(
+            db, days=days, page=page, page_size=page_size
         )
     except Exception as e:
         logger.exception("Failed to get logout-all stats: %s", e)

@@ -29,6 +29,8 @@ import logging
 from datetime import timedelta
 from typing import Dict, List, Optional
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utc_now
@@ -191,3 +193,106 @@ def get_reliability_history(
     )
 
     return result
+
+
+# =============================================================================
+# Async versions for async endpoints
+# =============================================================================
+
+
+async def async_store_reliability_metric(
+    db: AsyncSession,
+    metric_type: MetricTypeLiteral,
+    value: float,
+    sample_size: int,
+    details: Optional[Dict] = None,
+    commit: bool = True,
+) -> ReliabilityMetric:
+    """
+    Store a reliability metric to the database (async version).
+
+    See store_reliability_metric() for full documentation.
+    """
+    if metric_type not in VALID_METRIC_TYPES:
+        raise ValueError(
+            f"Invalid metric_type: {metric_type}. "
+            f"Must be one of: {', '.join(sorted(VALID_METRIC_TYPES))}"
+        )
+
+    if not -1.0 <= value <= 1.0:
+        raise ValueError(
+            f"Invalid value: {value}. "
+            "Reliability coefficients must be between -1.0 and 1.0"
+        )
+
+    if sample_size < 1:
+        raise ValueError(f"Invalid sample_size: {sample_size}. Must be at least 1")
+
+    metric = ReliabilityMetric(
+        metric_type=metric_type,
+        value=value,
+        sample_size=sample_size,
+        details=details,
+    )
+
+    db.add(metric)
+
+    if commit:
+        await db.commit()
+        await db.refresh(metric)
+        logger.info(
+            f"Stored reliability metric: type={metric_type}, value={value:.4f}, "
+            f"sample_size={sample_size}, id={metric.id}"
+        )
+    else:
+        await db.flush()
+        logger.info(
+            f"Added reliability metric (uncommitted): type={metric_type}, "
+            f"value={value:.4f}, sample_size={sample_size}, id={metric.id}"
+        )
+
+    return metric
+
+
+async def async_get_reliability_history(
+    db: AsyncSession,
+    metric_type: Optional[MetricTypeLiteral] = None,
+    days: int = 90,
+) -> List[Dict]:
+    """
+    Get historical reliability metrics for trend analysis (async version).
+
+    See get_reliability_history() for full documentation.
+    """
+    cutoff_date = utc_now() - timedelta(days=days)
+
+    stmt = select(ReliabilityMetric).where(
+        ReliabilityMetric.calculated_at >= cutoff_date
+    )
+
+    if metric_type is not None:
+        stmt = stmt.where(ReliabilityMetric.metric_type == metric_type)
+
+    stmt = stmt.order_by(ReliabilityMetric.calculated_at.desc())
+
+    result = await db.execute(stmt)
+    metrics = result.scalars().all()
+
+    history = [
+        {
+            "id": m.id,
+            "metric_type": m.metric_type,
+            "value": m.value,
+            "sample_size": m.sample_size,
+            "calculated_at": m.calculated_at,
+            "details": m.details,
+        }
+        for m in metrics
+    ]
+
+    logger.info(
+        f"Retrieved {len(history)} reliability metrics "
+        f"(type={metric_type}, days={days})"
+    )
+
+    return history

@@ -8,11 +8,14 @@ CAT activates only when all 6 domains meet the configured thresholds.
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.cat.readiness import evaluate_cat_readiness, serialize_readiness_result
+from app.core.cat.readiness import (
+    async_evaluate_cat_readiness,
+    serialize_readiness_result,
+)
 from app.core.datetime_utils import utc_now
 from app.core.system_config import (
-    get_cat_readiness_status,
-    set_cat_readiness,
+    async_get_cat_readiness_status,
+    async_set_cat_readiness,
 )
 from app.models import get_async_db
 from app.schemas.cat_readiness import (
@@ -60,7 +63,7 @@ async def get_cat_readiness(
           -H "X-Admin-Token: token"
         ```
     """
-    config = await db.run_sync(lambda session: get_cat_readiness_status(session))
+    config = await async_get_cat_readiness_status(db)
 
     if config is None:
         # Never evaluated — return default state
@@ -106,12 +109,12 @@ async def evaluate_readiness(
           -H "X-Admin-Token: token"
         ```
     """
-    result = await db.run_sync(lambda session: evaluate_cat_readiness(session))
+    result = await async_evaluate_cat_readiness(db)
 
     now = utc_now()
 
     config_value = serialize_readiness_result(result, now)
-    await db.run_sync(lambda session: set_cat_readiness(session, config_value))
+    await async_set_cat_readiness(db, config_value)
 
     logger.info(
         f"CAT readiness evaluation completed: "

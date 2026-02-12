@@ -139,6 +139,8 @@ from .report import (
 from .storage import (
     store_reliability_metric,
     get_reliability_history,
+    async_store_reliability_metric,
+    async_get_reliability_history,
 )
 
 # =============================================================================
@@ -196,4 +198,6 @@ __all__ = [
     # Metrics persistence (RE-007)
     "store_reliability_metric",
     "get_reliability_history",
+    "async_store_reliability_metric",
+    "async_get_reliability_history",
 ]

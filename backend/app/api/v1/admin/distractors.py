@@ -11,8 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.distractor_analysis import (
-    analyze_distractor_effectiveness,
-    get_bulk_distractor_summary,
+    async_analyze_distractor_effectiveness,
+    async_get_bulk_distractor_summary,
 )
 from app.models import Question, get_async_db
 from app.schemas.distractor_analysis import (
@@ -115,10 +115,8 @@ async def get_distractor_analysis(
             )
 
         # Get distractor analysis from core function
-        analysis = await db.run_sync(
-            lambda session: analyze_distractor_effectiveness(
-                session, question_id, min_responses=min_responses
-            )
+        analysis = await async_analyze_distractor_effectiveness(
+            db, question_id, min_responses=min_responses
         )
 
         # Handle insufficient data case
@@ -271,10 +269,8 @@ async def get_distractor_summary(
     """
     try:
         # Get bulk summary from core function
-        summary = await db.run_sync(
-            lambda session: get_bulk_distractor_summary(
-                session, min_responses=min_responses, question_type=question_type
-            )
+        summary = await async_get_bulk_distractor_summary(
+            db, min_responses=min_responses, question_type=question_type
         )
 
         # Calculate rates

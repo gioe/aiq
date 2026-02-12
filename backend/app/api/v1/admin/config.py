@@ -13,11 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.datetime_utils import utc_now
 from app.core.scoring import calculate_weighted_iq_score
 from app.core.system_config import (
-    get_config,
-    get_domain_weights,
-    is_weighted_scoring_enabled,
-    set_domain_weights,
-    set_weighted_scoring_enabled,
+    async_get_domain_weights,
+    async_is_weighted_scoring_enabled,
+    async_set_domain_weights,
+    async_set_weighted_scoring_enabled,
 )
 from app.models import TestResult, get_async_db
 from app.schemas.scoring_config import (
@@ -65,26 +64,19 @@ async def get_weighted_scoring_status(
         ```
     """
     try:
-        enabled = await db.run_sync(
-            lambda session: is_weighted_scoring_enabled(session)
-        )
-        weights = await db.run_sync(lambda session: get_domain_weights(session))
+        enabled = await async_is_weighted_scoring_enabled(db)
+        weights = await async_get_domain_weights(db)
 
         # Get the updated_at timestamp if the config exists
-        config_record = await db.run_sync(
-            lambda session: get_config(session, "use_weighted_scoring")
-        )
         updated_at = None
-        if config_record:
-            # The record was returned as the value, need to query for timestamp
-            from app.models.models import SystemConfig
+        from app.models.models import SystemConfig
 
-            result = await db.execute(
-                select(SystemConfig).where(SystemConfig.key == "use_weighted_scoring")
-            )
-            record = result.scalar_one_or_none()
-            if record:
-                updated_at = record.updated_at
+        result = await db.execute(
+            select(SystemConfig).where(SystemConfig.key == "use_weighted_scoring")
+        )
+        record = result.scalar_one_or_none()
+        if record:
+            updated_at = record.updated_at
 
         return WeightedScoringStatus(
             enabled=enabled,
@@ -133,14 +125,12 @@ async def toggle_weighted_scoring(
         ```
     """
     try:
-        result = await db.run_sync(
-            lambda session: set_weighted_scoring_enabled(session, request.enabled)
-        )
+        result = await async_set_weighted_scoring_enabled(db, request.enabled)
 
         action = "enabled" if request.enabled else "disabled"
         message = f"Weighted scoring has been {action}. "
         if request.enabled:
-            weights = await db.run_sync(lambda session: get_domain_weights(session))
+            weights = await async_get_domain_weights(db)
             if weights:
                 message += "Configured domain weights will be used for scoring."
             else:
@@ -190,7 +180,7 @@ async def get_domain_weights_config(
         ```
     """
     try:
-        weights = await db.run_sync(lambda session: get_domain_weights(session))
+        weights = await async_get_domain_weights(db)
 
         if weights is None:
             return None
@@ -283,9 +273,7 @@ async def set_domain_weights_config(
                 "They will be normalized during scoring calculations."
             )
 
-        result = await db.run_sync(
-            lambda session: set_domain_weights(session, request.weights)
-        )
+        result = await async_set_domain_weights(db, request.weights)
 
         return DomainWeightsResponse(
             weights=request.weights,
@@ -368,7 +356,7 @@ async def compare_scoring_methods(
         )
 
         # Get configured weights
-        weights = await db.run_sync(lambda session: get_domain_weights(session))
+        weights = await async_get_domain_weights(db)
 
         # Calculate weighted score if weights are configured
         weighted_score_result: Optional[ABComparisonScore] = None

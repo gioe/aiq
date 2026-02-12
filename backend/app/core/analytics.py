@@ -12,7 +12,8 @@ from enum import Enum
 from typing import Optional, Dict, Any, List, Tuple
 
 import numpy as np
-from sqlalchemy import func
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -512,6 +513,153 @@ def build_response_matrix(
         session_responses = response_lookup[sid]
 
         # Count how many of the valid questions this session answered
+        answered_count = len(
+            [qid for qid in session_responses.keys() if qid in question_id_to_idx]
+        )
+
+        if answered_count >= min_questions_per_session:
+            valid_sessions.append((sid, session_responses))
+
+    if not valid_sessions:
+        return None
+
+    # Step 7: Build the matrix
+    n_sessions = len(valid_sessions)
+    matrix = np.zeros((n_sessions, n_questions), dtype=np.int8)
+    final_session_ids: List[int] = []
+
+    for row_idx, (sid, session_responses) in enumerate(valid_sessions):
+        final_session_ids.append(sid)
+
+        for qid, is_correct in session_responses.items():
+            if qid in question_id_to_idx:
+                col_idx = question_id_to_idx[qid]
+                matrix[row_idx, col_idx] = is_correct
+
+    return ResponseMatrixResult(
+        matrix=matrix,
+        question_ids=question_ids_list,
+        question_domains=question_domains,
+        session_ids=final_session_ids,
+    )
+
+
+async def async_build_response_matrix(
+    db: AsyncSession,
+    min_responses_per_question: int = 30,
+    min_questions_per_session: int = 10,
+    max_responses: int = DEFAULT_RESPONSE_LIMIT,
+) -> Optional[ResponseMatrixResult]:
+    """
+    Build a response matrix for factor analysis (async version).
+
+    See build_response_matrix() for full documentation.
+    """
+    # Step 1: Get all completed test sessions
+    result = await db.execute(
+        select(TestSession)
+        .where(TestSession.status == TestStatus.COMPLETED)
+        .order_by(TestSession.id)
+    )
+    completed_sessions = result.scalars().all()
+
+    if not completed_sessions:
+        return None
+
+    session_ids: List[int] = [session.id for session in completed_sessions]
+
+    # Step 2: Get responses for completed sessions (with optional limit)
+    base_stmt = select(Response).where(Response.test_session_id.in_(session_ids))
+
+    total_response_count: Optional[int] = None
+    if max_responses:
+        count_result = await db.execute(
+            select(func.count())
+            .select_from(Response)
+            .where(Response.test_session_id.in_(session_ids))
+        )
+        total_response_count = count_result.scalar()
+
+    if max_responses:
+        base_stmt = base_stmt.order_by(Response.test_session_id.asc()).limit(
+            max_responses
+        )
+
+    result = await db.execute(base_stmt)
+    responses = result.scalars().all()
+
+    if not responses:
+        return None
+
+    if max_responses and len(responses) >= max_responses and total_response_count:
+        logger.warning(
+            f"build_response_matrix: Fetched {len(responses):,} of "
+            f"{total_response_count:,} total responses (limit: {max_responses:,}). "
+            f"Matrix may be incomplete. Consider increasing max_responses "
+            f"for comprehensive factor analysis."
+        )
+
+    # Step 3: Count responses per question to filter questions
+    question_response_counts: Dict[int, int] = {}
+    for response in responses:
+        q_id: int = response.question_id
+        question_response_counts[q_id] = question_response_counts.get(q_id, 0) + 1
+
+    valid_question_ids = [
+        q_id
+        for q_id, count in question_response_counts.items()
+        if count >= min_responses_per_question
+    ]
+
+    if not valid_question_ids:
+        return None
+
+    # Step 4: Get question details for valid questions (active only)
+    result = await db.execute(
+        select(Question)
+        .where(Question.id.in_(valid_question_ids))
+        .where(Question.is_active == True)  # noqa: E712
+        .order_by(Question.id)
+    )
+    questions = result.scalars().all()
+
+    if not questions:
+        return None
+
+    # Build question ID to index mapping and domain list
+    question_id_to_idx: Dict[int, int] = {}
+    question_ids_list: List[int] = []
+    question_domains: List[str] = []
+
+    for idx, question in enumerate(questions):
+        qid: int = question.id
+        question_id_to_idx[qid] = idx
+        question_ids_list.append(qid)
+        question_domains.append(question.question_type.value)
+
+    n_questions = len(questions)
+
+    # Step 5: Build response lookup by session
+    response_lookup: Dict[int, Dict[int, int]] = {}
+    for response in responses:
+        resp_sess_id: int = response.test_session_id
+        resp_q_id: int = response.question_id
+
+        if resp_q_id not in question_id_to_idx:
+            continue
+
+        if resp_sess_id not in response_lookup:
+            response_lookup[resp_sess_id] = {}
+
+        response_lookup[resp_sess_id][resp_q_id] = 1 if response.is_correct else 0
+
+    # Step 6: Filter sessions by minimum questions answered
+    valid_sessions: List[Tuple[int, Dict[int, int]]] = []
+    for sid in session_ids:
+        if sid not in response_lookup:
+            continue
+
+        session_responses = response_lookup[sid]
         answered_count = len(
             [qid for qid in session_responses.keys() if qid in question_id_to_idx]
         )

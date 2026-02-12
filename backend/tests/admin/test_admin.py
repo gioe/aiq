@@ -2,7 +2,7 @@
 Tests for admin API endpoints.
 """
 import pytest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from app.core.cache import get_cache
 from app.models import QuestionGenerationRun, GenerationRunStatus, Question
@@ -4659,7 +4659,10 @@ class TestDiscriminationDetailEndpoint:
         assert data["compared_to_difficulty_avg"] == "above"
 
     @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
-    @patch("app.api.v1.admin.discrimination.get_question_discrimination_detail")
+    @patch(
+        "app.api.v1.admin.discrimination.async_get_question_discrimination_detail",
+        new_callable=AsyncMock,
+    )
     def test_discrimination_detail_invalid_tier_value_handled_gracefully(
         self, mock_get_detail, client, admin_token_headers
     ):

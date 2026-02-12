@@ -1160,3 +1160,284 @@ def recalibrate_questions(
         )
 
     return results
+
+
+# =============================================================================
+# ASYNC VERSIONS FOR ASYNC ENDPOINTS
+# =============================================================================
+
+
+async def async_validate_difficulty_labels(
+    db: AsyncSession,
+    min_responses: int = 100,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> Dict[str, List[Dict]]:
+    """Compare assigned difficulty labels against empirical p-values (async version)."""
+    results: Dict[str, List[Dict]] = {
+        "miscalibrated": [],
+        "correctly_calibrated": [],
+        "insufficient_data": [],
+    }
+
+    offset = 0
+    total_processed = 0
+
+    while True:
+        stmt = (
+            select(Question)
+            .where(Question.is_active == True)  # noqa: E712
+            .order_by(Question.id)
+            .offset(offset)
+            .limit(batch_size)
+        )
+        result = await db.execute(stmt)
+        questions = result.scalars().all()
+
+        if not questions:
+            break
+
+        batch_count = len(questions)
+        total_processed += batch_count
+        logger.debug(
+            f"Processing batch: offset={offset}, batch_size={batch_count}, "
+            f"total_processed={total_processed}"
+        )
+
+        for question in questions:
+            response_count = question.response_count or 0
+            assigned_difficulty = question.difficulty_level.value.lower()
+            empirical_diff: float | None = question.empirical_difficulty
+
+            if response_count < min_responses:
+                results["insufficient_data"].append(
+                    {
+                        "question_id": question.id,
+                        "assigned_difficulty": assigned_difficulty,
+                        "empirical_difficulty": empirical_diff,
+                        "response_count": response_count,
+                    }
+                )
+                continue
+
+            if empirical_diff is None:
+                results["insufficient_data"].append(
+                    {
+                        "question_id": question.id,
+                        "assigned_difficulty": assigned_difficulty,
+                        "empirical_difficulty": None,
+                        "response_count": response_count,
+                    }
+                )
+                continue
+
+            expected_range = DIFFICULTY_RANGES.get(assigned_difficulty)
+            if expected_range is None:
+                logger.warning(
+                    f"Unknown difficulty level '{assigned_difficulty}' for question {question.id}"
+                )
+                continue
+
+            if _is_within_range(empirical_diff, expected_range):
+                results["correctly_calibrated"].append(
+                    {
+                        "question_id": question.id,
+                        "assigned_difficulty": assigned_difficulty,
+                        "empirical_difficulty": empirical_diff,
+                        "expected_range": list(expected_range),
+                        "response_count": response_count,
+                    }
+                )
+            else:
+                severity = _calculate_calibration_severity(
+                    empirical_diff, expected_range
+                )
+                suggested_label = _get_suggested_difficulty_label(empirical_diff)
+
+                results["miscalibrated"].append(
+                    {
+                        "question_id": question.id,
+                        "assigned_difficulty": assigned_difficulty,
+                        "empirical_difficulty": empirical_diff,
+                        "expected_range": list(expected_range),
+                        "suggested_label": suggested_label,
+                        "response_count": response_count,
+                        "severity": severity,
+                    }
+                )
+
+        offset += batch_size
+
+    logger.info(
+        f"Difficulty label validation complete: "
+        f"{len(results['correctly_calibrated'])} calibrated, "
+        f"{len(results['miscalibrated'])} miscalibrated, "
+        f"{len(results['insufficient_data'])} insufficient data"
+    )
+
+    return results
+
+
+async def async_recalibrate_questions(
+    db: AsyncSession,
+    min_responses: int = 100,
+    question_ids: Optional[List[int]] = None,
+    severity_threshold: str = "major",
+    dry_run: bool = True,
+) -> Dict[str, Any]:
+    """Update difficulty labels based on empirical data (async version)."""
+    if severity_threshold not in SEVERITY_ORDER:
+        raise ValueError(
+            f"Invalid severity_threshold '{severity_threshold}'. "
+            f"Must be one of: {list(SEVERITY_ORDER.keys())}"
+        )
+
+    threshold_level = SEVERITY_ORDER[severity_threshold]
+
+    validation_results = await async_validate_difficulty_labels(db, min_responses)
+
+    results: Dict[str, Any] = {
+        "recalibrated": [],
+        "skipped": [],
+        "total_recalibrated": 0,
+        "dry_run": dry_run,
+    }
+
+    for q_info in validation_results["miscalibrated"]:
+        question_id = q_info["question_id"]
+        severity = q_info["severity"]
+
+        if question_ids is not None and question_id not in question_ids:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "not_in_question_ids",
+                    "assigned_difficulty": q_info["assigned_difficulty"],
+                    "severity": severity,
+                }
+            )
+            continue
+
+        if SEVERITY_ORDER[severity] < threshold_level:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "below_threshold",
+                    "assigned_difficulty": q_info["assigned_difficulty"],
+                    "severity": severity,
+                }
+            )
+            continue
+
+        old_label = q_info["assigned_difficulty"]
+        new_label = q_info["suggested_label"]
+
+        valid_labels = {"easy", "medium", "hard"}
+        if new_label.lower() not in valid_labels:
+            logger.error(
+                f"Invalid suggested label '{new_label}' for question {question_id}. "
+                f"Expected one of: {valid_labels}"
+            )
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "invalid_suggested_label",
+                    "assigned_difficulty": old_label,
+                    "severity": severity,
+                }
+            )
+            continue
+
+        recalibration_succeeded = True
+        if not dry_run:
+            try:
+                stmt = select(Question).where(Question.id == question_id)
+                result = await db.execute(stmt)
+                question = result.scalar_one_or_none()
+                if question:
+                    if question.original_difficulty_level is None:
+                        question.original_difficulty_level = question.difficulty_level
+
+                    question.difficulty_level = DifficultyLevel[new_label.upper()]
+                    question.difficulty_recalibrated_at = utc_now()
+
+                    logger.info(
+                        f"Recalibrated question {question_id}: "
+                        f"{old_label} -> {new_label} "
+                        f"(empirical p-value: {q_info['empirical_difficulty']:.3f})"
+                    )
+                else:
+                    logger.error(
+                        f"Question {question_id} not found during recalibration"
+                    )
+                    recalibration_succeeded = False
+            except Exception as e:
+                logger.error(f"Failed to recalibrate question {question_id}: {e}")
+                recalibration_succeeded = False
+
+        if recalibration_succeeded:
+            results["recalibrated"].append(
+                {
+                    "question_id": question_id,
+                    "old_label": old_label,
+                    "new_label": new_label,
+                    "empirical_difficulty": q_info["empirical_difficulty"],
+                    "response_count": q_info["response_count"],
+                    "severity": severity,
+                }
+            )
+        else:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "database_error",
+                    "assigned_difficulty": old_label,
+                    "severity": severity,
+                }
+            )
+
+    for q_info in validation_results["correctly_calibrated"]:
+        question_id = q_info["question_id"]
+        if question_ids is None or question_id in question_ids:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "correctly_calibrated",
+                    "assigned_difficulty": q_info["assigned_difficulty"],
+                    "severity": None,
+                }
+            )
+
+    for q_info in validation_results["insufficient_data"]:
+        question_id = q_info["question_id"]
+        if question_ids is None or question_id in question_ids:
+            results["skipped"].append(
+                {
+                    "question_id": question_id,
+                    "reason": "insufficient_data",
+                    "assigned_difficulty": q_info["assigned_difficulty"],
+                    "severity": None,
+                }
+            )
+
+    results["total_recalibrated"] = len(results["recalibrated"])
+
+    if not dry_run and results["total_recalibrated"] > 0:
+        try:
+            await db.commit()
+            logger.info(
+                f"Recalibration complete: {results['total_recalibrated']} questions updated"
+            )
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Failed to commit recalibration changes: {e}")
+            raise RuntimeError(
+                f"Recalibration failed during commit: {e}. "
+                f"All changes have been rolled back."
+            ) from e
+    elif dry_run:
+        logger.info(
+            f"Recalibration dry run: {results['total_recalibrated']} questions "
+            f"would be updated"
+        )
+
+    return results
