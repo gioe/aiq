@@ -7,7 +7,7 @@ Cronbach's alpha, test-retest reliability, and split-half reliability.
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.error_responses import ErrorMessages, raise_server_error
 from app.core.reliability import (
@@ -16,7 +16,7 @@ from app.core.reliability import (
     get_reliability_report,
     store_reliability_metric,
 )
-from app.models import get_db
+from app.models import get_async_db
 from app.schemas.reliability import (
     InternalConsistencyMetrics,
     ReliabilityHistoryItem,
@@ -40,7 +40,7 @@ router = APIRouter()
     },
 )
 async def get_reliability_report_endpoint(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
     min_sessions: int = Query(
         default=100,
@@ -92,11 +92,13 @@ async def get_reliability_report_endpoint(
         # Generate the reliability report (RE-FI-019)
         # When store_metrics=True, bypass cache to ensure fresh data is stored
         # When store_metrics=False, use cache to avoid expensive recalculation
-        report = get_reliability_report(
-            db=db,
-            min_sessions=min_sessions,
-            min_retest_pairs=min_retest_pairs,
-            use_cache=not store_metrics,  # Bypass cache when storing metrics
+        report = await db.run_sync(
+            lambda session: get_reliability_report(
+                db=session,
+                min_sessions=min_sessions,
+                min_retest_pairs=min_retest_pairs,
+                use_cache=not store_metrics,  # Bypass cache when storing metrics
+            )
         )
 
         # Optionally store metrics to database for historical tracking
@@ -106,71 +108,77 @@ async def get_reliability_report_endpoint(
                 # Store Cronbach's alpha if calculated
                 alpha = report["internal_consistency"].get("cronbachs_alpha")
                 if alpha is not None:
-                    store_reliability_metric(
-                        db=db,
-                        metric_type="cronbachs_alpha",
-                        value=alpha,
-                        sample_size=report["internal_consistency"]["num_sessions"],
-                        details={
-                            "interpretation": report["internal_consistency"].get(
-                                "interpretation"
-                            ),
-                            "meets_threshold": report["internal_consistency"].get(
-                                "meets_threshold"
-                            ),
-                            "num_items": report["internal_consistency"].get(
-                                "num_items"
-                            ),
-                        },
+                    await db.run_sync(
+                        lambda session: store_reliability_metric(
+                            db=session,
+                            metric_type="cronbachs_alpha",
+                            value=alpha,
+                            sample_size=report["internal_consistency"]["num_sessions"],
+                            details={
+                                "interpretation": report["internal_consistency"].get(
+                                    "interpretation"
+                                ),
+                                "meets_threshold": report["internal_consistency"].get(
+                                    "meets_threshold"
+                                ),
+                                "num_items": report["internal_consistency"].get(
+                                    "num_items"
+                                ),
+                            },
+                        )
                     )
 
                 # Store test-retest reliability if calculated
                 test_retest_r = report["test_retest"].get("correlation")
                 if test_retest_r is not None:
-                    store_reliability_metric(
-                        db=db,
-                        metric_type="test_retest",
-                        value=test_retest_r,
-                        sample_size=report["test_retest"]["num_pairs"],
-                        details={
-                            "interpretation": report["test_retest"].get(
-                                "interpretation"
-                            ),
-                            "meets_threshold": report["test_retest"].get(
-                                "meets_threshold"
-                            ),
-                            "mean_interval_days": report["test_retest"].get(
-                                "mean_interval_days"
-                            ),
-                            "practice_effect": report["test_retest"].get(
-                                "practice_effect"
-                            ),
-                        },
+                    await db.run_sync(
+                        lambda session: store_reliability_metric(
+                            db=session,
+                            metric_type="test_retest",
+                            value=test_retest_r,
+                            sample_size=report["test_retest"]["num_pairs"],
+                            details={
+                                "interpretation": report["test_retest"].get(
+                                    "interpretation"
+                                ),
+                                "meets_threshold": report["test_retest"].get(
+                                    "meets_threshold"
+                                ),
+                                "mean_interval_days": report["test_retest"].get(
+                                    "mean_interval_days"
+                                ),
+                                "practice_effect": report["test_retest"].get(
+                                    "practice_effect"
+                                ),
+                            },
+                        )
                     )
 
                 # Store split-half reliability if calculated
                 spearman_brown = report["split_half"].get("spearman_brown")
                 if spearman_brown is not None:
-                    store_reliability_metric(
-                        db=db,
-                        metric_type="split_half",
-                        value=spearman_brown,
-                        sample_size=report["split_half"]["num_sessions"],
-                        details={
-                            "interpretation": report["split_half"].get(
-                                "interpretation"
-                            ),
-                            "meets_threshold": report["split_half"].get(
-                                "meets_threshold"
-                            ),
-                            "raw_correlation": report["split_half"].get(
-                                "raw_correlation"
-                            ),
-                        },
+                    await db.run_sync(
+                        lambda session: store_reliability_metric(
+                            db=session,
+                            metric_type="split_half",
+                            value=spearman_brown,
+                            sample_size=report["split_half"]["num_sessions"],
+                            details={
+                                "interpretation": report["split_half"].get(
+                                    "interpretation"
+                                ),
+                                "meets_threshold": report["split_half"].get(
+                                    "meets_threshold"
+                                ),
+                                "raw_correlation": report["split_half"].get(
+                                    "raw_correlation"
+                                ),
+                            },
+                        )
                     )
             except Exception as e:
                 # Log error but don't fail the request - still return the calculated report
-                db.rollback()
+                await db.rollback()
                 logger.error(f"Failed to store reliability metrics: {str(e)}")
 
         # Build response using Pydantic models
@@ -230,7 +238,7 @@ async def get_reliability_report_endpoint(
     },
 )
 async def get_reliability_history_endpoint(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
     metric_type: Optional[MetricTypeLiteral] = Query(
         default=None,
@@ -265,10 +273,12 @@ async def get_reliability_history_endpoint(
     try:
         # Get historical metrics using the core function.
         # metric_type is already validated by FastAPI via Literal type annotation.
-        metrics = get_reliability_history(
-            db=db,
-            metric_type=metric_type,
-            days=days,
+        metrics = await db.run_sync(
+            lambda session: get_reliability_history(
+                db=session,
+                metric_type=metric_type,
+                days=days,
+            )
         )
 
         # Transform to response schema

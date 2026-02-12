@@ -15,13 +15,13 @@ from datetime import timedelta
 from typing import Optional, Sequence
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import desc, func
-from sqlalchemy.orm import Session
+from sqlalchemy import desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.core.error_responses import raise_not_found
 from app.core.shadow_cat_validation import SessionData, validate_shadow_results
-from app.models import get_db
+from app.models import get_async_db
 from app.models.models import ShadowCATResult, TestSession, TestStatus
 from app.schemas.shadow_cat import (
     BlandAltmanMetrics,
@@ -61,7 +61,7 @@ async def list_shadow_cat_results(
         default=None,
         description="Filter by stopping reason",
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""List shadow CAT results with optional filtering.
@@ -71,22 +71,23 @@ async def list_shadow_cat_results(
 
     Requires X-Admin-Token header.
     """
-    query = db.query(ShadowCATResult)
+    stmt = select(ShadowCATResult)
 
     if min_delta is not None:
-        query = query.filter(func.abs(ShadowCATResult.theta_iq_delta) >= min_delta)
+        stmt = stmt.where(func.abs(ShadowCATResult.theta_iq_delta) >= min_delta)
 
     if stopping_reason is not None:
-        query = query.filter(ShadowCATResult.stopping_reason == stopping_reason)
+        stmt = stmt.where(ShadowCATResult.stopping_reason == stopping_reason)
 
-    total_count = query.count()
+    # Get total count
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total_count_result = await db.execute(count_stmt)
+    total_count = total_count_result.scalar() or 0
 
-    results = (
-        query.order_by(desc(ShadowCATResult.executed_at))
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+    # Get results
+    stmt = stmt.order_by(desc(ShadowCATResult.executed_at)).offset(offset).limit(limit)
+    result = await db.execute(stmt)
+    results = result.scalars().all()
 
     return ShadowCATResultListResponse(
         results=[ShadowCATResultSummary.model_validate(r) for r in results],
@@ -102,7 +103,7 @@ async def list_shadow_cat_results(
 )
 async def get_shadow_cat_result(
     session_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Get detailed shadow CAT result for a specific test session.
@@ -112,11 +113,9 @@ async def get_shadow_cat_result(
 
     Requires X-Admin-Token header.
     """
-    result = (
-        db.query(ShadowCATResult)
-        .filter(ShadowCATResult.test_session_id == session_id)
-        .first()
-    )
+    stmt = select(ShadowCATResult).where(ShadowCATResult.test_session_id == session_id)
+    result_query = await db.execute(stmt)
+    result = result_query.scalar_one_or_none()
 
     if result is None:
         raise_not_found(f"No shadow CAT result for session {session_id}")
@@ -129,7 +128,7 @@ async def get_shadow_cat_result(
     response_model=ShadowCATStatisticsResponse,
 )
 async def get_shadow_cat_statistics(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Aggregate statistics comparing shadow CAT with fixed-form IQ scores.
@@ -139,7 +138,9 @@ async def get_shadow_cat_statistics(
 
     Requires X-Admin-Token header.
     """
-    total = db.query(func.count(ShadowCATResult.id)).scalar() or 0
+    count_stmt = select(func.count(ShadowCATResult.id))
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
 
     if total == 0:
         return ShadowCATStatisticsResponse(
@@ -148,36 +149,39 @@ async def get_shadow_cat_statistics(
         )
 
     # Aggregate metrics
-    stats = db.query(
+    stats_stmt = select(
         func.avg(ShadowCATResult.theta_iq_delta),
         func.min(ShadowCATResult.theta_iq_delta),
         func.max(ShadowCATResult.theta_iq_delta),
         func.avg(ShadowCATResult.items_administered),
         func.avg(ShadowCATResult.shadow_se),
-    ).first()
+    )
+    stats_result = await db.execute(stats_stmt)
+    stats = stats_result.first()
 
-    mean_delta = float(stats[0]) if stats[0] is not None else None
-    min_delta = float(stats[1]) if stats[1] is not None else None
-    max_delta = float(stats[2]) if stats[2] is not None else None
-    mean_items = float(stats[3]) if stats[3] is not None else None
-    mean_se = float(stats[4]) if stats[4] is not None else None
+    if stats is not None:
+        mean_delta = float(stats[0]) if stats[0] is not None else None
+        min_delta = float(stats[1]) if stats[1] is not None else None
+        max_delta = float(stats[2]) if stats[2] is not None else None
+        mean_items = float(stats[3]) if stats[3] is not None else None
+        mean_se = float(stats[4]) if stats[4] is not None else None
+    else:
+        mean_delta = min_delta = max_delta = mean_items = mean_se = None
 
     # Fetch all deltas for std/median calculation (works on both PostgreSQL and SQLite)
-    all_deltas = [
-        float(row[0]) for row in db.query(ShadowCATResult.theta_iq_delta).all()
-    ]
+    deltas_stmt = select(ShadowCATResult.theta_iq_delta)
+    deltas_result = await db.execute(deltas_stmt)
+    all_deltas = [float(row[0]) for row in deltas_result.all()]
     std_delta = statistics.pstdev(all_deltas) if len(all_deltas) >= 2 else None
     median_delta = statistics.median(all_deltas) if all_deltas else None
 
     # Stopping reason distribution
-    reason_rows = (
-        db.query(
-            ShadowCATResult.stopping_reason,
-            func.count(ShadowCATResult.id),
-        )
-        .group_by(ShadowCATResult.stopping_reason)
-        .all()
-    )
+    reason_stmt = select(
+        ShadowCATResult.stopping_reason,
+        func.count(ShadowCATResult.id),
+    ).group_by(ShadowCATResult.stopping_reason)
+    reason_result = await db.execute(reason_stmt)
+    reason_rows = reason_result.all()
     stopping_reasons = {row[0]: row[1] for row in reason_rows}
 
     return ShadowCATStatisticsResponse(
@@ -227,7 +231,7 @@ def _pearson_correlation(xs: list[float], ys: list[float]) -> Optional[float]:
     response_model=ShadowCATCollectionProgressResponse,
 )
 async def get_collection_progress(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Track progress toward the 100-session shadow testing data collection goal.
@@ -237,15 +241,19 @@ async def get_collection_progress(
 
     Requires X-Admin-Token header.
     """
-    total = db.query(func.count(ShadowCATResult.id)).scalar() or 0
+    count_stmt = select(func.count(ShadowCATResult.id))
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
 
     first_at = None
     latest_at = None
     if total > 0:
-        time_range = db.query(
+        time_range_stmt = select(
             func.min(ShadowCATResult.executed_at),
             func.max(ShadowCATResult.executed_at),
-        ).first()
+        )
+        time_range_result = await db.execute(time_range_stmt)
+        time_range = time_range_result.first()
         if time_range is not None:
             first_at = time_range[0]
             latest_at = time_range[1]
@@ -264,7 +272,7 @@ async def get_collection_progress(
     response_model=ShadowCATAnalysisResponse,
 )
 async def get_shadow_cat_analysis(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Comprehensive statistical analysis of shadow CAT vs fixed-form results.
@@ -275,7 +283,9 @@ async def get_shadow_cat_analysis(
 
     Requires X-Admin-Token header.
     """
-    total = db.query(func.count(ShadowCATResult.id)).scalar() or 0
+    count_stmt = select(func.count(ShadowCATResult.id))
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
 
     if total == 0:
         return ShadowCATAnalysisResponse(
@@ -285,8 +295,8 @@ async def get_shadow_cat_analysis(
         )
 
     # Fetch results for Python-side computation (capped for safety)
-    rows = (
-        db.query(
+    rows_stmt = (
+        select(
             ShadowCATResult.shadow_theta,
             ShadowCATResult.shadow_se,
             ShadowCATResult.shadow_iq,
@@ -298,8 +308,9 @@ async def get_shadow_cat_analysis(
         )
         .order_by(desc(ShadowCATResult.executed_at))
         .limit(MAX_ANALYSIS_ROWS)
-        .all()
     )
+    rows_result = await db.execute(rows_stmt)
+    rows = rows_result.all()
 
     thetas = [float(r[0]) for r in rows]
     ses = [float(r[1]) for r in rows]
@@ -346,14 +357,12 @@ async def get_shadow_cat_analysis(
     mean_items = round(sum(items_list) / n, 1)
 
     # Stopping reason distribution
-    reason_rows = (
-        db.query(
-            ShadowCATResult.stopping_reason,
-            func.count(ShadowCATResult.id),
-        )
-        .group_by(ShadowCATResult.stopping_reason)
-        .all()
-    )
+    reason_stmt = select(
+        ShadowCATResult.stopping_reason,
+        func.count(ShadowCATResult.id),
+    ).group_by(ShadowCATResult.stopping_reason)
+    reason_result = await db.execute(reason_stmt)
+    reason_rows = reason_result.all()
     stopping_reasons = {row[0]: row[1] for row in reason_rows}
 
     # Domain coverage (aggregate means across sessions)
@@ -400,7 +409,7 @@ async def get_shadow_cat_analysis(
     response_model=ShadowCATHealthResponse,
 )
 async def get_shadow_cat_health(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Production health monitoring for shadow CAT execution.
@@ -412,30 +421,29 @@ async def get_shadow_cat_health(
     Requires X-Admin-Token header.
     """
     # Total completed fixed-form sessions (eligible for shadow CAT)
-    total_fixed = (
-        db.query(func.count(TestSession.id))
-        .filter(
-            TestSession.status == TestStatus.COMPLETED,
-            TestSession.is_adaptive == False,  # noqa: E712
-        )
-        .scalar()
-        or 0
+    fixed_stmt = select(func.count(TestSession.id)).where(
+        TestSession.status == TestStatus.COMPLETED,
+        TestSession.is_adaptive == False,  # noqa: E712
     )
+    fixed_result = await db.execute(fixed_stmt)
+    total_fixed = fixed_result.scalar() or 0
 
-    total_shadow = db.query(func.count(ShadowCATResult.id)).scalar() or 0
+    shadow_count_stmt = select(func.count(ShadowCATResult.id))
+    shadow_count_result = await db.execute(shadow_count_stmt)
+    total_shadow = shadow_count_result.scalar() or 0
 
     coverage = None
     if total_fixed > 0:
         coverage = round(total_shadow / total_fixed, 4)
 
     # Execution time distribution (Python-side for SQLite compatibility)
-    exec_times = [
-        int(r[0])
-        for r in db.query(ShadowCATResult.execution_time_ms)
-        .filter(ShadowCATResult.execution_time_ms.is_not(None))
+    exec_times_stmt = (
+        select(ShadowCATResult.execution_time_ms)
+        .where(ShadowCATResult.execution_time_ms.is_not(None))
         .limit(MAX_ANALYSIS_ROWS)
-        .all()
-    ]
+    )
+    exec_times_result = await db.execute(exec_times_stmt)
+    exec_times = [int(r[0]) for r in exec_times_result.all()]
 
     mean_exec = None
     p50_exec = None
@@ -452,23 +460,19 @@ async def get_shadow_cat_health(
     # Recent activity
     cutoff_7d = utc_now() - timedelta(days=HEALTH_TREND_WINDOW_DAYS)
 
-    sessions_7d = (
-        db.query(func.count(TestSession.id))
-        .filter(
-            TestSession.status == TestStatus.COMPLETED,
-            TestSession.is_adaptive == False,  # noqa: E712
-            TestSession.completed_at >= cutoff_7d,
-        )
-        .scalar()
-        or 0
+    sessions_7d_stmt = select(func.count(TestSession.id)).where(
+        TestSession.status == TestStatus.COMPLETED,
+        TestSession.is_adaptive == False,  # noqa: E712
+        TestSession.completed_at >= cutoff_7d,
     )
+    sessions_7d_result = await db.execute(sessions_7d_stmt)
+    sessions_7d = sessions_7d_result.scalar() or 0
 
-    shadow_7d = (
-        db.query(func.count(ShadowCATResult.id))
-        .filter(ShadowCATResult.executed_at >= cutoff_7d)
-        .scalar()
-        or 0
+    shadow_7d_stmt = select(func.count(ShadowCATResult.id)).where(
+        ShadowCATResult.executed_at >= cutoff_7d
     )
+    shadow_7d_result = await db.execute(shadow_7d_stmt)
+    shadow_7d = shadow_7d_result.scalar() or 0
 
     coverage_7d = None
     if sessions_7d > 0:
@@ -497,7 +501,7 @@ async def get_shadow_cat_health(
     response_model=ShadowCATValidationResponse,
 )
 async def get_shadow_cat_validation(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Comprehensive validation report for the Phase 4 go/no-go decision.
@@ -515,8 +519,8 @@ async def get_shadow_cat_validation(
 
     Requires X-Admin-Token header.
     """
-    rows = (
-        db.query(
+    rows_stmt = (
+        select(
             ShadowCATResult.shadow_iq,
             ShadowCATResult.actual_iq,
             ShadowCATResult.shadow_theta,
@@ -527,8 +531,9 @@ async def get_shadow_cat_validation(
         )
         .order_by(desc(ShadowCATResult.executed_at))
         .limit(MAX_ANALYSIS_ROWS)
-        .all()
     )
+    rows_result = await db.execute(rows_stmt)
+    rows = rows_result.all()
 
     sessions = [
         SessionData(

@@ -6,7 +6,7 @@ Endpoints for aggregate response time analytics and factor analysis.
 from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.analytics import (
     InsufficientSampleError,
@@ -18,7 +18,7 @@ from app.core.time_analysis import (
     get_aggregate_response_time_analytics,
     get_response_time_percentiles,
 )
-from app.models import get_db
+from app.models import get_async_db
 from app.schemas.factor_analysis import (
     FactorAnalysisRecommendation,
     FactorAnalysisResponse,
@@ -77,7 +77,7 @@ LOW_G_LOADING_THRESHOLD = (
     response_model=ResponseTimeAnalyticsResponse,
 )
 async def get_response_time_analytics(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -119,7 +119,9 @@ async def get_response_time_analytics(
     """
     try:
         # Get aggregate analytics from time_analysis module
-        analytics = get_aggregate_response_time_analytics(db)
+        analytics = await db.run_sync(
+            lambda session: get_aggregate_response_time_analytics(session)
+        )
 
         # Build response using Pydantic models
         overall = OverallTimeStats(
@@ -204,7 +206,7 @@ async def get_response_time_analytics(
     response_model=DetailedResponseTimeAnalyticsResponse,
 )
 async def get_detailed_response_time_analytics(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_admin_token),
 ):
     """
@@ -230,7 +232,9 @@ async def get_detailed_response_time_analytics(
     - Percentile stats across all response times
     """
     try:
-        analytics = get_response_time_percentiles(db)
+        analytics = await db.run_sync(
+            lambda session: get_response_time_percentiles(session)
+        )
 
         by_type_and_difficulty = [
             TypeDifficultyBreakdown(
@@ -408,7 +412,7 @@ def _generate_recommendations(
 )
 async def get_factor_analysis(
     _: bool = Depends(verify_admin_token),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     min_responses_per_question: int = Query(
         default=30,
         ge=10,
@@ -448,11 +452,13 @@ async def get_factor_analysis(
     """
     try:
         # Build the response matrix from completed test sessions
-        response_matrix = build_response_matrix(
-            db=db,
-            min_responses_per_question=min_responses_per_question,
-            min_questions_per_session=10,
-            max_responses=max_responses,
+        response_matrix = await db.run_sync(
+            lambda session: build_response_matrix(
+                db=session,
+                min_responses_per_question=min_responses_per_question,
+                min_questions_per_session=10,
+                max_responses=max_responses,
+            )
         )
 
         # Check if we have enough data

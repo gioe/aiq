@@ -11,10 +11,9 @@ from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import asc, case, desc, func
-from sqlalchemy.orm import Session
+from sqlalchemy import asc, case, desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db_error_handling import handle_db_error
 from app.core.error_responses import (
     ErrorMessages,
     raise_bad_request,
@@ -22,7 +21,7 @@ from app.core.error_responses import (
     raise_server_error,
 )
 from app.core.process_registry import JobStatus, process_registry
-from app.models import GenerationRunStatus, QuestionGenerationRun, get_db
+from app.models import GenerationRunStatus, QuestionGenerationRun, get_async_db
 from app.schemas.generation_runs import (
     GenerationRunStatusSchema,
     PipelineLosses,
@@ -514,7 +513,7 @@ async def cleanup_finished_jobs(
 )
 async def create_generation_run(
     run_data: QuestionGenerationRunCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_service_key),
 ):
     r"""
@@ -554,7 +553,7 @@ async def create_generation_run(
           }'
         ```
     """
-    with handle_db_error(db, "create generation run record"):
+    try:
         # Map schema enum to model enum
         status_mapping = {
             GenerationRunStatusSchema.RUNNING: GenerationRunStatus.RUNNING,
@@ -602,8 +601,8 @@ async def create_generation_run(
         )
 
         db.add(db_run)
-        db.commit()
-        db.refresh(db_run)
+        await db.commit()
+        await db.refresh(db_run)
 
         # Record business metrics for questions generated
         if run_data.type_metrics and run_data.difficulty_metrics:
@@ -638,6 +637,13 @@ async def create_generation_run(
             id=int(db_run.id),
             status=run_data.status,
             message=f"Generation run recorded successfully with status '{run_data.status.value}'",
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        await db.rollback()
+        raise_server_error(
+            ErrorMessages.database_operation_failed("create generation run record")
         )
 
 
@@ -675,7 +681,7 @@ async def list_generation_runs(
     sort_order: Literal["asc", "desc"] = Query(
         "desc", description="Sort order (asc or desc)"
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_service_key),
 ):
     r"""
@@ -709,7 +715,7 @@ async def list_generation_runs(
     """
     try:
         # Build base query
-        query = db.query(QuestionGenerationRun)
+        stmt = select(QuestionGenerationRun)
 
         # Apply filters
         if status is not None:
@@ -720,43 +726,76 @@ async def list_generation_runs(
                 GenerationRunStatusSchema.PARTIAL_FAILURE: GenerationRunStatus.PARTIAL_FAILURE,
                 GenerationRunStatusSchema.FAILED: GenerationRunStatus.FAILED,
             }
-            query = query.filter(QuestionGenerationRun.status == status_mapping[status])
+            stmt = stmt.where(QuestionGenerationRun.status == status_mapping[status])
 
         if environment is not None:
-            query = query.filter(QuestionGenerationRun.environment == environment)
+            stmt = stmt.where(QuestionGenerationRun.environment == environment)
 
         if start_date is not None:
-            query = query.filter(QuestionGenerationRun.started_at >= start_date)
+            stmt = stmt.where(QuestionGenerationRun.started_at >= start_date)
 
         if end_date is not None:
-            query = query.filter(QuestionGenerationRun.started_at <= end_date)
+            stmt = stmt.where(QuestionGenerationRun.started_at <= end_date)
 
         if min_success_rate is not None:
-            query = query.filter(
+            stmt = stmt.where(
                 QuestionGenerationRun.overall_success_rate >= min_success_rate
             )
 
         if max_success_rate is not None:
-            query = query.filter(
+            stmt = stmt.where(
                 QuestionGenerationRun.overall_success_rate <= max_success_rate
             )
 
         # Get total count before pagination
-        total = query.count()
+        count_stmt = select(func.count()).select_from(QuestionGenerationRun)
+        # Apply the same filters to the count query
+        if status is not None:
+            status_mapping = {
+                GenerationRunStatusSchema.RUNNING: GenerationRunStatus.RUNNING,
+                GenerationRunStatusSchema.SUCCESS: GenerationRunStatus.SUCCESS,
+                GenerationRunStatusSchema.PARTIAL_FAILURE: GenerationRunStatus.PARTIAL_FAILURE,
+                GenerationRunStatusSchema.FAILED: GenerationRunStatus.FAILED,
+            }
+            count_stmt = count_stmt.where(
+                QuestionGenerationRun.status == status_mapping[status]
+            )
+        if environment is not None:
+            count_stmt = count_stmt.where(
+                QuestionGenerationRun.environment == environment
+            )
+        if start_date is not None:
+            count_stmt = count_stmt.where(
+                QuestionGenerationRun.started_at >= start_date
+            )
+        if end_date is not None:
+            count_stmt = count_stmt.where(QuestionGenerationRun.started_at <= end_date)
+        if min_success_rate is not None:
+            count_stmt = count_stmt.where(
+                QuestionGenerationRun.overall_success_rate >= min_success_rate
+            )
+        if max_success_rate is not None:
+            count_stmt = count_stmt.where(
+                QuestionGenerationRun.overall_success_rate <= max_success_rate
+            )
+
+        count_result = await db.execute(count_stmt)
+        total = count_result.scalar() or 0
 
         # Apply sorting
         sort_column = getattr(QuestionGenerationRun, sort_by)
         if sort_order == "desc":
-            query = query.order_by(desc(sort_column))
+            stmt = stmt.order_by(desc(sort_column))
         else:
-            query = query.order_by(asc(sort_column))
+            stmt = stmt.order_by(asc(sort_column))
 
         # Apply pagination
         offset = (page - 1) * page_size
-        query = query.offset(offset).limit(page_size)
+        stmt = stmt.offset(offset).limit(page_size)
 
         # Execute query
-        runs = query.all()
+        result = await db.execute(stmt)
+        runs = result.scalars().all()
 
         # Convert to summary objects using model_validate for proper type handling
         # QuestionGenerationRunSummary has from_attributes=True in Config
@@ -825,7 +864,7 @@ async def get_generation_runs_stats(
     environment: Optional[str] = Query(
         None, max_length=20, description="Filter by environment"
     ),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_service_key),
 ):
     r"""
@@ -877,82 +916,71 @@ async def get_generation_runs_stats(
             base_filters.append(QuestionGenerationRun.environment == environment)
 
         # Single SQL query for all aggregations - avoids loading all rows into memory
-        stats = (
-            db.query(
-                # Count total runs
-                func.count(QuestionGenerationRun.id).label("total_runs"),
-                # Count by status using conditional aggregation
-                func.sum(
-                    case(
-                        (
-                            QuestionGenerationRun.status == GenerationRunStatus.SUCCESS,
-                            1,
-                        ),
-                        else_=0,
-                    )
-                ).label("successful_runs"),
-                func.sum(
-                    case(
-                        (QuestionGenerationRun.status == GenerationRunStatus.FAILED, 1),
-                        else_=0,
-                    )
-                ).label("failed_runs"),
-                func.sum(
-                    case(
-                        (
-                            QuestionGenerationRun.status
-                            == GenerationRunStatus.PARTIAL_FAILURE,
-                            1,
-                        ),
-                        else_=0,
-                    )
-                ).label("partial_failure_runs"),
-                # Sum totals (coalesce handles NULL values)
-                func.coalesce(
-                    func.sum(QuestionGenerationRun.questions_requested), 0
-                ).label("total_questions_requested"),
-                func.coalesce(
-                    func.sum(QuestionGenerationRun.questions_generated), 0
-                ).label("total_questions_generated"),
-                func.coalesce(
-                    func.sum(QuestionGenerationRun.questions_inserted), 0
-                ).label("total_questions_inserted"),
-                func.coalesce(
-                    func.sum(QuestionGenerationRun.duplicates_found), 0
-                ).label("total_duplicates_found"),
-                func.coalesce(func.sum(QuestionGenerationRun.total_api_calls), 0).label(
-                    "total_api_calls"
-                ),
-                func.coalesce(func.sum(QuestionGenerationRun.total_errors), 0).label(
-                    "total_errors"
-                ),
-                # Averages (avg automatically ignores NULL values)
-                func.avg(QuestionGenerationRun.overall_success_rate).label(
-                    "avg_overall_success_rate"
-                ),
-                func.avg(QuestionGenerationRun.approval_rate).label(
-                    "avg_approval_rate"
-                ),
-                func.avg(QuestionGenerationRun.avg_judge_score).label(
-                    "avg_judge_score"
-                ),
-                func.avg(QuestionGenerationRun.duplicate_rate).label(
-                    "avg_duplicate_rate"
-                ),
-                func.avg(QuestionGenerationRun.duration_seconds).label(
-                    "avg_duration_seconds"
-                ),
-                # Min/Max
-                func.min(QuestionGenerationRun.min_judge_score).label(
-                    "min_judge_score"
-                ),
-                func.max(QuestionGenerationRun.max_judge_score).label(
-                    "max_judge_score"
-                ),
-            )
-            .filter(*base_filters)
-            .first()
-        )
+        stats_stmt = select(
+            # Count total runs
+            func.count(QuestionGenerationRun.id).label("total_runs"),
+            # Count by status using conditional aggregation
+            func.sum(
+                case(
+                    (
+                        QuestionGenerationRun.status == GenerationRunStatus.SUCCESS,
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("successful_runs"),
+            func.sum(
+                case(
+                    (QuestionGenerationRun.status == GenerationRunStatus.FAILED, 1),
+                    else_=0,
+                )
+            ).label("failed_runs"),
+            func.sum(
+                case(
+                    (
+                        QuestionGenerationRun.status
+                        == GenerationRunStatus.PARTIAL_FAILURE,
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("partial_failure_runs"),
+            # Sum totals (coalesce handles NULL values)
+            func.coalesce(func.sum(QuestionGenerationRun.questions_requested), 0).label(
+                "total_questions_requested"
+            ),
+            func.coalesce(func.sum(QuestionGenerationRun.questions_generated), 0).label(
+                "total_questions_generated"
+            ),
+            func.coalesce(func.sum(QuestionGenerationRun.questions_inserted), 0).label(
+                "total_questions_inserted"
+            ),
+            func.coalesce(func.sum(QuestionGenerationRun.duplicates_found), 0).label(
+                "total_duplicates_found"
+            ),
+            func.coalesce(func.sum(QuestionGenerationRun.total_api_calls), 0).label(
+                "total_api_calls"
+            ),
+            func.coalesce(func.sum(QuestionGenerationRun.total_errors), 0).label(
+                "total_errors"
+            ),
+            # Averages (avg automatically ignores NULL values)
+            func.avg(QuestionGenerationRun.overall_success_rate).label(
+                "avg_overall_success_rate"
+            ),
+            func.avg(QuestionGenerationRun.approval_rate).label("avg_approval_rate"),
+            func.avg(QuestionGenerationRun.avg_judge_score).label("avg_judge_score"),
+            func.avg(QuestionGenerationRun.duplicate_rate).label("avg_duplicate_rate"),
+            func.avg(QuestionGenerationRun.duration_seconds).label(
+                "avg_duration_seconds"
+            ),
+            # Min/Max
+            func.min(QuestionGenerationRun.min_judge_score).label("min_judge_score"),
+            func.max(QuestionGenerationRun.max_judge_score).label("max_judge_score"),
+        ).where(*base_filters)
+
+        stats_result = await db.execute(stats_stmt)
+        stats = stats_result.first()
 
         # Handle empty result case
         if stats is None or stats.total_runs == 0:
@@ -1039,12 +1067,11 @@ async def get_generation_runs_stats(
         # For JSONB provider_metrics aggregation and trend calculations,
         # we need to query only specific columns (not all rows) to minimize memory usage.
         # Query only provider_metrics column for runs that have it.
-        provider_metrics_rows = (
-            db.query(QuestionGenerationRun.provider_metrics)
-            .filter(*base_filters)
-            .filter(QuestionGenerationRun.provider_metrics.isnot(None))
-            .all()
+        provider_metrics_stmt = select(QuestionGenerationRun.provider_metrics).where(
+            *base_filters, QuestionGenerationRun.provider_metrics.isnot(None)
         )
+        provider_metrics_result = await db.execute(provider_metrics_stmt)
+        provider_metrics_rows = provider_metrics_result.all()
 
         provider_summary: Dict[str, Dict[str, Any]] = {}
         for (provider_metrics,) in provider_metrics_rows:
@@ -1083,15 +1110,17 @@ async def get_generation_runs_stats(
         midpoint = total_runs // 2
         if midpoint > 0:
             # Query runs ordered by started_at, fetching only trend-related columns
-            trend_data = (
-                db.query(
+            trend_stmt = (
+                select(
                     QuestionGenerationRun.overall_success_rate,
                     QuestionGenerationRun.approval_rate,
                 )
-                .filter(*base_filters)
+                .where(*base_filters)
                 .order_by(QuestionGenerationRun.started_at)
-                .all()
             )
+
+            trend_result = await db.execute(trend_stmt)
+            trend_data = trend_result.all()
 
             # Split into older (first half) and recent (second half)
             older_data = trend_data[:midpoint]
@@ -1256,7 +1285,7 @@ def _compute_pipeline_losses(run: QuestionGenerationRun) -> PipelineLosses:
 )
 async def get_generation_run(
     run_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _: bool = Depends(verify_service_key),
 ):
     r"""
@@ -1297,11 +1326,10 @@ async def get_generation_run(
     """
     try:
         # Query the database for the specific run
-        db_run = (
-            db.query(QuestionGenerationRun)
-            .filter(QuestionGenerationRun.id == run_id)
-            .first()
+        result = await db.execute(
+            select(QuestionGenerationRun).where(QuestionGenerationRun.id == run_id)
         )
+        db_run = result.scalar_one_or_none()
 
         if db_run is None:
             raise HTTPException(
