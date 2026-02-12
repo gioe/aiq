@@ -665,10 +665,12 @@ async def async_get_reliability_report(
     This is a wrapper that runs the sync version in a thread pool since
     the reliability system uses complex sync database operations.
 
-    Note: This function creates a sync session from the async engine's sync_engine
-    to run the sync reliability calculations. This is necessary because the
-    reliability module has complex data loading patterns that haven't been
-    converted to async yet.
+    Note: This function creates a separate sync session to run the sync reliability
+    calculations. This is necessary because the reliability module has complex
+    data loading patterns that haven't been converted to async yet. Because it
+    uses a separate session, it only sees committed data — uncommitted changes
+    from the caller's async session will not be visible. This is acceptable
+    because reliability calculations are read-only aggregations over historical data.
 
     Args:
         db: Async database session
