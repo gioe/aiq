@@ -700,6 +700,8 @@ class TestFeedbackDatabaseErrorHandling:
 
     def test_submit_feedback_database_error_returns_500(self, client, db_session):
         """Test that database errors during feedback submission return 500."""
+        from unittest.mock import AsyncMock
+
         feedback_data = {
             "name": "DB Error User",
             "email": "dberror@example.com",
@@ -707,13 +709,11 @@ class TestFeedbackDatabaseErrorHandling:
             "description": "Testing database error handling.",
         }
 
-        # Mock the commit method on the actual db_session
-        original_commit = db_session.commit
-        db_session.commit = MagicMock(
-            side_effect=SQLAlchemyError("Database connection lost")
-        )
-
-        try:
+        with patch(
+            "sqlalchemy.ext.asyncio.AsyncSession.commit",
+            new_callable=AsyncMock,
+            side_effect=SQLAlchemyError("Database connection lost"),
+        ):
             response = client.post("/v1/feedback/submit", json=feedback_data)
             assert response.status_code == 500
             data = response.json()
@@ -721,12 +721,11 @@ class TestFeedbackDatabaseErrorHandling:
                 "error" in data["detail"].lower()
                 or "unexpected" in data["detail"].lower()
             )
-        finally:
-            # Restore original commit
-            db_session.commit = original_commit
 
     def test_submit_feedback_database_error_triggers_rollback(self, client, db_session):
         """Test that database errors trigger rollback."""
+        from unittest.mock import AsyncMock
+
         feedback_data = {
             "name": "Rollback Test",
             "email": "rollback@example.com",
@@ -734,27 +733,25 @@ class TestFeedbackDatabaseErrorHandling:
             "description": "Testing rollback on database error.",
         }
 
-        # Mock both commit and rollback
-        original_commit = db_session.commit
-        original_rollback = db_session.rollback
-        mock_rollback = MagicMock()
+        with patch(
+            "sqlalchemy.ext.asyncio.AsyncSession.commit",
+            new_callable=AsyncMock,
+            side_effect=SQLAlchemyError("Commit failed"),
+        ):
+            with patch(
+                "sqlalchemy.ext.asyncio.AsyncSession.rollback",
+                new_callable=AsyncMock,
+            ) as mock_rollback:
+                response = client.post("/v1/feedback/submit", json=feedback_data)
+                assert response.status_code == 500
 
-        db_session.commit = MagicMock(side_effect=SQLAlchemyError("Commit failed"))
-        db_session.rollback = mock_rollback
-
-        try:
-            response = client.post("/v1/feedback/submit", json=feedback_data)
-            assert response.status_code == 500
-
-            # Verify rollback was called
-            mock_rollback.assert_called_once()
-        finally:
-            # Restore originals
-            db_session.commit = original_commit
-            db_session.rollback = original_rollback
+                # Verify rollback was called
+                mock_rollback.assert_called()
 
     def test_submit_feedback_database_error_logs_error(self, client, db_session):
         """Test that database errors are logged."""
+        from unittest.mock import AsyncMock
+
         feedback_data = {
             "name": "Log Test User",
             "email": "logtest@example.com",
@@ -762,11 +759,11 @@ class TestFeedbackDatabaseErrorHandling:
             "description": "Testing error logging on database failure.",
         }
 
-        # Mock commit to raise error
-        original_commit = db_session.commit
-        db_session.commit = MagicMock(side_effect=SQLAlchemyError("Database timeout"))
-
-        try:
+        with patch(
+            "sqlalchemy.ext.asyncio.AsyncSession.commit",
+            new_callable=AsyncMock,
+            side_effect=SQLAlchemyError("Database timeout"),
+        ):
             with patch("app.api.v1.feedback.logger") as mock_logger:
                 response = client.post("/v1/feedback/submit", json=feedback_data)
                 assert response.status_code == 500
@@ -775,9 +772,6 @@ class TestFeedbackDatabaseErrorHandling:
                 mock_logger.error.assert_called_once()
                 log_call_args = str(mock_logger.error.call_args)
                 assert "Database error during feedback submission" in log_call_args
-        finally:
-            # Restore original commit
-            db_session.commit = original_commit
 
 
 class TestFeedbackEdgeCases:

@@ -6,9 +6,9 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Request, status, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_db, User, FeedbackSubmission
+from app.models import get_async_db, User, FeedbackSubmission
 from app.schemas.feedback import (
     FeedbackSubmitRequest,
     FeedbackSubmitResponse,
@@ -199,7 +199,7 @@ def _send_feedback_notification(feedback: FeedbackSubmission) -> bool:
 async def submit_feedback(
     feedback_data: FeedbackSubmitRequest,
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
@@ -275,10 +275,10 @@ async def submit_feedback(
 
     try:
         db.add(feedback_submission)
-        db.commit()
-        db.refresh(feedback_submission)
+        await db.commit()
+        await db.refresh(feedback_submission)
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Database error during feedback submission: {e}")
         raise_server_error(ErrorMessages.GENERIC_SERVER_ERROR)
 

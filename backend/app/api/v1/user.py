@@ -6,9 +6,9 @@ import logging
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_db, User
+from app.models import get_async_db, User
 from app.schemas.auth import UserResponse, UserProfileUpdate
 from app.core.auth import get_current_user
 from app.core.error_responses import ErrorMessages, raise_server_error
@@ -19,7 +19,7 @@ router = APIRouter()
 
 
 @router.get("/profile", response_model=UserResponse)
-def get_user_profile(current_user: User = Depends(get_current_user)):
+async def get_user_profile(current_user: User = Depends(get_current_user)):
     """
     Get current user's profile information.
 
@@ -33,10 +33,10 @@ def get_user_profile(current_user: User = Depends(get_current_user)):
 
 
 @router.put("/profile", response_model=UserResponse)
-def update_user_profile(
+async def update_user_profile(
     profile_update: UserProfileUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Update current user's profile information.
@@ -47,7 +47,7 @@ def update_user_profile(
     Args:
         profile_update: Profile fields to update
         current_user: Current authenticated user
-        db: Database session
+        db: Async database session
 
     Returns:
         Updated user profile information
@@ -58,16 +58,16 @@ def update_user_profile(
     for field, value in update_data.items():
         setattr(current_user, field, value)
 
-    db.commit()
-    db.refresh(current_user)
+    await db.commit()
+    await db.refresh(current_user)
 
     return current_user
 
 
 @router.delete("/delete-account", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user_account(
+async def delete_user_account(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Delete user account and all associated data (GDPR right to erasure).
@@ -84,7 +84,7 @@ def delete_user_account(
 
     Args:
         current_user: Current authenticated user
-        db: Database session
+        db: Async database session
 
     Returns:
         No content (204) on successful deletion
@@ -102,8 +102,8 @@ def delete_user_account(
         user_id = current_user.id
         user_email = current_user.email
 
-        db.delete(current_user)
-        db.commit()
+        await db.delete(current_user)
+        await db.commit()
 
         # Log successful deletion (user_id only for audit trail, no PII after deletion)
         email_hash = hashlib.sha256(user_email.encode()).hexdigest()[:16]
@@ -113,7 +113,7 @@ def delete_user_account(
         )
 
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Database error during account deletion for user {user_id}: {e}")
         raise_server_error(
             ErrorMessages.database_operation_failed("delete user account")
