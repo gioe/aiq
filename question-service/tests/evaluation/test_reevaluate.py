@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 # Add parent directory to path for imports (same as reevaluate_questions.py)
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.models import DifficultyLevel, GeneratedQuestion, QuestionType  # noqa: E402
 from reevaluate_questions import db_question_to_generated  # noqa: E402

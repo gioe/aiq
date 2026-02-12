@@ -906,7 +906,7 @@ class TestProductionGeneratorsYaml:
     @pytest.fixture
     def production_config_path(self):
         """Get the path to the production generators.yaml."""
-        return Path(__file__).parent.parent / "config" / "generators.yaml"
+        return Path(__file__).parent.parent.parent / "config" / "generators.yaml"
 
     def test_generators_yaml_loads_successfully(self, production_config_path):
         """Test that the production generators.yaml loads without errors."""

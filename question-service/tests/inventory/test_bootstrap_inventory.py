@@ -12,7 +12,7 @@ import pytest
 # Importing from scripts directory requires adding to path
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 
 from bootstrap_inventory import (  # noqa: E402
     BootstrapAlerter,
