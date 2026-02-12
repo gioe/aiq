@@ -45,8 +45,9 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Async test engine (aiosqlite)
-ASYNC_SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test_async.db"
+# Async test engine (aiosqlite) — uses same DB file as sync engine so that
+# the sync client fixture can override get_async_db and share data with get_db.
+ASYNC_SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
 async_test_engine = create_async_engine(
     ASYNC_SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
@@ -77,6 +78,11 @@ def db_session():
 def client(db_session):
     """
     Create a test client with database dependency override.
+
+    Overrides both get_db (for endpoint DB params) and get_async_db
+    (for auth dependencies that were migrated to async in TASK-1162).
+    The async override yields a dedicated async session backed by the
+    same test schema so auth dependency resolution succeeds.
     """
 
     def override_get_db():
@@ -85,7 +91,12 @@ def client(db_session):
         finally:
             pass
 
+    async def override_get_async_db():
+        async with AsyncTestingSessionLocal() as session:
+            yield session
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_async_db] = override_get_async_db
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -294,3 +305,26 @@ async def async_client(
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
     app.dependency_overrides.pop(get_async_db, None)
+
+
+@pytest.fixture
+async def async_test_user(async_db_session):
+    """Create a test user in the async database."""
+    user = User(
+        email="test@example.com",
+        password_hash=hash_password("testpassword123"),
+        first_name="Test",
+        last_name="User",
+        notification_enabled=True,
+    )
+    async_db_session.add(user)
+    await async_db_session.commit()
+    await async_db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def async_auth_headers(async_test_user):
+    """Create authentication headers for async test user."""
+    access_token = create_access_token({"user_id": async_test_user.id})
+    return {"Authorization": f"Bearer {access_token}"}

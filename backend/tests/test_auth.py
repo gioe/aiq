@@ -2,10 +2,11 @@
 Tests for authentication endpoints.
 """
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.schemas.auth import UserRegister
@@ -121,7 +122,7 @@ class TestBirthYearValidation:
 class TestRegisterUser:
     """Tests for POST /v1/auth/register endpoint."""
 
-    def test_register_user_success(self, client, db_session):
+    async def test_register_user_success(self, async_client, async_db_session):
         """Test successful user registration."""
         user_data = {
             "email": "newuser@example.com",
@@ -130,7 +131,7 @@ class TestRegisterUser:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 201
         data = response.json()
@@ -144,41 +145,42 @@ class TestRegisterUser:
 
         # Verify user data in response
         assert "user" in data
-        user_data = data["user"]
-        assert "id" in user_data
-        assert user_data["email"] == "newuser@example.com"
-        assert user_data["first_name"] == "John"
-        assert user_data["last_name"] == "Doe"
-        assert "created_at" in user_data
-        assert user_data["notification_enabled"] is True  # Default value
-        assert "password" not in user_data  # Password should not be returned
+        user_resp = data["user"]
+        assert "id" in user_resp
+        assert user_resp["email"] == "newuser@example.com"
+        assert user_resp["first_name"] == "John"
+        assert user_resp["last_name"] == "Doe"
+        assert "created_at" in user_resp
+        assert user_resp["notification_enabled"] is True  # Default value
+        assert "password" not in user_resp  # Password should not be returned
 
         # Verify user in database
         from app.models import User
 
-        user = (
-            db_session.query(User).filter(User.email == "newuser@example.com").first()
+        result = await async_db_session.execute(
+            select(User).where(User.email == "newuser@example.com")
         )
+        user = result.scalar_one_or_none()
         assert user is not None
         assert user.email == "newuser@example.com"
         assert user.first_name == "John"
         assert user.last_name == "Doe"
 
-    def test_register_user_duplicate_email(self, client, test_user):
+    async def test_register_user_duplicate_email(self, async_client, async_test_user):
         """Test registration with an email that already exists."""
         user_data = {
-            "email": "test@example.com",  # Already exists from test_user fixture
+            "email": "test@example.com",  # Already exists from async_test_user fixture
             "password": "securepassword123",
             "first_name": "John",
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 409  # Conflict
         assert "already registered" in response.json()["detail"]
 
-    def test_register_user_invalid_email(self, client):
+    async def test_register_user_invalid_email(self, async_client):
         """Test registration with invalid email format."""
         user_data = {
             "email": "not-an-email",
@@ -187,11 +189,11 @@ class TestRegisterUser:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_register_user_password_too_short(self, client):
+    async def test_register_user_password_too_short(self, async_client):
         """Test registration with password less than 8 characters."""
         user_data = {
             "email": "newuser@example.com",
@@ -200,11 +202,11 @@ class TestRegisterUser:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_register_user_missing_first_name(self, client):
+    async def test_register_user_missing_first_name(self, async_client):
         """Test registration without first name."""
         user_data = {
             "email": "newuser@example.com",
@@ -212,11 +214,11 @@ class TestRegisterUser:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_register_user_missing_last_name(self, client):
+    async def test_register_user_missing_last_name(self, async_client):
         """Test registration without last name."""
         user_data = {
             "email": "newuser@example.com",
@@ -224,11 +226,11 @@ class TestRegisterUser:
             "first_name": "John",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_register_user_empty_first_name(self, client):
+    async def test_register_user_empty_first_name(self, async_client):
         """Test registration with empty first name."""
         user_data = {
             "email": "newuser@example.com",
@@ -237,11 +239,11 @@ class TestRegisterUser:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 422  # Validation error
 
-    def test_register_user_password_hashed(self, client, db_session):
+    async def test_register_user_password_hashed(self, async_client, async_db_session):
         """Test that password is hashed before storage."""
         user_data = {
             "email": "newuser@example.com",
@@ -250,23 +252,24 @@ class TestRegisterUser:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 201
 
         # Verify password is hashed (not stored as plaintext)
         from app.models import User
 
-        user = (
-            db_session.query(User).filter(User.email == "newuser@example.com").first()
+        result = await async_db_session.execute(
+            select(User).where(User.email == "newuser@example.com")
         )
+        user = result.scalar_one_or_none()
         assert user.password_hash != "securepassword123"
         assert user.password_hash.startswith("$2b$")  # Bcrypt hash prefix
 
-    def test_register_user_with_valid_birth_year(self, client, db_session):
+    async def test_register_user_with_valid_birth_year(
+        self, async_client, async_db_session
+    ):
         """Test registration with a valid birth year."""
-        from datetime import datetime
-
         current_year = datetime.now().year
         user_data = {
             "email": "birthyear@example.com",
@@ -276,16 +279,16 @@ class TestRegisterUser:
             "birth_year": current_year - 25,  # 25 years old
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 201
         data = response.json()
         assert data["user"]["birth_year"] == current_year - 25
 
-    def test_register_user_birth_year_current_year_is_valid(self, client, db_session):
+    async def test_register_user_birth_year_current_year_is_valid(
+        self, async_client, async_db_session
+    ):
         """Test that birth year of current year is valid (newborn)."""
-        from datetime import datetime
-
         current_year = datetime.now().year
         user_data = {
             "email": "newborn@example.com",
@@ -295,16 +298,14 @@ class TestRegisterUser:
             "birth_year": current_year,
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 201
         data = response.json()
         assert data["user"]["birth_year"] == current_year
 
-    def test_register_user_birth_year_future_year_rejected(self, client):
+    async def test_register_user_birth_year_future_year_rejected(self, async_client):
         """Test that birth year in the future is rejected."""
-        from datetime import datetime
-
         current_year = datetime.now().year
         user_data = {
             "email": "future@example.com",
@@ -314,7 +315,7 @@ class TestRegisterUser:
             "birth_year": current_year + 1,
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 422
         error_detail = response.json()["detail"]
@@ -324,7 +325,7 @@ class TestRegisterUser:
             for err in error_detail
         )
 
-    def test_register_user_birth_year_too_old_rejected(self, client):
+    async def test_register_user_birth_year_too_old_rejected(self, async_client):
         """Test that birth year before 1900 is rejected."""
         user_data = {
             "email": "ancient@example.com",
@@ -334,7 +335,7 @@ class TestRegisterUser:
             "birth_year": 1899,
         }
 
-        response = client.post("/v1/auth/register", json=user_data)
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
         assert response.status_code == 422
 
@@ -342,14 +343,14 @@ class TestRegisterUser:
 class TestLoginUser:
     """Tests for POST /v1/auth/login endpoint."""
 
-    def test_login_user_success(self, client, test_user):
+    async def test_login_user_success(self, async_client, async_test_user):
         """Test successful user login."""
         credentials = {
             "email": "test@example.com",
             "password": "testpassword123",
         }
 
-        response = client.post("/v1/auth/login", json=credentials)
+        response = await async_client.post("/v1/auth/login", json=credentials)
 
         assert response.status_code == 200
         data = response.json()
@@ -372,38 +373,41 @@ class TestLoginUser:
         assert "id" in user_data
         assert "created_at" in user_data
 
-    def test_login_user_invalid_email(self, client):
+    async def test_login_user_invalid_email(self, async_client):
         """Test login with non-existent email."""
         credentials = {
             "email": "nonexistent@example.com",
             "password": "somepassword",
         }
 
-        response = client.post("/v1/auth/login", json=credentials)
+        response = await async_client.post("/v1/auth/login", json=credentials)
 
         assert response.status_code == 401
         assert "Invalid email or password" in response.json()["detail"]
 
-    def test_login_user_wrong_password(self, client, test_user):
+    async def test_login_user_wrong_password(self, async_client, async_test_user):
         """Test login with incorrect password."""
         credentials = {
             "email": "test@example.com",
             "password": "wrongpassword",
         }
 
-        response = client.post("/v1/auth/login", json=credentials)
+        response = await async_client.post("/v1/auth/login", json=credentials)
 
         assert response.status_code == 401
         assert "Invalid email or password" in response.json()["detail"]
 
-    def test_login_user_updates_last_login(self, client, test_user, db_session):
+    async def test_login_user_updates_last_login(
+        self, async_client, async_test_user, async_db_session
+    ):
         """Test that last_login_at is updated on successful login."""
         from app.models import User
 
         # Record time before login
-        user_before = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        result = await async_db_session.execute(
+            select(User).where(User.email == "test@example.com")
         )
+        user_before = result.scalar_one_or_none()
         last_login_before = user_before.last_login_at
 
         credentials = {
@@ -411,51 +415,56 @@ class TestLoginUser:
             "password": "testpassword123",
         }
 
-        response = client.post("/v1/auth/login", json=credentials)
+        response = await async_client.post("/v1/auth/login", json=credentials)
         assert response.status_code == 200
 
         # Verify last_login_at was updated
-        db_session.expire_all()  # Refresh from database
-        user_after = (
-            db_session.query(User).filter(User.email == "test@example.com").first()
+        async_db_session.expire_all()
+        result = await async_db_session.execute(
+            select(User).where(User.email == "test@example.com")
         )
+        user_after = result.scalar_one_or_none()
         assert user_after.last_login_at is not None
         if last_login_before:
             assert user_after.last_login_at > last_login_before
 
-    def test_login_user_missing_email(self, client):
+    async def test_login_user_missing_email(self, async_client):
         """Test login without email."""
         credentials = {
             "password": "testpassword123",
         }
 
-        response = client.post("/v1/auth/login", json=credentials)
+        response = await async_client.post("/v1/auth/login", json=credentials)
 
         assert response.status_code == 422  # Validation error
 
-    def test_login_user_missing_password(self, client):
+    async def test_login_user_missing_password(self, async_client):
         """Test login without password."""
         credentials = {
             "email": "test@example.com",
         }
 
-        response = client.post("/v1/auth/login", json=credentials)
+        response = await async_client.post("/v1/auth/login", json=credentials)
 
         assert response.status_code == 422  # Validation error
 
-    def test_login_user_case_sensitive_password(self, client, test_user):
+    async def test_login_user_case_sensitive_password(
+        self, async_client, async_test_user
+    ):
         """Test that password comparison is case-sensitive."""
         credentials = {
             "email": "test@example.com",
             "password": "TESTPASSWORD123",  # Wrong case
         }
 
-        response = client.post("/v1/auth/login", json=credentials)
+        response = await async_client.post("/v1/auth/login", json=credentials)
 
         assert response.status_code == 401
         assert "Invalid email or password" in response.json()["detail"]
 
-    def test_login_user_token_contains_user_info(self, client, test_user):
+    async def test_login_user_token_contains_user_info(
+        self, async_client, async_test_user
+    ):
         """Test that access token contains user information."""
         from app.core.security import decode_token
 
@@ -464,7 +473,7 @@ class TestLoginUser:
             "password": "testpassword123",
         }
 
-        response = client.post("/v1/auth/login", json=credentials)
+        response = await async_client.post("/v1/auth/login", json=credentials)
         assert response.status_code == 200
 
         access_token = response.json()["access_token"]
@@ -480,7 +489,7 @@ class TestLoginUser:
 class TestRefreshToken:
     """Tests for POST /v1/auth/refresh endpoint."""
 
-    def test_refresh_token_success(self, client, test_user):
+    async def test_refresh_token_success(self, async_client, async_test_user):
         """Test successfully refreshing access token."""
         # First login to get refresh token
         credentials = {
@@ -488,13 +497,13 @@ class TestRefreshToken:
             "password": "testpassword123",
         }
 
-        login_response = client.post("/v1/auth/login", json=credentials)
+        login_response = await async_client.post("/v1/auth/login", json=credentials)
         assert login_response.status_code == 200
         refresh_token = login_response.json()["refresh_token"]
 
         # Use refresh token to get new access token
         headers = {"Authorization": f"Bearer {refresh_token}"}
-        response = client.post("/v1/auth/refresh", headers=headers)
+        response = await async_client.post("/v1/auth/refresh", headers=headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -512,20 +521,22 @@ class TestRefreshToken:
         assert user_data["email"] == "test@example.com"
         assert "id" in user_data
 
-    def test_refresh_token_invalid_token(self, client):
+    async def test_refresh_token_invalid_token(self, async_client):
         """Test refresh with invalid token."""
         headers = {"Authorization": "Bearer invalid_token_here"}
-        response = client.post("/v1/auth/refresh", headers=headers)
+        response = await async_client.post("/v1/auth/refresh", headers=headers)
 
         assert response.status_code == 401
 
-    def test_refresh_token_missing_token(self, client):
+    async def test_refresh_token_missing_token(self, async_client):
         """Test refresh without token."""
-        response = client.post("/v1/auth/refresh")
+        response = await async_client.post("/v1/auth/refresh")
 
         assert response.status_code == 403  # FastAPI returns 403 for missing auth
 
-    def test_refresh_token_with_access_token_fails(self, client, test_user):
+    async def test_refresh_token_with_access_token_fails(
+        self, async_client, async_test_user
+    ):
         """Test that using access token instead of refresh token fails."""
         # Login to get access token
         credentials = {
@@ -533,13 +544,13 @@ class TestRefreshToken:
             "password": "testpassword123",
         }
 
-        login_response = client.post("/v1/auth/login", json=credentials)
+        login_response = await async_client.post("/v1/auth/login", json=credentials)
         assert login_response.status_code == 200
         access_token = login_response.json()["access_token"]
 
         # Try to use access token for refresh (should fail)
         headers = {"Authorization": f"Bearer {access_token}"}
-        response = client.post("/v1/auth/refresh", headers=headers)
+        response = await async_client.post("/v1/auth/refresh", headers=headers)
 
         # Should fail because access token doesn't have refresh token structure
         assert response.status_code == 401
@@ -548,27 +559,29 @@ class TestRefreshToken:
 class TestLogoutUser:
     """Tests for POST /v1/auth/logout endpoint."""
 
-    def test_logout_user_success(self, client, auth_headers):
+    async def test_logout_user_success(self, async_client, async_auth_headers):
         """Test successful logout."""
-        response = client.post("/v1/auth/logout", headers=auth_headers)
+        response = await async_client.post(
+            "/v1/auth/logout", headers=async_auth_headers
+        )
 
         assert response.status_code == 204
         # No content returned for 204
 
-    def test_logout_user_missing_token(self, client):
+    async def test_logout_user_missing_token(self, async_client):
         """Test logout without authentication."""
-        response = client.post("/v1/auth/logout")
+        response = await async_client.post("/v1/auth/logout")
 
         assert response.status_code == 403  # FastAPI returns 403 for missing auth
 
-    def test_logout_user_invalid_token(self, client):
+    async def test_logout_user_invalid_token(self, async_client):
         """Test logout with invalid token."""
         headers = {"Authorization": "Bearer invalid_token_here"}
-        response = client.post("/v1/auth/logout", headers=headers)
+        response = await async_client.post("/v1/auth/logout", headers=headers)
 
         assert response.status_code == 401
 
-    def test_logout_user_validates_token(self, client, test_user):
+    async def test_logout_user_validates_token(self, async_client, async_test_user):
         """Test that logout validates the token is valid."""
         # Login to get valid token
         credentials = {
@@ -576,12 +589,12 @@ class TestLogoutUser:
             "password": "testpassword123",
         }
 
-        login_response = client.post("/v1/auth/login", json=credentials)
+        login_response = await async_client.post("/v1/auth/login", json=credentials)
         access_token = login_response.json()["access_token"]
 
         # Logout with valid token should succeed
         headers = {"Authorization": f"Bearer {access_token}"}
-        response = client.post("/v1/auth/logout", headers=headers)
+        response = await async_client.post("/v1/auth/logout", headers=headers)
 
         assert response.status_code == 204
 
@@ -589,7 +602,7 @@ class TestLogoutUser:
 class TestAuthenticationFlow:
     """Integration tests for complete authentication flow."""
 
-    def test_complete_auth_flow(self, client, db_session):
+    async def test_complete_auth_flow(self, async_client, async_db_session):
         """Test complete flow: register -> login -> refresh -> logout."""
         # 1. Register new user
         register_data = {
@@ -598,7 +611,9 @@ class TestAuthenticationFlow:
             "first_name": "Flow",
             "last_name": "Test",
         }
-        register_response = client.post("/v1/auth/register", json=register_data)
+        register_response = await async_client.post(
+            "/v1/auth/register", json=register_data
+        )
         assert register_response.status_code == 201
 
         # 2. Login with new user
@@ -606,32 +621,40 @@ class TestAuthenticationFlow:
             "email": "flowtest@example.com",
             "password": "securepassword123",
         }
-        login_response = client.post("/v1/auth/login", json=login_data)
+        login_response = await async_client.post("/v1/auth/login", json=login_data)
         assert login_response.status_code == 200
         access_token = login_response.json()["access_token"]
         refresh_token = login_response.json()["refresh_token"]
 
         # 3. Use access token to access protected endpoint
         headers = {"Authorization": f"Bearer {access_token}"}
-        profile_response = client.get("/v1/user/profile", headers=headers)
+        profile_response = await async_client.get("/v1/user/profile", headers=headers)
         assert profile_response.status_code == 200
 
         # 4. Refresh access token
         refresh_headers = {"Authorization": f"Bearer {refresh_token}"}
-        refresh_response = client.post("/v1/auth/refresh", headers=refresh_headers)
+        refresh_response = await async_client.post(
+            "/v1/auth/refresh", headers=refresh_headers
+        )
         assert refresh_response.status_code == 200
         new_access_token = refresh_response.json()["access_token"]
 
         # 5. Use new access token
         new_headers = {"Authorization": f"Bearer {new_access_token}"}
-        profile_response2 = client.get("/v1/user/profile", headers=new_headers)
+        profile_response2 = await async_client.get(
+            "/v1/user/profile", headers=new_headers
+        )
         assert profile_response2.status_code == 200
 
         # 6. Logout
-        logout_response = client.post("/v1/auth/logout", headers=new_headers)
+        logout_response = await async_client.post(
+            "/v1/auth/logout", headers=new_headers
+        )
         assert logout_response.status_code == 204
 
-    def test_cannot_use_same_credentials_twice_simultaneously(self, client, test_user):
+    async def test_cannot_use_same_credentials_twice_simultaneously(
+        self, async_client, async_test_user
+    ):
         """Test that multiple logins create different tokens."""
         credentials = {
             "email": "test@example.com",
@@ -639,8 +662,8 @@ class TestAuthenticationFlow:
         }
 
         # Login twice
-        response1 = client.post("/v1/auth/login", json=credentials)
-        response2 = client.post("/v1/auth/login", json=credentials)
+        response1 = await async_client.post("/v1/auth/login", json=credentials)
+        response2 = await async_client.post("/v1/auth/login", json=credentials)
 
         assert response1.status_code == 200
         assert response2.status_code == 200
@@ -653,8 +676,8 @@ class TestAuthenticationFlow:
         headers1 = {"Authorization": f"Bearer {token1}"}
         headers2 = {"Authorization": f"Bearer {token2}"}
 
-        profile1 = client.get("/v1/user/profile", headers=headers1)
-        profile2 = client.get("/v1/user/profile", headers=headers2)
+        profile1 = await async_client.get("/v1/user/profile", headers=headers1)
+        profile2 = await async_client.get("/v1/user/profile", headers=headers2)
 
         assert profile1.status_code == 200
         assert profile2.status_code == 200
@@ -663,7 +686,9 @@ class TestAuthenticationFlow:
 class TestDatabaseErrorHandling:
     """Tests for database error handling in auth endpoints."""
 
-    def test_register_database_error_returns_500(self, client):
+    async def test_register_database_error_returns_500(
+        self, async_client, async_db_session
+    ):
         """Test that database errors during registration return 500."""
         user_data = {
             "email": "dberror@example.com",
@@ -672,36 +697,52 @@ class TestDatabaseErrorHandling:
             "last_name": "Error",
         }
 
-        with patch("app.api.v1.auth.Session.commit") as mock_commit:
-            mock_commit.side_effect = SQLAlchemyError("Database connection lost")
-            response = client.post("/v1/auth/register", json=user_data)
+        original_commit = async_db_session.commit
+        original_rollback = async_db_session.rollback
+        async_db_session.commit = AsyncMock(
+            side_effect=SQLAlchemyError("Database connection lost")
+        )
+        async_db_session.rollback = AsyncMock()
+        response = await async_client.post("/v1/auth/register", json=user_data)
+        async_db_session.commit = original_commit
+        async_db_session.rollback = original_rollback
 
-            assert response.status_code == 500
-            data = response.json()
-            assert "Failed to create user account" in data["detail"]
-            assert "Please try again later" in data["detail"]
-            # Verify error message is user-friendly (no raw exception details)
-            assert "Database connection lost" not in data["detail"]
+        assert response.status_code == 500
+        data = response.json()
+        assert "Failed to create user account" in data["detail"]
+        assert "Please try again later" in data["detail"]
+        # Verify error message is user-friendly (no raw exception details)
+        assert "Database connection lost" not in data["detail"]
 
-    def test_login_database_error_returns_500(self, client, test_user):
+    async def test_login_database_error_returns_500(
+        self, async_client, async_test_user, async_db_session
+    ):
         """Test that database errors during login timestamp update return 500."""
         credentials = {
             "email": "test@example.com",
             "password": "testpassword123",
         }
 
-        with patch("app.api.v1.auth.Session.commit") as mock_commit:
-            mock_commit.side_effect = SQLAlchemyError("Database write failed")
-            response = client.post("/v1/auth/login", json=credentials)
+        original_commit = async_db_session.commit
+        original_rollback = async_db_session.rollback
+        async_db_session.commit = AsyncMock(
+            side_effect=SQLAlchemyError("Database write failed")
+        )
+        async_db_session.rollback = AsyncMock()
+        response = await async_client.post("/v1/auth/login", json=credentials)
+        async_db_session.commit = original_commit
+        async_db_session.rollback = original_rollback
 
-            assert response.status_code == 500
-            data = response.json()
-            assert "Login failed" in data["detail"]
-            assert "server error" in data["detail"]
-            # Verify error message is user-friendly (no raw exception details)
-            assert "Database write failed" not in data["detail"]
+        assert response.status_code == 500
+        data = response.json()
+        assert "Login failed" in data["detail"]
+        assert "server error" in data["detail"]
+        # Verify error message is user-friendly (no raw exception details)
+        assert "Database write failed" not in data["detail"]
 
-    def test_register_database_error_triggers_rollback(self, client, db_session):
+    async def test_register_database_error_triggers_rollback(
+        self, async_client, async_db_session
+    ):
         """Test that database errors during registration trigger rollback."""
         user_data = {
             "email": "rollbacktest@example.com",
@@ -710,32 +751,52 @@ class TestDatabaseErrorHandling:
             "last_name": "Test",
         }
 
-        with patch("app.api.v1.auth.Session.commit") as mock_commit:
-            with patch("app.api.v1.auth.Session.rollback") as mock_rollback:
-                mock_commit.side_effect = SQLAlchemyError("Commit failed")
-                response = client.post("/v1/auth/register", json=user_data)
+        original_commit = async_db_session.commit
+        original_rollback = async_db_session.rollback
+        mock_rollback = AsyncMock()
+        async_db_session.commit = AsyncMock(
+            side_effect=SQLAlchemyError("Commit failed")
+        )
+        async_db_session.rollback = mock_rollback
 
-                assert response.status_code == 500
-                # Verify rollback was called
-                mock_rollback.assert_called_once()
+        response = await async_client.post("/v1/auth/register", json=user_data)
 
-    def test_login_database_error_triggers_rollback(self, client, test_user):
+        async_db_session.commit = original_commit
+        async_db_session.rollback = original_rollback
+
+        assert response.status_code == 500
+        # Verify rollback was called
+        mock_rollback.assert_called_once()
+
+    async def test_login_database_error_triggers_rollback(
+        self, async_client, async_test_user, async_db_session
+    ):
         """Test that database errors during login trigger rollback."""
         credentials = {
             "email": "test@example.com",
             "password": "testpassword123",
         }
 
-        with patch("app.api.v1.auth.Session.commit") as mock_commit:
-            with patch("app.api.v1.auth.Session.rollback") as mock_rollback:
-                mock_commit.side_effect = SQLAlchemyError("Commit failed")
-                response = client.post("/v1/auth/login", json=credentials)
+        original_commit = async_db_session.commit
+        original_rollback = async_db_session.rollback
+        mock_rollback = AsyncMock()
+        async_db_session.commit = AsyncMock(
+            side_effect=SQLAlchemyError("Commit failed")
+        )
+        async_db_session.rollback = mock_rollback
 
-                assert response.status_code == 500
-                # Verify rollback was called
-                mock_rollback.assert_called_once()
+        response = await async_client.post("/v1/auth/login", json=credentials)
 
-    def test_register_database_error_logs_error(self, client):
+        async_db_session.commit = original_commit
+        async_db_session.rollback = original_rollback
+
+        assert response.status_code == 500
+        # Verify rollback was called
+        mock_rollback.assert_called_once()
+
+    async def test_register_database_error_logs_error(
+        self, async_client, async_db_session
+    ):
         """Test that database errors during registration are logged."""
         user_data = {
             "email": "logtest@example.com",
@@ -744,45 +805,64 @@ class TestDatabaseErrorHandling:
             "last_name": "Test",
         }
 
-        with patch("app.api.v1.auth.Session.commit") as mock_commit:
-            with patch("app.api.v1.auth.logger") as mock_logger:
-                mock_commit.side_effect = SQLAlchemyError("Database timeout")
-                response = client.post("/v1/auth/register", json=user_data)
+        original_commit = async_db_session.commit
+        original_rollback = async_db_session.rollback
+        async_db_session.commit = AsyncMock(
+            side_effect=SQLAlchemyError("Database timeout")
+        )
+        async_db_session.rollback = AsyncMock()
+        with patch("app.api.v1.auth.logger") as mock_logger:
+            response = await async_client.post("/v1/auth/register", json=user_data)
+        async_db_session.commit = original_commit
+        async_db_session.rollback = original_rollback
 
-                assert response.status_code == 500
-                # Verify error was logged
-                mock_logger.error.assert_called_once()
-                log_call_args = str(mock_logger.error.call_args)
-                assert "Database error during user registration" in log_call_args
+        assert response.status_code == 500
+        # Verify error was logged
+        mock_logger.error.assert_called_once()
+        log_call_args = str(mock_logger.error.call_args)
+        assert "Database error during user registration" in log_call_args
 
-    def test_login_database_error_logs_error(self, client, test_user):
+    async def test_login_database_error_logs_error(
+        self, async_client, async_test_user, async_db_session
+    ):
         """Test that database errors during login are logged."""
         credentials = {
             "email": "test@example.com",
             "password": "testpassword123",
         }
 
-        with patch("app.api.v1.auth.Session.commit") as mock_commit:
-            with patch("app.api.v1.auth.logger") as mock_logger:
-                mock_commit.side_effect = SQLAlchemyError("Database timeout")
-                response = client.post("/v1/auth/login", json=credentials)
+        original_commit = async_db_session.commit
+        original_rollback = async_db_session.rollback
+        async_db_session.commit = AsyncMock(
+            side_effect=SQLAlchemyError("Database timeout")
+        )
+        async_db_session.rollback = AsyncMock()
+        with patch("app.api.v1.auth.logger") as mock_logger:
+            response = await async_client.post("/v1/auth/login", json=credentials)
+        async_db_session.commit = original_commit
+        async_db_session.rollback = original_rollback
 
-                assert response.status_code == 500
-                # Verify error was logged
-                mock_logger.error.assert_called_once()
-                log_call_args = str(mock_logger.error.call_args)
-                assert "Database error during login" in log_call_args
+        assert response.status_code == 500
+        # Verify error was logged
+        mock_logger.error.assert_called_once()
+        log_call_args = str(mock_logger.error.call_args)
+        assert "Database error during login" in log_call_args
 
 
 class TestPasswordReset:
     """Tests for password reset functionality (TASK-503)."""
 
-    def test_request_password_reset_success(self, client, test_user, db_session):
+    async def test_request_password_reset_success(
+        self, async_client, async_test_user, async_db_session
+    ):
         """Test successful password reset request creates token."""
         from app.models.models import PasswordResetToken
 
+        test_user_id = async_test_user.id
         request_data = {"email": "test@example.com"}
-        response = client.post("/v1/auth/request-password-reset", json=request_data)
+        response = await async_client.post(
+            "/v1/auth/request-password-reset", json=request_data
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -790,25 +870,26 @@ class TestPasswordReset:
         assert "If an account exists" in data["message"]
 
         # Verify token was created in database
-        token = (
-            db_session.query(PasswordResetToken)
-            .filter(PasswordResetToken.user_id == test_user.id)
-            .first()
+        result = await async_db_session.execute(
+            select(PasswordResetToken).where(PasswordResetToken.user_id == test_user_id)
         )
+        token = result.scalar_one_or_none()
         assert token is not None
-        assert token.user_id == test_user.id
+        assert token.user_id == test_user_id
         assert len(token.token) > 0
         assert token.expires_at > token.created_at
         assert token.used_at is None
 
-    def test_request_password_reset_nonexistent_email_returns_success(
-        self, client, db_session
+    async def test_request_password_reset_nonexistent_email_returns_success(
+        self, async_client, async_db_session
     ):
         """Test password reset request for non-existent email returns generic success message."""
         from app.models.models import PasswordResetToken
 
         request_data = {"email": "nonexistent@example.com"}
-        response = client.post("/v1/auth/request-password-reset", json=request_data)
+        response = await async_client.post(
+            "/v1/auth/request-password-reset", json=request_data
+        )
 
         # Should return success to prevent email enumeration
         assert response.status_code == 200
@@ -816,54 +897,59 @@ class TestPasswordReset:
         assert "If an account exists" in data["message"]
 
         # Verify no token was created
-        tokens = db_session.query(PasswordResetToken).all()
+        result = await async_db_session.execute(select(PasswordResetToken))
+        tokens = result.scalars().all()
         assert len(tokens) == 0
 
-    def test_request_password_reset_invalidates_previous_tokens(
-        self, client, test_user, db_session
+    async def test_request_password_reset_invalidates_previous_tokens(
+        self, async_client, async_test_user, async_db_session
     ):
         """Test that new password reset request invalidates previous unused tokens."""
         from app.models.models import PasswordResetToken
 
+        test_user_id = async_test_user.id
         # Request password reset twice
         request_data = {"email": "test@example.com"}
-        response1 = client.post("/v1/auth/request-password-reset", json=request_data)
+        response1 = await async_client.post(
+            "/v1/auth/request-password-reset", json=request_data
+        )
         assert response1.status_code == 200
 
         # Get first token
-        first_token = (
-            db_session.query(PasswordResetToken)
-            .filter(PasswordResetToken.user_id == test_user.id)
-            .first()
+        result = await async_db_session.execute(
+            select(PasswordResetToken).where(PasswordResetToken.user_id == test_user_id)
         )
+        first_token = result.scalar_one_or_none()
         first_token_value = first_token.token
 
         # Request second time
-        response2 = client.post("/v1/auth/request-password-reset", json=request_data)
+        response2 = await async_client.post(
+            "/v1/auth/request-password-reset", json=request_data
+        )
         assert response2.status_code == 200
 
         # Verify first token was invalidated (marked as used)
-        db_session.expire_all()
-        old_token = (
-            db_session.query(PasswordResetToken)
-            .filter(PasswordResetToken.token == first_token_value)
-            .first()
+        async_db_session.expire_all()
+        result = await async_db_session.execute(
+            select(PasswordResetToken).where(
+                PasswordResetToken.token == first_token_value
+            )
         )
+        old_token = result.scalar_one_or_none()
         assert old_token.used_at is not None
 
         # Verify new token exists and is unused
-        new_tokens = (
-            db_session.query(PasswordResetToken)
-            .filter(
-                PasswordResetToken.user_id == test_user.id,
+        result = await async_db_session.execute(
+            select(PasswordResetToken).where(
+                PasswordResetToken.user_id == test_user_id,
                 PasswordResetToken.used_at.is_(None),
             )
-            .all()
         )
+        new_tokens = result.scalars().all()
         assert len(new_tokens) == 1
 
-    def test_reset_password_with_valid_token_succeeds(
-        self, client, test_user, db_session
+    async def test_reset_password_with_valid_token_succeeds(
+        self, async_client, async_test_user, async_db_session
     ):
         """Test password reset with valid token updates password."""
         from app.models.models import PasswordResetToken
@@ -872,50 +958,53 @@ class TestPasswordReset:
         from app.core.datetime_utils import utc_now
         import secrets
 
+        test_user_id = async_test_user.id
         # Create valid reset token
         reset_token = secrets.token_urlsafe(32)
         token_record = PasswordResetToken(
-            user_id=test_user.id,
+            user_id=test_user_id,
             token=reset_token,
             expires_at=utc_now() + timedelta(minutes=30),
         )
-        db_session.add(token_record)
-        db_session.commit()
+        async_db_session.add(token_record)
+        await async_db_session.commit()
 
         # Reset password
         reset_data = {"token": reset_token, "new_password": "NewSecureP@ssw0rd!"}
-        response = client.post("/v1/auth/reset-password", json=reset_data)
+        response = await async_client.post("/v1/auth/reset-password", json=reset_data)
 
         assert response.status_code == 200
         data = response.json()
         assert "Password has been reset successfully" in data["message"]
 
         # Verify password was updated
-        db_session.expire_all()
+        async_db_session.expire_all()
         from app.models import User
 
-        user = db_session.query(User).filter(User.id == test_user.id).first()
+        result = await async_db_session.execute(
+            select(User).where(User.id == test_user_id)
+        )
+        user = result.scalar_one_or_none()
         assert verify_password("NewSecureP@ssw0rd!", user.password_hash)
 
         # Verify token was marked as used
-        db_session.expire_all()
-        token = (
-            db_session.query(PasswordResetToken)
-            .filter(PasswordResetToken.token == reset_token)
-            .first()
+        async_db_session.expire_all()
+        result = await async_db_session.execute(
+            select(PasswordResetToken).where(PasswordResetToken.token == reset_token)
         )
+        token = result.scalar_one_or_none()
         assert token.used_at is not None
 
-    def test_reset_password_with_invalid_token_fails(self, client):
+    async def test_reset_password_with_invalid_token_fails(self, async_client):
         """Test password reset with non-existent token fails."""
         reset_data = {"token": "invalid_token_12345", "new_password": "NewPassword123"}
-        response = client.post("/v1/auth/reset-password", json=reset_data)
+        response = await async_client.post("/v1/auth/reset-password", json=reset_data)
 
         assert response.status_code == 400
         assert "Invalid or expired" in response.json()["detail"]
 
-    def test_reset_password_with_already_used_token_fails(
-        self, client, test_user, db_session
+    async def test_reset_password_with_already_used_token_fails(
+        self, async_client, async_test_user, async_db_session
     ):
         """Test password reset with already-used token fails."""
         from app.models.models import PasswordResetToken
@@ -923,27 +1012,28 @@ class TestPasswordReset:
         from app.core.datetime_utils import utc_now
         import secrets
 
+        test_user_id = async_test_user.id
         # Create already-used reset token
         reset_token = secrets.token_urlsafe(32)
         token_record = PasswordResetToken(
-            user_id=test_user.id,
+            user_id=test_user_id,
             token=reset_token,
             expires_at=utc_now() + timedelta(minutes=30),
             used_at=utc_now(),  # Already used
         )
-        db_session.add(token_record)
-        db_session.commit()
+        async_db_session.add(token_record)
+        await async_db_session.commit()
 
         # Try to reset password
         reset_data = {"token": reset_token, "new_password": "NewPassword123"}
-        response = client.post("/v1/auth/reset-password", json=reset_data)
+        response = await async_client.post("/v1/auth/reset-password", json=reset_data)
 
         assert response.status_code == 400
         # Generic message for all token failures (prevents enumeration)
         assert "Invalid or expired" in response.json()["detail"]
 
-    def test_reset_password_with_expired_token_fails(
-        self, client, test_user, db_session
+    async def test_reset_password_with_expired_token_fails(
+        self, async_client, async_test_user, async_db_session
     ):
         """Test password reset with expired token fails."""
         from app.models.models import PasswordResetToken
@@ -951,26 +1041,27 @@ class TestPasswordReset:
         from app.core.datetime_utils import utc_now
         import secrets
 
+        test_user_id = async_test_user.id
         # Create expired reset token
         reset_token = secrets.token_urlsafe(32)
         token_record = PasswordResetToken(
-            user_id=test_user.id,
+            user_id=test_user_id,
             token=reset_token,
             expires_at=utc_now() - timedelta(minutes=5),  # Expired 5 minutes ago
         )
-        db_session.add(token_record)
-        db_session.commit()
+        async_db_session.add(token_record)
+        await async_db_session.commit()
 
         # Try to reset password
         reset_data = {"token": reset_token, "new_password": "NewPassword123"}
-        response = client.post("/v1/auth/reset-password", json=reset_data)
+        response = await async_client.post("/v1/auth/reset-password", json=reset_data)
 
         assert response.status_code == 400
         # Generic message for all token failures (prevents enumeration)
         assert "Invalid or expired" in response.json()["detail"]
 
-    def test_reset_password_validates_password_strength(
-        self, client, test_user, db_session
+    async def test_reset_password_validates_password_strength(
+        self, async_client, async_test_user, async_db_session
     ):
         """Test that password strength validation is enforced on reset."""
         from app.models.models import PasswordResetToken
@@ -978,32 +1069,32 @@ class TestPasswordReset:
         from app.core.datetime_utils import utc_now
         import secrets
 
+        test_user_id = async_test_user.id
         # Create valid reset token
         reset_token = secrets.token_urlsafe(32)
         token_record = PasswordResetToken(
-            user_id=test_user.id,
+            user_id=test_user_id,
             token=reset_token,
             expires_at=utc_now() + timedelta(minutes=30),
         )
-        db_session.add(token_record)
-        db_session.commit()
+        async_db_session.add(token_record)
+        await async_db_session.commit()
 
         # Try to reset with weak password
         reset_data = {"token": reset_token, "new_password": "weak"}
-        response = client.post("/v1/auth/reset-password", json=reset_data)
+        response = await async_client.post("/v1/auth/reset-password", json=reset_data)
 
         assert response.status_code == 422  # Validation error
         # Token should not be consumed on validation failure
-        db_session.expire_all()
-        token = (
-            db_session.query(PasswordResetToken)
-            .filter(PasswordResetToken.token == reset_token)
-            .first()
+        async_db_session.expire_all()
+        result = await async_db_session.execute(
+            select(PasswordResetToken).where(PasswordResetToken.token == reset_token)
         )
+        token = result.scalar_one_or_none()
         assert token.used_at is None
 
-    def test_reset_password_can_login_with_new_password(
-        self, client, test_user, db_session
+    async def test_reset_password_can_login_with_new_password(
+        self, async_client, async_test_user, async_db_session
     ):
         """Test that user can login with new password after reset."""
         from app.models.models import PasswordResetToken
@@ -1011,41 +1102,46 @@ class TestPasswordReset:
         from app.core.datetime_utils import utc_now
         import secrets
 
+        test_user_id = async_test_user.id
         # Create valid reset token
         reset_token = secrets.token_urlsafe(32)
         token_record = PasswordResetToken(
-            user_id=test_user.id,
+            user_id=test_user_id,
             token=reset_token,
             expires_at=utc_now() + timedelta(minutes=30),
         )
-        db_session.add(token_record)
-        db_session.commit()
+        async_db_session.add(token_record)
+        await async_db_session.commit()
 
         # Reset password
         new_password = "NewSecureP@ssw0rd123!"
         reset_data = {"token": reset_token, "new_password": new_password}
-        response = client.post("/v1/auth/reset-password", json=reset_data)
+        response = await async_client.post("/v1/auth/reset-password", json=reset_data)
         assert response.status_code == 200
 
         # Verify can login with new password
         login_data = {"email": "test@example.com", "password": new_password}
-        login_response = client.post("/v1/auth/login", json=login_data)
+        login_response = await async_client.post("/v1/auth/login", json=login_data)
         assert login_response.status_code == 200
 
         # Verify cannot login with old password
         old_login_data = {"email": "test@example.com", "password": "testpassword123"}
-        old_login_response = client.post("/v1/auth/login", json=old_login_data)
+        old_login_response = await async_client.post(
+            "/v1/auth/login", json=old_login_data
+        )
         assert old_login_response.status_code == 401
 
-    def test_request_password_reset_invalid_email_format(self, client):
+    async def test_request_password_reset_invalid_email_format(self, async_client):
         """Test password reset request with invalid email format."""
         request_data = {"email": "not-an-email"}
-        response = client.post("/v1/auth/request-password-reset", json=request_data)
+        response = await async_client.post(
+            "/v1/auth/request-password-reset", json=request_data
+        )
 
         assert response.status_code == 422  # Validation error
 
-    def test_reset_password_invalidates_other_tokens(
-        self, client, test_user, db_session
+    async def test_reset_password_invalidates_other_tokens(
+        self, async_client, async_test_user, async_db_session
     ):
         """Test that successful password reset invalidates all other tokens for user."""
         from app.models.models import PasswordResetToken
@@ -1053,6 +1149,7 @@ class TestPasswordReset:
         from app.core.datetime_utils import utc_now
         import secrets
 
+        test_user_id = async_test_user.id
         # Create multiple reset tokens
         token1 = secrets.token_urlsafe(32)
         token2 = secrets.token_urlsafe(32)
@@ -1060,24 +1157,23 @@ class TestPasswordReset:
 
         for token_value in [token1, token2, token3]:
             token_record = PasswordResetToken(
-                user_id=test_user.id,
+                user_id=test_user_id,
                 token=token_value,
                 expires_at=utc_now() + timedelta(minutes=30),
             )
-            db_session.add(token_record)
-        db_session.commit()
+            async_db_session.add(token_record)
+        await async_db_session.commit()
 
         # Use token2 to reset password
         reset_data = {"token": token2, "new_password": "NewPassword123!"}
-        response = client.post("/v1/auth/reset-password", json=reset_data)
+        response = await async_client.post("/v1/auth/reset-password", json=reset_data)
         assert response.status_code == 200
 
         # Verify all tokens are marked as used
-        db_session.expire_all()
-        tokens = (
-            db_session.query(PasswordResetToken)
-            .filter(PasswordResetToken.user_id == test_user.id)
-            .all()
+        async_db_session.expire_all()
+        result = await async_db_session.execute(
+            select(PasswordResetToken).where(PasswordResetToken.user_id == test_user_id)
         )
+        tokens = result.scalars().all()
         for token in tokens:
             assert token.used_at is not None
