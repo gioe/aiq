@@ -30,20 +30,19 @@ from app.models.models import (
 )
 from app.core.security import hash_password
 
-from tests.conftest import TestingSessionLocal, engine
 from app.models import Base
 
 
 @pytest.fixture(scope="function")
-def db():
+def db(db_engine, testing_session_local):
     """Create a fresh test database session."""
-    Base.metadata.create_all(bind=engine)
-    session = TestingSessionLocal()
+    Base.metadata.create_all(bind=db_engine)
+    session = testing_session_local()
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(bind=engine)
+        Base.metadata.drop_all(bind=db_engine)
 
 
 @pytest.fixture

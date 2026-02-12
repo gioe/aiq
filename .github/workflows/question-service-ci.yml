@@ -85,4 +85,4 @@ jobs:
             exit 0
           fi
           cd question-service
-          pytest tests/integration/ --run-integration -v
+          pytest -m integration --run-integration -v

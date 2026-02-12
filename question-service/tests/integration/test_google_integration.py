@@ -34,7 +34,6 @@ def _extract_number(text: str) -> str | None:
 # Skip all tests in this module if GOOGLE_API_KEY is not set
 pytestmark = [
     pytest.mark.integration,
-    pytest.mark.slow,
     pytest.mark.skipif(
         not os.environ.get("GOOGLE_API_KEY"),
         reason="GOOGLE_API_KEY environment variable not set",

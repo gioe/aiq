@@ -52,6 +52,7 @@ python_classes = "Test*"
 python_functions = "test_*"
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
-    "e2e: end-to-end tests that require real external services (Sentry, OTEL)"
+    "integration: tests requiring live external services (skipped unless --run-integration is passed)",
 ]

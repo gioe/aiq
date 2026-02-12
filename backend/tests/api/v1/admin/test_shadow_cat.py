@@ -23,18 +23,16 @@ from app.models.models import (
 )
 from app.models import Base
 
-from tests.conftest import TestingSessionLocal, engine  # noqa: F401
-
 
 @pytest.fixture(scope="function")
-def db():
-    Base.metadata.create_all(bind=engine)
-    session = TestingSessionLocal()
+def db(db_engine, testing_session_local):
+    Base.metadata.create_all(bind=db_engine)
+    session = testing_session_local()
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(bind=engine)
+        Base.metadata.drop_all(bind=db_engine)
 
 
 @pytest.fixture

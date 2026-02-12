@@ -9,23 +9,20 @@ Environment Variables:
     SENTRY_TEST_DSN: Sentry DSN for a test project (required)
     OTEL_TEST_ENDPOINT: OTLP endpoint for a test collector (optional)
     OTEL_TEST_HEADERS: Headers for OTEL authentication, comma-separated key=value (optional)
-    RUN_E2E_OBSERVABILITY_TESTS: Set to "true" to enable these tests
 
 Local Usage:
     # Run with test credentials (Sentry + Grafana Cloud OTEL)
     export SENTRY_TEST_DSN="https://...@sentry.io/..."
     export OTEL_TEST_ENDPOINT="https://otlp-gateway-prod-us-central-0.grafana.net/otlp"
     export OTEL_TEST_HEADERS="Authorization=Basic ..."
-    export RUN_E2E_OBSERVABILITY_TESTS=true
-    pytest tests/test_observability_e2e.py -v -s
+    pytest -m integration --run-integration -v -s
 
     # Run with just Sentry (OTEL-specific assertions will adapt)
     export SENTRY_TEST_DSN="https://...@sentry.io/..."
-    export RUN_E2E_OBSERVABILITY_TESTS=true
-    pytest tests/test_observability_e2e.py -v -s
+    pytest -m integration --run-integration -v -s
 
-    # Skip e2e tests (default behavior)
-    pytest tests/test_observability_e2e.py -v
+    # Skip integration tests (default behavior)
+    pytest -v
 
 CI Setup (GitHub Actions):
     Add these secrets to your repository:
@@ -34,13 +31,12 @@ CI Setup (GitHub Actions):
     - OTEL_TEST_HEADERS: Authentication headers for OTLP
 
     Example workflow step:
-        - name: Run E2E Observability Tests
+        - name: Run Integration Tests
           env:
-            RUN_E2E_OBSERVABILITY_TESTS: "true"
             SENTRY_TEST_DSN: ${{ secrets.SENTRY_TEST_DSN }}
             OTEL_TEST_ENDPOINT: ${{ secrets.OTEL_TEST_ENDPOINT }}
             OTEL_TEST_HEADERS: ${{ secrets.OTEL_TEST_HEADERS }}
-          run: pytest tests/test_observability_e2e.py -v -s
+          run: pytest -m integration --run-integration -v -s
 
 Verification:
     After tests run, verify data appears in your backends:
@@ -83,13 +79,8 @@ HISTOGRAM_TEST_VALUES_MS = [
     500,
 ]  # Realistic latency distribution
 
-# Skip all tests in this module unless explicitly enabled
 pytestmark = [
-    pytest.mark.skipif(
-        os.environ.get("RUN_E2E_OBSERVABILITY_TESTS", "").lower() != "true",
-        reason="E2E observability tests disabled. Set RUN_E2E_OBSERVABILITY_TESTS=true to enable.",
-    ),
-    pytest.mark.e2e,  # Mark as e2e tests for selective running
+    pytest.mark.integration,
 ]
 
 

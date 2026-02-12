@@ -14,6 +14,28 @@ from typing import AsyncGenerator, Generator, Dict, Any  # noqa: E402
 from unittest.mock import patch, AsyncMock  # noqa: E402
 
 import pytest  # noqa: E402
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="Run integration tests that require live external services",
+    )
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    if config.getoption("--run-integration"):
+        return
+    skip_integration = pytest.mark.skip(reason="need --run-integration option to run")
+    for item in items:
+        if "integration" in item.keywords:
+            item.add_marker(skip_integration)
+
+
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.ext.asyncio import (  # noqa: E402
     AsyncSession,
@@ -328,3 +350,15 @@ def async_auth_headers(async_test_user):
     """Create authentication headers for async test user."""
     access_token = create_access_token({"user_id": async_test_user.id})
     return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def testing_session_local():
+    """Expose TestingSessionLocal for tests that need raw session access."""
+    return TestingSessionLocal
+
+
+@pytest.fixture
+def db_engine():
+    """Expose the test database engine."""
+    return engine
