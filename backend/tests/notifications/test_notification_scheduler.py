@@ -680,7 +680,7 @@ class TestNotificationFailureLogging:
         mock_apns.connect = AsyncMock()
         mock_apns.disconnect = AsyncMock()
         mock_apns.send_batch_notifications = AsyncMock(
-            return_value={"success": 0, "failed": 1}
+            return_value={"success": 0, "failed": 1, "per_result": [False]}
         )
 
         with patch(
@@ -711,7 +711,7 @@ class TestNotificationFailureLogging:
         mock_apns.connect = AsyncMock()
         mock_apns.disconnect = AsyncMock()
         mock_apns.send_batch_notifications = AsyncMock(
-            return_value={"success": 1, "failed": 0}
+            return_value={"success": 1, "failed": 0, "per_result": [True]}
         )
 
         with patch(
@@ -723,3 +723,157 @@ class TestNotificationFailureLogging:
 
                 assert results["success"] == 1
                 mock_logger.warning.assert_not_called()
+
+
+class TestGranularRetryTracking:
+    """Tests for per-user send status tracking (TASK-1176).
+
+    Ensures only users whose sends succeeded are marked with
+    day_30_reminder_sent_at, leaving failed users eligible for retry.
+    """
+
+    @pytest.mark.asyncio
+    async def test_successful_send_marks_user(
+        self, async_db_session, user_with_device_token
+    ):
+        """Test that a successful send sets day_30_reminder_sent_at."""
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, thirty_days_ago
+        )
+
+        scheduler = NotificationScheduler(async_db_session)
+
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock()
+        mock_apns.disconnect = AsyncMock()
+        mock_apns.send_batch_notifications = AsyncMock(
+            return_value={"success": 1, "failed": 0, "per_result": [True]}
+        )
+
+        with patch(
+            "app.services.apns_service.APNsService",
+            return_value=mock_apns,
+        ):
+            await scheduler.send_day_30_reminder_notifications()
+
+        await async_db_session.refresh(user_with_device_token)
+        assert user_with_device_token.day_30_reminder_sent_at is not None
+
+    @pytest.mark.asyncio
+    async def test_failed_send_does_not_mark_user(
+        self, async_db_session, user_with_device_token
+    ):
+        """Test that a failed send leaves day_30_reminder_sent_at as None."""
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, thirty_days_ago
+        )
+
+        scheduler = NotificationScheduler(async_db_session)
+
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock()
+        mock_apns.disconnect = AsyncMock()
+        mock_apns.send_batch_notifications = AsyncMock(
+            return_value={"success": 0, "failed": 1, "per_result": [False]}
+        )
+
+        with patch(
+            "app.services.apns_service.APNsService",
+            return_value=mock_apns,
+        ):
+            await scheduler.send_day_30_reminder_notifications()
+
+        await async_db_session.refresh(user_with_device_token)
+        assert user_with_device_token.day_30_reminder_sent_at is None
+
+    @pytest.mark.asyncio
+    async def test_failed_user_eligible_for_retry(
+        self, async_db_session, user_with_device_token
+    ):
+        """Test that a user whose send failed remains eligible for the next run."""
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, thirty_days_ago
+        )
+
+        scheduler = NotificationScheduler(async_db_session)
+
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock()
+        mock_apns.disconnect = AsyncMock()
+        mock_apns.send_batch_notifications = AsyncMock(
+            return_value={"success": 0, "failed": 1, "per_result": [False]}
+        )
+
+        with patch(
+            "app.services.apns_service.APNsService",
+            return_value=mock_apns,
+        ):
+            await scheduler.send_day_30_reminder_notifications()
+
+        # User should still appear in the eligible list
+        users = await get_users_for_day_30_reminder(async_db_session)
+        assert len(users) == 1
+        assert users[0].id == user_with_device_token.id
+
+    @pytest.mark.asyncio
+    async def test_partial_failure_marks_only_successful_users(self, async_db_session):
+        """Test that in a batch with mixed results, only successful users are marked."""
+        # Create two eligible users
+        user1 = User(
+            email="retry_user1@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="RetryUser1",
+            last_name="Test",
+            notification_enabled=True,
+            apns_device_token="retrytoken1" + "0" * 28,
+        )
+        user2 = User(
+            email="retry_user2@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="RetryUser2",
+            last_name="Test",
+            notification_enabled=True,
+            apns_device_token="retrytoken2" + "0" * 28,
+        )
+        async_db_session.add_all([user1, user2])
+        await async_db_session.commit()
+        await async_db_session.refresh(user1)
+        await async_db_session.refresh(user2)
+
+        thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
+        await create_test_result(async_db_session, user1.id, thirty_days_ago)
+        await create_test_result(async_db_session, user2.id, thirty_days_ago)
+
+        scheduler = NotificationScheduler(async_db_session)
+
+        # First user succeeds, second user fails
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock()
+        mock_apns.disconnect = AsyncMock()
+        mock_apns.send_batch_notifications = AsyncMock(
+            return_value={
+                "success": 1,
+                "failed": 1,
+                "per_result": [True, False],
+            }
+        )
+
+        with patch(
+            "app.services.apns_service.APNsService",
+            return_value=mock_apns,
+        ):
+            results = await scheduler.send_day_30_reminder_notifications()
+
+        assert results["success"] == 1
+        assert results["failed"] == 1
+
+        await async_db_session.refresh(user1)
+        await async_db_session.refresh(user2)
+
+        # First user should be marked as sent
+        assert user1.day_30_reminder_sent_at is not None
+        # Second user should NOT be marked (eligible for retry)
+        assert user2.day_30_reminder_sent_at is None

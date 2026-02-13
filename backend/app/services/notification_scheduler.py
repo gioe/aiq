@@ -444,8 +444,9 @@ class NotificationScheduler:
         to users with provisional authorization. Users with full authorization
         will receive the standard alert notification.
 
-        After successful sending, users are marked with day_30_reminder_sent_at
-        timestamp to prevent duplicate notifications.
+        After sending, only users whose notifications were delivered successfully
+        are marked with day_30_reminder_sent_at. Users whose sends failed remain
+        eligible for retry on the next scheduled run.
 
         Returns:
             Dictionary with counts: {"total": X, "success": Y, "failed": Z, "users_found": N}
@@ -529,6 +530,8 @@ class NotificationScheduler:
                 notifications, notification_type=NotificationType.DAY_30_REMINDER
             )
 
+            per_result = results.get("per_result", [])
+
             if results["failed"] > 0:
                 logger.warning(
                     "Day 30 reminder batch had failures: "
@@ -538,14 +541,13 @@ class NotificationScheduler:
                     results["failed"],
                 )
 
-            # Mark all users as having received the notification to prevent duplicates
-            # We mark all users even if some individual sends failed, because:
-            # 1. The send attempt was made
-            # 2. Failed sends are typically due to invalid tokens (user won't get it anyway)
-            # 3. Retrying could cause duplicate notifications for users who did receive it
+            # Only mark users whose sends actually succeeded.
+            # Failed users keep day_30_reminder_sent_at = None so they
+            # remain eligible on the next scheduled run.
             now = utc_now()
             for user in users_to_notify:
-                if user.id in user_id_to_notification_index:
+                idx = user_id_to_notification_index.get(user.id)
+                if idx is not None and idx < len(per_result) and per_result[idx]:
                     user.day_30_reminder_sent_at = now
             await self.db.commit()
 
