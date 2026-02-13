@@ -43,7 +43,7 @@ def initialize_prometheus_exporter(meter_provider: "MeterProvider") -> None:
         registry = CollectorRegistry(auto_describe=True)
 
         # Create Prometheus reader that will expose metrics via the registry
-        prometheus_reader = PrometheusMetricReader(registry=registry)
+        prometheus_reader = PrometheusMetricReader(registry=registry)  # type: ignore[call-arg]
 
         # Add the Prometheus reader to the meter provider
         # This allows metrics to be exported in both OTLP and Prometheus formats
