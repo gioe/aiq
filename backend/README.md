@@ -2,6 +2,20 @@
 
 FastAPI backend server for the AIQ application.
 
+## Project Structure
+
+```
+backend/
+├── app/                # Application source (API routes, models, services, middleware)
+├── tests/              # Unit and integration tests
+├── alembic/            # Database migration scripts
+├── scripts/            # Utility scripts (OpenAPI export, calibration, demo data)
+├── docs/               # Backend-specific documentation
+├── config/             # Configuration files (observability)
+├── infra/              # Infrastructure configs (Grafana dashboards)
+└── requirements.txt    # Python dependencies
+```
+
 ## Setup
 
 ```bash
