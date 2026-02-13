@@ -11,7 +11,7 @@ pattern in test_test_sessions.py::test_concurrent_session_creation_returns_409.
 
 TASK-1168: Deferred from PR #1096 review for TASK-1162.
 """
-import asyncio
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -306,14 +306,15 @@ class TestConcurrentLogoutAll:
         access_token = login_resp.json()["access_token"]
         access_headers = {"Authorization": f"Bearer {access_token}"}
 
-        logout_response = await async_client.post(
-            "/v1/auth/logout-all", headers=access_headers
-        )
+        # Mock utc_now to return 2 seconds ago during logout-all so the
+        # revocation epoch is clearly before any new token's iat (which uses
+        # whole-second precision).
+        past_time = datetime.now(timezone.utc) - timedelta(seconds=2)
+        with patch("app.api.v1.auth.utc_now", return_value=past_time):
+            logout_response = await async_client.post(
+                "/v1/auth/logout-all", headers=access_headers
+            )
         assert logout_response.status_code == 204
-
-        # Wait 1s so the new token's iat (whole-second JWT timestamp) is
-        # strictly after the sub-second-precision revocation epoch.
-        await asyncio.sleep(1)
 
         # Login again after logout-all
         login_response = await async_client.post(
