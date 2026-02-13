@@ -58,6 +58,7 @@ yarn.lock
 
 # Python (if used for backend/question-service)
 __pycache__/
+.mypy_cache/
 *.py[cod]
 *$py.class
 *.so
