@@ -289,7 +289,7 @@ sqlite3 tasks.db "SELECT last_insert_rowid()"
 If dependencies were identified and approved, add them:
 
 ```bash
-python3 scripts/manage_dependencies.py add <task_id> <depends_on_id>
+python3 .claude/scripts/manage_dependencies.py add <task_id> <depends_on_id>
 ```
 
 ### Step 10: Generate Summary Report

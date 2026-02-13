@@ -58,8 +58,8 @@ tusk -header -column "SELECT id, summary, status, priority, domain, assignee FRO
 
 tusk -header -column "SELECT * FROM tasks WHERE status != 'Done'"
 
-python3 scripts/manage_dependencies.py blocked
-python3 scripts/manage_dependencies.py all
+python3 .claude/scripts/manage_dependencies.py blocked
+python3 .claude/scripts/manage_dependencies.py all
 ```
 
 ## Step 2: Scan for Duplicates and Categorize Tasks
@@ -93,7 +93,7 @@ Tasks where the work has already been completed in the codebase:
 
 Before recommending deletion, check dependents:
 ```bash
-python3 scripts/manage_dependencies.py dependents <id>
+python3 .claude/scripts/manage_dependencies.py dependents <id>
 ```
 
 ### Category C: Candidates for Reprioritization
