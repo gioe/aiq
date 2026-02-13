@@ -167,3 +167,13 @@ class TestBackwardCompatibility:
             QuestionType("invalid_type")
         with pytest.raises(ValueError):
             DifficultyLevel("extreme")
+
+    def test_cross_service_identity(self):
+        """Enums imported via different paths should be identical objects."""
+        # Backend imports via app.models.models which re-exports from libs.domain_types
+        # Question-service imports via app.models which re-exports from libs.domain_types
+        # Both should resolve to the exact same enum class
+        from libs.domain_types import QuestionType as DirectImport
+
+        assert DirectImport is QuestionType
+        assert DirectImport.PATTERN is QuestionType.PATTERN

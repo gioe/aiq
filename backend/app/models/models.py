@@ -27,7 +27,7 @@ from .base import Base
 from .types import FloatArray
 
 # Domain enums — single source of truth in libs/domain_types
-from libs.domain_types import (  # noqa: E402
+from libs.domain_types import (
     QuestionType,
     DifficultyLevel,
     TestStatus,
