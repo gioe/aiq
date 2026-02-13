@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
 
-from app.models import get_async_db, User, Question, TestSession, UserQuestion
+from app.models import get_db, User, Question, TestSession, UserQuestion
 from app.models.models import TestStatus
 from app.core.error_responses import (
     ErrorMessages,
@@ -383,7 +383,7 @@ async def start_test(
         description="Use adaptive (CAT) test delivery (returns single question)",
     ),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Start a new test session for the current user.
@@ -764,7 +764,7 @@ async def _finalize_adaptive_session(
 async def submit_adaptive_response(
     request: AdaptiveResponseRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Submit a single response during an adaptive (CAT) test and get the next question.
@@ -995,7 +995,7 @@ async def submit_adaptive_response(
 async def get_test_session(
     session_id: int,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get details for a specific test session.
@@ -1036,7 +1036,7 @@ async def get_test_session(
 @router.get("/active", response_model=Optional[TestSessionStatusResponse])
 async def get_active_test_session(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get the user's active (in_progress) test session if any.
@@ -1077,7 +1077,7 @@ async def get_active_test_session(
 async def get_test_progress(
     session_id: int = Query(..., description="Test session ID"),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get progress information for an active adaptive (CAT) test session.
@@ -1171,7 +1171,7 @@ async def get_test_progress(
 async def abandon_test(
     session_id: int,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Abandon an in-progress test session.
@@ -1769,7 +1769,7 @@ def _trigger_shadow_cat(session_id: int) -> None:
 async def submit_test(
     submission: ResponseSubmission,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Submit responses for a test session.
@@ -1929,7 +1929,7 @@ async def submit_test(
 async def get_test_result(
     result_id: int,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get a specific test result by ID.
@@ -1975,7 +1975,7 @@ async def get_test_history(
         description="Number of results to skip for pagination",
     ),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get historical test results for the current user with pagination.

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List
 
-from app.models import get_async_db
+from app.models import get_db
 from app.core.question_analytics import (
     get_question_statistics,
     get_all_question_statistics,
@@ -21,7 +21,7 @@ router = APIRouter()
 @router.get("/questions/{question_id}/statistics")
 async def get_question_stats(
     question_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Dict:
     """
     Get performance statistics for a specific question.
@@ -69,7 +69,7 @@ async def get_all_questions_stats(
         le=1000,
         description="Minimum response count to include",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ) -> List[Dict]:
     """
     Get performance statistics for all questions.
@@ -117,7 +117,7 @@ async def get_problematic_questions(
         le=1000,
         description="Minimum responses required to flag as problematic",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Dict[str, List[Dict]]:
     """
     Identify questions with poor psychometric properties.

@@ -18,7 +18,7 @@ from app.models import (
     Response,
     TestSession,
     TestStatus,
-    get_async_db,
+    get_db,
 )
 from app.schemas.calibration_monitoring import (
     AlertSeverity,
@@ -104,7 +104,7 @@ async def get_calibration_status(
         le=10000,
         description="Minimum responses per item for calibration readiness (default: 50)",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""

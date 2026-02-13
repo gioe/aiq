@@ -17,7 +17,7 @@ from app.core.system_config import (
     async_get_cat_readiness_status,
     async_set_cat_readiness,
 )
-from app.models import get_async_db
+from app.models import get_db
 from app.schemas.cat_readiness import (
     CATReadinessResponse,
     CATReadinessThresholds,
@@ -46,7 +46,7 @@ def _build_response_from_config(config: dict) -> CATReadinessResponse:
     response_model=CATReadinessResponse,
 )
 async def get_cat_readiness(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -91,7 +91,7 @@ async def get_cat_readiness(
     response_model=CATReadinessResponse,
 )
 async def evaluate_readiness(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""

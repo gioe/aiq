@@ -20,7 +20,7 @@ from app.core.question_analytics import (
     async_recalibrate_questions,
     async_validate_difficulty_labels,
 )
-from app.models import get_async_db
+from app.models import get_db
 from app.schemas.calibration import (
     CalibrationHealthResponse,
     CalibrationSummary,
@@ -51,7 +51,7 @@ async def get_calibration_health(
         le=1000,
         description="Minimum responses required for reliable validation",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -218,7 +218,7 @@ async def get_calibration_health(
 )
 async def recalibrate_difficulty_labels(
     request: RecalibrationRequest,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""

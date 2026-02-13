@@ -4,14 +4,15 @@ Database base configuration for SQLAlchemy models.
 This module uses SQLAlchemy 2.0 style with DeclarativeBase and Mapped types
 for proper type checking support. See BCQ-035 for migration details.
 
-Async support (TASK-1161): async_engine, AsyncSessionLocal, and get_async_db
-are provided alongside the sync equivalents for incremental migration.
+Async database support (TASK-1161): The primary database dependency is
+async (get_db yields AsyncSession). The sync engine and SessionLocal are
+retained for background jobs that run in threads.
 """
 from sqlalchemy import create_engine, make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import AsyncAdaptedQueuePool, QueuePool
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator
 import os
 from dotenv import load_dotenv
 
@@ -43,7 +44,7 @@ POOL_PRE_PING = os.getenv("DB_POOL_PRE_PING", "True").lower() in (
     "yes",
 )  # Test connections before use
 
-# Create SQLAlchemy engine with connection pooling
+# --- Sync engine (retained for background jobs / batch scripts) ---
 engine = create_engine(
     DATABASE_URL,
     echo=DEBUG,  # Only log SQL queries in debug mode
@@ -55,10 +56,11 @@ engine = create_engine(
     pool_pre_ping=POOL_PRE_PING,  # Verify connections are alive before using them
 )
 
-# Create SessionLocal class
+# Sync session factory — used by background jobs (calibration_runner,
+# data_export, reliability reports) that run in threads.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# --- Async engine and session (TASK-1161) ---
+# --- Async engine and session (primary for all FastAPI endpoints) ---
 # Convert sync URL to async driver URL using SQLAlchemy's URL API
 # to handle all driver variants (postgresql, postgresql+psycopg2, etc.)
 _sync_url = make_url(DATABASE_URL)
@@ -102,34 +104,11 @@ class Base(DeclarativeBase):
     pass
 
 
-def get_db() -> Generator:
-    """
-    Dependency function to get database session.
-
-    Yields a database session and ensures proper cleanup:
-    - On success: session is closed (letting SQLAlchemy handle commit/rollback)
-    - On exception: explicit rollback to ensure transaction cleanup, then re-raises
-
-    Note: Explicit rollback on exception prevents transactions from being left
-    in an inconsistent state, which can occur if relying solely on connection
-    closure for cleanup.
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
-
-
-async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Async dependency function to get database session.
 
     Yields an async database session and ensures proper cleanup.
-    Mirrors get_db() behavior for async endpoints.
     """
     async with AsyncSessionLocal() as db:
         try:

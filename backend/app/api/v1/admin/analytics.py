@@ -18,7 +18,7 @@ from app.core.time_analysis import (
     async_get_aggregate_response_time_analytics,
     async_get_response_time_percentiles,
 )
-from app.models import get_async_db
+from app.models import get_db
 from app.schemas.factor_analysis import (
     FactorAnalysisRecommendation,
     FactorAnalysisResponse,
@@ -77,7 +77,7 @@ LOW_G_LOADING_THRESHOLD = (
     response_model=ResponseTimeAnalyticsResponse,
 )
 async def get_response_time_analytics(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -204,7 +204,7 @@ async def get_response_time_analytics(
     response_model=DetailedResponseTimeAnalyticsResponse,
 )
 async def get_detailed_response_time_analytics(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     """
@@ -408,7 +408,7 @@ def _generate_recommendations(
 )
 async def get_factor_analysis(
     _: bool = Depends(verify_admin_token),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     min_responses_per_question: int = Query(
         default=30,
         ge=10,

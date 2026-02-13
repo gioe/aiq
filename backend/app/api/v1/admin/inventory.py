@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.error_responses import raise_server_error, ErrorMessages
-from app.models import DifficultyLevel, Question, QuestionType, get_async_db
+from app.models import DifficultyLevel, Question, QuestionType, get_db
 from app.schemas.inventory import (
     AlertSeverity,
     InventoryAlert,
@@ -110,7 +110,7 @@ async def get_inventory_health(
         ge=0,
         description="Minimum count for warning status (default: 20)",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     """

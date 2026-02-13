@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.core.error_responses import ErrorMessages, raise_not_found
-from app.models import DifficultyLevel, Question, QuestionType, get_async_db
+from app.models import DifficultyLevel, Question, QuestionType, get_db
 from app.schemas.anchor_items import (
     AnchorAutoSelectResponse,
     AnchorDomainSummary,
@@ -44,7 +44,7 @@ async def list_anchor_items(
         None,
         description="Filter by question type (e.g., 'pattern', 'logic')",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     """
@@ -139,7 +139,7 @@ async def list_anchor_items(
 async def toggle_anchor(
     question_id: int,
     request: AnchorToggleRequest,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     """
@@ -195,7 +195,7 @@ async def auto_select_anchors(
         le=1.0,
         description="Minimum discrimination threshold for eligibility",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     """

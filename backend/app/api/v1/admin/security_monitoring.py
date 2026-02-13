@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.core.security_monitoring import MAX_PAGE_SIZE, async_get_logout_all_stats
-from app.models import get_async_db
+from app.models import get_db
 from app.schemas.security_monitoring import LogoutAllStatsResponse, TimeRange
 
 from ._dependencies import logger, verify_admin_token
@@ -56,7 +56,7 @@ async def get_logout_all_events(
         le=MAX_PAGE_SIZE,
         description=f"Number of events per page (max {MAX_PAGE_SIZE})",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""

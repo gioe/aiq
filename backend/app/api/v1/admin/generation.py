@@ -21,7 +21,7 @@ from app.core.error_responses import (
     raise_server_error,
 )
 from app.core.process_registry import JobStatus, process_registry
-from app.models import GenerationRunStatus, QuestionGenerationRun, get_async_db
+from app.models import GenerationRunStatus, QuestionGenerationRun, get_db
 from app.schemas.generation_runs import (
     GenerationRunStatusSchema,
     PipelineLosses,
@@ -513,7 +513,7 @@ async def cleanup_finished_jobs(
 )
 async def create_generation_run(
     run_data: QuestionGenerationRunCreate,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_service_key),
 ):
     r"""
@@ -681,7 +681,7 @@ async def list_generation_runs(
     sort_order: Literal["asc", "desc"] = Query(
         "desc", description="Sort order (asc or desc)"
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_service_key),
 ):
     r"""
@@ -864,7 +864,7 @@ async def get_generation_runs_stats(
     environment: Optional[str] = Query(
         None, max_length=20, description="Filter by environment"
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_service_key),
 ):
     r"""
@@ -1285,7 +1285,7 @@ def _compute_pipeline_losses(run: QuestionGenerationRun) -> PipelineLosses:
 )
 async def get_generation_run(
     run_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_service_key),
 ):
     r"""
