@@ -1,180 +1,267 @@
 #!/usr/bin/env python3
-"""Sync the README.md project structure tree and validate all markdown links.
+"""Sync a README.md project-structure tree with the actual directory layout.
 
-Compares the actual directory layout against the tree block in README.md,
-reports drift, and optionally updates the README in place.
+Scans a target directory, compares its contents against the ASCII tree block
+in its README.md, reports drift, and optionally updates the README in place.
 
 Usage:
-    python scripts/sync_readme_structure.py          # Check only (exit 1 if drift)
-    python scripts/sync_readme_structure.py --fix    # Update README.md in place
+    python scripts/sync_readme_structure.py [directory] [--fix]
+
+Arguments:
+    directory   Path to check (default: repo root). Must contain a README.md
+                with a fenced code block whose first line ends with '/'.
+
+Options:
+    --fix       Update the README.md tree block in place.
+
+Examples:
+    python scripts/sync_readme_structure.py              # Check repo root
+    python scripts/sync_readme_structure.py --fix        # Fix repo root
+    python scripts/sync_readme_structure.py backend      # Check backend/
+    python scripts/sync_readme_structure.py ios --fix    # Fix ios/
 """
 
-import os
 import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-README = ROOT / "README.md"
-
-# Directories to include in the tree (order matters for display).
-# Map of directory name -> description comment.
-# Set to None to auto-detect directories not listed here.
-KNOWN_DIRS: dict[str, str] = {
-    "ios/": "SwiftUI iOS application",
-    "backend/": "Backend API server",
-    "question-service/": "AI-powered question generation service",
-    "libs/": "Shared Python packages (domain types, observability)",
-    "scripts/": "Pre-commit hooks (float checks, magic numbers)",
-    "docs/": "Project documentation",
-    "deployment/": "AWS Terraform configs (legacy)",
-    "website/": "Privacy policy, terms of service",
-    ".claude/": "Claude Code config, skills, and scripts",
-    ".github/": "CI/CD workflows, PR template, Dependabot",
-}
-
-# Directories to always exclude from the tree.
+# Directories/files to always exclude from tree comparison.
 EXCLUDED = {
     ".git",
     ".mypy_cache",
     ".pytest_cache",
     "__pycache__",
     "node_modules",
+    ".DS_Store",
+    ".coverage",
+    ".build",
+    "DerivedData",
+    "Build",
+    "xcuserdata",
     "tusk",
     "logs",
-}
-
-# Top-level files to include in the tree.
-KNOWN_FILES: dict[str, str] = {
-    "README.md": "This file",
+    "venv",
+    ".venv",
 }
 
 
-def get_actual_dirs() -> list[str]:
-    """Return top-level directories in display order.
+def find_tree_block(content: str) -> tuple[str, int, int] | None:
+    """Find an ASCII directory-tree fenced code block in markdown content.
 
-    Known directories appear in the order defined in KNOWN_DIRS.
-    Any new directories not in KNOWN_DIRS are appended alphabetically.
+    Looks for a ``` block whose first line ends with '/' (a directory root)
+    and contains box-drawing characters (├── or └──).
+
+    Returns (block_text, start_pos, end_pos) or None.
     """
-    on_disk = set()
-    for entry in ROOT.iterdir():
-        if not entry.is_dir():
+    for match in re.finditer(r"```\n(.*?)\n```", content, re.DOTALL):
+        block = match.group(1)
+        lines = block.splitlines()
+        if not lines:
             continue
+        # First line should be a directory name ending with /
+        if not lines[0].rstrip().endswith("/"):
+            continue
+        # Must contain tree-drawing characters
+        if not any("\u251c" in line or "\u2514" in line for line in lines):
+            continue
+        return block, match.start(1), match.end(1)
+    return None
+
+
+def parse_tree_entries(tree_block: str) -> dict[str, str]:
+    """Parse directory/file entries and their comments from a tree block.
+
+    Returns {name: description} preserving the original descriptions.
+    """
+    entries: dict[str, str] = {}
+    for line in tree_block.splitlines()[1:]:  # skip root line
+        # Match: ├── name  # description  OR  └── name  # description
+        m = re.match(r"[│├└─\s]+\s+(\S+)\s+#\s*(.*)", line)
+        if m:
+            entries[m.group(1)] = m.group(2).strip()
+        else:
+            # Entry without a description comment
+            m = re.match(r"[│├└─\s]+\s+(\S+)", line)
+            if m:
+                entries[m.group(1)] = ""
+    return entries
+
+
+def get_dir_contents(target: Path) -> tuple[list[str], list[str]]:
+    """Return (directories, files) in target, excluding noise."""
+    dirs = []
+    files = []
+    for entry in sorted(target.iterdir()):
         name = entry.name
         if name in EXCLUDED:
             continue
-        if name + "/" in KNOWN_DIRS or not name.startswith("."):
-            on_disk.add(name + "/")
+        if name.startswith(".") and entry.is_dir():
+            # Only include hidden dirs if they're meaningful
+            if name not in {".claude", ".github"}:
+                continue
+        if entry.is_dir():
+            dirs.append(name + "/")
+        elif entry.is_file() and not name.startswith("."):
+            files.append(name)
+    return dirs, files
 
-    # Preserve KNOWN_DIRS order for directories that exist on disk.
-    ordered = [d for d in KNOWN_DIRS if d in on_disk]
-    # Append any new directories not in KNOWN_DIRS.
-    new_dirs = sorted(on_disk - set(KNOWN_DIRS))
-    return ordered + new_dirs
 
+def build_tree(
+    root_name: str,
+    dirs: list[str],
+    files: list[str],
+    existing_entries: dict[str, str],
+    readme_entries: list[str],
+) -> str:
+    """Build an updated ASCII tree block.
 
-def build_tree(dirs: list[str]) -> str:
-    """Build the ASCII tree block content."""
-    lines = ["aiq/"]
-    entries = list(dirs) + list(KNOWN_FILES.keys())
-    col_width = max(len(e) for e in entries) + 4  # padding for alignment
+    Preserves order and descriptions from the existing tree for entries that
+    still exist. Appends new entries at the end. Drops removed entries.
+    """
+    on_disk = set(dirs + files)
 
-    for i, entry in enumerate(entries):
-        is_last = i == len(entries) - 1
+    # Start with existing entries that still exist (preserves order).
+    ordered: list[str] = [e for e in readme_entries if e in on_disk]
+    # Append new entries not in the existing tree.
+    new_entries = sorted(on_disk - set(readme_entries))
+    ordered.extend(new_entries)
+
+    if not ordered:
+        return root_name
+
+    col_width = max(len(e) for e in ordered) + 4
+    lines = [root_name]
+
+    for i, entry in enumerate(ordered):
+        is_last = i == len(ordered) - 1
         prefix = "\u2514\u2500\u2500" if is_last else "\u251c\u2500\u2500"
 
-        # Look up description
-        if entry in KNOWN_DIRS:
-            desc = KNOWN_DIRS[entry]
-        elif entry in KNOWN_FILES:
-            desc = KNOWN_FILES[entry]
-        else:
+        desc = existing_entries.get(entry, "")
+        if not desc and entry in new_entries:
             desc = "(new - needs description)"
 
         padded = f"{entry:<{col_width}}"
-        lines.append(f"{prefix} {padded}# {desc}")
+        if desc:
+            lines.append(f"{prefix} {padded}# {desc}")
+        else:
+            lines.append(f"{prefix} {padded.rstrip()}")
 
     return "\n".join(lines)
 
 
-def parse_readme_tree(content: str) -> str | None:
-    """Extract the tree block from README content."""
-    match = re.search(
-        r"```\n(aiq/\n(?:.*\n)*?.*\u2514.*)\n```", content
-    )
-    if match:
-        return match.group(1)
-    return None
-
-
-def find_markdown_links(content: str) -> list[tuple[int, str, str]]:
-    """Find all markdown links and return (line_number, text, path) tuples."""
-    links = []
+def validate_links(content: str, base: Path) -> list[str]:
+    """Check all relative markdown links point to existing files."""
+    issues = []
     for i, line in enumerate(content.splitlines(), 1):
         for match in re.finditer(r"\[([^\]]+)\]\(([^)]+)\)", line):
             text, path = match.group(1), match.group(2)
-            # Skip external URLs
             if path.startswith(("http://", "https://", "#", "mailto:")):
                 continue
-            links.append((i, text, path))
-    return links
-
-
-def validate_links(content: str) -> list[str]:
-    """Check all relative markdown links point to existing files."""
-    issues = []
-    for line_num, text, path in find_markdown_links(content):
-        target = ROOT / path
-        if not target.exists():
-            issues.append(f"  Line {line_num}: [{text}]({path}) -> file not found")
+            target = base / path
+            if not target.exists():
+                issues.append(
+                    f"  Line {i}: [{text}]({path}) -> file not found"
+                )
     return issues
 
 
 def main() -> int:
     fix_mode = "--fix" in sys.argv
-    content = README.read_text()
+    args = [a for a in sys.argv[1:] if a != "--fix"]
+
+    # Resolve target directory.
+    if args:
+        target = Path(args[0]).resolve()
+    else:
+        target = Path(__file__).resolve().parent.parent
+
+    readme = target / "README.md"
+    if not readme.exists():
+        print(f"No README.md found in {target}")
+        return 1
+
+    content = readme.read_text()
     issues: list[str] = []
 
     # --- Check tree block ---
-    actual_dirs = get_actual_dirs()
-    expected_tree = build_tree(actual_dirs)
-    current_tree = parse_readme_tree(content)
+    result = find_tree_block(content)
+    tree_drifted = False
 
-    if current_tree is None:
-        issues.append("Could not find project structure tree block in README.md")
-    elif current_tree != expected_tree:
-        issues.append("Project structure tree is out of date:")
+    if result is None:
+        issues.append(
+            f"No directory-tree code block found in {readme.name}. "
+            f"(Expected a ``` block starting with a line ending in '/')"
+        )
+    else:
+        current_tree, start_pos, end_pos = result
+        root_name = current_tree.splitlines()[0].rstrip()
+        existing_entries = parse_tree_entries(current_tree)
+        readme_entry_order = list(existing_entries.keys())
 
-        current_entries = set(re.findall(r"[.\w-]+/", current_tree))
-        expected_entries = set(re.findall(r"[.\w-]+/", expected_tree))
+        actual_dirs, actual_files = get_dir_contents(target)
 
-        added = expected_entries - current_entries
-        removed = current_entries - expected_entries
+        # Only check files that are already listed in the tree. New files
+        # are not auto-discovered (too noisy). New directories ARE flagged.
+        tree_files = [e for e in existing_entries if not e.endswith("/")]
+        include_files = [f for f in actual_files if f in tree_files]
 
-        for d in sorted(added):
-            issues.append(f"  + {d} (directory exists but missing from README)")
-        for d in sorted(removed):
-            issues.append(f"  - {d} (listed in README but does not exist)")
+        expected_tree = build_tree(
+            root_name,
+            actual_dirs,
+            include_files,
+            existing_entries,
+            readme_entry_order,
+        )
+
+        if current_tree != expected_tree:
+            tree_drifted = True
+            issues.append("Project structure tree is out of date:")
+
+            current_dirs = {e for e in existing_entries if e.endswith("/")}
+            actual_dir_set = set(actual_dirs)
+            actual_file_set = set(actual_files)
+            current_set = set(existing_entries.keys())
+            actual_set = actual_dir_set | set(include_files)
+
+            for d in sorted(actual_set - current_set):
+                issues.append(
+                    f"  + {d} (exists on disk but missing from README)"
+                )
+            for d in sorted(current_set - actual_set):
+                # Only flag removal if the entry no longer exists on disk.
+                if d.endswith("/") and d not in actual_dir_set:
+                    issues.append(
+                        f"  - {d} (listed in README but not found on disk)"
+                    )
+                elif not d.endswith("/") and d not in actual_file_set:
+                    issues.append(
+                        f"  - {d} (listed in README but not found on disk)"
+                    )
+
+            # If only whitespace/ordering changed, still flag it.
+            if not (actual_set - current_set) and not (
+                current_set - actual_set
+            ):
+                issues.append("  (whitespace or ordering difference)")
 
     # --- Check links ---
-    link_issues = validate_links(content)
+    link_issues = validate_links(content, target)
     if link_issues:
         issues.append("Broken markdown links:")
         issues.extend(link_issues)
 
     # --- Report or fix ---
     if not issues:
-        print("README.md is in sync with project structure.")
+        print(f"{readme.name} is in sync with {target.name}/ structure.")
         return 0
 
     for issue in issues:
         print(issue)
 
-    if fix_mode and current_tree is not None:
-        updated = content.replace(current_tree, expected_tree)
-        README.write_text(updated)
-        print(f"\nUpdated README.md tree block.")
-        # Re-check links after tree update (links need manual fixes)
+    if fix_mode and tree_drifted:
+        updated = content[:start_pos] + expected_tree + content[end_pos:]
+        readme.write_text(updated)
+        print(f"\nUpdated {readme.name} tree block.")
         if link_issues:
             print("Broken links require manual fixes.")
             return 1
