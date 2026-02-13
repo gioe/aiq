@@ -84,7 +84,7 @@ async def submit_analytics_events(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to submit analytics events: {str(e)}",
+            detail="Failed to submit analytics events",
         )
 
     logger.info(
