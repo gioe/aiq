@@ -13,8 +13,24 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import sessionmaker
 
 from app.main import app
-from app.models import Base, get_db, get_async_db
+from app.models import Base, get_db
 from app.core.token_blacklist import get_token_blacklist, init_token_blacklist
+
+# Module-level engines for the logout-all test database.
+# Shared between the client fixture (async override) and push notification
+# tests that need direct sync DB access.
+_test_engine = create_engine(
+    "sqlite:///./test_logout_all.db",
+    connect_args={"check_same_thread": False},
+)
+_test_async_engine = create_async_engine(
+    "sqlite+aiosqlite:///./test_logout_all.db",
+    connect_args={"check_same_thread": False},
+)
+_TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_test_engine)
+_TestAsyncSessionLocal = async_sessionmaker(
+    _test_async_engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
 class MockClock:
@@ -47,44 +63,18 @@ def init_blacklist():
 
 @pytest.fixture
 def client():
-    """Create a test client with both sync and async DB overrides.
+    """Create a test client with async DB override for test database."""
+    Base.metadata.create_all(bind=_test_engine)
 
-    Since auth dependencies now use get_async_db (TASK-1162), we must
-    override both get_db and get_async_db to use test databases.
-    """
-    _engine = create_engine(
-        "sqlite:///./test_logout_all.db",
-        connect_args={"check_same_thread": False},
-    )
-    _async_engine = create_async_engine(
-        "sqlite+aiosqlite:///./test_logout_all.db",
-        connect_args={"check_same_thread": False},
-    )
-    _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
-    _AsyncSessionLocal = async_sessionmaker(
-        _async_engine, class_=AsyncSession, expire_on_commit=False
-    )
-
-    Base.metadata.create_all(bind=_engine)
-
-    def override_get_db():
-        db = _SessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    async def override_get_async_db():
-        async with _AsyncSessionLocal() as session:
+    async def override_get_db():
+        async with _TestAsyncSessionLocal() as session:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_async_db] = override_get_async_db
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=_engine)
-    _engine.dispose()
+    Base.metadata.drop_all(bind=_test_engine)
 
 
 @pytest.fixture
@@ -605,7 +595,7 @@ class TestLogoutAllPushNotification:
 
         from app.models import User
 
-        db = next(app.dependency_overrides[get_db]())
+        db = _TestSessionLocal()
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = True
         user.apns_device_token = "fake_device_token_abc123"
@@ -636,7 +626,7 @@ class TestLogoutAllPushNotification:
 
         from app.models import User
 
-        db = next(app.dependency_overrides[get_db]())
+        db = _TestSessionLocal()
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = False
         user.apns_device_token = "fake_device_token_abc123"
@@ -665,7 +655,7 @@ class TestLogoutAllPushNotification:
 
         from app.models import User
 
-        db = next(app.dependency_overrides[get_db]())
+        db = _TestSessionLocal()
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = True
         user.apns_device_token = None
@@ -692,7 +682,7 @@ class TestLogoutAllPushNotification:
 
         from app.models import User
 
-        db = next(app.dependency_overrides[get_db]())
+        db = _TestSessionLocal()
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = True
         user.apns_device_token = "fake_device_token_abc123"
@@ -721,7 +711,7 @@ class TestLogoutAllPushNotification:
 
         from app.models import User
 
-        db = next(app.dependency_overrides[get_db]())
+        db = _TestSessionLocal()
         user = db.query(User).filter(User.email == test_user["email"]).first()
         user.notification_enabled = True
         user.apns_device_token = "fake_device_token_abc123"

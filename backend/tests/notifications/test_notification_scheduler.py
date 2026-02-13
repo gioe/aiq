@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 from app.core.datetime_utils import utc_now
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User, TestSession, TestResult
 from app.models.models import TestStatus
@@ -24,7 +24,7 @@ from app.core.security import hash_password
 
 
 @pytest.fixture
-def user_with_device_token(db_session):
+async def user_with_device_token(async_db_session):
     """Create a user with notifications enabled and device token registered."""
     user = User(
         email="notif@example.com",
@@ -34,14 +34,14 @@ def user_with_device_token(db_session):
         notification_enabled=True,
         apns_device_token="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    async_db_session.add(user)
+    await async_db_session.commit()
+    await async_db_session.refresh(user)
     return user
 
 
 @pytest.fixture
-def user_without_notifications(db_session):
+async def user_without_notifications(async_db_session):
     """Create a user with notifications disabled."""
     user = User(
         email="no_notif@example.com",
@@ -51,14 +51,14 @@ def user_without_notifications(db_session):
         notification_enabled=False,
         apns_device_token="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    async_db_session.add(user)
+    await async_db_session.commit()
+    await async_db_session.refresh(user)
     return user
 
 
 @pytest.fixture
-def user_without_device_token(db_session):
+async def user_without_device_token(async_db_session):
     """Create a user without device token."""
     user = User(
         email="no_token@example.com",
@@ -68,13 +68,15 @@ def user_without_device_token(db_session):
         notification_enabled=True,
         apns_device_token=None,
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    async_db_session.add(user)
+    await async_db_session.commit()
+    await async_db_session.refresh(user)
     return user
 
 
-def create_test_result(db_session: Session, user_id: int, completed_at: datetime):
+async def create_test_result(
+    db_session: AsyncSession, user_id: int, completed_at: datetime
+):
     """Helper to create a test session and result."""
     test_session = TestSession(
         user_id=user_id,
@@ -83,8 +85,8 @@ def create_test_result(db_session: Session, user_id: int, completed_at: datetime
         status=TestStatus.COMPLETED,
     )
     db_session.add(test_session)
-    db_session.commit()
-    db_session.refresh(test_session)
+    await db_session.commit()
+    await db_session.refresh(test_session)
 
     test_result = TestResult(
         test_session_id=test_session.id,
@@ -96,8 +98,8 @@ def create_test_result(db_session: Session, user_id: int, completed_at: datetime
         completed_at=completed_at,
     )
     db_session.add(test_result)
-    db_session.commit()
-    db_session.refresh(test_result)
+    await db_session.commit()
+    await db_session.refresh(test_result)
     return test_result
 
 
@@ -129,50 +131,67 @@ class TestCalculateNextTestDate:
 class TestGetUsersDueForTest:
     """Tests for get_users_due_for_test function."""
 
-    def test_user_due_for_test_is_returned(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_user_due_for_test_is_returned(
+        self, async_db_session, user_with_device_token
+    ):
         """Test that a user who is due for a test is returned."""
         # Create a test result from 6 months ago
         six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-        create_test_result(db_session, user_with_device_token.id, six_months_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, six_months_ago
+        )
 
-        users = get_users_due_for_test(db_session)
+        users = await get_users_due_for_test(async_db_session)
 
         assert len(users) == 1
         assert users[0].id == user_with_device_token.id
 
-    def test_user_not_due_is_not_returned(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_user_not_due_is_not_returned(
+        self, async_db_session, user_with_device_token
+    ):
         """Test that a user who recently tested is not returned."""
         # Create a test result from 1 month ago
         one_month_ago = utc_now() - timedelta(days=30)
-        create_test_result(db_session, user_with_device_token.id, one_month_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, one_month_ago
+        )
 
-        users = get_users_due_for_test(db_session)
+        users = await get_users_due_for_test(async_db_session)
 
         assert len(users) == 0
 
-    def test_user_without_notifications_not_returned(
-        self, db_session, user_without_notifications
+    @pytest.mark.asyncio
+    async def test_user_without_notifications_not_returned(
+        self, async_db_session, user_without_notifications
     ):
         """Test that users with notifications disabled are not returned."""
         six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-        create_test_result(db_session, user_without_notifications.id, six_months_ago)
+        await create_test_result(
+            async_db_session, user_without_notifications.id, six_months_ago
+        )
 
-        users = get_users_due_for_test(db_session)
+        users = await get_users_due_for_test(async_db_session)
 
         assert len(users) == 0
 
-    def test_user_without_device_token_not_returned(
-        self, db_session, user_without_device_token
+    @pytest.mark.asyncio
+    async def test_user_without_device_token_not_returned(
+        self, async_db_session, user_without_device_token
     ):
         """Test that users without device tokens are not returned."""
         six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-        create_test_result(db_session, user_without_device_token.id, six_months_ago)
+        await create_test_result(
+            async_db_session, user_without_device_token.id, six_months_ago
+        )
 
-        users = get_users_due_for_test(db_session)
+        users = await get_users_due_for_test(async_db_session)
 
         assert len(users) == 0
 
-    def test_multiple_users_due(self, db_session):
+    @pytest.mark.asyncio
+    async def test_multiple_users_due(self, async_db_session):
         """Test handling multiple users who are due."""
         # Create three users who are all due
         users = []
@@ -185,31 +204,36 @@ class TestGetUsersDueForTest:
                 notification_enabled=True,
                 apns_device_token=f"token{i}" + "0" * 32,
             )
-            db_session.add(user)
-            db_session.commit()
-            db_session.refresh(user)
+            async_db_session.add(user)
+            await async_db_session.commit()
+            await async_db_session.refresh(user)
             users.append(user)
 
             # Create test results from 6 months ago
             six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-            create_test_result(db_session, user.id, six_months_ago)
+            await create_test_result(async_db_session, user.id, six_months_ago)
 
-        users_due = get_users_due_for_test(db_session)
+        users_due = await get_users_due_for_test(async_db_session)
 
         assert len(users_due) == 3
 
-    def test_custom_notification_window(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_custom_notification_window(
+        self, async_db_session, user_with_device_token
+    ):
         """Test with custom notification window."""
         # Create a test result from 7 months ago
         seven_months_ago = utc_now() - timedelta(days=210)
-        create_test_result(db_session, user_with_device_token.id, seven_months_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, seven_months_ago
+        )
 
         # Set a narrow window that excludes this user
         window_start = utc_now() - timedelta(days=1)
         window_end = utc_now() + timedelta(days=1)
 
-        users = get_users_due_for_test(
-            db_session,
+        users = await get_users_due_for_test(
+            async_db_session,
             notification_window_start=window_start,
             notification_window_end=window_end,
         )
@@ -217,24 +241,28 @@ class TestGetUsersDueForTest:
         # User should not be in the window since they're overdue by a month
         assert len(users) == 0
 
-    def test_reminder_window_catches_overdue_users(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_reminder_window_catches_overdue_users(
+        self, async_db_session, user_with_device_token
     ):
         """Test that the reminder window catches users who are slightly overdue."""
         # Create a test result that makes user due 5 days ago
         test_date = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS + 5)
-        create_test_result(db_session, user_with_device_token.id, test_date)
+        await create_test_result(async_db_session, user_with_device_token.id, test_date)
 
         # With default window (NOTIFICATION_REMINDER_DAYS = 7), user should be included
-        users = get_users_due_for_test(db_session)
+        users = await get_users_due_for_test(async_db_session)
 
         assert len(users) == 1
 
-    def test_user_never_tested_not_returned(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_user_never_tested_not_returned(
+        self, async_db_session, user_with_device_token
+    ):
         """Test that users who never tested are not returned by this function."""
         # Don't create any test results for the user
 
-        users = get_users_due_for_test(db_session)
+        users = await get_users_due_for_test(async_db_session)
 
         assert len(users) == 0
 
@@ -242,35 +270,43 @@ class TestGetUsersDueForTest:
 class TestGetUsersNeverTested:
     """Tests for get_users_never_tested function."""
 
-    def test_user_never_tested_is_returned(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_user_never_tested_is_returned(
+        self, async_db_session, user_with_device_token
+    ):
         """Test that a user who never tested is returned."""
-        users = get_users_never_tested(db_session)
+        users = await get_users_never_tested(async_db_session)
 
         assert len(users) == 1
         assert users[0].id == user_with_device_token.id
 
-    def test_user_with_test_not_returned(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_user_with_test_not_returned(
+        self, async_db_session, user_with_device_token
+    ):
         """Test that users with test history are not returned."""
         # Create a test result
-        create_test_result(db_session, user_with_device_token.id, utc_now())
+        await create_test_result(async_db_session, user_with_device_token.id, utc_now())
 
-        users = get_users_never_tested(db_session)
+        users = await get_users_never_tested(async_db_session)
 
         assert len(users) == 0
 
-    def test_user_without_notifications_not_returned(
-        self, db_session, user_without_notifications
+    @pytest.mark.asyncio
+    async def test_user_without_notifications_not_returned(
+        self, async_db_session, user_without_notifications
     ):
         """Test that users with notifications disabled are not returned."""
-        users = get_users_never_tested(db_session)
+        users = await get_users_never_tested(async_db_session)
 
         assert len(users) == 0
 
-    def test_user_without_device_token_not_returned(
-        self, db_session, user_without_device_token
+    @pytest.mark.asyncio
+    async def test_user_without_device_token_not_returned(
+        self, async_db_session, user_without_device_token
     ):
         """Test that users without device tokens are not returned."""
-        users = get_users_never_tested(db_session)
+        users = await get_users_never_tested(async_db_session)
 
         assert len(users) == 0
 
@@ -278,13 +314,16 @@ class TestGetUsersNeverTested:
 class TestNotificationScheduler:
     """Tests for NotificationScheduler class."""
 
-    def test_get_users_to_notify_without_never_tested(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_get_users_to_notify_without_never_tested(
+        self, async_db_session, user_with_device_token
     ):
         """Test getting users to notify without including never-tested users."""
         # Create a test result from 6 months ago
         six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-        create_test_result(db_session, user_with_device_token.id, six_months_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, six_months_ago
+        )
 
         # Create another user who never tested
         new_user = User(
@@ -295,23 +334,26 @@ class TestNotificationScheduler:
             notification_enabled=True,
             apns_device_token="newtoken" + "0" * 32,
         )
-        db_session.add(new_user)
-        db_session.commit()
+        async_db_session.add(new_user)
+        await async_db_session.commit()
 
-        scheduler = NotificationScheduler(db_session)
-        users = scheduler.get_users_to_notify(include_never_tested=False)
+        scheduler = NotificationScheduler(async_db_session)
+        users = await scheduler.get_users_to_notify(include_never_tested=False)
 
         # Should only get the user who is due, not the new user
         assert len(users) == 1
         assert users[0].id == user_with_device_token.id
 
-    def test_get_users_to_notify_with_never_tested(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_get_users_to_notify_with_never_tested(
+        self, async_db_session, user_with_device_token
     ):
         """Test getting users to notify including never-tested users."""
         # Create a test result from 6 months ago
         six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-        create_test_result(db_session, user_with_device_token.id, six_months_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, six_months_ago
+        )
 
         # Create another user who never tested
         new_user = User(
@@ -322,80 +364,104 @@ class TestNotificationScheduler:
             notification_enabled=True,
             apns_device_token="newtoken" + "0" * 32,
         )
-        db_session.add(new_user)
-        db_session.commit()
+        async_db_session.add(new_user)
+        await async_db_session.commit()
 
-        scheduler = NotificationScheduler(db_session)
-        users = scheduler.get_users_to_notify(include_never_tested=True)
+        scheduler = NotificationScheduler(async_db_session)
+        users = await scheduler.get_users_to_notify(include_never_tested=True)
 
         # Should get both users
         assert len(users) == 2
 
-    def test_get_next_test_date_for_user(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_get_next_test_date_for_user(
+        self, async_db_session, user_with_device_token
+    ):
         """Test getting next test date for a specific user."""
         # Create a test result
         test_date = utc_now() - timedelta(days=30)
-        create_test_result(db_session, user_with_device_token.id, test_date)
+        await create_test_result(async_db_session, user_with_device_token.id, test_date)
 
-        scheduler = NotificationScheduler(db_session)
-        next_date = scheduler.get_next_test_date_for_user(user_with_device_token.id)
+        scheduler = NotificationScheduler(async_db_session)
+        next_date = await scheduler.get_next_test_date_for_user(
+            user_with_device_token.id
+        )
 
         expected = test_date + timedelta(days=settings.TEST_CADENCE_DAYS)
         assert next_date == expected
 
-    def test_get_next_test_date_for_never_tested_user(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_get_next_test_date_for_never_tested_user(
+        self, async_db_session, user_with_device_token
     ):
         """Test that next test date is None for users who never tested."""
-        scheduler = NotificationScheduler(db_session)
-        next_date = scheduler.get_next_test_date_for_user(user_with_device_token.id)
+        scheduler = NotificationScheduler(async_db_session)
+        next_date = await scheduler.get_next_test_date_for_user(
+            user_with_device_token.id
+        )
 
         assert next_date is None
 
-    def test_is_user_due_for_test_when_due(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_is_user_due_for_test_when_due(
+        self, async_db_session, user_with_device_token
+    ):
         """Test checking if user is due when they are."""
         # Create a test result from 6 months ago
         six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-        create_test_result(db_session, user_with_device_token.id, six_months_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, six_months_ago
+        )
 
-        scheduler = NotificationScheduler(db_session)
-        is_due = scheduler.is_user_due_for_test(user_with_device_token.id)
+        scheduler = NotificationScheduler(async_db_session)
+        is_due = await scheduler.is_user_due_for_test(user_with_device_token.id)
 
         assert is_due is True
 
-    def test_is_user_due_for_test_when_not_due(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_is_user_due_for_test_when_not_due(
+        self, async_db_session, user_with_device_token
     ):
         """Test checking if user is due when they are not."""
         # Create a test result from 1 month ago
         one_month_ago = utc_now() - timedelta(days=30)
-        create_test_result(db_session, user_with_device_token.id, one_month_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, one_month_ago
+        )
 
-        scheduler = NotificationScheduler(db_session)
-        is_due = scheduler.is_user_due_for_test(user_with_device_token.id)
+        scheduler = NotificationScheduler(async_db_session)
+        is_due = await scheduler.is_user_due_for_test(user_with_device_token.id)
 
         assert is_due is False
 
-    def test_is_user_due_when_never_tested(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_is_user_due_when_never_tested(
+        self, async_db_session, user_with_device_token
+    ):
         """Test that never-tested users are considered due."""
-        scheduler = NotificationScheduler(db_session)
-        is_due = scheduler.is_user_due_for_test(user_with_device_token.id)
+        scheduler = NotificationScheduler(async_db_session)
+        is_due = await scheduler.is_user_due_for_test(user_with_device_token.id)
 
         assert is_due is True
 
-    def test_get_next_test_date_uses_most_recent(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_get_next_test_date_uses_most_recent(
+        self, async_db_session, user_with_device_token
     ):
         """Test that scheduler uses the most recent test when calculating next date."""
         # Create two test results
         old_test = utc_now() - timedelta(days=200)
         recent_test = utc_now() - timedelta(days=30)
 
-        create_test_result(db_session, user_with_device_token.id, old_test)
-        create_test_result(db_session, user_with_device_token.id, recent_test)
+        await create_test_result(async_db_session, user_with_device_token.id, old_test)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, recent_test
+        )
 
-        scheduler = NotificationScheduler(db_session)
-        next_date = scheduler.get_next_test_date_for_user(user_with_device_token.id)
+        scheduler = NotificationScheduler(async_db_session)
+        next_date = await scheduler.get_next_test_date_for_user(
+            user_with_device_token.id
+        )
 
         # Should be based on the recent test, not the old one
         expected = recent_test + timedelta(days=settings.TEST_CADENCE_DAYS)
@@ -405,123 +471,146 @@ class TestNotificationScheduler:
 class TestGetUsersForDay30Reminder:
     """Tests for get_users_for_day_30_reminder function (Phase 2.2)."""
 
-    def test_user_with_first_test_30_days_ago_is_returned(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_user_with_first_test_30_days_ago_is_returned(
+        self, async_db_session, user_with_device_token
     ):
         """Test that a user who took their first test 30 days ago is returned."""
         # Create a test result from exactly 30 days ago
         thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
-        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, thirty_days_ago
+        )
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         assert len(users) == 1
         assert users[0].id == user_with_device_token.id
 
-    def test_user_with_first_test_29_days_ago_is_returned(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_user_with_first_test_29_days_ago_is_returned(
+        self, async_db_session, user_with_device_token
     ):
         """Test user within notification window (29 days) is included."""
         # Create a test result from 29 days ago (within window)
         twenty_nine_days_ago = utc_now() - timedelta(
             days=DAY_30_REMINDER_DAYS - DAY_30_NOTIFICATION_WINDOW_DAYS
         )
-        create_test_result(db_session, user_with_device_token.id, twenty_nine_days_ago)
-
-        users = get_users_for_day_30_reminder(db_session)
-
-        assert len(users) == 1
-
-    def test_user_with_first_test_31_days_ago_is_returned(
-        self, db_session, user_with_device_token
-    ):
-        """Test user within notification window (31 days) is included."""
-        # Create a test result from 31 days ago
-        # Note: The window is [30-1, 30+1] = [29, 31] days, and
-        # the query is >= target_date_start and <= target_date_end.
-        # 31 days ago should be at the edge of the window.
-        # We need to be inside the window, so use 30.5 days to be safe.
-        thirty_point_five_days_ago = utc_now() - timedelta(days=30.5)
-        create_test_result(
-            db_session, user_with_device_token.id, thirty_point_five_days_ago
+        await create_test_result(
+            async_db_session, user_with_device_token.id, twenty_nine_days_ago
         )
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         assert len(users) == 1
 
-    def test_user_with_first_test_too_recent_not_returned(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_user_with_first_test_31_days_ago_is_returned(
+        self, async_db_session, user_with_device_token
+    ):
+        """Test user within notification window (31 days) is included."""
+        thirty_point_five_days_ago = utc_now() - timedelta(days=30.5)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, thirty_point_five_days_ago
+        )
+
+        users = await get_users_for_day_30_reminder(async_db_session)
+
+        assert len(users) == 1
+
+    @pytest.mark.asyncio
+    async def test_user_with_first_test_too_recent_not_returned(
+        self, async_db_session, user_with_device_token
     ):
         """Test that a user who took their first test recently is not returned."""
         # Create a test result from 10 days ago
         ten_days_ago = utc_now() - timedelta(days=10)
-        create_test_result(db_session, user_with_device_token.id, ten_days_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, ten_days_ago
+        )
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         assert len(users) == 0
 
-    def test_user_with_first_test_too_old_not_returned(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_user_with_first_test_too_old_not_returned(
+        self, async_db_session, user_with_device_token
     ):
         """Test that a user who took their first test long ago is not returned."""
         # Create a test result from 60 days ago (outside window)
         sixty_days_ago = utc_now() - timedelta(days=60)
-        create_test_result(db_session, user_with_device_token.id, sixty_days_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, sixty_days_ago
+        )
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         assert len(users) == 0
 
-    def test_user_with_multiple_tests_not_returned(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_user_with_multiple_tests_not_returned(
+        self, async_db_session, user_with_device_token
     ):
         """Test that a user with multiple tests is not returned (Day 30 is for first test only)."""
         # Create first test result from 30 days ago
         thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
-        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, thirty_days_ago
+        )
 
         # Create second test result from 20 days ago
         twenty_days_ago = utc_now() - timedelta(days=20)
-        create_test_result(db_session, user_with_device_token.id, twenty_days_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, twenty_days_ago
+        )
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         # User should not be returned because they've taken more than 1 test
         assert len(users) == 0
 
-    def test_user_never_tested_not_returned(self, db_session, user_with_device_token):
+    @pytest.mark.asyncio
+    async def test_user_never_tested_not_returned(
+        self, async_db_session, user_with_device_token
+    ):
         """Test that a user who never tested is not returned."""
         # Don't create any test results
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         assert len(users) == 0
 
-    def test_user_without_notifications_not_returned(
-        self, db_session, user_without_notifications
+    @pytest.mark.asyncio
+    async def test_user_without_notifications_not_returned(
+        self, async_db_session, user_without_notifications
     ):
         """Test that users with notifications disabled are not returned."""
         thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
-        create_test_result(db_session, user_without_notifications.id, thirty_days_ago)
+        await create_test_result(
+            async_db_session, user_without_notifications.id, thirty_days_ago
+        )
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         assert len(users) == 0
 
-    def test_user_without_device_token_not_returned(
-        self, db_session, user_without_device_token
+    @pytest.mark.asyncio
+    async def test_user_without_device_token_not_returned(
+        self, async_db_session, user_without_device_token
     ):
         """Test that users without device tokens are not returned."""
         thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
-        create_test_result(db_session, user_without_device_token.id, thirty_days_ago)
+        await create_test_result(
+            async_db_session, user_without_device_token.id, thirty_days_ago
+        )
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         assert len(users) == 0
 
-    def test_multiple_eligible_users(self, db_session):
+    @pytest.mark.asyncio
+    async def test_multiple_eligible_users(self, async_db_session):
         """Test handling multiple users who are eligible for Day 30 reminder."""
         # Create three users who are all eligible
         eligible_users = []
@@ -534,35 +623,38 @@ class TestGetUsersForDay30Reminder:
                 notification_enabled=True,
                 apns_device_token=f"day30token{i}" + "0" * 32,
             )
-            db_session.add(user)
-            db_session.commit()
-            db_session.refresh(user)
+            async_db_session.add(user)
+            await async_db_session.commit()
+            await async_db_session.refresh(user)
             eligible_users.append(user)
 
             # Create first test results from 30 days ago
             thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
-            create_test_result(db_session, user.id, thirty_days_ago)
+            await create_test_result(async_db_session, user.id, thirty_days_ago)
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         assert len(users) == 3
         user_ids = {u.id for u in users}
         expected_ids = {u.id for u in eligible_users}
         assert user_ids == expected_ids
 
-    def test_user_already_received_reminder_not_returned(
-        self, db_session, user_with_device_token
+    @pytest.mark.asyncio
+    async def test_user_already_received_reminder_not_returned(
+        self, async_db_session, user_with_device_token
     ):
         """Test that users who already received a Day 30 reminder are excluded."""
         # Create a test result from 30 days ago
         thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
-        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, thirty_days_ago
+        )
 
         # Mark user as having already received the reminder
         user_with_device_token.day_30_reminder_sent_at = utc_now() - timedelta(days=1)
-        db_session.commit()
+        await async_db_session.commit()
 
-        users = get_users_for_day_30_reminder(db_session)
+        users = await get_users_for_day_30_reminder(async_db_session)
 
         # User should NOT be returned because they already received the reminder
         assert len(users) == 0
@@ -572,13 +664,17 @@ class TestNotificationFailureLogging:
     """Tests that notification batch failures are logged as warnings."""
 
     @pytest.mark.asyncio
-    async def test_day_30_failures_logged(self, db_session, user_with_device_token):
+    async def test_day_30_failures_logged(
+        self, async_db_session, user_with_device_token
+    ):
         """Test that Day 30 batch failures are logged with warning."""
         # Create test result from 30 days ago to make user eligible
         thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
-        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, thirty_days_ago
+        )
 
-        scheduler = NotificationScheduler(db_session)
+        scheduler = NotificationScheduler(async_db_session)
 
         mock_apns = AsyncMock()
         mock_apns.connect = AsyncMock()
@@ -601,13 +697,15 @@ class TestNotificationFailureLogging:
 
     @pytest.mark.asyncio
     async def test_day_30_no_warning_when_all_succeed(
-        self, db_session, user_with_device_token
+        self, async_db_session, user_with_device_token
     ):
         """Test that no warning is logged when all sends succeed."""
         thirty_days_ago = utc_now() - timedelta(days=DAY_30_REMINDER_DAYS)
-        create_test_result(db_session, user_with_device_token.id, thirty_days_ago)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, thirty_days_ago
+        )
 
-        scheduler = NotificationScheduler(db_session)
+        scheduler = NotificationScheduler(async_db_session)
 
         mock_apns = AsyncMock()
         mock_apns.connect = AsyncMock()
