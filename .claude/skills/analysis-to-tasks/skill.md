@@ -72,7 +72,7 @@ sqlite3 -header -column tasks.db "SELECT id, summary, description, status, prior
 For each recommendation, run the dedup utility:
 
 ```bash
-python3 scripts/check_duplicates.py check "<recommendation summary>" --domain <domain> --threshold 0.6 --json
+tusk dupes check "<recommendation summary>" --domain <domain> --threshold 0.6 --json
 ```
 
 Interpret results by similarity score:
@@ -348,7 +348,7 @@ Duplicate detection is performed **early in Step 4** using `/check-dupes`, befor
 
 For each recommendation, run:
 ```bash
-python3 scripts/check_duplicates.py check "<summary>" --domain <domain> --threshold 0.6 --json
+tusk dupes check "<summary>" --domain <domain> --threshold 0.6 --json
 ```
 
 The tool normalizes summaries (strips `[Deferred]`/`[Enhancement]` prefixes, lowercases, collapses whitespace) and uses `SequenceMatcher` to compute similarity scores.
