@@ -293,6 +293,7 @@ class TestAPNsService:
 
         assert result["success"] == 0
         assert result["failed"] == 2
+        assert result["per_result"] == [False, False]
 
     @pytest.mark.asyncio
     async def test_send_batch_notifications_success(self):
@@ -313,6 +314,7 @@ class TestAPNsService:
 
         assert result["success"] == 3
         assert result["failed"] == 0
+        assert result["per_result"] == [True, True, True]
 
         # Verify send_notification was called 3 times
         assert mock_client.send_notification.call_count == 3
@@ -341,6 +343,7 @@ class TestAPNsService:
 
         assert result["success"] == 2
         assert result["failed"] == 1
+        assert result["per_result"] == [True, False, True]
 
     @pytest.mark.asyncio
     async def test_send_batch_notifications_with_custom_fields(self):

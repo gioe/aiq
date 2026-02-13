@@ -211,7 +211,7 @@ class APNsService:
         self,
         notifications: List[Dict],
         notification_type: Optional[NotificationType] = None,
-    ) -> Dict[str, int]:
+    ) -> Dict:
         """
         Send notifications to multiple devices.
 
@@ -226,11 +226,17 @@ class APNsService:
             notification_type: Type identifier for analytics tracking
 
         Returns:
-            Dictionary with counts: {"success": X, "failed": Y}
+            Dictionary with counts and per-notification results:
+            {"success": X, "failed": Y, "per_result": [True, False, ...]}
+            per_result[i] corresponds to notifications[i].
         """
         if not self._client:
             logger.error("APNs client not connected. Call connect() first.")
-            return {"success": 0, "failed": len(notifications)}
+            return {
+                "success": 0,
+                "failed": len(notifications),
+                "per_result": [False] * len(notifications),
+            }
 
         success_count = 0
         failed_count = 0
@@ -253,8 +259,11 @@ class APNsService:
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+        per_result = []
         for result in results:
-            if isinstance(result, bool) and result:
+            succeeded = isinstance(result, bool) and result
+            per_result.append(succeeded)
+            if succeeded:
                 success_count += 1
             else:
                 failed_count += 1
@@ -263,7 +272,11 @@ class APNsService:
             f"Batch notification results: {success_count} succeeded, {failed_count} failed"
         )
 
-        return {"success": success_count, "failed": failed_count}
+        return {
+            "success": success_count,
+            "failed": failed_count,
+            "per_result": per_result,
+        }
 
 
 async def send_test_reminder_notification(
