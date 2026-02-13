@@ -3,9 +3,12 @@
 
 import argparse
 import sqlite3
+import subprocess
 import sys
 
-from db_path import DB_PATH
+DB_PATH = subprocess.check_output(
+    ["tusk", "path"], text=True
+).strip()
 
 DEPENDENCIES_SCHEMA = """
 CREATE TABLE IF NOT EXISTS task_dependencies (
