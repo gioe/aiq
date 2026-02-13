@@ -8,7 +8,7 @@ import sqlite3
 import sys
 from difflib import SequenceMatcher
 
-DB_PATH = "tasks.db"
+from db_path import DB_PATH
 
 DEFAULT_THRESHOLD = 0.82
 SIMILAR_THRESHOLD = 0.6
