@@ -157,7 +157,11 @@ def validate_links(content: str, base: Path) -> list[str]:
             text, path = match.group(1), match.group(2)
             if path.startswith(("http://", "https://", "#", "mailto:")):
                 continue
-            target = base / path
+            # Strip anchor fragments (e.g., "file.md#section" -> "file.md")
+            file_path = path.split("#")[0]
+            if not file_path:
+                continue
+            target = base / file_path
             if not target.exists():
                 issues.append(
                     f"  Line {i}: [{text}]({path}) -> file not found"
