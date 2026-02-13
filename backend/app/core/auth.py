@@ -277,6 +277,6 @@ async def get_current_user_optional(
         # Token is invalid or wrong type - treat as anonymous
         return None
     except SQLAlchemyError as e:
-        # Database errors should not be silently ignored
+        # Log but degrade gracefully — optional auth should not block the request
         logger.error(f"Database error during optional auth: {e}")
-        raise HTTPException(status_code=503, detail="Database temporarily unavailable")
+        return None
