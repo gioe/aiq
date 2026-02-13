@@ -8,17 +8,17 @@ This is a monorepo containing all components of the AIQ application:
 
 ```
 aiq/
-├── ios/                    # SwiftUI iOS application
-├── backend/                # Backend API server
-├── question-service/       # AI-powered question generation service
-├── libs/                   # Shared Python packages (domain types, observability)
-├── scripts/                # Pre-commit hooks (float checks, magic numbers)
-├── docs/                   # Project documentation
-├── deployment/             # AWS Terraform configs (legacy)
-├── website/                # Privacy policy, terms of service
-├── .claude/                # Claude Code config, skills, and scripts
-├── .github/                # CI/CD workflows, PR template, Dependabot
-└── README.md               # This file
+├── ios/                 # SwiftUI iOS application
+├── backend/             # Backend API server
+├── question-service/    # AI-powered question generation service
+├── libs/                # Shared Python packages (domain types, observability)
+├── scripts/             # Pre-commit hooks (float checks, magic numbers)
+├── docs/                # Project documentation
+├── deployment/          # AWS Terraform configs (legacy)
+├── website/             # Privacy policy, terms of service
+├── .claude/             # Claude Code config, skills, and scripts
+├── .github/             # CI/CD workflows, PR template, Dependabot
+└── README.md            # This file
 ```
 
 ## Components
