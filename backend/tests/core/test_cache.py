@@ -415,12 +415,19 @@ class TestGetCache:
 
 
 class TestInvalidateUserCache:
-    """Tests for the invalidate_user_cache() function."""
+    """Tests for the invalidate_user_cache() function.
+
+    Note: The current implementation clears the *entire* cache regardless of
+    user_id. This is a known simplification documented in cache.py. These tests
+    verify the actual behaviour; a future task should make invalidation
+    user-specific via key-prefix deletion.
+    """
 
     def setup_method(self):
         get_cache().clear()
 
-    def test_clears_all_cached_entries(self):
+    def test_clears_entire_cache(self):
+        """Current implementation clears all entries, not just the target user."""
         cache = get_cache()
         cache.set("user:1:score", 100)
         cache.set("user:2:score", 200)
