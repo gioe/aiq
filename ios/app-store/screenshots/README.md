@@ -11,7 +11,7 @@ Screenshots are generated using UI tests that run on specific device simulators.
 To quickly test screenshot generation on iPhone 16 Pro Max:
 
 ```bash
-./scripts/generate-app-store-screenshots.sh --quick
+./ios/scripts/generate-app-store-screenshots.sh --quick
 ```
 
 ### Full Generation (All Devices)
@@ -19,7 +19,7 @@ To quickly test screenshot generation on iPhone 16 Pro Max:
 To generate screenshots for all required App Store device sizes:
 
 ```bash
-./scripts/generate-app-store-screenshots.sh
+./ios/scripts/generate-app-store-screenshots.sh
 ```
 
 ### Specific Device
@@ -27,7 +27,7 @@ To generate screenshots for all required App Store device sizes:
 To generate screenshots for a specific device:
 
 ```bash
-./scripts/generate-app-store-screenshots.sh --device "iPhone 16 Pro Max"
+./ios/scripts/generate-app-store-screenshots.sh --device "iPhone 16 Pro Max"
 ```
 
 ## Required Device Sizes

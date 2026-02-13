@@ -13,7 +13,7 @@
 # - iPad Pro 12.9" (6th gen) - 2048 x 2732
 #
 # Usage:
-#   ./scripts/generate-app-store-screenshots.sh [--device <device_name>] [--quick]
+#   ./ios/scripts/generate-app-store-screenshots.sh [--device <device_name>] [--quick]
 #
 # Options:
 #   --device <name>  Only run on the specified device

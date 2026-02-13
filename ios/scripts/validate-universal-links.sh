@@ -6,7 +6,7 @@
 # Checks that the file is properly deployed, accessible, and correctly configured.
 #
 # Usage:
-#   ./scripts/validate-universal-links.sh [--team-id TEAM_ID] [--bundle-id BUNDLE_ID] [--domain DOMAIN]
+#   ./ios/scripts/validate-universal-links.sh [--team-id TEAM_ID] [--bundle-id BUNDLE_ID] [--domain DOMAIN]
 #
 # Environment Variables:
 #   APNS_TEAM_ID  - Apple Developer Team ID (10 characters)

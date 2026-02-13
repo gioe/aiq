@@ -32,7 +32,7 @@ import XCTest
 ///
 /// Or run the provided script:
 /// ```bash
-/// ./scripts/generate-app-store-screenshots.sh
+/// ./ios/scripts/generate-app-store-screenshots.sh
 /// ```
 ///
 /// ## Screenshot Order (matches APP_STORE_METADATA.md)

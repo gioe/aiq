@@ -288,13 +288,13 @@ For Universal Links to work in staging environments, the dev domain needs its ow
 **Validate deployment:**
 ```bash
 # Validate production domain (requires APNS_TEAM_ID env var)
-./scripts/validate-universal-links.sh
+./ios/scripts/validate-universal-links.sh
 
 # Validate development domain
-./scripts/validate-universal-links.sh --team-id ABCD123456 --dev
+./ios/scripts/validate-universal-links.sh --team-id ABCD123456 --dev
 
 # Or with explicit domain
-./scripts/validate-universal-links.sh --team-id ABCD123456 --domain aiq.app
+./ios/scripts/validate-universal-links.sh --team-id ABCD123456 --domain aiq.app
 ```
 
 ### Troubleshooting
