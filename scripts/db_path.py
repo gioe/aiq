@@ -13,10 +13,10 @@ def resolve_db_path() -> str:
     """Return the absolute path to the project task database."""
     try:
         result = subprocess.run(
-            ["tusk", "path"], capture_output=True, text=True, check=True
+            ["tusk", "path"], capture_output=True, text=True, check=True, timeout=5
         )
         return result.stdout.strip()
-    except (FileNotFoundError, subprocess.CalledProcessError):
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         d = os.path.dirname(os.path.abspath(__file__))
         while d != os.path.dirname(d):
             if os.path.isdir(os.path.join(d, ".git")):
