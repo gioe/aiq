@@ -2,28 +2,10 @@
 Pydantic schemas for feedback submission endpoints.
 """
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from enum import Enum
 from datetime import datetime, timezone
 
 from app.core.validators import StringSanitizer, validate_no_sql_injection
-
-
-class FeedbackCategorySchema(str, Enum):
-    """Feedback category enumeration for API schemas."""
-
-    BUG_REPORT = "bug_report"
-    FEATURE_REQUEST = "feature_request"
-    GENERAL_FEEDBACK = "general_feedback"
-    QUESTION_HELP = "question_help"
-    OTHER = "other"
-
-
-class FeedbackStatusSchema(str, Enum):
-    """Feedback status enumeration for API schemas."""
-
-    PENDING = "pending"
-    REVIEWED = "reviewed"
-    RESOLVED = "resolved"
+from libs.domain_types import FeedbackCategory, FeedbackStatus
 
 
 class FeedbackSubmitRequest(BaseModel):
@@ -36,7 +18,7 @@ class FeedbackSubmitRequest(BaseModel):
         description="Name of person submitting feedback",
     )
     email: EmailStr = Field(..., description="Email address for follow-up")
-    category: FeedbackCategorySchema = Field(..., description="Feedback category")
+    category: FeedbackCategory = Field(..., description="Feedback category")
     description: str = Field(
         ...,
         min_length=10,
@@ -106,9 +88,9 @@ class FeedbackResponse(BaseModel):
     )
     name: str = Field(..., description="Submitter name")
     email: str = Field(..., description="Submitter email")
-    category: FeedbackCategorySchema = Field(..., description="Feedback category")
+    category: FeedbackCategory = Field(..., description="Feedback category")
     description: str = Field(..., description="Feedback description")
-    status: FeedbackStatusSchema = Field(..., description="Submission status")
+    status: FeedbackStatus = Field(..., description="Submission status")
     app_version: str | None = Field(None, description="App version")
     ios_version: str | None = Field(None, description="iOS version")
     device_id: str | None = Field(None, description="Device ID")

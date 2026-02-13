@@ -26,79 +26,29 @@ from app.core.datetime_utils import utc_now
 from .base import Base
 from .types import FloatArray
 
+# Domain enums — single source of truth in libs/domain_types
+from libs.domain_types import (
+    QuestionType,
+    DifficultyLevel,
+    TestStatus,
+    NotificationType,
+    GenerationRunStatus,
+    EducationLevel,
+    FeedbackCategory,
+    FeedbackStatus,
+)
 
-class QuestionType(str, enum.Enum):
-    """Question type enumeration."""
-
-    PATTERN = "pattern"
-    LOGIC = "logic"
-    SPATIAL = "spatial"
-    MATH = "math"
-    VERBAL = "verbal"
-    MEMORY = "memory"
-
-
-class DifficultyLevel(str, enum.Enum):
-    """Difficulty level enumeration."""
-
-    EASY = "easy"
-    MEDIUM = "medium"
-    HARD = "hard"
-
-
-class NotificationType(str, enum.Enum):
-    """Notification type enumeration for APNs push notifications."""
-
-    TEST_REMINDER = "test_reminder"
-    DAY_30_REMINDER = "day_30_reminder"
-    LOGOUT_ALL = "logout_all"
-
-
-class TestStatus(str, enum.Enum):
-    """Test session status enumeration."""
-
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    ABANDONED = "abandoned"
-
-
-class GenerationRunStatus(str, enum.Enum):
-    """Status enumeration for question generation runs."""
-
-    RUNNING = "running"
-    SUCCESS = "success"
-    PARTIAL_FAILURE = "partial_failure"
-    FAILED = "failed"
-
-
-class EducationLevel(str, enum.Enum):
-    """Education level enumeration for demographic data."""
-
-    HIGH_SCHOOL = "high_school"
-    SOME_COLLEGE = "some_college"
-    ASSOCIATES = "associates"
-    BACHELORS = "bachelors"
-    MASTERS = "masters"
-    DOCTORATE = "doctorate"
-    PREFER_NOT_TO_SAY = "prefer_not_to_say"
-
-
-class FeedbackCategory(str, enum.Enum):
-    """Feedback category enumeration."""
-
-    BUG_REPORT = "bug_report"
-    FEATURE_REQUEST = "feature_request"
-    GENERAL_FEEDBACK = "general_feedback"
-    QUESTION_HELP = "question_help"
-    OTHER = "other"
-
-
-class FeedbackStatus(str, enum.Enum):
-    """Feedback submission status enumeration."""
-
-    PENDING = "pending"
-    REVIEWED = "reviewed"
-    RESOLVED = "resolved"
+# Re-export so existing `from app.models.models import QuestionType` still works
+__all__ = [
+    "QuestionType",
+    "DifficultyLevel",
+    "TestStatus",
+    "NotificationType",
+    "GenerationRunStatus",
+    "EducationLevel",
+    "FeedbackCategory",
+    "FeedbackStatus",
+]
 
 
 class User(Base):

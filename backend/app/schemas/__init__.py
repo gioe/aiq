@@ -26,16 +26,16 @@ from .responses import (
     ConfidenceIntervalSchema,
 )
 from .generation_runs import (
-    GenerationRunStatusSchema,
+    GenerationRunStatus,
     QuestionGenerationRunCreate,
     QuestionGenerationRunRead,
     QuestionGenerationRunSummary,
     QuestionGenerationRunListResponse,
     QuestionGenerationRunStats,
 )
+from libs.domain_types import DifficultyLevel
 from .calibration import (
     SeverityLevel,
-    DifficultyLabel,
     CalibrationSummary,
     SeverityBreakdown,
     DifficultyCalibrationStatus,
@@ -125,7 +125,7 @@ __all__ = [
     "SubmitTestResponse",
     "ConfidenceIntervalSchema",
     # Generation run tracking schemas
-    "GenerationRunStatusSchema",
+    "GenerationRunStatus",
     "QuestionGenerationRunCreate",
     "QuestionGenerationRunRead",
     "QuestionGenerationRunSummary",
@@ -133,7 +133,7 @@ __all__ = [
     "QuestionGenerationRunStats",
     # Calibration schemas (EIC-005, EIC-006)
     "SeverityLevel",
-    "DifficultyLabel",
+    "DifficultyLevel",
     "CalibrationSummary",
     "SeverityBreakdown",
     "DifficultyCalibrationStatus",

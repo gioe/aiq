@@ -4,8 +4,9 @@ Pydantic schemas for difficulty calibration endpoints (EIC-005, EIC-006).
 These schemas support the admin endpoints for viewing calibration health
 and triggering recalibration of question difficulty labels.
 """
-from pydantic import BaseModel, Field
 from typing import List, Optional
+
+from pydantic import BaseModel, Field
 from enum import Enum
 
 
@@ -15,14 +16,6 @@ class SeverityLevel(str, Enum):
     MINOR = "minor"
     MAJOR = "major"
     SEVERE = "severe"
-
-
-class DifficultyLabel(str, Enum):
-    """Difficulty label for questions."""
-
-    EASY = "easy"
-    MEDIUM = "medium"
-    HARD = "hard"
 
 
 # =============================================================================

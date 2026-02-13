@@ -4,33 +4,12 @@ This module defines the data structures used throughout the question
 generation pipeline, from generation to evaluation.
 """
 
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
-class QuestionType(str, Enum):
-    """Types of IQ test questions.
-
-    Values match backend enum (backend/app/models/models.py) to eliminate
-    mapping code and ensure data consistency across services.
-    """
-
-    PATTERN = "pattern"
-    LOGIC = "logic"
-    SPATIAL = "spatial"
-    MATH = "math"
-    VERBAL = "verbal"
-    MEMORY = "memory"
-
-
-class DifficultyLevel(str, Enum):
-    """Difficulty levels for questions."""
-
-    EASY = "easy"
-    MEDIUM = "medium"
-    HARD = "hard"
+# Domain enums — single source of truth in libs/domain_types
+from libs.domain_types import QuestionType, DifficultyLevel  # noqa: F401
 
 
 class GeneratedQuestion(BaseModel):
