@@ -20,7 +20,7 @@ from app.core.validity_analysis import (
     check_response_time_plausibility,
     count_guttman_errors,
 )
-from app.models import Question, Response, TestResult, TestSession, get_async_db
+from app.models import Question, Response, TestResult, TestSession, get_db
 from app.schemas.validity import (
     FlagSource,
     FlagTypeBreakdown,
@@ -316,7 +316,7 @@ async def _run_validity_analysis_on_demand(
 )
 async def get_session_validity(
     session_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -425,7 +425,7 @@ async def get_validity_report(
         None,
         description="Filter by validity status (valid, suspect, invalid)",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -674,7 +674,7 @@ async def get_validity_report(
 async def override_session_validity(
     session_id: int,
     request: ValidityOverrideRequest,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""

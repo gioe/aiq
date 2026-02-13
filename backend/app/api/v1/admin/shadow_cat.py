@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.datetime_utils import utc_now
 from app.core.error_responses import raise_not_found
 from app.core.shadow_cat_validation import SessionData, validate_shadow_results
-from app.models import get_async_db
+from app.models import get_db
 from app.models.models import ShadowCATResult, TestSession, TestStatus
 from app.schemas.shadow_cat import (
     BlandAltmanMetrics,
@@ -61,7 +61,7 @@ async def list_shadow_cat_results(
         default=None,
         description="Filter by stopping reason",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""List shadow CAT results with optional filtering.
@@ -103,7 +103,7 @@ async def list_shadow_cat_results(
 )
 async def get_shadow_cat_result(
     session_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Get detailed shadow CAT result for a specific test session.
@@ -128,7 +128,7 @@ async def get_shadow_cat_result(
     response_model=ShadowCATStatisticsResponse,
 )
 async def get_shadow_cat_statistics(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Aggregate statistics comparing shadow CAT with fixed-form IQ scores.
@@ -231,7 +231,7 @@ def _pearson_correlation(xs: list[float], ys: list[float]) -> Optional[float]:
     response_model=ShadowCATCollectionProgressResponse,
 )
 async def get_collection_progress(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Track progress toward the 100-session shadow testing data collection goal.
@@ -272,7 +272,7 @@ async def get_collection_progress(
     response_model=ShadowCATAnalysisResponse,
 )
 async def get_shadow_cat_analysis(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Comprehensive statistical analysis of shadow CAT vs fixed-form results.
@@ -409,7 +409,7 @@ async def get_shadow_cat_analysis(
     response_model=ShadowCATHealthResponse,
 )
 async def get_shadow_cat_health(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Production health monitoring for shadow CAT execution.
@@ -501,7 +501,7 @@ async def get_shadow_cat_health(
     response_model=ShadowCATValidationResponse,
 )
 async def get_shadow_cat_validation(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""Comprehensive validation report for the Phase 4 go/no-go decision.

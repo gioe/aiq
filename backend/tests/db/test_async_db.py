@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import User, get_async_db
+from app.models import User, get_db
 from app.core.security import hash_password
 
 
@@ -40,9 +40,9 @@ async def test_async_session_crud(async_db_session: AsyncSession):
     assert result.scalar() == "async@test.com"
 
 
-async def test_get_async_db_yields_session():
-    """get_async_db dependency yields an AsyncSession."""
-    gen = get_async_db()
+async def test_get_db_yields_session():
+    """get_db dependency yields an AsyncSession."""
+    gen = get_db()
     try:
         session = await gen.__anext__()
         assert isinstance(session, AsyncSession)

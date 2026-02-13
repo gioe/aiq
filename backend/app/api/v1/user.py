@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_async_db, User
+from app.models import get_db, User
 from app.schemas.auth import UserResponse, UserProfileUpdate
 from app.core.auth import get_current_user
 from app.core.error_responses import ErrorMessages, raise_server_error
@@ -36,7 +36,7 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
 async def update_user_profile(
     profile_update: UserProfileUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Update current user's profile information.
@@ -67,7 +67,7 @@ async def update_user_profile(
 @router.delete("/delete-account", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_account(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Delete user account and all associated data (GDPR right to erasure).

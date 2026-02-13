@@ -8,7 +8,6 @@ from .base import (
     get_db,
     async_engine,
     AsyncSessionLocal,
-    get_async_db,
 )
 from .models import (
     User,
@@ -40,7 +39,6 @@ __all__ = [
     "get_db",
     "async_engine",
     "AsyncSessionLocal",
-    "get_async_db",
     "User",
     "Question",
     "UserQuestion",

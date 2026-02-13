@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_async_db, User, Question, UserQuestion
+from app.models import get_db, User, Question, UserQuestion
 from app.schemas.questions import UnseenQuestionsResponse
 from app.core.auth import get_current_user
 from app.core.question_utils import question_to_response
@@ -24,7 +24,7 @@ async def get_unseen_questions(
         description="Number of unseen questions to fetch (1-100)",
     ),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get unseen questions for the current user.

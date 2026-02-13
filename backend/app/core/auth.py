@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_async_db, User
+from app.models import get_db, User
 from .security import decode_token, verify_token_type
 from .error_responses import ErrorMessages, raise_unauthorized
 from .token_blacklist import get_token_blacklist
@@ -192,7 +192,7 @@ async def _get_user_or_401(db: AsyncSession, user_id: int) -> User:
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Get the current authenticated user from JWT token.
@@ -217,7 +217,7 @@ async def get_current_user(
 async def get_current_user_from_refresh_token(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Get the current user from a refresh token.
@@ -244,7 +244,7 @@ async def get_current_user_from_refresh_token(
 async def get_current_user_optional(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Optional[User]:
     """
     Get the current authenticated user if a valid token is provided.

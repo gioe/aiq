@@ -5,8 +5,9 @@ test reminder notifications based on the 3-month testing cadence.
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import func
 
 from app.models import User, TestResult
 from app.core.config import settings
@@ -52,8 +53,8 @@ def generate_deep_link(
     return "aiq://home"
 
 
-def get_users_due_for_test(
-    db: Session,
+async def get_users_due_for_test(
+    db: AsyncSession,
     notification_window_start: Optional[datetime] = None,
     notification_window_end: Optional[datetime] = None,
 ) -> List[User]:
@@ -67,7 +68,7 @@ def get_users_due_for_test(
     4. Are due for their next test (within the notification window)
 
     Args:
-        db: Database session
+        db: Async database session
         notification_window_start: Start of notification window (defaults to now - NOTIFICATION_REMINDER_DAYS)
         notification_window_end: End of notification window (defaults to now + NOTIFICATION_ADVANCE_DAYS)
 
@@ -98,10 +99,8 @@ def get_users_due_for_test(
     due_date_end = notification_window_end - timedelta(days=settings.TEST_CADENCE_DAYS)
 
     # Subquery to get the most recent test completion date for each user
-    from sqlalchemy.sql import func
-
     latest_test_subquery = (
-        db.query(
+        select(
             TestResult.user_id,
             func.max(TestResult.completed_at).label("last_test_date"),
         )
@@ -110,10 +109,10 @@ def get_users_due_for_test(
     )
 
     # Main query to find users due for notification
-    users_due = (
-        db.query(User)
+    stmt = (
+        select(User)
         .join(latest_test_subquery, User.id == latest_test_subquery.c.user_id)
-        .filter(
+        .where(
             and_(
                 # User must have notifications enabled
                 User.notification_enabled.is_(True),
@@ -125,28 +124,28 @@ def get_users_due_for_test(
                 latest_test_subquery.c.last_test_date <= due_date_end,
             )
         )
-        .all()
     )
 
-    return users_due
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
 
 
-def get_users_never_tested(db: Session) -> List[User]:
+async def get_users_never_tested(db: AsyncSession) -> List[User]:
     """
     Get users who have never completed a test but have notifications enabled.
 
     This is useful for sending initial test invitations or onboarding notifications.
 
     Args:
-        db: Database session
+        db: Async database session
 
     Returns:
         List of User objects who have never completed a test
     """
-    users = (
-        db.query(User)
+    stmt = (
+        select(User)
         .outerjoin(TestResult, User.id == TestResult.user_id)
-        .filter(
+        .where(
             and_(
                 # User must have notifications enabled
                 User.notification_enabled.is_(True),
@@ -157,13 +156,13 @@ def get_users_never_tested(db: Session) -> List[User]:
                 TestResult.id.is_(None),
             )
         )
-        .all()
     )
 
-    return users
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
 
 
-def get_users_for_day_30_reminder(db: Session) -> List[User]:
+async def get_users_for_day_30_reminder(db: AsyncSession) -> List[User]:
     """
     Get users who completed their first test approximately 30 days ago.
 
@@ -177,13 +176,11 @@ def get_users_for_day_30_reminder(db: Session) -> List[User]:
     of notifications before the 90-day test is due.
 
     Args:
-        db: Database session
+        db: Async database session
 
     Returns:
         List of User objects who should receive Day 30 reminder notifications
     """
-    from sqlalchemy.sql import func
-
     now = utc_now()
 
     # Calculate the target date range for first test completion
@@ -197,7 +194,7 @@ def get_users_for_day_30_reminder(db: Session) -> List[User]:
 
     # Subquery to get the first test completion date and test count for each user
     first_test_subquery = (
-        db.query(
+        select(
             TestResult.user_id,
             func.min(TestResult.completed_at).label("first_test_date"),
             func.count(TestResult.id).label("test_count"),
@@ -211,10 +208,10 @@ def get_users_for_day_30_reminder(db: Session) -> List[User]:
     # - First test was completed ~30 days ago
     # - Have notifications enabled and device token registered
     # - Have NOT already received a Day 30 reminder (deduplication)
-    users_for_reminder = (
-        db.query(User)
+    stmt = (
+        select(User)
         .join(first_test_subquery, User.id == first_test_subquery.c.user_id)
-        .filter(
+        .where(
             and_(
                 # User must have notifications enabled
                 User.notification_enabled.is_(True),
@@ -230,10 +227,10 @@ def get_users_for_day_30_reminder(db: Session) -> List[User]:
                 User.day_30_reminder_sent_at.is_(None),
             )
         )
-        .all()
     )
 
-    return users_for_reminder
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
 
 
 class NotificationScheduler:
@@ -244,16 +241,16 @@ class NotificationScheduler:
     notifications and schedule them appropriately.
     """
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         """
         Initialize the notification scheduler.
 
         Args:
-            db: Database session
+            db: Async database session
         """
         self.db = db
 
-    def get_users_to_notify(
+    async def get_users_to_notify(
         self,
         include_never_tested: bool = False,
         notification_window_start: Optional[datetime] = None,
@@ -273,7 +270,7 @@ class NotificationScheduler:
         users_to_notify = []
 
         # Get users who are due for their next test
-        users_due = get_users_due_for_test(
+        users_due = await get_users_due_for_test(
             self.db,
             notification_window_start=notification_window_start,
             notification_window_end=notification_window_end,
@@ -282,12 +279,12 @@ class NotificationScheduler:
 
         # Optionally include users who have never tested
         if include_never_tested:
-            users_never_tested = get_users_never_tested(self.db)
+            users_never_tested = await get_users_never_tested(self.db)
             users_to_notify.extend(users_never_tested)
 
         return users_to_notify
 
-    def get_next_test_date_for_user(self, user_id: int) -> Optional[datetime]:
+    async def get_next_test_date_for_user(self, user_id: int) -> Optional[datetime]:
         """
         Calculate when a specific user's next test is due.
 
@@ -298,12 +295,13 @@ class NotificationScheduler:
             The datetime when the next test is due, or None if user has never tested
         """
         # Get the user's most recent test result
-        latest_result = (
-            self.db.query(TestResult)
-            .filter(TestResult.user_id == user_id)
+        stmt = (
+            select(TestResult)
+            .where(TestResult.user_id == user_id)
             .order_by(TestResult.completed_at.desc())
-            .first()
         )
+        result = await self.db.execute(stmt)
+        latest_result = result.scalars().first()
 
         if latest_result is None:
             # User has never taken a test
@@ -312,7 +310,7 @@ class NotificationScheduler:
         completed_at = ensure_timezone_aware(latest_result.completed_at)
         return calculate_next_test_date(completed_at)
 
-    def is_user_due_for_test(self, user_id: int) -> bool:
+    async def is_user_due_for_test(self, user_id: int) -> bool:
         """
         Check if a specific user is currently due for a test.
 
@@ -322,7 +320,7 @@ class NotificationScheduler:
         Returns:
             True if the user is due for a test, False otherwise
         """
-        next_test_date = self.get_next_test_date_for_user(user_id)
+        next_test_date = await self.get_next_test_date_for_user(user_id)
 
         if next_test_date is None:
             # User has never tested, so they're "due"
@@ -356,7 +354,7 @@ class NotificationScheduler:
         from app.services.apns_service import APNsService
 
         # Get users who should receive notifications
-        users_to_notify = self.get_users_to_notify(
+        users_to_notify = await self.get_users_to_notify(
             include_never_tested=include_never_tested,
             notification_window_start=notification_window_start,
             notification_window_end=notification_window_end,
@@ -366,21 +364,17 @@ class NotificationScheduler:
             return {"total": 0, "success": 0, "failed": 0}
 
         # Get the latest test result ID for each user to include in deep links
-        from sqlalchemy.sql import func
-
         user_ids = [user.id for user in users_to_notify]
-        latest_results = (
-            self.db.query(
+        stmt = (
+            select(
                 TestResult.user_id,
                 func.max(TestResult.id).label("latest_result_id"),
             )
-            .filter(TestResult.user_id.in_(user_ids))
+            .where(TestResult.user_id.in_(user_ids))
             .group_by(TestResult.user_id)
-            .all()
         )
-        user_to_latest_result = {
-            row.user_id: row.latest_result_id for row in latest_results
-        }
+        result = await self.db.execute(stmt)
+        user_to_latest_result = {row.user_id: row.latest_result_id for row in result}
 
         # Build notification payloads
         notifications = []
@@ -459,27 +453,23 @@ class NotificationScheduler:
         from app.services.apns_service import APNsService
 
         # Get users who should receive Day 30 reminders
-        users_to_notify = get_users_for_day_30_reminder(self.db)
+        users_to_notify = await get_users_for_day_30_reminder(self.db)
 
         if not users_to_notify:
             return {"total": 0, "success": 0, "failed": 0, "users_found": 0}
 
         # Get the first (and only) test result ID for each user to include in deep links
-        from sqlalchemy.sql import func
-
         user_ids = [user.id for user in users_to_notify]
-        first_results = (
-            self.db.query(
+        stmt = (
+            select(
                 TestResult.user_id,
                 func.min(TestResult.id).label("first_result_id"),
             )
-            .filter(TestResult.user_id.in_(user_ids))
+            .where(TestResult.user_id.in_(user_ids))
             .group_by(TestResult.user_id)
-            .all()
         )
-        user_to_first_result = {
-            row.user_id: row.first_result_id for row in first_results
-        }
+        result = await self.db.execute(stmt)
+        user_to_first_result = {row.user_id: row.first_result_id for row in result}
 
         # Build notification payloads for Day 30 reminder
         # Keep track of user_id -> notification mapping for deduplication marking
@@ -557,7 +547,7 @@ class NotificationScheduler:
             for user in users_to_notify:
                 if user.id in user_id_to_notification_index:
                     user.day_30_reminder_sent_at = now
-            self.db.commit()
+            await self.db.commit()
 
             return {
                 "total": len(notifications),

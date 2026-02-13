@@ -17,7 +17,7 @@ from app.core.discrimination_analysis import (
     async_get_question_discrimination_detail,
     invalidate_discrimination_report_cache,
 )
-from app.models import Question, get_async_db
+from app.models import Question, get_db
 from app.schemas.discrimination_analysis import (
     ActionNeededQuestion,
     DifficultyDiscrimination,
@@ -71,7 +71,7 @@ async def get_discrimination_report_endpoint(
         le=1000,
         description="Maximum items per action_needed list (immediate_review, monitor)",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -160,7 +160,7 @@ async def get_discrimination_report_endpoint(
 )
 async def get_discrimination_detail_endpoint(
     question_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -255,7 +255,7 @@ async def get_discrimination_detail_endpoint(
 async def update_quality_flag(
     question_id: int,
     request: QualityFlagUpdateRequest,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request, status, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_async_db, User, FeedbackSubmission
+from app.models import get_db, User, FeedbackSubmission
 from app.schemas.feedback import (
     FeedbackSubmitRequest,
     FeedbackSubmitResponse,
@@ -199,7 +199,7 @@ def _send_feedback_notification(feedback: FeedbackSubmission) -> bool:
 async def submit_feedback(
     feedback_data: FeedbackSubmitRequest,
     request: Request,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """

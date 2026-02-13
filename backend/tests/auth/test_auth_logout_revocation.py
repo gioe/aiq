@@ -8,10 +8,9 @@ from unittest.mock import patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
 from app.main import app
-from app.models import Base, get_db, get_async_db
+from app.models import Base, get_db
 from app.core.token_blacklist import get_token_blacklist, init_token_blacklist
 from app.core.datetime_utils import utc_now
 
@@ -31,11 +30,7 @@ def init_blacklist():
 
 @pytest.fixture
 def client():
-    """Create a test client with both sync and async DB overrides.
-
-    Since auth dependencies now use get_async_db (TASK-1162), we must
-    override both get_db and get_async_db to use test databases.
-    """
+    """Create a test client with async DB override for test database."""
     _engine = create_engine(
         "sqlite:///./test_logout_revocation.db",
         connect_args={"check_same_thread": False},
@@ -44,26 +39,17 @@ def client():
         "sqlite+aiosqlite:///./test_logout_revocation.db",
         connect_args={"check_same_thread": False},
     )
-    _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
     _AsyncSessionLocal = async_sessionmaker(
         _async_engine, class_=AsyncSession, expire_on_commit=False
     )
 
     Base.metadata.create_all(bind=_engine)
 
-    def override_get_db():
-        db = _SessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    async def override_get_async_db():
+    async def override_get_db():
         async with _AsyncSessionLocal() as session:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_async_db] = override_get_async_db
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

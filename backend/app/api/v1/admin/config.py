@@ -18,7 +18,7 @@ from app.core.system_config import (
     async_set_domain_weights,
     async_set_weighted_scoring_enabled,
 )
-from app.models import TestResult, get_async_db
+from app.models import TestResult, get_db
 from app.schemas.scoring_config import (
     ABComparisonResult,
     ABComparisonScore,
@@ -43,7 +43,7 @@ WEIGHT_SUM_TOLERANCE = 0.01
     response_model=WeightedScoringStatus,
 )
 async def get_weighted_scoring_status(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -98,7 +98,7 @@ async def get_weighted_scoring_status(
 )
 async def toggle_weighted_scoring(
     request: WeightedScoringToggleRequest,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -160,7 +160,7 @@ async def toggle_weighted_scoring(
     response_model=Optional[DomainWeightsResponse],
 )
 async def get_domain_weights_config(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -214,7 +214,7 @@ async def get_domain_weights_config(
 )
 async def set_domain_weights_config(
     request: DomainWeightsRequest,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -297,7 +297,7 @@ async def set_domain_weights_config(
 )
 async def compare_scoring_methods(
     session_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""

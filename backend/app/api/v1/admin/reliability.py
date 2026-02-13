@@ -16,7 +16,7 @@ from app.core.reliability import (
     async_get_reliability_report,
     async_store_reliability_metric,
 )
-from app.models import get_async_db
+from app.models import get_db
 from app.schemas.reliability import (
     InternalConsistencyMetrics,
     ReliabilityHistoryItem,
@@ -40,7 +40,7 @@ router = APIRouter()
     },
 )
 async def get_reliability_report_endpoint(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
     min_sessions: int = Query(
         default=100,
@@ -230,7 +230,7 @@ async def get_reliability_report_endpoint(
     },
 )
 async def get_reliability_history_endpoint(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
     metric_type: Optional[MetricTypeLiteral] = Query(
         default=None,

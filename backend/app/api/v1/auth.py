@@ -12,7 +12,7 @@ from sqlalchemy import func, select, update as sa_update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_async_db, User
+from app.models import get_db, User
 from app.models.models import PasswordResetToken
 from app.schemas.auth import (
     UserRegister,
@@ -83,7 +83,7 @@ def _create_auth_tokens(user: User) -> tuple[str, str]:
 async def register_user(
     user_data: UserRegister,
     request: Request,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Register a new user account.
@@ -160,7 +160,7 @@ async def register_user(
 async def login_user(
     credentials: UserLogin,
     request: Request,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Authenticate user and return access + refresh tokens.
@@ -258,7 +258,7 @@ async def login_user(
 @router.post("/refresh", response_model=TokenRefresh)
 async def refresh_access_token(
     current_user: User = Depends(get_current_user_from_refresh_token),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Refresh access token using refresh token.
@@ -431,7 +431,7 @@ async def logout_all_devices(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Logout from all devices by invalidating all existing tokens.
@@ -520,7 +520,7 @@ TOKEN_INVALIDATION_BATCH_SIZE = 100  # Batch size for invalidating old tokens
 async def request_password_reset(
     request_data: PasswordResetRequest,
     request: Request,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Request a password reset for an account.
@@ -672,7 +672,7 @@ async def request_password_reset(
 async def reset_password(
     reset_data: PasswordResetConfirm,
     request: Request,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Reset password using a valid reset token.

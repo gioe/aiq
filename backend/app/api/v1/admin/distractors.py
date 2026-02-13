@@ -14,7 +14,7 @@ from app.core.distractor_analysis import (
     async_analyze_distractor_effectiveness,
     async_get_bulk_distractor_summary,
 )
-from app.models import Question, get_async_db
+from app.models import Question, get_db
 from app.schemas.distractor_analysis import (
     DistractorAnalysisResponse,
     DistractorDiscrimination,
@@ -47,7 +47,7 @@ async def get_distractor_analysis(
         le=1000,
         description="Minimum responses required for analysis",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""
@@ -215,7 +215,7 @@ async def get_distractor_summary(
         None,
         description="Filter by question type (pattern, logic, spatial, math, verbal, memory)",
     ),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     _: bool = Depends(verify_admin_token),
 ):
     r"""

@@ -49,7 +49,6 @@ from httpx import ASGITransport, AsyncClient  # noqa: E402
 from app.models import (  # noqa: E402
     Base,
     get_db,
-    get_async_db,
     User,
     Question,
     UserQuestion,
@@ -106,7 +105,7 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Async test engine (aiosqlite) — uses same DB file as sync engine so that
-# the sync client fixture can override get_async_db and share data with get_db.
+# sync fixtures can create data visible to async endpoint overrides.
 ASYNC_SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
 async_test_engine = create_async_engine(
@@ -139,24 +138,15 @@ def client(db_session):
     """
     Create a test client with database dependency override.
 
-    Overrides both get_db (for endpoint DB params) and get_async_db
-    (for auth dependencies that were migrated to async in TASK-1162).
-    The async override yields a dedicated async session backed by the
-    same test schema so auth dependency resolution succeeds.
+    Overrides get_db (async) to use a test async session backed by
+    the same test.db file where db_session creates data.
     """
 
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    async def override_get_async_db():
+    async def override_get_db():
         async with AsyncTestingSessionLocal() as session:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_async_db] = override_get_async_db
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -357,14 +347,14 @@ async def async_client(
     Create an async test client with async database dependency override.
     """
 
-    async def override_get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield async_db_session
 
-    app.dependency_overrides[get_async_db] = override_get_async_db
+    app.dependency_overrides[get_db] = override_get_db
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-    app.dependency_overrides.pop(get_async_db, None)
+    app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.fixture

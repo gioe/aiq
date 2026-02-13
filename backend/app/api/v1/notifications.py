@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_async_db, User
+from app.models import get_db, User
 from app.schemas.notifications import (
     DeviceTokenRegister,
     DeviceTokenResponse,
@@ -26,7 +26,7 @@ router = APIRouter()
 async def register_device_token(
     token_data: DeviceTokenRegister,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Register or update the APNs device token for the current user.
@@ -63,7 +63,7 @@ async def register_device_token(
 @router.delete("/register-device", response_model=DeviceTokenResponse)
 async def unregister_device_token(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Unregister the APNs device token for the current user.
@@ -99,7 +99,7 @@ async def unregister_device_token(
 async def update_notification_preferences(
     preferences: NotificationPreferences,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Update notification preferences for the current user.
