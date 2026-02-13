@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.core.cache import SimpleCache, cache_key, cached
+from app.core.cache import SimpleCache, cache_key, cached, get_cache
 
 
 class TestSimpleCacheGetSet:
@@ -257,9 +257,7 @@ class TestCachedDecorator:
 
     def setup_method(self):
         """Clear the global cache before each test."""
-        from app.core.cache import _cache
-
-        _cache.clear()
+        get_cache().clear()
 
     def test_returns_cached_result_on_second_call(self):
         call_count = 0
