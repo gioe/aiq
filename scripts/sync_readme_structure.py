@@ -56,7 +56,9 @@ def find_tree_block(content: str) -> tuple[str, int, int] | None:
 
     Returns (block_text, start_pos, end_pos) or None.
     """
-    for match in re.finditer(r"```\n(.*?)\n```", content, re.DOTALL):
+    for match in re.finditer(
+        r"(?:(?:^|\n)\n)```\n(.*?)\n```", content, re.DOTALL
+    ):
         block = match.group(1)
         lines = block.splitlines()
         if not lines:

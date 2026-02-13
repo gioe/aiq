@@ -118,35 +118,16 @@ mypy .         # Type check
 
 ```
 question-service/
-├── app/
-│   ├── pipeline.py            # End-to-end pipeline orchestration
-│   ├── generator.py           # Multi-LLM generation with sub-type routing
-│   ├── judge.py               # Question quality evaluation
-│   ├── deduplicator.py        # Semantic similarity checking
-│   ├── models.py              # Pydantic data models
-│   ├── database.py            # PostgreSQL storage via SQLAlchemy
-│   ├── prompts.py             # Prompt templates, gold-standard examples, sub-types
-│   ├── circuit_breaker.py     # Provider failure detection and fallback
-│   ├── inventory_analyzer.py  # Inventory gap analysis for auto-balance
-│   ├── cost_tracking.py       # LLM API cost estimation
-│   ├── secrets.py             # Secrets management abstraction
-│   └── providers/             # LLM provider implementations
-├── config/
-│   ├── generators.yaml        # Primary/fallback provider routing
-│   ├── judges.yaml            # Judge model configuration per type
-│   ├── alerting.yaml          # Inventory alerting thresholds
-│   └── README.md              # Configuration reference
-├── scripts/
-│   ├── bootstrap_inventory.py # Initial inventory population
-│   ├── export_openapi.py      # OpenAPI spec export utility
-│   ├── infer_sub_types.py     # Backfill sub-types on existing questions
-│   ├── reevaluate_questions.py # Re-judge questions with updated logic
-│   ├── test_alerts.py         # Manual alerting system smoke test
-│   └── run_cron.sh            # Cron wrapper script
-├── tests/                     # Test suite
-├── run_generation.py          # Main CLI entry point
-├── trigger_server.py          # HTTP trigger endpoint
-└── Dockerfile.trigger         # Railway deployment Dockerfile
+├── app/                  # Application source (pipeline, generators, judge, providers)
+├── config/               # YAML configs (provider routing, judge models, alerting)
+├── docs/                 # Service documentation
+├── examples/             # Usage examples
+├── infra/                # Infrastructure configs (Grafana dashboards)
+├── scripts/              # Utility scripts (bootstrap, re-evaluate, sub-type backfill)
+├── tests/                # Test suite
+├── run_generation.py     # Main CLI entry point
+├── trigger_server.py     # HTTP trigger endpoint
+└── Dockerfile.trigger    # Railway deployment Dockerfile
 ```
 
 ## Deployment
