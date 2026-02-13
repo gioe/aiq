@@ -12,11 +12,12 @@ aiq/
 ├── backend/                # Backend API server
 ├── question-service/       # AI-powered question generation service
 ├── libs/                   # Shared Python packages (domain types, observability)
-├── scripts/                # Utility and migration scripts
+├── scripts/                # Pre-commit hooks (float checks, magic numbers)
 ├── docs/                   # Project documentation
 ├── deployment/             # AWS Terraform configs (legacy)
 ├── website/                # Privacy policy, terms of service
-├── .github/workflows/      # CI/CD pipelines
+├── .claude/                # Claude Code config, skills, and scripts
+├── .github/                # CI/CD workflows, PR template, Dependabot
 └── README.md               # This file
 ```
 
@@ -48,31 +49,13 @@ aiq/
 
 ## Getting Started
 
-### Quick Start
-
-See **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** for a complete development environment setup guide.
-
-### Component-Specific Documentation
-
 For detailed component information, see individual READMEs:
 - [Backend API](backend/README.md) - FastAPI server, database, and migrations
 - [Question Service](question-service/README.md) - AI question generation service
 - [iOS App](ios/README.md) - SwiftUI iOS application
 
-## Development
-
-See **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** for:
-- Prerequisites and installation
-- Development workflow and git practices
-- Code quality standards
-- Testing procedures
-- Troubleshooting guide
-
 ## Deployment
 
-See **[RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)** for production deployment on Railway.
-
-Additional deployment documentation:
-- [docs/deployment/RAILWAY.md](docs/deployment/RAILWAY.md) - Railway-specific configuration
-- [docs/deployment/AWS.md](docs/deployment/AWS.md) - AWS deployment guide
-- [docs/deployment/SERVICES.md](docs/deployment/SERVICES.md) - Service architecture
+- [Backend Deployment](backend/DEPLOYMENT.md) - Railway production deployment
+- [Question Service Deployment](question-service/docs/RAILWAY_DEPLOYMENT.md) - Railway cron service
+- [AWS Infrastructure](deployment/README.md) - Terraform configs (legacy)
