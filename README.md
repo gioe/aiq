@@ -11,9 +11,13 @@ aiq/
 ├── ios/                    # SwiftUI iOS application
 ├── backend/                # Backend API server
 ├── question-service/       # AI-powered question generation service
-├── shared/                 # Placeholder for shared resources
+├── libs/                   # Shared Python packages (domain types, observability)
+├── scripts/                # Utility and migration scripts
+├── docs/                   # Project documentation
+├── deployment/             # AWS Terraform configs (legacy)
+├── website/                # Privacy policy, terms of service
 ├── .github/workflows/      # CI/CD pipelines
-└── README.md              # This file
+└── README.md               # This file
 ```
 
 ## Components
