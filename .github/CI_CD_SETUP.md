@@ -55,7 +55,7 @@ Exports the OpenAPI spec and auto-commits it on `main`. Only runs after `test` p
 **Steps:**
 1. Checkout code (full history)
 2. Install dependencies
-3. Export OpenAPI spec via `backend/export_openapi.py`
+3. Export OpenAPI spec via `backend/scripts/export_openapi.py`
 4. If `docs/api/openapi.json` changed, commit and push with retry logic
 
 **Commit message:** `chore: Update OpenAPI spec [skip ci]`

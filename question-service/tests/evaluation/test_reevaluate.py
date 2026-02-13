@@ -1,11 +1,13 @@
-"""Tests for reevaluate_questions.py - db_question_to_generated conversion."""
+"""Tests for scripts/reevaluate_questions.py - db_question_to_generated conversion."""
 
 import sys
 from pathlib import Path
 
 
-# Add parent directory to path for imports (same as reevaluate_questions.py)
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Add project root and scripts directory to path for imports
+_project_root = str(Path(__file__).parent.parent.parent)
+sys.path.insert(0, _project_root)
+sys.path.insert(0, str(Path(_project_root) / "scripts"))
 
 from app.models import DifficultyLevel, GeneratedQuestion, QuestionType  # noqa: E402
 from reevaluate_questions import db_question_to_generated  # noqa: E402

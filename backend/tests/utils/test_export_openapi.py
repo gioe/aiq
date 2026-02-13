@@ -7,9 +7,12 @@ path validation, file writing, transform integration, and the --validate flag.
 import sys
 from pathlib import Path
 
-# backend/ root for export_openapi imports; repo root for docs/api/openapi.json
+# backend/ root and scripts/ for export_openapi imports; repo root for docs/api/openapi.json
 backend_root = Path(__file__).parent.parent.parent
 repo_root = backend_root.parent
+scripts_dir = str(backend_root / "scripts")
+if scripts_dir not in sys.path:
+    sys.path.insert(0, scripts_dir)
 if str(backend_root) not in sys.path:
     sys.path.insert(0, str(backend_root))
 
@@ -483,7 +486,7 @@ class TestOpenAPIConfigPresence:
         spec_path = repo_root / "docs" / "api" / "openapi.json"
         assert spec_path.exists(), (
             f"OpenAPI spec not found at {spec_path}. "
-            "Run 'cd backend && python export_openapi.py' to generate it."
+            "Run 'cd backend && python scripts/export_openapi.py' to generate it."
         )
 
     def test_openapi_spec_is_valid_json(self):

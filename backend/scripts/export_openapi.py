@@ -129,7 +129,7 @@ def export_openapi(
     Returns:
         Exit code (0 for success, non-zero for errors)
     """
-    project_root = Path(__file__).parent.parent
+    project_root = Path(__file__).parent.parent.parent
 
     if not validate_output_path(output_path, project_root):
         print(f"Error: Output path must be within project: {project_root}")
@@ -184,7 +184,9 @@ def main() -> None:
     if args:
         output_path = Path(args[0])
     else:
-        output_path = Path(__file__).parent.parent / "docs" / "api" / "openapi.json"
+        output_path = (
+            Path(__file__).parent.parent.parent / "docs" / "api" / "openapi.json"
+        )
 
     exit_code = export_openapi(
         output_path, apply_transforms=apply_transforms, validate=validate

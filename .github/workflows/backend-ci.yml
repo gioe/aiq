@@ -156,7 +156,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           cd backend
-          python export_openapi.py ../docs/api/openapi_new.json
+          python scripts/export_openapi.py ../docs/api/openapi_new.json
 
       - name: Get base branch OpenAPI spec
         run: |
@@ -226,7 +226,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           cd backend
-          python export_openapi.py
+          python scripts/export_openapi.py
 
       - name: Check for changes
         id: git-check

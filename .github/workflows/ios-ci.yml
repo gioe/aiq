@@ -56,7 +56,7 @@ jobs:
 
           if [ ! -f "$SOURCE" ]; then
             echo "::error::OpenAPI spec not found at $SOURCE"
-            echo "Run 'cd backend && python export_openapi.py' to generate it, then commit the result."
+            echo "Run 'cd backend && python scripts/export_openapi.py' to generate it, then commit the result."
             exit 1
           fi
 

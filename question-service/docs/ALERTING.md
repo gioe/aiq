@@ -191,7 +191,7 @@ watch -n 60 'tail -20 logs/alerts.log'
 Test without actually running generation:
 
 ```python
-# question-service/test_alerts.py
+# question-service/scripts/test_alerts.py
 from app.alerting import AlertManager
 from app.error_classifier import ErrorClassifier, ErrorCategory, ErrorSeverity, ClassifiedError
 from app.config import settings
@@ -228,7 +228,7 @@ Run the test:
 ```bash
 cd question-service
 source venv/bin/activate
-python test_alerts.py
+python scripts/test_alerts.py
 ```
 
 ## Monitoring Best Practices
