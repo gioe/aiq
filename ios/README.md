@@ -2,6 +2,23 @@
 
 Native iOS application for tracking IQ scores over time.
 
+## Project Structure
+
+```
+ios/
+├── AIQ/                  # Main app source (Views, ViewModels, Services, Models)
+├── AIQTests/             # Unit tests
+├── AIQUITests/           # UI tests and screenshot generation
+├── AIQ.xcodeproj/        # Xcode project file
+├── Packages/             # Local Swift packages (AIQAPIClient)
+├── scripts/              # iOS tooling (OpenAPI sync, screenshots, validation)
+├── docs/                 # iOS-specific documentation
+├── app-store/            # App Store metadata and screenshots
+├── TestNotifications/    # APNs test payloads
+├── .claude/              # Claude Code config for iOS
+└── project.yml           # XcodeGen project definition
+```
+
 ## Setup
 
 ```bash

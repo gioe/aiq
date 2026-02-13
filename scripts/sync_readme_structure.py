@@ -44,6 +44,9 @@ EXCLUDED = {
     ".venv",
 }
 
+# Patterns to exclude by suffix (e.g., build artifacts).
+EXCLUDED_SUFFIXES = {".xcresult"}
+
 
 def find_tree_block(content: str) -> tuple[str, int, int] | None:
     """Find an ASCII directory-tree fenced code block in markdown content.
@@ -95,8 +98,10 @@ def get_dir_contents(target: Path) -> tuple[list[str], list[str]]:
         name = entry.name
         if name in EXCLUDED:
             continue
+        if any(name.endswith(s) for s in EXCLUDED_SUFFIXES):
+            continue
         if name.startswith(".") and entry.is_dir():
-            # Only include hidden dirs if they're meaningful
+            # Only include select hidden dirs
             if name not in {".claude", ".github"}:
                 continue
         if entry.is_dir():
