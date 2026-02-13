@@ -1,13 +1,14 @@
 """
 Tests for the SimpleCache module.
 
-Covers: get/set, TTL expiry, delete, clear, cleanup_expired, delete_by_prefix.
+Covers: get/set, TTL expiry, delete, clear, cleanup_expired, delete_by_prefix,
+cache_key utility, and @cached decorator.
 """
 from unittest.mock import patch
 
 import pytest
 
-from app.core.cache import SimpleCache
+from app.core.cache import SimpleCache, cache_key, cached, get_cache
 
 
 class TestSimpleCacheGetSet:
@@ -220,3 +221,175 @@ class TestSimpleCacheDeleteByPrefix:
     def test_delete_by_prefix_on_empty_cache(self):
         cache = SimpleCache()
         assert cache.delete_by_prefix("any:") == 0
+
+
+class TestCacheKey:
+    """Tests for the cache_key() utility function."""
+
+    def test_deterministic_for_same_args(self):
+        key1 = cache_key("a", 1, x=True)
+        key2 = cache_key("a", 1, x=True)
+        assert key1 == key2
+
+    def test_different_for_different_positional_args(self):
+        key1 = cache_key("a", 1)
+        key2 = cache_key("a", 2)
+        assert key1 != key2
+
+    def test_different_for_different_keyword_args(self):
+        key1 = cache_key(x=1)
+        key2 = cache_key(x=2)
+        assert key1 != key2
+
+    def test_keyword_order_independent(self):
+        key1 = cache_key(a=1, b=2)
+        key2 = cache_key(b=2, a=1)
+        assert key1 == key2
+
+    def test_no_args_returns_valid_hash(self):
+        key = cache_key()
+        assert isinstance(key, str)
+        assert len(key) == 32  # MD5 hex digest length
+
+
+class TestCachedDecorator:
+    """Tests for the @cached decorator."""
+
+    def setup_method(self):
+        """Clear the global cache before each test."""
+        get_cache().clear()
+
+    def test_returns_cached_result_on_second_call(self):
+        call_count = 0
+
+        @cached(ttl=60)
+        def expensive(x):
+            nonlocal call_count
+            call_count += 1
+            return x * 2
+
+        assert expensive(5) == 10
+        assert expensive(5) == 10
+        assert call_count == 1
+
+    def test_different_args_not_cached_together(self):
+        call_count = 0
+
+        @cached(ttl=60)
+        def expensive(x):
+            nonlocal call_count
+            call_count += 1
+            return x * 2
+
+        assert expensive(5) == 10
+        assert expensive(6) == 12
+        assert call_count == 2
+
+    def test_respects_ttl(self):
+        call_count = 0
+
+        @cached(ttl=10)
+        def expensive(x):
+            nonlocal call_count
+            call_count += 1
+            return x * 2
+
+        with patch("app.core.cache.time") as mock_time:
+            mock_time.time.return_value = 1000.0
+            assert expensive(5) == 10
+            assert call_count == 1
+
+            # Still within TTL
+            mock_time.time.return_value = 1009.0
+            assert expensive(5) == 10
+            assert call_count == 1
+
+            # Past TTL — should re-execute
+            mock_time.time.return_value = 1011.0
+            assert expensive(5) == 10
+            assert call_count == 2
+
+    def test_cache_clear_method(self):
+        call_count = 0
+
+        @cached(ttl=300)
+        def expensive(x):
+            nonlocal call_count
+            call_count += 1
+            return x * 2
+
+        expensive(5)
+        assert call_count == 1
+
+        expensive.cache_clear()
+
+        expensive(5)
+        assert call_count == 2
+
+    def test_respects_ttl_at_exact_boundary(self):
+        call_count = 0
+
+        @cached(ttl=10)
+        def expensive(x):
+            nonlocal call_count
+            call_count += 1
+            return x * 2
+
+        with patch("app.core.cache.time") as mock_time:
+            mock_time.time.return_value = 1000.0
+            expensive(5)
+            assert call_count == 1
+
+            # At exact TTL boundary — should be expired
+            mock_time.time.return_value = 1010.0
+            expensive(5)
+            assert call_count == 2
+
+    def test_cache_clear_only_affects_own_function(self):
+        call_count_a = 0
+        call_count_b = 0
+
+        @cached(ttl=300, key_prefix="ns_a")
+        def func_a(x):
+            nonlocal call_count_a
+            call_count_a += 1
+            return "a"
+
+        @cached(ttl=300, key_prefix="ns_b")
+        def func_b(x):
+            nonlocal call_count_b
+            call_count_b += 1
+            return "b"
+
+        func_a(1)
+        func_b(1)
+        assert call_count_a == 1
+        assert call_count_b == 1
+
+        func_a.cache_clear()
+
+        # func_a re-executes, func_b still cached
+        func_a(1)
+        func_b(1)
+        assert call_count_a == 2
+        assert call_count_b == 1
+
+    def test_key_prefix_namespaces_correctly(self):
+        @cached(ttl=60, key_prefix="ns1")
+        def func_a(x):
+            return "a"
+
+        @cached(ttl=60, key_prefix="ns2")
+        def func_b(x):
+            return "b"
+
+        # Both called with same arg — should not collide
+        assert func_a(1) == "a"
+        assert func_b(1) == "b"
+
+    def test_preserves_function_name(self):
+        @cached(ttl=60)
+        def my_function():
+            pass
+
+        assert my_function.__name__ == "my_function"
