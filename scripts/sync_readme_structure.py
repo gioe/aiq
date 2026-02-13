@@ -6,19 +6,23 @@ in its README.md, reports drift, and optionally updates the README in place.
 
 Usage:
     python scripts/sync_readme_structure.py [directory] [--fix]
+    python scripts/sync_readme_structure.py --pre-commit
 
 Arguments:
     directory   Path to check (default: repo root). Must contain a README.md
                 with a fenced code block whose first line ends with '/'.
 
 Options:
-    --fix       Update the README.md tree block in place.
+    --fix          Update the README.md tree block in place.
+    --pre-commit   Scan all subdirectories for READMEs with tree blocks,
+                   auto-fix drift, and exit non-zero if any were modified.
 
 Examples:
     python scripts/sync_readme_structure.py              # Check repo root
     python scripts/sync_readme_structure.py --fix        # Fix repo root
     python scripts/sync_readme_structure.py backend      # Check backend/
     python scripts/sync_readme_structure.py ios --fix    # Fix ios/
+    python scripts/sync_readme_structure.py --pre-commit # Pre-commit hook
 """
 
 import re
@@ -176,16 +180,11 @@ def validate_links(content: str, base: Path) -> list[str]:
     return issues
 
 
-def main() -> int:
-    fix_mode = "--fix" in sys.argv
-    args = [a for a in sys.argv[1:] if a != "--fix"]
+def check_directory(target: Path, fix: bool = False) -> int:
+    """Check a single directory's README tree block against disk.
 
-    # Resolve target directory.
-    if args:
-        target = Path(args[0]).resolve()
-    else:
-        target = Path(__file__).resolve().parent.parent
-
+    Returns 0 if in sync, 1 if drift was found (and optionally fixed).
+    """
     readme = target / "README.md"
     if not readme.exists():
         print(f"No README.md found in {target}")
@@ -269,7 +268,7 @@ def main() -> int:
     for issue in issues:
         print(issue)
 
-    if fix_mode and tree_drifted:
+    if fix and tree_drifted:
         updated = content[:start_pos] + expected_tree + content[end_pos:]
         readme.write_text(updated)
         print(f"\nUpdated {readme.name} tree block.")
@@ -278,10 +277,69 @@ def main() -> int:
             return 1
         return 0
 
-    if not fix_mode:
+    if not fix:
         print(f"\nRun with --fix to update the tree block automatically.")
 
     return 1
+
+
+def run_pre_commit(repo_root: Path) -> int:
+    """Scan all subdirectories for READMEs with tree blocks and auto-fix.
+
+    Returns 0 if everything is in sync, 1 if any READMEs were modified.
+    """
+    fixed: list[str] = []
+
+    # Check all README.md files that contain tree blocks.
+    for readme in sorted(repo_root.rglob("README.md")):
+        # Skip hidden dirs, venvs, node_modules, etc.
+        parts = readme.relative_to(repo_root).parts
+        if any(p in EXCLUDED or p.startswith(".") for p in parts[:-1]):
+            continue
+
+        content = readme.read_text()
+        if "<!-- directory-sync: off -->" in content:
+            continue
+        if find_tree_block(content) is None:
+            continue
+
+        target = readme.parent
+        rel = target.relative_to(repo_root)
+        content_before = content
+
+        # Run the check with fix enabled.
+        print(f"Checking {rel}/...")
+        check_directory(target, fix=True)
+
+        # Detect if the file was actually modified.
+        if readme.read_text() != content_before:
+            fixed.append(str(rel))
+
+    if fixed:
+        print(f"\nFixed directory drift in: {', '.join(fixed)}")
+        print("README tree blocks were updated. Please stage and re-commit.")
+        return 1
+
+    return 0
+
+
+def main() -> int:
+    fix_mode = "--fix" in sys.argv
+    pre_commit = "--pre-commit" in sys.argv
+    args = [a for a in sys.argv[1:] if a not in ("--fix", "--pre-commit")]
+
+    repo_root = Path(__file__).resolve().parent.parent
+
+    if pre_commit:
+        return run_pre_commit(repo_root)
+
+    # Resolve target directory.
+    if args:
+        target = Path(args[0]).resolve()
+    else:
+        target = repo_root
+
+    return check_directory(target, fix=fix_mode)
 
 
 if __name__ == "__main__":

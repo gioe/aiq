@@ -123,6 +123,16 @@ repos:
         exclude: ^.*/test_.*\.py$
         types: [python]
 
+  # Check README directory trees match actual directory structure
+  - repo: local
+    hooks:
+      - id: check-directory-drift
+        name: check-directory-drift
+        entry: python scripts/sync_readme_structure.py --pre-commit
+        language: python
+        pass_filenames: false
+        always_run: true
+
   # ============================================
   # iOS Swift Hooks
   # ============================================

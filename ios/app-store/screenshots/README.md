@@ -67,6 +67,8 @@ xcodebuild test \
 
 Then use `xcrun xcresulttool` or a tool like `xcparse` to extract the screenshots from the result bundle.
 
+<!-- directory-sync: off -->
+
 ## Directory Structure
 
 After generation:

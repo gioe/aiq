@@ -76,9 +76,9 @@ libs/observability/
 ├── otel_backend.py      # OpenTelemetry wrapper
 ├── config.py            # Configuration loading with env var substitution
 ├── config/
-│   └── default.yaml     # Default configuration
 ├── requirements.txt     # Python dependencies
-└── tests/               # Unit and integration tests
+├── tests/               # Unit and integration tests
+└── docs/                # Troubleshooting and guides
 ```
 
 ---
