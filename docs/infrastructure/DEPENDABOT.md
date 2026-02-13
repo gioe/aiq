@@ -190,5 +190,5 @@ To adjust notification preferences, see [GitHub notification settings](https://d
 
 ## Related Documentation
 
-- [CI/CD Setup Guide](../../.github/CI_CD_SETUP.md)
+- [CI/CD Setup Guide](../CI_CD_SETUP.md)
 - [Dependabot options reference (GitHub Docs)](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference)

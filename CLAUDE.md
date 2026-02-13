@@ -14,7 +14,7 @@ AIQ tracks cognitive capacity over time, similar to how fitness apps track physi
 | **Model Benchmarks** | [docs/MODEL_BENCHMARKS.md](docs/MODEL_BENCHMARKS.md) |
 | **Testing** | [docs/TESTING.md](docs/TESTING.md) |
 | **Deployment** | [backend/DEPLOYMENT.md](backend/DEPLOYMENT.md) |
-| **CI/CD** | [.github/CI_CD_SETUP.md](.github/CI_CD_SETUP.md) |
+| **CI/CD** | [docs/CI_CD_SETUP.md](docs/CI_CD_SETUP.md) |
 | **Dependabot** | [docs/infrastructure/DEPENDABOT.md](docs/infrastructure/DEPENDABOT.md) |
 | **Privacy Policy** | [website/PRIVACY_POLICY.md](website/PRIVACY_POLICY.md) |
 | **Terms of Service** | [website/TERMS_OF_SERVICE.md](website/TERMS_OF_SERVICE.md) |

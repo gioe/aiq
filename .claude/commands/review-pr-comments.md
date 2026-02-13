@@ -111,7 +111,7 @@ Only defer comments that are purely cosmetic or about code this PR did NOT chang
      VALUES ('[Deferred] <brief description>', 'Deferred from PR #{{pr_number}} review.\n\nOriginal comment: <comment text>\n\nReason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'))"
    ```
 
-3. **Document for next PR**: Append the deferral to `.github/DEFERRED_REVIEW_ITEMS.md` so it can be included in the next PR's commit message. This file should be committed with the PR changes:
+3. **Document for next PR**: Record the deferral in the task database so it can be tracked. Example:
 
    ```markdown
    ## Deferred from PR #{{pr_number}} Review
