@@ -328,6 +328,54 @@ class TestCachedDecorator:
         expensive(5)
         assert call_count == 2
 
+    def test_respects_ttl_at_exact_boundary(self):
+        call_count = 0
+
+        @cached(ttl=10)
+        def expensive(x):
+            nonlocal call_count
+            call_count += 1
+            return x * 2
+
+        with patch("app.core.cache.time") as mock_time:
+            mock_time.time.return_value = 1000.0
+            expensive(5)
+            assert call_count == 1
+
+            # At exact TTL boundary — should be expired
+            mock_time.time.return_value = 1010.0
+            expensive(5)
+            assert call_count == 2
+
+    def test_cache_clear_only_affects_own_function(self):
+        call_count_a = 0
+        call_count_b = 0
+
+        @cached(ttl=300, key_prefix="ns_a")
+        def func_a(x):
+            nonlocal call_count_a
+            call_count_a += 1
+            return "a"
+
+        @cached(ttl=300, key_prefix="ns_b")
+        def func_b(x):
+            nonlocal call_count_b
+            call_count_b += 1
+            return "b"
+
+        func_a(1)
+        func_b(1)
+        assert call_count_a == 1
+        assert call_count_b == 1
+
+        func_a.cache_clear()
+
+        # func_a re-executes, func_b still cached
+        func_a(1)
+        func_b(1)
+        assert call_count_a == 2
+        assert call_count_b == 1
+
     def test_key_prefix_namespaces_correctly(self):
         @cached(ttl=60, key_prefix="ns1")
         def func_a(x):

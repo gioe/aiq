@@ -167,7 +167,9 @@ def cached(ttl: int = 300, key_prefix: str = ""):
             return result
 
         # Add cache control methods to the wrapper
-        wrapper.cache_clear = lambda: _cache.clear()
+        wrapper.cache_clear = lambda: _cache.delete_by_prefix(
+            f"{key_prefix}:{func.__name__}:"
+        )
 
         return wrapper
 
