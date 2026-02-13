@@ -8,7 +8,13 @@ from unittest.mock import patch
 
 import pytest
 
-from app.core.cache import SimpleCache, cache_key, cached, get_cache
+from app.core.cache import (
+    SimpleCache,
+    cache_key,
+    cached,
+    get_cache,
+    invalidate_user_cache,
+)
 
 
 class TestSimpleCacheGetSet:
@@ -393,3 +399,54 @@ class TestCachedDecorator:
             pass
 
         assert my_function.__name__ == "my_function"
+
+
+class TestGetCache:
+    """Tests for the get_cache() module-level function."""
+
+    def test_returns_simple_cache_instance(self):
+        cache = get_cache()
+        assert isinstance(cache, SimpleCache)
+
+    def test_returns_same_instance(self):
+        cache1 = get_cache()
+        cache2 = get_cache()
+        assert cache1 is cache2
+
+
+class TestInvalidateUserCache:
+    """Tests for the invalidate_user_cache() function.
+
+    Note: The current implementation clears the *entire* cache regardless of
+    user_id. This is a known simplification documented in cache.py. These tests
+    verify the actual behaviour; a future task should make invalidation
+    user-specific via key-prefix deletion.
+    """
+
+    def setup_method(self):
+        get_cache().clear()
+
+    def test_clears_entire_cache(self):
+        """Current implementation clears all entries, not just the target user."""
+        cache = get_cache()
+        cache.set("user:1:score", 100)
+        cache.set("user:2:score", 200)
+        cache.set("session:abc", "data")
+
+        invalidate_user_cache(user_id=1)
+
+        assert cache.get("user:1:score") is None
+        assert cache.get("user:2:score") is None
+        assert cache.get("session:abc") is None
+
+    def test_noop_on_empty_cache(self):
+        invalidate_user_cache(user_id=1)  # Should not raise
+
+    def test_cache_usable_after_invalidation(self):
+        cache = get_cache()
+        cache.set("key", "value")
+
+        invalidate_user_cache(user_id=1)
+
+        cache.set("new_key", "new_value")
+        assert cache.get("new_key") == "new_value"
