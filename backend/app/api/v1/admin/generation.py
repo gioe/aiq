@@ -23,7 +23,6 @@ from app.core.error_responses import (
 from app.core.process_registry import JobStatus, process_registry
 from app.models import GenerationRunStatus, QuestionGenerationRun, get_db
 from app.schemas.generation_runs import (
-    GenerationRunStatusSchema,
     PipelineLosses,
     QuestionGenerationRunCreate,
     QuestionGenerationRunCreateResponse,
@@ -554,20 +553,12 @@ async def create_generation_run(
         ```
     """
     try:
-        # Map schema enum to model enum
-        status_mapping = {
-            GenerationRunStatusSchema.RUNNING: GenerationRunStatus.RUNNING,
-            GenerationRunStatusSchema.SUCCESS: GenerationRunStatus.SUCCESS,
-            GenerationRunStatusSchema.PARTIAL_FAILURE: GenerationRunStatus.PARTIAL_FAILURE,
-            GenerationRunStatusSchema.FAILED: GenerationRunStatus.FAILED,
-        }
-
         # Create the model instance
         db_run = QuestionGenerationRun(
             started_at=run_data.started_at,
             completed_at=run_data.completed_at,
             duration_seconds=run_data.duration_seconds,
-            status=status_mapping[run_data.status],
+            status=run_data.status,
             exit_code=run_data.exit_code,
             questions_requested=run_data.questions_requested,
             questions_generated=run_data.questions_generated,
@@ -656,7 +647,7 @@ async def list_generation_runs(
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page (1-100)"),
     # Filters
-    status: Optional[GenerationRunStatusSchema] = Query(
+    status: Optional[GenerationRunStatus] = Query(
         None, description="Filter by run status"
     ),
     environment: Optional[str] = Query(
@@ -719,14 +710,7 @@ async def list_generation_runs(
 
         # Apply filters
         if status is not None:
-            # Map schema enum to model enum
-            status_mapping = {
-                GenerationRunStatusSchema.RUNNING: GenerationRunStatus.RUNNING,
-                GenerationRunStatusSchema.SUCCESS: GenerationRunStatus.SUCCESS,
-                GenerationRunStatusSchema.PARTIAL_FAILURE: GenerationRunStatus.PARTIAL_FAILURE,
-                GenerationRunStatusSchema.FAILED: GenerationRunStatus.FAILED,
-            }
-            stmt = stmt.where(QuestionGenerationRun.status == status_mapping[status])
+            stmt = stmt.where(QuestionGenerationRun.status == status)
 
         if environment is not None:
             stmt = stmt.where(QuestionGenerationRun.environment == environment)
@@ -751,15 +735,7 @@ async def list_generation_runs(
         count_stmt = select(func.count()).select_from(QuestionGenerationRun)
         # Apply the same filters to the count query
         if status is not None:
-            status_mapping = {
-                GenerationRunStatusSchema.RUNNING: GenerationRunStatus.RUNNING,
-                GenerationRunStatusSchema.SUCCESS: GenerationRunStatus.SUCCESS,
-                GenerationRunStatusSchema.PARTIAL_FAILURE: GenerationRunStatus.PARTIAL_FAILURE,
-                GenerationRunStatusSchema.FAILED: GenerationRunStatus.FAILED,
-            }
-            count_stmt = count_stmt.where(
-                QuestionGenerationRun.status == status_mapping[status]
-            )
+            count_stmt = count_stmt.where(QuestionGenerationRun.status == status)
         if environment is not None:
             count_stmt = count_stmt.where(
                 QuestionGenerationRun.environment == environment
@@ -1340,21 +1316,13 @@ async def get_generation_run(
         # Compute pipeline losses
         pipeline_losses = _compute_pipeline_losses(db_run)
 
-        # Map the model enum to schema enum
-        status_mapping = {
-            GenerationRunStatus.RUNNING: GenerationRunStatusSchema.RUNNING,
-            GenerationRunStatus.SUCCESS: GenerationRunStatusSchema.SUCCESS,
-            GenerationRunStatus.PARTIAL_FAILURE: GenerationRunStatusSchema.PARTIAL_FAILURE,
-            GenerationRunStatus.FAILED: GenerationRunStatusSchema.FAILED,
-        }
-
         # Build the response
         return QuestionGenerationRunDetail(
             id=db_run.id,
             started_at=db_run.started_at,
             completed_at=db_run.completed_at,
             duration_seconds=db_run.duration_seconds,
-            status=status_mapping[db_run.status],
+            status=db_run.status,
             exit_code=db_run.exit_code,
             questions_requested=db_run.questions_requested,
             questions_generated=db_run.questions_generated,

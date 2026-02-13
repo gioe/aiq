@@ -1,10 +1,10 @@
 """
 Pydantic schemas for authentication endpoints.
 """
-from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime, timezone
-from enum import Enum
 
 from app.core.validators import (
     PasswordValidator,
@@ -12,18 +12,7 @@ from app.core.validators import (
     EmailValidator,
     validate_no_sql_injection,
 )
-
-
-class EducationLevelSchema(str, Enum):
-    """Education level enumeration for API schemas."""
-
-    HIGH_SCHOOL = "high_school"
-    SOME_COLLEGE = "some_college"
-    ASSOCIATES = "associates"
-    BACHELORS = "bachelors"
-    MASTERS = "masters"
-    DOCTORATE = "doctorate"
-    PREFER_NOT_TO_SAY = "prefer_not_to_say"
+from libs.domain_types import EducationLevel
 
 
 class UserRegister(BaseModel):
@@ -50,7 +39,7 @@ class UserRegister(BaseModel):
         ge=1900,
         description="Year of birth (optional, for norming study)",
     )
-    education_level: Optional[EducationLevelSchema] = Field(
+    education_level: Optional[EducationLevel] = Field(
         None, description="Highest education level attained (optional)"
     )
     country: Optional[str] = Field(
@@ -180,7 +169,7 @@ class UserResponse(BaseModel):
 
     # Optional demographic data for norming study (P13-001)
     birth_year: Optional[int] = Field(None, description="Year of birth")
-    education_level: Optional[EducationLevelSchema] = Field(
+    education_level: Optional[EducationLevel] = Field(
         None, description="Highest education level attained"
     )
     country: Optional[str] = Field(None, description="Country of residence")

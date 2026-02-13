@@ -4,19 +4,11 @@ Pydantic schemas for question generation run tracking endpoints.
 These schemas support the admin API for tracking and analyzing
 question generation service execution metrics.
 """
-from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
+
+from pydantic import BaseModel, Field
 from datetime import datetime
-from enum import Enum
-
-
-class GenerationRunStatusSchema(str, Enum):
-    """Status enumeration for question generation runs."""
-
-    RUNNING = "running"
-    SUCCESS = "success"
-    PARTIAL_FAILURE = "partial_failure"
-    FAILED = "failed"
+from libs.domain_types import GenerationRunStatus
 
 
 class ProviderMetrics(BaseModel):
@@ -61,7 +53,7 @@ class QuestionGenerationRunCreate(BaseModel):
     )
 
     # Status & outcome
-    status: GenerationRunStatusSchema = Field(
+    status: GenerationRunStatus = Field(
         ..., description="Run status: running, success, partial_failure, or failed"
     )
     exit_code: Optional[int] = Field(
@@ -190,7 +182,7 @@ class QuestionGenerationRunRead(BaseModel):
     )
 
     # Status & outcome
-    status: GenerationRunStatusSchema = Field(..., description="Run status")
+    status: GenerationRunStatus = Field(..., description="Run status")
     exit_code: Optional[int] = Field(None, description="Exit code")
 
     # Generation metrics
@@ -335,7 +327,7 @@ class QuestionGenerationRunDetail(BaseModel):
     )
 
     # Status & outcome
-    status: GenerationRunStatusSchema = Field(..., description="Run status")
+    status: GenerationRunStatus = Field(..., description="Run status")
     exit_code: Optional[int] = Field(None, description="Exit code")
 
     # Generation metrics
@@ -426,7 +418,7 @@ class QuestionGenerationRunSummary(BaseModel):
     started_at: datetime = Field(..., description="When the run started")
     completed_at: Optional[datetime] = Field(None, description="When the run completed")
     duration_seconds: Optional[float] = Field(None, description="Duration in seconds")
-    status: GenerationRunStatusSchema = Field(..., description="Run status")
+    status: GenerationRunStatus = Field(..., description="Run status")
     questions_requested: int = Field(..., description="Questions requested")
     questions_inserted: int = Field(..., description="Questions inserted")
     overall_success_rate: Optional[float] = Field(
@@ -539,7 +531,5 @@ class QuestionGenerationRunCreateResponse(BaseModel):
     """
 
     id: int = Field(..., description="The created run ID")
-    status: GenerationRunStatusSchema = Field(
-        ..., description="Status of the created run"
-    )
+    status: GenerationRunStatus = Field(..., description="Status of the created run")
     message: str = Field(..., description="Confirmation message")
