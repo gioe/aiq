@@ -121,7 +121,6 @@ question-service/
 ├── app/                  # Application source (pipeline, generators, judge, providers)
 ├── config/               # YAML configs (provider routing, judge models, alerting)
 ├── docs/                 # Service documentation
-├── examples/             # Usage examples
 ├── infra/                # Infrastructure configs (Grafana dashboards)
 ├── scripts/              # Utility scripts (bootstrap, re-evaluate, sub-type backfill)
 ├── tests/                # Test suite

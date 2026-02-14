@@ -31,7 +31,7 @@ Always activate the question-service virtualenv (`source venv/bin/activate`) and
 ### Railway Deployment
 
 - **Config**: `question-service/railway.json` — separate from the root `railway.json` (which is the backend's).
-- **Dockerfile**: `question-service/Dockerfile.trigger` (NOT `Dockerfile`) — this is the one Railway uses. `Dockerfile` is for the cron batch job.
+- **Dockerfile**: `question-service/Dockerfile.trigger` — the Railway deployment Dockerfile.
 - **PYTHONPATH**: `/app:/app/question-service` inside the container.
 - **No healthcheck**: This is a cron/trigger service, not a long-running web server. Do not add a healthcheck path.
 - **Watch paths**: `/question-service/**` and `/libs/**` — changes to shared libs trigger a redeploy.

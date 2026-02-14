@@ -224,10 +224,6 @@ source venv/bin/activate
 pytest tests/test_judge_config.py -v
 ```
 
-## Example Script
-
-See `examples/judge_config_example.py` for a complete working example demonstrating all features of the judge configuration system.
-
 ## Model Selection Guidelines
 
 When choosing judge models for question types, consider:

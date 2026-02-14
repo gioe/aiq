@@ -375,7 +375,6 @@ Add entry to this document's [Change History](#change-history) section:
 cd question-service
 source venv/bin/activate
 python -m pytest tests/  # Ensure tests pass
-python examples/judge_config_example.py  # Verify config loads correctly
 ```
 
 #### Step 6: Deploy Update

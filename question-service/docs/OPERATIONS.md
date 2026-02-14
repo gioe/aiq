@@ -171,8 +171,6 @@ nano config/judges.yaml
 # Test configuration validity
 pytest tests/test_judge_config.py
 
-# Verify configuration loads
-python examples/judge_config_example.py
 ```
 
 Configuration changes take effect immediately on next run (no restart needed).
@@ -468,8 +466,6 @@ cat .env | grep API_KEY
 # Test API key loading
 python -c "from app.config import settings; print(settings.openai_api_key)"
 
-# Validate judge config
-python examples/judge_config_example.py
 ```
 
 **Solutions**:
@@ -534,8 +530,6 @@ python run_generation.py --verbose --count 5
 # Check approval rates
 grep "Approval rate" logs/question_service.log | tail -5
 
-# Test individual components
-python examples/judge_config_example.py
 ```
 
 **Solutions**:
@@ -599,10 +593,7 @@ print('Anthropic:', 'SET' if settings.anthropic_api_key else 'MISSING')
 print('Google:', 'SET' if settings.google_api_key else 'MISSING')
 "
 
-# 4. Test judge config
-python examples/judge_config_example.py
-
-# 5. Run full test
+# 4. Run full test
 python run_generation.py --count 5
 ```
 
@@ -660,7 +651,6 @@ nano config/judges.yaml
 
 # 3. Test configuration
 pytest tests/test_judge_config.py
-python examples/judge_config_example.py
 
 # 4. Test generation with new config
 python run_generation.py --dry-run --count 5 --verbose
@@ -771,8 +761,6 @@ question-service/
 ├── docs/
 │   ├── JUDGE_SELECTION.md     # Judge selection guide
 │   └── SCHEDULING.md            # Scheduling guide
-├── examples/
-│   └── judge_config_example.py # Configuration usage example
 ├── logs/                        # Log files (created at runtime)
 │   ├── question_service.log
 │   └── cron.log
@@ -804,7 +792,6 @@ pytest                                                      # Run test suite
 pytest tests/test_judge_config.py                        # Test specific component
 
 # Configuration
-python examples/judge_config_example.py                   # Test judge config
 cp .env.example .env                                        # Create environment file
 
 # Database
