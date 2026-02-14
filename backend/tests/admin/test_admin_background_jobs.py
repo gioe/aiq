@@ -16,13 +16,13 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.process_registry import process_registry
-from app.main import app
+from tests.conftest import create_test_app
 
 
 @pytest.fixture
 def client():
     """Create a test client."""
-    return TestClient(app)
+    return TestClient(create_test_app())
 
 
 @pytest.fixture

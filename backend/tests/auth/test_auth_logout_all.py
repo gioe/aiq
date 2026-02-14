@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.main import app
+from tests.conftest import create_test_app
 from app.models import Base, get_db
 from app.core.auth.token_blacklist import get_token_blacklist, init_token_blacklist
 
@@ -73,10 +73,11 @@ def client():
         async with _TestAsyncSessionLocal() as session:
             yield session
 
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    test_app = create_test_app()
+    test_app.dependency_overrides[get_db] = override_get_db
+    with TestClient(test_app) as test_client:
         yield test_client
-    app.dependency_overrides.clear()
+    test_app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=_test_engine)
 
 
@@ -693,9 +694,10 @@ class TestLogoutAllPushNotification:
         user.apns_device_token = "fake_device_token_abc123"
         db.commit()
 
-        with patch("app.api.v1.auth.send_logout_all_notification") as mock_send:
-            # Simulate notification failure
-            mock_send.side_effect = Exception("APNs connection failed")
+        with patch("app.services.apns_service.APNsService.connect") as mock_connect:
+            # Simulate notification failure at the APNs connection level;
+            # send_logout_all_notification catches this internally.
+            mock_connect.side_effect = Exception("APNs connection failed")
 
             response = client.post("/v1/auth/logout-all", headers=headers)
             # Logout should still succeed despite notification failure
