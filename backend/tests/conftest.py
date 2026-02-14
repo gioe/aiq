@@ -65,7 +65,6 @@ from app.models.models import QuestionType, DifficultyLevel  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
 from app.api.v1.api import api_router  # noqa: E402
-from app.main import app  # noqa: E402
 from app.core.auth.security import hash_password, create_access_token  # noqa: E402
 from app.core.config import settings  # noqa: E402
 
@@ -78,13 +77,6 @@ async def _test_lifespan(app):
     initialization.
     """
     yield
-
-
-# Neutralize the production lifespan on the singleton app.
-# Many test files import `from app.main import app` directly and wrap it
-# in TestClient — this prevents the production observability stack from
-# booting during those tests.
-app.router.lifespan_context = _test_lifespan
 
 
 def create_test_app(
@@ -100,10 +92,6 @@ def create_test_app(
     Includes only the API routes and exception handlers. No middleware is
     added by default — pass keyword arguments to selectively enable
     specific middleware for tests that exercise middleware behavior.
-
-    For tests that need the full production app (all middleware, admin
-    dashboard, production exception handlers with observability), use
-    ``create_test_application()`` instead.
     """
     test_app = FastAPI(lifespan=_test_lifespan)
 
@@ -182,24 +170,6 @@ def create_test_app(
 
         test_app.add_middleware(RequestLoggingMiddleware)
 
-    return test_app
-
-
-def create_test_application():
-    """Create the full production app with the lifespan disabled.
-
-    Returns the complete app (all routes, middleware, production exception
-    handlers with analytics/observability) without the production
-    observability stack. Use this only for tests that verify production
-    middleware or exception handler integration (e.g. observability tests).
-
-    For most tests, prefer ``create_test_app()`` which is faster and
-    avoids loading unnecessary middleware.
-    """
-    from app.main import create_application
-
-    test_app = create_application()
-    test_app.router.lifespan_context = _test_lifespan
     return test_app
 
 

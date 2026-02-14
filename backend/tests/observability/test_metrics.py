@@ -5,13 +5,13 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
-from app.main import app
+from tests.conftest import create_test_app
 
 
 @pytest.fixture
 def client():
     """Create test client."""
-    return TestClient(app)
+    return TestClient(create_test_app())
 
 
 def test_metrics_endpoint_disabled_by_default(client):
@@ -80,7 +80,7 @@ def test_metrics_endpoint_error_handling(client):
 
 def test_metrics_endpoint_not_in_openapi_schema(client):
     """Test that metrics endpoint is excluded from OpenAPI documentation."""
-    response = client.get("/v1/openapi.json")
+    response = client.get("/openapi.json")
     assert response.status_code == 200
 
     openapi_spec = response.json()
@@ -129,7 +129,7 @@ test_sessions_started{test_adaptive="false",test_question_count="25"} 100.0
     ) as mock_get_metrics:
         mock_get_metrics.return_value = mock_metrics
 
-        client = TestClient(app)
+        client = TestClient(create_test_app())
         response = client.get("/v1/metrics")
 
         assert response.status_code == 200

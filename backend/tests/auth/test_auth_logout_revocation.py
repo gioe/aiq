@@ -10,7 +10,7 @@ from unittest.mock import patch
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.main import app
+from tests.conftest import create_test_app
 from app.models import Base, get_db
 from app.core.auth.token_blacklist import get_token_blacklist, init_token_blacklist
 from app.core.datetime_utils import utc_now
@@ -52,10 +52,11 @@ def client():
         async with _AsyncSessionLocal() as session:
             yield session
 
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    test_app = create_test_app()
+    test_app.dependency_overrides[get_db] = override_get_db
+    with TestClient(test_app) as test_client:
         yield test_client
-    app.dependency_overrides.clear()
+    test_app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=_engine)
     _engine.dispose()
 

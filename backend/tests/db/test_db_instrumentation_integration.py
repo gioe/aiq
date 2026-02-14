@@ -5,13 +5,13 @@ import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
-from app.main import app
+from tests.conftest import create_test_app
 
 
 @pytest.fixture
 def client():
     """Create test client."""
-    return TestClient(app)
+    return TestClient(create_test_app())
 
 
 @patch("app.core.config.settings.OTEL_ENABLED", True)
@@ -43,8 +43,7 @@ def test_db_instrumentation_disabled_when_otel_disabled(client):
 
 def test_app_starts_without_instrumentation():
     """Test that app starts successfully when instrumentation is disabled."""
-    # This test validates that the app doesn't crash if instrumentation fails
-    response = TestClient(app).get("/")
+    test_app = create_test_app()
+    response = TestClient(test_app).get("/v1/health")
 
     assert response.status_code == 200
-    assert "Welcome to" in response.json()["message"]

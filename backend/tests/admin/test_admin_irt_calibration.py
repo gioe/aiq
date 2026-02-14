@@ -15,13 +15,13 @@ from fastapi.testclient import TestClient
 
 from app.core.cat.calibration_runner import calibration_runner
 from app.core.config import settings
-from app.main import app
+from tests.conftest import create_test_app
 
 
 @pytest.fixture
 def client():
     """Create a test client."""
-    return TestClient(app)
+    return TestClient(create_test_app())
 
 
 @pytest.fixture
