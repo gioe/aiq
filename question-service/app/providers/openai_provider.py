@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from ..cost_tracking import CompletionResult, TokenUsage
+from app.observability.cost_tracking import CompletionResult, TokenUsage
 from .base import BaseLLMProvider
 
 

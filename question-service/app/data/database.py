@@ -28,19 +28,19 @@ from openai import OpenAI
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from .embedding_utils import (
+from app.utils.embedding_utils import (
     DEFAULT_EMBEDDING_MODEL as EMBEDDING_MODEL,
     generate_embedding_safe,
     generate_embeddings_batch,
 )
-from .models import EvaluatedQuestion, GeneratedQuestion
+from app.data.models import EvaluatedQuestion, GeneratedQuestion
 
 # Import observability facade for distributed tracing
 try:
     from libs.observability import observability
 except ImportError:
     # Fallback for environments where libs.observability isn't installed as a package
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
     from libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)

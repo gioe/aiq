@@ -5,16 +5,16 @@ import pytest
 from pydantic import ValidationError
 from unittest.mock import AsyncMock, Mock, patch
 
-from app.cost_tracking import CompletionResult
-from app.judge import QuestionJudge
-from app.judge_config import (
+from app.observability.cost_tracking import CompletionResult
+from app.evaluation.judge import QuestionJudge
+from app.config.judge_config import (
     DifficultyPlacement,
     JudgeConfig,
     JudgeConfigLoader,
     JudgeModel,
     EvaluationCriteria,
 )
-from app.models import (
+from app.data.models import (
     DifficultyLevel,
     EvaluatedQuestion,
     EvaluationScore,
@@ -173,9 +173,9 @@ def sample_evaluation_response():
 class TestQuestionJudge:
     """Tests for QuestionJudge class."""
 
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.judge.AnthropicProvider")
-    @patch("app.judge.GoogleProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.AnthropicProvider")
+    @patch("app.evaluation.judge.GoogleProvider")
     def test_initialization_with_all_providers(
         self, mock_google, mock_anthropic, mock_openai, mock_judge_config
     ):
@@ -192,7 +192,7 @@ class TestQuestionJudge:
         assert "anthropic" in judge.providers
         assert "google" in judge.providers
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_initialization_with_single_provider(self, mock_openai, mock_judge_config):
         """Test judge initialization with single provider."""
         judge = QuestionJudge(
@@ -208,7 +208,7 @@ class TestQuestionJudge:
         with pytest.raises(ValueError, match="At least one LLM provider API key"):
             QuestionJudge(judge_config=mock_judge_config)
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_parse_evaluation_response_valid(
         self, mock_openai, mock_judge_config, sample_evaluation_response
     ):
@@ -228,7 +228,7 @@ class TestQuestionJudge:
         assert evaluation.creativity_score == pytest.approx(0.7)
         assert evaluation.feedback == "Good question, clear and well-formatted."
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_parse_evaluation_response_missing_fields(
         self, mock_openai, mock_judge_config
     ):
@@ -247,7 +247,7 @@ class TestQuestionJudge:
         with pytest.raises(ValueError, match="Missing required fields"):
             judge._parse_evaluation_response(incomplete_response)
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_calculate_overall_score(
         self, mock_openai, mock_judge_config, sample_evaluation_response
     ):
@@ -268,7 +268,7 @@ class TestQuestionJudge:
         # = 0.27 + 0.34 + 0.1425 + 0.105 = 0.8575
         assert pytest.approx(overall, abs=0.01) == 0.8575
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_calculate_overall_score_with_perfect_scores(
         self, mock_openai, mock_judge_config
     ):
@@ -290,7 +290,7 @@ class TestQuestionJudge:
         overall = judge._calculate_overall_score(perfect_evaluation)
         assert overall == pytest.approx(1.0)
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_calculate_overall_score_with_zero_scores(
         self, mock_openai, mock_judge_config
     ):
@@ -312,7 +312,7 @@ class TestQuestionJudge:
         overall = judge._calculate_overall_score(zero_evaluation)
         assert overall == pytest.approx(0.0)
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_evaluate_question_success(
         self,
         mock_provider_class,
@@ -348,7 +348,7 @@ class TestQuestionJudge:
         # Verify provider was called
         mock_provider.generate_structured_completion_with_usage.assert_called_once()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_evaluate_question_below_threshold(
         self,
         mock_provider_class,
@@ -385,7 +385,7 @@ class TestQuestionJudge:
         assert evaluated.approved is False  # Score < threshold 0.7
         assert evaluated.evaluation.overall_score < 0.7
 
-    @patch("app.judge.AnthropicProvider")
+    @patch("app.evaluation.judge.AnthropicProvider")
     def test_evaluate_question_falls_back_when_primary_unavailable(
         self,
         mock_provider_class,
@@ -414,7 +414,7 @@ class TestQuestionJudge:
         assert isinstance(evaluated, EvaluatedQuestion)
         assert "anthropic" in evaluated.judge_model
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_evaluate_question_no_providers_raises_error(
         self,
         mock_provider_class,
@@ -432,7 +432,7 @@ class TestQuestionJudge:
         with pytest.raises(ValueError, match="No judge providers available"):
             judge.evaluate_question(sample_question)
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_evaluate_batch_success(
         self,
         mock_provider_class,
@@ -471,7 +471,7 @@ class TestQuestionJudge:
         assert all(isinstance(eq, EvaluatedQuestion) for eq in evaluated_questions)
         assert all(eq.approved for eq in evaluated_questions)
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_evaluate_batch_with_errors_continue(
         self,
         mock_provider_class,
@@ -510,7 +510,7 @@ class TestQuestionJudge:
         # Assertions - should have 2 successful evaluations
         assert len(evaluated_questions) == 2
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_evaluate_batch_with_errors_no_continue(
         self,
         mock_provider_class,
@@ -553,7 +553,7 @@ class TestQuestionJudge:
         with pytest.raises(Exception, match="API error"):
             judge.evaluate_batch(batch, continue_on_error=False)
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_evaluate_questions_list(
         self,
         mock_provider_class,
@@ -586,8 +586,8 @@ class TestQuestionJudge:
         assert len(evaluated_questions) == 2
         assert all(isinstance(eq, EvaluatedQuestion) for eq in evaluated_questions)
 
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.judge.AnthropicProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.AnthropicProvider")
     def test_get_judge_stats(self, mock_anthropic, mock_openai, mock_judge_config):
         """Test getting judge statistics."""
         judge = QuestionJudge(
@@ -629,8 +629,8 @@ class TestQuestionJudge:
         assert stats["judges"]["math"]["fallback"] is None
         assert stats["judges"]["math"]["fallback_model"] is None
 
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.judge.AnthropicProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.AnthropicProvider")
     def test_get_judge_stats_includes_fallback_fields(
         self, mock_anthropic, mock_openai
     ):
@@ -752,8 +752,8 @@ class TestJudgeIntegration:
             ),
         }
 
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.judge.AnthropicProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.AnthropicProvider")
     def test_different_judges_for_different_types(
         self,
         mock_anthropic,
@@ -796,7 +796,7 @@ class TestJudgeIntegration:
         evaluated_logic = judge.evaluate_question(logic_q)
         assert "anthropic" in evaluated_logic.judge_model
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_provider_model_not_mutated_during_evaluation(
         self,
         mock_provider_class,
@@ -860,7 +860,7 @@ class TestMemoryQuestionEvaluation:
     - Whether the cognitive load matches the target difficulty
     """
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_evaluate_memory_question_success(
         self,
         mock_provider_class,
@@ -898,7 +898,7 @@ class TestMemoryQuestionEvaluation:
         # Verify provider was called
         mock_provider.generate_structured_completion_with_usage.assert_called_once()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_memory_question_stimulus_passed_to_prompt(
         self,
         mock_provider_class,
@@ -934,7 +934,7 @@ class TestMemoryQuestionEvaluation:
         assert "MEMORY QUESTION EVALUATION GUIDELINES" in prompt
         assert "two-phase delivery" in prompt.lower()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_memory_question_without_stimulus_rejected_at_model_level(
         self,
         mock_provider_class,
@@ -961,7 +961,7 @@ class TestMemoryQuestionEvaluation:
             )
         assert "stimulus" in str(exc_info.value).lower()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_memory_question_uses_correct_judge_provider(
         self,
         mock_provider_class,
@@ -991,7 +991,7 @@ class TestMemoryQuestionEvaluation:
         assert "openai" in evaluated.judge_model
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_memory_question_async_success(
         self,
         mock_provider_class,
@@ -1029,7 +1029,7 @@ class TestMemoryQuestionEvaluation:
         mock_provider.generate_structured_completion_with_usage_async.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_memory_question_async_stimulus_in_prompt(
         self,
         mock_provider_class,
@@ -1064,7 +1064,7 @@ class TestMemoryQuestionEvaluation:
         # Verify stimulus content is in the prompt
         assert sample_memory_question.stimulus in prompt
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_memory_question_batch_evaluation(
         self,
         mock_provider_class,
@@ -1116,7 +1116,7 @@ class TestMemoryQuestionEvaluation:
 class TestQuestionJudgeAsync:
     """Tests for async judge functionality."""
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_initialization_creates_rate_limiter(self, mock_openai, mock_judge_config):
         """Test that judge initialization creates rate limiter with correct concurrency."""
         judge = QuestionJudge(
@@ -1130,7 +1130,7 @@ class TestQuestionJudgeAsync:
         assert judge._async_timeout == pytest.approx(30.0)
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_question_async_success(
         self,
         mock_provider_class,
@@ -1167,7 +1167,7 @@ class TestQuestionJudgeAsync:
         mock_provider.generate_structured_completion_with_usage_async.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_question_async_timeout(
         self,
         mock_provider_class,
@@ -1200,7 +1200,7 @@ class TestQuestionJudgeAsync:
             await judge.evaluate_question_async(sample_question)
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_question_async_falls_back_when_primary_unavailable(
         self,
         mock_provider_class,
@@ -1229,7 +1229,7 @@ class TestQuestionJudgeAsync:
         assert "anthropic" in evaluated.judge_model
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_question_async_no_providers_raises_error(
         self,
         mock_provider_class,
@@ -1247,7 +1247,7 @@ class TestQuestionJudgeAsync:
             await judge.evaluate_question_async(sample_question)
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_questions_list_async_success(
         self,
         mock_provider_class,
@@ -1288,7 +1288,7 @@ class TestQuestionJudgeAsync:
         )
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_questions_list_async_with_failures(
         self,
         mock_provider_class,
@@ -1333,7 +1333,7 @@ class TestQuestionJudgeAsync:
         assert all(isinstance(eq, EvaluatedQuestion) for eq in evaluated_questions)
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_questions_list_async_empty_list(
         self,
         mock_provider_class,
@@ -1352,7 +1352,7 @@ class TestQuestionJudgeAsync:
         assert evaluated_questions == []
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_evaluate_questions_list_async_respects_rate_limit(
         self,
         mock_provider_class,
@@ -1401,7 +1401,7 @@ class TestQuestionJudgeAsync:
         assert max_concurrent <= 2
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_cleanup(
         self,
         mock_provider_class,
@@ -1426,7 +1426,7 @@ class TestQuestionJudgeAsync:
         mock_provider.cleanup.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     async def test_async_context_manager(
         self,
         mock_provider_class,
@@ -1466,7 +1466,7 @@ class TestDifficultyPlacement:
       - upgrade_threshold = 0.8 (score > 0.8 → question is harder than target)
     """
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_easy_question_low_score_stays_easy(self, mock_openai, mock_judge_config):
         """Easy question with low difficulty score (0.2) stays easy — can't downgrade below easy."""
         judge = QuestionJudge(
@@ -1482,7 +1482,7 @@ class TestDifficultyPlacement:
         assert level == DifficultyLevel.EASY
         assert reason is None
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_easy_question_high_score_upgraded_to_medium(
         self, mock_openai, mock_judge_config
     ):
@@ -1501,7 +1501,7 @@ class TestDifficultyPlacement:
         assert "Upgraded" in reason
         assert "easy to medium" in reason.lower()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_easy_question_mid_score_stays_easy(self, mock_openai, mock_judge_config):
         """Easy question with mid difficulty score (0.5) stays easy — within thresholds."""
         judge = QuestionJudge(
@@ -1517,7 +1517,7 @@ class TestDifficultyPlacement:
         assert level == DifficultyLevel.EASY
         assert reason is None
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_medium_question_low_score_downgraded_to_easy(
         self, mock_openai, mock_judge_config
     ):
@@ -1536,7 +1536,7 @@ class TestDifficultyPlacement:
         assert "Downgraded" in reason
         assert "medium to easy" in reason.lower()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_medium_question_high_score_upgraded_to_hard(
         self, mock_openai, mock_judge_config
     ):
@@ -1555,7 +1555,7 @@ class TestDifficultyPlacement:
         assert "Upgraded" in reason
         assert "medium to hard" in reason.lower()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_hard_question_low_score_downgraded_to_medium(
         self, mock_openai, mock_judge_config
     ):
@@ -1574,7 +1574,7 @@ class TestDifficultyPlacement:
         assert "Downgraded" in reason
         assert "hard to medium" in reason.lower()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_hard_question_high_score_stays_hard(self, mock_openai, mock_judge_config):
         """Hard question with high difficulty score (0.9) stays hard — can't upgrade above hard."""
         judge = QuestionJudge(
@@ -1590,7 +1590,7 @@ class TestDifficultyPlacement:
         assert level == DifficultyLevel.HARD
         assert reason is None
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_feedback_fallback_too_easy_downgrades_medium(
         self, mock_openai, mock_judge_config
     ):
@@ -1609,7 +1609,7 @@ class TestDifficultyPlacement:
         assert level == DifficultyLevel.EASY
         assert "feedback" in reason.lower()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_feedback_fallback_too_hard_upgrades_easy(
         self, mock_openai, mock_judge_config
     ):
@@ -1628,7 +1628,7 @@ class TestDifficultyPlacement:
         assert level == DifficultyLevel.MEDIUM
         assert "feedback" in reason.lower()
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_boundary_score_at_downgrade_threshold(
         self, mock_openai, mock_judge_config
     ):
@@ -1646,7 +1646,7 @@ class TestDifficultyPlacement:
         assert level == DifficultyLevel.MEDIUM
         assert reason is None
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_boundary_score_at_upgrade_threshold(self, mock_openai, mock_judge_config):
         """Score exactly at upgrade threshold (0.8) does NOT trigger upgrade."""
         judge = QuestionJudge(

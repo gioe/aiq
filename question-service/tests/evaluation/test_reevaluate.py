@@ -9,7 +9,11 @@ _project_root = str(Path(__file__).parent.parent.parent)
 sys.path.insert(0, _project_root)
 sys.path.insert(0, str(Path(_project_root) / "scripts"))
 
-from app.models import DifficultyLevel, GeneratedQuestion, QuestionType  # noqa: E402
+from app.data.models import (  # noqa: E402
+    DifficultyLevel,
+    GeneratedQuestion,
+    QuestionType,
+)
 from reevaluate_questions import db_question_to_generated  # noqa: E402
 
 

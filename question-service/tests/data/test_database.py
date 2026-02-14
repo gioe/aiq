@@ -4,8 +4,8 @@ import pytest
 from unittest.mock import Mock, patch, ANY
 from sqlalchemy.orm import Session
 
-from app.database import DatabaseService, PROMPT_VERSION
-from app.models import (
+from app.data.database import DatabaseService, PROMPT_VERSION
+from app.data.models import (
     DifficultyLevel,
     EvaluatedQuestion,
     EvaluationScore,
@@ -93,8 +93,8 @@ def sample_evaluated_memory_question(sample_memory_question):
 @pytest.fixture
 def mock_database_service():
     """Create a mock database service."""
-    with patch("app.database.create_engine"):
-        with patch("app.database.sessionmaker"):
+    with patch("app.data.database.create_engine"):
+        with patch("app.data.database.sessionmaker"):
             service = DatabaseService(
                 database_url="postgresql://test:test@localhost/test"
             )
@@ -104,8 +104,8 @@ def mock_database_service():
 class TestDatabaseService:
     """Tests for DatabaseService class."""
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
     def test_initialization(self, mock_sessionmaker, mock_create_engine):
         """Test database service initialization."""
         database_url = "postgresql://user:pass@localhost/testdb"
@@ -115,8 +115,8 @@ class TestDatabaseService:
         mock_create_engine.assert_called_once_with(database_url)
         mock_sessionmaker.assert_called_once()
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
     def test_get_session(self, mock_sessionmaker, mock_create_engine):
         """Test getting a database session."""
         mock_session = Mock(spec=Session)
@@ -127,8 +127,8 @@ class TestDatabaseService:
 
         assert session == mock_session
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
     def test_close_session(self, mock_sessionmaker, mock_create_engine):
         """Test closing a database session."""
         mock_session = Mock(spec=Session)
@@ -151,7 +151,7 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 123))
 
-        with patch("app.database.QuestionModel", return_value=mock_db_question):
+        with patch("app.data.database.QuestionModel", return_value=mock_db_question):
             question_id = mock_database_service.insert_question(sample_question)
 
         assert question_id == 123
@@ -174,7 +174,7 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 456))
 
-        with patch("app.database.QuestionModel", return_value=mock_db_question):
+        with patch("app.data.database.QuestionModel", return_value=mock_db_question):
             question_id = mock_database_service.insert_question(
                 sample_question, judge_score=0.85
             )
@@ -196,7 +196,7 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 555))
 
-        with patch("app.database.QuestionModel") as MockQuestionModel:
+        with patch("app.data.database.QuestionModel") as MockQuestionModel:
             mock_instance = Mock()
             mock_instance.id = 555
             MockQuestionModel.return_value = mock_instance
@@ -224,7 +224,7 @@ class TestDatabaseService:
         mock_database_service.get_session = Mock(return_value=mock_session)
         mock_database_service.close_session = Mock()
 
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             with pytest.raises(Exception, match="Database error"):
                 mock_database_service.insert_question(sample_question)
 
@@ -246,7 +246,7 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 789))
 
-        with patch("app.database.QuestionModel", return_value=mock_db_question):
+        with patch("app.data.database.QuestionModel", return_value=mock_db_question):
             question_id = mock_database_service.insert_evaluated_question(
                 sample_evaluated_question
             )
@@ -276,7 +276,7 @@ class TestDatabaseService:
 
         mock_session.add.side_effect = capture_question
 
-        with patch("app.database.QuestionModel") as MockQuestionModel:
+        with patch("app.data.database.QuestionModel") as MockQuestionModel:
             mock_instance = Mock()
             mock_instance.id = 999
             MockQuestionModel.return_value = mock_instance
@@ -312,7 +312,7 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 888))
 
-        with patch("app.database.QuestionModel") as MockQuestionModel:
+        with patch("app.data.database.QuestionModel") as MockQuestionModel:
             mock_instance = Mock()
             mock_instance.id = 888
             MockQuestionModel.return_value = mock_instance
@@ -356,7 +356,7 @@ class TestDatabaseService:
         mock_database_service.get_session = Mock(return_value=mock_session)
         mock_database_service.close_session = Mock()
 
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             question_ids = mock_database_service.insert_questions_batch(questions)
 
         assert isinstance(question_ids, list)
@@ -388,7 +388,7 @@ class TestDatabaseService:
         mock_database_service.get_session = Mock(return_value=mock_session)
         mock_database_service.close_session = Mock()
 
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             question_ids = mock_database_service.insert_questions_batch(
                 questions, judge_scores=scores
             )
@@ -433,7 +433,7 @@ class TestDatabaseService:
 
         captured_models = []
 
-        with patch("app.database.QuestionModel") as MockQuestionModel:
+        with patch("app.data.database.QuestionModel") as MockQuestionModel:
             mock_instance = Mock()
             mock_instance.id = 100
 
@@ -509,7 +509,7 @@ class TestDatabaseService:
         mock_database_service.get_session = Mock(return_value=mock_session)
         mock_database_service.close_session = Mock()
 
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             question_ids = mock_database_service.insert_evaluated_questions_batch(
                 evaluated_questions
             )
@@ -580,7 +580,7 @@ class TestDatabaseService:
 
         captured_models = []
 
-        with patch("app.database.QuestionModel") as MockQuestionModel:
+        with patch("app.data.database.QuestionModel") as MockQuestionModel:
             mock_instance = Mock()
             mock_instance.id = 200
 
@@ -705,8 +705,8 @@ class TestDatabaseService:
 class TestQuestionTypeMapping:
     """Tests for question type enum mapping."""
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
     def test_question_type_mapping(self, mock_sessionmaker, mock_create_engine):
         """Test that question types are correctly mapped to database enums."""
         service = DatabaseService(database_url="postgresql://test:test@localhost/test")
@@ -738,7 +738,7 @@ class TestQuestionTypeMapping:
 
         mock_session.add.side_effect = capture_question
 
-        with patch("app.database.QuestionModel") as MockQuestionModel:
+        with patch("app.data.database.QuestionModel") as MockQuestionModel:
             mock_instance = Mock()
             mock_instance.id = 1
             MockQuestionModel.return_value = mock_instance

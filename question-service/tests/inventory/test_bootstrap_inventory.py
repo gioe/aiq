@@ -538,7 +538,7 @@ class TestSyncGeneration:
         mock_pipeline.generate_questions.return_value = mock_batch
         bootstrap.pipeline = mock_pipeline
 
-        from app.models import QuestionType
+        from app.data.models import QuestionType
 
         result = bootstrap._generate_type_sync(QuestionType.MATH, 15)
 
@@ -576,7 +576,7 @@ class TestDistributionAcrossDifficulties:
         mock_pipeline.generate_questions.return_value = mock_batch
         bootstrap.pipeline = mock_pipeline
 
-        from app.models import QuestionType
+        from app.data.models import QuestionType
 
         bootstrap._generate_type_sync(QuestionType.MATH, 30)
 
@@ -597,7 +597,7 @@ class TestDistributionAcrossDifficulties:
         mock_pipeline.generate_questions.return_value = mock_batch
         bootstrap.pipeline = mock_pipeline
 
-        from app.models import QuestionType
+        from app.data.models import QuestionType
 
         bootstrap._generate_type_sync(QuestionType.MATH, 32)
 
@@ -619,7 +619,7 @@ class TestDistributionAcrossDifficulties:
         mock_pipeline.generate_questions.return_value = mock_batch
         bootstrap.pipeline = mock_pipeline
 
-        from app.models import QuestionType
+        from app.data.models import QuestionType
 
         bootstrap._generate_type_sync(QuestionType.MATH, 2)
 
@@ -1912,7 +1912,7 @@ class TestBatchAPIFlow:
         mock_pipeline.generator.providers = {"google": mock_google_provider}
         bootstrap.pipeline = mock_pipeline
 
-        from app.models import QuestionType
+        from app.data.models import QuestionType
 
         with patch("bootstrap_inventory.settings") as mock_settings:
             mock_settings.batch_generation_size = 100
@@ -1972,7 +1972,7 @@ class TestBatchAPIFlow:
         mock_pipeline.generator.providers = {"google": mock_google_provider}
         bootstrap.pipeline = mock_pipeline
 
-        from app.models import QuestionType
+        from app.data.models import QuestionType
 
         with patch("bootstrap_inventory.settings") as mock_settings:
             mock_settings.batch_generation_size = 100
@@ -2030,7 +2030,7 @@ class TestBatchAPIFlow:
         mock_pipeline.generator.providers = {"google": mock_google_provider}
         bootstrap.pipeline = mock_pipeline
 
-        from app.models import QuestionType
+        from app.data.models import QuestionType
 
         with patch("bootstrap_inventory.settings") as mock_settings:
             mock_settings.batch_generation_size = 100
@@ -2061,7 +2061,7 @@ class TestBatchAPIFlow:
         mock_pipeline.generator.providers = {"google": mock_google_provider}
         bootstrap.pipeline = mock_pipeline
 
-        from app.models import QuestionType
+        from app.data.models import QuestionType
 
         with patch("bootstrap_inventory.settings") as mock_settings:
             mock_settings.batch_generation_size = 100
@@ -2082,7 +2082,7 @@ class TestBatchAPIFlow:
         mock_pipeline.generator.providers = {"openai": Mock()}
         bootstrap.pipeline = mock_pipeline
 
-        from app.models import QuestionType
+        from app.data.models import QuestionType
 
         with pytest.raises(ValueError) as exc_info:
             await bootstrap._generate_type_with_batch_api(QuestionType.MATH, 15)
@@ -3166,7 +3166,7 @@ class TestInsertQuestionsBatch:
 
     def _make_evaluated_questions(self, count):
         """Helper to create evaluated questions."""
-        from app.models import (
+        from app.data.models import (
             DifficultyLevel,
             EvaluatedQuestion,
             EvaluationScore,
@@ -3468,7 +3468,7 @@ class TestEmailFormatValidation:
 
     def test_valid_email_formats(self):
         """Test AlertManager accepts valid email formats."""
-        from app.alerting import AlertManager
+        from app.observability.alerting import AlertManager
 
         valid_emails = [
             "test@example.com",
@@ -3493,7 +3493,7 @@ class TestEmailFormatValidation:
 
     def test_invalid_from_email_disables_alerts(self):
         """Test invalid from_email format disables email alerts."""
-        from app.alerting import AlertManager
+        from app.observability.alerting import AlertManager
 
         invalid_from_emails = [
             "not-an-email",
@@ -3520,7 +3520,7 @@ class TestEmailFormatValidation:
 
     def test_invalid_to_emails_disables_alerts(self):
         """Test invalid to_emails format disables email alerts."""
-        from app.alerting import AlertManager
+        from app.observability.alerting import AlertManager
 
         invalid_recipients = [
             ["not-an-email"],
@@ -3545,7 +3545,7 @@ class TestEmailFormatValidation:
 
     def test_valid_emails_keep_alerts_enabled(self):
         """Test valid from_email and to_emails keep alerts enabled."""
-        from app.alerting import AlertManager
+        from app.observability.alerting import AlertManager
 
         alert_manager = AlertManager(
             email_enabled=True,
@@ -3562,7 +3562,7 @@ class TestEmailFormatValidation:
 
     def test_mixed_valid_invalid_recipients_disables_alerts(self):
         """Test that any invalid recipient disables all email alerts."""
-        from app.alerting import AlertManager
+        from app.observability.alerting import AlertManager
 
         alert_manager = AlertManager(
             email_enabled=True,
@@ -3611,7 +3611,7 @@ class TestBatchApiIntegration:
         self, config, event_logger, logger
     ):
         """Test _generate_type_with_batch_api with mocked Google provider."""
-        from app.models import QuestionType
+        from app.data.models import QuestionType
         from app.providers.google_provider import GoogleProvider
 
         bootstrap = BootstrapInventory(config, event_logger, logger)
@@ -3662,7 +3662,7 @@ class TestBatchApiIntegration:
     @pytest.mark.asyncio
     async def test_batch_api_chunking_large_batch(self, config, event_logger, logger):
         """Test batch chunking when prompts exceed limit."""
-        from app.models import QuestionType
+        from app.data.models import QuestionType
         from app.providers.google_provider import GoogleProvider
 
         # Request 300 questions to force chunking
@@ -3732,7 +3732,7 @@ class TestBatchApiIntegration:
     @pytest.mark.asyncio
     async def test_batch_api_error_handling(self, config, event_logger, logger):
         """Test batch error handling."""
-        from app.models import QuestionType
+        from app.data.models import QuestionType
         from app.providers.google_provider import GoogleProvider
 
         bootstrap = BootstrapInventory(config, event_logger, logger)
@@ -3759,7 +3759,7 @@ class TestBatchApiIntegration:
     @pytest.mark.asyncio
     async def test_batch_api_partial_failures(self, config, event_logger, logger):
         """Test batch API with partial failures."""
-        from app.models import QuestionType
+        from app.data.models import QuestionType
         from app.providers.google_provider import GoogleProvider
 
         bootstrap = BootstrapInventory(config, event_logger, logger)
@@ -3836,7 +3836,7 @@ class TestFullPipelineIntegration:
 
     def _make_generated_questions(self, count):
         """Helper to create generated questions."""
-        from app.models import (
+        from app.data.models import (
             DifficultyLevel,
             GeneratedQuestion,
             QuestionType,
@@ -3858,7 +3858,7 @@ class TestFullPipelineIntegration:
 
     def _make_evaluated_questions(self, count, approved=True):
         """Helper to create evaluated questions."""
-        from app.models import (
+        from app.data.models import (
             DifficultyLevel,
             EvaluatedQuestion,
             EvaluationScore,
@@ -4031,7 +4031,7 @@ class TestFullPipelineIntegration:
         mock_judge = Mock()
 
         async def mock_eval(questions):
-            from app.models import (
+            from app.data.models import (
                 DifficultyLevel,
                 EvaluatedQuestion,
                 EvaluationScore,

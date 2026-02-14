@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.generator import _safe_record_metric
+from app.generation.generator import _safe_record_metric
 
 
 class TestGenerationFailureDifficultyLabel:
@@ -12,7 +12,7 @@ class TestGenerationFailureDifficultyLabel:
 
     @pytest.fixture
     def mock_observability(self):
-        with patch("app.generator.observability") as mock_obs:
+        with patch("app.generation.generator.observability") as mock_obs:
             mock_obs.is_initialized = True
             yield mock_obs
 
@@ -76,7 +76,7 @@ class TestLatencyCostDifficultyLabel:
 
     @pytest.fixture
     def mock_observability(self):
-        with patch("app.generator.observability") as mock_obs:
+        with patch("app.generation.generator.observability") as mock_obs:
             mock_obs.is_initialized = True
             yield mock_obs
 

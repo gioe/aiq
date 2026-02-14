@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.logging_config import (
+from app.infrastructure.logging_config import (
     ColoredFormatter,
     JSONFormatter,
     LogContext,

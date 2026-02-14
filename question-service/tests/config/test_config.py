@@ -5,7 +5,7 @@ import os
 import pytest
 from unittest.mock import patch
 
-from app.config import Settings
+from app.config.config import Settings
 
 
 class TestDedupConfig:

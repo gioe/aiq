@@ -4,8 +4,12 @@ import numpy as np
 import pytest
 from unittest.mock import Mock, patch
 
-from app.deduplicator import DuplicateCheckResult, EmbeddingCache, QuestionDeduplicator
-from app.models import DifficultyLevel, GeneratedQuestion, QuestionType
+from app.data.deduplicator import (
+    DuplicateCheckResult,
+    EmbeddingCache,
+    QuestionDeduplicator,
+)
+from app.data.models import DifficultyLevel, GeneratedQuestion, QuestionType
 
 
 @pytest.fixture
@@ -94,7 +98,7 @@ class TestDuplicateCheckResult:
 class TestQuestionDeduplicator:
     """Tests for QuestionDeduplicator class."""
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_initialization_valid_threshold(self, mock_openai):
         """Test initialization with valid threshold."""
         deduplicator = QuestionDeduplicator(
@@ -105,7 +109,7 @@ class TestQuestionDeduplicator:
         assert deduplicator.similarity_threshold == pytest.approx(0.85)
         assert deduplicator.embedding_model == "text-embedding-3-small"
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_initialization_invalid_threshold_too_high(self, mock_openai):
         """Test initialization with threshold > 1.0."""
         with pytest.raises(ValueError, match="must be between 0.0 and 1.0"):
@@ -114,7 +118,7 @@ class TestQuestionDeduplicator:
                 similarity_threshold=1.5,
             )
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_initialization_invalid_threshold_negative(self, mock_openai):
         """Test initialization with negative threshold."""
         with pytest.raises(ValueError, match="must be between 0.0 and 1.0"):
@@ -123,7 +127,7 @@ class TestQuestionDeduplicator:
                 similarity_threshold=-0.1,
             )
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_initialization_custom_model(self, mock_openai):
         """Test initialization with custom embedding model."""
         deduplicator = QuestionDeduplicator(
@@ -133,7 +137,7 @@ class TestQuestionDeduplicator:
 
         assert deduplicator.embedding_model == "text-embedding-ada-002"
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_check_duplicate_exact_match(
         self, mock_openai, sample_question, sample_existing_questions
     ):
@@ -151,7 +155,7 @@ class TestQuestionDeduplicator:
         assert result.similarity_score == pytest.approx(1.0)
         assert result.matched_question["id"] == 4
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_check_duplicate_exact_match_case_insensitive(
         self, mock_openai, sample_question, sample_existing_questions
     ):
@@ -167,7 +171,7 @@ class TestQuestionDeduplicator:
         assert result.is_duplicate is True
         assert result.duplicate_type == "exact"
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_check_duplicate_no_match(
         self, mock_openai, sample_question, sample_existing_questions
     ):
@@ -193,7 +197,7 @@ class TestQuestionDeduplicator:
 
         assert result.is_duplicate is False
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_check_duplicate_semantic_match(
         self, mock_openai, sample_question, sample_existing_questions
     ):
@@ -224,7 +228,7 @@ class TestQuestionDeduplicator:
         assert result.duplicate_type == "semantic"
         assert result.similarity_score >= 0.85
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_check_duplicate_empty_existing_list(self, mock_openai, sample_question):
         """Test check with empty existing questions list."""
         deduplicator = QuestionDeduplicator(openai_api_key="test-key")
@@ -233,7 +237,7 @@ class TestQuestionDeduplicator:
 
         assert result.is_duplicate is False
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_check_duplicates_batch(self, mock_openai, sample_existing_questions):
         """Test batch duplicate checking."""
         questions = [
@@ -291,7 +295,7 @@ class TestQuestionDeduplicator:
         assert results[1].duplicate_type == "exact"
         assert results[2].is_duplicate is False  # New question
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_cosine_similarity(self, mock_openai):
         """Test cosine similarity calculation."""
         deduplicator = QuestionDeduplicator(openai_api_key="test-key")
@@ -313,7 +317,7 @@ class TestQuestionDeduplicator:
         similarity = deduplicator._cosine_similarity(vec4, vec5)
         assert 0.9 < similarity < 1.0
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_cosine_similarity_zero_vectors(self, mock_openai):
         """Test cosine similarity with zero vectors."""
         deduplicator = QuestionDeduplicator(openai_api_key="test-key")
@@ -324,7 +328,7 @@ class TestQuestionDeduplicator:
         similarity = deduplicator._cosine_similarity(vec1, vec2)
         assert similarity == pytest.approx(0.0)
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_get_embedding_success(self, mock_openai):
         """Test successful embedding generation."""
         mock_response = Mock()
@@ -338,7 +342,7 @@ class TestQuestionDeduplicator:
         assert len(embedding) == 1536
         assert all(v == pytest.approx(0.1) for v in embedding)
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_get_embedding_failure(self, mock_openai):
         """Test embedding generation failure."""
         mock_openai.return_value.embeddings.create.side_effect = Exception("API error")
@@ -348,7 +352,7 @@ class TestQuestionDeduplicator:
         with pytest.raises(Exception, match="API error"):
             deduplicator._get_embedding("Test question")
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_filter_duplicates(self, mock_openai, sample_existing_questions):
         """Test filtering duplicates from question list."""
         questions = [
@@ -404,7 +408,7 @@ class TestQuestionDeduplicator:
         assert duplicates[0][0].question_text == "What is the capital of France?"
         assert duplicates[0][1].is_duplicate is True
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_get_stats(self, mock_openai):
         """Test getting deduplicator statistics."""
         deduplicator = QuestionDeduplicator(
@@ -422,7 +426,7 @@ class TestQuestionDeduplicator:
 class TestDeduplicatorIntegration:
     """Integration tests for deduplicator with different scenarios."""
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_whitespace_normalization(self, mock_openai):
         """Test that whitespace differences don't affect exact matching."""
         question = GeneratedQuestion(
@@ -446,7 +450,7 @@ class TestDeduplicatorIntegration:
         assert result.is_duplicate is True
         assert result.duplicate_type == "exact"
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_similarity_threshold_boundary(self, mock_openai):
         """Test behavior at similarity threshold boundary."""
         question = GeneratedQuestion(
@@ -598,7 +602,7 @@ class TestEmbeddingCache:
 class TestDeduplicatorCacheIntegration:
     """Tests for QuestionDeduplicator embedding cache integration."""
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_cache_reduces_api_calls(self, mock_openai):
         """Test that caching reduces duplicate API calls."""
         mock_response = Mock()
@@ -616,7 +620,7 @@ class TestDeduplicatorCacheIntegration:
         # Both embeddings should be identical
         np.testing.assert_array_equal(embedding1, embedding2)
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_cache_case_insensitive(self, mock_openai):
         """Test that cache is case-insensitive for same text."""
         mock_response = Mock()
@@ -633,7 +637,7 @@ class TestDeduplicatorCacheIntegration:
         # API should only be called once
         assert mock_openai.return_value.embeddings.create.call_count == 1
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_get_stats_includes_cache(self, mock_openai):
         """Test that get_stats includes cache statistics."""
         mock_response = Mock()
@@ -654,7 +658,7 @@ class TestDeduplicatorCacheIntegration:
         assert stats["cache"]["hits"] == 1
         assert stats["cache"]["misses"] == 2
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_clear_cache(self, mock_openai):
         """Test that clear_cache removes all cached embeddings."""
         mock_response = Mock()
@@ -675,7 +679,7 @@ class TestDeduplicatorCacheIntegration:
         assert deduplicator.get_stats()["cache"]["hits"] == 0
         assert deduplicator.get_stats()["cache"]["misses"] == 0
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_batch_check_uses_cache_efficiently(
         self, mock_openai, sample_existing_questions
     ):
@@ -727,7 +731,7 @@ class TestDeduplicatorCacheIntegration:
         # 5 misses (first time for each text)
         assert stats["misses"] == 5
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_model_change_invalidates_cache(self, mock_openai):
         """Test that changing embedding model doesn't reuse stale cache entries."""
         # Set up different embeddings for each model

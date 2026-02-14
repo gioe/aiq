@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.benchmark import (
+from app.evaluation.benchmark import (
     AVAILABLE_PROVIDERS,
     BenchmarkResult,
     _print_provider_summary,
@@ -162,7 +162,9 @@ class TestRunBenchmarks:
                 raise ValueError("Simulated API error")
             return await original_func(provider, num, dry_run=dry_run)
 
-        with patch("app.benchmark.benchmark_provider", mock_benchmark_provider):
+        with patch(
+            "app.evaluation.benchmark.benchmark_provider", mock_benchmark_provider
+        ):
             results = await run_benchmarks(
                 providers=["openai", "anthropic"],
                 num_questions=3,
@@ -198,9 +200,11 @@ class TestRunBenchmarks:
             return await original_func(provider, num, dry_run=True)
 
         # Temporarily reduce timeout for faster test
-        with patch("app.benchmark.BENCHMARK_TIMEOUT_SECONDS", 0.1), patch(
-            "app.benchmark.PARALLEL_TIMEOUT_MULTIPLIER", 1.0
-        ), patch("app.benchmark.benchmark_provider", mock_slow_benchmark_provider):
+        with patch("app.evaluation.benchmark.BENCHMARK_TIMEOUT_SECONDS", 0.1), patch(
+            "app.evaluation.benchmark.PARALLEL_TIMEOUT_MULTIPLIER", 1.0
+        ), patch(
+            "app.evaluation.benchmark.benchmark_provider", mock_slow_benchmark_provider
+        ):
             results = await run_benchmarks(
                 providers=["openai", "anthropic"],
                 num_questions=1,

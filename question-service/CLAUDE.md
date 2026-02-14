@@ -15,11 +15,11 @@ When working on question generation, prompts, or the pipeline, read these docs f
 
 | File | Contains |
 |------|----------|
-| `app/prompts.py` | Prompt templates, `QUESTION_SUBTYPES`, `GOLD_STANDARD_EXAMPLES`, `GOLD_STANDARD_BY_SUBTYPE`, `build_generation_prompt()` |
-| `app/generator.py` | Multi-LLM generation, sub-type selection & rotation, batch chunking |
-| `app/judge.py` | Question quality evaluation |
-| `app/pipeline.py` | End-to-end pipeline orchestration |
-| `app/models.py` | `GeneratedQuestion`, `EvaluatedQuestion` data models |
+| `app/generation/prompts.py` | Prompt templates, `QUESTION_SUBTYPES`, `GOLD_STANDARD_EXAMPLES`, `GOLD_STANDARD_BY_SUBTYPE`, `build_generation_prompt()` |
+| `app/generation/generator.py` | Multi-LLM generation, sub-type selection & rotation, batch chunking |
+| `app/evaluation/judge.py` | Question quality evaluation |
+| `app/generation/pipeline.py` | End-to-end pipeline orchestration |
+| `app/data/models.py` | `GeneratedQuestion`, `EvaluatedQuestion` data models |
 | `run_generation.py` | CLI entry point, salvage strategies (answer repair, difficulty reclassification, regeneration) |
 | `config/generators.yaml` | Primary/fallback provider routing per question type |
 | `config/judges.yaml` | Judge model assignment per question type |

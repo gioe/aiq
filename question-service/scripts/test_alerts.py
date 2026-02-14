@@ -10,9 +10,9 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.alerting import AlertManager  # noqa: E402
-from app.config import settings  # noqa: E402
-from app.error_classifier import (  # noqa: E402
+from app.observability.alerting import AlertManager  # noqa: E402
+from app.config.config import settings  # noqa: E402
+from app.infrastructure.error_classifier import (  # noqa: E402
     ClassifiedError,
     ErrorCategory,
     ErrorSeverity,

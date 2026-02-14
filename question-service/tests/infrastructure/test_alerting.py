@@ -7,15 +7,19 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.alerting import (
+from app.observability.alerting import (
     AlertManager,
     AlertingConfig,
     InventoryAlertManager,
     InventoryAlertResult,
     StratumAlert,
 )
-from app.error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity
-from app.models import DifficultyLevel, QuestionType
+from app.infrastructure.error_classifier import (
+    ClassifiedError,
+    ErrorCategory,
+    ErrorSeverity,
+)
+from app.data.models import DifficultyLevel, QuestionType
 
 
 class TestAlertManager:

@@ -6,8 +6,8 @@ from unittest.mock import patch, MagicMock
 
 import httpx
 
-from app.reporter import RunReporter
-from app.run_summary import RunSummary
+from app.reporting.reporter import RunReporter
+from app.reporting.run_summary import RunSummary
 
 
 @pytest.fixture

@@ -2,8 +2,8 @@
 
 from unittest.mock import patch
 
-from app.models import DifficultyLevel, QuestionType
-from app.prompts import (
+from app.data.models import DifficultyLevel, QuestionType
+from app.generation.prompts import (
     build_generation_prompt,
     build_judge_prompt,
     build_regeneration_prompt,
@@ -153,7 +153,7 @@ class TestGoldStandardExamples:
 
     def test_build_generation_prompt_uses_random_choice(self):
         """Test that build_generation_prompt calls random.choice for example selection."""
-        with patch("app.prompts.random.choice") as mock_choice:
+        with patch("app.generation.prompts.random.choice") as mock_choice:
             mock_choice.return_value = GOLD_STANDARD_EXAMPLES[QuestionType.SPATIAL][0]
             build_generation_prompt(
                 question_type=QuestionType.SPATIAL,
@@ -224,7 +224,7 @@ class TestSubtypeGoldStandard:
         subtype = "paper folding with holes or cuts, predicting unfolded result"
         assert subtype not in GOLD_STANDARD_BY_SUBTYPE
 
-        with patch("app.prompts.random.choice") as mock_choice:
+        with patch("app.generation.prompts.random.choice") as mock_choice:
             mock_choice.return_value = GOLD_STANDARD_EXAMPLES[QuestionType.SPATIAL][0]
             prompt = build_generation_prompt(
                 question_type=QuestionType.SPATIAL,

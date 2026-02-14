@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.deduplicator import DuplicateCheckResult
+from app.data.deduplicator import DuplicateCheckResult
 
 
 class TestDedupByTypeMetric:

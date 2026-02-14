@@ -202,7 +202,7 @@ Assuming 50% approval rate and 20% deduplication rate:
 
 ### Metrics Currently Tracked
 
-The `RunSummary` class (`app/run_summary.py`) and observability facade capture:
+The `RunSummary` class (`app/reporting/run_summary.py`) and observability facade capture:
 
 **Generation Metrics:**
 - `questions_requested` - Target count

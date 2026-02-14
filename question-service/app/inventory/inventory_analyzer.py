@@ -14,8 +14,8 @@ from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import func
 
-from .database import DatabaseService, QuestionModel
-from .models import DifficultyLevel, QuestionType
+from app.data.database import DatabaseService, QuestionModel
+from app.data.models import DifficultyLevel, QuestionType
 
 logger = logging.getLogger(__name__)
 

@@ -17,28 +17,28 @@ try:
     from libs.observability import observability
 except ImportError:
     # Fallback for environments where libs.observability isn't installed as a package
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
     from libs.observability import observability  # noqa: E402
 
-from .judge_config import JudgeConfigLoader
-from .circuit_breaker import (
+from app.config.judge_config import JudgeConfigLoader
+from app.infrastructure.circuit_breaker import (
     CircuitBreakerOpen,
     CircuitBreakerRegistry,
     get_circuit_breaker_registry,
 )
-from .models import (
+from app.data.models import (
     DifficultyLevel,
     EvaluatedQuestion,
     EvaluationScore,
     GeneratedQuestion,
     GenerationBatch,
 )
-from .prompts import build_judge_prompt
-from .providers.anthropic_provider import AnthropicProvider
-from .providers.base import BaseLLMProvider
-from .providers.google_provider import GoogleProvider
-from .providers.openai_provider import OpenAIProvider
-from .providers.xai_provider import XAIProvider
+from app.generation.prompts import build_judge_prompt
+from app.providers.anthropic_provider import AnthropicProvider
+from app.providers.base import BaseLLMProvider
+from app.providers.google_provider import GoogleProvider
+from app.providers.openai_provider import OpenAIProvider
+from app.providers.xai_provider import XAIProvider
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from sqlalchemy.orm import Session
 
-from app.inventory_analyzer import (
+from app.inventory.inventory_analyzer import (
     DEFAULT_HEALTHY_THRESHOLD,
     DEFAULT_TARGET_QUESTIONS_PER_STRATUM,
     DEFAULT_WARNING_THRESHOLD,
@@ -13,8 +13,8 @@ from app.inventory_analyzer import (
     InventoryAnalyzer,
     StratumInventory,
 )
-from app.database import DatabaseService
-from app.models import DifficultyLevel, QuestionType
+from app.data.database import DatabaseService
+from app.data.models import DifficultyLevel, QuestionType
 
 
 class TestStratumInventory:
@@ -218,8 +218,8 @@ class TestInventoryAnalyzer:
     @pytest.fixture
     def mock_db_service(self):
         """Create a mock database service."""
-        with patch("app.database.create_engine"):
-            with patch("app.database.sessionmaker"):
+        with patch("app.data.database.create_engine"):
+            with patch("app.data.database.sessionmaker"):
                 service = Mock(spec=DatabaseService)
                 service.get_session = Mock()
                 service.close_session = Mock()

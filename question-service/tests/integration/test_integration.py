@@ -21,17 +21,17 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
-from app.cost_tracking import CompletionResult
-from app.database import DatabaseService
-from app.deduplicator import QuestionDeduplicator
-from app.judge import QuestionJudge
-from app.judge_config import (
+from app.observability.cost_tracking import CompletionResult
+from app.data.database import DatabaseService
+from app.data.deduplicator import QuestionDeduplicator
+from app.evaluation.judge import QuestionJudge
+from app.config.judge_config import (
     JudgeConfig,
     JudgeConfigLoader,
     JudgeModel,
     EvaluationCriteria,
 )
-from app.models import (
+from app.data.models import (
     DifficultyLevel,
     EvaluatedQuestion,
     EvaluationScore,
@@ -39,7 +39,7 @@ from app.models import (
     GenerationBatch,
     QuestionType,
 )
-from app.pipeline import QuestionGenerationPipeline
+from app.generation.pipeline import QuestionGenerationPipeline
 
 
 def make_completion_result(content):
@@ -324,9 +324,9 @@ def existing_questions_in_db():
 class TestGenerationToJudgeFlow:
     """Tests for the generation -> judge evaluation flow."""
 
-    @patch("app.pipeline.QuestionGenerator")
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.judge.AnthropicProvider")
+    @patch("app.generation.pipeline.QuestionGenerator")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.AnthropicProvider")
     def test_generated_questions_flow_to_judge(
         self,
         mock_anthropic_provider,
@@ -380,9 +380,9 @@ class TestGenerationToJudgeFlow:
         assert evaluated_questions[0].approved is True
         assert evaluated_questions[0].evaluation.overall_score >= 0.7
 
-    @patch("app.pipeline.QuestionGenerator")
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.judge.AnthropicProvider")
+    @patch("app.generation.pipeline.QuestionGenerator")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.AnthropicProvider")
     def test_multiple_question_types_evaluated_correctly(
         self,
         mock_anthropic_provider,
@@ -447,8 +447,8 @@ class TestGenerationToJudgeFlow:
         assert QuestionType.PATTERN in types_evaluated
         assert QuestionType.SPATIAL in types_evaluated
 
-    @patch("app.pipeline.QuestionGenerator")
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.generation.pipeline.QuestionGenerator")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_low_quality_questions_rejected_by_judge(
         self,
         mock_openai_provider,
@@ -487,8 +487,8 @@ class TestGenerationToJudgeFlow:
         assert evaluated.approved is False
         assert evaluated.evaluation.overall_score < 0.7
 
-    @patch("app.pipeline.QuestionGenerator")
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.generation.pipeline.QuestionGenerator")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_mixed_quality_batch_partially_approved(
         self,
         mock_openai_provider,
@@ -549,8 +549,8 @@ class TestGenerationToJudgeFlow:
 class TestJudgeToDeduplicationFlow:
     """Tests for the judge -> deduplication flow."""
 
-    @patch("app.deduplicator.OpenAI")
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.data.deduplicator.OpenAI")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_approved_questions_checked_for_duplicates(
         self,
         mock_judge_provider,
@@ -599,8 +599,8 @@ class TestJudgeToDeduplicationFlow:
         # Assertions - new question should not be duplicate
         assert result.is_duplicate is False
 
-    @patch("app.deduplicator.OpenAI")
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.data.deduplicator.OpenAI")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_duplicate_question_detected_after_approval(
         self,
         mock_judge_provider,
@@ -653,8 +653,8 @@ class TestJudgeToDeduplicationFlow:
         assert result.duplicate_type == "exact"
         assert result.similarity_score == pytest.approx(1.0)
 
-    @patch("app.deduplicator.OpenAI")
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.data.deduplicator.OpenAI")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_semantic_duplicate_detected(
         self,
         mock_judge_provider,
@@ -723,8 +723,8 @@ class TestJudgeToDeduplicationFlow:
         assert result.duplicate_type == "semantic"
         assert result.similarity_score >= 0.85
 
-    @patch("app.deduplicator.OpenAI")
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.data.deduplicator.OpenAI")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_batch_deduplication_filters_duplicates(
         self,
         mock_judge_provider,
@@ -803,9 +803,9 @@ class TestJudgeToDeduplicationFlow:
 class TestDeduplicationToStorageFlow:
     """Tests for the deduplication -> storage flow."""
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
+    @patch("app.data.deduplicator.OpenAI")
     def test_unique_questions_stored_in_database(
         self,
         mock_openai_client,
@@ -849,7 +849,7 @@ class TestDeduplicationToStorageFlow:
         db_service.close_session = Mock()
 
         # Insert question
-        with patch("app.database.QuestionModel", return_value=mock_db_question):
+        with patch("app.data.database.QuestionModel", return_value=mock_db_question):
             question_id = db_service.insert_question(sample_math_question)
 
         # Assertions
@@ -857,9 +857,9 @@ class TestDeduplicationToStorageFlow:
         mock_session.add.assert_called_once()
         mock_session.commit.assert_called_once()
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
+    @patch("app.data.deduplicator.OpenAI")
     def test_batch_insertion_after_deduplication(
         self,
         mock_openai_client,
@@ -902,7 +902,7 @@ class TestDeduplicationToStorageFlow:
         db_service.close_session = Mock()
 
         # Insert batch
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             question_ids = db_service.insert_questions_batch(unique_questions)
 
         # Assertions
@@ -910,9 +910,9 @@ class TestDeduplicationToStorageFlow:
         mock_session.commit.assert_called()
         db_service.close_session.assert_called_once()
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
+    @patch("app.data.deduplicator.OpenAI")
     def test_evaluated_questions_stored_with_scores(
         self,
         mock_openai_client,
@@ -982,7 +982,7 @@ class TestDeduplicationToStorageFlow:
         mock_session.add.side_effect = capture_add
 
         # Insert evaluated question
-        with patch("app.database.QuestionModel") as MockModel:
+        with patch("app.data.database.QuestionModel") as MockModel:
             mock_instance = Mock()
             mock_instance.id = 200
             MockModel.return_value = mock_instance
@@ -1004,11 +1004,11 @@ class TestDeduplicationToStorageFlow:
 class TestFullPipelineIntegration:
     """Tests for the complete pipeline flow from generation to storage."""
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
-    @patch("app.deduplicator.OpenAI")
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.pipeline.QuestionGenerator")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
+    @patch("app.data.deduplicator.OpenAI")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.generation.pipeline.QuestionGenerator")
     def test_full_pipeline_success_path(
         self,
         mock_generator_class,
@@ -1115,18 +1115,18 @@ class TestFullPipelineIntegration:
         db_service.close_session = Mock()
 
         # Insert all evaluated questions
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             db_service.insert_questions_batch(unique_questions)
 
         # Final assertions
         assert mock_session.commit.called
         db_service.close_session.assert_called_once()
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
-    @patch("app.deduplicator.OpenAI")
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.pipeline.QuestionGenerator")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
+    @patch("app.data.deduplicator.OpenAI")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.generation.pipeline.QuestionGenerator")
     def test_full_pipeline_with_partial_rejections(
         self,
         mock_generator_class,
@@ -1228,16 +1228,16 @@ class TestFullPipelineIntegration:
         db_service.get_session = Mock(return_value=mock_session)
         db_service.close_session = Mock()
 
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             db_service.insert_questions_batch(unique_questions)
 
         mock_session.commit.assert_called()
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
-    @patch("app.deduplicator.OpenAI")
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.pipeline.QuestionGenerator")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
+    @patch("app.data.deduplicator.OpenAI")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.generation.pipeline.QuestionGenerator")
     def test_full_pipeline_with_duplicates_filtered(
         self,
         mock_generator_class,
@@ -1341,7 +1341,7 @@ class TestFullPipelineIntegration:
         db_service.get_session = Mock(return_value=mock_session)
         db_service.close_session = Mock()
 
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             db_service.insert_questions_batch(unique_questions)
 
         # Verify only unique questions were added
@@ -1356,7 +1356,7 @@ class TestFullPipelineIntegration:
 class TestFailurePaths:
     """Tests for error handling and failure scenarios."""
 
-    @patch("app.pipeline.QuestionGenerator")
+    @patch("app.generation.pipeline.QuestionGenerator")
     def test_generation_failure_propagates(self, mock_generator_class):
         """Test that generation failures are properly propagated."""
         mock_generator = Mock()
@@ -1372,7 +1372,7 @@ class TestFailurePaths:
                 count=5,
             )
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_judge_failure_on_single_question(
         self,
         mock_openai_provider,
@@ -1396,7 +1396,7 @@ class TestFailurePaths:
         with pytest.raises(Exception, match="Judge API Error"):
             judge.evaluate_question(sample_math_question)
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_judge_batch_continues_on_error(
         self,
         mock_openai_provider,
@@ -1441,7 +1441,7 @@ class TestFailurePaths:
 
         assert len(evaluated) == 2  # One failed
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_deduplication_failure_handled_gracefully(
         self, mock_openai_client, sample_math_question
     ):
@@ -1460,8 +1460,8 @@ class TestFailurePaths:
         with pytest.raises(Exception, match="Embedding API Error"):
             deduplicator.check_duplicate(sample_math_question, existing_questions)
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
     def test_database_insertion_failure_triggers_rollback(
         self, mock_sessionmaker, mock_create_engine, sample_math_question
     ):
@@ -1478,18 +1478,18 @@ class TestFailurePaths:
         db_service.get_session = Mock(return_value=mock_session)
         db_service.close_session = Mock()
 
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             with pytest.raises(Exception, match="Database write error"):
                 db_service.insert_question(sample_math_question)
 
         mock_session.rollback.assert_called_once()
         db_service.close_session.assert_called_once()
 
-    @patch("app.database.create_engine")
-    @patch("app.database.sessionmaker")
-    @patch("app.deduplicator.OpenAI")
-    @patch("app.judge.OpenAIProvider")
-    @patch("app.pipeline.QuestionGenerator")
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
+    @patch("app.data.deduplicator.OpenAI")
+    @patch("app.evaluation.judge.OpenAIProvider")
+    @patch("app.generation.pipeline.QuestionGenerator")
     def test_complete_pipeline_failure_at_storage(
         self,
         mock_generator_class,
@@ -1564,7 +1564,7 @@ class TestFailurePaths:
         db_service.close_session = Mock()
 
         # Attempt storage
-        with patch("app.database.QuestionModel"):
+        with patch("app.data.database.QuestionModel"):
             with pytest.raises(Exception, match="Database unavailable"):
                 db_service.insert_question(evaluated.question)
 
@@ -1580,7 +1580,7 @@ class TestFailurePaths:
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
-    @patch("app.pipeline.QuestionGenerator")
+    @patch("app.generation.pipeline.QuestionGenerator")
     def test_empty_generation_result(self, mock_generator_class):
         """Test handling of empty generation results."""
         mock_generator = Mock()
@@ -1598,7 +1598,7 @@ class TestEdgeCases:
 
         assert len(batch.questions) == 0
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_all_questions_rejected(
         self,
         mock_openai_provider,
@@ -1640,7 +1640,7 @@ class TestEdgeCases:
 
         assert len(approved) == 0
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_all_questions_are_duplicates(
         self, mock_openai_client, existing_questions_in_db
     ):
@@ -1678,7 +1678,7 @@ class TestEdgeCases:
         assert len(unique) == 0
         assert len(duplicates) == 2
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_deduplication_with_empty_existing_questions(
         self, mock_openai_client, sample_math_question
     ):
@@ -1689,7 +1689,7 @@ class TestEdgeCases:
 
         assert result.is_duplicate is False
 
-    @patch("app.judge.OpenAIProvider")
+    @patch("app.evaluation.judge.OpenAIProvider")
     def test_borderline_judge_score(
         self, mock_openai_provider, mock_judge_config, sample_math_question
     ):
@@ -1730,7 +1730,7 @@ class TestEdgeCases:
         assert evaluated.evaluation.overall_score >= 0.7
         assert evaluated.approved is True
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_similarity_at_threshold_boundary(
         self, mock_openai_client, sample_math_question
     ):

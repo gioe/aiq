@@ -14,25 +14,28 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .circuit_breaker import (
+from app.infrastructure.circuit_breaker import (
     CircuitBreakerOpen,
     CircuitBreakerRegistry,
     get_circuit_breaker_registry,
 )
-from .cost_tracking import calculate_cost
-from .generator_config import get_generator_config, is_generator_config_initialized
-from .models import (
+from app.observability.cost_tracking import calculate_cost
+from app.config.generator_config import (
+    get_generator_config,
+    is_generator_config_initialized,
+)
+from app.data.models import (
     DifficultyLevel,
     GeneratedQuestion,
     GenerationBatch,
     QuestionType,
 )
-from .prompts import QUESTION_SUBTYPES, build_generation_prompt
-from .providers.anthropic_provider import AnthropicProvider
-from .providers.base import BaseLLMProvider, LLMProviderError
-from .providers.google_provider import GoogleProvider
-from .providers.openai_provider import OpenAIProvider
-from .providers.xai_provider import XAIProvider
+from app.generation.prompts import QUESTION_SUBTYPES, build_generation_prompt
+from app.providers.anthropic_provider import AnthropicProvider
+from app.providers.base import BaseLLMProvider, LLMProviderError
+from app.providers.google_provider import GoogleProvider
+from app.providers.openai_provider import OpenAIProvider
+from app.providers.xai_provider import XAIProvider
 
 # Import observability facade for metrics and Sentry error capture
 # TODO: Remove sys.path manipulation once libs.observability is a proper package
@@ -40,7 +43,7 @@ try:
     from libs.observability import observability
 except ImportError:
     # Fallback for environments where libs.observability isn't installed as a package
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
     from libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)

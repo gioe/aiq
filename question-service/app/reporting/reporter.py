@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-from .type_mapping import normalize_difficulty_metrics, normalize_type_metrics
+from app.utils.type_mapping import normalize_difficulty_metrics, normalize_type_metrics
 
 logger = logging.getLogger(__name__)
 

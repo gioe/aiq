@@ -6,7 +6,7 @@ including failover tracking and provider availability queries.
 
 import pytest
 
-from app.circuit_breaker import (
+from app.infrastructure.circuit_breaker import (
     CircuitBreakerConfig,
     CircuitBreakerOpen,
     CircuitBreakerRegistry,

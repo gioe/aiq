@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime, timezone
 
-from app.run_summary import RunSummary
+from app.reporting.run_summary import RunSummary
 
 
 class TestRunSummaryInit:

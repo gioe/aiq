@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.type_mapping import (
+from app.utils.type_mapping import (
     DIFFICULTY_LEVELS,
     LEGACY_DIFFICULTY_MAPPING,
     LEGACY_QUESTION_TYPE_MAPPING,

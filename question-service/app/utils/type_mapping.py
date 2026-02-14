@@ -8,7 +8,7 @@ The canonical values match the backend API (backend/app/models/models.py).
 
 from typing import Dict
 
-from .models import DifficultyLevel, QuestionType
+from app.data.models import DifficultyLevel, QuestionType
 
 # Canonical enum values (from models.py, matching backend)
 QUESTION_TYPES = [qt.value for qt in QuestionType]

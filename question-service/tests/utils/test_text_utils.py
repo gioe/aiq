@@ -1,6 +1,6 @@
 """Tests for shared text utility functions."""
 
-from app.text_utils import strip_markdown_code_blocks
+from app.utils.text_utils import strip_markdown_code_blocks
 
 
 class TestStripMarkdownCodeBlocks:

@@ -211,32 +211,32 @@ flowchart TB
     end
 
     subgraph Orchestration["Orchestration Layer"]
-        PIPELINE["QuestionGenerationPipeline<br/>app/pipeline.py"]
+        PIPELINE["QuestionGenerationPipeline<br/>app/generation/pipeline.py"]
     end
 
     subgraph Generation["Generation Layer"]
-        GENERATOR["QuestionGenerator<br/>app/generator.py"]
-        PROMPTS["PromptBuilder<br/>app/prompts.py"]
+        GENERATOR["QuestionGenerator<br/>app/generation/generator.py"]
+        PROMPTS["PromptBuilder<br/>app/generation/prompts.py"]
     end
 
     subgraph Evaluation["Evaluation Layer"]
-        JUDGE["QuestionJudge<br/>app/judge.py"]
-        JUDGE_CFG["JudgeConfigLoader<br/>app/judge_config.py"]
+        JUDGE["QuestionJudge<br/>app/evaluation/judge.py"]
+        JUDGE_CFG["JudgeConfigLoader<br/>app/config/judge_config.py"]
     end
 
     subgraph Quality["Quality Layer"]
-        DEDUP["QuestionDeduplicator<br/>app/deduplicator.py"]
+        DEDUP["QuestionDeduplicator<br/>app/data/deduplicator.py"]
         CACHE["EmbeddingCache<br/>In-Memory"]
     end
 
     subgraph Persistence["Persistence Layer"]
-        DATABASE["DatabaseService<br/>app/database.py"]
+        DATABASE["DatabaseService<br/>app/data/database.py"]
     end
 
     subgraph Observability["Observability Layer"]
-        SUMMARY["RunSummary<br/>app/run_summary.py"]
-        REPORTER["RunReporter<br/>app/reporter.py"]
-        ALERTING["AlertManager<br/>app/alerting.py"]
+        SUMMARY["RunSummary<br/>app/reporting/run_summary.py"]
+        REPORTER["RunReporter<br/>app/reporting/reporter.py"]
+        ALERTING["AlertManager<br/>app/observability/alerting.py"]
     end
 
     subgraph Providers["Provider Layer"]
@@ -248,7 +248,7 @@ flowchart TB
     end
 
     subgraph Config["Configuration"]
-        SETTINGS["Settings<br/>app/config.py"]
+        SETTINGS["Settings<br/>app/config/config.py"]
         YAML[("judges.yaml")]
     end
 

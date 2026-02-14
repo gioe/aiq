@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.error_classifier import ErrorCategory, ErrorSeverity
+from app.infrastructure.error_classifier import ErrorCategory, ErrorSeverity
 from app.providers.base import (
     LLMProviderError,
     get_retry_metrics,

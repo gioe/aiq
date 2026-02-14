@@ -10,8 +10,10 @@ from typing import Any, Dict, Optional
 
 from openai import AsyncOpenAI, OpenAI
 
-from ..cost_tracking import CompletionResult, TokenUsage
-from ..text_utils import strip_markdown_code_blocks as _strip_markdown_code_blocks
+from app.observability.cost_tracking import CompletionResult, TokenUsage
+from app.utils.text_utils import (
+    strip_markdown_code_blocks as _strip_markdown_code_blocks,
+)
 from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)

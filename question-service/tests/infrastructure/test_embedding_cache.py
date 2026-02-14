@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-from app.embedding_cache import (
+from app.infrastructure.embedding_cache import (
     InMemoryEmbeddingCache,
     RedisEmbeddingCache,
     HybridEmbeddingCache,
@@ -349,7 +349,7 @@ class TestHybridEmbeddingCache:
         assert stats["backend"] == "in_memory"
         assert stats["using_redis"] is False
 
-    @patch("app.embedding_cache.RedisEmbeddingCache")
+    @patch("app.infrastructure.embedding_cache.RedisEmbeddingCache")
     def test_initialization_with_redis(self, mock_redis_cache_class):
         """Test initialization with Redis URL."""
         mock_redis_cache = Mock()
@@ -363,7 +363,7 @@ class TestHybridEmbeddingCache:
             default_ttl=None,
         )
 
-    @patch("app.embedding_cache.RedisEmbeddingCache")
+    @patch("app.infrastructure.embedding_cache.RedisEmbeddingCache")
     def test_fallback_on_redis_import_error(self, mock_redis_cache_class):
         """Test fallback to in-memory when redis-py not installed."""
         mock_redis_cache_class.side_effect = ImportError("No module named redis")
@@ -372,7 +372,7 @@ class TestHybridEmbeddingCache:
 
         assert cache.using_redis is False
 
-    @patch("app.embedding_cache.RedisEmbeddingCache")
+    @patch("app.infrastructure.embedding_cache.RedisEmbeddingCache")
     def test_fallback_on_connection_error(self, mock_redis_cache_class):
         """Test fallback to in-memory when Redis connection fails."""
         mock_redis_cache_class.side_effect = Exception("Connection refused")
@@ -464,12 +464,14 @@ class TestHybridEmbeddingCache:
 class TestDeduplicatorWithHybridCache:
     """Tests for QuestionDeduplicator with HybridEmbeddingCache integration."""
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_initialization_with_redis_url(self, mock_openai):
         """Test deduplicator initializes with Redis URL."""
-        from app.deduplicator import QuestionDeduplicator
+        from app.data.deduplicator import QuestionDeduplicator
 
-        with patch("app.embedding_cache.RedisEmbeddingCache") as mock_redis_cache:
+        with patch(
+            "app.infrastructure.embedding_cache.RedisEmbeddingCache"
+        ) as mock_redis_cache:
             mock_redis_cache.return_value = Mock()
 
             deduplicator = QuestionDeduplicator(
@@ -479,10 +481,10 @@ class TestDeduplicatorWithHybridCache:
 
             assert isinstance(deduplicator._embedding_cache, HybridEmbeddingCache)
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_initialization_with_external_cache(self, mock_openai):
         """Test deduplicator accepts external cache."""
-        from app.deduplicator import QuestionDeduplicator
+        from app.data.deduplicator import QuestionDeduplicator
 
         external_cache = HybridEmbeddingCache()
 
@@ -493,12 +495,14 @@ class TestDeduplicatorWithHybridCache:
 
         assert deduplicator._embedding_cache is external_cache
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_initialization_with_cache_ttl(self, mock_openai):
         """Test deduplicator passes TTL to cache."""
-        from app.deduplicator import QuestionDeduplicator
+        from app.data.deduplicator import QuestionDeduplicator
 
-        with patch("app.embedding_cache.RedisEmbeddingCache") as mock_redis_cache:
+        with patch(
+            "app.infrastructure.embedding_cache.RedisEmbeddingCache"
+        ) as mock_redis_cache:
             mock_instance = Mock()
             mock_instance.using_redis = True
             mock_redis_cache.return_value = mock_instance
@@ -514,10 +518,10 @@ class TestDeduplicatorWithHybridCache:
                 default_ttl=3600,
             )
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_get_stats_with_hybrid_cache(self, mock_openai):
         """Test get_stats works with HybridEmbeddingCache."""
-        from app.deduplicator import QuestionDeduplicator
+        from app.data.deduplicator import QuestionDeduplicator
 
         deduplicator = QuestionDeduplicator(
             openai_api_key="test-key"  # pragma: allowlist secret

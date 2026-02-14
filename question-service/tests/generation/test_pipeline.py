@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from app.models import DifficultyLevel, GenerationBatch, QuestionType
-from app.pipeline import QuestionGenerationPipeline, create_pipeline
+from app.data.models import DifficultyLevel, GenerationBatch, QuestionType
+from app.generation.pipeline import QuestionGenerationPipeline, create_pipeline
 
 
 class TestQuestionGenerationPipeline:
@@ -14,7 +14,7 @@ class TestQuestionGenerationPipeline:
     @pytest.fixture
     def mock_generator(self):
         """Mock QuestionGenerator."""
-        with patch("app.pipeline.QuestionGenerator") as mock:
+        with patch("app.generation.pipeline.QuestionGenerator") as mock:
             generator = Mock()
             mock.return_value = generator
             yield generator
@@ -38,7 +38,7 @@ class TestQuestionGenerationPipeline:
 
     def test_init_uses_settings_as_fallback(self, mock_generator):
         """Test that pipeline uses settings if no keys provided."""
-        with patch("app.pipeline.settings") as mock_settings:
+        with patch("app.generation.pipeline.settings") as mock_settings:
             mock_settings.openai_api_key = "settings-key"
             mock_settings.anthropic_api_key = None
             mock_settings.google_api_key = None
@@ -203,7 +203,7 @@ class TestBalancedGenerationJob:
     @pytest.fixture
     def mock_generator(self):
         """Mock QuestionGenerator."""
-        with patch("app.pipeline.QuestionGenerator") as mock:
+        with patch("app.generation.pipeline.QuestionGenerator") as mock:
             generator = Mock()
             mock.return_value = generator
             yield generator
@@ -318,7 +318,7 @@ class TestPipelineProviderTier:
     @pytest.fixture
     def mock_generator(self):
         """Mock QuestionGenerator."""
-        with patch("app.pipeline.QuestionGenerator") as mock:
+        with patch("app.generation.pipeline.QuestionGenerator") as mock:
             generator = Mock()
             mock.return_value = generator
             yield generator
@@ -457,7 +457,7 @@ class TestPipelineProviderTier:
 class TestCreatePipeline:
     """Tests for create_pipeline factory function."""
 
-    @patch("app.pipeline.QuestionGenerationPipeline")
+    @patch("app.generation.pipeline.QuestionGenerationPipeline")
     def test_create_pipeline_with_keys(self, mock_pipeline_class):
         """Test creating pipeline with API keys."""
         mock_pipeline = Mock()
@@ -478,7 +478,7 @@ class TestCreatePipeline:
 
         assert result == mock_pipeline
 
-    @patch("app.pipeline.QuestionGenerationPipeline")
+    @patch("app.generation.pipeline.QuestionGenerationPipeline")
     def test_create_pipeline_without_keys(self, mock_pipeline_class):
         """Test creating pipeline without explicit keys."""
         mock_pipeline = Mock()

@@ -17,7 +17,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
-from .error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity
+from app.infrastructure.error_classifier import (
+    ClassifiedError,
+    ErrorCategory,
+    ErrorSeverity,
+)
 
 # Basic email format validation pattern (RFC 5322 simplified)
 _EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
@@ -627,7 +631,7 @@ class InventoryAlertManager:
     thread. For concurrent access, use external synchronization.
 
     Example usage:
-        from app.alerting import InventoryAlertManager, AlertingConfig
+        from app.observability.alerting import InventoryAlertManager, AlertingConfig
 
         config = AlertingConfig.from_yaml("./config/alerting.yaml")
         inventory_alerter = InventoryAlertManager(

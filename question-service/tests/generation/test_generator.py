@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from app.cost_tracking import CompletionResult
-from app.generator import QuestionGenerator
-from app.models import DifficultyLevel, QuestionType
+from app.observability.cost_tracking import CompletionResult
+from app.generation.generator import QuestionGenerator
+from app.data.models import DifficultyLevel, QuestionType
 
 
 def make_completion_result(content):
@@ -18,8 +18,8 @@ def make_completion_result(content):
 @pytest.fixture
 def multi_provider_generator():
     """Create generator with multiple mocked providers (no completion return values configured)."""
-    with patch("app.generator.OpenAIProvider") as mock_openai, patch(
-        "app.generator.AnthropicProvider"
+    with patch("app.generation.generator.OpenAIProvider") as mock_openai, patch(
+        "app.generation.generator.AnthropicProvider"
     ) as mock_anthropic:
         openai_provider = Mock()
         openai_provider.model = "gpt-4"
@@ -42,7 +42,7 @@ class TestQuestionGenerator:
     @pytest.fixture
     def mock_openai_provider(self):
         """Mock OpenAI provider."""
-        with patch("app.generator.OpenAIProvider") as mock:
+        with patch("app.generation.generator.OpenAIProvider") as mock:
             provider = Mock()
             provider.model = "gpt-4"
             provider.generate_structured_completion_with_usage.return_value = (
@@ -77,8 +77,8 @@ class TestQuestionGenerator:
 
     def test_init_with_multiple_providers(self):
         """Test initialization with multiple providers."""
-        with patch("app.generator.OpenAIProvider") as mock_openai, patch(
-            "app.generator.AnthropicProvider"
+        with patch("app.generation.generator.OpenAIProvider") as mock_openai, patch(
+            "app.generation.generator.AnthropicProvider"
         ) as mock_anthropic:
             mock_openai.return_value = Mock(model="gpt-4")
             mock_anthropic.return_value = Mock(model="claude-3-5-sonnet")
@@ -429,8 +429,11 @@ class TestGetSpecialistProviderTier:
         )
 
         with patch(
-            "app.generator.is_generator_config_initialized", return_value=True
-        ), patch("app.generator.get_generator_config", return_value=mock_config):
+            "app.generation.generator.is_generator_config_initialized",
+            return_value=True,
+        ), patch(
+            "app.generation.generator.get_generator_config", return_value=mock_config
+        ):
             provider, model = generator._get_specialist_provider(
                 question_type=QuestionType.LOGIC, provider_tier="fallback"
             )
@@ -457,8 +460,11 @@ class TestGetSpecialistProviderTier:
         )
 
         with patch(
-            "app.generator.is_generator_config_initialized", return_value=True
-        ), patch("app.generator.get_generator_config", return_value=mock_config):
+            "app.generation.generator.is_generator_config_initialized",
+            return_value=True,
+        ), patch(
+            "app.generation.generator.get_generator_config", return_value=mock_config
+        ):
             provider, model = generator._get_specialist_provider(
                 question_type=QuestionType.MATH, provider_tier=None
             )
@@ -485,8 +491,11 @@ class TestGetSpecialistProviderTier:
         )
 
         with patch(
-            "app.generator.is_generator_config_initialized", return_value=True
-        ), patch("app.generator.get_generator_config", return_value=mock_config):
+            "app.generation.generator.is_generator_config_initialized",
+            return_value=True,
+        ), patch(
+            "app.generation.generator.get_generator_config", return_value=mock_config
+        ):
             provider, model = generator._get_specialist_provider(
                 question_type=QuestionType.PATTERN, provider_tier="fallback"
             )
@@ -507,7 +516,10 @@ class TestGetSpecialistProviderTier:
         generator = multi_provider_generator
 
         # Mock config as not initialized
-        with patch("app.generator.is_generator_config_initialized", return_value=False):
+        with patch(
+            "app.generation.generator.is_generator_config_initialized",
+            return_value=False,
+        ):
             provider, model = generator._get_specialist_provider(
                 question_type=QuestionType.VERBAL, provider_tier="fallback"
             )
@@ -522,7 +534,7 @@ class TestGeneratorConfigModelOverride:
 
     def test_get_provider_and_model_for_question_type(self):
         """Test getting provider and model for a question type with model specified."""
-        from app.generator_config import GeneratorConfigLoader
+        from app.config.generator_config import GeneratorConfigLoader
 
         loader = GeneratorConfigLoader("config/generators.yaml")
         loader.load()
@@ -537,7 +549,7 @@ class TestGeneratorConfigModelOverride:
 
     def test_get_provider_and_model_with_explicit_model(self):
         """Test that provider and model are returned when both are explicitly specified in config."""
-        from app.generator_config import GeneratorConfigLoader
+        from app.config.generator_config import GeneratorConfigLoader
 
         loader = GeneratorConfigLoader("config/generators.yaml")
         loader.load()
@@ -552,7 +564,7 @@ class TestGeneratorConfigModelOverride:
 
     def test_fallback_uses_fallback_model_not_primary_model(self):
         """Test that fallback provider uses fallback_model, not the primary model."""
-        from app.generator_config import GeneratorConfigLoader
+        from app.config.generator_config import GeneratorConfigLoader
 
         loader = GeneratorConfigLoader("config/generators.yaml")
         loader.load()
@@ -574,8 +586,8 @@ class TestQuestionGeneratorIntegration:
     @pytest.fixture
     def multi_provider_generator(self):
         """Create generator with multiple mocked providers."""
-        with patch("app.generator.OpenAIProvider") as mock_openai, patch(
-            "app.generator.AnthropicProvider"
+        with patch("app.generation.generator.OpenAIProvider") as mock_openai, patch(
+            "app.generation.generator.AnthropicProvider"
         ) as mock_anthropic:
             # Mock OpenAI
             openai_provider = Mock()
@@ -637,7 +649,7 @@ class TestAsyncQuestionGenerator:
     @pytest.fixture
     def mock_openai_provider_async(self):
         """Mock OpenAI provider with async methods."""
-        with patch("app.generator.OpenAIProvider") as mock:
+        with patch("app.generation.generator.OpenAIProvider") as mock:
             provider = Mock()
             provider.model = "gpt-4"
             # Mock sync method for backward compatibility
@@ -784,8 +796,8 @@ class TestAsyncMultiProviderGenerator:
     @pytest.fixture
     def multi_provider_async_generator(self):
         """Create generator with multiple mocked async-capable providers."""
-        with patch("app.generator.OpenAIProvider") as mock_openai, patch(
-            "app.generator.AnthropicProvider"
+        with patch("app.generation.generator.OpenAIProvider") as mock_openai, patch(
+            "app.generation.generator.AnthropicProvider"
         ) as mock_anthropic:
             # Mock OpenAI
             openai_provider = Mock()
@@ -914,7 +926,7 @@ class TestBatchChunking:
     @pytest.fixture
     def chunking_generator(self):
         """Create generator with mocked async-capable provider for chunking tests."""
-        with patch("app.generator.OpenAIProvider") as mock_openai:
+        with patch("app.generation.generator.OpenAIProvider") as mock_openai:
             provider = Mock()
             provider.model = "gpt-5.2"
 
@@ -1033,7 +1045,7 @@ class TestBatchChunking:
             assert batch.metadata.get("chunked") is True
 
             # All questions should be GeneratedQuestion instances
-            from app.models import GeneratedQuestion
+            from app.data.models import GeneratedQuestion
 
             for q in batch.questions:
                 assert isinstance(q, GeneratedQuestion)
@@ -1054,7 +1066,7 @@ class TestBatchChunking:
             )
 
         # 15 / 5 = 3 sub-batches, each should have a REQUIRED SUB-TYPE instruction
-        from app.prompts import QUESTION_SUBTYPES
+        from app.generation.prompts import QUESTION_SUBTYPES
 
         spatial_subtypes = QUESTION_SUBTYPES[QuestionType.SPATIAL]
 
@@ -1080,7 +1092,7 @@ class TestBatchChunking:
         """Test that sub-types cycle when there are more batches than sub-types."""
         call_log = chunking_generator._call_log
 
-        from app.prompts import QUESTION_SUBTYPES
+        from app.generation.prompts import QUESTION_SUBTYPES
 
         spatial_subtypes = QUESTION_SUBTYPES[QuestionType.SPATIAL]
         n = len(spatial_subtypes)
@@ -1161,7 +1173,7 @@ class TestBatchChunking:
                 use_single_call=True,
             )
 
-        from app.prompts import QUESTION_SUBTYPES
+        from app.generation.prompts import QUESTION_SUBTYPES
 
         spatial_subtypes = QUESTION_SUBTYPES[QuestionType.SPATIAL]
 
@@ -1186,7 +1198,7 @@ class TestRegeneratePreservesSubType:
     @pytest.fixture
     def regen_generator(self):
         """Create generator with mocked async-capable provider for regeneration tests."""
-        with patch("app.generator.OpenAIProvider") as mock_openai:
+        with patch("app.generation.generator.OpenAIProvider") as mock_openai:
             provider = Mock()
             provider.model = "gpt-4"
             provider.generate_structured_completion_with_usage_async = AsyncMock(
@@ -1207,7 +1219,7 @@ class TestRegeneratePreservesSubType:
     @pytest.mark.asyncio
     async def test_regenerated_question_preserves_sub_type(self, regen_generator):
         """Test that regenerated questions keep the original sub_type."""
-        from app.models import GeneratedQuestion
+        from app.data.models import GeneratedQuestion
 
         original = GeneratedQuestion(
             question_text="Original question text here",

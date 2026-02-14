@@ -11,9 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .config import settings
-from .generator import QuestionGenerator
-from .models import (
+from app.config.config import settings
+from app.generation.generator import QuestionGenerator
+from app.data.models import (
     DifficultyLevel,
     GenerationBatch,
     QuestionType,
@@ -24,7 +24,7 @@ try:
     from libs.observability import observability
 except ImportError:
     # Fallback for environments where libs.observability isn't installed as a package
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
     from libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)

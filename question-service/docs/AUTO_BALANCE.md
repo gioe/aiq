@@ -6,7 +6,7 @@ The auto-balance feature (`run_generation.py --auto-balance`) uses inventory ana
 
 ### 1. Inventory Analysis
 
-**Source**: `app/inventory_analyzer.py` -- `InventoryAnalyzer.analyze_inventory()`
+**Source**: `app/inventory/inventory_analyzer.py` -- `InventoryAnalyzer.analyze_inventory()`
 
 The analyzer queries the database for active question counts (`is_active == True`) grouped by `question_type` and `difficulty_level`. It produces a `StratumInventory` for each of the 18 strata with:
 
@@ -21,7 +21,7 @@ The result is an `InventoryAnalysis` containing all strata, total question count
 
 ### 2. Generation Plan
 
-**Source**: `app/inventory_analyzer.py` -- `InventoryAnalyzer.compute_generation_plan()`
+**Source**: `app/inventory/inventory_analyzer.py` -- `InventoryAnalyzer.compute_generation_plan()`
 
 The plan allocates a `target_total` number of questions across strata using a three-phase distribution algorithm:
 
@@ -40,7 +40,7 @@ The output is a `GenerationPlan` with:
 
 ### 3. Inventory Alerting
 
-**Source**: `app/alerting.py` -- `InventoryAlertManager.check_and_alert()`
+**Source**: `app/observability/alerting.py` -- `InventoryAlertManager.check_and_alert()`
 
 After analysis, the system checks strata against configurable thresholds and sends email alerts for low-inventory strata. Alerting is skipped if `--skip-inventory-alerts` is passed.
 

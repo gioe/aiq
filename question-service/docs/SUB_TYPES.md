@@ -12,7 +12,7 @@ Sub-type selected  →  Prompt narrowed to that sub-type  →  Gold-standard exa
 
 Each question type has a set of sub-types extracted from the "Example types" lists in the type-specific prompts. When a question is generated, a sub-type is selected (randomly or via rotation), and the prompt is tailored so the LLM sees only that sub-type as the target.
 
-**Source file:** `app/prompts.py` — `QUESTION_SUBTYPES`, `GOLD_STANDARD_BY_SUBTYPE`, `GOLD_STANDARD_EXAMPLES`, `build_generation_prompt()`
+**Source file:** `app/generation/prompts.py` — `QUESTION_SUBTYPES`, `GOLD_STANDARD_BY_SUBTYPE`, `GOLD_STANDARD_EXAMPLES`, `build_generation_prompt()`
 
 ---
 
@@ -122,7 +122,7 @@ Each question type has a set of sub-types extracted from the "Example types" lis
 
 ## 3. Selection Mechanism
 
-Sub-type selection happens in the generator (`app/generator.py`) and varies by generation path.
+Sub-type selection happens in the generator (`app/generation/generator.py`) and varies by generation path.
 
 ### Single question (sync or async)
 
@@ -184,11 +184,11 @@ Gold-standard examples are hand-crafted ideal questions included in the LLM prom
 | Memory | 4 | [0]–[3] |
 | **Total** | **27** | |
 
-These live in `GOLD_STANDARD_EXAMPLES` in `app/prompts.py` (lines 210–448).
+These live in `GOLD_STANDARD_EXAMPLES` in `app/generation/prompts.py` (lines 210–448).
 
 ### The `GOLD_STANDARD_BY_SUBTYPE` mapping
 
-The mapping (`app/prompts.py`, lines 625–741) has **29 entries** covering **29 of 65 sub-types**. It maps sub-type strings to their best-matching gold-standard example so the few-shot demonstration reinforces (rather than contradicts) the assigned sub-type.
+The mapping (`app/generation/prompts.py`, lines 625–741) has **29 entries** covering **29 of 65 sub-types**. It maps sub-type strings to their best-matching gold-standard example so the few-shot demonstration reinforces (rather than contradicts) the assigned sub-type.
 
 **Shared mappings:** Two pairs of verbal sub-types share the same example:
 - `multi-layered analogies` and `abstract cross-domain analogies` → both use example [4] (Fossil:Paleontologist)
@@ -210,7 +210,7 @@ else:
 
 ## 5. Prompt Assembly
 
-`build_generation_prompt()` (`app/prompts.py`, lines 770–860) assembles the final LLM prompt in five steps:
+`build_generation_prompt()` (`app/generation/prompts.py`, lines 770–860) assembles the final LLM prompt in five steps:
 
 ### Step 1: Load base prompt + difficulty instructions
 

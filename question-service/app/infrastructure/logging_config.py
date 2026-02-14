@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .config import settings
+from app.config.config import settings
 
 
 class JSONFormatter(logging.Formatter):

@@ -25,8 +25,8 @@ from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response as StarletteResponse
 
-from app.config import settings
-from app.logging_config import setup_logging  # noqa: E402
+from app.config.config import settings
+from app.infrastructure.logging_config import setup_logging  # noqa: E402
 
 # Add repo root to path for libs.observability import
 sys.path.insert(0, str(Path(__file__).parent.parent))

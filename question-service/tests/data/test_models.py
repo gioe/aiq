@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models import (
+from app.data.models import (
     DifficultyLevel,
     GeneratedQuestion,
     GenerationBatch,

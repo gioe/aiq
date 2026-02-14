@@ -32,10 +32,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from .config import settings
-from .cost_tracking import get_cost_tracker, reset_cost_tracker
-from .generator import QuestionGenerator
-from .models import DifficultyLevel, QuestionType
+from app.config.config import settings
+from app.observability.cost_tracking import get_cost_tracker, reset_cost_tracker
+from app.generation.generator import QuestionGenerator
+from app.data.models import DifficultyLevel, QuestionType
 
 logger = logging.getLogger(__name__)
 

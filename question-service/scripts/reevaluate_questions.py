@@ -32,12 +32,16 @@ from typing import Any, Dict, List, Optional
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.config import settings  # noqa: E402
-from app.database import DatabaseService, QuestionModel  # noqa: E402
-from app.judge import QuestionJudge  # noqa: E402
-from app.judge_config import JudgeConfigLoader  # noqa: E402
-from app.logging_config import setup_logging  # noqa: E402
-from app.models import DifficultyLevel, GeneratedQuestion, QuestionType  # noqa: E402
+from app.config.config import settings  # noqa: E402
+from app.data.database import DatabaseService, QuestionModel  # noqa: E402
+from app.evaluation.judge import QuestionJudge  # noqa: E402
+from app.config.judge_config import JudgeConfigLoader  # noqa: E402
+from app.infrastructure.logging_config import setup_logging  # noqa: E402
+from app.data.models import (  # noqa: E402
+    DifficultyLevel,
+    GeneratedQuestion,
+    QuestionType,
+)
 
 # Exit codes
 EXIT_SUCCESS = 0

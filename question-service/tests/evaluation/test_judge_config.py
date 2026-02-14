@@ -7,7 +7,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from app.judge_config import (
+from app.config.judge_config import (
     JudgeConfig,
     JudgeConfigLoader,
     JudgeModel,
@@ -625,7 +625,7 @@ class TestGlobalConfiguration:
 
     def test_initialize_and_get(self, valid_config_file):
         """Test initializing and getting global configuration."""
-        from app.judge_config import (
+        from app.config.judge_config import (
             get_judge_config,
             initialize_judge_config,
         )
@@ -642,10 +642,10 @@ class TestGlobalConfiguration:
 
     def test_get_before_initialize(self):
         """Test that getting config before initialize raises error."""
-        from app.judge_config import get_judge_config
+        from app.config.judge_config import get_judge_config
 
         # Ensure loader is None
-        import app.judge_config as config_module
+        import app.config.judge_config as config_module
 
         config_module._loader = None
 

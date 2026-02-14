@@ -4,7 +4,7 @@ import logging
 
 import pytest
 
-from app.cost_tracking import (
+from app.observability.cost_tracking import (
     COST_HISTORY_LIMIT,
     MODEL_PRICING,
     CompletionResult,

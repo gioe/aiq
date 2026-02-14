@@ -10,7 +10,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from app.generator_config import (
+from app.config.generator_config import (
     GeneratorAssignment,
     GeneratorConfig,
     GeneratorConfigLoader,
@@ -855,7 +855,7 @@ class TestGlobalConfiguration:
 
         This prevents test pollution from global state changes.
         """
-        import app.generator_config as config_module
+        import app.config.generator_config as config_module
 
         original = config_module._loader
         config_module._loader = None

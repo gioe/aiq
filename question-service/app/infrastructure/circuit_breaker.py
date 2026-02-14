@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Deque, Dict, List, Optional, TypeVar
 
-from .config import settings
+from app.config.config import settings
 
 logger = logging.getLogger(__name__)
 

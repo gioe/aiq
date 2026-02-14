@@ -9,7 +9,7 @@ import random
 import re
 from typing import Dict, List, Optional
 
-from .models import DifficultyLevel, QuestionType
+from app.data.models import DifficultyLevel, QuestionType
 
 logger = logging.getLogger(__name__)
 

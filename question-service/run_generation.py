@@ -39,16 +39,16 @@ from app import (  # noqa: E402
     QuestionGenerationPipeline,
     InventoryAnalyzer,
 )
-from app.alerting import (  # noqa: E402
+from app.observability.alerting import (  # noqa: E402
     AlertManager,
     AlertingConfig,
     InventoryAlertManager,
 )
-from app.config import settings  # noqa: E402
-from app.logging_config import setup_logging  # noqa: E402
-from app.run_summary import RunSummary  # noqa: E402
-from app.models import DifficultyLevel, QuestionType  # noqa: E402
-from app.reporter import RunReporter  # noqa: E402
+from app.config.config import settings  # noqa: E402
+from app.infrastructure.logging_config import setup_logging  # noqa: E402
+from app.reporting.run_summary import RunSummary  # noqa: E402
+from app.data.models import DifficultyLevel, QuestionType  # noqa: E402
+from app.reporting.reporter import RunReporter  # noqa: E402
 
 # Add repo root to path for libs.observability import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -166,7 +166,7 @@ def apply_difficulty_placement(
     Returns:
         EvaluatedQuestion with adjusted difficulty (or original if no change)
     """
-    from app.models import EvaluatedQuestion, GeneratedQuestion
+    from app.data.models import EvaluatedQuestion, GeneratedQuestion
 
     question = evaluated_question.question
     evaluation = evaluated_question.evaluation
@@ -330,7 +330,7 @@ def attempt_answer_repair(
         return None
 
     # Create repaired question by updating correct_answer
-    from app.models import GeneratedQuestion
+    from app.data.models import GeneratedQuestion
 
     repaired = GeneratedQuestion(
         question_text=question.question_text,
@@ -370,7 +370,7 @@ def attempt_difficulty_reclassification(
     Returns:
         Tuple of (reclassified_question, new_difficulty, reason) if reclassifiable, None otherwise
     """
-    from app.models import DifficultyLevel, GeneratedQuestion
+    from app.data.models import DifficultyLevel, GeneratedQuestion
 
     feedback = evaluated_question.evaluation.feedback
     eval_scores = evaluated_question.evaluation
@@ -954,7 +954,7 @@ def main() -> int:
             )
 
             # Send alert for configuration error
-            from app.error_classifier import (
+            from app.infrastructure.error_classifier import (
                 ClassifiedError,
                 ErrorCategory,
                 ErrorSeverity,
@@ -991,14 +991,14 @@ def main() -> int:
         logger.info("✓ Pipeline initialized")
 
         # Load judge configuration
-        from app.judge_config import JudgeConfigLoader
+        from app.config.judge_config import JudgeConfigLoader
 
         judge_loader = JudgeConfigLoader(settings.judge_config_path)
         judge_loader.load()  # Load the config into the loader
         logger.info(f"✓ Judge config loaded from {settings.judge_config_path}")
 
         # Load generator configuration (specialist routing)
-        from app.generator_config import initialize_generator_config
+        from app.config.generator_config import initialize_generator_config
 
         try:
             initialize_generator_config(settings.generator_config_path)
@@ -1056,7 +1056,7 @@ def main() -> int:
                 )
 
                 # Send alert for database error
-                from app.error_classifier import (
+                from app.infrastructure.error_classifier import (
                     ClassifiedError,
                     ErrorCategory,
                     ErrorSeverity,
@@ -1301,7 +1301,7 @@ def main() -> int:
             logger.error("No questions generated!")
 
             # Send alert for complete generation failure
-            from app.error_classifier import (
+            from app.infrastructure.error_classifier import (
                 ClassifiedError,
                 ErrorCategory,
                 ErrorSeverity,
@@ -1552,7 +1552,7 @@ def main() -> int:
                 # We wrap them in a simple container that has .question attribute for compatibility
                 for sq in salvaged_questions:
                     # Create a minimal wrapper to match EvaluatedQuestion interface
-                    from app.models import EvaluatedQuestion, EvaluationScore
+                    from app.data.models import EvaluatedQuestion, EvaluationScore
 
                     salvaged_eval = EvaluatedQuestion(
                         question=sq,
@@ -1583,7 +1583,7 @@ def main() -> int:
             logger.warning("No questions passed judge evaluation!")
 
             # Send alert for judge rejection
-            from app.error_classifier import (
+            from app.infrastructure.error_classifier import (
                 ClassifiedError,
                 ErrorCategory,
                 ErrorSeverity,
@@ -1826,7 +1826,7 @@ def main() -> int:
             logger.error("No questions were inserted to database!")
 
             # Send alert for insertion failure
-            from app.error_classifier import (
+            from app.infrastructure.error_classifier import (
                 ClassifiedError,
                 ErrorCategory,
                 ErrorSeverity,
@@ -1918,7 +1918,7 @@ def main() -> int:
 
         # Try to send alert for unexpected errors
         try:
-            from app.error_classifier import ErrorClassifier
+            from app.infrastructure.error_classifier import ErrorClassifier
 
             classified_error = ErrorClassifier.classify_error(e, "system")
 

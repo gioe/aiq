@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from .cost_tracking import get_cost_tracker
-from .providers.base import get_retry_metrics
-from .circuit_breaker import get_circuit_breaker_registry
+from app.observability.cost_tracking import get_cost_tracker
+from app.providers.base import get_retry_metrics
+from app.infrastructure.circuit_breaker import get_circuit_breaker_registry
 
 
 @dataclass

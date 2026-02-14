@@ -51,26 +51,26 @@ from typing import Any, Dict, List, Optional, TypedDict, Tuple
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.alerting import AlertManager  # noqa: E402
-from app.config import settings  # noqa: E402
-from app.database import DatabaseService as QuestionDatabase  # noqa: E402
-from app.deduplicator import QuestionDeduplicator  # noqa: E402
-from app.error_classifier import (  # noqa: E402
+from app.observability.alerting import AlertManager  # noqa: E402
+from app.config.config import settings  # noqa: E402
+from app.data.database import DatabaseService as QuestionDatabase  # noqa: E402
+from app.data.deduplicator import QuestionDeduplicator  # noqa: E402
+from app.infrastructure.error_classifier import (  # noqa: E402
     ClassifiedError,
     ErrorCategory,
     ErrorSeverity,
 )
-from app.judge import QuestionJudge  # noqa: E402
-from app.judge_config import JudgeConfigLoader  # noqa: E402
-from app.models import (  # noqa: E402
+from app.evaluation.judge import QuestionJudge  # noqa: E402
+from app.config.judge_config import JudgeConfigLoader  # noqa: E402
+from app.data.models import (  # noqa: E402
     DifficultyLevel,
     EvaluatedQuestion,
     GeneratedQuestion,
     QuestionType,
 )
-from app.pipeline import QuestionGenerationPipeline  # noqa: E402
-from app.logging_config import setup_logging  # noqa: E402
-from app.prompts import build_generation_prompt  # noqa: E402
+from app.generation.pipeline import QuestionGenerationPipeline  # noqa: E402
+from app.infrastructure.logging_config import setup_logging  # noqa: E402
+from app.generation.prompts import build_generation_prompt  # noqa: E402
 from app.providers.google_provider import GoogleProvider  # noqa: E402
 
 # Exit codes

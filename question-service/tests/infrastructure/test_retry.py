@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.error_classifier import ClassifiedError, ErrorCategory, ErrorSeverity
+from app.infrastructure.error_classifier import (
+    ClassifiedError,
+    ErrorCategory,
+    ErrorSeverity,
+)
 from app.providers.base import (
     MIN_RETRY_DELAY,
     LLMProviderError,

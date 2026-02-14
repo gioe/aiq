@@ -9,9 +9,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Dict, List, Optional, TypeVar
 
-from ..config import settings
-from ..cost_tracking import CompletionResult, TokenUsage, get_cost_tracker
-from ..error_classifier import ClassifiedError, ErrorClassifier
+from app.config.config import settings
+from app.observability.cost_tracking import (
+    CompletionResult,
+    TokenUsage,
+    get_cost_tracker,
+)
+from app.infrastructure.error_classifier import ClassifiedError, ErrorClassifier
 
 logger = logging.getLogger(__name__)
 

@@ -11,8 +11,8 @@ import numpy as np
 import pytest
 from unittest.mock import Mock, patch
 
-from app.deduplicator import QuestionDeduplicator
-from app.models import DifficultyLevel, GeneratedQuestion, QuestionType
+from app.data.deduplicator import QuestionDeduplicator
+from app.data.models import DifficultyLevel, GeneratedQuestion, QuestionType
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def sample_question():
 class TestEmbeddingGenerationFailure:
     """Tests for when OpenAI embedding API fails completely."""
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_semantic_check_raises_on_new_question_embedding_failure(
         self, mock_openai, sample_question
     ):
@@ -52,7 +52,7 @@ class TestEmbeddingGenerationFailure:
         with pytest.raises(Exception, match="OpenAI API rate limited"):
             deduplicator.check_duplicate(sample_question, existing)
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_batch_check_gracefully_handles_embedding_failure(
         self, mock_openai, sample_question
     ):
@@ -77,7 +77,7 @@ class TestEmbeddingGenerationFailure:
 class TestPreComputedEmbeddingFallback:
     """Tests for mixed pre-computed and on-demand embedding scenarios."""
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_uses_precomputed_embedding_when_available(
         self, mock_openai, sample_question
     ):
@@ -106,7 +106,7 @@ class TestPreComputedEmbeddingFallback:
         # API should only be called once (for the new question, not the existing one)
         assert mock_openai.return_value.embeddings.create.call_count == 1
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_falls_back_to_on_demand_when_no_precomputed(
         self, mock_openai, sample_question
     ):
@@ -140,7 +140,7 @@ class TestPreComputedEmbeddingFallback:
         # API should be called twice: once for new question, once for existing
         assert mock_openai.return_value.embeddings.create.call_count == 2
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_mixed_precomputed_and_missing_embeddings(
         self, mock_openai, sample_question
     ):
@@ -184,7 +184,7 @@ class TestPreComputedEmbeddingFallback:
         # existing[0] and existing[2] use pre-computed, no API call
         assert call_count[0] == 2
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_empty_precomputed_embedding_triggers_fallback(
         self, mock_openai, sample_question
     ):
@@ -221,7 +221,7 @@ class TestPreComputedEmbeddingFallback:
 class TestCacheInteractionDuringDedup:
     """Tests for cache behavior during deduplication."""
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_cache_hit_prevents_api_call_for_repeated_texts(self, mock_openai):
         """Cache should prevent re-generating embeddings for the same text."""
         mock_response = Mock()
@@ -255,7 +255,7 @@ class TestCacheInteractionDuringDedup:
         # 1 for new question + 1 for "Duplicate text" (cached for second occurrence)
         assert mock_openai.return_value.embeddings.create.call_count == 2
 
-    @patch("app.deduplicator.OpenAI")
+    @patch("app.data.deduplicator.OpenAI")
     def test_clear_cache_forces_regenration(self, mock_openai):
         """After clearing cache, same text should generate a new API call."""
         mock_response = Mock()

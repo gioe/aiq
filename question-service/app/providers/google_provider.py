@@ -9,8 +9,10 @@ from typing import Any, Dict, List, Optional
 from google import genai
 from google.genai import types
 
-from ..cost_tracking import CompletionResult, TokenUsage
-from ..text_utils import strip_markdown_code_blocks as _strip_markdown_code_blocks
+from app.observability.cost_tracking import CompletionResult, TokenUsage
+from app.utils.text_utils import (
+    strip_markdown_code_blocks as _strip_markdown_code_blocks,
+)
 from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
