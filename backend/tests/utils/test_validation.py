@@ -1,6 +1,7 @@
 """
 Tests for input validation and security measures.
 """
+
 import pytest
 
 from app.core.validators import (
@@ -309,9 +310,27 @@ class TestResponseValidation:
 class TestSecurityHeaders:
     """Tests for security headers middleware."""
 
-    def test_security_headers_present(self, client):
+    @pytest.fixture
+    def security_client(self, db_session):
+        """Client with SecurityHeadersMiddleware enabled."""
+        from tests.conftest import create_test_app, AsyncTestingSessionLocal
+        from app.models import get_db
+        from fastapi.testclient import TestClient
+
+        test_app = create_test_app(security_headers=True)
+
+        async def override_get_db():
+            async with AsyncTestingSessionLocal() as session:
+                yield session
+
+        test_app.dependency_overrides[get_db] = override_get_db
+        with TestClient(test_app) as c:
+            yield c
+        test_app.dependency_overrides.clear()
+
+    def test_security_headers_present(self, security_client):
         """Test that security headers are added to responses."""
-        response = client.get("/v1/health")
+        response = security_client.get("/v1/health")
 
         # Check for security headers
         assert "X-Frame-Options" in response.headers
@@ -328,7 +347,7 @@ class TestSecurityHeaders:
 
         assert "Permissions-Policy" in response.headers
 
-    def test_hsts_not_enabled_in_development(self, client):
+    def test_hsts_not_enabled_in_development(self, security_client):
         """Test that HSTS is not enabled in development mode."""
         # HSTS should not be present in development
         # (ENV defaults to 'development' in tests)
@@ -340,7 +359,25 @@ class TestSecurityHeaders:
 class TestRequestSizeLimit:
     """Tests for request size limit middleware."""
 
-    def test_large_request_body_rejected(self, client):
+    @pytest.fixture
+    def size_limit_client(self, db_session):
+        """Client with RequestSizeLimitMiddleware enabled."""
+        from tests.conftest import create_test_app, AsyncTestingSessionLocal
+        from app.models import get_db
+        from fastapi.testclient import TestClient
+
+        test_app = create_test_app(request_size_limit=True)
+
+        async def override_get_db():
+            async with AsyncTestingSessionLocal() as session:
+                yield session
+
+        test_app.dependency_overrides[get_db] = override_get_db
+        with TestClient(test_app) as c:
+            yield c
+        test_app.dependency_overrides.clear()
+
+    def test_large_request_body_rejected(self, size_limit_client):
         """Test that excessively large request bodies are rejected."""
         # Create a payload larger than 1MB
         large_payload = {
@@ -350,7 +387,7 @@ class TestRequestSizeLimit:
             "last_name": "Doe",
         }
 
-        response = client.post("/v1/auth/register", json=large_payload)
+        response = size_limit_client.post("/v1/auth/register", json=large_payload)
         # Should be rejected by size limit middleware
         assert response.status_code == 413 or response.status_code == 422
 

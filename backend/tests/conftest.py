@@ -1,6 +1,7 @@
 """
 Pytest configuration and shared fixtures for testing.
 """
+
 import sys
 from pathlib import Path
 
@@ -46,6 +47,13 @@ from sqlalchemy.orm import sessionmaker  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
+import uuid  # noqa: E402
+
+from fastapi import FastAPI  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
+
 from app.models import (  # noqa: E402
     Base,
     get_db,
@@ -56,6 +64,7 @@ from app.models import (  # noqa: E402
 from app.models.models import QuestionType, DifficultyLevel  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
+from app.api.v1.api import api_router  # noqa: E402
 from app.main import app  # noqa: E402
 from app.core.auth.security import hash_password, create_access_token  # noqa: E402
 from app.core.config import settings  # noqa: E402
@@ -78,16 +87,114 @@ async def _test_lifespan(app):
 app.router.lifespan_context = _test_lifespan
 
 
+def create_test_app(
+    *,
+    rate_limit: bool = False,
+    security_headers: bool = False,
+    request_size_limit: bool = False,
+    performance_monitoring: bool = False,
+    request_logging: bool = False,
+) -> FastAPI:
+    """Create a minimal FastAPI app for testing.
+
+    Includes only the API routes and exception handlers. No middleware is
+    added by default — pass keyword arguments to selectively enable
+    specific middleware for tests that exercise middleware behavior.
+
+    For tests that need the full production app (all middleware, admin
+    dashboard, production exception handlers with observability), use
+    ``create_test_application()`` instead.
+    """
+    test_app = FastAPI(lifespan=_test_lifespan)
+
+    # Mount the real API routes
+    test_app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+    # Exception handlers — same response format as production, without
+    # analytics/observability calls that require initialised backends.
+    @test_app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request, exc):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
+
+    @test_app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request, exc):
+        errors = []
+        for error in exc.errors():
+            error_dict = {
+                "loc": list(error.get("loc", [])),
+                "msg": str(error.get("msg", "")),
+                "type": str(error.get("type", "")),
+            }
+            if "input" in error:
+                try:
+                    error_dict["input"] = error["input"]
+                except (TypeError, ValueError):
+                    pass
+            errors.append(error_dict)
+        return JSONResponse(
+            status_code=422,
+            content={"detail": errors},
+        )
+
+    @test_app.exception_handler(Exception)
+    async def generic_exception_handler(request, exc):
+        error_id = str(uuid.uuid4())
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "error_id": error_id},
+        )
+
+    # Optional middleware — callers enable only what their tests need.
+    if rate_limit:
+        from app.ratelimit import InMemoryStorage, RateLimiter, RateLimitMiddleware
+
+        storage = InMemoryStorage()
+        limiter = RateLimiter(storage=storage, default_limit=100, default_window=60)
+        test_app.add_middleware(
+            RateLimitMiddleware,
+            limiter=limiter,
+            skip_paths=[],
+            endpoint_limits={},
+        )
+
+    if security_headers:
+        from app.middleware import SecurityHeadersMiddleware
+
+        test_app.add_middleware(SecurityHeadersMiddleware, hsts_enabled=False)
+
+    if request_size_limit:
+        from app.middleware import RequestSizeLimitMiddleware
+
+        test_app.add_middleware(RequestSizeLimitMiddleware, max_body_size=1024 * 1024)
+
+    if performance_monitoring:
+        from app.middleware import PerformanceMonitoringMiddleware
+
+        test_app.add_middleware(
+            PerformanceMonitoringMiddleware, slow_request_threshold=1.0
+        )
+
+    if request_logging:
+        from app.middleware import RequestLoggingMiddleware
+
+        test_app.add_middleware(RequestLoggingMiddleware)
+
+    return test_app
+
+
 def create_test_application():
-    """Create the production app with the lifespan disabled.
+    """Create the full production app with the lifespan disabled.
 
-    Use this instead of ``create_application()`` from ``app.main`` when
-    tests need a fresh app instance. Returns the full app (all routes,
-    middleware, exception handlers) without the production observability
-    stack.
+    Returns the complete app (all routes, middleware, production exception
+    handlers with analytics/observability) without the production
+    observability stack. Use this only for tests that verify production
+    middleware or exception handler integration (e.g. observability tests).
 
-    See also: ``tests/ratelimit/conftest.py::create_test_app_with_rate_limiting``
-    for tests that need an even more minimal stub app.
+    For most tests, prefer ``create_test_app()`` which is faster and
+    avoids loading unnecessary middleware.
     """
     from app.main import create_application
 
@@ -140,18 +247,20 @@ def client(db_session):
     """
     Create a test client with database dependency override.
 
-    Overrides get_db (async) to use a test async session backed by
-    the same test.db file where db_session creates data.
+    Uses a minimal app (routes + exception handlers, no middleware) via
+    ``create_test_app()``. Overrides get_db (async) to use a test async
+    session backed by the same test.db file where db_session creates data.
     """
+    test_app = create_test_app()
 
     async def override_get_db():
         async with AsyncTestingSessionLocal() as session:
             yield session
 
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    test_app.dependency_overrides[get_db] = override_get_db
+    with TestClient(test_app) as test_client:
         yield test_client
-    app.dependency_overrides.clear()
+    test_app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -347,16 +456,20 @@ async def async_client(
 ) -> AsyncGenerator[AsyncClient, None]:
     """
     Create an async test client with async database dependency override.
+
+    Uses a minimal app (routes + exception handlers, no middleware) via
+    ``create_test_app()``.
     """
+    test_app = create_test_app()
 
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield async_db_session
 
-    app.dependency_overrides[get_db] = override_get_db
-    transport = ASGITransport(app=app)
+    test_app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=test_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-    app.dependency_overrides.pop(get_db, None)
+    test_app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.fixture
