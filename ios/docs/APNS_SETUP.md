@@ -322,7 +322,7 @@ The entitlements file (`AIQ.entitlements`) currently has:
 - Debug builds → `development`
 - Release builds → `production`
 
-This can be configured in the `project.yml` file for XcodeGen.
+This can be configured in Xcode build settings.
 
 ---
 

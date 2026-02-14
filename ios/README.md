@@ -15,8 +15,7 @@ ios/
 ├── docs/                 # iOS-specific documentation
 ├── app-store/            # App Store metadata and screenshots
 ├── TestNotifications/    # APNs test payloads
-├── .claude/              # Claude Code config for iOS
-└── project.yml           # XcodeGen project definition
+└── .claude/              # Claude Code config for iOS
 ```
 
 ## Setup
