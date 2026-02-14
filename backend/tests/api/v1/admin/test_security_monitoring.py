@@ -17,7 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password
+from app.core.auth.security import hash_password
 from app.models.models import PasswordResetToken, User
 
 ENDPOINT = "/v1/admin/security/logout-all-events"
@@ -78,7 +78,7 @@ class TestLogoutAllEventsAuth:
 class TestLogoutAllEventsEmpty:
     """Tests with no logout-all events in the database."""
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_empty_database(self, _mock_now, client: TestClient, admin_headers: dict):
         """Returns zero counts when no users have triggered logout-all."""
         response = client.get(ENDPOINT, headers=admin_headers)
@@ -94,7 +94,7 @@ class TestLogoutAllEventsEmpty:
         assert data["page"] == 1
         assert data["page_size"] == 100
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_users_without_logout_all(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -111,7 +111,7 @@ class TestLogoutAllEventsEmpty:
 class TestLogoutAllEventsBasic:
     """Tests with logout-all events but no password resets."""
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_single_user_logout_all(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -137,7 +137,7 @@ class TestLogoutAllEventsBasic:
         assert data["page"] == 1
         assert data["page_size"] == 100
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_multiple_users_logout_all(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -170,7 +170,7 @@ class TestLogoutAllEventsBasic:
 class TestLogoutAllEventsTimeRange:
     """Tests for time range filtering."""
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_7d_filter(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -194,7 +194,7 @@ class TestLogoutAllEventsTimeRange:
         data = response.json()
         assert data["total_events"] == 1
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_30d_filter(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -218,7 +218,7 @@ class TestLogoutAllEventsTimeRange:
         data = response.json()
         assert data["total_events"] == 1
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_90d_filter(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -242,7 +242,7 @@ class TestLogoutAllEventsTimeRange:
         data = response.json()
         assert data["total_events"] == 1
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_all_time_filter(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -282,7 +282,7 @@ class TestLogoutAllEventsTimeRange:
 class TestLogoutAllPasswordResetCorrelation:
     """Tests for password reset correlation."""
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_correlated_reset_before_logout(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -311,7 +311,7 @@ class TestLogoutAllPasswordResetCorrelation:
         correlation = event["correlated_resets"][0]
         assert correlation["time_difference_minutes"] == pytest.approx(-5.0)
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_correlated_reset_after_logout(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -335,7 +335,7 @@ class TestLogoutAllPasswordResetCorrelation:
         correlation = data["events"][0]["correlated_resets"][0]
         assert correlation["time_difference_minutes"] == pytest.approx(120.0)
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_reset_outside_correlation_window(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -360,7 +360,7 @@ class TestLogoutAllPasswordResetCorrelation:
         assert event["password_resets_in_window"] == 0
         assert event["correlated_resets"] == []
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_multiple_correlated_resets(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -384,7 +384,7 @@ class TestLogoutAllPasswordResetCorrelation:
         assert event["password_resets_in_window"] == 2
         assert len(event["correlated_resets"]) == 2
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_reset_at_exact_correlation_boundary(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -408,7 +408,7 @@ class TestLogoutAllPasswordResetCorrelation:
 class TestLogoutAllEventsPagination:
     """Tests for pagination functionality."""
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_default_pagination_params(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -426,7 +426,7 @@ class TestLogoutAllEventsPagination:
         assert data["page"] == 1
         assert data["page_size"] == 100
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_custom_page_size(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -447,7 +447,7 @@ class TestLogoutAllEventsPagination:
         assert len(data["events"]) == 2
         assert data["total_events"] == 5
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_page_navigation(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -497,7 +497,7 @@ class TestLogoutAllEventsPagination:
         assert len(page1_ids & page3_ids) == 0
         assert len(page2_ids & page3_ids) == 0
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_page_beyond_results(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -518,7 +518,7 @@ class TestLogoutAllEventsPagination:
         assert data["total_events"] == 1
         assert len(data["events"]) == 0
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_max_page_size_enforced(
         self, _mock_now, client: TestClient, admin_headers: dict
     ):
@@ -529,7 +529,7 @@ class TestLogoutAllEventsPagination:
 
         assert response.status_code == 422
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_min_page_size_enforced(
         self, _mock_now, client: TestClient, admin_headers: dict
     ):
@@ -538,7 +538,7 @@ class TestLogoutAllEventsPagination:
 
         assert response.status_code == 422
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_min_page_enforced(
         self, _mock_now, client: TestClient, admin_headers: dict
     ):
@@ -547,7 +547,7 @@ class TestLogoutAllEventsPagination:
 
         assert response.status_code == 422
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_pagination_with_time_range_filter(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -578,7 +578,7 @@ class TestLogoutAllEventsPagination:
         assert len(data["events"]) == 2
         assert data["page"] == 1
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_pagination_preserves_order(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):
@@ -610,7 +610,7 @@ class TestLogoutAllEventsPagination:
         )
         assert event1_time > event2_time
 
-    @patch("app.core.security_monitoring.utc_now", return_value=FROZEN_NOW)
+    @patch("app.core.auth.security_monitoring.utc_now", return_value=FROZEN_NOW)
     def test_pagination_with_password_reset_correlation(
         self, _mock_now, client: TestClient, admin_headers: dict, db_session: Session
     ):

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List
 
 from app.models import get_db
-from app.core.question_analytics import (
+from app.core.psychometrics.question_analytics import (
     get_question_statistics,
     get_all_question_statistics,
     identify_problematic_questions,

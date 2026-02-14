@@ -18,7 +18,7 @@ Tests cover:
 
 import pytest
 
-from app.core.shadow_cat_validation import (
+from app.core.shadow_cat.validation import (
     ALL_DOMAINS,
     BIAS_THRESHOLD_SD,
     CONTENT_VIOLATION_THRESHOLD,

@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.core.datetime_utils import utc_now
-from app.core.security import hash_password
+from app.core.auth.security import hash_password
 from app.models import (
     DifficultyLevel,
     Question,

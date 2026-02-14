@@ -12,8 +12,8 @@ from starlette.responses import JSONResponse
 from typing import Callable, Optional, Awaitable, TypedDict
 
 from .limiter import RateLimiter
-from app.core.ip_extraction import get_secure_client_ip
-from app.core.security_audit import SecurityAuditLogger
+from app.core.auth.ip_extraction import get_secure_client_ip
+from app.core.auth.security_audit import SecurityAuditLogger
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_db, User, Question, UserQuestion
 from app.schemas.questions import UnseenQuestionsResponse
-from app.core.auth import get_current_user
+from app.core.auth.dependencies import get_current_user
 from app.core.question_utils import question_to_response
 from app.core.config import settings
 from app.core.error_responses import ErrorMessages, raise_not_found

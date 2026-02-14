@@ -235,7 +235,7 @@ class TestLoginMetrics:
         self, mock_metrics, client, db_session
     ):
         """Successful login records record_login(success=True)."""
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
 
         from app.models import User
 
@@ -278,7 +278,7 @@ class TestLoginMetrics:
         self, mock_metrics, client, db_session
     ):
         """Login with wrong password records record_login(success=False)."""
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
 
         from app.models import User
 

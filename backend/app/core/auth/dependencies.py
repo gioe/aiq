@@ -12,10 +12,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_db, User
-from .security import decode_token, verify_token_type
-from .error_responses import ErrorMessages, raise_unauthorized
-from .token_blacklist import get_token_blacklist
-from .security_audit import SecurityAuditLogger, get_client_ip_from_request
+from app.core.auth.security import decode_token, verify_token_type
+from app.core.error_responses import ErrorMessages, raise_unauthorized
+from app.core.auth.token_blacklist import get_token_blacklist
+from app.core.auth.security_audit import SecurityAuditLogger, get_client_ip_from_request
 
 logger = logging.getLogger(__name__)
 security_logger = SecurityAuditLogger()

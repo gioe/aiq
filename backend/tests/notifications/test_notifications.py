@@ -490,7 +490,7 @@ class TestNotificationIntegration:
     def test_different_users_tokens_isolated(self, client, test_user, db_session):
         """Test that different users' device tokens are properly isolated."""
         from app.models import User
-        from app.core.security import hash_password, create_access_token
+        from app.core.auth.security import hash_password, create_access_token
 
         # Create second user
         user2 = User(

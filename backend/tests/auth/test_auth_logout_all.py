@@ -5,6 +5,7 @@ Tests user-level token revocation via revocation epoch approach.
 """
 import pytest
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, patch
 
@@ -14,17 +15,19 @@ from sqlalchemy.orm import sessionmaker
 
 from app.main import app
 from app.models import Base, get_db
-from app.core.token_blacklist import get_token_blacklist, init_token_blacklist
+from app.core.auth.token_blacklist import get_token_blacklist, init_token_blacklist
+
+_TEST_DB = Path(__file__).parent / "test_logout_all.db"
 
 # Module-level engines for the logout-all test database.
 # Shared between the client fixture (async override) and push notification
 # tests that need direct sync DB access.
 _test_engine = create_engine(
-    "sqlite:///./test_logout_all.db",
+    f"sqlite:///{_TEST_DB}",
     connect_args={"check_same_thread": False},
 )
 _test_async_engine = create_async_engine(
-    "sqlite+aiosqlite:///./test_logout_all.db",
+    f"sqlite+aiosqlite:///{_TEST_DB}",
     connect_args={"check_same_thread": False},
 )
 _TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_test_engine)
@@ -87,7 +90,7 @@ def mock_clock():
     clock = MockClock()
     with (
         patch("app.core.datetime_utils.utc_now", clock),
-        patch("app.core.security.utc_now", clock),
+        patch("app.core.auth.security.utc_now", clock),
         patch("app.api.v1.auth.utc_now", clock),
         patch("app.models.models.utc_now", clock),
     ):
@@ -389,7 +392,7 @@ class TestLogoutAllTokenValidation:
 
     def test_token_iat_checked_against_revocation_epoch(self, client, test_user):
         """Test that token iat is properly checked against user revocation epoch."""
-        from app.core.security import decode_token
+        from app.core.auth.security import decode_token
 
         # Get initial token
         access_token = test_user["tokens"]["access_token"]
@@ -411,7 +414,7 @@ class TestLogoutAllTokenValidation:
 
     def test_new_tokens_have_iat_after_epoch(self, client, test_user, mock_clock):
         """Test that tokens created after logout-all have iat > revocation epoch."""
-        from app.core.security import decode_token
+        from app.core.auth.security import decode_token
 
         access_token = test_user["tokens"]["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -520,7 +523,9 @@ class TestLogoutAllSecurityLogging:
         client.post("/v1/auth/logout-all", headers=headers)
 
         # Try to use old token - should log validation failure
-        with patch("app.core.auth.security_logger") as mock_security_logger:
+        with patch(
+            "app.core.auth.dependencies.security_logger"
+        ) as mock_security_logger:
             response = client.get("/v1/user/profile", headers=headers)
             assert response.status_code == 401
 

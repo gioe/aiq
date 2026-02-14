@@ -13,7 +13,7 @@ import pytest
 
 from app.core.config import settings
 from app.core.datetime_utils import utc_now
-from app.core.security import hash_password
+from app.core.auth.security import hash_password
 from app.models import Base
 from app.models.models import (
     ShadowCATResult,

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 from fastapi import Request
 
-from app.core.ip_extraction import get_secure_client_ip
+from app.core.auth.ip_extraction import get_secure_client_ip
 
 
 class TestGetSecureClientIP:

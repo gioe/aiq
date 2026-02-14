@@ -268,7 +268,7 @@ class TestSubmitTest:
         """Test that users cannot submit for other users' sessions."""
         from app.models import User, TestSession
         from app.models.models import TestStatus
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
 
         # Create second user
         user2 = User(

@@ -14,7 +14,7 @@ from app.core.analytics import (
     calculate_g_loadings,
 )
 from app.core.datetime_utils import utc_now
-from app.core.time_analysis import (
+from app.core.psychometrics.time_analysis import (
     async_get_aggregate_response_time_analytics,
     async_get_response_time_percentiles,
 )

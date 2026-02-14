@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.admin.auth import AdminAuth
-from app.core.security import hash_password, verify_password
+from app.core.auth.security import hash_password, verify_password
 
 
 class TestAdminAuth:

@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
 from app.core.error_responses import raise_not_found
-from app.core.shadow_cat_validation import SessionData, validate_shadow_results
+from app.core.shadow_cat.validation import SessionData, validate_shadow_results
 from app.models import get_db
 from app.models.models import ShadowCATResult, TestSession, TestStatus
 from app.schemas.shadow_cat import (

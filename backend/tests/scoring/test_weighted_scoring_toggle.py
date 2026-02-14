@@ -16,7 +16,7 @@ from app.core.system_config import (
     get_domain_weights,
     set_domain_weights,
 )
-from app.core.scoring import (
+from app.core.scoring.engine import (
     calculate_iq_score,
     calculate_weighted_iq_score,
 )

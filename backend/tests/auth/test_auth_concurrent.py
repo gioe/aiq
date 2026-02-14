@@ -17,8 +17,8 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.core.security import create_access_token, create_refresh_token
-from app.core.token_blacklist import init_token_blacklist, get_token_blacklist
+from app.core.auth.security import create_access_token, create_refresh_token
+from app.core.auth.token_blacklist import init_token_blacklist, get_token_blacklist
 
 
 @pytest.fixture(scope="session", autouse=True)

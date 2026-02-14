@@ -372,7 +372,7 @@ class TestUserProfileIntegration:
     def test_different_users_profiles_isolated(self, client, test_user, db_session):
         """Test that different users' profiles are properly isolated."""
         from app.models import User
-        from app.core.security import hash_password, create_access_token
+        from app.core.auth.security import hash_password, create_access_token
 
         # Create second user
         user2 = User(
@@ -760,7 +760,7 @@ class TestDeleteUserAccount:
     ):
         """Test that deleting one account doesn't affect other users."""
         from app.models import User, TestSession, TestStatus
-        from app.core.security import hash_password, create_access_token
+        from app.core.auth.security import hash_password, create_access_token
 
         # Create second user with test session
         user2 = User(

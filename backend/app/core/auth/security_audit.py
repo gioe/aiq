@@ -9,7 +9,7 @@ fields for correlation and analysis. Sensitive data (passwords, full tokens, ema
 is never logged - only partial/masked identifiers are included.
 
 Usage:
-    from app.core.security_audit import SecurityAuditLogger, SecurityEventType
+    from app.core.auth.security_audit import SecurityAuditLogger, SecurityEventType
 
     # In endpoints or auth functions
     security_logger = SecurityAuditLogger()
@@ -28,7 +28,7 @@ from typing import Optional
 from fastapi import Request
 
 from app.core.logging_config import get_logger, request_id_context
-from app.core.ip_extraction import get_secure_client_ip
+from app.core.auth.ip_extraction import get_secure_client_ip
 
 # Logger for security events
 logger = get_logger(__name__)

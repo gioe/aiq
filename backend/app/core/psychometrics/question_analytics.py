@@ -25,7 +25,9 @@ from app.core.datetime_utils import utc_now
 from typing import Any, Optional
 
 from app.models.models import DifficultyLevel, Question, Response, TestResult
-from app.core.discrimination_analysis import invalidate_discrimination_report_cache
+from app.core.psychometrics.discrimination_analysis import (
+    invalidate_discrimination_report_cache,
+)
 
 logger = logging.getLogger(__name__)
 

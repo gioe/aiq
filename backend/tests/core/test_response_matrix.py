@@ -46,7 +46,7 @@ from app.core.analytics import (
     get_domain_column_indices,
     get_response_matrix_stats,
 )
-from app.core.security import hash_password
+from app.core.auth.security import hash_password
 
 # Use SQLite in-memory database for tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"

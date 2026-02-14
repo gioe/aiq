@@ -28,7 +28,7 @@ Security events are logged with consistent structured fields:
 {
   "timestamp": "2026-01-24T10:30:15.123456+00:00",
   "level": "WARNING",
-  "logger": "app.core.security_audit",
+  "logger": "app.core.auth.security_audit",
   "message": "SECURITY_EVENT: LOGIN_FAILED",
   "request_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "event_type": "LOGIN_FAILED",
@@ -61,7 +61,7 @@ Security events are automatically logged at these locations:
 ## Usage in Custom Code
 
 ```python
-from app.core.security_audit import security_logger, SecurityEventType
+from app.core.auth.security_audit import security_logger, SecurityEventType
 
 # Log a permission denied event
 security_logger.log_permission_denied(

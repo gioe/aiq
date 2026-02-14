@@ -57,7 +57,7 @@ from app.models.models import QuestionType, DifficultyLevel  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
 from app.main import app  # noqa: E402
-from app.core.security import hash_password, create_access_token  # noqa: E402
+from app.core.auth.security import hash_password, create_access_token  # noqa: E402
 from app.core.config import settings  # noqa: E402
 
 
@@ -96,8 +96,10 @@ def create_test_application():
     return test_app
 
 
-# Use SQLite for sync tests
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+# Use SQLite for sync tests — path is relative to this file so the .db
+# lands inside tests/ regardless of the working directory.
+_TEST_DB = Path(__file__).parent / "test.db"
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{_TEST_DB}"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
@@ -106,7 +108,7 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 # Async test engine (aiosqlite) — uses same DB file as sync engine so that
 # sync fixtures can create data visible to async endpoint overrides.
-ASYNC_SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+ASYNC_SQLALCHEMY_DATABASE_URL = f"sqlite+aiosqlite:///{_TEST_DB}"
 
 async_test_engine = create_async_engine(
     ASYNC_SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}

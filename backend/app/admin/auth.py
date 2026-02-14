@@ -8,7 +8,7 @@ from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 
 from app.core.config import settings
-from app.core.security import verify_password
+from app.core.auth.security import verify_password
 
 logger = logging.getLogger(__name__)
 

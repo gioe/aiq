@@ -16,7 +16,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.question_analytics import (
+from app.core.psychometrics.question_analytics import (
     async_recalibrate_questions,
     async_validate_difficulty_labels,
 )

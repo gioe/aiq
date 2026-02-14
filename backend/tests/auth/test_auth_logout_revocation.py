@@ -2,6 +2,7 @@
 Integration tests for JWT token revocation via /auth/logout endpoint.
 """
 import pytest
+from pathlib import Path
 from fastapi.testclient import TestClient
 from datetime import timedelta
 from unittest.mock import patch
@@ -11,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.main import app
 from app.models import Base, get_db
-from app.core.token_blacklist import get_token_blacklist, init_token_blacklist
+from app.core.auth.token_blacklist import get_token_blacklist, init_token_blacklist
 from app.core.datetime_utils import utc_now
+
+_TEST_DB = Path(__file__).parent / "test_logout_revocation.db"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -32,11 +35,11 @@ def init_blacklist():
 def client():
     """Create a test client with async DB override for test database."""
     _engine = create_engine(
-        "sqlite:///./test_logout_revocation.db",
+        f"sqlite:///{_TEST_DB}",
         connect_args={"check_same_thread": False},
     )
     _async_engine = create_async_engine(
-        "sqlite+aiosqlite:///./test_logout_revocation.db",
+        f"sqlite+aiosqlite:///{_TEST_DB}",
         connect_args={"check_same_thread": False},
     )
     _AsyncSessionLocal = async_sessionmaker(
@@ -197,18 +200,18 @@ class TestLogoutTokenRevocation:
         # This is a backward compatibility test
         # Old tokens without JTI should still allow logout
 
-        from app.core.security import create_access_token
+        from app.core.auth.security import create_access_token
         from unittest.mock import patch
 
         # Create a token without JTI
-        with patch("app.core.security.uuid.uuid4", return_value=None):
+        with patch("app.core.auth.security.uuid.uuid4", return_value=None):
             # This would require modifying token creation, which we can't easily do
             # Instead, we'll just verify current implementation always adds JTI
             token_data = {"user_id": 1, "email": test_user["email"]}
             token = create_access_token(token_data)
 
             # Decode to verify JTI exists
-            from app.core.security import decode_token
+            from app.core.auth.security import decode_token
 
             payload = decode_token(token)
             assert payload is not None
@@ -223,7 +226,7 @@ class TestTokenBlacklistExpiration:
         # This test would require waiting for token expiration
         # For practical testing, we verify the TTL is set correctly
 
-        from app.core.security import decode_token
+        from app.core.auth.security import decode_token
 
         access_token = test_user["tokens"]["access_token"]
 
@@ -248,7 +251,7 @@ class TestTokenBlacklistExpiration:
         """Test that trying to blacklist an expired token is skipped."""
         # This is tested in unit tests (test_revoke_token_already_expired)
         # Just ensuring the integration works correctly
-        from app.core.token_blacklist import TokenBlacklist
+        from app.core.auth.token_blacklist import TokenBlacklist
 
         blacklist = TokenBlacklist(redis_url=None)
         jti = "expired-token-jti"
@@ -309,7 +312,7 @@ class TestTokenRevocationEdgeCases:
 
         # Mock blacklist to raise exception
         with patch(
-            "app.core.auth.get_token_blacklist",
+            "app.core.auth.dependencies.get_token_blacklist",
             side_effect=RuntimeError("Blacklist not initialized"),
         ):
             # Should still allow access (with warning log)
@@ -354,7 +357,7 @@ class TestTokenBlacklistSecurity:
 
     def test_jti_uniqueness(self, client, test_user):
         """Test that each token has a unique JTI."""
-        from app.core.security import create_access_token, decode_token
+        from app.core.auth.security import create_access_token, decode_token
 
         # Create multiple tokens
         token_data = {"user_id": 1, "email": "test@example.com"}

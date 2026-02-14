@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User, get_db
-from app.core.security import hash_password
+from app.core.auth.security import hash_password
 
 
 async def test_async_engine_connects(async_db_session: AsyncSession):

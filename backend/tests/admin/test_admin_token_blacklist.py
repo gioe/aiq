@@ -4,7 +4,7 @@ Tests for admin token blacklist endpoints.
 import pytest
 from unittest.mock import patch, MagicMock
 
-from app.core.token_blacklist import TokenBlacklist
+from app.core.auth.token_blacklist import TokenBlacklist
 
 
 @pytest.fixture

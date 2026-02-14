@@ -137,7 +137,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Process registry shutdown handlers registered")
 
     # Initialize token blacklist for JWT revocation
-    from app.core.token_blacklist import init_token_blacklist
+    from app.core.auth.token_blacklist import init_token_blacklist
 
     redis_url = (
         settings.TOKEN_BLACKLIST_REDIS_URL
@@ -205,7 +205,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Close token blacklist storage connection pool
     try:
-        from app.core.token_blacklist import get_token_blacklist
+        from app.core.auth.token_blacklist import get_token_blacklist
 
         blacklist = get_token_blacklist()
         blacklist.close()

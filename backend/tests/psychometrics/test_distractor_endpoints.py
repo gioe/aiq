@@ -22,11 +22,11 @@ from app.models.models import (
     DifficultyLevel,
     TestStatus,
 )
-from app.core.distractor_analysis import (
+from app.core.psychometrics.distractor_analysis import (
     update_distractor_stats,
     update_distractor_quartile_stats,
 )
-from app.core.security import hash_password
+from app.core.auth.security import hash_password
 
 
 # =============================================================================

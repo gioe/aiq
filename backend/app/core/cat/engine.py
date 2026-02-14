@@ -16,7 +16,11 @@ from app.core.cat.item_selection import fisher_information_2pl
 from app.core.cat.stopping_rules import check_stopping_criteria
 from app.core.config import settings
 from app.core.datetime_utils import utc_now
-from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND, IQ_POPULATION_SD
+from app.core.scoring.engine import (
+    IQ_CI_LOWER_BOUND,
+    IQ_CI_UPPER_BOUND,
+    IQ_POPULATION_SD,
+)
 from app.models.models import QuestionType
 
 logger = logging.getLogger(__name__)

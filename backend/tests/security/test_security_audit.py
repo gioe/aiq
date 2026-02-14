@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import Request
 
-from app.core.security_audit import (
+from app.core.auth.security_audit import (
     SecurityAuditLogger,
     SecurityEventType,
     _mask_email,
@@ -78,13 +78,13 @@ class TestSecurityAuditLogger:
     @pytest.fixture
     def mock_logger(self):
         """Mock the module logger."""
-        with patch("app.core.security_audit.logger") as mock:
+        with patch("app.core.auth.security_audit.logger") as mock:
             yield mock
 
     @pytest.fixture
     def mock_request_id_context(self):
         """Mock request_id_context."""
-        with patch("app.core.security_audit.request_id_context") as mock:
+        with patch("app.core.auth.security_audit.request_id_context") as mock:
             mock.get.return_value = "test-request-id-123"
             yield mock
 
@@ -479,7 +479,7 @@ class TestSecurityAuditLoggerExceptionHandling:
     @pytest.fixture
     def failing_logger(self):
         """Mock the module logger to raise exceptions."""
-        with patch("app.core.security_audit.logger") as mock:
+        with patch("app.core.auth.security_audit.logger") as mock:
             mock.info.side_effect = RuntimeError("logging infrastructure down")
             mock.warning.side_effect = RuntimeError("logging infrastructure down")
             yield mock
@@ -487,7 +487,7 @@ class TestSecurityAuditLoggerExceptionHandling:
     @pytest.fixture
     def mock_fallback_logger(self):
         """Mock the fallback logger to verify it's called."""
-        with patch("app.core.security_audit._fallback_logger") as mock:
+        with patch("app.core.auth.security_audit._fallback_logger") as mock:
             yield mock
 
     def test_auth_attempt_exception_uses_fallback(
@@ -598,12 +598,12 @@ class TestSecurityAuditLoggerRateLimitEvent:
 
     @pytest.fixture
     def mock_logger(self):
-        with patch("app.core.security_audit.logger") as mock:
+        with patch("app.core.auth.security_audit.logger") as mock:
             yield mock
 
     @pytest.fixture
     def mock_request_id_context(self):
-        with patch("app.core.security_audit.request_id_context") as mock:
+        with patch("app.core.auth.security_audit.request_id_context") as mock:
             mock.get.return_value = "test-request-id-456"
             yield mock
 
@@ -651,7 +651,7 @@ class TestEnrichWithRequestId:
 
     def test_adds_request_id_when_available(self):
         """Test that request_id is added when context has a value."""
-        with patch("app.core.security_audit.request_id_context") as mock_ctx:
+        with patch("app.core.auth.security_audit.request_id_context") as mock_ctx:
             mock_ctx.get.return_value = "req-abc-123"
             log_data = {"event_type": "test"}
             SecurityAuditLogger._enrich_with_request_id(log_data)
@@ -659,7 +659,7 @@ class TestEnrichWithRequestId:
 
     def test_skips_request_id_when_none(self):
         """Test that request_id is not added when context returns None."""
-        with patch("app.core.security_audit.request_id_context") as mock_ctx:
+        with patch("app.core.auth.security_audit.request_id_context") as mock_ctx:
             mock_ctx.get.return_value = None
             log_data = {"event_type": "test"}
             SecurityAuditLogger._enrich_with_request_id(log_data)
@@ -667,7 +667,7 @@ class TestEnrichWithRequestId:
 
     def test_skips_request_id_when_empty_string(self):
         """Test that request_id is not added when context returns empty string."""
-        with patch("app.core.security_audit.request_id_context") as mock_ctx:
+        with patch("app.core.auth.security_audit.request_id_context") as mock_ctx:
             mock_ctx.get.return_value = ""
             log_data = {"event_type": "test"}
             SecurityAuditLogger._enrich_with_request_id(log_data)

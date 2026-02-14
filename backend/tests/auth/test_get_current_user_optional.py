@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.core.auth import get_current_user_optional
-from app.core.security import create_access_token
-from app.core.token_blacklist import init_token_blacklist, get_token_blacklist
+from app.core.auth.dependencies import get_current_user_optional
+from app.core.auth.security import create_access_token
+from app.core.auth.token_blacklist import init_token_blacklist, get_token_blacklist
 
 
 @pytest.fixture(scope="session", autouse=True)

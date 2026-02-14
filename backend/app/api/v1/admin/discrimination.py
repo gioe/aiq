@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
-from app.core.discrimination_analysis import (
+from app.core.psychometrics.discrimination_analysis import (
     async_get_discrimination_report,
     async_get_question_discrimination_detail,
     invalidate_discrimination_report_cache,

@@ -14,7 +14,7 @@ from app.schemas.client_analytics import (
     AnalyticsEventsBatch,
     AnalyticsEventsResponse,
 )
-from app.core.auth import get_current_user_optional
+from app.core.auth.dependencies import get_current_user_optional
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

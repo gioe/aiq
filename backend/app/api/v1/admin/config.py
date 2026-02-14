@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
-from app.core.scoring import calculate_weighted_iq_score
+from app.core.scoring.engine import calculate_weighted_iq_score
 from app.core.system_config import (
     async_get_domain_weights,
     async_is_weighted_scoring_enabled,

@@ -1,7 +1,7 @@
 """Token blacklist admin endpoints for monitoring."""
 from fastapi import APIRouter, Depends
 
-from app.core.token_blacklist import get_token_blacklist
+from app.core.auth.token_blacklist import get_token_blacklist
 from app.schemas.token_blacklist import TokenBlacklistStatsResponse
 
 from ._dependencies import logger, verify_admin_token

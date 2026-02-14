@@ -343,6 +343,10 @@ def calculate_person_fit_heuristic(
     }
 
 
+_HIGH_SCORE_THRESHOLD = 70  # Percentile boundary for "high" category
+_LOW_SCORE_THRESHOLD = 40  # Percentile boundary for "low" category
+
+
 def _get_score_percentile(score_percent: float) -> str:
     """
     Categorize a score percentage into high/medium/low percentile.
@@ -353,9 +357,9 @@ def _get_score_percentile(score_percent: float) -> str:
     Returns:
         Percentile category: "high" (>70%), "medium" (40-70%), or "low" (<40%)
     """
-    if score_percent > 70:
+    if score_percent > _HIGH_SCORE_THRESHOLD:
         return "high"
-    elif score_percent >= 40:
+    elif score_percent >= _LOW_SCORE_THRESHOLD:
         return "medium"
     else:
         return "low"

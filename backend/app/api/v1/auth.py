@@ -25,7 +25,7 @@ from app.schemas.auth import (
     PasswordResetConfirmResponse,
     LogoutRequest,
 )
-from app.core.security import (
+from app.core.auth.security import (
     hash_password,
     verify_password,
     create_access_token,
@@ -33,12 +33,12 @@ from app.core.security import (
     decode_token,
     verify_token_type,
 )
-from app.core.auth import (
+from app.core.auth.dependencies import (
     get_current_user,
     get_current_user_from_refresh_token,
     security,
 )
-from app.core.token_blacklist import get_token_blacklist
+from app.core.auth.token_blacklist import get_token_blacklist
 from app.core.analytics import AnalyticsTracker, EventType
 from app.core.error_responses import (
     ErrorMessages,
@@ -48,7 +48,7 @@ from app.core.error_responses import (
     raise_bad_request,
 )
 from app.services.apns_service import send_logout_all_notification
-from app.core.security_audit import (
+from app.core.auth.security_audit import (
     SecurityAuditLogger,
     SecurityEventType,
     get_client_ip_from_request,

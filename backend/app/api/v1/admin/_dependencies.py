@@ -15,7 +15,7 @@ from app.core.error_responses import (
     raise_unauthorized,
     raise_not_configured,
 )
-from app.core.security_audit import SecurityAuditLogger, get_client_ip_from_request
+from app.core.auth.security_audit import SecurityAuditLogger, get_client_ip_from_request
 
 # Configure logger for admin operations
 logger = logging.getLogger(__name__)

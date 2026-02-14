@@ -14,7 +14,7 @@ Tests cover:
 
 import pytest
 
-from app.core.time_analysis import (
+from app.core.psychometrics.time_analysis import (
     analyze_response_times,
     get_session_time_summary,
     _create_empty_analysis,

@@ -17,11 +17,11 @@ When working on the backend, read these docs first:
 | `app/api/v1/admin/` | Admin endpoints (generation, calibration, analytics, validity, discrimination, reliability) |
 | `app/models/` | SQLAlchemy ORM models |
 | `app/schemas/` | Pydantic request/response schemas — these define the OpenAPI contract consumed by the iOS app |
-| `app/core/auth.py` | Authentication dependencies (`get_current_user`, `get_current_user_optional`) |
-| `app/core/security.py` | Token handling (`decode_token`, `create_access_token`) |
+| `app/core/auth/` | Authentication, authorization, and security (dependencies, security, token_blacklist, audit) |
 | `app/core/error_responses.py` | Standardized error helpers (`raise_bad_request`, `raise_not_found`, `ErrorMessages`) |
-| `app/core/scoring.py` | IQ score calculation |
-| `app/core/validity_analysis.py` | Test session validity checks (person-fit, response time, Guttman errors) |
+| `app/core/scoring/` | IQ score calculation (`engine.py`) and test composition (`test_composition.py`) |
+| `app/core/psychometrics/` | Question analytics, validity, discrimination, distractor, and time analysis |
+| `app/core/shadow_cat/` | Shadow CAT parallel execution (`runner.py`) and validation (`validation.py`) |
 | `app/core/reliability/` | Reliability metrics (Cronbach's alpha, split-half, test-retest) |
 | `app/middleware/` | Security headers, request logging, performance monitoring |
 | `app/services/` | Background services (APNs, notification scheduler) |
@@ -29,7 +29,7 @@ When working on the backend, read these docs first:
 ### Key patterns
 
 - **Contract-first API**: Pydantic schemas in `app/schemas/` are the single source of truth. iOS generates client code from the OpenAPI spec.
-- **Auth dependencies**: Reuse `get_current_user` / `get_current_user_optional` from `app/core/auth.py`. Never duplicate auth logic.
+- **Auth dependencies**: Reuse `get_current_user` / `get_current_user_optional` from `app/core/auth/dependencies.py`. Never duplicate auth logic.
 - **Error responses**: Use helpers from `app/core/error_responses.py`. Never raise raw `HTTPException` with inline strings.
 - **Admin auth**: Two types — `X-Admin-Token` for manual ops, `X-Service-Key` for service-to-service.
 - **Database migrations**: Alembic in `alembic/`. Run `alembic revision --autogenerate -m "..."` then `alembic upgrade head`.

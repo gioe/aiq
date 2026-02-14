@@ -18,7 +18,7 @@ Before implementing new functionality, **always search for existing implementati
 
 **Example - Correct usage:**
 ```python
-from app.core.auth import get_current_user_optional
+from app.core.auth.dependencies import get_current_user_optional
 
 @router.post("/submit")
 async def submit_feedback(

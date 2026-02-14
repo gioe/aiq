@@ -6,7 +6,7 @@ from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 from app.core.datetime_utils import utc_now
-from app.core.security import hash_password
+from app.core.auth.security import hash_password
 from app.models import User, TestSession, TestResult
 from app.models.models import TestStatus
 from app.services.notification_scheduler import DAY_30_REMINDER_DAYS

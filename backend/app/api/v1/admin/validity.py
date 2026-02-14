@@ -14,7 +14,7 @@ from sqlalchemy.orm import joinedload
 
 from app.core.datetime_utils import utc_now
 from app.core.error_responses import ErrorMessages, raise_server_error
-from app.core.validity_analysis import (
+from app.core.psychometrics.validity_analysis import (
     assess_session_validity,
     calculate_person_fit_heuristic,
     check_response_time_plausibility,

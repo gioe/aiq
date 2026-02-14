@@ -14,7 +14,7 @@ from app.schemas.notifications import (
     NotificationPreferences,
     NotificationPreferencesResponse,
 )
-from app.core.auth import get_current_user
+from app.core.auth.dependencies import get_current_user
 from app.core.error_responses import ErrorMessages, raise_server_error
 
 logger = logging.getLogger(__name__)

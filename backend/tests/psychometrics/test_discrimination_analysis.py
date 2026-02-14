@@ -29,7 +29,7 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.models.models import Question, QuestionType, DifficultyLevel
 
-from app.core.discrimination_analysis import (
+from app.core.psychometrics.discrimination_analysis import (
     DiscriminationAnalysisError,
     _get_empty_report,
     get_quality_tier,
@@ -1238,7 +1238,9 @@ class TestEdgeCases:
         )
 
         # The auto_flag function should flag this
-        from app.core.question_analytics import auto_flag_problematic_questions
+        from app.core.psychometrics.question_analytics import (
+            auto_flag_problematic_questions,
+        )
 
         result = auto_flag_problematic_questions(db_session)
 
@@ -1259,7 +1261,9 @@ class TestEdgeCases:
         assert tier == "very_poor"
 
         # Should NOT be auto-flagged (threshold is < 0)
-        from app.core.question_analytics import auto_flag_problematic_questions
+        from app.core.psychometrics.question_analytics import (
+            auto_flag_problematic_questions,
+        )
 
         result = auto_flag_problematic_questions(db_session)
         assert len(result) == 0
@@ -1879,7 +1883,7 @@ class TestDatabaseErrorHandling:
 
         # Mock calculate_percentile_rank to raise our error
         with patch(
-            "app.core.discrimination_analysis.calculate_percentile_rank",
+            "app.core.psychometrics.discrimination_analysis.calculate_percentile_rank",
             side_effect=DiscriminationAnalysisError(
                 message="Percentile calculation failed",
                 context={"test_key": "test_value"},
@@ -2151,7 +2155,9 @@ class TestLoggingBehavior:
     def test_calculate_percentile_rank_logs_at_debug_level(self, db_session):
         """Test that calculate_percentile_rank logs errors at DEBUG level."""
         # Patch the logger in the discrimination_analysis module
-        with patch("app.core.discrimination_analysis.logger") as mock_logger:
+        with patch(
+            "app.core.psychometrics.discrimination_analysis.logger"
+        ) as mock_logger:
             with patch.object(
                 db_session, "query", side_effect=SQLAlchemyError("test error")
             ):
@@ -2168,7 +2174,9 @@ class TestLoggingBehavior:
 
     def test_get_question_discrimination_detail_logs_at_error_level(self, db_session):
         """Test that get_question_discrimination_detail logs errors at ERROR level."""
-        with patch("app.core.discrimination_analysis.logger") as mock_logger:
+        with patch(
+            "app.core.psychometrics.discrimination_analysis.logger"
+        ) as mock_logger:
             with patch.object(
                 db_session, "query", side_effect=SQLAlchemyError("direct db error")
             ):
@@ -2195,11 +2203,13 @@ class TestLoggingBehavior:
             discrimination=0.35,
         )
 
-        with patch("app.core.discrimination_analysis.logger") as mock_logger:
+        with patch(
+            "app.core.psychometrics.discrimination_analysis.logger"
+        ) as mock_logger:
             # Mock calculate_percentile_rank to raise DiscriminationAnalysisError
             # (simulating what happens when it catches a SQLAlchemyError)
             with patch(
-                "app.core.discrimination_analysis.calculate_percentile_rank",
+                "app.core.psychometrics.discrimination_analysis.calculate_percentile_rank",
                 side_effect=DiscriminationAnalysisError(
                     message="Percentile calculation failed",
                     context={"discrimination": 0.35},
@@ -2219,7 +2229,9 @@ class TestLoggingBehavior:
 
     def test_error_log_count_for_direct_db_error(self, db_session):
         """Test that direct database errors produce exactly one ERROR log."""
-        with patch("app.core.discrimination_analysis.logger") as mock_logger:
+        with patch(
+            "app.core.psychometrics.discrimination_analysis.logger"
+        ) as mock_logger:
             with patch.object(
                 db_session,
                 "query",

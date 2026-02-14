@@ -273,7 +273,7 @@ class TestResponseValidation:
 
     def test_answer_validation_works(self, client, test_user, test_questions):
         """Test that answer validation is enforced."""
-        from app.core.security import create_access_token
+        from app.core.auth.security import create_access_token
 
         token = create_access_token({"user_id": test_user.id})
         headers = {"Authorization": f"Bearer {token}"}

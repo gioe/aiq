@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
-from app.core.security import hash_password  # noqa: E402
+from app.core.auth.security import hash_password  # noqa: E402
 from app.models.models import (  # noqa: E402
     User,
     TestSession,

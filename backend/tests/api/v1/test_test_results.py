@@ -80,7 +80,7 @@ class TestGetTestResult:
     ):
         """Test that users cannot access other users' test results."""
         from app.models.models import TestResult, User, TestSession, TestStatus
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from datetime import datetime
 
         # Create another user
@@ -296,7 +296,7 @@ class TestGetTestHistory:
     ):
         """Test that users only see their own test results."""
         from app.models.models import TestResult, User, TestSession, TestStatus
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from datetime import datetime
 
         # Create another user

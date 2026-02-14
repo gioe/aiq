@@ -20,7 +20,7 @@ from app.services.notification_scheduler import (
     get_users_never_tested,
 )
 from app.core.config import settings
-from app.core.security import hash_password
+from app.core.auth.security import hash_password
 
 
 @pytest.fixture

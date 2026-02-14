@@ -10,7 +10,7 @@ This module contains unit tests for:
 
 import pytest
 
-from app.core.validity_analysis import (
+from app.core.psychometrics.validity_analysis import (
     calculate_person_fit_heuristic,
     check_response_time_plausibility,
     count_guttman_errors,
@@ -3451,7 +3451,7 @@ class TestEdgeCaseHandling:
         For short tests, the threshold should be 0.40 instead of 0.25 to
         reduce false positives due to high variance in small samples.
         """
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             calculate_person_fit_heuristic,
             MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS,
             SHORT_TEST_FIT_RATIO_THRESHOLD,
@@ -3475,7 +3475,7 @@ class TestEdgeCaseHandling:
 
     def test_normal_test_person_fit_uses_standard_threshold(self):
         """Verify normal tests (>= 5 questions) use standard threshold."""
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             calculate_person_fit_heuristic,
             FIT_RATIO_ABERRANT_THRESHOLD,
         )
@@ -3499,7 +3499,7 @@ class TestEdgeCaseHandling:
 
     def test_short_test_guttman_uses_adjusted_thresholds(self):
         """Verify short tests use higher Guttman error thresholds."""
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             count_guttman_errors,
             SHORT_TEST_GUTTMAN_ABERRANT_THRESHOLD,
             SHORT_TEST_GUTTMAN_ELEVATED_THRESHOLD,
@@ -3522,7 +3522,9 @@ class TestEdgeCaseHandling:
 
     def test_short_test_time_check_uses_adjusted_rapid_threshold(self):
         """Verify short tests use lower rapid response count threshold."""
-        from app.core.validity_analysis import check_response_time_plausibility
+        from app.core.psychometrics.validity_analysis import (
+            check_response_time_plausibility,
+        )
 
         # Create a 4-response test with 2 rapid responses
         responses = [
@@ -3548,7 +3550,9 @@ class TestEdgeCaseHandling:
 
     def test_empty_responses_person_fit_returns_normal(self):
         """Verify empty response list returns normal fit with defaults."""
-        from app.core.validity_analysis import calculate_person_fit_heuristic
+        from app.core.psychometrics.validity_analysis import (
+            calculate_person_fit_heuristic,
+        )
 
         result = calculate_person_fit_heuristic([], 0)
 
@@ -3560,7 +3564,9 @@ class TestEdgeCaseHandling:
 
     def test_empty_responses_time_check_returns_no_flags(self):
         """Verify empty response list returns no time flags."""
-        from app.core.validity_analysis import check_response_time_plausibility
+        from app.core.psychometrics.validity_analysis import (
+            check_response_time_plausibility,
+        )
 
         result = check_response_time_plausibility([])
 
@@ -3571,7 +3577,7 @@ class TestEdgeCaseHandling:
 
     def test_empty_responses_guttman_returns_normal(self):
         """Verify empty response list returns normal Guttman result."""
-        from app.core.validity_analysis import count_guttman_errors
+        from app.core.psychometrics.validity_analysis import count_guttman_errors
 
         result = count_guttman_errors([])
 
@@ -3586,7 +3592,9 @@ class TestEdgeCaseHandling:
 
     def test_missing_time_data_skipped_in_analysis(self):
         """Verify responses without time data are skipped but don't break analysis."""
-        from app.core.validity_analysis import check_response_time_plausibility
+        from app.core.psychometrics.validity_analysis import (
+            check_response_time_plausibility,
+        )
 
         responses = [
             {"time_seconds": 30.0, "is_correct": True, "difficulty": "easy"},
@@ -3603,7 +3611,9 @@ class TestEdgeCaseHandling:
 
     def test_all_missing_time_data_returns_empty_result(self):
         """Verify all responses missing time data returns empty result with message."""
-        from app.core.validity_analysis import check_response_time_plausibility
+        from app.core.psychometrics.validity_analysis import (
+            check_response_time_plausibility,
+        )
 
         responses = [
             {"is_correct": True, "difficulty": "easy"},
@@ -3622,7 +3632,9 @@ class TestEdgeCaseHandling:
 
     def test_guttman_fallback_estimates_from_difficulty_level(self):
         """Verify fallback from empirical_difficulty to difficulty_level."""
-        from app.core.validity_analysis import count_guttman_errors_with_fallback
+        from app.core.psychometrics.validity_analysis import (
+            count_guttman_errors_with_fallback,
+        )
 
         # All items use fallback (no empirical_difficulty)
         responses = [
@@ -3640,7 +3652,9 @@ class TestEdgeCaseHandling:
 
     def test_guttman_fallback_mixed_data(self):
         """Verify fallback handles mix of empirical and estimated difficulty."""
-        from app.core.validity_analysis import count_guttman_errors_with_fallback
+        from app.core.psychometrics.validity_analysis import (
+            count_guttman_errors_with_fallback,
+        )
 
         # Mix of empirical and estimated
         responses = [
@@ -3657,7 +3671,9 @@ class TestEdgeCaseHandling:
 
     def test_empirical_difficulty_estimate_values(self):
         """Verify difficulty level estimates have expected p-values."""
-        from app.core.validity_analysis import estimate_empirical_difficulty_from_level
+        from app.core.psychometrics.validity_analysis import (
+            estimate_empirical_difficulty_from_level,
+        )
 
         # Easy should have highest p-value (more people get it right)
         assert estimate_empirical_difficulty_from_level("easy") == pytest.approx(0.75)
@@ -3675,7 +3691,9 @@ class TestEdgeCaseHandling:
 
     def test_abandoned_session_returns_incomplete_status(self):
         """Verify abandoned sessions return 'incomplete' validity status."""
-        from app.core.validity_analysis import check_validity_for_abandoned_session
+        from app.core.psychometrics.validity_analysis import (
+            check_validity_for_abandoned_session,
+        )
 
         result = check_validity_for_abandoned_session()
 
@@ -3688,7 +3706,9 @@ class TestEdgeCaseHandling:
 
     def test_abandoned_session_skips_all_checks(self):
         """Verify abandoned sessions skip all validity checks."""
-        from app.core.validity_analysis import check_validity_for_abandoned_session
+        from app.core.psychometrics.validity_analysis import (
+            check_validity_for_abandoned_session,
+        )
 
         result = check_validity_for_abandoned_session()
 
@@ -3702,7 +3722,7 @@ class TestEdgeCaseHandling:
 
     def test_should_skip_already_validated_session(self):
         """Verify already-validated sessions are skipped by default."""
-        from app.core.validity_analysis import should_skip_revalidation
+        from app.core.psychometrics.validity_analysis import should_skip_revalidation
         from datetime import datetime
 
         result = should_skip_revalidation(
@@ -3715,7 +3735,7 @@ class TestEdgeCaseHandling:
 
     def test_should_not_skip_unvalidated_session(self):
         """Verify sessions without validation data are not skipped."""
-        from app.core.validity_analysis import should_skip_revalidation
+        from app.core.psychometrics.validity_analysis import should_skip_revalidation
 
         result = should_skip_revalidation(
             existing_validity_status=None,
@@ -3727,7 +3747,7 @@ class TestEdgeCaseHandling:
 
     def test_force_revalidate_overrides_skip(self):
         """Verify force_revalidate=True overrides skip decision."""
-        from app.core.validity_analysis import should_skip_revalidation
+        from app.core.psychometrics.validity_analysis import should_skip_revalidation
         from datetime import datetime
 
         result = should_skip_revalidation(
@@ -3744,7 +3764,7 @@ class TestEdgeCaseHandling:
 
     def test_run_validity_with_abandoned_session(self):
         """Verify full analysis handles abandoned sessions correctly."""
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             run_validity_analysis_with_edge_case_handling,
         )
 
@@ -3762,7 +3782,7 @@ class TestEdgeCaseHandling:
 
     def test_run_validity_with_empty_responses(self):
         """Verify full analysis handles empty responses correctly."""
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             run_validity_analysis_with_edge_case_handling,
         )
 
@@ -3776,7 +3796,7 @@ class TestEdgeCaseHandling:
 
     def test_run_validity_with_already_validated(self):
         """Verify full analysis skips already-validated sessions."""
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             run_validity_analysis_with_edge_case_handling,
         )
         from datetime import datetime
@@ -3794,7 +3814,7 @@ class TestEdgeCaseHandling:
 
     def test_run_validity_includes_edge_case_info(self):
         """Verify full analysis includes edge case metadata."""
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             run_validity_analysis_with_edge_case_handling,
         )
 
@@ -3833,7 +3853,7 @@ class TestEdgeCaseHandling:
 
     def test_invalid_session_status_treated_as_completed(self):
         """Verify invalid session_status is handled safely and treated as completed."""
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             run_validity_analysis_with_edge_case_handling,
         )
 
@@ -3863,7 +3883,7 @@ class TestShortTestBoundaryConditions:
 
     def test_exactly_minimum_questions_not_short_test(self):
         """Verify exactly MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS is not a short test."""
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             calculate_person_fit_heuristic,
             MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS,
         )
@@ -3878,7 +3898,7 @@ class TestShortTestBoundaryConditions:
 
     def test_one_below_minimum_is_short_test(self):
         """Verify MINIMUM_QUESTIONS - 1 is considered a short test."""
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             calculate_person_fit_heuristic,
             MINIMUM_QUESTIONS_FOR_FULL_ANALYSIS,
         )
@@ -3896,7 +3916,7 @@ class TestShortTestBoundaryConditions:
 
         This tests that the adjusted thresholds actually prevent false positives.
         """
-        from app.core.validity_analysis import (
+        from app.core.psychometrics.validity_analysis import (
             calculate_person_fit_heuristic,
             SHORT_TEST_FIT_RATIO_THRESHOLD,
         )

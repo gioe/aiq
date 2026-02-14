@@ -466,7 +466,7 @@ class TestLoginUser:
         self, async_client, async_test_user
     ):
         """Test that access token contains user information."""
-        from app.core.security import decode_token
+        from app.core.auth.security import decode_token
 
         credentials = {
             "email": "test@example.com",
@@ -953,7 +953,7 @@ class TestPasswordReset:
     ):
         """Test password reset with valid token updates password."""
         from app.models.models import PasswordResetToken
-        from app.core.security import verify_password
+        from app.core.auth.security import verify_password
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
         import secrets

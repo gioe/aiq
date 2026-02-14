@@ -7,7 +7,7 @@ Tests IDA-006: Discrimination preference in test composition.
 import pytest
 from app.models import Question
 from app.models.models import QuestionType, DifficultyLevel
-from app.core.test_composition import select_stratified_questions
+from app.core.scoring.test_composition import select_stratified_questions
 
 
 class TestDifficultyDistribution:

@@ -5,7 +5,7 @@ import pytest
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
-from app.core.token_blacklist import (
+from app.core.auth.token_blacklist import (
     TokenBlacklist,
     init_token_blacklist,
     get_token_blacklist,
@@ -25,7 +25,7 @@ class TestTokenBlacklist:
     def test_init_with_redis_storage_unavailable(self):
         """Test blacklist falls back to in-memory when Redis is unavailable."""
         # Mock Redis to be unavailable
-        with patch("app.core.token_blacklist.RedisStorage") as MockRedisStorage:
+        with patch("app.core.auth.token_blacklist.RedisStorage") as MockRedisStorage:
             mock_storage = Mock()
             mock_storage.is_connected.return_value = False
             MockRedisStorage.return_value = mock_storage
@@ -203,7 +203,7 @@ class TestTokenBlacklistGlobal:
     def test_get_token_blacklist_not_initialized(self):
         """Test getting token blacklist before initialization raises error."""
         # Reset global instance
-        import app.core.token_blacklist as tb_module
+        import app.core.auth.token_blacklist as tb_module
 
         tb_module._token_blacklist = None
 
@@ -268,7 +268,7 @@ class TestTokenBlacklistIntegration:
 
         # Note: This doesn't require an actual Redis server
         # because we're just testing initialization logic
-        with patch("app.core.token_blacklist.RedisStorage") as MockRedisStorage:
+        with patch("app.core.auth.token_blacklist.RedisStorage") as MockRedisStorage:
             mock_storage = Mock()
             mock_storage.is_connected.return_value = True
             MockRedisStorage.return_value = mock_storage

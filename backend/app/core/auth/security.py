@@ -8,7 +8,7 @@ from app.core.datetime_utils import utc_now
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from .config import settings
+from app.core.config import settings
 
 # Password hashing context using bcrypt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

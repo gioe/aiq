@@ -42,8 +42,8 @@ from app.schemas.responses import (
     DEFAULT_HISTORY_PAGE_SIZE,
     MAX_HISTORY_PAGE_SIZE,
 )
-from app.core.auth import get_current_user
-from app.core.scoring import (
+from app.core.auth.dependencies import get_current_user
+from app.core.scoring.engine import (
     calculate_iq_score,
     calculate_weighted_iq_score,
     iq_to_percentile,
@@ -61,7 +61,7 @@ from app.core.system_config import (
     async_get_domain_population_stats,
     async_is_cat_enabled,
 )
-from app.core.time_analysis import (
+from app.core.psychometrics.time_analysis import (
     async_analyze_response_times,
     get_session_time_summary,
 )
@@ -69,14 +69,14 @@ from app.core.config import settings
 from app.core.cache import invalidate_user_cache
 from app.core.reliability import invalidate_reliability_report_cache
 from app.core.analytics import AnalyticsTracker
-from app.core.question_analytics import update_question_statistics
-from app.core.test_composition import async_select_stratified_questions
-from app.core.distractor_analysis import (
+from app.core.psychometrics.question_analytics import update_question_statistics
+from app.core.scoring.test_composition import async_select_stratified_questions
+from app.core.psychometrics.distractor_analysis import (
     async_update_distractor_stats,
     async_update_session_quartile_stats,
 )
 from app.core.question_utils import question_to_response
-from app.core.validity_analysis import (
+from app.core.psychometrics.validity_analysis import (
     calculate_person_fit_heuristic,
     check_response_time_plausibility,
     count_guttman_errors,
@@ -1742,7 +1742,7 @@ def _trigger_shadow_cat(session_id: int) -> None:
         db = None
         try:
             from app.models.base import SessionLocal
-            from app.core.shadow_cat import run_shadow_cat
+            from app.core.shadow_cat.runner import run_shadow_cat
 
             db = SessionLocal()
             run_shadow_cat(db, session_id)

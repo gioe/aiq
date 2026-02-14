@@ -148,7 +148,7 @@ class TestGetUnseenQuestions:
     ):
         """Test that seen questions are tracked per-user."""
         from app.models import User
-        from app.core.security import hash_password, create_access_token
+        from app.core.auth.security import hash_password, create_access_token
 
         # Create second user
         user2 = User(

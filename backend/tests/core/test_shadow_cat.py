@@ -12,7 +12,7 @@ import pytest
 from unittest.mock import patch
 from datetime import datetime, timezone
 
-from app.core.shadow_cat import (
+from app.core.shadow_cat.runner import (
     run_shadow_cat,
     _fetch_calibrated_responses,
     _execute_shadow_cat,
@@ -28,7 +28,7 @@ from app.models.models import (
     TestStatus,
     User,
 )
-from app.core.security import hash_password
+from app.core.auth.security import hash_password
 
 from app.models import Base
 
@@ -293,7 +293,7 @@ class TestRunShadowCat:
     def test_db_error_handled_gracefully(self, db, completed_session):
         """Database errors are caught and None is returned."""
         with patch(
-            "app.core.shadow_cat._fetch_calibrated_responses",
+            "app.core.shadow_cat.runner._fetch_calibrated_responses",
             side_effect=Exception("DB connection lost"),
         ):
             result = run_shadow_cat(db, completed_session.id)

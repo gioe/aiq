@@ -26,12 +26,13 @@ Recalibration Test Cases (EIC-009):
 """
 
 import pytest
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models import Base
 from app.models.models import Question, QuestionType, DifficultyLevel
-from app.core.question_analytics import (
+from app.core.psychometrics.question_analytics import (
     validate_difficulty_labels,
     recalibrate_questions,
     auto_flag_problematic_questions,
@@ -43,11 +44,10 @@ from app.core.question_analytics import (
     _is_within_range,
 )
 
-# Use SQLite in-memory database for tests
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_analytics.db"
+_TEST_DB = Path(__file__).parent / "test_analytics.db"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    f"sqlite:///{_TEST_DB}", connect_args={"check_same_thread": False}
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

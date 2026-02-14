@@ -13,10 +13,10 @@ from app.schemas.feedback import (
     FeedbackSubmitRequest,
     FeedbackSubmitResponse,
 )
-from app.core.auth import get_current_user_optional
+from app.core.auth.dependencies import get_current_user_optional
 from app.core.config import settings
 from app.core.error_responses import raise_server_error, ErrorMessages
-from app.core.ip_extraction import get_secure_client_ip
+from app.core.auth.ip_extraction import get_secure_client_ip
 from app.ratelimit.limiter import RateLimiter
 from app.ratelimit.storage import InMemoryStorage, RateLimiterStorage
 from app.ratelimit.strategies import TokenBucketStrategy

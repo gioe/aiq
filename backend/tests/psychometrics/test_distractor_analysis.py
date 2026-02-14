@@ -15,7 +15,7 @@ Tests cover:
 import pytest
 from app.models import Question
 from app.models.models import QuestionType, DifficultyLevel
-from app.core.distractor_analysis import (
+from app.core.psychometrics.distractor_analysis import (
     update_distractor_stats,
     update_distractor_quartile_stats,
     get_distractor_stats,
@@ -1446,7 +1446,7 @@ class TestDistractorStatsIntegration:
         self, client, db_session
     ):
         """Test that distractor_stats accumulate across multiple test submissions."""
-        from app.core.security import hash_password, create_access_token
+        from app.core.auth.security import hash_password, create_access_token
         from app.models import User
         from datetime import timedelta
         from app.core.datetime_utils import utc_now
@@ -1670,7 +1670,7 @@ class TestDetermineScoreQuartile:
         """Test that high scores are correctly identified as top quartile."""
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         # Create a test user
@@ -1727,7 +1727,7 @@ class TestDetermineScoreQuartile:
         """Test that low scores are correctly identified as bottom quartile."""
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         # Create a test user
@@ -1781,7 +1781,7 @@ class TestDetermineScoreQuartile:
         """Test that middle scores return middle quartile."""
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         user = User(
@@ -1834,7 +1834,7 @@ class TestDetermineScoreQuartile:
         """Test that only tests with similar question count are considered."""
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         user = User(
@@ -1916,7 +1916,7 @@ class TestUpdateSessionQuartileStats:
         """Test that function returns gracefully when insufficient historical data."""
         from app.models.models import TestSession, TestStatus
         from app.models import User
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         user = User(
@@ -1955,7 +1955,7 @@ class TestUpdateSessionQuartileStats:
         """Test that middle quartile scores don't update distractor stats."""
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         user = User(
@@ -2049,7 +2049,7 @@ class TestUpdateSessionQuartileStats:
         """Test that top quartile scores update top_q for each response."""
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         user = User(
@@ -2143,7 +2143,7 @@ class TestUpdateSessionQuartileStats:
         """Test that bottom quartile scores update bottom_q for each response."""
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         user = User(
@@ -2237,7 +2237,7 @@ class TestUpdateSessionQuartileStats:
         """Test that all responses in a session are updated."""
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         user = User(
@@ -2337,7 +2337,7 @@ class TestUpdateSessionQuartileStats:
         """Test that free-response questions are skipped during quartile update."""
         from app.models.models import TestResult, TestSession, TestStatus, Response
         from app.models import User, Question
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         user = User(
@@ -2456,7 +2456,7 @@ class TestUpdateSessionQuartileStats:
         """Test handling when session has no responses."""
         from app.models.models import TestResult, TestSession, TestStatus
         from app.models import User
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
         from app.core.datetime_utils import utc_now
 
         user = User(
@@ -2523,7 +2523,9 @@ class TestGetBulkDistractorSummary:
 
     def test_empty_database_returns_zero_counts(self, db_session):
         """Test that an empty database returns zero counts for all metrics."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         result = get_bulk_distractor_summary(db_session, min_responses=50)
 
@@ -2540,7 +2542,9 @@ class TestGetBulkDistractorSummary:
 
     def test_questions_below_threshold_counted(self, db_session):
         """Test that questions below the min_responses threshold are counted separately."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create a question with insufficient responses
         question = Question(
@@ -2566,7 +2570,9 @@ class TestGetBulkDistractorSummary:
 
     def test_questions_with_no_stats_counted_as_below_threshold(self, db_session):
         """Test that questions with null distractor_stats are counted as below threshold."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create a question with no stats
         question = Question(
@@ -2588,7 +2594,9 @@ class TestGetBulkDistractorSummary:
 
     def test_non_functioning_distractor_detection(self, db_session):
         """Test that questions with non-functioning distractors are detected."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create a question with one non-functioning distractor (< 2% selection)
         question = Question(
@@ -2616,7 +2624,9 @@ class TestGetBulkDistractorSummary:
 
     def test_inverted_distractor_detection(self, db_session):
         """Test that questions with inverted distractors are detected."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create a question with inverted distractor (high scorers prefer it more)
         question = Question(
@@ -2641,7 +2651,9 @@ class TestGetBulkDistractorSummary:
 
     def test_by_non_functioning_count_breakdown(self, db_session):
         """Test that the by_non_functioning_count breakdown is accurate."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create questions with different numbers of non-functioning distractors
         # Question 1: zero non-functioning distractors
@@ -2702,7 +2714,9 @@ class TestGetBulkDistractorSummary:
 
     def test_worst_offenders_ranking(self, db_session):
         """Test that worst offenders are ranked by issue score."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create question with 2 non-functioning (score: 2*2=4)
         q1 = Question(
@@ -2749,7 +2763,9 @@ class TestGetBulkDistractorSummary:
 
     def test_worst_offenders_limited_to_ten(self, db_session):
         """Test that worst offenders list is limited to 10 entries."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create 15 questions with issues
         for i in range(15):
@@ -2776,7 +2792,9 @@ class TestGetBulkDistractorSummary:
 
     def test_by_question_type_stats(self, db_session):
         """Test that statistics are grouped by question type."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create a PATTERN question
         q1 = Question(
@@ -2820,7 +2838,9 @@ class TestGetBulkDistractorSummary:
 
     def test_question_type_filter(self, db_session):
         """Test that question_type filter works correctly."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create a PATTERN question
         q1 = Question(
@@ -2862,7 +2882,9 @@ class TestGetBulkDistractorSummary:
 
     def test_inactive_questions_excluded(self, db_session):
         """Test that inactive questions are excluded from analysis."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create an inactive question
         q = Question(
@@ -2886,7 +2908,9 @@ class TestGetBulkDistractorSummary:
 
     def test_only_mc_questions_analyzed(self, db_session):
         """Test that only multiple-choice questions (with answer_options) are analyzed."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create an MC question with sufficient stats
         mc_question = Question(
@@ -2918,7 +2942,9 @@ class TestGetBulkDistractorSummary:
 
     def test_avg_effective_option_count(self, db_session):
         """Test that average effective option count is calculated correctly."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create a question with equal distribution (effective_option_count = 2.0)
         q1 = Question(
@@ -2959,7 +2985,9 @@ class TestGetBulkDistractorSummary:
 
     def test_worst_offenders_structure(self, db_session):
         """Test that worst offenders have the correct structure."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create a question with issues
         q = Question(
@@ -3001,7 +3029,9 @@ class TestGetBulkDistractorSummary:
 
     def test_min_responses_threshold_respected(self, db_session):
         """Test that custom min_responses threshold is respected."""
-        from app.core.distractor_analysis import get_bulk_distractor_summary
+        from app.core.psychometrics.distractor_analysis import (
+            get_bulk_distractor_summary,
+        )
 
         # Create a question with 60 responses
         q = Question(

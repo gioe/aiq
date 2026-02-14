@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.distractor_analysis import (
+from app.core.psychometrics.distractor_analysis import (
     async_analyze_distractor_effectiveness,
     async_get_bulk_distractor_summary,
 )

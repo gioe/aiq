@@ -502,7 +502,7 @@ class TestGetTestSession:
         """Test that users cannot access other users' sessions."""
         from app.models import User, TestSession
         from app.models.models import TestStatus
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
 
         # Create second user
         user2 = User(
@@ -747,7 +747,7 @@ class TestAbandonTest:
         """Test that users cannot abandon other users' sessions."""
         from app.models import User, TestSession
         from app.models.models import TestStatus
-        from app.core.security import hash_password
+        from app.core.auth.security import hash_password
 
         # Create second user
         user2 = User(

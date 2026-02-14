@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.datetime_utils import utc_now
-from app.core.security_monitoring import MAX_PAGE_SIZE, async_get_logout_all_stats
+from app.core.auth.security_monitoring import MAX_PAGE_SIZE, async_get_logout_all_stats
 from app.models import get_db
 from app.schemas.security_monitoring import LogoutAllStatsResponse, TimeRange
 

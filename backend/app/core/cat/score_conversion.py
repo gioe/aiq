@@ -62,7 +62,11 @@ from typing import Dict, List, Tuple
 
 from scipy.stats import norm
 
-from app.core.scoring import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND, IQ_POPULATION_SD
+from app.core.scoring.engine import (
+    IQ_CI_LOWER_BOUND,
+    IQ_CI_UPPER_BOUND,
+    IQ_POPULATION_SD,
+)
 
 logger = logging.getLogger(__name__)
 
