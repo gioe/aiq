@@ -208,11 +208,11 @@ Then set environment variables via dashboard as described in Step 3 above.
 ```json
 {
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "cd backend && pip install --upgrade pip && pip install -r requirements.txt"
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "backend/Dockerfile",
+    "watchPatterns": ["/backend/**", "/libs/**"]
   },
   "deploy": {
-    "startCommand": "cd backend && ./start.sh",
     "healthcheckPath": "/v1/health",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
@@ -221,36 +221,27 @@ Then set environment variables via dashboard as described in Step 3 above.
 }
 ```
 
-- **Build**: Installs Python dependencies from `backend/requirements.txt`
-- **Deploy**: Runs `backend/start.sh` which handles migrations and starts Gunicorn
+- **Build**: Dockerfile-based build from `backend/Dockerfile`
+- **Watch Paths**: Redeploys on changes to `backend/` or `libs/`
 - **Health Check**: Railway pings `/v1/health` to verify app is running
 - **Restart Policy**: Auto-restarts on failure (max 10 retries)
 
-### `nixpacks.toml` (Root)
-Configures Nixpacks builder for Python 3.10 and PostgreSQL client.
-
-### `backend/Procfile`
-```
-web: ./start.sh
-```
-Simple process definition for Railway.
-
-### `backend/start.sh`
-- Runs database migrations: `alembic upgrade head`
-- Starts Gunicorn with Uvicorn workers
+### `backend/Dockerfile`
+- Multi-stage build (builder + production)
+- Runs database migrations (`alembic upgrade head`) and starts Gunicorn with Uvicorn workers
 - Binds to `$PORT` (provided by Railway)
 - Configured for 2 workers with proper logging
 
 ## Monorepo Structure
 
 This project is a monorepo with the backend in `backend/`. Railway handles this via:
-- Build command: `cd backend && pip install -r requirements.txt`
-- Start command: `cd backend && ./start.sh`
+- Dockerfile build: `backend/Dockerfile` (builds from repo root to access `libs/`)
+- `WORKDIR /app/backend` inside the container
 - All paths relative to project root
 
 ## Database Migrations
 
-Migrations run **automatically on startup** via `backend/start.sh`:
+Migrations run **automatically on startup** via the Dockerfile `CMD`:
 ```bash
 alembic upgrade head
 ```
@@ -298,8 +289,7 @@ cd backend && alembic upgrade head
 **Check**:
 1. **`DATABASE_URL` is set**: Should be auto-linked from PostgreSQL service
 2. **All required env vars are set**: See Step 3 above
-3. **`start.sh` is executable**: Should be by default
-4. **Port binding**: App should use `$PORT` env var (handled in `start.sh`)
+3. **Port binding**: App should use `$PORT` env var (handled in the Dockerfile `CMD`)
 
 **Debug**:
 ```bash
@@ -359,19 +349,6 @@ railway connect postgres
 \dt
 ```
 
-### ⚠️ "Permission denied: start.sh"
-
-**Fix**:
-```bash
-# Make start.sh executable locally
-chmod +x backend/start.sh
-
-# Commit and push
-git add backend/start.sh
-git commit -m "Make start.sh executable"
-git push origin main
-```
-
 ### ⚠️ CORS Errors from iOS App
 
 **Fix**: Update `CORS_ORIGINS` to include your app's domains:
@@ -418,13 +395,13 @@ This enables instant notifications for deployment failures, service crashes, and
 ## Scaling
 
 ### Current Configuration
-- **Workers**: 2 Gunicorn workers (in `start.sh`)
+- **Workers**: 2 Gunicorn workers (in `Dockerfile CMD`)
 - **Instance Size**: Railway default (512 MB RAM)
 
 ### To Scale Up
 1. Railway dashboard → Service → **"Settings"** → **"Resources"**
 2. Increase memory/CPU allocation
-3. Or modify `start.sh` to increase workers:
+3. Or modify the `CMD` in `backend/Dockerfile` to increase workers:
    ```bash
    --workers 4  # Increase from 2 to 4
    ```
@@ -775,14 +752,12 @@ railway run <command>
 
 ## Summary
 
-Three files manage Railway deployment:
+Two files manage Railway deployment:
 1. **`railway.json`** - Build and deploy configuration
-2. **`nixpacks.toml`** - Build environment setup
-3. **`backend/start.sh`** - Migrations + server startup
+2. **`backend/Dockerfile`** - Multi-stage build, migrations, and server startup
 
 Railway automatically:
-- Detects Python app
-- Installs dependencies
+- Builds from Dockerfile
 - Runs migrations
 - Starts Gunicorn
 - Monitors health at `/v1/health`
