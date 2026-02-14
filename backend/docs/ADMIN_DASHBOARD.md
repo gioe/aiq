@@ -10,7 +10,7 @@ The AIQ admin dashboard provides a comprehensive view of question performance st
    ```bash
    ADMIN_ENABLED=True
    ADMIN_USERNAME=admin
-   # Generate password hash: python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your-password'))"
+   # Generate password hash: python -c "import bcrypt; print(bcrypt.hashpw(b'your-password', bcrypt.gensalt()).decode())"
    ADMIN_PASSWORD_HASH=$2b$12$...your-bcrypt-hash...
    ```
 
@@ -256,7 +256,7 @@ To rotate the admin password:
 
 1. **Generate a new bcrypt hash** locally:
    ```bash
-   python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your-new-secure-password'))"
+   python -c "import bcrypt; print(bcrypt.hashpw(b'your-new-secure-password', bcrypt.gensalt()).decode())"
    ```
 
 2. **Update the environment variable** with the new hash:

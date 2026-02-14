@@ -122,7 +122,7 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD_HASH: str = Field(
         default="",
         description="Bcrypt-hashed admin dashboard password (required when ADMIN_ENABLED=True). "
-        "Generate with: python -c \"from passlib.hash import bcrypt; print(bcrypt.hash('your_password'))\"",
+        "Generate with: python -c \"import bcrypt; print(bcrypt.hashpw(b'your_password', bcrypt.gensalt()).decode())\"",
     )
     ADMIN_TOKEN: str = Field(
         default="",
@@ -216,8 +216,8 @@ class Settings(BaseSettings):
         if self.ADMIN_ENABLED and not self.ADMIN_PASSWORD_HASH:
             raise ValueError(
                 "ADMIN_PASSWORD_HASH must be set when ADMIN_ENABLED=True. "
-                'Generate with: python -c "from passlib.hash import bcrypt; '
-                "print(bcrypt.hash('your_password'))\""
+                'Generate with: python -c "import bcrypt; '
+                "print(bcrypt.hashpw(b'your_password', bcrypt.gensalt()).decode())\""
             )
         return self
 

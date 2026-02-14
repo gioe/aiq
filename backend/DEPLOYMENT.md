@@ -68,7 +68,7 @@ RATE_LIMIT_DEFAULT_WINDOW=60
 # Admin Dashboard (optional)
 ADMIN_ENABLED=False
 ADMIN_USERNAME=admin
-# Generate password hash locally: python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your_password'))"
+# Generate password hash locally: python -c "import bcrypt; print(bcrypt.hashpw(b'your_password', bcrypt.gensalt()).decode())"
 ADMIN_PASSWORD_HASH=$2b$12$...your-bcrypt-hash...
 
 # Sentry Error Tracking (recommended for production)
