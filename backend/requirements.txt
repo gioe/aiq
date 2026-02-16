@@ -30,7 +30,7 @@ python-jose[cryptography]==3.5.0
 python-multipart==0.0.22
 
 # Push Notifications
-aioapns==3.3
+aioapns==4.0
 
 # Admin Dashboard
 sqladmin==0.16.1
