@@ -614,19 +614,18 @@ def create_application() -> FastAPI:
             },
         )
 
+    @app.get("/")
+    async def root():
+        """
+        Root endpoint.
+        """
+        return {
+            "message": f"Welcome to {settings.APP_NAME}",
+            "version": settings.APP_VERSION,
+            "docs": f"{settings.API_V1_PREFIX}/docs",
+        }
+
     return app
 
 
 app = create_application()
-
-
-@app.get("/")
-async def root():
-    """
-    Root endpoint.
-    """
-    return {
-        "message": f"Welcome to {settings.APP_NAME}",
-        "version": settings.APP_VERSION,
-        "docs": f"{settings.API_V1_PREFIX}/docs",
-    }
