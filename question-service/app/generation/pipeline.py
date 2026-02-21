@@ -337,9 +337,11 @@ class QuestionGenerationPipeline:
                 "target_questions": questions_per_run,
                 "questions_generated": len(all_questions),
                 "batches_created": len(all_batches),
-                "success_rate": len(all_questions) / questions_per_run
-                if questions_per_run > 0
-                else 0,
+                "success_rate": (
+                    len(all_questions) / questions_per_run
+                    if questions_per_run > 0
+                    else 0
+                ),
                 "providers_used": list(set(q.source_llm for q in all_questions)),
                 "questions_by_type": {
                     qt.value: len([q for q in all_questions if q.question_type == qt])
@@ -475,9 +477,11 @@ class QuestionGenerationPipeline:
                 "target_questions": questions_per_run,
                 "questions_generated": len(all_questions),
                 "batches_created": len(all_batches),
-                "success_rate": len(all_questions) / questions_per_run
-                if questions_per_run > 0
-                else 0,
+                "success_rate": (
+                    len(all_questions) / questions_per_run
+                    if questions_per_run > 0
+                    else 0
+                ),
                 "providers_used": list(set(q.source_llm for q in all_questions)),
                 "questions_by_type": {
                     qt.value: len([q for q in all_questions if q.question_type == qt])
@@ -582,9 +586,11 @@ class QuestionGenerationPipeline:
                 "target_questions": total_to_generate,
                 "questions_generated": len(all_questions),
                 "batches_created": len(all_batches),
-                "success_rate": len(all_questions) / total_to_generate
-                if total_to_generate > 0
-                else 0,
+                "success_rate": (
+                    len(all_questions) / total_to_generate
+                    if total_to_generate > 0
+                    else 0
+                ),
                 "providers_used": list(set(q.source_llm for q in all_questions)),
                 "questions_by_type": {
                     qt.value: len([q for q in all_questions if q.question_type == qt])
@@ -706,9 +712,11 @@ class QuestionGenerationPipeline:
                 "target_questions": total_to_generate,
                 "questions_generated": len(all_questions),
                 "batches_created": len(all_batches),
-                "success_rate": len(all_questions) / total_to_generate
-                if total_to_generate > 0
-                else 0,
+                "success_rate": (
+                    len(all_questions) / total_to_generate
+                    if total_to_generate > 0
+                    else 0
+                ),
                 "providers_used": list(set(q.source_llm for q in all_questions)),
                 "questions_by_type": {
                     qt.value: len([q for q in all_questions if q.question_type == qt])

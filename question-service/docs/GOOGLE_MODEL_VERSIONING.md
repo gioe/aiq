@@ -24,12 +24,12 @@ The AIQ question service uses Google Gemini models for pattern recognition and s
 
 ### Production Configuration
 
-| Component | Model | File |
-|-----------|-------|------|
-| Pattern Generator | `gemini-3-pro-preview` | `config/generators.yaml` |
-| Spatial Generator | `gemini-3-pro-preview` | `config/generators.yaml` |
-| Pattern Judge | `gemini-3-pro-preview` | `config/judges.yaml` |
-| Spatial Judge | `gemini-3-pro-preview` | `config/judges.yaml` |
+| Component | Role | Model | File |
+|-----------|------|-------|------|
+| Memory Generator | primary | `gemini-3-pro-preview` | `config/generators.yaml` |
+| Spatial Generator | fallback | `gemini-3-pro-preview` | `config/generators.yaml` |
+| Memory Judge | primary | `gemini-3-pro-preview` | `config/judges.yaml` |
+| Spatial Judge | fallback | `gemini-3-pro-preview` | `config/judges.yaml` |
 
 ### Code References
 
@@ -98,17 +98,36 @@ jobs:
           cd question-service
           python -c "
           from app.providers.google_provider import GoogleProvider
-          import os
+          import os, yaml
 
           provider = GoogleProvider(api_key=os.environ['GOOGLE_API_KEY'])
-          available = provider.fetch_available_models()
+          available = set(provider.fetch_available_models())
 
-          expected = ['gemini-3-pro-preview', 'gemini-3-flash-preview']
-          missing = [m for m in expected if m not in available]
+          # Collect all Google models from config files dynamically.
+          # Note: default_generator / default_judge entries are not checked
+          # here; they currently use OpenAI, not Google.
+          google_models = set()
+          for config_path in ['config/generators.yaml', 'config/judges.yaml']:
+              with open(config_path) as f:
+                  config = yaml.safe_load(f)
+              entries = config.get('generators', config.get('judges', {}))
+              for entry in entries.values():
+                  if not isinstance(entry, dict):
+                      continue
+                  if entry.get('provider') == 'google':
+                      if model := entry.get('model'):
+                          google_models.add(model)
+                  if entry.get('fallback') == 'google':
+                      if fallback_model := entry.get('fallback_model'):
+                          google_models.add(fallback_model)
+
+          assert google_models, 'No Google models found in configs — check key names'
+
+          missing = [m for m in google_models if m not in available]
 
           if missing:
               print(f'WARNING: Missing expected models: {missing}')
-              print(f'Available models: {available}')
+              print(f'Available models: {sorted(available)}')
               exit(1)
 
           # Check for new stable versions (indicates transition)
@@ -117,7 +136,7 @@ jobs:
               print(f'NOTICE: New stable Gemini 3 models detected: {new_stable}')
               print('Consider updating configurations to use stable versions.')
 
-          print('All expected models available.')
+          print(f'All {len(google_models)} configured Google models available.')
           "
 ```
 

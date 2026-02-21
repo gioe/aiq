@@ -2108,9 +2108,9 @@ class QuestionGenerator:
 
                 # Add metadata indicating this was regenerated
                 question.metadata["regenerated"] = True
-                question.metadata[
-                    "original_question"
-                ] = original_question.question_text[:100]
+                question.metadata["original_question"] = (
+                    original_question.question_text[:100]
+                )
                 question.metadata["regeneration_reason"] = "judge_feedback"
 
                 span.set_attribute("success", True)

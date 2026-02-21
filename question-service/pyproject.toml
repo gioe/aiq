@@ -36,6 +36,7 @@ allow_incomplete_defs = true
 no_implicit_optional = false
 disallow_untyped_decorators = false
 disable_error_code = ["var-annotated", "attr-defined"]
+exclude = ["scripts/"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"

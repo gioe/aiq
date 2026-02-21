@@ -222,7 +222,7 @@ class RedisEmbeddingCache(EmbeddingCacheBackend):
                 return None
 
             self._hits += 1
-            embedding_list = json.loads(value.decode("utf-8"))
+            embedding_list = json.loads(value.decode("utf-8"))  # type: ignore[union-attr]
             return np.array(embedding_list, dtype=np.float32)
 
         except self._redis_module.RedisError as e:
@@ -261,7 +261,7 @@ class RedisEmbeddingCache(EmbeddingCacheBackend):
             deleted_count = 0
             while True:
                 result = self._redis.scan(cursor, match=pattern, count=100)
-                cursor, keys = result
+                cursor, keys = result  # type: ignore[misc]
                 if keys:
                     try:
                         self._redis.delete(*keys)
@@ -305,7 +305,7 @@ class RedisEmbeddingCache(EmbeddingCacheBackend):
 
             while iterations < self.DEFAULT_MAX_SCAN_ITERATIONS:
                 result = self._redis.scan(cursor, match=pattern, count=100)
-                cursor, keys = result
+                cursor, keys = result  # type: ignore[misc]
                 key_count += len(keys)
                 iterations += 1
                 if cursor == 0:
