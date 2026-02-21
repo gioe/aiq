@@ -14,6 +14,7 @@ Steps:
     3. git commit with [TASK-<id>] <message> format and Co-Authored-By trailer
 """
 
+import os
 import subprocess
 import sys
 
@@ -48,6 +49,11 @@ def main(argv: list[str]) -> int:
     if not message.strip():
         print("Error: Commit message must not be empty", file=sys.stderr)
         return 1
+
+    # Pin CWD to repo root so git commands resolve file paths correctly
+    # regardless of the caller's working directory (e.g. when the shell has
+    # drifted to ios/ after running iOS build commands).
+    os.chdir(repo_root)
 
     # ── Step 1: Run lint (advisory) ──────────────────────────────────
     print("=== Running tusk lint (advisory) ===")
