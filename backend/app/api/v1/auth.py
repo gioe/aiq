@@ -12,6 +12,7 @@ from sqlalchemy import func, select, update as sa_update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.background_tasks import safe_background_task
 from app.models import get_db, User
 from app.models.models import PasswordResetToken
 from app.schemas.auth import (
@@ -498,9 +499,12 @@ async def logout_all_devices(
         properties={"logout_all": True},
     )
 
-    # Send push notification after response is sent (fire-and-forget)
+    # Send push notification after response is sent (fire-and-forget).
+    # Wrapped in safe_background_task so exceptions are logged consistently
+    # regardless of whether middleware is present.
     if current_user.notification_enabled and current_user.apns_device_token:
         background_tasks.add_task(
+            safe_background_task,
             send_logout_all_notification,
             current_user.apns_device_token,
             user_id=int(current_user.id),
