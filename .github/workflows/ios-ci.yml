@@ -27,8 +27,13 @@ jobs:
       - name: Install SwiftLint
         run: brew install swiftlint
 
-      - name: Install SwiftFormat
-        run: brew install swiftformat
+      - name: Install SwiftFormat 0.59.1
+        run: |
+          curl -Lo swiftformat.zip "https://github.com/nicklockwood/SwiftFormat/releases/download/0.59.1/swiftformat.zip"
+          unzip -q swiftformat.zip
+          chmod +x swiftformat
+          sudo mv swiftformat /usr/local/bin/swiftformat
+          echo "Installed: $(swiftformat --version)"
 
       - name: Run SwiftLint
         run: |
