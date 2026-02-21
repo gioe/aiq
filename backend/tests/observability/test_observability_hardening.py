@@ -1356,41 +1356,50 @@ def reset_observability_state():
 class TestObservabilityConfigRouting:
     """Test observability config routing and sampling."""
 
-    def test_config_routing_errors_to_sentry(self):
+    @pytest.fixture
+    def backend_config_path(self) -> str:
+        """Return absolute path to backend observability config."""
+        from pathlib import Path
+
+        return str(
+            Path(__file__).parent.parent.parent / "config" / "observability.yaml"
+        )
+
+    def test_config_routing_errors_to_sentry(self, backend_config_path):
         """Test that config routes errors to sentry."""
         from libs.observability.config import load_config
 
-        config = load_config("config/observability.yaml")
+        config = load_config(backend_config_path)
         assert config.routing.errors == "sentry"
 
-    def test_config_routing_metrics_to_otel(self):
+    def test_config_routing_metrics_to_otel(self, backend_config_path):
         """Test that config routes metrics to otel."""
         from libs.observability.config import load_config
 
-        config = load_config("config/observability.yaml")
+        config = load_config(backend_config_path)
         assert config.routing.metrics == "otel"
 
-    def test_config_routing_traces_to_both(self):
+    def test_config_routing_traces_to_both(self, backend_config_path):
         """Test that config routes traces to both."""
         from libs.observability.config import load_config
 
-        config = load_config("config/observability.yaml")
+        config = load_config(backend_config_path)
         assert config.routing.traces == "both"
 
-    def test_config_sample_rate_applied(self):
+    def test_config_sample_rate_applied(self, backend_config_path):
         """Test that sample rate is applied correctly."""
         from libs.observability.config import load_config
 
-        config = load_config("config/observability.yaml")
+        config = load_config(backend_config_path)
         assert config.sentry.traces_sample_rate == pytest.approx(0.1)
 
-    def test_config_loads_with_different_sample_rates(self):
+    def test_config_loads_with_different_sample_rates(self, backend_config_path):
         """Test that config loads with different sample rates."""
         with patch.dict("os.environ", {"ENV": "production"}):
             from libs.observability.config import load_config
 
             # Load config (may have different sample rates in different envs)
-            config = load_config("config/observability.yaml")
+            config = load_config(backend_config_path)
 
             # Verify sample rate is a valid float between 0 and 1
             assert 0.0 <= config.sentry.traces_sample_rate <= 1.0
