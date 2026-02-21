@@ -12,6 +12,7 @@ Usage:
     # During application startup
     setup_db_instrumentation(engine)
 """
+
 import logging
 import re
 import time

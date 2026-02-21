@@ -1,6 +1,7 @@
 """
 Tests for Settings configuration validation in config.py.
 """
+
 import pytest
 from pydantic import ValidationError
 

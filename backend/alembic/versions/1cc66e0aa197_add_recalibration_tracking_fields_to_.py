@@ -11,6 +11,7 @@ This migration adds fields to track difficulty recalibration for questions:
 Both fields are nullable - NULL indicates the question has never been recalibrated.
 Part of EIC-001 (Empirical Item Calibration).
 """
+
 from typing import Sequence, Union
 
 from alembic import op

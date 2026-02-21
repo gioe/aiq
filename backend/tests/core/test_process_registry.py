@@ -12,6 +12,7 @@ This module tests the background process tracking functionality including:
 - Shutdown during active registration (BCQ-053)
 - Memory management verification (BCQ-053)
 """
+
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone

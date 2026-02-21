@@ -5,6 +5,7 @@ Provides endpoints for evaluating and querying whether the question bank
 has enough well-calibrated IRT items to support Computerized Adaptive Testing.
 CAT activates only when all 6 domains meet the configured thresholds.
 """
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 

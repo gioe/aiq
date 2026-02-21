@@ -1,6 +1,7 @@
 """
 Admin dashboard module for AIQ.
 """
+
 from .auth import AdminAuth
 from .views import (
     UserAdmin,

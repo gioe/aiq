@@ -11,6 +11,7 @@ to `metadata` for consistency across services.
 
 This is a simple column rename operation that preserves all existing data.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

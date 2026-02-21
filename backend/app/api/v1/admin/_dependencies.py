@@ -4,6 +4,7 @@ Shared dependencies for admin endpoints.
 This module contains common imports, logger configuration, and authentication
 dependencies used across all admin endpoint modules.
 """
+
 import logging
 import secrets
 

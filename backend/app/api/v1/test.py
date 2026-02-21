@@ -1,6 +1,7 @@
 """
 Test session management endpoints.
 """
+
 import logging
 import threading
 from fastapi import APIRouter, Depends, Query
@@ -734,9 +735,11 @@ async def _finalize_adaptive_session(
         session_id=test_session.id,
         iq_score=cat_result.iq_score,
         duration_seconds=completion_time_seconds,
-        accuracy=(cat_result.correct_count / cat_result.items_administered * 100.0)
-        if cat_result.items_administered > 0
-        else 0.0,
+        accuracy=(
+            (cat_result.correct_count / cat_result.items_administered * 100.0)
+            if cat_result.items_administered > 0
+            else 0.0
+        ),
     )
     metrics.record_test_completed(
         adaptive=True,

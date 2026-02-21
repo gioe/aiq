@@ -1,6 +1,7 @@
 """
 User profile endpoints.
 """
+
 import hashlib
 import logging
 

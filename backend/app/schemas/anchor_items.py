@@ -5,6 +5,7 @@ These schemas support admin endpoints for viewing, toggling, and auto-selecting
 anchor items used to accelerate IRT calibration data collection. Anchor items
 are a curated subset (30 per domain, 180 total) embedded in every test.
 """
+
 from datetime import datetime
 from typing import List, Optional
 

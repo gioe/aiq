@@ -5,6 +5,7 @@ Endpoints for monitoring question inventory levels across different
 question types and difficulties to ensure sufficient questions are
 available for test composition.
 """
+
 import logging
 from typing import Dict, List
 

@@ -5,6 +5,7 @@ These schemas define the structure for analytics events sent from
 iOS and other client applications to track user behavior and system
 performance.
 """
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator

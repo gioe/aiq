@@ -8,6 +8,7 @@ This migration adds the inferred_sub_type column to the questions table.
 This column stores LLM-inferred sub-types for historical questions that
 were generated before sub_type tracking was implemented.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

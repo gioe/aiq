@@ -8,6 +8,7 @@ Note: The users.token_revoked_before column stores only the most recent
 logout-all timestamp per user (overwritten on each invocation), so
 total_events always equals unique_users.
 """
+
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone

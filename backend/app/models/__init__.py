@@ -1,6 +1,7 @@
 """
 Models package for AIQ backend.
 """
+
 from .base import (
     Base,
     engine,

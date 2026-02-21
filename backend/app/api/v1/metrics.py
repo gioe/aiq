@@ -4,6 +4,7 @@ Prometheus metrics endpoint.
 This module provides a /metrics endpoint compatible with Prometheus scraping.
 Metrics are collected via OpenTelemetry and exposed in Prometheus format.
 """
+
 import logging
 from fastapi import APIRouter, Response
 from starlette.status import HTTP_503_SERVICE_UNAVAILABLE

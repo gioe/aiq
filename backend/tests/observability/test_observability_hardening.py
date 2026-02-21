@@ -12,6 +12,7 @@ for the backend's observability implementation including:
 - Prometheus exporter
 - Observability configuration
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest

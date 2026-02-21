@@ -11,6 +11,7 @@ This migration adds fields to support time standardization and response time ana
 
 Part of TS-001 (Time Standardization - Database Schema).
 """
+
 from typing import Sequence, Union
 
 from alembic import op

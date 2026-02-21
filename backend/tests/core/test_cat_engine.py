@@ -11,6 +11,7 @@ Tests cover:
 - Finalization and IQ score conversion
 - Domain score calculation
 """
+
 import pytest
 
 from app.core.cat.engine import (

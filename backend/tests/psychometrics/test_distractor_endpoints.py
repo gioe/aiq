@@ -9,6 +9,7 @@ These tests verify the full integration flow:
 This differs from the unit tests in test_admin.py which use pre-populated
 distractor_stats fixtures.
 """
+
 import pytest
 from unittest.mock import patch
 
@@ -91,9 +92,11 @@ def integration_questions_with_responses(db_session, integration_test_user):
     for i in range(3):
         q = Question(
             question_text=f"Integration test question {i+1}",
-            question_type=QuestionType.MATH
-            if i == 0
-            else (QuestionType.PATTERN if i == 1 else QuestionType.LOGIC),
+            question_type=(
+                QuestionType.MATH
+                if i == 0
+                else (QuestionType.PATTERN if i == 1 else QuestionType.LOGIC)
+            ),
             difficulty_level=DifficultyLevel.MEDIUM,
             correct_answer="B",
             answer_options={

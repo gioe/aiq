@@ -1,6 +1,7 @@
 """
 Health check and status endpoints.
 """
+
 from fastapi import APIRouter
 from app.core.datetime_utils import utc_now
 from app.core.config import settings

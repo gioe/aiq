@@ -1,6 +1,7 @@
 """
 Admin authentication for the dashboard.
 """
+
 import logging
 import secrets
 

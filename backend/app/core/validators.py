@@ -1,6 +1,7 @@
 """
 Input validation and sanitization utilities.
 """
+
 import re
 import html
 from typing import Optional

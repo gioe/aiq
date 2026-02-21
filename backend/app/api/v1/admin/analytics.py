@@ -3,6 +3,7 @@ Analytics admin endpoints.
 
 Endpoints for aggregate response time analytics and factor analysis.
 """
+
 from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query

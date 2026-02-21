@@ -373,27 +373,27 @@ def validate_shadow_results(sessions: List[SessionData]) -> ValidationReport:
             criterion="1. Correlation",
             description="Pearson r between shadow IQ and actual IQ",
             threshold=f">= {CORRELATION_THRESHOLD}",
-            observed_value=str(r_val)
-            if r_val is not None
-            else "N/A (insufficient data)",
+            observed_value=(
+                str(r_val) if r_val is not None else "N/A (insufficient data)"
+            ),
             passed=criterion_1_pass,
         ),
         CriterionResult(
             criterion="2. Systematic Bias",
             description="|mean(delta)| / SD(actual_iq)",
             threshold=f"< {BIAS_THRESHOLD_SD}",
-            observed_value=str(bias_ratio)
-            if bias_ratio is not None
-            else "N/A (insufficient data)",
+            observed_value=(
+                str(bias_ratio) if bias_ratio is not None else "N/A (insufficient data)"
+            ),
             passed=criterion_2_pass,
         ),
         CriterionResult(
             criterion="3. Content Balance",
             description="Sessions with domain coverage violations",
             threshold=f"< {CONTENT_VIOLATION_THRESHOLD * 100:.0f}%",
-            observed_value=f"{violation_rate * 100:.1f}%"
-            if violation_rate is not None
-            else "N/A",
+            observed_value=(
+                f"{violation_rate * 100:.1f}%" if violation_rate is not None else "N/A"
+            ),
             passed=criterion_3_pass,
         ),
         CriterionResult(
@@ -444,9 +444,9 @@ def validate_shadow_results(sessions: List[SessionData]) -> ValidationReport:
         bias_ratio=bias_ratio,
         criterion_2_pass=criterion_2_pass,
         content_violations_count=violations,
-        content_violation_rate=round(violation_rate, 4)
-        if violation_rate is not None
-        else None,
+        content_violation_rate=(
+            round(violation_rate, 4) if violation_rate is not None else None
+        ),
         criterion_3_pass=criterion_3_pass,
         median_test_length=round(median_length, 1),
         criterion_4_pass=criterion_4_pass,

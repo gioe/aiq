@@ -615,9 +615,11 @@ class TestAdaptiveNextCompletion:
             "/v1/test/next",
             json={
                 "session_id": session_id,
-                "question_id": current_question["id"]
-                if last_question_before is None
-                else last_question_before["id"],
+                "question_id": (
+                    current_question["id"]
+                    if last_question_before is None
+                    else last_question_before["id"]
+                ),
                 "user_answer": "A",
             },
             headers=auth_headers,

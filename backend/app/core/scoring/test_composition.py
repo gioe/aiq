@@ -8,6 +8,7 @@ Based on:
 - IQ_TEST_RESEARCH_FINDINGS.txt, Part 5.4 (Test Construction)
 - IQ_METHODOLOGY_DIVERGENCE_ANALYSIS.txt, Divergence #8
 """
+
 import logging
 import random
 from collections.abc import Sequence

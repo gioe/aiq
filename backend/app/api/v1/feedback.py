@@ -1,6 +1,7 @@
 """
 Feedback submission endpoints for user feedback, bug reports, and feature requests.
 """
+
 import logging
 from typing import Optional
 

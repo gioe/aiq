@@ -3,6 +3,7 @@ Token blacklist for JWT revocation.
 
 Provides Redis-backed token blacklist with graceful fallback to in-memory storage.
 """
+
 import logging
 from typing import Optional, Union
 from datetime import datetime

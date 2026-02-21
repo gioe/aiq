@@ -9,6 +9,7 @@ Tests cover:
 - GET /admin/shadow-cat/health (TASK-876)
 - Auth requirement (401 without admin token)
 """
+
 import pytest
 from datetime import datetime, timezone
 

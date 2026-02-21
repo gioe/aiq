@@ -1,6 +1,7 @@
 """
 Tests for rate limiting strategies.
 """
+
 import pytest
 from app.ratelimit.strategies import (
     TokenBucketStrategy,

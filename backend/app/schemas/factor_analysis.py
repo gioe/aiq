@@ -4,6 +4,7 @@ Pydantic schemas for factor analysis endpoints (DW-011).
 These schemas support the admin endpoints for viewing factor analysis
 results including g-loadings, variance explained, and reliability metrics.
 """
+
 from pydantic import BaseModel, Field
 from typing import Dict, List
 from datetime import datetime

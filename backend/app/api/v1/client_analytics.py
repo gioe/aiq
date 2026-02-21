@@ -4,6 +4,7 @@ Client analytics events endpoint (ICG-004).
 Provides endpoint for iOS and other clients to submit analytics events
 for user behavior tracking, performance monitoring, and product insights.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional

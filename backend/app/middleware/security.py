@@ -1,6 +1,7 @@
 """
 Security middleware for adding security headers and enforcing security policies.
 """
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp

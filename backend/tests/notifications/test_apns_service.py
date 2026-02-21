@@ -1,6 +1,7 @@
 """
 Tests for the Apple Push Notification service (APNs) integration.
 """
+
 import pytest
 from unittest.mock import AsyncMock, patch
 

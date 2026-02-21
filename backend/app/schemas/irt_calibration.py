@@ -1,4 +1,5 @@
 """Pydantic schemas for IRT calibration admin endpoints (TASK-862)."""
+
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional

@@ -14,6 +14,7 @@ Revises: fe341b342541
 Create Date: 2026-01-09 10:05:48.391903
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op

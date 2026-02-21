@@ -1,4 +1,5 @@
 """IRT calibration trigger admin endpoints (TASK-862)."""
+
 import logging
 
 from typing import Optional
@@ -78,8 +79,8 @@ async def get_calibration_status(
         calibrated=job.result.get("calibrated") if job.result else None,
         skipped=job.result.get("skipped") if job.result else None,
         mean_difficulty=job.result.get("mean_difficulty") if job.result else None,
-        mean_discrimination=job.result.get("mean_discrimination")
-        if job.result
-        else None,
+        mean_discrimination=(
+            job.result.get("mean_discrimination") if job.result else None
+        ),
         error_message=job.error_message,
     )

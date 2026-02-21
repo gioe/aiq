@@ -19,6 +19,7 @@ Usage:
     # Update active sessions gauge
     metrics.set_active_sessions(42)
 """
+
 import logging
 from typing import Optional
 

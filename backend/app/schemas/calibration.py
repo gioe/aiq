@@ -4,6 +4,7 @@ Pydantic schemas for difficulty calibration endpoints (EIC-005, EIC-006).
 These schemas support the admin endpoints for viewing calibration health
 and triggering recalibration of question difficulty labels.
 """
+
 from typing import List, Optional
 
 from pydantic import BaseModel, Field

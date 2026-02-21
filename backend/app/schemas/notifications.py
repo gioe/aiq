@@ -1,6 +1,7 @@
 """
 Pydantic schemas for notification endpoints.
 """
+
 from pydantic import BaseModel, Field, field_validator
 
 

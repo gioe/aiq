@@ -10,6 +10,7 @@ index on (test_session_id, answered_at) lets the database satisfy the
 WHERE filter and ORDER BY in a single index scan instead of falling back
 to the single-column ix_responses_test_session_id plus a separate sort.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

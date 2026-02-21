@@ -4,6 +4,7 @@ Tests for the OpenAPI export script.
 This module tests the export_openapi.py script including CLI argument parsing,
 path validation, file writing, transform integration, and the --validate flag.
 """
+
 import sys
 from pathlib import Path
 

@@ -1,6 +1,7 @@
 """
 Pydantic schemas for request/response validation.
 """
+
 from .auth import (
     UserRegister,
     UserLogin,

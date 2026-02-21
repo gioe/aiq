@@ -5,6 +5,7 @@ This module provides email functionality using SMTP configuration from settings.
 In development/testing environments without SMTP configured, it logs tokens
 instead of sending actual emails.
 """
+
 import logging
 import smtplib
 from email.mime.text import MIMEText

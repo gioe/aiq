@@ -22,6 +22,7 @@ when negative discrimination is detected (see IDA-003, IDA-004).
 
 Part of IDA-002 (Item Discrimination Analysis - Create Database Migration).
 """
+
 from typing import Sequence, Union
 
 from alembic import op

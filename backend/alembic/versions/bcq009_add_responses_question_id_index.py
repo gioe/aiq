@@ -22,6 +22,7 @@ Performance impact:
 Reference:
     docs/plans/in-progress/PLAN-BACKEND-CODE-QUALITY.md (BCQ-009)
 """
+
 from typing import Sequence, Union
 
 from alembic import op

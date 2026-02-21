@@ -1,6 +1,7 @@
 """
 Tests for admin notification endpoints (Phase 2.2 - Day 30 Reminders).
 """
+
 import pytest
 from datetime import timedelta
 from unittest.mock import AsyncMock, patch

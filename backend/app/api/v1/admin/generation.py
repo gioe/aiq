@@ -4,6 +4,7 @@ Question generation admin endpoints.
 Endpoints for triggering question generation jobs, monitoring their status,
 and recording/querying generation run metrics.
 """
+
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -209,9 +210,9 @@ async def get_question_generation_status(
             "pid": job_info.pid,
             "status": job_info.status.value,
             "started_at": job_info.started_at.isoformat(),
-            "finished_at": job_info.finished_at.isoformat()
-            if job_info.finished_at
-            else None,
+            "finished_at": (
+                job_info.finished_at.isoformat() if job_info.finished_at else None
+            ),
             "exit_code": job_info.exit_code,
         }
 
@@ -226,9 +227,9 @@ async def get_question_generation_status(
                 "pid": job_info.pid,
                 "status": job_info.status.value,
                 "started_at": job_info.started_at.isoformat(),
-                "finished_at": job_info.finished_at.isoformat()
-                if job_info.finished_at
-                else None,
+                "finished_at": (
+                    job_info.finished_at.isoformat() if job_info.finished_at else None
+                ),
                 "exit_code": job_info.exit_code,
             }
 

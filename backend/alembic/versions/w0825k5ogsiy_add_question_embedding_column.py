@@ -23,6 +23,7 @@ storage and retrieval without requiring pgvector extension.
 Existing questions will have NULL embeddings initially. A separate backfill
 script will populate embeddings for existing questions in batches.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

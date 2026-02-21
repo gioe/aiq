@@ -2,6 +2,7 @@
 Notification scheduling service for determining which users should receive
 test reminder notifications based on the 3-month testing cadence.
 """
+
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional

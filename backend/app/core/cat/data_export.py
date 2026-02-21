@@ -442,12 +442,16 @@ def export_response_details(
                 "question_id": r.question_id,
                 "is_correct": 1 if r.is_correct else 0,
                 "time_spent_seconds": r.time_spent_seconds,
-                "question_type": r.question_type.value
-                if hasattr(r.question_type, "value")
-                else str(r.question_type),
-                "difficulty_level": r.difficulty_level.value
-                if hasattr(r.difficulty_level, "value")
-                else str(r.difficulty_level),
+                "question_type": (
+                    r.question_type.value
+                    if hasattr(r.question_type, "value")
+                    else str(r.question_type)
+                ),
+                "difficulty_level": (
+                    r.difficulty_level.value
+                    if hasattr(r.difficulty_level, "value")
+                    else str(r.difficulty_level)
+                ),
                 "empirical_difficulty": r.empirical_difficulty,
                 "discrimination": r.discrimination,
             }
@@ -561,12 +565,16 @@ def export_ctt_summary(
         export_data: List[CTTSummaryData] = [
             {
                 "question_id": q.id,
-                "question_type": q.question_type.value
-                if hasattr(q.question_type, "value")
-                else str(q.question_type),
-                "difficulty_level": q.difficulty_level.value
-                if hasattr(q.difficulty_level, "value")
-                else str(q.difficulty_level),
+                "question_type": (
+                    q.question_type.value
+                    if hasattr(q.question_type, "value")
+                    else str(q.question_type)
+                ),
+                "difficulty_level": (
+                    q.difficulty_level.value
+                    if hasattr(q.difficulty_level, "value")
+                    else str(q.difficulty_level)
+                ),
                 "empirical_difficulty": q.empirical_difficulty,
                 "discrimination": q.discrimination,
                 "response_count": count_lookup[q.id],

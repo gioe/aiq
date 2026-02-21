@@ -6,6 +6,7 @@ Based on schema defined in PLAN.md Section 4.
 This module uses SQLAlchemy 2.0 style type annotations with Mapped[] and
 mapped_column() for proper mypy type checking support. See BCQ-035 for details.
 """
+
 from datetime import datetime
 from typing import Any, Optional, List
 import enum

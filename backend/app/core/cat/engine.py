@@ -5,6 +5,7 @@ Manages item selection, ability estimation (EAP), and stopping criteria during
 a Computerized Adaptive Testing (CAT) session. The engine is stateless between
 requests—all state is stored in the CATSession object.
 """
+
 import logging
 import math
 from dataclasses import dataclass, field

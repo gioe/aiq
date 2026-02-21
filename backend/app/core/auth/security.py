@@ -1,6 +1,7 @@
 """
 Security utilities for password hashing and JWT token management.
 """
+
 from datetime import timedelta
 import uuid
 

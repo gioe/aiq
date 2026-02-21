@@ -1,6 +1,7 @@
 """
 Notification endpoints for device token registration and preferences.
 """
+
 import logging
 
 from fastapi import APIRouter, Depends

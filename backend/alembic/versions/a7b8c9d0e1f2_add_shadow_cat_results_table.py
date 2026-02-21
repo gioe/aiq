@@ -9,6 +9,7 @@ results alongside fixed-form test submissions. Shadow CAT runs the
 adaptive algorithm on the same responses to compare theta estimates
 with CTT-based IQ scores, without affecting user scores.
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSON

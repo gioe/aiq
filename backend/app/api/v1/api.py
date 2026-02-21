@@ -1,6 +1,7 @@
 """
 API v1 router combining all v1 endpoints.
 """
+
 from fastapi import APIRouter
 from app.api.v1 import (
     health,

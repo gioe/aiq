@@ -1,6 +1,7 @@
 """
 Tests for GET /v1/test/progress adaptive test progress endpoint (TASK-880).
 """
+
 import pytest
 
 from app.core.cat.engine import CATSessionManager

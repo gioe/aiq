@@ -3,6 +3,7 @@ Tests for the get_db() async database session dependency.
 
 Verifies proper rollback behavior when exceptions occur during database operations.
 """
+
 import pytest
 from unittest.mock import AsyncMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession

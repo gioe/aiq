@@ -9,6 +9,7 @@ the generation sub-type (e.g., "cube rotations", "cross-section") assigned
 during question generation. This enables querying subtype distribution
 per type/difficulty to detect imbalances.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

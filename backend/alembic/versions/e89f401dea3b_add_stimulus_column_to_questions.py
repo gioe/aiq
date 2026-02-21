@@ -9,6 +9,7 @@ memory questions that require content to be memorized before answering.
 
 Part of TASK-727 (Add stimulus column to QuestionModel).
 """
+
 from typing import Sequence, Union
 
 from alembic import op

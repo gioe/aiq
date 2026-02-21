@@ -4,6 +4,7 @@ Pydantic schemas for inventory health endpoint.
 These schemas support the admin endpoint for monitoring question inventory
 levels across different types and difficulties.
 """
+
 from enum import Enum
 from typing import Dict, List
 

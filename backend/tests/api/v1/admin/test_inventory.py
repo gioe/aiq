@@ -9,6 +9,7 @@ Tests cover:
 - Empty database edge case
 - Authentication requirements
 """
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 

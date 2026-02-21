@@ -5,6 +5,7 @@ Evaluates whether the question bank has enough well-calibrated IRT items
 across all 6 cognitive domains to support Computerized Adaptive Testing.
 CAT activates only when every domain meets the configured thresholds.
 """
+
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime

@@ -1,6 +1,7 @@
 """
 Tests for datetime utilities module.
 """
+
 import pytest
 from datetime import datetime, timezone, timedelta
 

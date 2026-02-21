@@ -25,6 +25,7 @@ Reference:
     docs/plans/in-progress/PLAN-ITEM-DISCRIMINATION-ANALYSIS.md (IDA-F014)
     PR #232 code review comment
 """
+
 from typing import Sequence, Union
 
 from alembic import op

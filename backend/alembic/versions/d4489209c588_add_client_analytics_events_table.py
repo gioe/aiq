@@ -5,6 +5,7 @@ Revises: bcq041_composite_idx
 Create Date: 2025-12-23 20:30:49.169858
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op

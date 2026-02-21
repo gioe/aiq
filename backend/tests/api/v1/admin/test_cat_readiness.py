@@ -8,6 +8,7 @@ Tests cover:
 - POST with sufficient items → enables CAT
 - Re-evaluation can disable CAT if items removed
 """
+
 from datetime import datetime
 
 from fastapi.testclient import TestClient

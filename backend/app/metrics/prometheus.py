@@ -4,6 +4,7 @@ Prometheus metrics exporter integration.
 This module configures the Prometheus exporter for OpenTelemetry metrics
 and provides a function to retrieve metrics in Prometheus text format.
 """
+
 import logging
 from typing import TYPE_CHECKING, Optional
 

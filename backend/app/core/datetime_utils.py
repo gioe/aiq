@@ -1,6 +1,7 @@
 """
 Datetime utility functions for handling timezone-aware datetimes.
 """
+
 from datetime import datetime, timezone
 from typing import Optional
 

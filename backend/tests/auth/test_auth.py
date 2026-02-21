@@ -1,6 +1,7 @@
 """
 Tests for authentication endpoints.
 """
+
 from datetime import datetime
 from unittest.mock import patch, AsyncMock
 

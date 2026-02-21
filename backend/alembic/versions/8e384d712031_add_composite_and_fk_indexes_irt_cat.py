@@ -9,6 +9,7 @@ Adds performance indexes for common query patterns:
   that filter by status and sort by completion time
 - Explicit index on shadow_cat_results.test_session_id FK for join performance
 """
+
 from typing import Sequence, Union
 
 from alembic import op
