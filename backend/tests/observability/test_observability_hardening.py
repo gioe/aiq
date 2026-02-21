@@ -601,12 +601,10 @@ class TestExceptionHandlerMetrics:
     @pytest.mark.asyncio
     async def test_http_exception_handler_captures_error(self):
         """Test HTTP exception handler calls capture_error with context."""
-        from app.main import create_application
-        from tests.conftest import _test_lifespan
+        from tests.conftest import create_full_test_app
         from starlette.testclient import TestClient
 
-        app = create_application()
-        app.router.lifespan_context = _test_lifespan
+        app = create_full_test_app()
 
         with patch("app.main.observability") as mock_observability:
             client = TestClient(app)
@@ -621,12 +619,10 @@ class TestExceptionHandlerMetrics:
     @pytest.mark.asyncio
     async def test_validation_error_handler_captures_error(self):
         """Test validation error handler calls capture_error with context."""
-        from app.main import create_application
-        from tests.conftest import _test_lifespan
+        from tests.conftest import create_full_test_app
         from starlette.testclient import TestClient
 
-        app = create_application()
-        app.router.lifespan_context = _test_lifespan
+        app = create_full_test_app()
 
         with patch("app.main.observability") as mock_observability:
             client = TestClient(app)
@@ -647,12 +643,10 @@ class TestExceptionHandlerMetrics:
     @pytest.mark.asyncio
     async def test_generic_exception_handler_captures_error_with_error_id(self):
         """Test generic exception handler calls capture_error with error_id in context."""
-        from app.main import create_application
-        from tests.conftest import _test_lifespan
+        from tests.conftest import create_full_test_app
         from starlette.testclient import TestClient
 
-        app = create_application()
-        app.router.lifespan_context = _test_lifespan
+        app = create_full_test_app()
 
         @app.get("/test-exception-hardening")
         async def test_exception():

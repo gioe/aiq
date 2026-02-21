@@ -11,8 +11,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import create_application
-from tests.conftest import _test_lifespan
+from tests.conftest import create_full_test_app
 
 
 class TestErrorTracking:
@@ -21,9 +20,7 @@ class TestErrorTracking:
     @pytest.fixture
     def test_app(self):
         """Create a fresh application instance for each test."""
-        app = create_application()
-        app.router.lifespan_context = _test_lifespan
-        return app
+        return create_full_test_app()
 
     @pytest.fixture
     def client(self, test_app):
