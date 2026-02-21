@@ -147,6 +147,16 @@ enum ViewModelFactory {
         guard let authManager = container.resolve(AuthManagerProtocol.self) else {
             fatalError("AuthManagerProtocol not registered in ServiceContainer")
         }
-        return SettingsViewModel(authManager: authManager)
+        guard let biometricAuthManager = container.resolve(BiometricAuthManagerProtocol.self) else {
+            fatalError("BiometricAuthManagerProtocol not registered in ServiceContainer")
+        }
+        guard let biometricPreferenceStorage = container.resolve(BiometricPreferenceStorageProtocol.self) else {
+            fatalError("BiometricPreferenceStorageProtocol not registered in ServiceContainer")
+        }
+        return SettingsViewModel(
+            authManager: authManager,
+            biometricAuthManager: biometricAuthManager,
+            biometricPreferenceStorage: biometricPreferenceStorage
+        )
     }
 }

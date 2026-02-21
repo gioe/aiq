@@ -32,6 +32,7 @@ class SettingsViewModel: BaseViewModel {
     @Published var currentUser: User?
     @Published var showLogoutConfirmation = false
     @Published var showDeleteAccountConfirmation = false
+    @Published var isBiometricEnabled: Bool = false
 
     /// Error from delete account operation. Uses a separate property (not BaseViewModel.error)
     /// because delete account requires a specific alert title and should not trigger retry logic.
@@ -46,9 +47,21 @@ class SettingsViewModel: BaseViewModel {
     /// Closure type for error recording. Used for dependency injection to enable testing.
     typealias ErrorRecorder = (Error, CrashlyticsErrorRecorder.ErrorContext) -> Void
 
+    // MARK: - Computed Properties
+
+    var isBiometricAvailable: Bool {
+        biometricAuthManager.isBiometricAvailable
+    }
+
+    var biometricType: BiometricType {
+        biometricAuthManager.biometricType
+    }
+
     // MARK: - Private Properties
 
     private let authManager: AuthManagerProtocol
+    private let biometricAuthManager: BiometricAuthManagerProtocol
+    private let biometricPreferenceStorage: BiometricPreferenceStorageProtocol
     private let errorRecorder: ErrorRecorder
 
     // MARK: - Initialization
@@ -56,14 +69,23 @@ class SettingsViewModel: BaseViewModel {
     /// Initialize the ViewModel with dependencies
     /// - Parameters:
     ///   - authManager: Authentication manager for account operations
+    ///   - biometricAuthManager: Manager for querying biometric availability and type
+    ///   - biometricPreferenceStorage: Storage for persisting the biometric toggle preference
     ///   - errorRecorder: Closure for recording errors (defaults to CrashlyticsErrorRecorder)
     init(
         authManager: AuthManagerProtocol,
+        biometricAuthManager: BiometricAuthManagerProtocol,
+        biometricPreferenceStorage: BiometricPreferenceStorageProtocol,
         errorRecorder: @escaping ErrorRecorder = { CrashlyticsErrorRecorder.recordError($0, context: $1) }
     ) {
         self.authManager = authManager
+        self.biometricAuthManager = biometricAuthManager
+        self.biometricPreferenceStorage = biometricPreferenceStorage
         self.errorRecorder = errorRecorder
         super.init()
+
+        // Load saved biometric preference
+        isBiometricEnabled = biometricPreferenceStorage.isBiometricEnabled
 
         // Observe current user from AuthManager
         authManager.isAuthenticatedPublisher
@@ -141,5 +163,11 @@ class SettingsViewModel: BaseViewModel {
     /// Clear delete account error
     func clearDeleteAccountError() {
         deleteAccountError = nil
+    }
+
+    /// Toggle biometric authentication on or off
+    func toggleBiometric() {
+        isBiometricEnabled.toggle()
+        biometricPreferenceStorage.isBiometricEnabled = isBiometricEnabled
     }
 }

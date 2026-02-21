@@ -3,8 +3,8 @@ import Foundation
 /// Protocol for app state storage operations
 protocol AppStateStorageProtocol {
     func setValue(_ value: some Encodable, forKey key: String)
-    func getValue<T: Decodable>(forKey key: String, as type: T.Type) -> T? where
-        func removeValue(forKey key: String)
+    func getValue<T: Decodable>(forKey key: String, as type: T.Type) -> T?
+    func removeValue(forKey key: String)
     func hasValue(forKey key: String) -> Bool
 }
 
