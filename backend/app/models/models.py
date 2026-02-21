@@ -453,6 +453,11 @@ class Response(Base):
             "question_id",
             name="uq_response_session_question",
         ),
+        Index(
+            "ix_responses_session_id_covering",
+            "test_session_id",
+            "id",
+        ),
     )
 
 
