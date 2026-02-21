@@ -200,10 +200,13 @@ class TestRunBenchmarks:
             return await original_func(provider, num, dry_run=True)
 
         # Temporarily reduce timeout for faster test
-        with patch("app.evaluation.benchmark.BENCHMARK_TIMEOUT_SECONDS", 0.1), patch(
-            "app.evaluation.benchmark.PARALLEL_TIMEOUT_MULTIPLIER", 1.0
-        ), patch(
-            "app.evaluation.benchmark.benchmark_provider", mock_slow_benchmark_provider
+        with (
+            patch("app.evaluation.benchmark.BENCHMARK_TIMEOUT_SECONDS", 0.1),
+            patch("app.evaluation.benchmark.PARALLEL_TIMEOUT_MULTIPLIER", 1.0),
+            patch(
+                "app.evaluation.benchmark.benchmark_provider",
+                mock_slow_benchmark_provider,
+            ),
         ):
             results = await run_benchmarks(
                 providers=["openai", "anthropic"],

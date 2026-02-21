@@ -277,7 +277,7 @@ class AlertManager:
         # Create message
         msg = MIMEMultipart("alternative")
         msg["Subject"] = self._get_email_subject(classified_error)
-        msg["From"] = self.from_email
+        msg["From"] = self.from_email or ""
         msg["To"] = ", ".join(self.to_emails)
 
         # Create plain text body
