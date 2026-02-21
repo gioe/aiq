@@ -6,6 +6,11 @@ Read-only admin views for all database models.
 from sqladmin import ModelView
 from markupsafe import Markup
 
+from app.core.psychometrics.question_analytics import (
+    MIN_RESPONSES_FOR_CALIBRATION as RELIABLE_RESPONSE_COUNT,
+    MIN_RESPONSES_FOR_SUFFICIENT_DATA as MIN_RESPONSES_FOR_QUALITY_ANALYSIS,
+    POOR_DISCRIMINATION_THRESHOLD as ACCEPTABLE_DISCRIMINATION,
+)
 from app.models import (
     User,
     Question,
@@ -16,13 +21,7 @@ from app.models import (
     DifficultyLevel,
 )
 
-# Minimum responses required before computing quality metrics
-MIN_RESPONSES_FOR_QUALITY_ANALYSIS = 30
-# Response count above which estimates are considered statistically reliable
-RELIABLE_RESPONSE_COUNT = 100
-
-# Discrimination (IRT parameter) quality thresholds
-ACCEPTABLE_DISCRIMINATION = 0.2
+# Discrimination display thresholds — view-local, no canonical source yet
 GOOD_DISCRIMINATION = 0.3
 EXCELLENT_DISCRIMINATION = 0.4
 
