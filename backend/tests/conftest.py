@@ -173,6 +173,20 @@ def create_test_app(
     return test_app
 
 
+def create_full_test_app() -> FastAPI:
+    """Create a full production app with test lifespan.
+
+    Calls ``create_application()`` to get the real middleware stack, then
+    swaps in ``_test_lifespan`` so observability/tracing never starts.
+    Use this instead of inlining the two-line pattern everywhere.
+    """
+    from app.main import create_application
+
+    app = create_application()
+    app.router.lifespan_context = _test_lifespan
+    return app
+
+
 # Use SQLite for sync tests — path is relative to this file so the .db
 # lands inside tests/ regardless of the working directory.
 _TEST_DB = Path(__file__).parent / "test.db"
