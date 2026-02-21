@@ -1,7 +1,6 @@
+@testable import AIQ
 import AIQAPIClient
 import XCTest
-
-@testable import AIQ
 
 final class TestSessionTests: XCTestCase {
     // MARK: - Date Decoder Helper
@@ -252,7 +251,7 @@ final class TestSessionTests: XCTestCase {
 
     // MARK: - TestSession Equatable Tests
 
-    func testTestSessionEquality() throws {
+    func testTestSessionEquality() {
         let date1 = Date()
         let date2 = Date(timeIntervalSince1970: 1_705_315_800) // 2024-01-15T10:30:00Z
 
@@ -275,7 +274,7 @@ final class TestSessionTests: XCTestCase {
         XCTAssertEqual(session1, session2)
     }
 
-    func testTestSessionInequalityDifferentId() throws {
+    func testTestSessionInequalityDifferentId() {
         let date = Date()
 
         let session1 = MockDataFactory.makeTestSession(
@@ -295,7 +294,7 @@ final class TestSessionTests: XCTestCase {
         XCTAssertNotEqual(session1, session2)
     }
 
-    func testTestSessionInequalityDifferentStatus() throws {
+    func testTestSessionInequalityDifferentStatus() {
         let date = Date()
 
         let session1 = MockDataFactory.makeTestSession(
@@ -431,7 +430,7 @@ final class TestSessionTests: XCTestCase {
         XCTAssertEqual(response.totalQuestions, 25)
     }
 
-    func testStartTestResponseEquality() throws {
+    func testStartTestResponseEquality() {
         let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
@@ -486,8 +485,8 @@ final class TestSessionTests: XCTestCase {
 
     // MARK: - TestSubmission Tests
 
-    func testTestSubmissionInitializationWithDefaultTimeLimitExceeded() {
-        let response = try! QuestionResponse.validated(questionId: 1, userAnswer: "42")
+    func testTestSubmissionInitializationWithDefaultTimeLimitExceeded() throws {
+        let response = try QuestionResponse.validated(questionId: 1, userAnswer: "42")
 
         let submission = TestSubmission(
             responses: [response],
@@ -499,8 +498,8 @@ final class TestSessionTests: XCTestCase {
         XCTAssertNil(submission.timeLimitExceeded)
     }
 
-    func testTestSubmissionInitializationWithExplicitTimeLimitExceeded() {
-        let response = try! QuestionResponse.validated(questionId: 1, userAnswer: "42")
+    func testTestSubmissionInitializationWithExplicitTimeLimitExceeded() throws {
+        let response = try QuestionResponse.validated(questionId: 1, userAnswer: "42")
 
         let submission = TestSubmission(
             responses: [response],
@@ -558,8 +557,8 @@ final class TestSessionTests: XCTestCase {
         XCTAssertEqual(submission.timeLimitExceeded, false)
     }
 
-    func testTestSubmissionEquality() {
-        let response = try! QuestionResponse.validated(questionId: 1, userAnswer: "42")
+    func testTestSubmissionEquality() throws {
+        let response = try QuestionResponse.validated(questionId: 1, userAnswer: "42")
 
         let submission1 = TestSubmission(
             responses: [response],
@@ -577,7 +576,7 @@ final class TestSessionTests: XCTestCase {
     }
 
     func testTestSubmissionEncodingRoundTrip() throws {
-        let response = try! QuestionResponse.validated(questionId: 1, userAnswer: "Test answer", timeSpentSeconds: 30)
+        let response = try QuestionResponse.validated(questionId: 1, userAnswer: "Test answer", timeSpentSeconds: 30)
 
         let submission = TestSubmission(
             responses: [response],
@@ -684,7 +683,7 @@ final class TestSessionTests: XCTestCase {
         XCTAssertEqual(response.responsesCount, 15)
     }
 
-    func testTestSubmitResponseEquality() throws {
+    func testTestSubmitResponseEquality() {
         let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,
@@ -774,7 +773,7 @@ final class TestSessionTests: XCTestCase {
         XCTAssertEqual(response.responsesSaved, 10)
     }
 
-    func testTestAbandonResponseEquality() throws {
+    func testTestAbandonResponseEquality() {
         let session = MockDataFactory.makeTestSession(
             id: 1,
             userId: 42,

@@ -31,7 +31,7 @@ final class TestTakingAccessibilityTests: BaseUITest {
     private var loginHelper: LoginHelper!
     private var testHelper: TestTakingHelper!
 
-    // Test credentials from environment
+    /// Test credentials from environment
     private var testEmail: String {
         ProcessInfo.processInfo.environment["AIQ_TEST_EMAIL"] ?? "test@example.com"
     }

@@ -167,7 +167,7 @@ struct DashboardView: View {
         .padding(.top, DesignSystem.Spacing.lg)
     }
 
-    // Time-based greeting
+    /// Time-based greeting
     private var greetingText: String {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {

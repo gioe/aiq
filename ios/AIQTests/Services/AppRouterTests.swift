@@ -1,7 +1,6 @@
+@testable import AIQ
 import SwiftUI
 import XCTest
-
-@testable import AIQ
 
 /// Tests for AppRouter navigation functionality
 @MainActor

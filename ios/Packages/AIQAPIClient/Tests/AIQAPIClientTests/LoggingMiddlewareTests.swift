@@ -17,7 +17,7 @@ struct LoggingMiddlewareTests {
         let (response, _) = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test_operation"
         ) { _, _, _ in
             (HTTPResponse(status: .ok), nil)
@@ -39,7 +39,7 @@ struct LoggingMiddlewareTests {
         let (response, _) = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test_operation"
         ) { req, body, url in
             capturedRequest = req
@@ -70,7 +70,7 @@ struct LoggingMiddlewareTests {
             try await middleware.intercept(
                 request,
                 body: nil,
-                baseURL: URL(string: "https://api.example.com")!,
+                baseURL: #require(URL(string: "https://api.example.com")),
                 operationID: "test_operation"
             ) { _, _, _ in
                 throw TestError()
@@ -94,7 +94,7 @@ struct LoggingMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test_operation"
         ) { req, _, _ in
             capturedRequest = req
@@ -115,8 +115,8 @@ struct LoggingMiddlewareTests {
 
         var request = HTTPRequest(method: .get, scheme: "https", authority: "api.example.com", path: "/v1/test")
         request.headerFields[.authorization] = "Bearer token"
-        request.headerFields[HTTPField.Name("X-API-Key")!] = "api-key-value"
-        request.headerFields[HTTPField.Name("X-Secret")!] = "secret-value"
+        try request.headerFields[#require(HTTPField.Name("X-API-Key"))] = "api-key-value"
+        try request.headerFields[#require(HTTPField.Name("X-Secret"))] = "secret-value"
         request.headerFields[.contentType] = "application/json"
 
         var capturedRequest: HTTPRequest?
@@ -124,7 +124,7 @@ struct LoggingMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test_operation"
         ) { req, _, _ in
             capturedRequest = req
@@ -133,8 +133,8 @@ struct LoggingMiddlewareTests {
 
         // Verify request headers are passed through unchanged to the next handler
         #expect(capturedRequest?.headerFields[.authorization] == "Bearer token")
-        #expect(capturedRequest?.headerFields[HTTPField.Name("X-API-Key")!] == "api-key-value")
-        #expect(capturedRequest?.headerFields[HTTPField.Name("X-Secret")!] == "secret-value")
+        #expect(try capturedRequest?.headerFields[#require(HTTPField.Name("X-API-Key"))] == "api-key-value")
+        #expect(try capturedRequest?.headerFields[#require(HTTPField.Name("X-Secret"))] == "secret-value")
         #expect(capturedRequest?.headerFields[.contentType] == "application/json")
     }
 
@@ -148,14 +148,14 @@ struct LoggingMiddlewareTests {
 
         var request = HTTPRequest(method: .get, scheme: "https", authority: "api.example.com", path: "/v1/test")
         request.headerFields[.authorization] = "Bearer token" // lowercase
-        request.headerFields[HTTPField.Name("x-api-key")!] = "key" // lowercase
+        try request.headerFields[#require(HTTPField.Name("x-api-key"))] = "key" // lowercase
 
         var capturedRequest: HTTPRequest?
 
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test_operation"
         ) { req, _, _ in
             capturedRequest = req
@@ -178,7 +178,7 @@ struct LoggingMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test_operation"
         ) { _, _, _ in
             // Simulate a small delay
@@ -215,7 +215,7 @@ struct LoggingMiddlewareTests {
         let (response, _) = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test_operation"
         ) { _, _, _ in
             (HTTPResponse(status: .ok), nil)
@@ -232,7 +232,7 @@ struct LoggingMiddlewareTests {
         let (response, _) = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test_operation"
         ) { _, _, _ in
             (HTTPResponse(status: .notFound), nil)
@@ -249,7 +249,7 @@ struct LoggingMiddlewareTests {
         let (response, _) = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test_operation"
         ) { _, _, _ in
             (HTTPResponse(status: .internalServerError), nil)
@@ -261,7 +261,7 @@ struct LoggingMiddlewareTests {
     // MARK: - Sendable Conformance
 
     @Test("Middleware is Sendable and can be used across concurrency boundaries")
-    func middlewareIsSendable() async throws {
+    func middlewareIsSendable() async {
         let middleware = LoggingMiddleware(logLevel: .info)
 
         // Use middleware from multiple concurrent tasks

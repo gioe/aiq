@@ -1,7 +1,6 @@
-import XCTest
-
 @testable import AIQ
 import AIQAPIClient
+import XCTest
 
 final class UserTests: XCTestCase {
     // MARK: - EducationLevel Tests
@@ -271,7 +270,7 @@ final class UserTests: XCTestCase {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = .sortedKeys
         let data = try encoder.encode(user)
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = try XCTUnwrap(String(data: data, encoding: .utf8))
 
         // Verify snake_case keys are used in JSON
         XCTAssertTrue(jsonString.contains("first_name"))
@@ -364,7 +363,7 @@ final class UserTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         let data = try encoder.encode(profile)
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = try XCTUnwrap(String(data: data, encoding: .utf8))
 
         // Verify snake_case keys
         XCTAssertTrue(jsonString.contains("first_name"))

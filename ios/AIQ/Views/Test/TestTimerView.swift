@@ -77,16 +77,10 @@ struct TestTimerView: View {
 // MARK: - Preview
 
 #Preview("Normal") {
-    TestTimerView(timerManager: {
-        let manager = TestTimerManager()
-        return manager
-    }())
+    TestTimerView(timerManager: TestTimerManager())
 }
 
 #Preview("Warning") {
-    TestTimerView(timerManager: {
-        let manager = TestTimerManager()
-        // Simulate 4 minutes remaining
-        return manager
-    }())
+    TestTimerView(timerManager: TestTimerManager()
+        // Simulate 4 minutes remaining)
 }

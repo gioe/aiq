@@ -32,7 +32,7 @@ final class ErrorHandlingTests: BaseUITest {
 
     // MARK: - Test Credentials
 
-    // Test credentials from environment variables for security
+    /// Test credentials from environment variables for security
     private var validEmail: String {
         ProcessInfo.processInfo.environment["AIQ_TEST_EMAIL"] ?? "test@example.com"
     }

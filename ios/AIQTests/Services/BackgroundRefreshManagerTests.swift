@@ -1,7 +1,6 @@
+@testable import AIQ
 import BackgroundTasks
 import XCTest
-
-@testable import AIQ
 
 @MainActor
 final class BackgroundRefreshManagerTests: XCTestCase {

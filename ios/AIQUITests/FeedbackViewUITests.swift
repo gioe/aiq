@@ -66,7 +66,7 @@ final class FeedbackViewUITests: BaseUITest {
 
     // MARK: - VoiceOver Navigation Tests
 
-    func testVoiceOverNavigation_AllElementsHaveLabels() throws {
+    func testVoiceOverNavigation_AllElementsHaveLabels() {
         // Verify we're on the feedback screen
         XCTAssertTrue(feedbackHelper.isOnFeedbackScreen, "Should be on feedback screen")
         takeScreenshot(named: "FeedbackScreen_Initial")
@@ -100,7 +100,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "FeedbackScreen_AllElementsVerified")
     }
 
-    func testVoiceOverNavigation_CategoryMenuHasHint() throws {
+    func testVoiceOverNavigation_CategoryMenuHasHint() {
         // Verify category menu has accessibility hint
         let categoryMenu = feedbackHelper.categoryMenu
         assertExists(categoryMenu, "Category menu should exist")
@@ -120,7 +120,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "CategoryMenu_WithAccessibility")
     }
 
-    func testVoiceOverNavigation_DescriptionFieldHasHint() throws {
+    func testVoiceOverNavigation_DescriptionFieldHasHint() {
         // Verify description field has accessibility hint
         let descriptionField = feedbackHelper.descriptionTextField
         assertExists(descriptionField, "Description field should exist")
@@ -135,7 +135,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "DescriptionField_WithAccessibility")
     }
 
-    func testVoiceOverNavigation_SubmitButtonHintChangesWithFormValidity() throws {
+    func testVoiceOverNavigation_SubmitButtonHintChangesWithFormValidity() {
         // Initially, form is invalid - button should be disabled
         let submitButton = feedbackHelper.submitButton
         assertExists(submitButton, "Submit button should exist")
@@ -172,7 +172,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "SubmitButton_FormValid")
     }
 
-    func testVoiceOverNavigation_CharacterCountHasAccessibleLabel() throws {
+    func testVoiceOverNavigation_CharacterCountHasAccessibleLabel() {
         // Fill description field
         feedbackHelper.fillDescription("Test description")
 
@@ -191,7 +191,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "CharacterCount_Accessible")
     }
 
-    func testVoiceOverNavigation_ValidationErrorsHaveErrorPrefix() throws {
+    func testVoiceOverNavigation_ValidationErrorsHaveErrorPrefix() {
         // Fill name field with valid data to trigger validation
         feedbackHelper.fillName(validName)
 
@@ -243,7 +243,7 @@ final class FeedbackViewUITests: BaseUITest {
 
     // MARK: - Dynamic Type Scaling Tests
 
-    func testDynamicTypeScaling_AllTextScales() throws {
+    func testDynamicTypeScaling_AllTextScales() {
         // This test verifies that text elements exist and are visible
         // Actual Dynamic Type testing requires changing system settings
         // which is not directly supported in XCUITest
@@ -271,7 +271,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "AllElements_Visible")
     }
 
-    func testDynamicTypeScaling_MinimumTouchTargets() throws {
+    func testDynamicTypeScaling_MinimumTouchTargets() {
         // Verify all interactive elements are hittable (44pt minimum touch target)
         let nameTextField = feedbackHelper.nameTextField
         let emailTextField = feedbackHelper.emailTextField
@@ -344,7 +344,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "FormSubmission_Success")
     }
 
-    func testFormSubmission_InvalidEmail_ButtonDisabled() throws {
+    func testFormSubmission_InvalidEmail_ButtonDisabled() {
         // Fill form with invalid email
         feedbackHelper.fillName(validName)
         feedbackHelper.fillEmail(invalidEmail)
@@ -363,7 +363,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "FormSubmission_InvalidEmail")
     }
 
-    func testFormSubmission_ShortDescription_ButtonDisabled() throws {
+    func testFormSubmission_ShortDescription_ButtonDisabled() {
         // Fill form with short description
         feedbackHelper.fillName(validName)
         feedbackHelper.fillEmail(validEmail)
@@ -382,7 +382,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "FormSubmission_ShortDescription")
     }
 
-    func testFormSubmission_MissingCategory_ButtonDisabled() throws {
+    func testFormSubmission_MissingCategory_ButtonDisabled() {
         // Fill form without selecting category
         feedbackHelper.fillName(validName)
         feedbackHelper.fillEmail(validEmail)
@@ -401,7 +401,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "FormSubmission_MissingCategory")
     }
 
-    func testFormSubmission_EmptyForm_ButtonDisabled() throws {
+    func testFormSubmission_EmptyForm_ButtonDisabled() {
         // Verify submit button is disabled with empty form
         XCTAssertFalse(
             feedbackHelper.isSubmitEnabled,
@@ -413,7 +413,7 @@ final class FeedbackViewUITests: BaseUITest {
 
     // MARK: - Form Validation Tests
 
-    func testFormValidation_EmailFormat() throws {
+    func testFormValidation_EmailFormat() {
         // Test various email formats
         let testCases = [
             ("valid@example.com", true),
@@ -459,7 +459,7 @@ final class FeedbackViewUITests: BaseUITest {
         }
     }
 
-    func testFormValidation_DescriptionMinimumLength() throws {
+    func testFormValidation_DescriptionMinimumLength() {
         // Fill all fields except description
         feedbackHelper.fillName(validName)
         feedbackHelper.fillEmail(validEmail)
@@ -504,7 +504,7 @@ final class FeedbackViewUITests: BaseUITest {
         }
     }
 
-    func testFormValidation_NameRequired() throws {
+    func testFormValidation_NameRequired() {
         // Fill all fields except name
         feedbackHelper.fillEmail(validEmail)
         feedbackHelper.selectCategory(validCategory)
@@ -538,7 +538,7 @@ final class FeedbackViewUITests: BaseUITest {
 
     // MARK: - Category Selection Tests
 
-    func testCategorySelection_AllCategories() throws {
+    func testCategorySelection_AllCategories() {
         // Test selecting each category
         let categories = [
             "Bug Report",
@@ -568,7 +568,7 @@ final class FeedbackViewUITests: BaseUITest {
 
     // MARK: - Character Count Tests
 
-    func testCharacterCount_UpdatesWithInput() throws {
+    func testCharacterCount_UpdatesWithInput() {
         // Initially, character count should be 0
         let descriptionField = feedbackHelper.descriptionTextField
         descriptionField.tap()
@@ -592,7 +592,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "CharacterCount_Updated")
     }
 
-    func testCharacterCount_Accessible() throws {
+    func testCharacterCount_Accessible() {
         // Type text
         feedbackHelper.fillDescription("Test")
 
@@ -617,7 +617,7 @@ final class FeedbackViewUITests: BaseUITest {
 
     // MARK: - Navigation Tests
 
-    func testNavigation_BackButton() throws {
+    func testNavigation_BackButton() {
         // Verify we're on feedback screen
         XCTAssertTrue(feedbackHelper.isOnFeedbackScreen, "Should be on feedback screen")
 
@@ -638,7 +638,7 @@ final class FeedbackViewUITests: BaseUITest {
         takeScreenshot(named: "Navigation_BackToSettings")
     }
 
-    func testNavigation_NavigateFromSettings() throws {
+    func testNavigation_NavigateFromSettings() {
         // Already navigated in setup, just verify
         XCTAssertTrue(feedbackHelper.isOnFeedbackScreen, "Should be on feedback screen")
 

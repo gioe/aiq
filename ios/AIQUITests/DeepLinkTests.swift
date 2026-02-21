@@ -39,7 +39,7 @@ final class DeepLinkTests: BaseUITest {
 
     // MARK: - Test Credentials
 
-    // Test credentials from environment variables for security
+    /// Test credentials from environment variables for security
     private var validEmail: String {
         ProcessInfo.processInfo.environment["AIQ_TEST_EMAIL"] ?? "test@example.com"
     }
@@ -50,12 +50,12 @@ final class DeepLinkTests: BaseUITest {
 
     // MARK: - Test Data
 
-    // Valid test result ID for deep link testing
-    // Note: This should be a real test result ID from your test backend
+    /// Valid test result ID for deep link testing
+    /// Note: This should be a real test result ID from your test backend
     private let validTestResultID = 123
 
-    // Valid session ID for resume test deep link
-    // Note: This should be a real session ID from your test backend
+    /// Valid session ID for resume test deep link
+    /// Note: This should be a real session ID from your test backend
     private let validSessionID = 456
 
     // MARK: - Setup

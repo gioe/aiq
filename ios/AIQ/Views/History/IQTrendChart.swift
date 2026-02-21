@@ -5,7 +5,7 @@ import SwiftUI
 struct IQTrendChart: View {
     let testHistory: [TestResult]
 
-    // Maximum number of data points to render for performance
+    /// Maximum number of data points to render for performance
     private let maxDataPoints = 50
 
     /// Whether any results have confidence interval data

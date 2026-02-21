@@ -345,8 +345,10 @@ class LoginHelper {
         guard let message = errorMessage else { return false }
         // Matches "Invalid email or password" from error.auth.invalid.credentials
         return message.localizedCaseInsensitiveContains("invalid") &&
-            (message.localizedCaseInsensitiveContains("email") ||
-                message.localizedCaseInsensitiveContains("password"))
+            (
+                message.localizedCaseInsensitiveContains("email") ||
+                    message.localizedCaseInsensitiveContains("password")
+            )
     }
 
     /// Check if the error message contains specific text

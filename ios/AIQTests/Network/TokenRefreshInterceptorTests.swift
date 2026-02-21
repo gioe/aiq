@@ -2,20 +2,20 @@
 import AIQAPIClient
 import XCTest
 
-/// Unit tests for TokenRefreshInterceptor
-///
-/// Verifies:
-/// - Basic token refresh flow on 401 responses
-/// - Concurrent request handling (multiple requests during refresh)
-/// - Race condition prevention (shared refresh task via actor isolation)
-/// - Error handling (refresh failure, missing auth service)
-/// - Non-401 responses pass through unchanged
-/// - Edge cases (nil auth service, logout on refresh failure)
-///
-/// Thread Safety:
-/// TokenRefreshInterceptor is implemented as an actor, providing automatic serialization
-/// of all access to its state. This ensures that concurrent 401 responses share a single
-/// refresh task, preventing duplicate token refresh requests.
+// Unit tests for TokenRefreshInterceptor
+//
+// Verifies:
+// - Basic token refresh flow on 401 responses
+// - Concurrent request handling (multiple requests during refresh)
+// - Race condition prevention (shared refresh task via actor isolation)
+// - Error handling (refresh failure, missing auth service)
+// - Non-401 responses pass through unchanged
+// - Edge cases (nil auth service, logout on refresh failure)
+//
+// Thread Safety:
+// TokenRefreshInterceptor is implemented as an actor, providing automatic serialization
+// of all access to its state. This ensures that concurrent 401 responses share a single
+// refresh task, preventing duplicate token refresh requests.
 
 /// Thread-safe collector for test results across concurrent tasks
 /// Uses actor isolation instead of NSLock for Swift 6 compatibility
@@ -117,12 +117,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
     func testIntercept_200Response_PassesThrough() async throws {
         // Given
         let testData = try XCTUnwrap("success data".data(using: .utf8))
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When
         let result = try await sut.intercept(response: response, data: testData)
@@ -136,12 +136,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
     func testIntercept_404Response_PassesThrough() async throws {
         // Given
         let testData = try XCTUnwrap("not found".data(using: .utf8))
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 404,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When
         let result = try await sut.intercept(response: response, data: testData)
@@ -155,12 +155,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
     func testIntercept_500Response_PassesThrough() async throws {
         // Given
         let testData = try XCTUnwrap("server error".data(using: .utf8))
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 500,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When
         let result = try await sut.intercept(response: response, data: testData)
@@ -192,12 +192,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await mockAuthService.setRefreshResponse(mockResponse)
 
         let testData = try XCTUnwrap("unauthorized".data(using: .utf8))
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then
         do {
@@ -234,12 +234,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         )
         await mockAuthService.setRefreshResponse(mockResponse)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then
         do {
@@ -278,12 +278,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await mockAuthService.setRefreshResponse(mockResponse)
         await mockAuthService.setRefreshDelay(shortRefreshDelay)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When - Fire 5 concurrent requests
         let requestCount = 5
@@ -347,12 +347,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await mockAuthService.setRefreshResponse(mockResponse)
         await mockAuthService.setRefreshDelay(mediumRefreshDelay)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When - Fire 3 concurrent requests and track completion times
         let startTime = Date()
@@ -409,12 +409,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         )
         await mockAuthService.setRefreshResponse(mockResponse)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When - Make 3 sequential requests (not concurrent)
         for _ in 0 ..< 3 {
@@ -456,12 +456,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         )
         await mockAuthService.setRefreshResponse(mockResponse)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When - First refresh
         do {
@@ -500,12 +500,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
     func testIntercept_NoAuthService_ThrowsUnauthorized() async throws {
         // Given - Interceptor without auth service
         let interceptor = TokenRefreshInterceptor()
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then
         do {
@@ -527,12 +527,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         let refreshError = APIError.networkError(URLError(.timedOut))
         await mockAuthService.setRefreshError(refreshError)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then
         do {
@@ -556,12 +556,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         let refreshError = APIError.unauthorized(message: "Invalid refresh token")
         await mockAuthService.setRefreshError(refreshError)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then
         do {
@@ -586,12 +586,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await mockAuthService.setRefreshError(refreshError)
         await mockAuthService.setRefreshDelay(shortRefreshDelay)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When - Fire 3 concurrent requests
         let requestCount = 3
@@ -666,12 +666,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await mockAuthService.setRefreshResponse(firstAuthResponse)
         await mockAuthService.setRefreshDelay(mediumRefreshDelay)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When - Start first refresh (will take mediumRefreshDelay to complete)
         let firstRefreshTask = Task {
@@ -765,12 +765,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await mockAuthService.setRefreshResponse(mockResponse)
 
         let emptyData = Data()
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then - Should handle empty data without crashing
         do {
@@ -807,12 +807,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
 
         // 1MB of data
         let largeData = Data(repeating: 0xFF, count: 1024 * 1024)
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then - Should handle large data without issues
         do {
@@ -848,12 +848,12 @@ final class TokenRefreshInterceptorTests: XCTestCase {
         await mockAuthService.setRefreshResponse(mockResponse)
         await mockAuthService.setRefreshDelay(mediumRefreshDelay)
 
-        let response = HTTPURLResponse(
-            url: URL(string: "https://example.com")!,
+        let response = try XCTUnwrap(try HTTPURLResponse(
+            url: XCTUnwrap(URL(string: "https://example.com")),
             statusCode: 401,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When - Fire 50 concurrent requests to stress test
         let requestCount = 50

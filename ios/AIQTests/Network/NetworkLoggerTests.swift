@@ -42,9 +42,9 @@ final class NetworkLoggerTests: XCTestCase {
 
     // MARK: - logRequest Tests
 
-    func testLogRequest_DoesNotCrash() {
+    func testLogRequest_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -52,9 +52,9 @@ final class NetworkLoggerTests: XCTestCase {
         sut.logRequest(request)
     }
 
-    func testLogRequest_WithHeaders_DoesNotCrash() {
+    func testLogRequest_WithHeaders_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -66,7 +66,7 @@ final class NetworkLoggerTests: XCTestCase {
 
     func testLogRequest_WithBody_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         let bodyData = try XCTUnwrap("""
@@ -80,7 +80,7 @@ final class NetworkLoggerTests: XCTestCase {
 
     func testLogRequest_WithInvalidJSONBody_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         // Invalid JSON
@@ -91,19 +91,19 @@ final class NetworkLoggerTests: XCTestCase {
         sut.logRequest(request)
     }
 
-    func testLogRequest_WithEmptyURL_DoesNotCrash() {
+    func testLogRequest_WithEmptyURL_DoesNotCrash() throws {
         // Given - URLRequest requires a URL, so we can't test nil URL
         // But we can test with minimal request
-        let url = URL(string: "https://example.com")!
+        let url = try XCTUnwrap(URL(string: "https://example.com"))
         let request = URLRequest(url: url)
 
         // When/Then - Should not crash
         sut.logRequest(request)
     }
 
-    func testLogRequest_WithNoHTTPMethod_DoesNotCrash() {
+    func testLogRequest_WithNoHTTPMethod_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
         let request = URLRequest(url: url) // No httpMethod set
 
         // When/Then - Should not crash
@@ -112,15 +112,15 @@ final class NetworkLoggerTests: XCTestCase {
 
     // MARK: - logResponse Tests
 
-    func testLogResponse_DoesNotCrash() {
+    func testLogResponse_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then - Should not crash
         sut.logResponse(response, data: nil)
@@ -128,13 +128,13 @@ final class NetworkLoggerTests: XCTestCase {
 
     func testLogResponse_WithData_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
         let responseData = try XCTUnwrap("""
         {"result": "success"}
         """.data(using: .utf8))
@@ -143,29 +143,29 @@ final class NetworkLoggerTests: XCTestCase {
         sut.logResponse(response, data: responseData)
     }
 
-    func testLogResponse_WithErrorStatusCode_DoesNotCrash() {
+    func testLogResponse_WithErrorStatusCode_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 500,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then - Should not crash
         sut.logResponse(response, data: nil)
     }
 
-    func testLogResponse_With404StatusCode_DoesNotCrash() {
+    func testLogResponse_With404StatusCode_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 404,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // When/Then - Should not crash
         sut.logResponse(response, data: nil)
@@ -173,43 +173,43 @@ final class NetworkLoggerTests: XCTestCase {
 
     func testLogResponse_WithInvalidJSONData_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
         let invalidData = try XCTUnwrap("not valid json".data(using: .utf8))
 
         // When/Then - Should not crash (should gracefully handle invalid JSON)
         sut.logResponse(response, data: invalidData)
     }
 
-    func testLogResponse_WithEmptyData_DoesNotCrash() {
+    func testLogResponse_WithEmptyData_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 204, // No Content
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
         let emptyData = Data()
 
         // When/Then - Should not crash
         sut.logResponse(response, data: emptyData)
     }
 
-    func testLogResponse_WithBinaryData_DoesNotCrash() {
+    func testLogResponse_WithBinaryData_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
         let binaryData = Data([0x00, 0x01, 0x02, 0xFF])
 
         // When/Then - Should not crash
@@ -258,22 +258,22 @@ final class NetworkLoggerTests: XCTestCase {
 
     // MARK: - Debug Mode Tests
 
-    func testLogging_OnlyInDebugMode() {
+    func testLogging_OnlyInDebugMode() throws {
         // Note: The NetworkLogger only logs in DEBUG mode
         // These tests verify that the methods don't crash
         // Actual logging output would only appear in DEBUG builds
 
         // Given
-        let url = URL(string: "https://example.com/api/test")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
-        let response = HTTPURLResponse(
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         let error = NSError(domain: "Test", code: -1, userInfo: nil)
 
@@ -288,19 +288,19 @@ final class NetworkLoggerTests: XCTestCase {
 
     // MARK: - Edge Cases
 
-    func testLogRequest_WithVeryLongURL_DoesNotCrash() {
+    func testLogRequest_WithVeryLongURL_DoesNotCrash() throws {
         // Given - URL with very long path
         let longPath = String(repeating: "a", count: 10000)
-        let url = URL(string: "https://example.com/\(longPath)")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/\(longPath)"))
         let request = URLRequest(url: url)
 
         // When/Then - Should not crash
         sut.logRequest(request)
     }
 
-    func testLogRequest_WithManyHeaders_DoesNotCrash() {
+    func testLogRequest_WithManyHeaders_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -315,13 +315,13 @@ final class NetworkLoggerTests: XCTestCase {
 
     func testLogResponse_WithVeryLargeData_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         // Create large JSON data
         let largeArray = Array(repeating: "test", count: 10000)
@@ -331,9 +331,9 @@ final class NetworkLoggerTests: XCTestCase {
         sut.logResponse(response, data: largeData)
     }
 
-    func testLogRequest_WithSpecialCharactersInURL_DoesNotCrash() {
+    func testLogRequest_WithSpecialCharactersInURL_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test?query=hello%20world&special=%21%40%23")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test?query=hello%20world&special=%21%40%23"))
         let request = URLRequest(url: url)
 
         // When/Then - Should not crash
@@ -342,13 +342,13 @@ final class NetworkLoggerTests: XCTestCase {
 
     func testLogResponse_WithNestedJSON_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
 
         let nestedJSON = """
         {
@@ -383,9 +383,9 @@ final class NetworkLoggerTests: XCTestCase {
 
     // MARK: - Multiple Calls Tests
 
-    func testLogRequest_MultipleSequentialCalls_DoesNotCrash() {
+    func testLogRequest_MultipleSequentialCalls_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -397,13 +397,13 @@ final class NetworkLoggerTests: XCTestCase {
 
     func testLogResponse_MultipleSequentialCalls_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
-        let response = HTTPURLResponse(
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
         let data = try XCTUnwrap("""
         {"key": "value"}
         """.data(using: .utf8))
@@ -416,7 +416,7 @@ final class NetworkLoggerTests: XCTestCase {
 
     func testMixedLoggingCalls_DoesNotCrash() throws {
         // Given
-        let url = URL(string: "https://example.com/api/test")!
+        let url = try XCTUnwrap(URL(string: "https://example.com/api/test"))
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         let requestBody = try XCTUnwrap("""
@@ -424,12 +424,12 @@ final class NetworkLoggerTests: XCTestCase {
         """.data(using: .utf8))
         request.httpBody = requestBody
 
-        let response = HTTPURLResponse(
+        let response = try XCTUnwrap(HTTPURLResponse(
             url: url,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
-        )!
+        ))
         let responseData = try XCTUnwrap("""
         {"response": "data"}
         """.data(using: .utf8))

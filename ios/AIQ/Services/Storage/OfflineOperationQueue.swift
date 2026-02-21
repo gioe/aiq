@@ -531,7 +531,7 @@ private struct QueueStateSnapshot: Sendable {
         private var _clearFailedCalled = false
         private var _clearAllCalled = false
 
-        // Public getters for test verification
+        /// Public getters for test verification
         var enqueueCalled: Bool {
             _enqueueCalled
         }
@@ -573,7 +573,7 @@ private struct QueueStateSnapshot: Sendable {
             _failedOperations.removeAll()
         }
 
-        // Test helpers
+        /// Test helpers
         func setIsSyncing(_ value: Bool) {
             _isSyncing = value
         }

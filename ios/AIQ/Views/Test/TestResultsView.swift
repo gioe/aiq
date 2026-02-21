@@ -197,7 +197,6 @@ struct TestResultsView: View {
 
     // MARK: - Confidence Interval Display
 
-    @ViewBuilder
     private func confidenceIntervalDisplay(_ ci: ConfidenceInterval) -> some View {
         VStack(spacing: DesignSystem.Spacing.sm) {
             HStack(spacing: DesignSystem.Spacing.xs) {

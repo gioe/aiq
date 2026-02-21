@@ -6,7 +6,9 @@ enum TestHistorySortOrder: String, CaseIterable, Identifiable {
     case newestFirst = "Newest First"
     case oldestFirst = "Oldest First"
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 }
 
 /// Date filter for test history
@@ -16,7 +18,9 @@ enum TestHistoryDateFilter: String, CaseIterable, Identifiable {
     case lastSixMonths = "Last 6 Months"
     case lastYear = "Last Year"
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     /// Calculate the date threshold for this filter
     var dateThreshold: Date? {

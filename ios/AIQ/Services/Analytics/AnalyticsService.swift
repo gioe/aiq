@@ -34,7 +34,7 @@ enum AnalyticsEvent: String {
     case certificatePinningInitialized = "security.certificate_pinning.initialized"
     case certificatePinningInitializationFailed = "security.certificate_pinning.initialization_failed"
 
-    // Account events
+    /// Account events
     case accountDeleted = "account.deleted"
 
     // Background refresh events

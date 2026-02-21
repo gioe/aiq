@@ -25,7 +25,7 @@ import XCTest
 final class AuthenticationAccessibilityTests: BaseUITest {
     // MARK: - WelcomeView Accessibility Identifier Tests
 
-    func testWelcomeView_BrainIconIdentifierExists() throws {
+    func testWelcomeView_BrainIconIdentifierExists() {
         let brainIcon = app.images["welcomeView.brainIcon"]
         XCTAssertTrue(
             wait(for: brainIcon, timeout: standardTimeout),
@@ -33,7 +33,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_EmailTextFieldIdentifierExists() throws {
+    func testWelcomeView_EmailTextFieldIdentifierExists() {
         let emailTextField = app.textFields["welcomeView.emailTextField"]
         XCTAssertTrue(
             wait(for: emailTextField, timeout: standardTimeout),
@@ -41,7 +41,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_PasswordTextFieldIdentifierExists() throws {
+    func testWelcomeView_PasswordTextFieldIdentifierExists() {
         let passwordTextField = app.secureTextFields["welcomeView.passwordTextField"]
         XCTAssertTrue(
             wait(for: passwordTextField, timeout: standardTimeout),
@@ -49,7 +49,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_SignInButtonIdentifierExists() throws {
+    func testWelcomeView_SignInButtonIdentifierExists() {
         let signInButton = app.buttons["welcomeView.signInButton"]
         XCTAssertTrue(
             wait(for: signInButton, timeout: standardTimeout),
@@ -57,7 +57,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_CreateAccountButtonIdentifierExists() throws {
+    func testWelcomeView_CreateAccountButtonIdentifierExists() {
         let createAccountButton = app.buttons["welcomeView.createAccountButton"]
         XCTAssertTrue(
             wait(for: createAccountButton, timeout: standardTimeout),
@@ -65,7 +65,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_AllCriticalElementsExist() throws {
+    func testWelcomeView_AllCriticalElementsExist() {
         // Verify all critical authentication elements exist in a single test
         // This provides a quick sanity check for the entire welcome screen
         let brainIcon = app.images["welcomeView.brainIcon"]
@@ -227,7 +227,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
 
     // MARK: - VoiceOver Label Tests
 
-    func testWelcomeView_EmailTextField_HasMeaningfulLabel() throws {
+    func testWelcomeView_EmailTextField_HasMeaningfulLabel() {
         let emailTextField = app.textFields["welcomeView.emailTextField"]
         guard wait(for: emailTextField, timeout: standardTimeout) else {
             XCTFail("Email text field not found")
@@ -242,7 +242,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_PasswordTextField_HasMeaningfulLabel() throws {
+    func testWelcomeView_PasswordTextField_HasMeaningfulLabel() {
         let passwordTextField = app.secureTextFields["welcomeView.passwordTextField"]
         guard wait(for: passwordTextField, timeout: standardTimeout) else {
             XCTFail("Password text field not found")
@@ -257,7 +257,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_SignInButton_HasMeaningfulLabel() throws {
+    func testWelcomeView_SignInButton_HasMeaningfulLabel() {
         let signInButton = app.buttons["welcomeView.signInButton"]
         guard wait(for: signInButton, timeout: standardTimeout) else {
             XCTFail("Sign In button not found")
@@ -272,7 +272,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_CreateAccountButton_HasMeaningfulLabel() throws {
+    func testWelcomeView_CreateAccountButton_HasMeaningfulLabel() {
         let createAccountButton = app.buttons["welcomeView.createAccountButton"]
         guard wait(for: createAccountButton, timeout: standardTimeout) else {
             XCTFail("Create Account button not found")
@@ -449,7 +449,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
 
     // MARK: - Accessibility Navigation Flow Tests
 
-    func testAuthenticationFlow_IsNavigableWithAccessibilityIdentifiers() throws {
+    func testAuthenticationFlow_IsNavigableWithAccessibilityIdentifiers() {
         // Test that we can navigate through the authentication flow using only
         // accessibility identifiers (simulates assistive technology navigation)
 
@@ -506,7 +506,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
         }
     }
 
-    func testWelcomeView_FormFieldsAreAccessibleInLogicalOrder() throws {
+    func testWelcomeView_FormFieldsAreAccessibleInLogicalOrder() {
         // Verify form fields are in logical tab order for accessibility navigation
         // XCUITest queries elements in the order they appear in the accessibility hierarchy
 
@@ -537,7 +537,7 @@ final class AuthenticationAccessibilityTests: BaseUITest {
 
     // MARK: - Error Banner Accessibility Tests
 
-    func testWelcomeView_ErrorBannerIdentifierIsConfigured() throws {
+    func testWelcomeView_ErrorBannerIdentifierIsConfigured() {
         // This test verifies the error banner accessibility identifier is properly
         // configured in the view. Since triggering an actual error requires backend,
         // we verify the pattern is in place by checking the identifier exists when

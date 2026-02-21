@@ -129,7 +129,7 @@ final class LocalAnswerStorageTests: XCTestCase {
 
         // Verify it's valid JSON
         let decoder = JSONDecoder()
-        let decoded = try decoder.decode(SavedTestProgress.self, from: data!)
+        let decoded = try decoder.decode(SavedTestProgress.self, from: XCTUnwrap(data))
         XCTAssertEqual(decoded.sessionId, progress.sessionId)
     }
 
@@ -360,8 +360,8 @@ final class LocalAnswerStorageTests: XCTestCase {
 
     func testPersistence_IsolatedByUserDefaultsSuite() throws {
         // Given
-        let suite1 = UserDefaults(suiteName: "com.aiq.tests.suite1")!
-        let suite2 = UserDefaults(suiteName: "com.aiq.tests.suite2")!
+        let suite1 = try XCTUnwrap(UserDefaults(suiteName: "com.aiq.tests.suite1"))
+        let suite2 = try XCTUnwrap(UserDefaults(suiteName: "com.aiq.tests.suite2"))
 
         let storage1 = LocalAnswerStorage(userDefaults: suite1)
         let storage2 = LocalAnswerStorage(userDefaults: suite2)

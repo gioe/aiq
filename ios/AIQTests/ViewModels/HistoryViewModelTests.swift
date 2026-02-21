@@ -1,7 +1,6 @@
+@testable import AIQ
 import Combine
 import XCTest
-
-@testable import AIQ
 
 // MARK: - Mock Storage
 
@@ -172,7 +171,7 @@ final class HistoryViewModelTests: XCTestCase {
         // The loadMore function checks guard hasMore, !isLoadingMore, !isLoading
     }
 
-    func testLoadMore_DoesNothing_WhenStillLoading() async {
+    func testLoadMore_DoesNothing_WhenStillLoading() {
         // Given - Don't complete the initial load
         // This is hard to test synchronously, but the guard is in place
         XCTAssertFalse(sut.isLoadingMore, "isLoadingMore should be false initially")

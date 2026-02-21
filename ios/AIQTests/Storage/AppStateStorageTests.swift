@@ -614,10 +614,10 @@ final class AppStateStorageTests: XCTestCase {
         XCTAssertEqual(retrieved, "Persistent")
     }
 
-    func testPersistence_IsolatedByUserDefaultsSuite() {
+    func testPersistence_IsolatedByUserDefaultsSuite() throws {
         // Given
-        let suite1 = UserDefaults(suiteName: "com.aiq.tests.suite1")!
-        let suite2 = UserDefaults(suiteName: "com.aiq.tests.suite2")!
+        let suite1 = try XCTUnwrap(UserDefaults(suiteName: "com.aiq.tests.suite1"))
+        let suite2 = try XCTUnwrap(UserDefaults(suiteName: "com.aiq.tests.suite2"))
 
         let storage1 = AppStateStorage(userDefaults: suite1)
         let storage2 = AppStateStorage(userDefaults: suite2)

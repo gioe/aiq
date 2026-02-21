@@ -114,7 +114,7 @@ final class OfflineOperationQueueTests: XCTestCase {
         XCTAssertNotNil(savedData, "Operations should be persisted to UserDefaults")
 
         let decoder = JSONDecoder()
-        let operations = try decoder.decode([QueuedOperation].self, from: savedData!)
+        let operations = try decoder.decode([QueuedOperation].self, from: XCTUnwrap(savedData))
         XCTAssertEqual(operations.count, 1, "Should have 1 persisted operation")
         XCTAssertEqual(operations[0].type, .updateProfile, "Persisted operation should match enqueued type")
     }
@@ -140,7 +140,7 @@ final class OfflineOperationQueueTests: XCTestCase {
         XCTAssertEqual(count, 1, "Operations should be loaded from UserDefaults on init")
     }
 
-    func testPersistence_HandlesCorruptDataGracefully() async throws {
+    func testPersistence_HandlesCorruptDataGracefully() async {
         // Given - Save corrupt data to UserDefaults
         let corruptData = Data("corrupt data".utf8)
         mockUserDefaults.set(corruptData, forKey: "com.aiq.offlineOperationQueue")
@@ -175,13 +175,13 @@ final class OfflineOperationQueueTests: XCTestCase {
         XCTAssertEqual(count, 2, "Operation count should reflect number of queued operations")
     }
 
-    func testIsSyncing_ReturnsFalseInitially() async throws {
+    func testIsSyncing_ReturnsFalseInitially() async {
         // When/Then
         let isSyncing = await sut.isSyncing
         XCTAssertFalse(isSyncing, "isSyncing should be false initially")
     }
 
-    func testFailedOperations_ReturnsEmptyArrayInitially() async throws {
+    func testFailedOperations_ReturnsEmptyArrayInitially() async {
         // When/Then
         let failed = await sut.failedOperations
         XCTAssertTrue(failed.isEmpty, "Failed operations should be empty initially")
@@ -211,7 +211,7 @@ final class OfflineOperationQueueTests: XCTestCase {
         XCTAssertEqual(receivedCount, 1, "Published operation count should update")
     }
 
-    func testPublishedState_UpdatesFailedOperations() async throws {
+    func testPublishedState_UpdatesFailedOperations() {
         // Given - Access published state
         let initialFailed = OfflineOperationQueue.publishedState.failedOperations
 
@@ -225,7 +225,7 @@ final class OfflineOperationQueueTests: XCTestCase {
 
     // MARK: - Test: Clear Operations
 
-    func testClearFailedOperations_RemovesFailedOperations() async throws {
+    func testClearFailedOperations_RemovesFailedOperations() async {
         // Given - Setup with failed operations would require full retry simulation
         // For now, test the clear mechanism works
 
@@ -259,7 +259,7 @@ final class OfflineOperationQueueTests: XCTestCase {
 
     // MARK: - Test: Backoff Calculation
 
-    func testBackoffCalculation_ExponentialGrowth() async throws {
+    func testBackoffCalculation_ExponentialGrowth() {
         // This is a white-box test to verify the backoff calculation
         // The formula is: 2^attempt (where attempt is 0-indexed: 0, 1, 2, 3, 4)
 
@@ -404,7 +404,7 @@ final class OfflineOperationQueueTests: XCTestCase {
         XCTAssertEqual(count, 0, "Mock should clear operations after sync")
     }
 
-    func testMockOfflineOperationQueue_ClearFailed() async throws {
+    func testMockOfflineOperationQueue_ClearFailed() async {
         // Given
         let mock = MockOfflineOperationQueue()
 
@@ -497,7 +497,7 @@ final class OfflineOperationQueueTests: XCTestCase {
         XCTAssertEqual(count, 1, "Should handle large payload")
     }
 
-    func testEdgeCase_ClearEmptyQueue() async throws {
+    func testEdgeCase_ClearEmptyQueue() async {
         // Given - Empty queue
         let initialCount = await sut.operationCount
         XCTAssertEqual(initialCount, 0, "Queue should be empty initially")
@@ -510,7 +510,7 @@ final class OfflineOperationQueueTests: XCTestCase {
         XCTAssertEqual(count, 0, "Queue should still be empty")
     }
 
-    func testEdgeCase_SyncEmptyQueue() async throws {
+    func testEdgeCase_SyncEmptyQueue() async {
         // Given - Empty queue
         let initialCount = await sut.operationCount
         XCTAssertEqual(initialCount, 0, "Queue should be empty initially")

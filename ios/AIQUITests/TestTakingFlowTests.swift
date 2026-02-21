@@ -59,7 +59,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - Test Credentials
 
-    // Test credentials from environment variables for security
+    /// Test credentials from environment variables for security
     private var validEmail: String {
         ProcessInfo.processInfo.environment["AIQ_TEST_EMAIL"] ?? "test@example.com"
     }
@@ -113,7 +113,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - Test Start Tests
 
-    func testStartNewTest_Success() throws {
+    func testStartNewTest_Success() {
         // Login first
         let loginSuccess = loginHelper.login(
             email: validEmail,
@@ -138,7 +138,7 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "FirstQuestion")
     }
 
-    func testStartNewTest_ShowsProgressIndicator() throws {
+    func testStartNewTest_ShowsProgressIndicator() {
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -160,7 +160,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - Answer Question Tests
 
-    func testAnswerQuestion_SelectsOption() throws {
+    func testAnswerQuestion_SelectsOption() {
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -180,7 +180,7 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "QuestionAnswered")
     }
 
-    func testAnswerQuestion_MultipleChoiceSelection() throws {
+    func testAnswerQuestion_MultipleChoiceSelection() {
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -209,7 +209,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - Navigation Tests
 
-    func testNavigateQuestions_NextAndPrevious() throws {
+    func testNavigateQuestions_NextAndPrevious() {
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -244,7 +244,7 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "BackToQuestion1")
     }
 
-    func testNavigateQuestions_PreviousButtonDisabledOnFirstQuestion() throws {
+    func testNavigateQuestions_PreviousButtonDisabledOnFirstQuestion() {
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -266,7 +266,7 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "FirstQuestionPreviousDisabled")
     }
 
-    func testNavigateQuestions_NextButtonDisabledWhenUnanswered() throws {
+    func testNavigateQuestions_NextButtonDisabledWhenUnanswered() {
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -291,7 +291,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - Complete Test Flow
 
-    func testCompleteTestFlow_AllQuestionsAnswered() throws {
+    func testCompleteTestFlow_AllQuestionsAnswered() {
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -319,7 +319,7 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "TestFlow_Results")
     }
 
-    func testCompleteTestFlow_AnswersAreSaved() throws {
+    func testCompleteTestFlow_AnswersAreSaved() {
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -358,7 +358,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - Submit Test
 
-    func testSubmitTest_ShowsResults() throws {
+    func testSubmitTest_ShowsResults() {
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -377,7 +377,7 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "ResultsScreenAfterSubmit")
     }
 
-    func testSubmitTest_ShowsCompletionScreen() throws {
+    func testSubmitTest_ShowsCompletionScreen() {
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -407,7 +407,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - Results Screen Tests
 
-    func testResultsScreen_DisplaysScore() throws {
+    func testResultsScreen_DisplaysScore() {
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -432,7 +432,7 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "ResultsWithScore")
     }
 
-    func testResultsScreen_DisplaysMetrics() throws {
+    func testResultsScreen_DisplaysMetrics() {
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -469,7 +469,7 @@ final class TestTakingFlowTests: BaseUITest {
         }
     }
 
-    func testResultsScreen_DoneButton() throws {
+    func testResultsScreen_DoneButton() {
         // Login and start test
         guard let totalQuestions = startTestSession() else {
             XCTFail("Failed to start test session")
@@ -506,7 +506,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - History Update Tests
 
-    func testHistoryUpdate_AfterTestCompletion() throws {
+    func testHistoryUpdate_AfterTestCompletion() {
         // Login
         XCTAssertTrue(
             loginHelper.login(email: validEmail, password: validPassword),
@@ -554,7 +554,7 @@ final class TestTakingFlowTests: BaseUITest {
     // MARK: - End-to-End Tests
 
     /// End-to-end test: login → start test → answer all → submit → view results → verify history → logout
-    func testFullTestTakingFlow_EndToEnd() throws {
+    func testFullTestTakingFlow_EndToEnd() {
         // Step 1: Login
         XCTAssertTrue(loginHelper.login(email: validEmail, password: validPassword), "Should log in")
         takeScreenshot(named: "E2E_Step1_Login")
@@ -609,7 +609,7 @@ final class TestTakingFlowTests: BaseUITest {
     }
 
     /// Tests navigation between questions (forward/backward) during test-taking
-    func testFullTestTakingFlow_WithNavigation() throws {
+    func testFullTestTakingFlow_WithNavigation() {
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
             return
@@ -648,7 +648,7 @@ final class TestTakingFlowTests: BaseUITest {
 
     // MARK: - Error Handling Tests
 
-    func testAbandonTest_ShowsConfirmation() throws {
+    func testAbandonTest_ShowsConfirmation() {
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")
@@ -686,7 +686,7 @@ final class TestTakingFlowTests: BaseUITest {
         XCTAssertTrue(testHelper.isOnTestScreen, "Should still be on test screen after cancel")
     }
 
-    func testAbandonTest_ExitsToBackDashboard() throws {
+    func testAbandonTest_ExitsToBackDashboard() {
         // Login and start test
         guard startTestSession() != nil else {
             XCTFail("Failed to start test session")

@@ -3,8 +3,8 @@ import Foundation
 /// Protocol for app state storage operations
 protocol AppStateStorageProtocol {
     func setValue(_ value: some Encodable, forKey key: String)
-    func getValue<T>(forKey key: String, as type: T.Type) -> T? where T: Decodable
-    func removeValue(forKey key: String)
+    func getValue<T: Decodable>(forKey key: String, as type: T.Type) -> T? where
+        func removeValue(forKey key: String)
     func hasValue(forKey key: String) -> Bool
 }
 
@@ -56,7 +56,7 @@ class AppStateStorage: AppStateStorageProtocol {
     ///   - key: The storage key
     ///   - type: The expected type of the value
     /// - Returns: The stored value, or nil if not found or type mismatch
-    func getValue<T>(forKey key: String, as type: T.Type) -> T? where T: Decodable {
+    func getValue<T: Decodable>(forKey key: String, as type: T.Type) -> T? {
         queue.sync {
             // For simple types that UserDefaults natively supports, read directly
             if type == String.self {

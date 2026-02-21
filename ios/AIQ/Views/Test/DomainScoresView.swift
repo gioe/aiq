@@ -283,7 +283,6 @@ struct DomainScoresBreakdownView: View {
 
     // MARK: - Domain Highlights View
 
-    @ViewBuilder
     private var domainHighlightsView: some View {
         VStack(spacing: DesignSystem.Spacing.sm) {
             // Strongest domain highlight

@@ -24,7 +24,7 @@ final class AccessibilityIdentifierTests: BaseUITest {
 
     private var loginHelper: LoginHelper!
 
-    // Test credentials from environment
+    /// Test credentials from environment
     private var testEmail: String {
         ProcessInfo.processInfo.environment["AIQ_TEST_EMAIL"] ?? "test@example.com"
     }
@@ -47,7 +47,7 @@ final class AccessibilityIdentifierTests: BaseUITest {
 
     // MARK: - WelcomeView Identifier Tests
 
-    func testWelcomeView_EmailTextFieldIdentifierExists() throws {
+    func testWelcomeView_EmailTextFieldIdentifierExists() {
         let emailTextField = app.textFields["welcomeView.emailTextField"]
         XCTAssertTrue(
             wait(for: emailTextField, timeout: standardTimeout),
@@ -55,7 +55,7 @@ final class AccessibilityIdentifierTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_PasswordTextFieldIdentifierExists() throws {
+    func testWelcomeView_PasswordTextFieldIdentifierExists() {
         let passwordTextField = app.secureTextFields["welcomeView.passwordTextField"]
         XCTAssertTrue(
             wait(for: passwordTextField, timeout: standardTimeout),
@@ -63,7 +63,7 @@ final class AccessibilityIdentifierTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_SignInButtonIdentifierExists() throws {
+    func testWelcomeView_SignInButtonIdentifierExists() {
         let signInButton = app.buttons["welcomeView.signInButton"]
         XCTAssertTrue(
             wait(for: signInButton, timeout: standardTimeout),
@@ -71,7 +71,7 @@ final class AccessibilityIdentifierTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_CreateAccountButtonIdentifierExists() throws {
+    func testWelcomeView_CreateAccountButtonIdentifierExists() {
         let createAccountButton = app.buttons["welcomeView.createAccountButton"]
         XCTAssertTrue(
             wait(for: createAccountButton, timeout: standardTimeout),
@@ -79,7 +79,7 @@ final class AccessibilityIdentifierTests: BaseUITest {
         )
     }
 
-    func testWelcomeView_BrainIconIdentifierExists() throws {
+    func testWelcomeView_BrainIconIdentifierExists() {
         let brainIcon = app.images["welcomeView.brainIcon"]
         XCTAssertTrue(
             wait(for: brainIcon, timeout: standardTimeout),

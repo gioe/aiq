@@ -16,7 +16,7 @@ protocol ViewModelProtocol: ObservableObject {
     func onDisappear()
 }
 
-// Default implementations
+/// Default implementations
 extension ViewModelProtocol {
     func onAppear() {}
     func onDisappear() {}

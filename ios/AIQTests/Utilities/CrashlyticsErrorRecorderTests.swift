@@ -1,6 +1,5 @@
-import XCTest
-
 @testable import AIQ
+import XCTest
 
 final class CrashlyticsErrorRecorderTests: XCTestCase {
     // MARK: - ErrorContext Tests

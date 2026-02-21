@@ -28,7 +28,7 @@ final class AuthenticationFlowTests: BaseUITest {
 
     // MARK: - Test Credentials
 
-    // Test credentials from environment variables for security
+    /// Test credentials from environment variables for security
     private var validEmail: String {
         ProcessInfo.processInfo.environment["AIQ_TEST_EMAIL"] ?? "test@example.com"
     }
@@ -205,7 +205,7 @@ final class AuthenticationFlowTests: BaseUITest {
         takeScreenshot(named: "EmptyLoginForm")
     }
 
-    func testLoginWithInvalidEmailFormat_ShowsValidationError() throws {
+    func testLoginWithInvalidEmailFormat_ShowsValidationError() {
         // This test validates client-side email format validation.
         // No backend connection required since we're testing that invalid input is
         // caught before any network request is made.

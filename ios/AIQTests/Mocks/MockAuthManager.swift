@@ -11,9 +11,17 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     @Published var isLoading: Bool = false
     @Published var authError: Error?
 
-    var isAuthenticatedPublisher: Published<Bool>.Publisher { $isAuthenticated }
-    var isLoadingPublisher: Published<Bool>.Publisher { $isLoading }
-    var authErrorPublisher: Published<Error?>.Publisher { $authError }
+    var isAuthenticatedPublisher: Published<Bool>.Publisher {
+        $isAuthenticated
+    }
+
+    var isLoadingPublisher: Published<Bool>.Publisher {
+        $isLoading
+    }
+
+    var authErrorPublisher: Published<Error?>.Publisher {
+        $authError
+    }
 
     // Test configuration
     var shouldSucceedLogin: Bool = true
@@ -180,7 +188,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         // No-op for unit tests - state is configured directly
     }
 
-    // Test helper methods
+    /// Test helper methods
     func reset() {
         isAuthenticated = false
         currentUser = nil

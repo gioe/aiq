@@ -1,7 +1,6 @@
+@testable import AIQ
 import Combine
 import XCTest
-
-@testable import AIQ
 
 /// Integration tests for the active session detection and recovery flow.
 /// Tests the complete flow from dashboard to test-taking including:

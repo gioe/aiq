@@ -1,7 +1,6 @@
+@testable import AIQ
 import Combine
 import XCTest
-
-@testable import AIQ
 
 @MainActor
 final class RegistrationViewModelValidationTests: XCTestCase {

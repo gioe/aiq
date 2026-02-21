@@ -63,8 +63,7 @@ actor TokenRefreshInterceptor: ResponseInterceptor {
         isRefreshing = true
         let task = Task<AuthResponse, Error> {
             do {
-                let response = try await authService.refreshToken()
-                return response
+                return try await authService.refreshToken()
             } catch {
                 // Token refresh failed - log to Crashlytics for debugging
                 CrashlyticsErrorRecorder.recordError(
