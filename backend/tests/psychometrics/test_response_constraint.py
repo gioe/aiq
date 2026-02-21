@@ -4,6 +4,7 @@ Tests for database-level unique constraint on Response(test_session_id, question
 This test verifies that the database constraint prevents duplicate responses
 even if the app-level check is bypassed (e.g., due to race conditions).
 """
+
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app.models.models import (

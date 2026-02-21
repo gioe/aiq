@@ -12,6 +12,7 @@ Tests cover:
 - Empty database edge case
 - Domain aggregate statistics
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session

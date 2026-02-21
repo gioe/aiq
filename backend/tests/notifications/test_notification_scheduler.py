@@ -1,6 +1,7 @@
 """
 Tests for notification scheduling service.
 """
+
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch

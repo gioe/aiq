@@ -9,6 +9,7 @@ Tests cover:
   threshold, excludes inactive/flagged, warns on shortfall, dry_run no-op,
   prefers highest discrimination
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session

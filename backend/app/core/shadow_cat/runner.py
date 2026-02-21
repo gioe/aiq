@@ -7,6 +7,7 @@ shadow_cat_results table for admin analysis.
 This module never raises exceptions to callers - all errors are logged
 and handled gracefully since shadow testing is instrumentation-only.
 """
+
 import logging
 import time
 from typing import Any, List, Optional

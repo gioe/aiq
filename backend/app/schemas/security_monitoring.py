@@ -1,4 +1,5 @@
 """Response schemas for security monitoring admin endpoints."""
+
 from datetime import datetime
 from typing import List, Optional
 

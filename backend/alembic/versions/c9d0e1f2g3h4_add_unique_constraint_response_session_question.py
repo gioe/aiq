@@ -8,6 +8,7 @@ Adds database-level unique constraint to prevent race conditions in duplicate
 submission detection. The constraint ensures that at most one response per
 question per test session can exist in the database.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

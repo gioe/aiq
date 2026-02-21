@@ -1,6 +1,7 @@
 """
 Tests for token blacklist functionality.
 """
+
 import pytest
 from datetime import timedelta
 from unittest.mock import Mock, patch

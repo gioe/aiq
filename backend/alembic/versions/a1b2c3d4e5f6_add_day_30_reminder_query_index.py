@@ -8,6 +8,7 @@ Adds a composite index on users (notification_enabled, day_30_reminder_sent_at)
 to optimize the Day 30 reminder eligibility query which filters on
 notification_enabled=True AND day_30_reminder_sent_at IS NULL.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

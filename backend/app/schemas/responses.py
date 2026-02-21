@@ -1,6 +1,7 @@
 """
 Pydantic schemas for response submission endpoints.
 """
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Any, Dict, List, Optional
 from typing_extensions import Self

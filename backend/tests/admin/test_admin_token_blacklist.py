@@ -1,6 +1,7 @@
 """
 Tests for admin token blacklist endpoints.
 """
+
 import pytest
 from unittest.mock import patch, MagicMock
 

@@ -261,9 +261,9 @@ def create_test_history(db, user: User, dry_run: bool = False) -> None:
                 test_session_id=session.id,
                 user_id=user.id,
                 question_id=question.id,
-                user_answer=question.correct_answer
-                if is_correct
-                else "Demo incorrect answer",
+                user_answer=(
+                    question.correct_answer if is_correct else "Demo incorrect answer"
+                ),
                 is_correct=is_correct,
                 answered_at=test_date + timedelta(seconds=j * 50),
                 time_spent_seconds=50 + (j % 10) * 5,  # Vary between 50-95 seconds

@@ -4,6 +4,7 @@ Distractor analysis admin endpoints.
 Endpoints for analyzing the effectiveness of answer options (distractors)
 in multiple-choice questions.
 """
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -126,9 +127,9 @@ async def get_distractor_analysis(
                 question_id=question_id,
                 question_text=str(question.question_text),
                 total_responses=analysis.get("total_responses", 0),
-                correct_answer=str(question.correct_answer)
-                if question.correct_answer
-                else None,
+                correct_answer=(
+                    str(question.correct_answer) if question.correct_answer else None
+                ),
                 options=[],
                 summary=DistractorSummary(
                     functioning_distractors=0,

@@ -4,6 +4,7 @@ Tests for error tracking IDs in 500 responses.
 These tests verify that internal server errors include a unique error_id
 for tracing purposes.
 """
+
 import re
 import uuid
 from unittest.mock import patch

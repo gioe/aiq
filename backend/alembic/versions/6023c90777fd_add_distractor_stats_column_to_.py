@@ -14,6 +14,7 @@ Format: {"option_text": {"count": 50, "top_q": 10, "bottom_q": 25}, ...}
 
 Part of DA-001 (Distractor Analysis - Database Schema).
 """
+
 from typing import Sequence, Union
 
 from alembic import op

@@ -8,6 +8,7 @@ Tests cover:
 - Idempotency (no duplicate shadow results)
 - Error handling (exceptions logged, never raised)
 """
+
 import pytest
 from unittest.mock import patch
 from datetime import datetime, timezone

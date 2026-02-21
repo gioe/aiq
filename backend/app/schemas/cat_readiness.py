@@ -4,6 +4,7 @@ Pydantic schemas for CAT readiness endpoints (TASK-835).
 These schemas support admin endpoints for evaluating and querying whether
 the question bank is ready for Computerized Adaptive Testing (CAT).
 """
+
 from datetime import datetime
 from typing import List, Optional
 

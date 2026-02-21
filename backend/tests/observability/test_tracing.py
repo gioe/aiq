@@ -1,6 +1,7 @@
 """
 Tests for OpenTelemetry distributed tracing integration.
 """
+
 import json
 import logging
 import sys

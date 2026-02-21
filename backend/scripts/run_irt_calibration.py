@@ -12,6 +12,7 @@ Exit codes:
     2 - Calibration error
     3 - Configuration/import error
 """
+
 import json
 import logging
 import secrets

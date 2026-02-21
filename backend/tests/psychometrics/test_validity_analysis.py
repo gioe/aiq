@@ -2488,9 +2488,9 @@ class TestAssessSessionValidity:
             "total_time_seconds": 200.0,
             "rapid_response_count": 3 if flag_type == "multiple_rapid_responses" else 0,
             "extended_pause_count": 0,
-            "fast_hard_correct_count": 2
-            if flag_type == "suspiciously_fast_on_hard"
-            else 0,
+            "fast_hard_correct_count": (
+                2 if flag_type == "suspiciously_fast_on_hard" else 0
+            ),
             "statistics": {
                 "mean_time": 10.0,
                 "min_time": 1.0,

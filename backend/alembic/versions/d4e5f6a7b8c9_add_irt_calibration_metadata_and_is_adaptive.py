@@ -10,6 +10,7 @@ table for CAT readiness gating. Adds partial index on (irt_difficulty,
 irt_discrimination) for efficient CAT item selection. Adds is_adaptive boolean
 to test_sessions for tracking adaptive vs fixed-form tests.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

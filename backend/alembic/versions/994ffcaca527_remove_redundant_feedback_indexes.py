@@ -25,6 +25,7 @@ All feedback queries either:
 
 See: backend/docs/TASK-56-FEEDBACK-INDEX-ANALYSIS.md
 """
+
 from typing import Sequence, Union
 
 from alembic import op

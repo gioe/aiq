@@ -1,6 +1,7 @@
 """
 Tests for main RateLimiter class.
 """
+
 from app.ratelimit import RateLimiter, RateLimitExceeded
 
 

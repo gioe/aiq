@@ -1,6 +1,7 @@
 """
 Tests for IQ scoring module.
 """
+
 import pytest
 from unittest.mock import MagicMock
 

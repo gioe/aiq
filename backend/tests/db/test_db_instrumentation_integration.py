@@ -1,6 +1,7 @@
 """
 Integration tests for database query instrumentation with the full application.
 """
+
 import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient

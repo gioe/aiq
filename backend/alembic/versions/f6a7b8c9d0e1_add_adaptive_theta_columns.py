@@ -10,6 +10,7 @@ Adds columns for tracking ability estimates (theta) during adaptive testing:
 
 Also adds indexes for efficient querying of adaptive sessions and IRT-scored results.
 """
+
 from alembic import op
 import sqlalchemy as sa
 

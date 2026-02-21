@@ -10,6 +10,7 @@ Common configuration keys:
 - use_weighted_scoring: {"enabled": false}
 - domain_population_stats: {"pattern": {"mean_accuracy": 0.65, "sd_accuracy": 0.18}, ...}
 """
+
 from app.core.datetime_utils import utc_now
 from typing import Any, Optional
 

@@ -8,6 +8,7 @@ Async database support (TASK-1161): The primary database dependency is
 async (get_db yields AsyncSession). The sync engine and SessionLocal are
 retained for background jobs that run in threads.
 """
+
 from sqlalchemy import create_engine, make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker

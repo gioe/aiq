@@ -1,10 +1,16 @@
 """
 Read-only admin views for all database models.
 """
+
 # mypy: disable-error-code="list-item,arg-type,dict-item"
 from sqladmin import ModelView
 from markupsafe import Markup
 
+from app.core.psychometrics.question_analytics import (
+    MIN_RESPONSES_FOR_CALIBRATION as RELIABLE_RESPONSE_COUNT,
+    MIN_RESPONSES_FOR_SUFFICIENT_DATA as MIN_RESPONSES_FOR_QUALITY_ANALYSIS,
+    POOR_DISCRIMINATION_THRESHOLD as ACCEPTABLE_DISCRIMINATION,
+)
 from app.models import (
     User,
     Question,
@@ -14,6 +20,21 @@ from app.models import (
     TestResult,
     DifficultyLevel,
 )
+
+# Discrimination display thresholds — view-local, no canonical source yet
+GOOD_DISCRIMINATION = 0.3
+EXCELLENT_DISCRIMINATION = 0.4
+
+# Difficulty calibration thresholds (p-value = proportion correct)
+# Used for coloring empirical difficulty display
+EASY_P_VALUE_THRESHOLD = 0.7
+MEDIUM_P_VALUE_THRESHOLD = 0.4
+
+# Mismatch detection thresholds — flag when empirical difficulty diverges from assigned
+EASY_TOO_HARD_THRESHOLD = 0.5
+MEDIUM_TOO_HARD_THRESHOLD = 0.3
+MEDIUM_TOO_EASY_THRESHOLD = 0.8
+HARD_TOO_EASY_THRESHOLD = 0.6
 
 
 class ReadOnlyModelView(ModelView):
@@ -187,7 +208,10 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         - Difficulty mismatch (empirical vs LLM-assigned)
         - Discrimination quality (ability to distinguish performers)
         """
-        if model.response_count is None or model.response_count < 30:
+        if (
+            model.response_count is None
+            or model.response_count < MIN_RESPONSES_FOR_QUALITY_ANALYSIS
+        ):
             # Insufficient data - gray badge
             return Markup(
                 '<span class="badge badge-secondary" title="Insufficient response data for analysis">'
@@ -206,7 +230,10 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
                 issues.append(f"Difficulty mismatch: {difficulty_mismatch}")
 
         # Check for low discrimination
-        if model.discrimination is not None and model.discrimination < 0.2:
+        if (
+            model.discrimination is not None
+            and model.discrimination < ACCEPTABLE_DISCRIMINATION
+        ):
             issues.append(f"Low discrimination: {model.discrimination:.2f}")
 
         # Return appropriate badge
@@ -239,17 +266,17 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         """
         if assigned_difficulty == DifficultyLevel.EASY:
             expected = "easy (p > 0.7)"
-            if p_value < 0.5:
+            if p_value < EASY_TOO_HARD_THRESHOLD:
                 return f"Too hard (p={p_value:.2f}, expected {expected})"
         elif assigned_difficulty == DifficultyLevel.MEDIUM:
             expected = "medium (0.4 < p < 0.7)"
-            if p_value < 0.3:
+            if p_value < MEDIUM_TOO_HARD_THRESHOLD:
                 return f"Too hard (p={p_value:.2f}, expected {expected})"
-            elif p_value > 0.8:
+            elif p_value > MEDIUM_TOO_EASY_THRESHOLD:
                 return f"Too easy (p={p_value:.2f}, expected {expected})"
         elif assigned_difficulty == DifficultyLevel.HARD:
             expected = "hard (p < 0.4)"
-            if p_value > 0.6:
+            if p_value > HARD_TOO_EASY_THRESHOLD:
                 return f"Too easy (p={p_value:.2f}, expected {expected})"
 
         return ""
@@ -263,10 +290,10 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
         p_value = model.empirical_difficulty
 
         # Color code based on value (easier questions = higher p-value = green)
-        if p_value > 0.7:
+        if p_value > EASY_P_VALUE_THRESHOLD:
             color = "success"
             label = "Easy"
-        elif p_value > 0.4:
+        elif p_value > MEDIUM_P_VALUE_THRESHOLD:
             color = "warning"
             label = "Medium"
         else:
@@ -289,13 +316,13 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
 
         # Color code based on quality thresholds
         # Discrimination > 0.4 = excellent, > 0.3 = good, > 0.2 = acceptable, < 0.2 = poor
-        if disc >= 0.4:
+        if disc >= EXCELLENT_DISCRIMINATION:
             color = "success"
             label = "Excellent"
-        elif disc >= 0.3:
+        elif disc >= GOOD_DISCRIMINATION:
             color = "info"
             label = "Good"
-        elif disc >= 0.2:
+        elif disc >= ACCEPTABLE_DISCRIMINATION:
             color = "warning"
             label = "Acceptable"
         else:
@@ -318,10 +345,10 @@ class QuestionAdmin(ReadOnlyModelView, model=Question):
 
         # Color code based on statistical reliability
         # < 30 = insufficient, 30-100 = marginal, 100+ = reliable
-        if count >= 100:
+        if count >= RELIABLE_RESPONSE_COUNT:
             color = "success"
             title = "Statistically reliable"
-        elif count >= 30:
+        elif count >= MIN_RESPONSES_FOR_QUALITY_ANALYSIS:
             color = "warning"
             title = "Marginally reliable"
         else:

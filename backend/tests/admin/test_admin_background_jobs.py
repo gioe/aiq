@@ -8,6 +8,7 @@ These tests verify the API endpoints for managing background generation jobs:
 - Terminate jobs
 - Cleanup finished jobs
 """
+
 import subprocess
 import sys
 

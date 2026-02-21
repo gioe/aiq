@@ -9,6 +9,7 @@ Tests cover:
 - Full run: end-to-end with mocked calibration
 - Exit codes: all four exit paths (0, 1, 2, 3)
 """
+
 import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch

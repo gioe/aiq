@@ -4,6 +4,7 @@ FastAPI middleware for automatic rate limiting.
 Provides middleware to automatically apply rate limiting to all requests
 with customizable identifier resolution and response headers.
 """
+
 import logging
 
 from fastapi import Request, Response

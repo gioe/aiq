@@ -1,6 +1,7 @@
 """
 Pydantic schemas for feedback submission endpoints.
 """
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime, timezone
 
@@ -101,7 +102,9 @@ class FeedbackResponse(BaseModel):
 
         from_attributes = True  # Allows conversion from ORM models
         json_encoders = {
-            datetime: lambda v: v.replace(tzinfo=None).isoformat() + "Z"
-            if v.tzinfo is None
-            else v.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            datetime: lambda v: (
+                v.replace(tzinfo=None).isoformat() + "Z"
+                if v.tzinfo is None
+                else v.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            )
         }

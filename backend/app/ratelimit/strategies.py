@@ -6,6 +6,7 @@ This module provides different algorithms for rate limiting:
 - Sliding Window: Smooth rate limiting across time windows
 - Fixed Window: Simple counter reset at fixed intervals
 """
+
 from abc import ABC, abstractmethod
 from typing import Tuple, Optional, TYPE_CHECKING
 import time

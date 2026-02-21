@@ -4,6 +4,7 @@ Tests for the SimpleCache module.
 Covers: get/set, TTL expiry, delete, clear, cleanup_expired, delete_by_prefix,
 cache_key utility, and @cached decorator.
 """
+
 from unittest.mock import patch
 
 import pytest

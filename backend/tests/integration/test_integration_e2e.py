@@ -4,6 +4,7 @@ End-to-end integration tests for complete user journeys.
 These tests verify that multiple components work together correctly
 to support complete user workflows from registration to viewing results.
 """
+
 from datetime import timedelta
 
 from app.core.datetime_utils import utc_now

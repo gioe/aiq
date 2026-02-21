@@ -3,6 +3,7 @@ Tests for async SQLAlchemy infrastructure (TASK-1161).
 
 Validates that the async engine, session, and fixtures work correctly.
 """
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError

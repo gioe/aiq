@@ -19,6 +19,7 @@ the provider name, enabling:
 Note: Existing questions will have NULL for source_model. New questions generated
 by the question-service will populate this field automatically.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

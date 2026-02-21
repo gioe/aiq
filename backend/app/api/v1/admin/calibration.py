@@ -11,6 +11,7 @@ based on empirical user performance data.
 
 See docs/methodology/METHODOLOGY.md Section 5.3 for psychometric context.
 """
+
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Query

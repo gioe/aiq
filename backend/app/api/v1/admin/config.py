@@ -4,6 +4,7 @@ Scoring configuration admin endpoints.
 Endpoints for managing weighted scoring configuration, domain weights,
 and A/B testing scoring methods.
 """
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException

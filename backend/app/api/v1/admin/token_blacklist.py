@@ -1,4 +1,5 @@
 """Token blacklist admin endpoints for monitoring."""
+
 from fastapi import APIRouter, Depends
 
 from app.core.auth.token_blacklist import get_token_blacklist

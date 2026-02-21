@@ -1,6 +1,7 @@
 """
 Tests for structured logging configuration and JSON formatter.
 """
+
 import json
 import logging
 from unittest.mock import patch

@@ -1,6 +1,7 @@
 """
 Performance monitoring middleware for tracking API response times.
 """
+
 import time
 import logging
 from starlette.middleware.base import BaseHTTPMiddleware

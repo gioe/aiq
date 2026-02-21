@@ -1,6 +1,7 @@
 """
 Tests for rate limiter storage backends.
 """
+
 import json
 import time
 from unittest.mock import MagicMock, patch
@@ -447,9 +448,10 @@ class TestRedisStorage:
     @pytest.fixture
     def mock_redis(self):
         """Create a mock Redis client and connection pool."""
-        with patch("redis.ConnectionPool") as mock_pool_class, patch(
-            "redis.Redis"
-        ) as mock_redis_class:
+        with (
+            patch("redis.ConnectionPool") as mock_pool_class,
+            patch("redis.Redis") as mock_redis_class,
+        ):
             # Create mock instances
             mock_pool = MagicMock()
             mock_redis_client = MagicMock()

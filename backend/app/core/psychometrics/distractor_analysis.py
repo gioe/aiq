@@ -18,6 +18,7 @@ Red flags:
 
 See docs/methodology/METHODOLOGY.md Section 5.4 for psychometric context.
 """
+
 import logging
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session

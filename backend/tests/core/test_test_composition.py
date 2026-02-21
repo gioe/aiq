@@ -4,6 +4,7 @@ Tests for test composition and question selection logic.
 Tests IDA-005: Flagged questions should be excluded from test composition.
 Tests IDA-006: Discrimination preference in test composition.
 """
+
 import pytest
 from app.models import Question
 from app.models.models import QuestionType, DifficultyLevel

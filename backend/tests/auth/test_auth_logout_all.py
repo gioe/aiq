@@ -3,6 +3,7 @@ Integration tests for POST /v1/auth/logout-all endpoint.
 
 Tests user-level token revocation via revocation epoch approach.
 """
+
 import pytest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -724,9 +725,10 @@ class TestLogoutAllPushNotification:
         user.apns_device_token = "fake_device_token_abc123"
         db.commit()
 
-        with patch(
-            "app.services.apns_service.APNsService.connect"
-        ) as mock_connect, patch("app.services.apns_service.logger") as mock_logger:
+        with (
+            patch("app.services.apns_service.APNsService.connect") as mock_connect,
+            patch("app.services.apns_service.logger") as mock_logger,
+        ):
             mock_connect.side_effect = ValueError("APNS_KEY_ID is required")
 
             response = client.post("/v1/auth/logout-all", headers=headers)

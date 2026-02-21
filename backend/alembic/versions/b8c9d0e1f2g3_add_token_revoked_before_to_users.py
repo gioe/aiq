@@ -8,6 +8,7 @@ Adds token_revoked_before datetime column to the users table.
 This column stores the timestamp when all tokens issued before this time
 should be considered revoked. Used for "logout from all devices" functionality.
 """
+
 from typing import Sequence, Union
 
 from alembic import op

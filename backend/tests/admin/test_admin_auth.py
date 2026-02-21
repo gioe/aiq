@@ -1,6 +1,7 @@
 """
 Tests for admin authentication with bcrypt password hashing.
 """
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 

@@ -1,6 +1,7 @@
 """
 Centralized logging configuration with structured logging support.
 """
+
 import json
 import logging
 import logging.config

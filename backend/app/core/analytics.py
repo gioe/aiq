@@ -5,6 +5,7 @@ This module provides:
 1. Event tracking for user actions (authentication, tests, notifications)
 2. Factor analysis utilities (response matrix building for g-loading calculations)
 """
+
 import logging
 from dataclasses import dataclass
 from app.core.datetime_utils import utc_now

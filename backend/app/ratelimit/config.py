@@ -4,6 +4,7 @@ Rate limiter configuration.
 Provides configuration classes and utilities for setting up rate limiting
 with sensible defaults and easy customization.
 """
+
 from typing import Optional, Literal
 from pydantic import BaseModel, Field
 

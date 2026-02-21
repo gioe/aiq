@@ -4,6 +4,7 @@ Tests for secure IP extraction utility (app.core.ip_extraction).
 This module tests the security-critical IP extraction logic that prevents
 X-Forwarded-For and X-Real-IP header spoofing attacks.
 """
+
 from unittest.mock import MagicMock
 
 from fastapi import Request

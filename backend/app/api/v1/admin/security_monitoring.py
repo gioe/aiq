@@ -4,6 +4,7 @@ Security monitoring admin endpoints.
 Provides visibility into logout-all events and their correlation with
 password resets for security analysis. TASK-959.
 """
+
 from enum import Enum
 
 from fastapi import APIRouter, Depends, Query

@@ -23,6 +23,7 @@ Solution:
 Reference:
     docs/plans/in-progress/PLAN-BACKEND-CODE-QUALITY.md (BCQ-006)
 """
+
 from typing import Sequence, Union
 
 from alembic import op

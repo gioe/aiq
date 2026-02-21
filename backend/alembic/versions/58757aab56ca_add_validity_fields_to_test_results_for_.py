@@ -17,6 +17,7 @@ the validity checking system. They can be backfilled if needed.
 
 Part of CD-002 (Cheating Detection - Create Database Migration for Validity Fields).
 """
+
 from typing import Sequence, Union
 
 from alembic import op

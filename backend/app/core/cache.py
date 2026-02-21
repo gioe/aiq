@@ -4,6 +4,7 @@ Simple in-memory caching utility for API responses.
 This module provides a basic caching mechanism to reduce database queries
 for frequently accessed data. For production, consider using Redis or Memcached.
 """
+
 from functools import wraps
 from typing import Any, Callable, Optional
 import hashlib

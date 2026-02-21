@@ -8,6 +8,7 @@ Adds is_anchor boolean and anchor_designated_at timestamp to the questions table
 Anchor items are a curated subset embedded in every test to accumulate IRT
 calibration data faster (30 per domain, 180 total).
 """
+
 from typing import Sequence, Union
 
 from alembic import op

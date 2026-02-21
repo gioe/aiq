@@ -1,6 +1,7 @@
 """
 Tests for feedback submission endpoints.
 """
+
 import pytest
 from unittest.mock import patch, MagicMock
 from sqlalchemy.exc import SQLAlchemyError

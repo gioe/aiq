@@ -1,6 +1,7 @@
 """
 Tests for database query metrics instrumentation.
 """
+
 import time
 from unittest.mock import patch
 

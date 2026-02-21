@@ -6,6 +6,7 @@ returning None instead of raising 503.
 
 TASK-1169: Review get_current_user_optional error handling for availability.
 """
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

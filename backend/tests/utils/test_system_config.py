@@ -1,6 +1,7 @@
 """
 Tests for SystemConfig model and helper functions.
 """
+
 import pytest
 from app.core.datetime_utils import utc_now
 

@@ -1,6 +1,7 @@
 """
 Tests for security audit logging module.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest

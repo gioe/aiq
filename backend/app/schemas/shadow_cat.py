@@ -1,4 +1,5 @@
 """Pydantic schemas for shadow CAT admin endpoints (TASK-875, TASK-876, TASK-877)."""
+
 from datetime import datetime
 from typing import Dict, List, Optional
 

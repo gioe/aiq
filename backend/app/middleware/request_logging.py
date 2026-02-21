@@ -1,6 +1,7 @@
 """
 Request/response logging middleware for tracking API interactions.
 """
+
 import logging
 import time
 import uuid
@@ -84,9 +85,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 # Set user context if available
                 span.set_user_attributes(
                     user_id=user_id,
-                    username=user_identifier
-                    if user_identifier != "anonymous"
-                    else None,
+                    username=(
+                        user_identifier if user_identifier != "anonymous" else None
+                    ),
                 )
 
                 # Log incoming request with structured fields

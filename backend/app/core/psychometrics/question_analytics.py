@@ -13,6 +13,7 @@ Metrics calculated:
 2. Discrimination: Point-biserial correlation between question correctness and total score
 3. Response Count: Number of times question has been answered
 """
+
 # mypy: disable-error-code="dict-item"
 import logging
 from sqlalchemy import select

@@ -18,6 +18,7 @@ Tables affected:
   - arbiter_config_version -> judge_config_version
   - min_arbiter_score_threshold -> min_judge_score_threshold
 """
+
 from typing import Sequence, Union
 
 from alembic import op

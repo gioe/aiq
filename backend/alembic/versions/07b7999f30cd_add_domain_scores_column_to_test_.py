@@ -14,6 +14,7 @@ Format: {"pattern": {"correct": 3, "total": 4, "pct": 75.0}, "logic": {...}, ...
 
 Part of DW-001 (Domain Weighting - Database Schema).
 """
+
 from typing import Sequence, Union
 
 from alembic import op

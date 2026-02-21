@@ -1,6 +1,7 @@
 """
 Integration tests for JWT token revocation via /auth/logout endpoint.
 """
+
 import pytest
 from pathlib import Path
 from fastapi.testclient import TestClient

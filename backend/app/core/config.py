@@ -1,6 +1,7 @@
 """
 Application configuration settings.
 """
+
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Dict, List, Literal, Self

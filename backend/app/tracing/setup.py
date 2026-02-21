@@ -1,6 +1,7 @@
 """
 OpenTelemetry tracing, metrics, and logging setup and configuration.
 """
+
 import logging
 from typing import TYPE_CHECKING, Optional, Union
 

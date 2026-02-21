@@ -4,6 +4,7 @@ Tests for notification delivery tracking metrics.
 Verifies that analytics events (NOTIFICATION_SENT, NOTIFICATION_FAILED)
 are emitted when notifications are sent or fail.
 """
+
 import pytest
 from unittest.mock import AsyncMock, patch
 

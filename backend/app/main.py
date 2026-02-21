@@ -1,6 +1,7 @@
 """
 Main FastAPI application.
 """
+
 import logging
 import uuid
 from contextlib import asynccontextmanager

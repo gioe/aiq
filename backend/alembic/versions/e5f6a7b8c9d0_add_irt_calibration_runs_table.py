@@ -8,6 +8,7 @@ Tracks calibration job history for audit trail and scheduling decisions.
 Used by the weekly IRT recalibration cron job to determine whether
 new responses have accumulated since the last successful calibration.
 """
+
 from alembic import op
 import sqlalchemy as sa
 
