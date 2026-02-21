@@ -6,16 +6,15 @@ and provides a function to retrieve metrics in Prometheus text format.
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.metrics import MeterProvider
-    from prometheus_client import CollectorRegistry
 
 logger = logging.getLogger(__name__)
 
 # Global Prometheus registry - initialized on first use
-_prometheus_registry: Optional["CollectorRegistry"] = None
+_prometheus_registry: Optional[Any] = None
 _prometheus_initialized = False
 
 
@@ -37,14 +36,10 @@ def initialize_prometheus_exporter(meter_provider: "MeterProvider") -> None:
 
     try:
         from opentelemetry.exporter.prometheus import PrometheusMetricReader
-        from prometheus_client import CollectorRegistry
+        from prometheus_client import REGISTRY
 
-        # Create a dedicated registry for OpenTelemetry metrics
-        # This avoids conflicts with any other Prometheus collectors
-        registry = CollectorRegistry(auto_describe=True)
-
-        # Create Prometheus reader that will expose metrics via the registry
-        prometheus_reader = PrometheusMetricReader(registry=registry)  # type: ignore[call-arg]
+        # PrometheusMetricReader (>=0.51b0) always uses the global REGISTRY
+        prometheus_reader = PrometheusMetricReader()
 
         # Add the Prometheus reader to the meter provider
         # This allows metrics to be exported in both OTLP and Prometheus formats
@@ -53,7 +48,7 @@ def initialize_prometheus_exporter(meter_provider: "MeterProvider") -> None:
         # release notes for the new approach to add metric readers post-initialization.
         meter_provider._sdk_config.metric_readers.append(prometheus_reader)
 
-        _prometheus_registry = registry
+        _prometheus_registry = REGISTRY
         _prometheus_initialized = True
 
         logger.info("Prometheus exporter initialized successfully")

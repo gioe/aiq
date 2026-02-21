@@ -423,11 +423,10 @@ class OTELBackend:
         if self._config.prometheus_enabled:
             try:
                 from opentelemetry.exporter.prometheus import PrometheusMetricReader
-                from prometheus_client import CollectorRegistry
+                from prometheus_client import REGISTRY
 
-                registry = CollectorRegistry()
-                readers.append(PrometheusMetricReader(registry=registry))
-                self._prometheus_registry = registry
+                readers.append(PrometheusMetricReader())
+                self._prometheus_registry = REGISTRY
             except ImportError:
                 logger.debug("Prometheus metric reader not available")
 
