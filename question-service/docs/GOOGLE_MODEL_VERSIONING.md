@@ -24,12 +24,12 @@ The AIQ question service uses Google Gemini models for pattern recognition and s
 
 ### Production Configuration
 
-| Component | Model | File |
-|-----------|-------|------|
-| Pattern Generator | `gemini-3-pro-preview` | `config/generators.yaml` |
-| Spatial Generator | `gemini-3-pro-preview` | `config/generators.yaml` |
-| Pattern Judge | `gemini-3-pro-preview` | `config/judges.yaml` |
-| Spatial Judge | `gemini-3-pro-preview` | `config/judges.yaml` |
+| Component | Role | Model | File |
+|-----------|------|-------|------|
+| Memory Generator | primary | `gemini-3-pro-preview` | `config/generators.yaml` |
+| Spatial Generator | fallback | `gemini-3-pro-preview` | `config/generators.yaml` |
+| Memory Judge | primary | `gemini-3-pro-preview` | `config/judges.yaml` |
+| Spatial Judge | fallback | `gemini-3-pro-preview` | `config/judges.yaml` |
 
 ### Code References
 
@@ -103,7 +103,9 @@ jobs:
           provider = GoogleProvider(api_key=os.environ['GOOGLE_API_KEY'])
           available = set(provider.fetch_available_models())
 
-          # Collect all Google models from config files dynamically
+          # Collect all Google models from config files dynamically.
+          # Note: default_generator / default_judge entries are not checked
+          # here; they currently use OpenAI, not Google.
           google_models = set()
           for config_path in ['config/generators.yaml', 'config/judges.yaml']:
               with open(config_path) as f:
@@ -118,6 +120,8 @@ jobs:
                   if entry.get('fallback') == 'google':
                       if fallback_model := entry.get('fallback_model'):
                           google_models.add(fallback_model)
+
+          assert google_models, 'No Google models found in configs — check key names'
 
           missing = [m for m in google_models if m not in available]
 
