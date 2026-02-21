@@ -55,15 +55,18 @@ async def test_metrics_recorded_on_failure():
 
 
 @pytest.mark.asyncio
-async def test_metrics_failure_does_not_break_wrapper():
+async def test_metrics_failure_does_not_break_wrapper(caplog):
     """If metrics recording itself fails, the wrapper should still succeed."""
     func = AsyncMock(side_effect=ValueError("bad"))
     func.__name__ = "bad_task"
 
     with patch("app.core.background_tasks.metrics") as mock_metrics:
         mock_metrics.record_error.side_effect = RuntimeError("metrics down")
-        # Should NOT raise despite metrics failure
-        await safe_background_task(func)
+        with caplog.at_level(logging.DEBUG, logger="app.core.background_tasks"):
+            # Should NOT raise despite metrics failure
+            await safe_background_task(func)
+
+    assert "Failed to record BackgroundTaskFailure metric" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -86,3 +89,15 @@ async def test_function_name_extracted():
     mock_logger.exception.assert_called_once()
     # Name is passed as a %s argument to the format string
     assert mock_logger.exception.call_args[0][1] == "my_custom_task"
+
+
+@pytest.mark.asyncio
+async def test_repr_fallback_when_no_name(caplog):
+    """Wrapper should fall back to repr() when __name__ is missing."""
+    func = AsyncMock(side_effect=Exception("err"))
+    del func.__name__
+
+    with caplog.at_level(logging.ERROR, logger="app.core.background_tasks"):
+        await safe_background_task(func)
+
+    assert "Background task" in caplog.text
