@@ -98,17 +98,32 @@ jobs:
           cd question-service
           python -c "
           from app.providers.google_provider import GoogleProvider
-          import os
+          import os, yaml
 
           provider = GoogleProvider(api_key=os.environ['GOOGLE_API_KEY'])
-          available = provider.fetch_available_models()
+          available = set(provider.fetch_available_models())
 
-          expected = ['gemini-3-pro-preview', 'gemini-3-flash-preview']
-          missing = [m for m in expected if m not in available]
+          # Collect all Google models from config files dynamically
+          google_models = set()
+          for config_path in ['config/generators.yaml', 'config/judges.yaml']:
+              with open(config_path) as f:
+                  config = yaml.safe_load(f)
+              entries = config.get('generators', config.get('judges', {}))
+              for entry in entries.values():
+                  if not isinstance(entry, dict):
+                      continue
+                  if entry.get('provider') == 'google':
+                      if model := entry.get('model'):
+                          google_models.add(model)
+                  if entry.get('fallback') == 'google':
+                      if fallback_model := entry.get('fallback_model'):
+                          google_models.add(fallback_model)
+
+          missing = [m for m in google_models if m not in available]
 
           if missing:
               print(f'WARNING: Missing expected models: {missing}')
-              print(f'Available models: {available}')
+              print(f'Available models: {sorted(available)}')
               exit(1)
 
           # Check for new stable versions (indicates transition)
@@ -117,7 +132,7 @@ jobs:
               print(f'NOTICE: New stable Gemini 3 models detected: {new_stable}')
               print('Consider updating configurations to use stable versions.')
 
-          print('All expected models available.')
+          print(f'All {len(google_models)} configured Google models available.')
           "
 ```
 

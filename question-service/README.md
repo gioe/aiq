@@ -96,6 +96,25 @@ python run_generation.py --dry-run --count 10 --async --async-judge --verbose
 | 5 | Billing/quota error |
 | 6 | Authentication error |
 
+## Updating LLM Models
+
+When a provider releases a new model or deprecates an existing one, update these files:
+
+| File | What to update |
+|------|---------------|
+| `config/generators.yaml` | `model` and `fallback_model` per question type |
+| `config/judges.yaml` | `model` and `fallback_model` per question type |
+| `app/providers/<provider>_provider.py` | `get_available_models()` static list |
+
+After updating, verify the new model identifiers are correct:
+
+```bash
+# Run model availability integration tests (requires API keys)
+pytest tests/providers/test_provider_model_availability_integration.py --run-integration -v
+```
+
+The weekly CI job (`.github/workflows/model-availability-check.yml`) automatically checks that all configured models remain available across all providers. For Google-specific model version transitions (preview → stable), see [docs/GOOGLE_MODEL_VERSIONING.md](docs/GOOGLE_MODEL_VERSIONING.md).
+
 ## Development
 
 ```bash
