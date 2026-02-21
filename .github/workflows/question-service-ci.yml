@@ -48,6 +48,8 @@ jobs:
           mypy .
 
       - name: Run tests
+        env:
+          OPENAI_API_KEY: "sk-dummy-key-for-unit-testing-only"  # pragma: allowlist secret
         run: |
           cd question-service
           pytest -v
