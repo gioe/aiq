@@ -81,6 +81,6 @@ struct TestTimerView: View {
 }
 
 #Preview("Warning") {
-    TestTimerView(timerManager: TestTimerManager()
-        // Simulate 4 minutes remaining)
+    TestTimerView(timerManager: TestTimerManager())
+    // Simulate 4 minutes remaining
 }

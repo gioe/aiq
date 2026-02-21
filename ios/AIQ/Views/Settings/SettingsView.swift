@@ -13,6 +13,29 @@ struct SettingsView: View {
         _viewModel = StateObject(wrappedValue: ViewModelFactory.makeSettingsViewModel(container: serviceContainer))
     }
 
+    private var biometricIconName: String {
+        switch viewModel.biometricType {
+        case .faceID: "faceid"
+        case .touchID: "touchid"
+        case .none: "lock.shield"
+        }
+    }
+
+    private var biometricToggleLabel: String {
+        switch viewModel.biometricType {
+        case .faceID: "Sign in with Face ID"
+        case .touchID: "Sign in with Touch ID"
+        case .none: "Biometric Login"
+        }
+    }
+
+    private var biometricFooterText: String {
+        guard viewModel.isBiometricAvailable else {
+            return "Biometric authentication is not available on this device."
+        }
+        return "Use \(biometricToggleLabel) to sign in quickly and securely."
+    }
+
     var body: some View {
         ZStack {
             List {
@@ -43,6 +66,40 @@ struct SettingsView: View {
                     Text("Receive reminders when it's time to take your next IQ test (every 3 months)")
                         .font(.caption)
                 }
+
+                // Security Section
+                Section {
+                    HStack {
+                        Image(systemName: biometricIconName)
+                            .foregroundColor(.accentColor)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(biometricToggleLabel)
+                            if !viewModel.isBiometricAvailable {
+                                Text("Not available on this device")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { viewModel.isBiometricEnabled },
+                            set: { _ in viewModel.toggleBiometric() } // ViewModel owns toggle logic
+                        ))
+                        .disabled(!viewModel.isBiometricAvailable)
+                        .labelsHidden()
+                        .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.biometricToggle)
+                        .accessibilityLabel(biometricToggleLabel)
+                        .accessibilityHint(
+                            "Double tap to \(viewModel.isBiometricEnabled ? "disable" : "enable") biometric login"
+                        )
+                    }
+                } header: {
+                    Text("Security")
+                } footer: {
+                    Text(biometricFooterText)
+                        .font(.caption)
+                }
+                .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.securitySection)
 
                 // Help Section
                 Section {

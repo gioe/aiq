@@ -45,6 +45,7 @@ enum ServiceConfiguration {
     /// - `ToastManagerProtocol`: Container-owned instance for toast notifications
     /// - `HapticManagerProtocol`: Container-owned instance for haptic feedback
     /// - `BiometricAuthManagerProtocol`: Container-owned instance for biometric authentication
+    /// - `BiometricPreferenceStorageProtocol`: Container-owned instance for biometric preference persistence
     ///
     /// - Parameter container: The ServiceContainer to register services with
     ///
@@ -86,6 +87,11 @@ enum ServiceConfiguration {
         // MARK: - Layer 2: Services depending on Layer 1
 
         let keychainStorage = KeychainStorage()
+        container.register(SecureStorageProtocol.self, instance: keychainStorage)
+
+        let biometricPreferenceStorage = BiometricPreferenceStorage(secureStorage: keychainStorage)
+        container.register(BiometricPreferenceStorageProtocol.self, instance: biometricPreferenceStorage)
+
         let authService = AuthService(apiService: openAPIService, secureStorage: keychainStorage)
         container.register(AuthServiceProtocol.self, instance: authService)
 

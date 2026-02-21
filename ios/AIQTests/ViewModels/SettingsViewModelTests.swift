@@ -7,11 +7,19 @@ import XCTest
 final class SettingsViewModelTests: XCTestCase {
     var sut: SettingsViewModel!
     var mockAuthManager: MockAuthManager!
+    var mockBiometricAuthManager: MockBiometricAuthManager!
+    var mockBiometricPreferenceStorage: MockBiometricPreferenceStorage!
 
     override func setUp() {
         super.setUp()
         mockAuthManager = MockAuthManager()
-        sut = SettingsViewModel(authManager: mockAuthManager)
+        mockBiometricAuthManager = MockBiometricAuthManager()
+        mockBiometricPreferenceStorage = MockBiometricPreferenceStorage()
+        sut = SettingsViewModel(
+            authManager: mockAuthManager,
+            biometricAuthManager: mockBiometricAuthManager,
+            biometricPreferenceStorage: mockBiometricPreferenceStorage
+        )
     }
 
     // MARK: - Initialization Tests
@@ -40,7 +48,11 @@ final class SettingsViewModelTests: XCTestCase {
         mockAuthManager.isAuthenticated = true
 
         // When - Create new ViewModel
-        sut = SettingsViewModel(authManager: mockAuthManager)
+        sut = SettingsViewModel(
+            authManager: mockAuthManager,
+            biometricAuthManager: mockBiometricAuthManager,
+            biometricPreferenceStorage: mockBiometricPreferenceStorage
+        )
 
         // Then
         XCTAssertNotNil(sut.currentUser, "currentUser should be set from authManager")
@@ -248,6 +260,8 @@ final class SettingsViewModelTests: XCTestCase {
         // Create ViewModel with mock error recorder
         sut = SettingsViewModel(
             authManager: mockAuthManager,
+            biometricAuthManager: mockBiometricAuthManager,
+            biometricPreferenceStorage: mockBiometricPreferenceStorage,
             errorRecorder: mockErrorRecorder
         )
         mockAuthManager.shouldSucceedDeleteAccount = false
@@ -275,6 +289,8 @@ final class SettingsViewModelTests: XCTestCase {
         // Create ViewModel with mock error recorder
         sut = SettingsViewModel(
             authManager: mockAuthManager,
+            biometricAuthManager: mockBiometricAuthManager,
+            biometricPreferenceStorage: mockBiometricPreferenceStorage,
             errorRecorder: mockErrorRecorder
         )
         mockAuthManager.shouldSucceedDeleteAccount = true
@@ -296,6 +312,8 @@ final class SettingsViewModelTests: XCTestCase {
 
         sut = SettingsViewModel(
             authManager: mockAuthManager,
+            biometricAuthManager: mockBiometricAuthManager,
+            biometricPreferenceStorage: mockBiometricPreferenceStorage,
             errorRecorder: mockErrorRecorder
         )
         mockAuthManager.shouldSucceedDeleteAccount = false
@@ -356,7 +374,11 @@ final class SettingsViewModelTests: XCTestCase {
             lastName: "User",
             notificationEnabled: false
         )
-        sut = SettingsViewModel(authManager: mockAuthManager)
+        sut = SettingsViewModel(
+            authManager: mockAuthManager,
+            biometricAuthManager: mockBiometricAuthManager,
+            biometricPreferenceStorage: mockBiometricPreferenceStorage
+        )
 
         // When - Show dialog then confirm logout
         sut.showLogoutDialog()
@@ -470,5 +492,68 @@ final class SettingsViewModelTests: XCTestCase {
         // Wait for first delete to complete
         await firstDelete
         XCTAssertFalse(sut.isDeletingAccount, "isDeletingAccount should be false after completion")
+    }
+
+    // MARK: - Biometric Toggle Tests
+
+    func testInitialState_LoadsBiometricPreference() {
+        // Given
+        mockBiometricPreferenceStorage.isBiometricEnabled = true
+
+        // When
+        sut = SettingsViewModel(
+            authManager: mockAuthManager,
+            biometricAuthManager: mockBiometricAuthManager,
+            biometricPreferenceStorage: mockBiometricPreferenceStorage
+        )
+
+        // Then
+        XCTAssertTrue(sut.isBiometricEnabled, "isBiometricEnabled should reflect stored preference on init")
+    }
+
+    func testToggleBiometric_EnablesBiometric() {
+        // Given
+        XCTAssertFalse(sut.isBiometricEnabled)
+
+        // When
+        sut.toggleBiometric()
+
+        // Then
+        XCTAssertTrue(sut.isBiometricEnabled, "isBiometricEnabled should be true after toggle")
+        XCTAssertTrue(mockBiometricPreferenceStorage.isBiometricEnabled, "Storage should be updated")
+    }
+
+    func testToggleBiometric_DisablesBiometric() {
+        // Given
+        mockBiometricPreferenceStorage.isBiometricEnabled = true
+        sut = SettingsViewModel(
+            authManager: mockAuthManager,
+            biometricAuthManager: mockBiometricAuthManager,
+            biometricPreferenceStorage: mockBiometricPreferenceStorage
+        )
+        XCTAssertTrue(sut.isBiometricEnabled)
+
+        // When
+        sut.toggleBiometric()
+
+        // Then
+        XCTAssertFalse(sut.isBiometricEnabled, "isBiometricEnabled should be false after second toggle")
+        XCTAssertFalse(mockBiometricPreferenceStorage.isBiometricEnabled, "Storage should be updated")
+    }
+
+    func testIsBiometricAvailable_ReflectsBiometricManager() {
+        // Given
+        mockBiometricAuthManager.mockIsBiometricAvailable = true
+
+        // Then
+        XCTAssertTrue(sut.isBiometricAvailable, "isBiometricAvailable should reflect biometricAuthManager")
+    }
+
+    func testBiometricType_ReflectsBiometricManager() {
+        // Given
+        mockBiometricAuthManager.mockBiometricType = .faceID
+
+        // Then
+        XCTAssertEqual(sut.biometricType, .faceID, "biometricType should reflect biometricAuthManager")
     }
 }

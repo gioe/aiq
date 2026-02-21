@@ -168,6 +168,8 @@ enum AccessibilityIdentifiers {
         static let appVersionLabel = "settingsView.appVersionLabel"
         static let debugSection = "settingsView.debugSection"
         static let testCrashButton = "settingsView.testCrashButton"
+        static let biometricToggle = "settingsView.biometricToggle"
+        static let securitySection = "settingsView.securitySection"
     }
 
     // MARK: - History View
