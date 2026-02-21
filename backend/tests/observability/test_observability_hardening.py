@@ -1072,7 +1072,7 @@ class TestObservabilityConfigNegativeCases:
         from pathlib import Path
 
         config_path = str(
-            Path(__file__).parent.parent / "config" / "observability.yaml"
+            Path(__file__).parent.parent.parent / "config" / "observability.yaml"
         )
 
         with patch.dict(
@@ -1094,7 +1094,7 @@ class TestObservabilityConfigNegativeCases:
         from pathlib import Path
 
         config_path = str(
-            Path(__file__).parent.parent / "config" / "observability.yaml"
+            Path(__file__).parent.parent.parent / "config" / "observability.yaml"
         )
 
         with patch.dict(
