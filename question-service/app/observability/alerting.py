@@ -1060,9 +1060,9 @@ class InventoryAlertManager:
             cooldown_delta = timedelta(minutes=self.config.per_stratum_cooldown_minutes)
             if now < last_alert + cooldown_delta:
                 remaining = (last_alert + cooldown_delta - now).total_seconds() / 60
-                active_cooldowns[
-                    f"{key[0]}/{key[1]}"
-                ] = f"{remaining:.1f} min remaining"
+                active_cooldowns[f"{key[0]}/{key[1]}"] = (
+                    f"{remaining:.1f} min remaining"
+                )
 
         return {
             "global_cooldown_active": self._is_global_cooldown_active(now),

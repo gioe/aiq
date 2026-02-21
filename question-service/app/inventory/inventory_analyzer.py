@@ -356,9 +356,9 @@ class InventoryAnalyzer:
         for i, stratum in enumerate(strata):
             allocation = base_allocation + (1 if i < extra else 0)
             if allocation > 0:
-                plan.allocations[
-                    (stratum.question_type, stratum.difficulty)
-                ] = allocation
+                plan.allocations[(stratum.question_type, stratum.difficulty)] = (
+                    allocation
+                )
 
         plan.total_questions = target_total
         return plan

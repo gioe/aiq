@@ -224,9 +224,9 @@ class QuestionDeduplicator:
 
         # TASK-629: Support external cache injection or create HybridEmbeddingCache
         if embedding_cache is not None:
-            self._embedding_cache: Union[
-                EmbeddingCache, HybridEmbeddingCache
-            ] = embedding_cache
+            self._embedding_cache: Union[EmbeddingCache, HybridEmbeddingCache] = (
+                embedding_cache
+            )
             cache_type = (
                 "hybrid (Redis)"
                 if isinstance(embedding_cache, HybridEmbeddingCache)
