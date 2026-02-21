@@ -234,11 +234,25 @@ async def get_users_for_day_30_reminder(db: AsyncSession) -> List[User]:
 
 
 class NotificationScheduler:
-    """
-    Service class for managing notification scheduling logic.
+    """Service class for managing notification scheduling logic.
 
     This class provides methods to identify users who should receive
     notifications and schedule them appropriately.
+
+    **APNsService session lifecycle:** Each send method (``send_notifications_to_users``,
+    ``send_day_30_reminder_notifications``) creates its own short-lived ``APNsService``
+    instance, connects, sends a batch, and disconnects in a ``try … finally`` block.
+    Callers do **not** need to manage the APNs connection — the scheduler handles it
+    internally.  If the connection or batch send raises, the ``finally`` block still
+    disconnects, and the exception propagates to the caller.
+
+    **Retry expectations:** Neither send method retries on failure.  For Day 30
+    reminders, users whose sends fail keep ``day_30_reminder_sent_at = NULL`` and
+    remain eligible on subsequent cron runs — but the query window
+    (``DAY_30_NOTIFICATION_WINDOW_DAYS``, currently ±1 day) naturally caps retries
+    to at most ``2 * DAY_30_NOTIFICATION_WINDOW_DAYS`` scheduled runs before the
+    user ages out of the window.  Test reminders are bounded similarly by their
+    notification window.  No notification is retried indefinitely.
     """
 
     def __init__(self, db: AsyncSession):
