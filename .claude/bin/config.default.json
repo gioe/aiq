@@ -4,10 +4,20 @@
   "statuses": ["To Do", "In Progress", "Done"],
   "priorities": ["Highest", "High", "Medium", "Low", "Lowest"],
   "closed_reasons": ["completed", "expired", "wont_do", "duplicate"],
+  "complexity": ["XS", "S", "M", "L", "XL"],
+  "blocker_types": ["data", "approval", "infra", "external"],
+  "criterion_types": ["manual", "code", "test", "file"],
   "agents": {},
   "dupes": {
     "strip_prefixes": ["Deferred", "Enhancement", "Optional"],
     "check_threshold": 0.82,
     "similar_threshold": 0.6
-  }
+  },
+  "review": {
+    "mode": "disabled",
+    "max_passes": 2,
+    "reviewers": []
+  },
+  "review_categories": ["must_fix", "suggest", "defer"],
+  "review_severities": ["critical", "major", "minor"]
 }

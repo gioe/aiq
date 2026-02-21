@@ -21,18 +21,18 @@ If the user didn't provide any text after the command, ask:
 
 > What would you like to turn into tasks? Paste any text — feature specs, meeting notes, bug reports, requirements, etc.
 
-## Step 2: Read Project Config
+## Step 2: Fetch Config, Backlog, and Conventions
 
-Fetch valid values so tasks conform to the project's configured constraints:
+Fetch everything needed for analysis in a single call:
 
 ```bash
-tusk config domains
-tusk config task_types
-tusk config agents
-tusk config priorities
+tusk setup
 ```
 
-Store these for use when assigning metadata. If a field returns an empty list (e.g., domains is `[]`), that field has no validation — use your best judgment or leave it NULL.
+This returns a JSON object with three keys:
+- **`config`** — full project config (domains, task_types, agents, priorities, complexity, etc.). Store for use when assigning metadata. If a field is an empty list (e.g., `"domains": []`), that field has no validation — use your best judgment or leave it NULL.
+- **`backlog`** — all open tasks as an array of objects. Hold in context for Step 3. The heuristic dupe checker (`tusk dupes check`) catches textually similar tasks, but you can catch **semantic** duplicates that differ in wording — e.g., "Implement password reset flow" vs. existing "Add forgot password endpoint" — which the heuristic would miss.
+- **`conventions`** — learned project heuristics (string, may be empty). If non-empty and contains convention entries (not just the header comment), hold in context as **preamble rules** for Step 3 — they take precedence over the generic decomposition guidelines below. For example, a convention like "bin/tusk-*.py always needs a dispatcher entry in bin/tusk" means a new Python script and its dispatcher line belong in the **same** task, not two separate tickets.
 
 ## Step 3: Analyze and Decompose
 
@@ -46,6 +46,7 @@ Break the input into discrete, actionable tasks. For each task, determine:
 | **domain** | Match to a configured domain based on the task's subject area. Leave NULL if no domains are configured or none fit. |
 | **task_type** | Categorize as one of the configured task types (bug, feature, refactor, etc.). Default to `feature` for new work, `bug` for fixes. |
 | **assignee** | Match to a configured agent if the task clearly falls in their area. Leave NULL if unsure. |
+| **complexity** | Estimate effort: `XS` = partial session, `S` = 1 session, `M` = 2-3 sessions, `L` = 3-5 sessions, `XL` = 5+. Default to `M` if unclear. Must be one of the configured complexity values. |
 
 ### Decomposition Guidelines
 
@@ -54,20 +55,36 @@ Break the input into discrete, actionable tasks. For each task, determine:
 - **Preserve context** — include relevant details from the source text in the description
 - **Don't over-split** — trivial sub-steps that are naturally part of a larger task don't need their own row
 - **Group related fixes** — multiple closely related bugs can stay as one task if they share a root cause
+- **Check for semantic overlap** — compare each proposed task against the existing backlog (from Step 2b). If an existing task covers the same intent with different wording, flag it as a duplicate rather than proposing a new task
 
 ## Step 4: Present Task List for Review
 
-Show all proposed tasks in a numbered table before inserting anything:
+### Single-task fast path
+
+If analysis produced **exactly 1 task**, use the compact inline format instead of the full table:
+
+```markdown
+## Proposed Task
+
+**Add login endpoint with JWT auth** (High · api · feature · M · backend)
+> Implement POST /auth/login that validates credentials and returns a JWT token. Include refresh token support.
+```
+
+Then ask:
+
+> Create this task? You can **confirm**, **edit** (e.g., "change priority to Medium"), or **remove** it.
+
+### Multi-task presentation
+
+If analysis produced **2 or more tasks**, show the full numbered table:
 
 ```markdown
 ## Proposed Tasks
 
-| # | Summary | Priority | Domain | Type | Assignee |
-|---|---------|----------|--------|------|----------|
-| 1 | Add login endpoint with JWT auth | High | api | feature | backend |
-| 2 | Add signup page with form validation | Medium | frontend | feature | frontend |
-| 3 | Fix broken CSS on mobile nav | High | frontend | bug | frontend |
-| 4 | Add rate limiting middleware | Medium | api | feature | backend |
+| # | Summary | Priority | Domain | Type | Complexity | Assignee |
+|---|---------|----------|--------|------|------------|----------|
+| 1 | Add login endpoint with JWT auth | High | api | feature | M | backend |
+| 2 | Add signup page with form validation | Medium | frontend | feature | S | frontend |
 
 ### Details
 
@@ -76,8 +93,6 @@ Show all proposed tasks in a numbered table before inserting anything:
 
 **2. Add signup page with form validation**
 > Create signup form with email, password, and confirm password fields. Validate on blur and on submit.
-
-...
 ```
 
 Then ask:
@@ -88,51 +103,48 @@ Then ask:
 > - **Edit** a task (e.g., "change 2 priority to High")
 > - **Add** a task you think is missing
 
+### For both paths
+
 Wait for explicit user approval before proceeding. Do NOT insert anything until the user confirms.
 
-## Step 5: Deduplicate and Insert
+## Step 5: Deduplicate, Insert, and Generate Criteria
 
-For each approved task, run a duplicate check **before** inserting:
+For each approved task, generate **3–7 acceptance criteria** — concrete, testable conditions that define "done." Derive them from the description: each distinct requirement or expected behavior maps to a criterion. For **bug** tasks, include a criterion that the failure case is resolved. For **feature** tasks, include the happy path and at least one edge case.
 
-```bash
-tusk dupes check "<summary>"
-```
-
-If the domain is set and non-empty, include it:
+Then insert the task with criteria in a single call using `tusk task-insert`. This validates enum values against config, runs a heuristic duplicate check internally, and inserts the task + criteria in one transaction:
 
 ```bash
-tusk dupes check "<summary>" --domain <domain>
+tusk task-insert "<summary>" "<description>" \
+  --priority "<priority>" \
+  --domain "<domain>" \
+  --task-type "<task_type>" \
+  --assignee "<assignee>" \
+  --complexity "<complexity>" \
+  --criteria "<criterion 1>" \
+  --criteria "<criterion 2>" \
+  --criteria "<criterion 3>"
 ```
 
-### Exit code 0 — No duplicate found → Insert the task
-
-**IMPORTANT**: Escape single quotes in all text fields by doubling them (`'` → `''`) to prevent SQL errors.
+For typed criteria with automated verification, use `--typed-criteria` with a JSON object:
 
 ```bash
-tusk "INSERT INTO tasks (summary, description, status, priority, domain, task_type, assignee, created_at, updated_at)
-  VALUES (
-    '<summary>',
-    '<description>',
-    'To Do',
-    '<priority>',
-    '<domain_or_NULL>',
-    '<task_type>',
-    '<assignee_or_NULL>',
-    datetime('now'),
-    datetime('now')
-  )"
+tusk task-insert "<summary>" "<description>" \
+  --criteria "Manual criterion" \
+  --typed-criteria '{"text":"Tests pass","type":"test","spec":"pytest tests/"}' \
+  --typed-criteria '{"text":"Config exists","type":"file","spec":"config/*.json"}'
 ```
 
-For NULL fields, use the literal `NULL` (unquoted) instead of a quoted string:
+Valid types: `manual` (default), `code`, `test`, `file`. Non-manual types require a `spec` field.
 
-```bash
-tusk "INSERT INTO tasks (summary, description, status, priority, domain, task_type, assignee, created_at, updated_at)
-  VALUES ('Add rate limiting', 'Details here', 'To Do', 'Medium', NULL, 'feature', NULL, datetime('now'), datetime('now'))"
-```
+Omit `--domain` or `--assignee` entirely if the value is NULL/empty — do not pass empty strings.
+
+### Exit code 0 — Success
+
+The command prints JSON with `task_id` and `criteria_ids`. Use the `task_id` for dependency proposals in Step 7.
 
 ### Exit code 1 — Duplicate found → Skip
 
-Report which existing task matched and skip the insert:
+The command prints JSON with `matched_task_id` and `similarity`. Report which existing task matched:
 
 > Skipped "Add login endpoint with JWT auth" — duplicate of existing task #12 (similarity 0.87)
 
@@ -140,7 +152,21 @@ Report which existing task matched and skip the insert:
 
 Report the error and skip.
 
-## Step 6: Report Results
+## Step 7: Propose Dependencies
+
+Skip this step if:
+- Zero tasks were created (all were duplicates), OR
+- Exactly **one** task was created (single-task fast path — no inter-task dependencies to propose, and checking against the backlog adds ceremony for the most common use case)
+
+If **two or more** tasks were created, analyze for dependencies. Load the dependency proposal guide:
+
+```
+Read file: <base_directory>/DEPENDENCIES.md
+```
+
+Then follow its instructions.
+
+## Step 8: Report Results
 
 After processing all tasks, show a summary:
 
@@ -149,6 +175,7 @@ After processing all tasks, show a summary:
 
 **Created**: 3 tasks (#14, #15, #16)
 **Skipped**: 1 duplicate (matched existing #12)
+**Dependencies added**: 2 (#16 → #14 (blocks), #17 → #14 (contingent))
 
 | ID | Summary | Priority | Domain |
 |----|---------|----------|--------|
@@ -157,18 +184,41 @@ After processing all tasks, show a summary:
 | 16 | Add rate limiting middleware | Medium | api |
 ```
 
-Then show the final state:
+Include the **Dependencies added** line only when Step 7 was executed (i.e., two or more tasks were created). If Step 7 was skipped (all duplicates, single-task fast path, or user skipped all dependencies), omit the line. If dependencies were proposed but the user removed some, only list the ones actually inserted.
+
+### Zero-criteria check
+
+After displaying the summary, verify that every created task has at least one acceptance criterion. For each created task ID, run:
 
 ```bash
-tusk -header -column "SELECT id, summary, priority, domain, task_type, assignee FROM tasks WHERE status = 'To Do' ORDER BY priority_score DESC, id"
+tusk criteria list <task_id>
 ```
+
+If any task has **zero criteria**, display a warning:
+
+> **Warning**: Tasks #14, #16 have no acceptance criteria. Go back to Step 6 and generate criteria for them before moving on.
+
+Do not proceed past this step until all created tasks have at least one criterion.
+
+Then, **conditionally** show the updated backlog:
+
+- If **more than 3 tasks were created**, show the full backlog so the user can see where the new tasks landed:
+
+  ```bash
+  tusk -header -column "SELECT id, summary, priority, domain, task_type, assignee FROM tasks WHERE status = 'To Do' ORDER BY priority_score DESC, id"
+  ```
+
+- If **3 or fewer tasks were created**, show only a count to save tokens:
+
+  ```bash
+  tusk "SELECT COUNT(*) || ' open tasks in backlog' FROM tasks WHERE status = 'To Do'"
+  ```
 
 ## Important Guidelines
 
 - **All DB access goes through `tusk`** — never use raw `sqlite3`
 - **Always confirm before inserting** — never insert tasks without explicit user approval
 - **Always run dupe checks** — check every task against existing open tasks before inserting
-- **Escape single quotes** — replace `'` with `''` in all SQL string values
-- **Leave `priority_score` at 0** — let `/groom-backlog` compute scores later
+- **Use `tusk sql-quote`** — always wrap user-provided text with `$(tusk sql-quote "...")` in SQL statements
 - **Use configured values only** — read domains, task_types, agents, and priorities from `tusk config`, never hardcode
 - **Adapt to any project** — this skill works with whatever config the target project has

@@ -8,58 +8,48 @@ allowed-tools: Bash, Glob, Grep, Read
 
 Grooms the local task database by identifying completed, redundant, incorrectly prioritized, or unassigned tasks.
 
-## Setup: Discover Project Config
+## Setup: Fetch Config, Backlog, and Conventions
 
-Before grooming, discover valid values for this project:
+Before grooming, fetch everything needed in a single call:
 
 ```bash
-tusk config domains
-tusk config agents
-tusk config task_types
+tusk setup
 ```
 
-Use these values (not hardcoded ones) throughout the grooming process.
+This returns a JSON object with three keys:
+- **`config`** — full project config (domains, agents, task_types, priorities, complexity, etc.). Use these values (not hardcoded ones) throughout the grooming process.
+- **`backlog`** — all open tasks as an array of objects. Use this as the primary backlog data for Step 1 (you still need the dependency queries below).
+- **`conventions`** — learned project heuristics (string, may be empty). If non-empty and contains convention entries (not just the header comment), hold in context as **preamble rules** for the analysis in Steps 1–2. Conventions influence how you evaluate tasks — for example, a convention about file coupling patterns may reveal that two apparently separate tasks are really one piece of work (candidates for merging), or that a task is missing implicit sub-work.
 
-## Step 0: Auto-Close Expired Deferred Tasks
+## Pre-Check: Auto-Close Stale Tasks
 
-Before analyzing the backlog, close any deferred tasks that have passed their 60-day expiry. This is automatic and does not require user approval.
+Run all three auto-close checks (expired deferred, merged PRs, moot contingent) in a single command:
 
 ```bash
-# Check how many deferred tasks have expired
-tusk -header -column "
-SELECT COUNT(*) as expired_count
-FROM tasks
-WHERE summary LIKE '%[Deferred]%'
-  AND status = 'To Do'
-  AND expires_at IS NOT NULL
-  AND expires_at < datetime('now')
-"
-
-# Auto-close expired deferred tasks
-tusk "
-UPDATE tasks
-SET status = 'Done',
-    closed_reason = 'expired',
-    updated_at = datetime('now'),
-    description = description || char(10) || char(10) || '---' || char(10) || 'Auto-closed: Deferred task expired after 60 days without action (' || datetime('now') || ').'
-WHERE summary LIKE '%[Deferred]%'
-  AND status = 'To Do'
-  AND expires_at IS NOT NULL
-  AND expires_at < datetime('now');
-"
+tusk autoclose
 ```
 
-Report how many were auto-closed before proceeding.
+This returns a JSON summary with counts and task IDs per category:
+- `expired_deferred` — deferred tasks past their 60-day expiry (closed as `expired`)
+- `merged_prs` — In Progress tasks whose GitHub PR is already merged (closed as `completed`)
+- `moot_contingent` — tasks contingent on upstream work that closed as `wont_do`/`expired` (closed as `wont_do`)
+- `flagged_for_review` — (if present) In Progress tasks whose PR was closed without merging — flag these for user review in Step 3
 
-## Step 1: Fetch All Backlog Tasks
+If `total_closed` is 0, report "No auto-close candidates found" and proceed to Step 1. Otherwise, report the counts before continuing.
+
+## Step 1: Fetch Dependency Data
+
+The backlog tasks are already available from the `tusk setup` call above. Fetch dependency data to supplement:
 
 ```bash
-tusk -header -column "SELECT id, summary, status, priority, domain, assignee FROM tasks WHERE status != 'Done' ORDER BY priority DESC, id"
+tusk deps blocked
+tusk deps all
+```
 
-tusk -header -column "SELECT * FROM tasks WHERE status != 'Done'"
+**On-demand descriptions**: This query intentionally omits the `description` column to keep context lean. When you identify action candidates in Step 2 (tasks to close, delete, reprioritize, or assign), fetch full details for just those tasks:
 
-python3 .claude/scripts/manage_dependencies.py blocked
-python3 .claude/scripts/manage_dependencies.py all
+```bash
+tusk -header -column "SELECT id, summary, description FROM tasks WHERE id IN (<comma-separated ids>)"
 ```
 
 ## Step 2: Scan for Duplicates and Categorize Tasks
@@ -74,7 +64,7 @@ Any pairs found should be included in **Category B** with reason "duplicate".
 
 ### Step 2b: Categorize Tasks
 
-Analyze each task and categorize:
+Analyze each task and categorize. In addition to the heuristic scan results from Step 2a, look for **semantic duplicates** — tasks that cover the same intent but use different wording (e.g., "Implement password reset flow" vs. "Add forgot password endpoint"). The heuristic catches textual near-matches; you should catch conceptual overlap that differs in phrasing.
 
 ### Category A: Candidates for Done (Acceptance Criteria Already Met)
 Tasks where the work has already been completed in the codebase:
@@ -82,7 +72,7 @@ Tasks where the work has already been completed in the codebase:
 2. **Evidence required**: Provide specific file paths and code as proof
 3. **Mark as Done**:
    ```bash
-   tusk "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
+   tusk task-done <id> --reason completed
    ```
 
 ### Category B: Candidates for Deletion
@@ -93,7 +83,7 @@ Tasks where the work has already been completed in the codebase:
 
 Before recommending deletion, check dependents:
 ```bash
-python3 .claude/scripts/manage_dependencies.py dependents <id>
+tusk deps dependents <id>
 ```
 
 ### Category C: Candidates for Reprioritization
@@ -104,23 +94,15 @@ python3 .claude/scripts/manage_dependencies.py dependents <id>
 Tasks without an agent assignee:
 
 ```bash
-tusk -header -column "SELECT id, summary, domain FROM tasks WHERE status != 'Done' AND assignee IS NULL"
+tusk -header -column "SELECT id, summary, domain FROM tasks WHERE status <> 'Done' AND assignee IS NULL"
 ```
 
-Assign based on project agents (from `tusk config agents`).
+Assign based on project agents (from `tusk config`).
 
 ### Category E: Healthy Tasks
 Correctly prioritized, assigned, and relevant. No action needed.
 
-## Step 3: Review Context
-
-```bash
-tusk -header -column "SELECT * FROM tasks WHERE id = <id>"
-```
-
-Also review recent commits and project documentation to understand current priorities.
-
-## Step 4: Present Findings for Approval
+## Step 3: Present Findings for Approval
 
 Present analysis in this format:
 
@@ -144,90 +126,73 @@ Present analysis in this format:
 ### No Action Needed (V tasks)
 ```
 
-## Step 5: Get User Confirmation
+## Step 4: Get User Confirmation
 
 **IMPORTANT**: Before making any changes, explicitly ask the user to approve each category.
 
-## Step 6: Execute Changes
+## Step 5: Execute Changes
 
 Only after user approval:
 
 ### For Done Transitions:
 ```bash
-tusk "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
+tusk task-done <id> --reason completed
 ```
 
 ### For Deletions:
 ```bash
 # Duplicates:
-tusk "UPDATE tasks SET status = 'Done', closed_reason = 'duplicate', updated_at = datetime('now') WHERE id = <id>"
+tusk task-done <id> --reason duplicate
 
 # Obsolete/won't-do:
-tusk "UPDATE tasks SET status = 'Done', closed_reason = 'wont_do', updated_at = datetime('now') WHERE id = <id>"
+tusk task-done <id> --reason wont_do
 ```
 
 ### For Priority Changes:
 ```bash
-tusk "UPDATE tasks SET priority = '<New Priority>' WHERE id = <id>"
+tusk task-update <id> --priority "<New Priority>"
 ```
 
 ### For Agent Assignments:
 ```bash
-tusk "UPDATE tasks SET assignee = '<agent-name>' WHERE id = <id>"
+tusk task-update <id> --assignee "<agent-name>"
 ```
 
-### After Each Change:
-```bash
-tusk -header -column "SELECT id, summary, status, priority FROM tasks WHERE id = <id>"
-```
+### After All Changes:
 
-## Step 7: Compute Priority Scores
-
-After all grooming changes are complete, compute `priority_score` for all open tasks.
-
-### Scoring Formula
-
-```
-priority_score = base_priority + source_bonus + unblocks_bonus
-```
-
-Where:
-- **base_priority**: Highest=100, High=80, Medium=60, Low=40, Lowest=20
-- **source_bonus**: +10 if NOT a `[Deferred]` task
-- **unblocks_bonus**: +5 per dependent task, capped at +15
+Verify all modifications in a single batch query:
 
 ```bash
-tusk "
-UPDATE tasks SET priority_score = (
-  CASE priority
-    WHEN 'Highest' THEN 100
-    WHEN 'High' THEN 80
-    WHEN 'Medium' THEN 60
-    WHEN 'Low' THEN 40
-    WHEN 'Lowest' THEN 20
-    ELSE 40
-  END
-  + CASE WHEN summary NOT LIKE '%[Deferred]%' THEN 10 ELSE 0 END
-  + MIN(COALESCE((
-    SELECT COUNT(*) * 5
-    FROM task_dependencies d
-    WHERE d.depends_on_id = tasks.id
-  ), 0), 15)
-)
-WHERE status != 'Done';
-"
+tusk -header -column "SELECT id, summary, status, priority, assignee FROM tasks WHERE id IN (<comma-separated ids of all changed tasks>)"
+```
 
-# Verify
+## Step 6: Bulk-Estimate Unsized Tasks
+
+Before computing priority scores, check for tasks without complexity estimates:
+
+```bash
 tusk -header -column "
-SELECT id, summary, priority, priority_score
+SELECT id, summary, description, domain, task_type
 FROM tasks
-WHERE status = 'To Do'
-ORDER BY priority_score DESC
-LIMIT 15;
+WHERE status <> 'Done'
+  AND complexity IS NULL
+ORDER BY id
 "
 ```
 
-## Step 8: Generate Summary Report
+If no rows are returned, skip to Step 7.
+
+If unsized tasks are found, read the reference file for the sizing workflow:
+
+```
+Read file: <base_directory>/REFERENCE.md
+```
+
+Follow Steps 6b–6d from the reference, then continue to Step 7 below.
+
+## Step 7: Final Report
+
+Generate the summary report:
 
 ```markdown
 ## Backlog Grooming Complete
@@ -240,9 +205,15 @@ LIMIT 15;
 - **Unchanged**: Z tasks
 ```
 
-Show final backlog state:
+Show the final backlog state (this also serves as WSJF score verification):
+
 ```bash
-tusk -header -column "SELECT id, summary, status, priority, domain, assignee FROM tasks WHERE status != 'Done' ORDER BY priority DESC, id"
+tusk -header -column "
+SELECT id, summary, status, priority, complexity, priority_score, domain, assignee
+FROM tasks
+WHERE status <> 'Done'
+ORDER BY priority_score DESC, id
+"
 ```
 
 ## Important Guidelines
@@ -253,3 +224,4 @@ tusk -header -column "SELECT id, summary, status, priority, domain, assignee FRO
 4. **Preserve history**: Close with a reason rather than DELETE
 5. **Consider dependencies**: Check dependents before deleting
 6. **Batch operations carefully**: Execute changes one at a time
+7. **Keep the backlog lean (< 20 open tasks)**: The full backlog dump scales at ~700 tokens/task and is repeated across ~15+ agentic turns during grooming. A 30-task backlog can consume over 300k tokens in a single session. Aggressively close, merge, or defer tasks to stay under 20 open items

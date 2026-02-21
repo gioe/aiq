@@ -13,11 +13,10 @@ The primary interface for working with tasks from the project task database (via
 Before any operation that needs domain or agent values, run:
 
 ```bash
-tusk config domains
-tusk config agents
+tusk config
 ```
 
-Use the returned values (not hardcoded ones) when validating or inserting tasks.
+This returns the full config as JSON (domains, agents, task_types, priorities, complexity, etc.). Use the returned values (not hardcoded ones) when validating or inserting tasks.
 
 ## Commands
 
@@ -27,22 +26,48 @@ Finds the highest-priority task that is ready to work on (no incomplete dependen
 
 ```bash
 tusk -header -column "
-SELECT t.id, t.summary, t.priority, t.priority_score, t.domain, t.assignee, t.description
+SELECT t.id, t.summary, t.priority, t.priority_score, t.domain, t.assignee, t.complexity, t.description
 FROM tasks t
 WHERE t.status = 'To Do'
   AND NOT EXISTS (
     SELECT 1 FROM task_dependencies d
     JOIN tasks blocker ON d.depends_on_id = blocker.id
-    WHERE d.task_id = t.id AND blocker.status != 'Done'
+    WHERE d.task_id = t.id AND blocker.status <> 'Done'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM external_blockers eb
+    WHERE eb.task_id = t.id AND eb.is_resolved = 0
   )
 ORDER BY t.priority_score DESC, t.id
 LIMIT 1;
 "
 ```
 
-**Note**: The `priority_score` is pre-computed by `/groom-backlog` and factors in priority level, how many tasks this unblocks, and task age.
+**Empty backlog**: If the query returns no rows, the backlog has no ready tasks. Check why:
 
-After finding the next ready task, **immediately proceed to the "Begin Work on a Task" workflow** using the retrieved task ID. Do not wait for user confirmation.
+```bash
+tusk -header -column "SELECT status, COUNT(*) as count FROM tasks GROUP BY status"
+```
+
+- If there are **no tasks at all** (or all are Done): inform the user the backlog is empty and suggest running `/create-task` to add new work.
+- If there are **To Do tasks but all are blocked**: inform the user and suggest running `/next-task blocked` to see what's holding them up.
+- If there are **In Progress tasks**: inform the user and suggest running `/next-task wip` to check on active work.
+
+Do **not** suggest `/groom-backlog` or `/retro` when there are no ready tasks — those skills require an active backlog or session history to be useful.
+
+**Note**: The `priority_score` is pre-computed by `/groom-backlog` using WSJF (Weighted Shortest Job First) scoring — it factors in priority level, how many tasks this unblocks, and divides by complexity weight (XS=1, S=2, M=3, L=5, XL=8) so small high-value tasks rank higher.
+
+**Complexity warning**: If the selected task has complexity **L** or **XL**, display a warning to the user before proceeding:
+
+> **Note: This is a large task (complexity: L/XL) — expect 3+ sessions to complete.**
+
+Then ask the user whether to proceed or request a smaller task. If the user chooses a smaller task, re-run the query excluding L and XL:
+
+Re-run the query above, adding `AND t.complexity NOT IN ('L', 'XL')` to the WHERE clause. (The external_blockers filter is already included in the base query.)
+
+If no smaller task is available, inform the user and offer to proceed with the original L/XL task.
+
+After the user confirms (or if the task is not L/XL), **immediately proceed to the "Begin Work on a Task" workflow** using the retrieved task ID. Do not wait for additional user confirmation.
 
 ### Begin Work on a Task (with task ID argument)
 
@@ -50,295 +75,90 @@ When called with a task ID (e.g., `/next-task 6`), begin the full development wo
 
 **Follow these steps IN ORDER:**
 
-1. **Fetch the task** from the database:
+1. **Start the task** — fetch details, check progress, create/reuse session, and set status in one call:
    ```bash
-   tusk -header -column "SELECT * FROM tasks WHERE id = <id>"
+   tusk task-start <id>
    ```
+   This returns a JSON blob with four keys:
+   - `task` — full task row (summary, description, priority, domain, assignee, etc.)
+   - `progress` — array of prior progress checkpoints (most recent first). If non-empty, the first entry's `next_steps` tells you exactly where to pick up. Skip steps you've already completed (branch may already exist, some commits may already be made). Use `git log --oneline` on the existing branch to see what's already been done.
+   - `criteria` — array of acceptance criteria objects (id, criterion, source, is_completed, criterion_type, verification_spec). These are the implementation checklist. Work through them in order during implementation. Mark each criterion done (`tusk criteria done <cid>`) as you complete it — do not defer this to the end. Non-manual criteria (type: code, test, file) run automated verification on `done`; use `--skip-verify` if needed. If the array is empty, proceed normally using the description as scope.
+   - `session_id` — the session ID to use for the duration of the workflow (reuses an open session if one exists, otherwise creates a new one)
 
-2. **Check for prior progress** — if context was lost mid-task, resume from the last checkpoint:
+   Hold onto `session_id` from the JSON — it will be used to close the session when the task is done.
+
+2. **Create a new git branch IMMEDIATELY** (skip if resuming and branch already exists):
    ```bash
-   tusk -header -column "SELECT * FROM task_progress WHERE task_id = <id> ORDER BY created_at DESC"
+   tusk branch <id> <brief-description-slug>
    ```
-   If rows exist, read them carefully. The most recent entry's `next_steps` tells you exactly where to pick up. Skip steps you've already completed (branch may already exist, some commits may already be made). Use `git log --oneline` on the existing branch to see what's already been done.
+   This detects the default branch (remote HEAD → gh fallback → "main"), checks it out, pulls latest, and creates `feature/TASK-<id>-<slug>`. It prints the created branch name on success.
 
-   Also check for an open session to reuse:
-   ```bash
-   SESSION_ID=$(tusk "SELECT id FROM task_sessions WHERE task_id = <id> AND ended_at IS NULL ORDER BY started_at DESC LIMIT 1")
-   ```
-   If `SESSION_ID` is non-empty, reuse it. If empty, a new session will be created in the next step.
-
-3. **Update the task status** to In Progress (if not already):
-   ```bash
-   tusk "UPDATE tasks SET status = 'In Progress', updated_at = datetime('now') WHERE id = <id>"
-   ```
-
-4. **Start a session** (skip if `SESSION_ID` was already set from step 2):
-   ```bash
-   tusk "INSERT INTO task_sessions (task_id, started_at) VALUES (<id>, datetime('now'))"
-   SESSION_ID=$(tusk "SELECT MAX(id) FROM task_sessions WHERE task_id = <id>")
-   ```
-   Hold onto `SESSION_ID` for the duration of the workflow — it will be used to close the session when the task is done.
-
-5. **Extract task details** including:
-   - Summary
-   - Description
-   - Priority
-   - Domain
-   - Assignee
-
-6. **Create a new git branch IMMEDIATELY** (skip if resuming and branch already exists):
-   - Format: `feature/TASK-<id>-brief-description`
-   - Commands:
-     ```bash
-     git checkout main && git pull origin main
-     git checkout -b feature/TASK-<id>-brief-description
-     ```
-
-7. **Determine the best subagent(s)** based on:
+3. **Determine the best subagent(s)** based on:
    - Task domain
    - Task assignee field (often indicates the right agent type)
    - Task description and requirements
 
-8. **Explore the codebase before implementing** — use a sub-agent to research:
+4. **Explore the codebase before implementing** — use a sub-agent to research:
    - What files will need to change?
    - Are there existing patterns to follow?
    - What tests already exist for this area?
 
    Report findings before writing any code.
 
-9. **Delegate the work** to the chosen subagent(s).
+5. **Scope check — only implement what the task describes.**
+   The task's `summary` and `description` fields define the full scope of work for this session. If the description references or links to external documents (evaluation docs, design specs, RFCs), treat them as **background context only** — do not implement items from those docs that go beyond what the task's own description asks for. Referenced docs often describe multi-task plans; implementing the entire plan collapses future tasks into one PR and defeats dependency ordering.
 
-10. **Create atomic commits** as you complete logical units of work.
-    - All commits should be on the feature branch, NOT main.
-    - **After every commit, log a progress checkpoint** (see below).
+6. **Delegate the work** to the chosen subagent(s).
 
-11. **Log a progress checkpoint after every commit:**
-    ```bash
-    HASH=$(git rev-parse --short HEAD)
-    MSG=$(git log -1 --pretty=%s)
-    FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | tr '\n' ', ' | sed 's/,$//')
-    tusk "INSERT INTO task_progress (task_id, commit_hash, commit_message, files_changed, next_steps)
-      VALUES (<id>, '$HASH', '$MSG', '$FILES', '<what remains to be done>')"
-    ```
-    The `next_steps` field is critical — write it as if briefing a new agent who has zero context. Include:
-    - What has been implemented so far
-    - What still needs to be done
-    - Any decisions made or open questions
-    - The current branch name
-
-12. **Review the code locally** before considering the work complete.
-
-13. **Push the branch and create a PR**:
-    ```bash
-    git push -u origin feature/TASK-<id>-description
-    gh pr create --title "[TASK-<id>] Brief task description" --body "..."
-    ```
-    Capture the PR URL from the output.
-
-14. **Update the task with the PR URL**:
-    ```bash
-    tusk "UPDATE tasks SET github_pr = '<pr_url>', updated_at = datetime('now') WHERE id = <id>"
-    ```
-
-15. **Review loop — iterate until approved**:
-
-    ```
-    ┌─► Poll for review
-    │         │
-    │         ▼
-    │   Analyze review
-    │         │
-    │         ▼
-    │   ┌─────────────┐
-    │   │ Approved?   │───Yes──► Exit loop
-    │   └─────────────┘
-    │         │ No
-    │         ▼
-    │   Address comments
-    │         │
-    │         ▼
-    │   Push fixes
-    │         │
-    └─────────┘
-    ```
-
-    **Category A — Address Immediately (must fix in this PR):**
-    - Security concerns, bugs, breaking changes
-    - Missing tests for code introduced/modified in this PR
-    - Performance issues, type errors, missing error handling
-
-    The bar is: if the reviewer comments on code this PR touches, fix it now.
-
-    For each Category A comment:
-    1. Read the relevant file(s)
-    2. Make the code fix
-    3. Commit: `[TASK-<id>] Address PR review: <brief description>`
-    4. Log a progress checkpoint (step 11) after each review-fix commit
-
-    **Category B — Defer to backlog (cosmetic only):**
-    - Pure style preferences not affecting correctness
-    - Suggestions about pre-existing code NOT touched by this PR
-    - Aspirational ideas about unrelated modules
-
-    For each Category B comment:
-    1. **Check for duplicates first** using `/check-dupes`:
+7. **Implement, commit, and mark criteria done.** Work through the acceptance criteria from step 1 as your checklist — **one commit per criterion**. For each criterion in order:
+    1. Implement the changes that satisfy it
+    2. Commit using `tusk commit`:
        ```bash
-       tusk dupes check "[Deferred] <brief description>" --domain <domain>
+       tusk commit <id> "<message>" <file1> [file2 ...]
        ```
-    2. Create a deferred task (with 60-day expiry):
-       ```bash
-       tusk "INSERT INTO tasks (summary, description, status, priority, domain, created_at, updated_at, expires_at)
-         VALUES ('[Deferred] <brief description>', 'Deferred from PR #<pr_number> review for TASK-<id>.
+       This runs `tusk lint` (advisory — never blocks), stages the listed files, and commits with the `[TASK-<id>] <message>` format and Co-Authored-By trailer automatically.
+    3. Mark that criterion done: `tusk criteria done <cid>`
+    4. Log a progress checkpoint:
+      ```bash
+      tusk progress <id> --next-steps "<what remains to be done>"
+      ```
+    - All commits should be on the feature branch, NOT the default branch.
 
-Original comment: <comment text>
+    The `next_steps` field is critical — write it as if briefing a new agent who has zero context. Include what's been done, what remains, decisions made, and the branch name.
 
-Reason deferred: <why this can wait>', 'To Do', 'Low', '<domain>', datetime('now'), datetime('now'), datetime('now', '+60 days'))"
-       ```
+    **Schema migration reminder:** If the commit includes changes to `bin/tusk` that add or modify a migration (inside `cmd_migrate()`), run `tusk migrate` on the live database immediately after committing.
 
-16. **PR approved — finalize and merge**:
+8. **Review the code locally** before considering the work complete.
 
+9. **Verify all acceptance criteria are done** before pushing:
     ```bash
-    gh pr merge $PR_NUMBER --squash --delete-branch
+    tusk criteria list <id>
+    ```
+    If any criteria are still incomplete, address them now. If a criterion was intentionally skipped, note why in the PR description.
+
+10. **Run convention lint (advisory)** — `tusk commit` already runs lint before each commit. If you need to check lint independently before pushing:
+    ```bash
+    tusk lint
+    ```
+    Review the output. This check is **advisory only** — violations are warnings, not blockers. Fix any clear violations in files you've already touched. Do not refactor unrelated code just to satisfy lint.
+
+11. **Finalize: push, PR, review, merge, and retro** — read the companion file for steps 11-16:
+
+    ```
+    Read file: <base_directory>/FINALIZE.md
     ```
 
-    Update task status:
-    ```bash
-    tusk "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
-    ```
+    Where `<base_directory>` is the skill base directory shown at the top of this file.
 
-    Close the session with timing and diff stats:
-    ```bash
-    STATS=$(git diff --shortstat main...HEAD)
-    ADDED=$(echo "$STATS" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+')
-    REMOVED=$(echo "$STATS" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+')
-    tusk "UPDATE task_sessions
-      SET ended_at = datetime('now'),
-          duration_seconds = CAST((julianday(datetime('now')) - julianday(started_at)) * 86400 AS INTEGER),
-          lines_added = COALESCE(${ADDED:-0}, 0),
-          lines_removed = COALESCE(${REMOVED:-0}, 0)
-      WHERE id = $SESSION_ID"
-    ```
+### Other Subcommands
 
-    Then populate token/cost stats from the conversation transcript:
-    ```bash
-    tusk session-stats $SESSION_ID
-    ```
+If the user invoked a subcommand (e.g., `/next-task done`, `/next-task list`, `/next-task blocked`), read the reference file:
 
-17. **Check for newly unblocked tasks**:
-    ```bash
-    tusk -header -column "
-    SELECT t.id, t.summary, t.priority
-    FROM tasks t
-    JOIN task_dependencies d ON t.id = d.task_id
-    WHERE d.depends_on_id = <id> AND t.status = 'To Do'
-    "
-    ```
-
-### Mark Task as Done
-
-When called with `done <id>`:
-
-```bash
-tusk "UPDATE tasks SET status = 'Done', closed_reason = 'completed', updated_at = datetime('now') WHERE id = <id>"
+```
+Read file: <base_directory>/SUBCOMMANDS.md
 ```
 
-Then show newly unblocked tasks.
-
-### View Task Details
-
-When called with `view <id>`:
-
-```bash
-tusk -header -column "SELECT * FROM tasks WHERE id = <id>"
-```
-
-### List Top N Ready Tasks
-
-When called with `list <n>` or just a number:
-
-```bash
-tusk -header -column "
-SELECT t.id, t.summary, t.priority, t.domain, t.assignee
-FROM tasks t
-WHERE t.status = 'To Do'
-  AND NOT EXISTS (
-    SELECT 1 FROM task_dependencies d
-    JOIN tasks blocker ON d.depends_on_id = blocker.id
-    WHERE d.task_id = t.id AND blocker.status != 'Done'
-  )
-ORDER BY t.priority_score DESC, t.id
-LIMIT <n>;
-"
-```
-
-### Filter by Domain
-
-When called with `domain <value>`: Get next ready task for that domain only.
-
-### Filter by Assignee
-
-When called with `assignee <value>`: Get next ready task for that assignee only.
-
-### Show Blocked Tasks
-
-When called with `blocked`:
-
-```bash
-tusk -header -column "
-SELECT t.id, t.summary, t.priority,
-  (SELECT GROUP_CONCAT(d.depends_on_id) FROM task_dependencies d WHERE d.task_id = t.id) as blocked_by
-FROM tasks t
-WHERE t.status = 'To Do'
-  AND EXISTS (
-    SELECT 1 FROM task_dependencies d
-    JOIN tasks blocker ON d.depends_on_id = blocker.id
-    WHERE d.task_id = t.id AND blocker.status != 'Done'
-  )
-ORDER BY t.id
-"
-```
-
-### Show In Progress Tasks
-
-When called with `wip` or `in-progress`:
-
-```bash
-tusk -header -column "SELECT id, summary, priority, domain, assignee, github_pr FROM tasks WHERE status = 'In Progress'"
-```
-
-### Preview Next Task (without starting)
-
-When called with `preview`: Show the next ready task but do NOT start working on it.
-
-```bash
-tusk -header -column "
-SELECT t.id, t.summary, t.priority, t.domain, t.assignee, t.description
-FROM tasks t
-WHERE t.status = 'To Do'
-  AND NOT EXISTS (
-    SELECT 1 FROM task_dependencies d
-    JOIN tasks blocker ON d.depends_on_id = blocker.id
-    WHERE d.task_id = t.id AND blocker.status != 'Done'
-  )
-ORDER BY t.priority_score DESC, t.id
-LIMIT 1;
-"
-```
-
-## Argument Parsing Summary
-
-| Argument | Action |
-|----------|--------|
-| (none) | Get next ready task and automatically start working on it |
-| `<id>` | Begin full workflow on task #id |
-| `list <n>` | Show top N ready tasks |
-| `done <id>` | Mark task as Done |
-| `view <id>` | Show full task details |
-| `domain <value>` | Filter next task by domain |
-| `assignee <value>` | Filter next task by assignee |
-| `blocked` | Show all blocked tasks |
-| `wip` | Show all In Progress tasks |
-| `preview` | Show next ready task without starting it |
+Skip this section when running the default workflow (no subcommand argument).
 
 ## Canonical Values
 

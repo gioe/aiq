@@ -15,18 +15,26 @@ Manages task dependencies in the project task database (via `tusk` CLI). Depende
 Make a task depend on another task (the dependency must be completed first):
 
 ```bash
-python3 .claude/scripts/manage_dependencies.py add <task_id> <depends_on_id>
+tusk deps add <task_id> <depends_on_id> [--type blocks|contingent]
 ```
 
-Example: Task 5 cannot start until Task 3 is done:
+The `--type` flag sets the relationship type (default: `blocks`):
+- **`blocks`** — Standard blocking dependency. Downstream task becomes ready when upstream completes (any closed_reason).
+- **`contingent`** — Outcome-dependent dependency. Both types block the downstream task from starting, but if the upstream task closes as `wont_do` or `expired`, the downstream task should be auto-closed as `wont_do` (the work is moot). `/groom-backlog` handles this automatically.
+
+Examples:
 ```bash
-python3 .claude/scripts/manage_dependencies.py add 5 3
+# Task 5 cannot start until Task 3 is done (standard blocking)
+tusk deps add 5 3
+
+# Task 10 contingently depends on Task 5 (outcome-dependent)
+tusk deps add 10 5 --type contingent
 ```
 
 ### Remove a dependency
 
 ```bash
-python3 .claude/scripts/manage_dependencies.py remove <task_id> <depends_on_id>
+tusk deps remove <task_id> <depends_on_id>
 ```
 
 ### List dependencies for a task
@@ -34,7 +42,7 @@ python3 .claude/scripts/manage_dependencies.py remove <task_id> <depends_on_id>
 Show all tasks that must be completed before a specific task can start:
 
 ```bash
-python3 .claude/scripts/manage_dependencies.py list <task_id>
+tusk deps list <task_id>
 ```
 
 ### List dependents of a task
@@ -42,25 +50,25 @@ python3 .claude/scripts/manage_dependencies.py list <task_id>
 Show all tasks that are waiting on a specific task:
 
 ```bash
-python3 .claude/scripts/manage_dependencies.py dependents <task_id>
+tusk deps dependents <task_id>
 ```
 
 ### Show blocked tasks
 
 ```bash
-python3 .claude/scripts/manage_dependencies.py blocked
+tusk deps blocked
 ```
 
 ### Show ready tasks
 
 ```bash
-python3 .claude/scripts/manage_dependencies.py ready
+tusk deps ready
 ```
 
 ### Show all dependencies
 
 ```bash
-python3 .claude/scripts/manage_dependencies.py all
+tusk deps all
 ```
 
 ## Validation
