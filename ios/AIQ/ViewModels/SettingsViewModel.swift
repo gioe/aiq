@@ -47,15 +47,10 @@ class SettingsViewModel: BaseViewModel {
     /// Closure type for error recording. Used for dependency injection to enable testing.
     typealias ErrorRecorder = (Error, CrashlyticsErrorRecorder.ErrorContext) -> Void
 
-    // MARK: - Computed Properties
+    // MARK: - Biometric State (reactive — updated via publisher subscriptions in init)
 
-    var isBiometricAvailable: Bool {
-        biometricAuthManager.isBiometricAvailable
-    }
-
-    var biometricType: BiometricType {
-        biometricAuthManager.biometricType
-    }
+    @Published var isBiometricAvailable: Bool = false
+    @Published var biometricType: BiometricType = .none
 
     // MARK: - Private Properties
 
@@ -86,6 +81,16 @@ class SettingsViewModel: BaseViewModel {
 
         // Load saved biometric preference
         isBiometricEnabled = biometricPreferenceStorage.isBiometricEnabled
+
+        // Seed initial biometric state and subscribe to availability changes
+        isBiometricAvailable = biometricAuthManager.isBiometricAvailable
+        biometricType = biometricAuthManager.biometricType
+
+        biometricAuthManager.isBiometricAvailablePublisher
+            .assign(to: &$isBiometricAvailable)
+
+        biometricAuthManager.biometricTypePublisher
+            .assign(to: &$biometricType)
 
         // Observe current user from AuthManager
         authManager.isAuthenticatedPublisher
@@ -165,9 +170,12 @@ class SettingsViewModel: BaseViewModel {
         deleteAccountError = nil
     }
 
-    /// Toggle biometric authentication on or off
+    /// Toggle biometric authentication on or off.
+    ///
+    /// Writes the new value to storage first, then re-reads it back so the UI always
+    /// reflects the persisted state — if the Keychain write fails silently the UI reverts.
     func toggleBiometric() {
-        isBiometricEnabled.toggle()
-        biometricPreferenceStorage.isBiometricEnabled = isBiometricEnabled
+        biometricPreferenceStorage.isBiometricEnabled = !isBiometricEnabled
+        isBiometricEnabled = biometricPreferenceStorage.isBiometricEnabled
     }
 }

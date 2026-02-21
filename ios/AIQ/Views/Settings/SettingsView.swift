@@ -33,7 +33,7 @@ struct SettingsView: View {
         guard viewModel.isBiometricAvailable else {
             return "Biometric authentication is not available on this device."
         }
-        return "Use \(viewModel.biometricType == .faceID ? "Face ID" : "Touch ID") to sign in quickly and securely."
+        return "Use \(biometricToggleLabel) to sign in quickly and securely."
     }
 
     var body: some View {
@@ -83,7 +83,7 @@ struct SettingsView: View {
                         Spacer()
                         Toggle("", isOn: Binding(
                             get: { viewModel.isBiometricEnabled },
-                            set: { _ in viewModel.toggleBiometric() }
+                            set: { _ in viewModel.toggleBiometric() } // ViewModel owns toggle logic
                         ))
                         .disabled(!viewModel.isBiometricAvailable)
                         .labelsHidden()

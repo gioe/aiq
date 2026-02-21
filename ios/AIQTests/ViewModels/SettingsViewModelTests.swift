@@ -557,10 +557,3 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(sut.biometricType, .faceID, "biometricType should reflect biometricAuthManager")
     }
 }
-
-// MARK: - MockBiometricPreferenceStorage
-
-@MainActor
-final class MockBiometricPreferenceStorage: BiometricPreferenceStorageProtocol {
-    var isBiometricEnabled: Bool = false
-}
