@@ -6,10 +6,7 @@ and provides a function to retrieve metrics in Prometheus text format.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
-
-if TYPE_CHECKING:
-    from opentelemetry.sdk.metrics import MeterProvider
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +15,13 @@ _prometheus_registry: Optional[Any] = None
 _prometheus_initialized = False
 
 
-def initialize_prometheus_exporter(meter_provider: "MeterProvider") -> None:
+def initialize_prometheus_exporter() -> None:
     """
-    Initialize Prometheus exporter for the given MeterProvider.
+    Capture the global Prometheus registry and mark the exporter as initialized.
 
-    This should be called during application startup after OpenTelemetry
-    metrics are configured.
-
-    Args:
-        meter_provider: OpenTelemetry MeterProvider instance
+    The PrometheusMetricReader must already be registered with the MeterProvider
+    at construction time (see app/tracing/setup.py). This function only captures
+    the prometheus_client REGISTRY reference used by get_prometheus_metrics_text().
     """
     global _prometheus_registry, _prometheus_initialized
 
@@ -35,18 +30,7 @@ def initialize_prometheus_exporter(meter_provider: "MeterProvider") -> None:
         return
 
     try:
-        from opentelemetry.exporter.prometheus import PrometheusMetricReader
         from prometheus_client import REGISTRY
-
-        # PrometheusMetricReader (>=0.51b0) always uses the global REGISTRY
-        prometheus_reader = PrometheusMetricReader()
-
-        # Add the Prometheus reader to the meter provider
-        # This allows metrics to be exported in both OTLP and Prometheus formats
-        # WARNING: This accesses a private API (_sdk_config) which may change between
-        # OpenTelemetry SDK versions. If this breaks after an upgrade, check the SDK
-        # release notes for the new approach to add metric readers post-initialization.
-        meter_provider._sdk_config.metric_readers.append(prometheus_reader)
 
         _prometheus_registry = REGISTRY
         _prometheus_initialized = True
@@ -55,8 +39,8 @@ def initialize_prometheus_exporter(meter_provider: "MeterProvider") -> None:
 
     except ImportError:
         logger.warning(
-            "Prometheus exporter not available. "
-            "Install with: pip install opentelemetry-exporter-prometheus"
+            "prometheus_client not available. "
+            "Install with: pip install prometheus-client"
         )
     except Exception as e:
         logger.error(f"Failed to initialize Prometheus exporter: {e}")

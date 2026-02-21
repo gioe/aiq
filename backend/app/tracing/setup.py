@@ -174,6 +174,7 @@ def _setup_metrics(resource: "Resource", otlp_headers: dict) -> None:
         from opentelemetry import metrics
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import (
+            MetricReader,
             PeriodicExportingMetricReader,
             ConsoleMetricExporter,
         )
@@ -212,7 +213,25 @@ def _setup_metrics(resource: "Resource", otlp_headers: dict) -> None:
         metric_exporter,
         export_interval_millis=settings.OTEL_METRICS_EXPORT_INTERVAL_MILLIS,
     )
-    meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
+
+    # Build reader list; add PrometheusMetricReader at construction time (public API)
+    metric_readers: list[MetricReader] = [reader]
+    prometheus_reader_created = False
+    if settings.PROMETHEUS_METRICS_ENABLED:
+        try:
+            from opentelemetry.exporter.prometheus import PrometheusMetricReader
+
+            metric_readers.append(PrometheusMetricReader())
+            prometheus_reader_created = True
+        except ImportError:
+            logger.warning(
+                "Prometheus exporter not available. "
+                "Install with: pip install opentelemetry-exporter-prometheus"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to create Prometheus metric reader: {e}")
+
+    meter_provider = MeterProvider(resource=resource, metric_readers=metric_readers)
 
     metrics.set_meter_provider(meter_provider)
     _meter_provider = meter_provider
@@ -222,12 +241,11 @@ def _setup_metrics(resource: "Resource", otlp_headers: dict) -> None:
         f"(export_interval={settings.OTEL_METRICS_EXPORT_INTERVAL_MILLIS}ms)"
     )
 
-    # Initialize Prometheus exporter if enabled
-    if settings.PROMETHEUS_METRICS_ENABLED:
+    if prometheus_reader_created:
         try:
             from app.metrics.prometheus import initialize_prometheus_exporter
 
-            initialize_prometheus_exporter(meter_provider)
+            initialize_prometheus_exporter()
         except Exception as e:
             logger.warning(f"Failed to initialize Prometheus exporter: {e}")
 

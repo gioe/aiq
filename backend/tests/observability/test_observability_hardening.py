@@ -526,15 +526,13 @@ class TestPrometheusExporterIntegration:
         """Test that initialize_prometheus_exporter() when already initialized logs warning."""
         import app.metrics.prometheus as prom_module
 
-        mock_meter_provider = MagicMock()
-
         # Directly set the state to "already initialized"
         original_state = prom_module._prometheus_initialized
         try:
             prom_module._prometheus_initialized = True
 
             with patch.object(prom_module, "logger") as mock_logger:
-                prom_module.initialize_prometheus_exporter(mock_meter_provider)
+                prom_module.initialize_prometheus_exporter()
                 mock_logger.warning.assert_called_once()
                 assert "already initialized" in mock_logger.warning.call_args[0][0]
         finally:
@@ -544,8 +542,6 @@ class TestPrometheusExporterIntegration:
         """Test that initialize_prometheus_exporter() with ImportError logs warning."""
         import app.metrics.prometheus as prom_module
 
-        mock_meter_provider = MagicMock()
-
         original_state = prom_module._prometheus_initialized
         try:
             prom_module._prometheus_initialized = False
@@ -553,7 +549,7 @@ class TestPrometheusExporterIntegration:
             # Mock the imports inside the function to raise ImportError
             with patch("builtins.__import__", side_effect=ImportError("No module")):
                 with patch.object(prom_module, "logger") as mock_logger:
-                    prom_module.initialize_prometheus_exporter(mock_meter_provider)
+                    prom_module.initialize_prometheus_exporter()
                     mock_logger.warning.assert_called()
                     assert any(
                         "not available" in str(c)
