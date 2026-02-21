@@ -437,8 +437,8 @@ class RegistrationHelper {
 
     // MARK: - Validation Error Checks
 
-    // Validation error messages from Validators.swift
-    // These must match exactly to ensure reliable UI tests
+    /// Validation error messages from Validators.swift
+    /// These must match exactly to ensure reliable UI tests
     private enum ValidationErrors {
         // First name errors
         static let firstNameRequired = "First name is required"
@@ -456,11 +456,11 @@ class RegistrationHelper {
         static let passwordRequired = "Password is required"
         static let passwordTooShort = "Password must be at least 8 characters"
 
-        // Confirm password errors
+        /// Confirm password errors
         static let passwordsDoNotMatch = "Passwords do not match"
     }
 
-    // Accessibility identifiers for validation error labels
+    /// Accessibility identifiers for validation error labels
     private enum ErrorIdentifiers {
         static let firstName = "registrationView.firstNameError"
         static let lastName = "registrationView.lastNameError"

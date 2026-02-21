@@ -1,6 +1,5 @@
-import XCTest
-
 @testable import AIQ
+import XCTest
 
 final class ServiceContainerTests: XCTestCase {
     var sut: ServiceContainer!

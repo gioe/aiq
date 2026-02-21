@@ -18,7 +18,7 @@ final class AIQUITestsLaunchTests: XCTestCase {
     }
 
     /// Test that the app launches successfully
-    func testLaunch() throws {
+    func testLaunch() {
         let app = XCUIApplication()
         app.launch()
 

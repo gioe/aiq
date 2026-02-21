@@ -1,6 +1,5 @@
-import XCTest
-
 @testable import AIQ
+import XCTest
 
 /// Tests for IQTrendChart domain calculation logic.
 ///
@@ -441,7 +440,7 @@ final class IQTrendChartTests: XCTestCase {
         }
     }
 
-    func testDataSamplingIncludesLastResult() {
+    func testDataSamplingIncludesLastResult() throws {
         // Given
         var history: [TestResult] = []
         for i in 0 ..< 100 {
@@ -456,7 +455,7 @@ final class IQTrendChartTests: XCTestCase {
         let lastHistoryId = sortedHistory.last?.id
         let sampledIds = sampled.map(\.id)
 
-        XCTAssertTrue(sampledIds.contains(lastHistoryId!))
+        XCTAssertTrue(try sampledIds.contains(XCTUnwrap(lastHistoryId)))
     }
 
     // MARK: - Edge Case: Single Result Tests

@@ -19,7 +19,7 @@ class MockURLProtocol: URLProtocol {
         return (response, data)
     }
 
-    // Store httpBody in a property key to preserve it across the request lifecycle
+    /// Store httpBody in a property key to preserve it across the request lifecycle
     private static let httpBodyKey = "MockURLProtocol.httpBody"
 
     override class func canInit(with _: URLRequest) -> Bool {

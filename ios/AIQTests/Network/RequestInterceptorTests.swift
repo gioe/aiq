@@ -187,7 +187,7 @@ final class RequestInterceptorTests: XCTestCase {
         }
     }
 
-    func testConnectivityInterceptor_ThrowsNoInternetConnectionError_WhenDisconnected() async throws {
+    func testConnectivityInterceptor_ThrowsNoInternetConnectionError_WhenDisconnected() throws {
         // Given
         let mockMonitor = MockNetworkMonitor(isConnected: false)
         let sut = ConnectivityInterceptor()

@@ -2,23 +2,23 @@
 import AIQAPIClient
 import XCTest
 
-/// Concurrency stress tests for TokenRefreshInterceptor
-///
-/// This test suite focuses on high-concurrency scenarios to verify that the actor-based
-/// implementation correctly handles race conditions and ensures thread-safety.
-///
-/// See Also: BTS-55 - Create concurrency stress tests for TokenRefreshInterceptor
-///
-/// Key Tests:
-/// - 10+ concurrent requests triggering 401s
-/// - Single token refresh during concurrent requests
-/// - No race condition errors
-/// - All requests succeed (receive shouldRetryRequest error)
-///
-/// Thread Safety:
-/// TokenRefreshInterceptor is implemented as an actor, providing automatic serialization
-/// of all state access. These stress tests verify that this actor isolation prevents
-/// race conditions even under extreme concurrency.
+// Concurrency stress tests for TokenRefreshInterceptor
+//
+// This test suite focuses on high-concurrency scenarios to verify that the actor-based
+// implementation correctly handles race conditions and ensures thread-safety.
+//
+// See Also: BTS-55 - Create concurrency stress tests for TokenRefreshInterceptor
+//
+// Key Tests:
+// - 10+ concurrent requests triggering 401s
+// - Single token refresh during concurrent requests
+// - No race condition errors
+// - All requests succeed (receive shouldRetryRequest error)
+//
+// Thread Safety:
+// TokenRefreshInterceptor is implemented as an actor, providing automatic serialization
+// of all state access. These stress tests verify that this actor isolation prevents
+// race conditions even under extreme concurrency.
 
 /// Thread-safe counter for collecting test results across concurrent tasks
 /// Uses actor isolation instead of NSLock for Swift 6 compatibility
@@ -65,7 +65,7 @@ final class TokenRefreshInterceptorConcurrencyTests: XCTestCase {
     // MARK: - Stress Tests (10+ Concurrent Requests)
 
     /// BTS-55: Test that 10+ concurrent 401 responses share a single token refresh
-    func testStress_TenConcurrent401s_SharesSingleRefresh() async throws {
+    func testStress_TenConcurrent401s_SharesSingleRefresh() async {
         // Given - Configure successful refresh with delay to ensure overlap
         let mockUser = createMockUser()
         let mockResponse = AuthResponse(
@@ -126,7 +126,7 @@ final class TokenRefreshInterceptorConcurrencyTests: XCTestCase {
     }
 
     /// BTS-55: Test that 20 concurrent 401 responses share a single token refresh
-    func testStress_TwentyConcurrent401s_SharesSingleRefresh() async throws {
+    func testStress_TwentyConcurrent401s_SharesSingleRefresh() async {
         // Given
         let mockUser = createMockUser()
         let mockResponse = AuthResponse(
@@ -182,7 +182,7 @@ final class TokenRefreshInterceptorConcurrencyTests: XCTestCase {
     }
 
     /// BTS-55: Test extreme concurrency (50 requests) to verify no race conditions
-    func testStress_FiftyConcurrent401s_NoRaceConditions() async throws {
+    func testStress_FiftyConcurrent401s_NoRaceConditions() async {
         // Given
         let mockUser = createMockUser()
         let mockResponse = AuthResponse(
@@ -247,7 +247,7 @@ final class TokenRefreshInterceptorConcurrencyTests: XCTestCase {
     }
 
     /// BTS-55: Test that all concurrent requests receive the new token (via shouldRetryRequest)
-    func testStress_ConcurrentRequests_AllReceiveNewToken() async throws {
+    func testStress_ConcurrentRequests_AllReceiveNewToken() async {
         // Given
         let mockUser = createMockUser()
         let mockResponse = AuthResponse(
@@ -303,7 +303,7 @@ final class TokenRefreshInterceptorConcurrencyTests: XCTestCase {
     // MARK: - Error Handling Under Concurrency
 
     /// BTS-55: Test that refresh failures are safely propagated to all concurrent requests
-    func testStress_ConcurrentRequestsWithRefreshFailure_AllReceiveError() async throws {
+    func testStress_ConcurrentRequestsWithRefreshFailure_AllReceiveError() async {
         // Given
         let refreshError = APIError.unauthorized(message: "Invalid refresh token")
         await mockAuthService.setRefreshError(refreshError)
@@ -392,7 +392,7 @@ final class TokenRefreshInterceptorConcurrencyTests: XCTestCase {
     }
 
     /// BTS-55: Test mixed concurrent and sequential requests
-    func testStress_MixedConcurrentAndSequential_CorrectRefreshCounts() async throws {
+    func testStress_MixedConcurrentAndSequential_CorrectRefreshCounts() async {
         // Given
         let mockUser = createMockUser()
         let mockResponse = AuthResponse(
@@ -454,7 +454,7 @@ final class TokenRefreshInterceptorConcurrencyTests: XCTestCase {
     // MARK: - Performance Under Stress
 
     /// BTS-55: Test that high concurrency completes in reasonable time
-    func testStress_HighConcurrency_CompletesInReasonableTime() async throws {
+    func testStress_HighConcurrency_CompletesInReasonableTime() async {
         // Given
         let mockUser = createMockUser()
         let mockResponse = AuthResponse(

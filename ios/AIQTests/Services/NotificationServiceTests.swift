@@ -1,8 +1,7 @@
+@testable import AIQ
 import AIQAPIClient
 import Combine
 import XCTest
-
-@testable import AIQ
 
 /// Tests for NotificationService push notification API operations
 ///

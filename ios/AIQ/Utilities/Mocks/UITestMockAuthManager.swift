@@ -24,9 +24,17 @@ import Foundation
         @Published var isLoading: Bool = false
         @Published var authError: Error?
 
-        var isAuthenticatedPublisher: Published<Bool>.Publisher { $isAuthenticated }
-        var isLoadingPublisher: Published<Bool>.Publisher { $isLoading }
-        var authErrorPublisher: Published<Error?>.Publisher { $authError }
+        var isAuthenticatedPublisher: Published<Bool>.Publisher {
+            $isAuthenticated
+        }
+
+        var isLoadingPublisher: Published<Bool>.Publisher {
+            $isLoading
+        }
+
+        var authErrorPublisher: Published<Error?>.Publisher {
+            $authError
+        }
 
         /// Whether login should succeed (configurable per test)
         var shouldSucceedLogin: Bool = true

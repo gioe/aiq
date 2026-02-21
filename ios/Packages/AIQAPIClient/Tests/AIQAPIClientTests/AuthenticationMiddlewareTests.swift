@@ -18,7 +18,7 @@ struct AuthenticationMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "get_current_user_v1_users_me_get"
         ) { req, _, _ in
             capturedRequest = req
@@ -38,7 +38,7 @@ struct AuthenticationMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "get_current_user_v1_users_me_get"
         ) { req, _, _ in
             capturedRequest = req
@@ -68,7 +68,7 @@ struct AuthenticationMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "refresh_access_token_v1_auth_refresh_post"
         ) { req, _, _ in
             capturedRequest = req
@@ -96,7 +96,7 @@ struct AuthenticationMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "get_current_user_v1_users_me_get"
         ) { req, _, _ in
             capturedRequest = req
@@ -121,7 +121,7 @@ struct AuthenticationMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "refresh_access_token_v1_auth_refresh_post"
         ) { req, _, _ in
             capturedRequest = req
@@ -145,7 +145,7 @@ struct AuthenticationMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test"
         ) { req, _, _ in
             capturedRequest = req
@@ -161,7 +161,7 @@ struct AuthenticationMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test"
         ) { req, _, _ in
             capturedRequest = req
@@ -172,7 +172,7 @@ struct AuthenticationMiddlewareTests {
     }
 
     @Test("setTokens sets both tokens")
-    func setTokensSetsBoth() async throws {
+    func setTokensSetsBoth() async {
         let middleware = AuthenticationMiddleware()
 
         await middleware.setTokens(accessToken: "access", refreshToken: "refresh")
@@ -202,7 +202,7 @@ struct AuthenticationMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "refresh_access_token_v1_auth_refresh_post"
         ) { req, _, _ in
             capturedRequest = req
@@ -238,7 +238,7 @@ struct AuthenticationMiddlewareTests {
         _ = try await middleware.intercept(
             request,
             body: nil,
-            baseURL: URL(string: "https://api.example.com")!,
+            baseURL: #require(URL(string: "https://api.example.com")),
             operationID: "test"
         ) { req, _, _ in
             capturedRequest = req
@@ -249,7 +249,7 @@ struct AuthenticationMiddlewareTests {
     }
 
     @Test("hasAccessToken returns correct value")
-    func hasAccessTokenReturnsCorrectValue() async throws {
+    func hasAccessTokenReturnsCorrectValue() async {
         let middlewareWithToken = AuthenticationMiddleware(accessToken: "token")
         let middlewareWithoutToken = AuthenticationMiddleware()
 
@@ -263,7 +263,7 @@ struct AuthenticationMiddlewareTests {
     // MARK: - Thread Safety Tests
 
     @Test("Concurrent token updates are thread-safe")
-    func concurrentTokenUpdatesAreThreadSafe() async throws {
+    func concurrentTokenUpdatesAreThreadSafe() async {
         let middleware = AuthenticationMiddleware()
 
         // Perform many concurrent token updates
@@ -281,7 +281,7 @@ struct AuthenticationMiddlewareTests {
     }
 
     @Test("Concurrent requests with token updates are thread-safe")
-    func concurrentRequestsWithTokenUpdatesAreThreadSafe() async throws {
+    func concurrentRequestsWithTokenUpdatesAreThreadSafe() async {
         let middleware = AuthenticationMiddleware(accessToken: "initial-token")
 
         await withTaskGroup(of: Void.self) { group in

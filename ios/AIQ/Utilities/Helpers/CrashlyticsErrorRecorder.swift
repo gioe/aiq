@@ -41,7 +41,7 @@ enum CrashlyticsErrorRecorder {
         case notificationPreferences = "notification_preferences"
         case notificationPermission = "notification_permission"
 
-        // Feedback
+        /// Feedback
         case submitFeedback = "feedback_submit"
 
         // Storage & Persistence
@@ -50,7 +50,7 @@ enum CrashlyticsErrorRecorder {
         case storageRetrieve = "storage_retrieve"
         case storageDelete = "storage_delete"
 
-        // Analytics
+        /// Analytics
         case analytics = "analytics_event"
 
         // Navigation
@@ -58,7 +58,7 @@ enum CrashlyticsErrorRecorder {
         case deepLinkNavigation = "navigation_deeplink_navigation"
         case unimplementedRoute = "navigation_unimplemented_route"
 
-        // Generic
+        /// Generic
         case unknown
     }
 

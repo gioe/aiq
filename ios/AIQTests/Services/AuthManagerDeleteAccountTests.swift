@@ -1,8 +1,7 @@
-import Combine
-import XCTest
-
 @testable import AIQ
 import AIQAPIClient
+import Combine
+import XCTest
 
 @MainActor
 final class AuthManagerDeleteAccountTests: XCTestCase {
@@ -76,7 +75,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         }
     }
 
-    func testDeleteAccount_SetsLoadingState() async throws {
+    func testDeleteAccount_SetsLoadingState() async {
         // Given
         mockAuthService.shouldSucceedDeleteAccount = true
         mockAuthService.deleteAccountDelay = 0.1

@@ -1,6 +1,5 @@
-import XCTest
-
 @testable import AIQ
+import XCTest
 
 /// Tests for AppConfig constants and URLs
 @MainActor

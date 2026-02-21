@@ -148,7 +148,7 @@ final class AnalyticsServiceTests: XCTestCase {
         XCTAssertNil(mockUserDefaults.data(forKey: AnalyticsService.storageKey))
     }
 
-    func testLoadPersistedEvents_RestoresEventsFromUserDefaults() {
+    func testLoadPersistedEvents_RestoresEventsFromUserDefaults() throws {
         // Given - Persist some events manually
         let events = [
             AnalyticsEventData(
@@ -165,7 +165,7 @@ final class AnalyticsServiceTests: XCTestCase {
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        let data = try! encoder.encode(events)
+        let data = try encoder.encode(events)
         mockUserDefaults.set(data, forKey: AnalyticsService.storageKey)
 
         // When - Create a new service that will load persisted events

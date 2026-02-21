@@ -1,7 +1,6 @@
+@testable import AIQ
 import SwiftUI
 import XCTest
-
-@testable import AIQ
 
 @MainActor
 final class NotificationSoftPromptViewTests: XCTestCase {

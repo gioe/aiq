@@ -471,7 +471,7 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
     }
 
     /// Test that malformed notification payload does not crash or navigate
-    func testFullFlow_MalformedPayload_DoesNotNavigate() async {
+    func testFullFlow_MalformedPayload_DoesNotNavigate() {
         // Given - malformed notification payload
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": "not a dictionary"

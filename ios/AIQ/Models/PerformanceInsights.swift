@@ -108,9 +108,11 @@ struct PerformanceInsights: Equatable {
         }
 
         let recentAverage = Double(recentTests.map(\.iqScore).reduce(0, +)) / Double(
-            recentTests.count)
+            recentTests.count
+        )
         let previousAverage = Double(previousTests.map(\.iqScore).reduce(0, +)) / Double(
-            previousTests.count)
+            previousTests.count
+        )
 
         let difference = recentAverage - previousAverage
         let percentChange = (difference / previousAverage) * 100
@@ -186,9 +188,7 @@ struct PerformanceInsights: Equatable {
         let latestScore = Double(tests.last!.iqScore)
 
         let change = latestScore - firstScore
-        let percentChange = (change / firstScore) * 100
-
-        return percentChange
+        return (change / firstScore) * 100
     }
 
     /// Calculate average improvement per test

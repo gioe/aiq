@@ -13,7 +13,7 @@ final class PushNotificationDeepLinkTests: XCTestCase {
     // MARK: - Test Notification Payload Parsing
 
     /// Test that a notification payload with a deep link URL is correctly extracted
-    func testNotificationPayload_WithDeepLinkURL_TestResults() {
+    func testNotificationPayload_WithDeepLinkURL_TestResults() throws {
         // Given - notification payload with deep link
         let userInfo: [AnyHashable: Any] = [
             "type": "test_reminder",
@@ -29,16 +29,16 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         XCTAssertEqual(deepLinkString, "aiq://test/results/123", "should extract correct URL")
 
         // And - should be parseable as a URL
-        let url = URL(string: deepLinkString!)
+        let url = try URL(string: XCTUnwrap(deepLinkString))
         XCTAssertNotNil(url, "should create valid URL from deep_link")
 
         // And - should parse to correct DeepLink
         let handler = DeepLinkHandler()
-        let deepLink = handler.parse(url!)
+        let deepLink = try handler.parse(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .testResults(id: 123), "should parse to correct deep link")
     }
 
-    func testNotificationPayload_WithDeepLinkURL_ResumeTest() {
+    func testNotificationPayload_WithDeepLinkURL_ResumeTest() throws {
         // Given - notification payload with resume deep link
         let userInfo: [AnyHashable: Any] = [
             "type": "test_reminder",
@@ -51,15 +51,15 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(deepLinkString)
-        let url = URL(string: deepLinkString!)
+        let url = try URL(string: XCTUnwrap(deepLinkString))
         XCTAssertNotNil(url)
 
         let handler = DeepLinkHandler()
-        let deepLink = handler.parse(url!)
+        let deepLink = try handler.parse(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .resumeTest(sessionId: 789), "should parse to resume test deep link")
     }
 
-    func testNotificationPayload_WithDeepLinkURL_Settings() {
+    func testNotificationPayload_WithDeepLinkURL_Settings() throws {
         // Given - notification payload with settings deep link
         let userInfo: [AnyHashable: Any] = [
             "type": "settings_update",
@@ -71,15 +71,15 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(deepLinkString)
-        let url = URL(string: deepLinkString!)
+        let url = try URL(string: XCTUnwrap(deepLinkString))
         XCTAssertNotNil(url)
 
         let handler = DeepLinkHandler()
-        let deepLink = handler.parse(url!)
+        let deepLink = try handler.parse(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .settings, "should parse to settings deep link")
     }
 
-    func testNotificationPayload_WithUniversalLinkURL() {
+    func testNotificationPayload_WithUniversalLinkURL() throws {
         // Given - notification payload with universal link
         let userInfo: [AnyHashable: Any] = [
             "type": "test_reminder",
@@ -91,11 +91,11 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(deepLinkString)
-        let url = URL(string: deepLinkString!)
+        let url = try URL(string: XCTUnwrap(deepLinkString))
         XCTAssertNotNil(url)
 
         let handler = DeepLinkHandler()
-        let deepLink = handler.parse(url!)
+        let deepLink = try handler.parse(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .testResults(id: 999), "should parse universal link")
     }
 
@@ -113,7 +113,7 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         XCTAssertNil(deepLinkString, "payload without deep_link should return nil")
     }
 
-    func testNotificationPayload_WithInvalidDeepLink() {
+    func testNotificationPayload_WithInvalidDeepLink() throws {
         // Given - notification payload with invalid deep link
         let userInfo: [AnyHashable: Any] = [
             "type": "test_reminder",
@@ -125,7 +125,7 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
         // Then - should extract string but fail URL creation
         XCTAssertNotNil(deepLinkString)
-        let url = URL(string: deepLinkString!)
+        let url = try URL(string: XCTUnwrap(deepLinkString))
         // Note: URL(string:) is permissive, so this might succeed
         // The important test is that DeepLinkHandler.parse returns .invalid
         if let url {
@@ -135,7 +135,7 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         }
     }
 
-    func testNotificationPayload_WithEmptyDeepLink() {
+    func testNotificationPayload_WithEmptyDeepLink() throws {
         // Given - notification payload with empty deep link
         let userInfo: [AnyHashable: Any] = [
             "type": "test_reminder",
@@ -147,10 +147,10 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(deepLinkString, "empty string should still be extractable")
-        XCTAssertTrue(deepLinkString!.isEmpty, "should be empty")
+        XCTAssertTrue(try XCTUnwrap(deepLinkString?.isEmpty), "should be empty")
 
         // Empty string URL creation fails
-        let url = URL(string: deepLinkString!)
+        let url = try URL(string: XCTUnwrap(deepLinkString))
         XCTAssertNil(url, "empty string should not create valid URL")
     }
 
@@ -214,7 +214,7 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
     // MARK: - Edge Cases
 
-    func testNotificationPayload_DeepLinkWithQueryParameters() {
+    func testNotificationPayload_DeepLinkWithQueryParameters() throws {
         // Given - deep link with query parameters
         let userInfo: [AnyHashable: Any] = [
             "type": "test_reminder",
@@ -223,15 +223,15 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
         // When
         let deepLinkString = userInfo["deep_link"] as? String
-        let url = URL(string: deepLinkString!)
+        let url = try URL(string: XCTUnwrap(deepLinkString))
 
         // Then - should still parse correctly (query params ignored)
         let handler = DeepLinkHandler()
-        let deepLink = handler.parse(url!)
+        let deepLink = try handler.parse(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .testResults(id: 123), "should parse with query params")
     }
 
-    func testNotificationPayload_DeepLinkWithFragment() {
+    func testNotificationPayload_DeepLinkWithFragment() throws {
         // Given - deep link with fragment
         let userInfo: [AnyHashable: Any] = [
             "type": "test_reminder",
@@ -240,11 +240,11 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
         // When
         let deepLinkString = userInfo["deep_link"] as? String
-        let url = URL(string: deepLinkString!)
+        let url = try URL(string: XCTUnwrap(deepLinkString))
 
         // Then - should still parse correctly (fragment ignored)
         let handler = DeepLinkHandler()
-        let deepLink = handler.parse(url!)
+        let deepLink = try handler.parse(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .testResults(id: 123), "should parse with fragment")
     }
 

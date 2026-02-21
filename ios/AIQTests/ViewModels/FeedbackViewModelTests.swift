@@ -1,8 +1,7 @@
-import Combine
-import XCTest
-
 @testable import AIQ
 import AIQAPIClient
+import Combine
+import XCTest
 
 @MainActor
 final class FeedbackViewModelTests: XCTestCase {

@@ -64,7 +64,6 @@ struct QuestionNavigationGrid: View {
         .accessibilityHint(accessibilityHintText(isCurrent: isCurrent, isAnswered: isAnswered))
     }
 
-    @ViewBuilder
     private func questionCellContent(index: Int, isCurrent: Bool, isAnswered: Bool) -> some View {
         ZStack {
             // Background

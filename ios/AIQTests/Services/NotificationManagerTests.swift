@@ -1,8 +1,7 @@
+@testable import AIQ
 import Combine
 import UserNotifications
 import XCTest
-
-@testable import AIQ
 
 @MainActor
 final class NotificationManagerTests: XCTestCase {
@@ -13,10 +12,13 @@ final class NotificationManagerTests: XCTestCase {
     var mockApplication: MockApplication!
     var cancellables: Set<AnyCancellable>!
 
-    // UserDefaults keys used by NotificationManager
+    /// UserDefaults keys used by NotificationManager
     /// Accessor for the shared device token key constant from NotificationManager.
     /// Using `NotificationManager.deviceTokenKey` ensures tests stay in sync if the key value changes.
-    private var deviceTokenKey: String { NotificationManager.deviceTokenKey }
+    private var deviceTokenKey: String {
+        NotificationManager.deviceTokenKey
+    }
+
     private let permissionRequestedKey = "com.aiq.hasRequestedNotificationPermission"
     private let provisionalPermissionRequestedKey = "com.aiq.hasRequestedProvisionalPermission"
 
@@ -54,13 +56,13 @@ final class NotificationManagerTests: XCTestCase {
 
     // MARK: - Initialization Tests
 
-    func testInitialization_DefaultState() async {
+    func testInitialization_DefaultState() {
         // Then - Verify initial state
         XCTAssertEqual(sut.authorizationStatus, .notDetermined)
         XCTAssertFalse(sut.isDeviceTokenRegistered)
     }
 
-    func testInitialization_ImmediateDeviceTokenHandling() async {
+    func testInitialization_ImmediateDeviceTokenHandling() {
         // Given - Create a fresh NotificationManager
         let freshMockNotificationService = MockNotificationService()
         let freshMockAuthManager = MockAuthManager()
@@ -113,7 +115,7 @@ final class NotificationManagerTests: XCTestCase {
 
     // MARK: - Device Token Registration Tests
 
-    func testDidReceiveDeviceToken_CachesToken() async {
+    func testDidReceiveDeviceToken_CachesToken() {
         // Given
         let deviceToken = Data([0x01, 0x02, 0x03, 0x04])
         let expectedTokenString = "01020304"
@@ -126,7 +128,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertEqual(cachedToken, expectedTokenString)
     }
 
-    func testDidReceiveDeviceToken_TokenFormatting() async {
+    func testDidReceiveDeviceToken_TokenFormatting() {
         // Given
         let deviceToken = Data([0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78, 0x90])
         let expectedTokenString = "abcdef1234567890"
@@ -139,7 +141,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertEqual(cachedToken, expectedTokenString)
     }
 
-    func testDidFailToRegisterForRemoteNotifications_ClearsToken() async {
+    func testDidFailToRegisterForRemoteNotifications_ClearsToken() {
         // Given - Pre-cache a device token
         UserDefaults.standard.set("test_token_123", forKey: deviceTokenKey)
 
@@ -160,7 +162,7 @@ final class NotificationManagerTests: XCTestCase {
 
     // MARK: - Unregister Device Token Tests
 
-    func testUnregisterDeviceToken_Success_WhenNotRegistered() async throws {
+    func testUnregisterDeviceToken_Success_WhenNotRegistered() async {
         // Given - NotificationManager with isDeviceTokenRegistered = false
         XCTAssertFalse(sut.isDeviceTokenRegistered)
 
@@ -323,7 +325,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertNotNil(receivedStatus)
     }
 
-    func testIsDeviceTokenRegisteredProperty_IsPublished() async {
+    func testIsDeviceTokenRegisteredProperty_IsPublished() {
         // Given - Initial value should be false
         XCTAssertFalse(sut.isDeviceTokenRegistered)
 
@@ -344,7 +346,7 @@ final class NotificationManagerTests: XCTestCase {
 
     // MARK: - Edge Cases
 
-    func testDeviceTokenFormatting_EmptyData() async {
+    func testDeviceTokenFormatting_EmptyData() {
         // Given
         let emptyToken = Data()
 
@@ -356,7 +358,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertEqual(cachedToken, "")
     }
 
-    func testDeviceTokenFormatting_LargeToken() async {
+    func testDeviceTokenFormatting_LargeToken() {
         // Given - 32-byte token (typical APNs token size)
         let largeToken = Data([
             0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
@@ -374,7 +376,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertEqual(cachedToken, expectedToken)
     }
 
-    func testMultipleConsecutiveFailures_StateConsistency() async {
+    func testMultipleConsecutiveFailures_StateConsistency() {
         // Given
         let error1 = NSError(domain: "Test", code: 1, userInfo: nil)
         let error2 = NSError(domain: "Test", code: 2, userInfo: nil)
@@ -414,7 +416,7 @@ final class NotificationManagerTests: XCTestCase {
 
     // MARK: - UserDefaults Caching Tests
 
-    func testDeviceTokenCaching_PersistsBetweenInstances() async {
+    func testDeviceTokenCaching_PersistsBetweenInstances() {
         // Given
         let deviceToken = Data([0xAA, 0xBB, 0xCC, 0xDD])
         let expectedToken = "aabbccdd"
@@ -431,7 +433,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertEqual(retrievedToken, expectedToken)
     }
 
-    func testClearCachedToken_RemovesFromUserDefaults() async {
+    func testClearCachedToken_RemovesFromUserDefaults() {
         // Given - Pre-cache a token
         UserDefaults.standard.set("test_token", forKey: deviceTokenKey)
         XCTAssertNotNil(UserDefaults.standard.string(forKey: deviceTokenKey))
@@ -648,7 +650,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertTrue(sut.isDeviceTokenRegistered)
     }
 
-    func testRetry_WithNoCachedToken_DoesNothing() async throws {
+    func testRetry_WithNoCachedToken_DoesNothing() async {
         // Given - Authenticated user but NO cached token
         mockAuthManager.isAuthenticated = true
         UserDefaults.standard.removeObject(forKey: deviceTokenKey)
@@ -664,7 +666,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertEqual(callCount, 0, "Should not call backend without a token")
     }
 
-    func testRetry_WhenUnauthenticated_DoesNotCallBackend() async throws {
+    func testRetry_WhenUnauthenticated_DoesNotCallBackend() async {
         // Given - Unauthenticated user with cached token
         mockAuthManager.isAuthenticated = false
         UserDefaults.standard.set("cached_token", forKey: deviceTokenKey)
@@ -753,7 +755,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertFalse(sut.isDeviceTokenRegistered)
     }
 
-    func testStateTransition_PermissionDeniedToAuthorized() async throws {
+    func testStateTransition_PermissionDeniedToAuthorized() async {
         // Given - Start with denied authorization
         // Note: We can only test the state property since actual authorization requires system interaction
         XCTAssertEqual(sut.authorizationStatus, .notDetermined)
@@ -815,7 +817,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertEqual(cachedToken, "deadbeef", "Token should remain cached after registration error")
     }
 
-    func testCleanup_AfterAPNsError_ClearsToken() async {
+    func testCleanup_AfterAPNsError_ClearsToken() {
         // Given - Cache a token first
         UserDefaults.standard.set("apns_error_token", forKey: deviceTokenKey)
 
@@ -906,7 +908,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertTrue(sut.hasRequestedNotificationPermission, "Flag should be true after requesting permission")
     }
 
-    func testHasRequestedNotificationPermission_DefaultsToFalse() async {
+    func testHasRequestedNotificationPermission_DefaultsToFalse() {
         // Given - Fresh NotificationManager
         // When - Check initial value
         let hasRequested = sut.hasRequestedNotificationPermission
@@ -915,7 +917,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertFalse(hasRequested, "hasRequestedNotificationPermission should default to false")
     }
 
-    func testHasRequestedNotificationPermission_PersistsInUserDefaults() async {
+    func testHasRequestedNotificationPermission_PersistsInUserDefaults() {
         // Given - Set the flag
         sut.hasRequestedNotificationPermission = true
 
@@ -931,7 +933,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertTrue(newSut.hasRequestedNotificationPermission, "Flag should persist across app restarts")
     }
 
-    func testUnregisterDeviceToken_ClearsPermissionRequestedFlag() async {
+    func testUnregisterDeviceToken_ClearsPermissionRequestedFlag() {
         // Given - Set up registered state with permission requested
         sut.hasRequestedNotificationPermission = true
         UserDefaults.standard.set("test_token", forKey: deviceTokenKey)
@@ -949,7 +951,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertFalse(sut.hasRequestedNotificationPermission, "Flag should be cleared on token failure")
     }
 
-    func testHasRequestedNotificationPermission_GetterSetter() async {
+    func testHasRequestedNotificationPermission_GetterSetter() {
         // Given - Initial state
         XCTAssertFalse(sut.hasRequestedNotificationPermission)
 
@@ -1221,7 +1223,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertTrue(sut.hasRequestedProvisionalPermission)
     }
 
-    func testHasRequestedProvisionalPermission_DefaultsToFalse() async {
+    func testHasRequestedProvisionalPermission_DefaultsToFalse() {
         // Given - Fresh NotificationManager
         // When - Check initial value
         let hasRequested = sut.hasRequestedProvisionalPermission
@@ -1230,7 +1232,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertFalse(hasRequested, "hasRequestedProvisionalPermission should default to false")
     }
 
-    func testHasRequestedProvisionalPermission_PersistsInUserDefaults() async {
+    func testHasRequestedProvisionalPermission_PersistsInUserDefaults() {
         // Given - Set the flag
         sut.hasRequestedProvisionalPermission = true
 
@@ -1249,7 +1251,7 @@ final class NotificationManagerTests: XCTestCase {
         )
     }
 
-    func testHasRequestedProvisionalPermission_GetterSetter() async {
+    func testHasRequestedProvisionalPermission_GetterSetter() {
         // Given - Initial state
         XCTAssertFalse(sut.hasRequestedProvisionalPermission)
 
@@ -1266,7 +1268,7 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertFalse(sut.hasRequestedProvisionalPermission)
     }
 
-    func testClearCachedDeviceToken_ClearsProvisionalFlag() async {
+    func testClearCachedDeviceToken_ClearsProvisionalFlag() {
         // Given - Set up provisional permission flag
         sut.hasRequestedProvisionalPermission = true
         XCTAssertTrue(sut.hasRequestedProvisionalPermission)

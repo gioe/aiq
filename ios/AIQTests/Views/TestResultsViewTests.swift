@@ -1,8 +1,7 @@
+@testable import AIQ
 import SwiftUI
 import UserNotifications
 import XCTest
-
-@testable import AIQ
 
 @MainActor
 final class TestResultsViewTests: XCTestCase {

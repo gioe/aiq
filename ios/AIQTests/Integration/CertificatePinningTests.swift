@@ -1,7 +1,6 @@
+@testable import AIQ
 import TrustKit
 import XCTest
-
-@testable import AIQ
 
 /// Integration tests for TrustKit certificate pinning configuration.
 ///

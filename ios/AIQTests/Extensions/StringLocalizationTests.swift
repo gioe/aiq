@@ -1,6 +1,5 @@
-import XCTest
-
 @testable import AIQ
+import XCTest
 
 final class StringLocalizationTests: XCTestCase {
     // MARK: - Basic Localization Tests

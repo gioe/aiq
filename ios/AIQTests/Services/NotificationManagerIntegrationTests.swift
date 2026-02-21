@@ -1,8 +1,7 @@
+@testable import AIQ
 import Combine
 import UserNotifications
 import XCTest
-
-@testable import AIQ
 
 /// Integration tests for NotificationManager
 ///
@@ -43,7 +42,9 @@ final class NotificationManagerIntegrationTests: XCTestCase {
 
     /// Accessor for the shared device token key constant from NotificationManager.
     /// Using `NotificationManager.deviceTokenKey` ensures tests stay in sync if the key value changes.
-    private var deviceTokenKey: String { NotificationManager.deviceTokenKey }
+    private var deviceTokenKey: String {
+        NotificationManager.deviceTokenKey
+    }
 
     // MARK: - Async Test Helpers
 

@@ -107,7 +107,6 @@ struct TestDetailView: View {
 
     // MARK: - Confidence Interval Display
 
-    @ViewBuilder
     private func confidenceIntervalDisplay(_ ci: ConfidenceInterval) -> some View {
         VStack(spacing: 8) {
             HStack(spacing: 4) {

@@ -104,7 +104,7 @@ final class AppStoreScreenshotTests: BaseUITest {
     ///
     /// This test captures all 6 screenshots in the recommended order for App Store submission.
     /// Screenshots are attached to the test results and can be extracted from the xcresult bundle.
-    func testGenerateAllScreenshots() throws {
+    func testGenerateAllScreenshots() {
         // Wait for app to be ready
         let dashboardTab = app.buttons["Dashboard"]
         XCTAssertTrue(
@@ -135,7 +135,7 @@ final class AppStoreScreenshotTests: BaseUITest {
     // MARK: - Individual Screenshot Captures
 
     /// Capture the dashboard/home screen
-    func testCaptureDashboard() throws {
+    func testCaptureDashboard() {
         let dashboardTab = app.buttons["Dashboard"]
         XCTAssertTrue(
             dashboardTab.waitForExistence(timeout: networkTimeout),
@@ -147,7 +147,7 @@ final class AppStoreScreenshotTests: BaseUITest {
     }
 
     /// Capture an active test question
-    func testCaptureTestQuestion() throws {
+    func testCaptureTestQuestion() {
         let dashboardTab = app.buttons["Dashboard"]
         XCTAssertTrue(
             dashboardTab.waitForExistence(timeout: networkTimeout),
@@ -158,7 +158,7 @@ final class AppStoreScreenshotTests: BaseUITest {
     }
 
     /// Capture test results screen
-    func testCaptureResults() throws {
+    func testCaptureResults() {
         let dashboardTab = app.buttons["Dashboard"]
         XCTAssertTrue(
             dashboardTab.waitForExistence(timeout: networkTimeout),
@@ -175,7 +175,7 @@ final class AppStoreScreenshotTests: BaseUITest {
     }
 
     /// Capture history/trends screen
-    func testCaptureHistory() throws {
+    func testCaptureHistory() {
         let dashboardTab = app.buttons["Dashboard"]
         XCTAssertTrue(
             dashboardTab.waitForExistence(timeout: networkTimeout),
@@ -186,7 +186,7 @@ final class AppStoreScreenshotTests: BaseUITest {
     }
 
     /// Capture settings screen
-    func testCaptureSettings() throws {
+    func testCaptureSettings() {
         let dashboardTab = app.buttons["Dashboard"]
         XCTAssertTrue(
             dashboardTab.waitForExistence(timeout: networkTimeout),
@@ -389,7 +389,7 @@ extension AppStoreScreenshotTests {
     /// Uses loggedOut mock scenario with onboarding not completed.
     /// Note: This test is not part of testGenerateAllScreenshots because it requires
     /// a different app configuration (onboarding enabled).
-    func testCaptureOnboarding() throws {
+    func testCaptureOnboarding() {
         // Enable onboarding flow and relaunch with logged out scenario
         enableOnboardingFlow = true
         relaunchWithScenario("loggedOut")

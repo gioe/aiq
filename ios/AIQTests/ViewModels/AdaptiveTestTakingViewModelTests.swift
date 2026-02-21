@@ -1,8 +1,7 @@
+@testable import AIQ
 import AIQAPIClient
 import Combine
 import XCTest
-
-@testable import AIQ
 
 @MainActor
 final class AdaptiveTestTakingViewModelTests: XCTestCase {

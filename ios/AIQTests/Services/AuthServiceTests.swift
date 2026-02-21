@@ -1,8 +1,7 @@
-import Combine
-import XCTest
-
 @testable import AIQ
 import AIQAPIClient
+import Combine
+import XCTest
 
 final class AuthServiceTests: XCTestCase {
     var sut: AuthService!
@@ -41,7 +40,7 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(lastRefreshToken, existingRefreshToken, "API service should receive the existing refresh token")
     }
 
-    func testInit_HandlesNoExistingToken() async throws {
+    func testInit_HandlesNoExistingToken() async {
         // Given - no token in storage
 
         // When
@@ -52,7 +51,7 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertNil(token, "Should return nil when no token exists in storage")
     }
 
-    func testInit_HandlesStorageErrorGracefully() async throws {
+    func testInit_HandlesStorageErrorGracefully() async {
         // Given - Storage will throw on retrieve
         mockSecureStorage.setShouldThrowOnRetrieve(true)
 
@@ -80,7 +79,7 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertTrue(isAuthenticated, "Should return true when access token exists")
     }
 
-    func testIsAuthenticated_ReturnsFalseWhenNoToken() async throws {
+    func testIsAuthenticated_ReturnsFalseWhenNoToken() async {
         // Given - no token in storage
 
         // When
@@ -1317,7 +1316,7 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(token, expectedToken, "Should return stored access token")
     }
 
-    func testGetAccessToken_ReturnsNilWhenNoToken() async throws {
+    func testGetAccessToken_ReturnsNilWhenNoToken() async {
         // Given - No token in storage
 
         // When
@@ -1327,7 +1326,7 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertNil(token, "Should return nil when no token in storage")
     }
 
-    func testGetAccessToken_HandlesStorageError() async throws {
+    func testGetAccessToken_HandlesStorageError() async {
         // Given
         mockSecureStorage.setShouldThrowOnRetrieve(true)
 

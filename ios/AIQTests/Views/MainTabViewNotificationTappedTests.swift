@@ -166,7 +166,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
     }
 
     /// Test handling empty deep_link string
-    func testPayloadExtraction_EmptyDeepLinkString_FailsURLCreation() {
+    func testPayloadExtraction_EmptyDeepLinkString_FailsURLCreation() throws {
         // Given - payload with empty deep_link string
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": [
@@ -183,7 +183,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
 
         // Then - string extracts but is empty, URL creation fails
         XCTAssertNotNil(deepLinkString, "should extract deep_link string")
-        XCTAssertTrue(deepLinkString!.isEmpty, "deep_link should be empty")
+        XCTAssertTrue(try XCTUnwrap(deepLinkString?.isEmpty), "deep_link should be empty")
         XCTAssertNil(url, "empty string should not create valid URL")
     }
 
@@ -1100,7 +1100,7 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
     }
 
     /// Test that processing flag is set before deep link handling starts
-    func testProcessingState_IsSetBeforeHandlingStarts() {
+    func testProcessingState_IsSetBeforeHandlingStarts() throws {
         // Given - simulating the processing flow
         var isProcessingDeepLink = false
         var processingStartedAt: Int?
@@ -1122,7 +1122,7 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
         XCTAssertNotNil(processingStartedAt, "processing should have started")
         XCTAssertNotNil(handlingStartedAt, "handling should have started")
         XCTAssertTrue(
-            processingStartedAt! < handlingStartedAt!,
+            try XCTUnwrap(processingStartedAt) < handlingStartedAt!,
             "processing flag should be set before handling starts"
         )
         XCTAssertTrue(isProcessingDeepLink, "processing should be true during handling")

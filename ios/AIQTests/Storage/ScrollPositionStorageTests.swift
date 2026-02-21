@@ -445,7 +445,7 @@ class MockAppStateStorage: AppStateStorageProtocol {
         }
     }
 
-    func getValue<T>(forKey key: String, as type: T.Type) -> T? where T: Decodable {
+    func getValue<T: Decodable>(forKey key: String, as type: T.Type) -> T? {
         queue.sync {
             guard let value = storage[key] else { return nil }
 

@@ -1,8 +1,7 @@
-import Combine
-import XCTest
-
 @testable import AIQ
 import AIQAPIClient
+import Combine
+import XCTest
 
 /// Integration tests for APIClient networking layer.
 /// These tests verify the APIClient works correctly with URLSession and handles real HTTP scenarios.

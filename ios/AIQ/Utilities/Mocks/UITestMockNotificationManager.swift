@@ -11,7 +11,9 @@ import UserNotifications
     @MainActor
     final class UITestMockNotificationManager: ObservableObject, NotificationManagerProtocol {
         @Published var authorizationStatus: UNAuthorizationStatus = .authorized
-        var authorizationStatusPublisher: Published<UNAuthorizationStatus>.Publisher { $authorizationStatus }
+        var authorizationStatusPublisher: Published<UNAuthorizationStatus>.Publisher {
+            $authorizationStatus
+        }
 
         @Published var isDeviceTokenRegistered: Bool = true
 

@@ -229,7 +229,6 @@ struct MainTabView: View {
 
     /// Hidden buttons with keyboard shortcuts for iPad navigation
     /// These provide ⌘1/2/3 tab switching, ⌘N for new test, and ⌘R for refresh
-    @ViewBuilder
     private var keyboardShortcutButtons: some View {
         Group {
             // Tab switching shortcuts
