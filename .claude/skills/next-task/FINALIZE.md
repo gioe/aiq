@@ -87,7 +87,8 @@ For each Category A comment:
 For each Category B comment, create a deferred task (includes built-in duplicate check and 60-day expiry):
    ```bash
    tusk task-insert "<brief description>" "Deferred from PR #<pr_number> review for TASK-<id>. Original comment: <comment text>. Reason deferred: <why this can wait>" \
-     --priority "Low" --domain "<domain>" --deferred
+     --priority "Low" --domain "<domain>" --deferred \
+     --criteria "<criterion derived from the review comment, e.g. 'Refactor X to use Y pattern'>"
    ```
    Exit code 1 means a duplicate was found — skip silently.
 
