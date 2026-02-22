@@ -1,7 +1,7 @@
 """Add composite index on Response(test_session_id, answered_at) for CAT replay
 
 Revision ID: b2c3d4e5f6g7
-Revises: a1b2c3d4e5f6
+Revises: c4d5e6f7a8b9
 Create Date: 2026-02-21
 
 The adaptive test endpoint reconstructs the CAT session from response
@@ -17,7 +17,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "b2c3d4e5f6g7"  # pragma: allowlist secret
-down_revision: str = "a1b2c3d4e5f6"  # pragma: allowlist secret
+down_revision: str = "c4d5e6f7a8b9"  # pragma: allowlist secret
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
