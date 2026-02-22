@@ -69,9 +69,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Permissions-Policy: Control browser features
-        response.headers[
-            "Permissions-Policy"
-        ] = "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+        )
 
         # Content-Security-Policy: Control resource loading
         if self.csp_enabled:
@@ -89,9 +89,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # Strict-Transport-Security: Enforce HTTPS (only in production)
         if self.hsts_enabled:
-            response.headers[
-                "Strict-Transport-Security"
-            ] = f"max-age={self.hsts_max_age}; includeSubDomains; preload"
+            response.headers["Strict-Transport-Security"] = (
+                f"max-age={self.hsts_max_age}; includeSubDomains; preload"
+            )
 
         # X-Permitted-Cross-Domain-Policies: Restrict cross-domain access
         response.headers["X-Permitted-Cross-Domain-Policies"] = "none"

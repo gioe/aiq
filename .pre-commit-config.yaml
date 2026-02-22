@@ -19,7 +19,7 @@ repos:
 
   # Black code formatting (backend only)
   - repo: https://github.com/psf/black
-    rev: 23.11.0
+    rev: 24.3.0
     hooks:
       - id: black
         name: black (backend)

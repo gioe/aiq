@@ -47,9 +47,9 @@ class Settings(BaseSettings):
     # Rate Limiting
     # Enabled by default to protect all deployments. Set to False via .env for local development if needed.
     RATE_LIMIT_ENABLED: bool = True
-    RATE_LIMIT_STRATEGY: Literal[
-        "token_bucket", "sliding_window", "fixed_window"
-    ] = "token_bucket"
+    RATE_LIMIT_STRATEGY: Literal["token_bucket", "sliding_window", "fixed_window"] = (
+        "token_bucket"
+    )
     RATE_LIMIT_DEFAULT_LIMIT: int = 100  # requests
     RATE_LIMIT_DEFAULT_WINDOW: int = 60  # seconds
     # Storage backend: "memory" for single-worker, "redis" for multi-worker deployments
