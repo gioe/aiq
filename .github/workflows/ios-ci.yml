@@ -104,6 +104,30 @@ jobs:
 
           echo "OpenAPI spec is in sync"
 
+      - name: Resolve packages and apply Xcode 16.4 workaround
+        run: |
+          cd ios
+          DERIVED_DATA="$RUNNER_TEMP/DerivedData"
+
+          # Resolve packages to a fixed DerivedData path shared across build steps
+          xcodebuild -project AIQ.xcodeproj \
+            -scheme AIQ \
+            -derivedDataPath "$DERIVED_DATA" \
+            -resolvePackageDependencies
+
+          # Xcode 16.4 regression: build-tool plugin dependencies (specifically
+          # _OpenAPIGeneratorCore from swift-openapi-generator) are compiled for
+          # the iOS simulator target in addition to the host (macOS). This triggers
+          # the intentional #error guard in PlatformChecks.swift which exists to
+          # warn if the library is accidentally linked. The library is never linked
+          # into the iOS app—it only runs as a macOS host build tool—so removing
+          # the #error from the resolved checkout is safe.
+          PLATFORM_CHECKS="$DERIVED_DATA/SourcePackages/checkouts/swift-openapi-generator/Sources/_OpenAPIGeneratorCore/PlatformChecks.swift"
+          if [ -f "$PLATFORM_CHECKS" ]; then
+            echo "Applying Xcode 16.4 workaround: removing iOS #error from PlatformChecks.swift"
+            sed -i '' '/#error/d' "$PLATFORM_CHECKS"
+          fi
+
       - name: Build iOS project
         run: |
           cd ios
@@ -111,7 +135,9 @@ jobs:
             -scheme AIQ \
             -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             -skipPackagePluginValidation \
+            -disableAutomaticPackageResolution \
             clean build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY=""
@@ -124,7 +150,9 @@ jobs:
             -scheme AIQ \
             -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             -skipPackagePluginValidation \
+            -disableAutomaticPackageResolution \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY=""
 
@@ -134,7 +162,7 @@ jobs:
         with:
           name: ios-unit-test-results
           path: |
-            ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
+            ${{ runner.temp }}/DerivedData/**/Logs/Test/*.xcresult
           retention-days: 7
 
   ui-tests:
