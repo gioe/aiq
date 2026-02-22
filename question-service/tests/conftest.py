@@ -1,6 +1,16 @@
 """Pytest configuration and shared fixtures for question service tests."""
 
+import os
+
 import pytest
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Set a dummy OPENAI_API_KEY when none is present so Settings() can be instantiated in unit tests without real credentials."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        os.environ["OPENAI_API_KEY"] = (
+            "sk-dummy-key-for-unit-testing-only"  # pragma: allowlist secret
+        )
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
