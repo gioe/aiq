@@ -101,3 +101,27 @@ async def test_repr_fallback_when_no_name(caplog):
         await safe_background_task(func)
 
     assert "Background task" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_sync_function_raises_type_error():
+    """Wrapper should raise TypeError with a clear message when passed a sync function."""
+
+    def sync_func() -> None:
+        pass
+
+    with pytest.raises(
+        TypeError, match="safe_background_task requires an async function"
+    ):
+        await safe_background_task(sync_func)
+
+
+@pytest.mark.asyncio
+async def test_sync_function_error_includes_function_name():
+    """Error message should include the sync function's name."""
+
+    def my_sync_task() -> None:
+        pass
+
+    with pytest.raises(TypeError, match="my_sync_task"):
+        await safe_background_task(my_sync_task)
