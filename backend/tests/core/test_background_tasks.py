@@ -50,7 +50,7 @@ async def test_metrics_recorded_on_failure():
         await safe_background_task(func)
 
     mock_metrics.record_error.assert_called_once_with(
-        error_type="BackgroundTaskFailure"
+        error_type="BackgroundTaskFailure:bad_task"
     )
 
 
