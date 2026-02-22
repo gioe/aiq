@@ -55,7 +55,7 @@ async def safe_background_task(
     except Exception:
         logger.exception("Background task '%s' failed", name)
         try:
-            metrics.record_error(error_type="BackgroundTaskFailure")
+            metrics.record_error(error_type=f"BackgroundTaskFailure:{name}")
         except Exception as metrics_exc:
             logger.debug(
                 "Failed to record BackgroundTaskFailure metric: %s", metrics_exc
