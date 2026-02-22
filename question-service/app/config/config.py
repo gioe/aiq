@@ -240,5 +240,36 @@ class Settings(BaseSettings):
         return self
 
 
-# Global settings instance
-settings = Settings()
+class _LazySettings:
+    """Lazy proxy for Settings - defers initialization until first attribute access.
+
+    This allows safe module-level import without requiring API keys at import time,
+    preventing test collection failures in CI environments without real API keys.
+    Settings() is only instantiated when an attribute is first accessed at runtime.
+    """
+
+    __slots__ = ("_wrapped",)
+
+    def __init__(self) -> None:
+        object.__setattr__(self, "_wrapped", None)
+
+    def __getattr__(self, name: str) -> object:
+        wrapped: Optional[Settings] = object.__getattribute__(self, "_wrapped")
+        if wrapped is None:
+            wrapped = Settings()
+            object.__setattr__(self, "_wrapped", wrapped)
+        return getattr(wrapped, name)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "_wrapped":
+            object.__setattr__(self, name, value)
+            return
+        wrapped: Optional[Settings] = object.__getattribute__(self, "_wrapped")
+        if wrapped is None:
+            wrapped = Settings()
+            object.__setattr__(self, "_wrapped", wrapped)
+        setattr(wrapped, name, value)
+
+
+# Global settings instance (lazy proxy - defers initialization until first attribute access)
+settings: Settings = _LazySettings()  # type: ignore[assignment]

@@ -215,8 +215,3 @@ class LogContext:
     def __exit__(self, *args: Any) -> None:
         """Exit context and restore original log record factory."""
         logging.setLogRecordFactory(self.old_factory)
-
-
-# Initialize logging on module import if not already configured
-if not logging.getLogger().handlers:
-    setup_logging()
