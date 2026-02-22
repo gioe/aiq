@@ -197,6 +197,15 @@ enum AccessibilityIdentifiers {
         static let settingsTab = "tabBar.settingsTab"
     }
 
+    // MARK: - Biometric Lock View
+
+    enum BiometricLockView {
+        static let lockIcon = "biometricLockView.lockIcon"
+        static let unlockButton = "biometricLockView.unlockButton"
+        static let signOutButton = "biometricLockView.signOutButton"
+        static let errorMessage = "biometricLockView.errorMessage"
+    }
+
     // MARK: - Common Components
 
     enum Common {
