@@ -19,6 +19,7 @@ Usage with FastAPI BackgroundTasks::
     )
 """
 
+import asyncio
 import logging
 from typing import Any, Awaitable, Callable
 
@@ -41,6 +42,13 @@ async def safe_background_task(
 
     No retries are attempted — background tasks are fire-and-forget.
     """
+    if not asyncio.iscoroutinefunction(func):
+        name = getattr(func, "__name__", repr(func))
+        raise TypeError(
+            f"safe_background_task requires an async function, "
+            f"but '{name}' is synchronous. "
+            "Convert it to async or wrap it with asyncio.to_thread()."
+        )
     name = getattr(func, "__name__", repr(func))
     try:
         await func(*args, **kwargs)
