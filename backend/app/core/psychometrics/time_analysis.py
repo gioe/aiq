@@ -773,9 +773,7 @@ def _calculate_point_biserial_correlation(
 
     # Point-biserial correlation formula
     proportion_factor = (n_correct * n_incorrect) / (n_total * n_total)
-    correlation = ((mean_correct - mean_incorrect) / std_all) * (
-        proportion_factor**0.5
-    )
+    correlation = ((mean_correct - mean_incorrect) / std_all) * (proportion_factor**0.5)
 
     # Clamp to valid correlation range [-1, 1]
     return max(-1.0, min(1.0, correlation))
