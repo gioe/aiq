@@ -3,9 +3,9 @@
 import os
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
-from app.config.config import Settings
+from app.config.config import Settings, _LazySettings
 
 
 class TestDedupConfig:
@@ -232,3 +232,45 @@ class TestSecretsIntegration:
             with pytest.raises(ValueError) as exc_info:
                 Settings()
             assert "BACKEND_SERVICE_KEY" in str(exc_info.value)
+
+
+class TestLazySettingsInit:
+    """Tests for lazy Settings initialization via _LazySettings proxy."""
+
+    def test_proxy_creation_does_not_call_settings(self):
+        """Test that creating _LazySettings does not instantiate Settings."""
+        with patch("app.config.config.Settings") as MockSettings:
+            _LazySettings()
+            MockSettings.assert_not_called()
+
+    def test_proxy_initializes_settings_on_first_attribute_access(self):
+        """Test that Settings() is called on first attribute access."""
+        mock_instance = MagicMock()
+        mock_instance.log_level = "INFO"
+        with patch(
+            "app.config.config.Settings", return_value=mock_instance
+        ) as MockSettings:
+            proxy = _LazySettings()
+            MockSettings.assert_not_called()
+            _ = proxy.log_level
+            MockSettings.assert_called_once()
+
+    def test_proxy_reuses_initialized_settings(self):
+        """Test that Settings() is only called once across multiple attribute accesses."""
+        mock_instance = MagicMock()
+        mock_instance.log_level = "INFO"
+        mock_instance.debug = True
+        with patch(
+            "app.config.config.Settings", return_value=mock_instance
+        ) as MockSettings:
+            proxy = _LazySettings()
+            _ = proxy.log_level
+            _ = proxy.debug
+            MockSettings.assert_called_once()
+
+    def test_proxy_forwards_attribute_values(self):
+        """Test that proxy correctly forwards attribute values from the real Settings."""
+        env_vars = {"OPENAI_API_KEY": "sk-test-proxy"}  # pragma: allowlist secret
+        with patch.dict("os.environ", env_vars, clear=False):
+            proxy = _LazySettings()
+            assert proxy.openai_api_key == "sk-test-proxy"  # pragma: allowlist secret

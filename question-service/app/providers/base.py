@@ -129,23 +129,33 @@ class RetryConfig:
 
     def __init__(
         self,
-        max_retries: int = settings.provider_max_retries,
-        base_delay: float = settings.provider_retry_base_delay,
-        max_delay: float = settings.provider_retry_max_delay,
-        exponential_base: float = settings.provider_retry_exponential_base,
+        max_retries: Optional[int] = None,
+        base_delay: Optional[float] = None,
+        max_delay: Optional[float] = None,
+        exponential_base: Optional[float] = None,
     ):
         """Initialize retry configuration.
 
         Args:
-            max_retries: Maximum number of retry attempts
-            base_delay: Base delay in seconds
-            max_delay: Maximum delay between retries in seconds
-            exponential_base: Multiplier for exponential backoff
+            max_retries: Maximum number of retry attempts (defaults to settings value)
+            base_delay: Base delay in seconds (defaults to settings value)
+            max_delay: Maximum delay between retries in seconds (defaults to settings value)
+            exponential_base: Multiplier for exponential backoff (defaults to settings value)
         """
-        self.max_retries = max_retries
-        self.base_delay = base_delay
-        self.max_delay = max_delay
-        self.exponential_base = exponential_base
+        self.max_retries = (
+            max_retries if max_retries is not None else settings.provider_max_retries
+        )
+        self.base_delay = (
+            base_delay if base_delay is not None else settings.provider_retry_base_delay
+        )
+        self.max_delay = (
+            max_delay if max_delay is not None else settings.provider_retry_max_delay
+        )
+        self.exponential_base = (
+            exponential_base
+            if exponential_base is not None
+            else settings.provider_retry_exponential_base
+        )
 
 
 class RetryMetrics:
