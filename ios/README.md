@@ -362,7 +362,9 @@ The project uses SwiftLint and SwiftFormat (pre-commit hooks configured).
 
 Install tools:
 ```bash
-brew install swiftlint
+# SwiftLint is pinned to 0.62.2 in CI — install the same version locally
+curl -Lo portable_swiftlint.zip "https://github.com/realm/SwiftLint/releases/download/0.62.2/portable_swiftlint.zip"
+unzip -q portable_swiftlint.zip swiftlint && chmod +x swiftlint && sudo mv swiftlint /usr/local/bin/swiftlint
 
 # SwiftFormat is pinned to 0.59.1 in CI — install the same version locally
 curl -Lo swiftformat.zip "https://github.com/nicklockwood/SwiftFormat/releases/download/0.59.1/swiftformat.zip"
@@ -374,6 +376,8 @@ Run manually:
 swiftlint lint --config .swiftlint.yml
 swiftformat --config .swiftformat --lint AIQ/
 ```
+
+> **Upgrading SwiftLint:** Run `swiftlint lint --config .swiftlint.yml` locally first to catch any new rule violations, fix them, commit the result, then update the version pin in `.github/workflows/ios-ci.yml`.
 
 > **Upgrading SwiftFormat:** Run `swiftformat --config .swiftformat AIQ/` in fix mode locally first to apply any new formatting rules, commit the result, then update the version pin in `.github/workflows/ios-ci.yml`.
 
