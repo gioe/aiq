@@ -26,6 +26,11 @@ import SwiftUI
 ///     │
 ///     ▼ (completed)
 /// ┌─────────────────────────┐
+/// │ Biometric Lock Check    │◄── Re-locks on every foreground transition (if enabled)
+/// └─────────────────────────┘
+///     │
+///     ▼ (authenticated or disabled)
+/// ┌─────────────────────────┐
 /// │ Main App                │
 /// └─────────────────────────┘
 /// ```
@@ -35,9 +40,18 @@ import SwiftUI
 /// 1. Accepted the privacy policy in `PrivacyConsentView`
 /// 2. Completed authentication (first `userRegistered` or `userLogin` event)
 ///
+/// **Biometric Lock Behaviour:**
+/// - The lock is applied only when the user is authenticated AND has enabled biometric
+///   lock in Settings (`BiometricPreferenceStorage.isBiometricEnabled == true`).
+/// - It is triggered once on initial launch (after the splash screen fades out) and
+///   again on every `.active` scene-phase transition.
+/// - The `BiometricLockView` overlay sits at `zIndex(1000)` — above the splash screen
+///   (zIndex 999) — so it is never obscured.
+///
 /// - SeeAlso: `PrivacyConsentView` - First screen for new users
 /// - SeeAlso: `OnboardingContainerView` - Zero analytics tracking
 /// - SeeAlso: `AnalyticsService` - Privacy-compliant event tracking
+/// - SeeAlso: `BiometricLockView` - Full-screen biometric authentication overlay
 struct RootView: View {
     /// Auth state observer that works with any AuthManagerProtocol from the DI container
     @StateObject private var authState: AuthStateObserver
@@ -46,11 +60,18 @@ struct RootView: View {
     /// Toast manager resolved from DI container, wrapped in StateObject to observe toast changes
     @StateObject private var toastObserver: ToastManagerObserver
     @State private var showSplash = true
+    @State private var isBiometricLocked = false
     @State private var hasAcceptedConsent: Bool
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     private let privacyConsentStorage: PrivacyConsentStorageProtocol
+    /// Resolved from the DI container during `init`. Optional because the app may run in
+    /// environments (e.g. UI test configurations) where the service is not registered.
+    private let biometricAuthManager: BiometricAuthManagerProtocol?
+    /// Resolved from the DI container during `init`. Optional for the same reason as above.
+    private let biometricPreferenceStorage: BiometricPreferenceStorageProtocol?
 
     init(
         privacyConsentStorage: PrivacyConsentStorageProtocol = PrivacyConsentStorage.shared,
@@ -65,6 +86,9 @@ struct RootView: View {
         _networkMonitor = StateObject(wrappedValue: NetworkMonitorObserver(container: serviceContainer))
         // Initialize toast manager observer from the container
         _toastObserver = StateObject(wrappedValue: ToastManagerObserver(container: serviceContainer))
+        // Resolve biometric services — optional so the app degrades gracefully if absent
+        biometricAuthManager = serviceContainer.resolve(BiometricAuthManagerProtocol.self)
+        biometricPreferenceStorage = serviceContainer.resolve(BiometricPreferenceStorageProtocol.self)
     }
 
     var body: some View {
@@ -99,6 +123,26 @@ struct RootView: View {
                         showSplash = false
                     }
                 }
+
+                // Apply biometric lock immediately after splash if the user is
+                // authenticated and has the feature enabled in Settings.
+                if authState.isAuthenticated,
+                   let storage = biometricPreferenceStorage,
+                   storage.isBiometricEnabled {
+                    isBiometricLocked = true
+                }
+            }
+            .onChange(of: scenePhase) { newPhase in
+                // Re-lock whenever the app returns to the foreground (e.g. after the user
+                // switches away and comes back). We only lock if the splash has already been
+                // dismissed so we don't interrupt the initial startup sequence.
+                if newPhase == .active,
+                   !showSplash,
+                   authState.isAuthenticated,
+                   let storage = biometricPreferenceStorage,
+                   storage.isBiometricEnabled {
+                    isBiometricLocked = true
+                }
             }
             .opacity(showSplash ? 0.0 : 1.0)
 
@@ -132,6 +176,29 @@ struct RootView: View {
                 SplashView()
                     .transition(.opacity)
                     .zIndex(999)
+            }
+
+            // Biometric Lock Overlay
+            // Positioned at zIndex(1000) so it sits above the splash screen (999)
+            // and all other content. The caller animates it in/out with .opacity.
+            if isBiometricLocked, let manager = biometricAuthManager {
+                BiometricLockView(
+                    biometricType: manager.biometricType,
+                    biometricAuthManager: manager,
+                    onAuthenticated: {
+                        withAnimation(reduceMotion ? nil : DesignSystem.Animation.smooth) {
+                            isBiometricLocked = false
+                        }
+                    },
+                    onSignOut: {
+                        isBiometricLocked = false
+                        Task {
+                            await authState.logout()
+                        }
+                    }
+                )
+                .transition(.opacity)
+                .zIndex(1000)
             }
         }
     }
