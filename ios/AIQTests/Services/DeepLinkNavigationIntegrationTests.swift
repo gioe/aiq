@@ -574,6 +574,7 @@ private final class SlowMockDeepLinkHandler: DeepLinkHandlerProtocol {
         return true
     }
 
+    @MainActor
     func trackNavigationSuccess(
         _ deepLink: DeepLink,
         source: DeepLinkSource,
@@ -582,6 +583,7 @@ private final class SlowMockDeepLinkHandler: DeepLinkHandlerProtocol {
         realHandler.trackNavigationSuccess(deepLink, source: source, originalURL: originalURL)
     }
 
+    @MainActor
     func trackParseFailed(
         error: DeepLinkError,
         source: DeepLinkSource,
@@ -635,6 +637,7 @@ private final class IntegrationTestDeepLinkHandler: DeepLinkHandlerProtocol {
         )
     }
 
+    @MainActor
     func trackNavigationSuccess(
         _ deepLink: DeepLink,
         source: DeepLinkSource,
@@ -643,6 +646,7 @@ private final class IntegrationTestDeepLinkHandler: DeepLinkHandlerProtocol {
         realHandler.trackNavigationSuccess(deepLink, source: source, originalURL: originalURL)
     }
 
+    @MainActor
     func trackParseFailed(
         error: DeepLinkError,
         source: DeepLinkSource,

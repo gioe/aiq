@@ -275,6 +275,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ///   - url: The deep link URL to handle
     ///   - source: The source of the deep link (URL scheme, universal link, etc.)
     /// - Returns: true if the URL was parsed successfully, false otherwise
+    @MainActor
     private func handleDeepLink(_ url: URL, source: DeepLinkSource) -> Bool {
         // Parse the deep link
         let deepLink = deepLinkHandler.parse(url)
