@@ -70,6 +70,7 @@ final class MockDeepLinkHandler: DeepLinkHandlerProtocol, @unchecked Sendable {
         return handleNavigationResult
     }
 
+    @MainActor
     func trackNavigationSuccess(
         _ deepLink: DeepLink,
         source: DeepLinkSource,
@@ -82,6 +83,7 @@ final class MockDeepLinkHandler: DeepLinkHandlerProtocol, @unchecked Sendable {
         lastTrackSuccessOriginalURL = originalURL
     }
 
+    @MainActor
     func trackParseFailed(
         error: DeepLinkError,
         source: DeepLinkSource,
