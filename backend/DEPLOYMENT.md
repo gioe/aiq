@@ -72,7 +72,7 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD_HASH=$2b$12$...your-bcrypt-hash...
 
 # Sentry Error Tracking (recommended for production)
-SENTRY_DSN=https://your-sentry-dsn@sentry.io/your-project-id
+SENTRY_DSN=https://your-key@sentry.io/123456
 SENTRY_TRACES_SAMPLE_RATE=0.1
 
 # OpenTelemetry Observability (optional, for metrics and additional tracing)
@@ -555,7 +555,7 @@ For the full observability facade API reference and examples, see `libs/observab
 
    In Railway, add:
    ```bash
-   SENTRY_DSN=https://your-key@sentry.io/your-project-id
+   SENTRY_DSN=https://your-key@sentry.io/123456
    SENTRY_TRACES_SAMPLE_RATE=0.1
    ```
 

@@ -479,7 +479,7 @@ Add these environment variables to the question-service in Railway:
 
 ```bash
 # Sentry Error Tracking (recommended)
-SENTRY_DSN=https://your-key@sentry.io/your-project-id
+SENTRY_DSN=https://your-key@sentry.io/123456
 ENV=production
 
 # OpenTelemetry (optional, for Grafana Cloud)
