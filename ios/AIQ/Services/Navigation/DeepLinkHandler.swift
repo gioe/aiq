@@ -113,6 +113,7 @@ protocol DeepLinkHandlerProtocol {
     ) async -> Bool
 
     /// Track a successful deep link navigation (for use when navigation happens outside this handler)
+    @MainActor
     func trackNavigationSuccess(
         _ deepLink: DeepLink,
         source: DeepLinkSource,
@@ -120,6 +121,7 @@ protocol DeepLinkHandlerProtocol {
     )
 
     /// Track a failed deep link parse
+    @MainActor
     func trackParseFailed(
         error: DeepLinkError,
         source: DeepLinkSource,
@@ -537,6 +539,7 @@ extension DeepLinkHandler {
     ///   - deepLink: The deep link that was successfully navigated
     ///   - source: The source of the deep link
     ///   - originalURL: The original URL string
+    @MainActor
     func trackNavigationSuccess(
         _ deepLink: DeepLink,
         source: DeepLinkSource,
@@ -555,6 +558,7 @@ extension DeepLinkHandler {
     ///   - error: The error that caused the failure
     ///   - source: The source of the deep link
     ///   - originalURL: The original URL string
+    @MainActor
     func trackParseFailed(
         error: DeepLinkError,
         source: DeepLinkSource,
