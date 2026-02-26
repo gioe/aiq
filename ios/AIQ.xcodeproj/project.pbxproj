@@ -35,6 +35,7 @@
 		1603E52C6158637ED3E113A9 /* OnboardingPage3View.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA4C18AC3D81AC998C478C5D /* OnboardingPage3View.swift */; };
 		16F818EB764C0F6284746753 /* DashboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F7B0036C4AA0EE698B9C2EC /* DashboardViewModelTests.swift */; };
 		172A65D0668EE2B6DB080709 /* AdaptiveTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE2F8BBE7ADDAF12A4059722 /* AdaptiveTestView.swift */; };
+		1862D5E3AEAE001552CE628C /* UITestMockBiometricPreferenceStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9A7A398A7F88DB98F4B6BC /* UITestMockBiometricPreferenceStorage.swift */; };
 		192F5B04DF4297D15FAE8161 /* RequestInterceptorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 308EF9DA2BB3AF13E3D55DBF /* RequestInterceptorTests.swift */; };
 		1985BC98F112BF03DE6AE6FB /* Int+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855CE882BC71F4447525CF06 /* Int+Extensions.swift */; };
 		1A3A24B63C00414F3A478FD4 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876818DCAF9897B1A6EC6A4E /* APIClient.swift */; };
@@ -210,6 +211,7 @@
 		B19626706E80E38BF932DF82 /* QuestionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E55717DC429158E6565640B4 /* QuestionCardView.swift */; };
 		B21D1F7A081A289DB4987B29 /* HapticManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02B832A419C5B2C30D4B0A1 /* HapticManagerTests.swift */; };
 		B2313C5B760D0E7C05315E20 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 86A53269857A08973A0D5568 /* SwiftUI.framework */; };
+		B2FEAD0CB8B33B318E1A7043 /* BiometricLockViewUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 285552C8C6133F2BE7F80248 /* BiometricLockViewUITests.swift */; };
 		B49B611951512301F45C3352 /* Number+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F2255B6B96DB4C8037F564 /* Number+Extensions.swift */; };
 		B5611F5C7375F251E6555E7B /* MockBiometricAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF1D43C1237D5117457A636 /* MockBiometricAuthManager.swift */; };
 		B66D0F9F3256F38A6FE512A8 /* UITestMockNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DDBE2C07CB038DC1DA1E453 /* UITestMockNotificationService.swift */; };
@@ -377,6 +379,7 @@
 		2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockDeepLinkHandler.swift; sourceTree = "<group>"; };
 		26D08F64944D4FA5B2FEAB69 /* TokenRefreshMockAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenRefreshMockAuthService.swift; sourceTree = "<group>"; };
 		284313B81892FFA1AE606BC6 /* NotificationSettingsAccessibilityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationSettingsAccessibilityTests.swift; sourceTree = "<group>"; };
+		285552C8C6133F2BE7F80248 /* BiometricLockViewUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricLockViewUITests.swift; sourceTree = "<group>"; };
 		28562393136A696F5BEEDDA6 /* ScrollPositionModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollPositionModifier.swift; sourceTree = "<group>"; };
 		2ACBB6507E5BA9BEF64ADEB4 /* IconButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IconButton.swift; sourceTree = "<group>"; };
 		2C333BE1267F47B99054F76A /* KeychainStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorageTests.swift; sourceTree = "<group>"; };
@@ -599,6 +602,7 @@
 		F845907D460CC2DAB74F0F53 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		F88EC049326E86665563BD96 /* ValidatorsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ValidatorsTests.swift; sourceTree = "<group>"; };
 		F9B7AAAF658F273016A6A08D /* MockOpenAPIService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockOpenAPIService.swift; sourceTree = "<group>"; };
+		FA9A7A398A7F88DB98F4B6BC /* UITestMockBiometricPreferenceStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UITestMockBiometricPreferenceStorage.swift; sourceTree = "<group>"; };
 		FACC5F041A4B134FDDFD8A84 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		FCBEB7A4DC5D8CBA08283D20 /* String+Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Localization.swift"; sourceTree = "<group>"; };
 		FD06AD9370E6A160F5546A00 /* ServiceConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceConfiguration.swift; sourceTree = "<group>"; };
@@ -728,6 +732,7 @@
 				84FF4A78B163436122D3A6B2 /* RegistrationErrorRecoveryTests.swift */,
 				426736DEA792D257AAEDF8A8 /* Screenshots */,
 				284313B81892FFA1AE606BC6 /* NotificationSettingsAccessibilityTests.swift */,
+				285552C8C6133F2BE7F80248 /* BiometricLockViewUITests.swift */,
 			);
 			path = AIQUITests;
 			sourceTree = "<group>";
@@ -878,6 +883,7 @@
 				C278684A058000797F88381C /* UITestMockBiometricAuthManager.swift */,
 				A1E5A66CEDB6C4EBE047F1AF /* UITestMockNetworkMonitor.swift */,
 				B1B28F142418B446FFBF1E24 /* UITestMockToastManager.swift */,
+				FA9A7A398A7F88DB98F4B6BC /* UITestMockBiometricPreferenceStorage.swift */,
 			);
 			path = Mocks;
 			sourceTree = "<group>";
@@ -1444,6 +1450,7 @@
 				11538BB6C0D4FBC727004442 /* RegistrationErrorRecoveryTests.swift in Sources */,
 				BFC4339D275D2FB43761D66D /* AppStoreScreenshotTests.swift in Sources */,
 				307A47136CDEB4184C5068FA /* NotificationSettingsAccessibilityTests.swift in Sources */,
+				B2FEAD0CB8B33B318E1A7043 /* BiometricLockViewUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1711,6 +1718,7 @@
 				6B8E17CB3833C20735332BC8 /* OnboardingStorage.swift in Sources */,
 				78C9E98C3D19B333783C3E3E /* BiometricPreferenceStorage.swift in Sources */,
 				C45FC0023585321A8D6BD6B3 /* BiometricLockView.swift in Sources */,
+				1862D5E3AEAE001552CE628C /* UITestMockBiometricPreferenceStorage.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

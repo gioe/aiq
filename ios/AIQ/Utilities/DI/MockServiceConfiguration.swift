@@ -87,7 +87,30 @@ import Foundation
             // MARK: - Layer 5: BiometricAuthManager
 
             let mockBiometricAuthManager = UITestMockBiometricAuthManager()
+            // Configure authentication behavior based on BIOMETRIC_SCENARIO environment variable.
+            // Supported values: "authenticationFailed", "userCancels", "lockedOut"
+            // Default (no value or unknown): biometric available, authentication succeeds.
+            if let biometricScenario = ProcessInfo.processInfo.environment["BIOMETRIC_SCENARIO"] {
+                switch biometricScenario {
+                case "authenticationFailed":
+                    mockBiometricAuthManager.shouldFailAuthentication = true
+                    mockBiometricAuthManager.authenticationError = .authenticationFailed
+                case "userCancels":
+                    mockBiometricAuthManager.shouldFailAuthentication = true
+                    mockBiometricAuthManager.authenticationError = .userCancelled
+                case "lockedOut":
+                    mockBiometricAuthManager.shouldFailAuthentication = true
+                    mockBiometricAuthManager.authenticationError = .lockedOut
+                default:
+                    break
+                }
+            }
             container.register(BiometricAuthManagerProtocol.self, instance: mockBiometricAuthManager)
+
+            // MARK: - Layer 6: BiometricPreferenceStorage
+
+            let mockBiometricPreferenceStorage = UITestMockBiometricPreferenceStorage()
+            container.register(BiometricPreferenceStorageProtocol.self, instance: mockBiometricPreferenceStorage)
 
             print("[MockServiceConfiguration] All mock services registered for scenario: \(scenario.rawValue)")
         }
