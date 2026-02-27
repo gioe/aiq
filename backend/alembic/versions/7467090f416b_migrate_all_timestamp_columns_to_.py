@@ -27,12 +27,12 @@ def upgrade() -> None:
     # Run this migration during a maintenance window or low-traffic period.
     op.execute("SET LOCAL lock_timeout = '2s'")
 
-    # Add missing index on password_reset_tokens(user_id, used_at)
-    op.create_index(
-        "ix_password_reset_tokens_user_used",
-        "password_reset_tokens",
-        ["user_id", "used_at"],
-        unique=False,
+    # Add missing index on password_reset_tokens(user_id, used_at) if not exists.
+    # This index was originally created by 1f4a08342fc1 so production DBs already
+    # have it; IF NOT EXISTS prevents a DuplicateTable error on redeploy.
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_user_used"
+        " ON password_reset_tokens (user_id, used_at)"
     )
 
     # Drop stale indexes that are no longer in the models
@@ -404,9 +404,9 @@ def downgrade() -> None:
         existing_nullable=False,
         postgresql_using="started_at AT TIME ZONE 'UTC'",
     )
-    op.drop_index(
-        "ix_password_reset_tokens_user_used", table_name="password_reset_tokens"
-    )
+    # Mirror the IF NOT EXISTS guard: only drop if this migration actually owns it.
+    # On DBs where 1f4a08342fc1 created the index, downgrade leaves it in place.
+    op.execute("DROP INDEX IF EXISTS ix_password_reset_tokens_user_used")
     op.alter_column(
         "password_reset_tokens",
         "created_at",
