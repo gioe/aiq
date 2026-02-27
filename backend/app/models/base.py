@@ -89,16 +89,26 @@ _SYNC_PREFIX_MAP = {
     "postgresql://": "postgresql+asyncpg://",
     "sqlite://": "sqlite+aiosqlite://",
 }
-_ASYNC_DATABASE_URL: str = ""
-for _sync_prefix, _async_prefix in _SYNC_PREFIX_MAP.items():
-    if DATABASE_URL.startswith(_sync_prefix):
-        _ASYNC_DATABASE_URL = _async_prefix + DATABASE_URL[len(_sync_prefix) :]
-        break
-if not _ASYNC_DATABASE_URL:
+
+
+def _build_async_url(url: str) -> str:
+    """Convert a sync database URL to its async driver equivalent.
+
+    Uses string-prefix replacement instead of the make_url() → set(drivername)
+    → str() round-trip because SQLAlchemy's URL serialiser strips underscores
+    from hostnames (e.g. postgres-6_4y becomes postgres-64y), which causes
+    asyncpg to connect to the wrong host.
+    """
+    for sync_prefix, async_prefix in _SYNC_PREFIX_MAP.items():
+        if url.startswith(sync_prefix):
+            return async_prefix + url[len(sync_prefix) :]
     raise ValueError(
         f"No async driver mapping for DATABASE_URL prefix. "
         f"Supported prefixes: {list(_SYNC_PREFIX_MAP.keys())}"
     )
+
+
+_ASYNC_DATABASE_URL = _build_async_url(DATABASE_URL)
 
 async_engine = create_async_engine(
     _ASYNC_DATABASE_URL,
