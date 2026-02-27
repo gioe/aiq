@@ -9,7 +9,7 @@ async (get_db yields AsyncSession). The sync engine and SessionLocal are
 retained for background jobs that run in threads.
 """
 
-from sqlalchemy import create_engine, make_url
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import AsyncAdaptedQueuePool, QueuePool
@@ -79,21 +79,26 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- Async engine and session (primary for all FastAPI endpoints) ---
-# Convert sync URL to async driver URL using SQLAlchemy's URL API
-# to handle all driver variants (postgresql, postgresql+psycopg2, etc.)
-_sync_url = make_url(DATABASE_URL)
-_ASYNC_DRIVER_MAP = {
-    "postgresql": "postgresql+asyncpg",
-    "postgresql+psycopg2": "postgresql+asyncpg",
-    "sqlite": "sqlite+aiosqlite",
+# Build the async URL by string-prefix replacement on the raw DATABASE_URL.
+# We intentionally avoid the make_url() → set(drivername) → str() round-trip
+# because SQLAlchemy's URL serialiser strips underscores from hostnames
+# (e.g. postgres-6_4y.railway.internal becomes postgres-64y), which causes
+# asyncpg to connect to the wrong host and surface a misleading auth error.
+_SYNC_PREFIX_MAP = {
+    "postgresql+psycopg2://": "postgresql+asyncpg://",
+    "postgresql://": "postgresql+asyncpg://",
+    "sqlite://": "sqlite+aiosqlite://",
 }
-_async_driver = _ASYNC_DRIVER_MAP.get(_sync_url.drivername)
-if _async_driver is None:
+_ASYNC_DATABASE_URL: str = ""
+for _sync_prefix, _async_prefix in _SYNC_PREFIX_MAP.items():
+    if DATABASE_URL.startswith(_sync_prefix):
+        _ASYNC_DATABASE_URL = _async_prefix + DATABASE_URL[len(_sync_prefix) :]
+        break
+if not _ASYNC_DATABASE_URL:
     raise ValueError(
-        f"No async driver mapping for: {_sync_url.drivername}. "
-        f"Supported: {list(_ASYNC_DRIVER_MAP.keys())}"
+        f"No async driver mapping for DATABASE_URL prefix. "
+        f"Supported prefixes: {list(_SYNC_PREFIX_MAP.keys())}"
     )
-_ASYNC_DATABASE_URL = str(_sync_url.set(drivername=_async_driver))
 
 async_engine = create_async_engine(
     _ASYNC_DATABASE_URL,
