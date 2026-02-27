@@ -252,6 +252,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("SET LOCAL lock_timeout = '2s'")
     op.alter_column(
         "users",
         "day_30_reminder_sent_at",
