@@ -44,14 +44,16 @@ async def health_check():
         db_error = str(exc)
         logger.error("Health check database connectivity failed: %s", exc)
 
-    return {
+    response: dict = {
         "status": "healthy",
         "timestamp": utc_now().isoformat(),
         "service": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "database": db_status,
-        **({"database_error": db_error} if db_error else {}),
     }
+    if db_error and settings.ENV != "production":
+        response["database_error"] = db_error
+    return response
 
 
 @router.get("/ping")
