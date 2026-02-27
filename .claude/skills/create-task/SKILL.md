@@ -21,7 +21,7 @@ If the user didn't provide any text after the command, ask:
 
 > What would you like to turn into tasks? Paste any text — feature specs, meeting notes, bug reports, requirements, etc.
 
-## Step 2: Fetch Config, Backlog, and Conventions
+## Step 2: Fetch Config and Backlog
 
 Fetch everything needed for analysis in a single call:
 
@@ -29,10 +29,9 @@ Fetch everything needed for analysis in a single call:
 tusk setup
 ```
 
-This returns a JSON object with three keys:
+This returns a JSON object with two keys:
 - **`config`** — full project config (domains, task_types, agents, priorities, complexity, etc.). Store for use when assigning metadata. If a field is an empty list (e.g., `"domains": []`), that field has no validation — use your best judgment or leave it NULL.
 - **`backlog`** — all open tasks as an array of objects. Hold in context for Step 3. The heuristic dupe checker (`tusk dupes check`) catches textually similar tasks, but you can catch **semantic** duplicates that differ in wording — e.g., "Implement password reset flow" vs. existing "Add forgot password endpoint" — which the heuristic would miss.
-- **`conventions`** — learned project heuristics (string, may be empty). If non-empty and contains convention entries (not just the header comment), hold in context as **preamble rules** for Step 3 — they take precedence over the generic decomposition guidelines below. For example, a convention like "bin/tusk-*.py always needs a dispatcher entry in bin/tusk" means a new Python script and its dispatcher line belong in the **same** task, not two separate tickets.
 
 ## Step 3: Analyze and Decompose
 
@@ -109,7 +108,7 @@ Wait for explicit user approval before proceeding. Do NOT insert anything until 
 
 ## Step 5: Deduplicate, Insert, and Generate Criteria
 
-For each approved task, generate **3–7 acceptance criteria** — concrete, testable conditions that define "done." Derive them from the description: each distinct requirement or expected behavior maps to a criterion. For **bug** tasks, include a criterion that the failure case is resolved. For **feature** tasks, include the happy path and at least one edge case.
+For each approved task, generate **3–7 acceptance criteria** — concrete, testable conditions that define "done." Derive them from the description: each distinct requirement or expected behavior maps to a criterion. For **bug** tasks, include a criterion that the failure case is resolved. For **feature** tasks, include the happy path and at least one edge case. For any task that creates a new database table (or is in a schema-related domain), always include the criterion: "DOMAIN.md updated with schema entry for `<table_name>`".
 
 Then insert the task with criteria in a single call using `tusk task-insert`. This validates enum values against config, runs a heuristic duplicate check internally, and inserts the task + criteria in one transaction:
 
@@ -213,12 +212,3 @@ Then, **conditionally** show the updated backlog:
   ```bash
   tusk "SELECT COUNT(*) || ' open tasks in backlog' FROM tasks WHERE status = 'To Do'"
   ```
-
-## Important Guidelines
-
-- **All DB access goes through `tusk`** — never use raw `sqlite3`
-- **Always confirm before inserting** — never insert tasks without explicit user approval
-- **Always run dupe checks** — check every task against existing open tasks before inserting
-- **Use `tusk sql-quote`** — always wrap user-provided text with `$(tusk sql-quote "...")` in SQL statements
-- **Use configured values only** — read domains, task_types, agents, and priorities from `tusk config`, never hardcode
-- **Adapt to any project** — this skill works with whatever config the target project has

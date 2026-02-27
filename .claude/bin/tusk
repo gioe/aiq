@@ -152,7 +152,7 @@ if not isinstance(cfg, dict):
 errors = []
 
 # ── Check for unknown top-level keys ──
-KNOWN_KEYS = {'domains', 'task_types', 'statuses', 'priorities', 'closed_reasons', 'complexity', 'blocker_types', 'criterion_types', 'agents', 'dupes', 'review', 'review_categories', 'review_severities'}
+KNOWN_KEYS = {'domains', 'task_types', 'statuses', 'priorities', 'closed_reasons', 'complexity', 'blocker_types', 'criterion_types', 'agents', 'dupes', 'review', 'review_categories', 'review_severities', 'merge', 'test_command'}
 known_list = ', '.join(sorted(KNOWN_KEYS))
 unknown = set(cfg.keys()) - KNOWN_KEYS
 if unknown:
@@ -241,8 +241,10 @@ if 'review' in cfg:
                 errors.append(f'Unknown key \"review.{k}\". Valid review keys: {known_review_list}')
 
         if 'mode' in review:
-            VALID_MODES = {'ai_only', 'ai_then_human', 'disabled'}
-            if review['mode'] not in VALID_MODES:
+            VALID_MODES = {'ai_only', 'disabled'}
+            if review['mode'] == 'ai_then_human':
+                errors.append(f'\"review.mode\" value \"ai_then_human\" has been removed; use \"ai_only\" instead.')
+            elif review['mode'] not in VALID_MODES:
                 modes_list = ', '.join(sorted(VALID_MODES))
                 errors.append(f'\"review.mode\" must be one of: {modes_list} (got {review[\"mode\"]!r}).')
 
@@ -259,8 +261,38 @@ if 'review' in cfg:
                 errors.append(f'\"review.reviewers\" must be a list (got {type(rv).__name__}).')
             else:
                 for i, item in enumerate(rv):
-                    if not isinstance(item, str):
-                        errors.append(f'\"review.reviewers[{i}]\" must be a string (got {type(item).__name__}: {item!r}).')
+                    if not isinstance(item, dict):
+                        errors.append(f'\"review.reviewers[{i}]\" must be an object with name and description fields (got {type(item).__name__}: {item!r}).')
+                    else:
+                        if not isinstance(item.get('name'), str):
+                            errors.append(f'\"review.reviewers[{i}].name\" must be a string.')
+                        if not isinstance(item.get('description'), str):
+                            errors.append(f'\"review.reviewers[{i}].description\" must be a string.')
+
+# ── Validate merge (optional object) ──
+if 'merge' in cfg:
+    merge = cfg['merge']
+    if not isinstance(merge, dict):
+        errors.append(f'\"merge\" must be an object (got {type(merge).__name__}).')
+    else:
+        KNOWN_MERGE_KEYS = {'mode'}
+        known_merge_list = ', '.join(sorted(KNOWN_MERGE_KEYS))
+        unknown_merge = set(merge.keys()) - KNOWN_MERGE_KEYS
+        if unknown_merge:
+            for k in sorted(unknown_merge):
+                errors.append(f'Unknown key \"merge.{k}\". Valid merge keys: {known_merge_list}')
+
+        if 'mode' in merge:
+            VALID_MERGE_MODES = {'local', 'pr'}
+            if merge['mode'] not in VALID_MERGE_MODES:
+                modes_list = ', '.join(sorted(VALID_MERGE_MODES))
+                errors.append(f'\"merge.mode\" must be one of: {modes_list} (got {merge[\"mode\"]!r}).')
+
+# ── Validate test_command (optional string) ──
+if 'test_command' in cfg:
+    tc = cfg['test_command']
+    if tc is not None and not isinstance(tc, str):
+        errors.append(f'\"test_command\" must be a string (got {type(tc).__name__}: {tc!r}).')
 
 # ── Report ──
 if errors:
@@ -345,6 +377,22 @@ if review_categories:
 review_severities = cfg.get('review_severities', [])
 if review_severities:
     print(trigger_sql('severity', review_severities, 'review_comments'))
+
+# Status transition constraint (separate from value validation)
+# Allowed: To Do->In Progress, To Do->Done, In Progress->Done; same-status no-ops always allowed
+print('''
+CREATE TRIGGER validate_status_transition
+BEFORE UPDATE OF status ON tasks
+FOR EACH ROW
+WHEN NOT (
+  OLD.status = NEW.status
+  OR (OLD.status = 'To Do' AND NEW.status IN ('In Progress', 'Done'))
+  OR (OLD.status = 'In Progress' AND NEW.status = 'Done')
+)
+BEGIN
+  SELECT RAISE(ABORT, 'Invalid status transition. Done is terminal. Allowed: To Do->In Progress, To Do->Done, In Progress->Done');
+END;
+''')
 " "$config"
 }
 
@@ -369,33 +417,78 @@ cmd_validate() {
 }
 
 cmd_conventions() {
-  local conventions_path="$REPO_ROOT/tusk/conventions.md"
-  if [[ "${1:-}" == "--path" ]]; then
-    echo "$conventions_path"
+  local subcommand="${1:-}"
+
+  if [[ "$subcommand" == "--path" ]]; then
+    echo "Warning: 'tusk conventions --path' is deprecated. conventions.md is no longer used; conventions are stored in the database. Use 'tusk conventions' to view them." >&2
+    return 1
+  fi
+
+  if [[ "$subcommand" == "add" ]]; then
+    shift
+    local text="" source_skill="" qualitative=0
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --qualitative) qualitative=1; shift ;;
+        --source) source_skill="$2"; shift 2 ;;
+        *)
+          if [[ -z "$text" ]]; then
+            text="$1"
+          fi
+          shift
+          ;;
+      esac
+    done
+    if [[ -z "$text" ]]; then
+      echo "Usage: tusk conventions add <text> [--qualitative] [--source <skill>]" >&2
+      exit 1
+    fi
+    if [[ "$qualitative" -eq 0 ]]; then
+      echo "Warning: 'tusk conventions add' is deprecated. Use 'tusk lint-rule add' to capture grep-detectable anti-patterns as lint rules instead. For qualitative conventions (not grep-detectable), use --qualitative to suppress this warning." >&2
+    fi
+    local quoted_text quoted_source
+    quoted_text="$(sql_quote "$text")"
+    if [[ -n "$source_skill" ]]; then
+      quoted_source="$(sql_quote "$source_skill")"
+    else
+      quoted_source="NULL"
+    fi
+    sqlite3 "$DB_PATH" "INSERT INTO conventions (text, source_skill, qualitative) VALUES ($quoted_text, $quoted_source, $qualitative);"
+    echo "Convention added."
     return
   fi
-  if [[ ! -f "$conventions_path" ]]; then
-    echo "No conventions file found at $conventions_path" >&2
-    echo "Run 'tusk init' to create it." >&2
-    exit 1
-  fi
-  cat "$conventions_path"
+
+  # Default: print all conventions from DB
+  python3 -c "
+import sqlite3, sys
+conn = sqlite3.connect(\"$DB_PATH\")
+try:
+    rows = conn.execute('SELECT id, text, source_skill, created_at, qualitative FROM conventions ORDER BY id').fetchall()
+except Exception as e:
+    print('Error: conventions table not found. Run tusk migrate.', file=sys.stderr)
+    sys.exit(1)
+finally:
+    conn.close()
+if not rows:
+    print('No conventions in database.')
+    sys.exit(0)
+for row in rows:
+    id_, text, source_skill, created_at, qualitative = row
+    date = (created_at or '')[:10]
+    source = source_skill or 'unknown'
+    qual_tag = ' [qualitative]' if qualitative else ''
+    lines = text.split('\n')
+    if lines and lines[0].startswith('## '):
+        output = lines[0] + '\n_Source: ' + source + ' — ' + date + qual_tag + '_\n' + '\n'.join(lines[1:])
+    else:
+        output = '_Source: ' + source + ' — ' + date + qual_tag + '_\n\n' + text
+    print(output)
+    print()
+"
 }
 
 cmd_init() {
   mkdir -p "$DB_DIR"
-
-  # Create conventions.md if it doesn't exist (before early exit so existing installs get it)
-  local conventions_path="$DB_DIR/conventions.md"
-  if [[ ! -f "$conventions_path" ]]; then
-    cat > "$conventions_path" << 'CONVENTIONS'
-# Project Conventions
-
-<!-- Append-only file for learned heuristics, coupling patterns, and decomposition rules.
-     Written by /retro after each session. Do not reorder or delete entries — newest last. -->
-CONVENTIONS
-    echo "Created conventions file at $conventions_path"
-  fi
 
   if [[ -f "$DB_PATH" ]]; then
     echo "Database already exists at $DB_PATH"
@@ -427,10 +520,10 @@ CREATE TABLE tasks (
     assignee TEXT,
     task_type TEXT,
     priority_score INTEGER DEFAULT 0,
-    github_pr TEXT,
     expires_at TEXT,
     closed_reason TEXT,
     complexity TEXT,
+    is_deferred INTEGER NOT NULL DEFAULT 0 CHECK (is_deferred IN (0, 1)),
     -- Timestamps are UTC (SQLite datetime('now') returns UTC)
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
@@ -477,8 +570,10 @@ CREATE TABLE task_sessions (
     lines_added INTEGER,
     lines_removed INTEGER,
     model TEXT,
+    agent_name TEXT,
     FOREIGN KEY (task_id) REFERENCES tasks(id)
 );
+CREATE UNIQUE INDEX idx_task_sessions_open ON task_sessions(task_id) WHERE ended_at IS NULL;
 
 -- task_metrics view
 CREATE VIEW task_metrics AS
@@ -493,6 +588,85 @@ SELECT t.*,
 FROM tasks t
 LEFT JOIN task_sessions s ON t.id = s.task_id
 GROUP BY t.id;
+
+-- v_ready_tasks view: canonical ready-to-work definition
+CREATE VIEW v_ready_tasks AS
+SELECT t.*
+FROM tasks t
+WHERE t.status = 'To Do'
+  AND NOT EXISTS (
+    SELECT 1 FROM task_dependencies d
+    JOIN tasks blocker ON d.depends_on_id = blocker.id
+    WHERE d.task_id = t.id AND d.relationship_type = 'blocks' AND blocker.status <> 'Done'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM external_blockers eb
+    WHERE eb.task_id = t.id AND eb.is_resolved = 0
+  );
+
+-- v_chain_heads view: tasks with dependents but no unmet upstream dependencies or open external blockers (chain entry points)
+CREATE VIEW v_chain_heads AS
+SELECT t.*
+FROM tasks t
+WHERE t.status <> 'Done'
+  AND EXISTS (
+    SELECT 1 FROM task_dependencies d
+    JOIN tasks downstream ON d.task_id = downstream.id
+    WHERE d.depends_on_id = t.id AND downstream.status <> 'Done'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM task_dependencies d
+    JOIN tasks blocker ON d.depends_on_id = blocker.id
+    WHERE d.task_id = t.id AND d.relationship_type = 'blocks' AND blocker.status <> 'Done'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM external_blockers eb
+    WHERE eb.task_id = t.id AND eb.is_resolved = 0
+  );
+
+-- v_blocked_tasks view: tasks blocked by dependency or external blocker with reason
+CREATE VIEW v_blocked_tasks AS
+SELECT t.id, t.summary, t.status, t.priority, t.domain, t.assignee,
+       'dependency' AS block_reason,
+       blocker.id AS blocking_id,
+       blocker.summary AS blocking_summary
+FROM tasks t
+JOIN task_dependencies d ON d.task_id = t.id
+JOIN tasks blocker ON d.depends_on_id = blocker.id
+WHERE t.status <> 'Done' AND d.relationship_type = 'blocks' AND blocker.status <> 'Done'
+UNION ALL
+SELECT t.id, t.summary, t.status, t.priority, t.domain, t.assignee,
+       'external_blocker' AS block_reason,
+       eb.id AS blocking_id,
+       eb.description AS blocking_summary
+FROM tasks t
+JOIN external_blockers eb ON eb.task_id = t.id
+WHERE t.status <> 'Done' AND eb.is_resolved = 0;
+
+-- v_criteria_coverage view: per-task total vs completed criteria count (excludes deferred criteria)
+CREATE VIEW v_criteria_coverage AS
+SELECT t.id AS task_id,
+       t.summary,
+       COUNT(CASE WHEN ac.is_deferred = 0 OR ac.is_deferred IS NULL THEN 1 END) AS total_criteria,
+       COALESCE(SUM(CASE WHEN ac.is_completed = 1 AND (ac.is_deferred = 0 OR ac.is_deferred IS NULL) THEN 1 ELSE 0 END), 0) AS completed_criteria,
+       COUNT(CASE WHEN ac.is_deferred = 0 OR ac.is_deferred IS NULL THEN 1 END) - COALESCE(SUM(CASE WHEN ac.is_completed = 1 AND (ac.is_deferred = 0 OR ac.is_deferred IS NULL) THEN 1 ELSE 0 END), 0) AS remaining_criteria
+FROM tasks t
+LEFT JOIN acceptance_criteria ac ON ac.task_id = t.id
+GROUP BY t.id, t.summary;
+
+-- v_velocity view: completed tasks grouped by calendar week (Mon-start, %Y-W%W) with throughput and cost metrics
+-- Note: %W is SQLite's Monday-based week (00-53), not ISO 8601 week. Early-January days before
+-- the first Monday appear as week 00. Consumers needing sorted output should add ORDER BY week.
+CREATE VIEW v_velocity AS
+SELECT
+    strftime('%Y-W%W', updated_at) AS week,
+    COUNT(id) AS task_count,
+    AVG(total_cost) AS avg_cost,
+    AVG(total_tokens_in) AS avg_tokens_in,
+    AVG(total_tokens_out) AS avg_tokens_out
+FROM task_metrics
+WHERE status = 'Done' AND closed_reason = 'completed'
+GROUP BY strftime('%Y-W%W', updated_at);
 SCHEMA
 
   # Enable WAL for concurrent read/write support
@@ -556,6 +730,7 @@ CREATE TABLE code_reviews (
     cost_dollars REAL,
     tokens_in INTEGER,
     tokens_out INTEGER,
+    agent_name TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
@@ -571,8 +746,8 @@ CREATE TABLE review_comments (
     category TEXT,
     severity TEXT,
     comment TEXT NOT NULL,
-    resolution TEXT DEFAULT 'pending'
-        CHECK (resolution IN ('pending', 'fixed', 'deferred', 'dismissed')),
+    resolution TEXT DEFAULT NULL
+        CHECK (resolution IN ('fixed', 'deferred', 'dismissed')),
     deferred_task_id INTEGER,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
@@ -582,6 +757,105 @@ CREATE TABLE review_comments (
 CREATE INDEX idx_review_comments_review_id ON review_comments(review_id);
 CR_SCHEMA
 
+  # Skill runs (cost tracking per skill execution)
+  sqlite3 "$DB_PATH" <<'SR_SCHEMA'
+CREATE TABLE skill_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    skill_name TEXT NOT NULL,
+    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    ended_at TEXT,
+    cost_dollars REAL,
+    tokens_in INTEGER,
+    tokens_out INTEGER,
+    model TEXT,
+    metadata TEXT
+);
+CREATE INDEX idx_skill_runs_skill_name ON skill_runs(skill_name);
+SR_SCHEMA
+
+  # Tool call stats (pre-computed per-tool-call cost aggregates per session or skill run)
+  sqlite3 "$DB_PATH" <<'TCS_SCHEMA'
+CREATE TABLE tool_call_stats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER,
+    task_id INTEGER,
+    skill_run_id INTEGER,
+    criterion_id INTEGER,
+    tool_name TEXT NOT NULL,
+    call_count INTEGER NOT NULL DEFAULT 0,
+    total_cost REAL NOT NULL DEFAULT 0.0,
+    max_cost REAL NOT NULL DEFAULT 0.0,
+    tokens_out INTEGER NOT NULL DEFAULT 0,
+    tokens_in INTEGER NOT NULL DEFAULT 0,
+    computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (session_id) REFERENCES task_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+    FOREIGN KEY (skill_run_id) REFERENCES skill_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY (criterion_id) REFERENCES acceptance_criteria(id) ON DELETE CASCADE,
+    UNIQUE (session_id, tool_name),
+    UNIQUE (skill_run_id, tool_name),
+    UNIQUE (criterion_id, tool_name),
+    CHECK (session_id IS NOT NULL OR skill_run_id IS NOT NULL OR criterion_id IS NOT NULL)
+);
+CREATE INDEX idx_tool_call_stats_session_id ON tool_call_stats(session_id);
+CREATE INDEX idx_tool_call_stats_task_id ON tool_call_stats(task_id);
+CREATE INDEX idx_tool_call_stats_skill_run_id ON tool_call_stats(skill_run_id);
+CREATE INDEX idx_tool_call_stats_criterion_id ON tool_call_stats(criterion_id);
+TCS_SCHEMA
+
+  # Tool call events (individual per-call rows; tool_call_stats holds aggregates)
+  sqlite3 "$DB_PATH" <<'TCE_SCHEMA'
+CREATE TABLE tool_call_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER,
+    session_id INTEGER,
+    criterion_id INTEGER,
+    skill_run_id INTEGER,
+    tool_name TEXT NOT NULL,
+    cost_dollars REAL NOT NULL DEFAULT 0.0,
+    tokens_in INTEGER NOT NULL DEFAULT 0,
+    tokens_out INTEGER NOT NULL DEFAULT 0,
+    call_sequence INTEGER NOT NULL DEFAULT 0,
+    called_at TEXT NOT NULL,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+    FOREIGN KEY (session_id) REFERENCES task_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (criterion_id) REFERENCES acceptance_criteria(id) ON DELETE CASCADE,
+    FOREIGN KEY (skill_run_id) REFERENCES skill_runs(id) ON DELETE CASCADE,
+    CHECK (session_id IS NOT NULL OR criterion_id IS NOT NULL OR skill_run_id IS NOT NULL)
+);
+CREATE INDEX idx_tool_call_events_session_id ON tool_call_events(session_id);
+CREATE INDEX idx_tool_call_events_task_id ON tool_call_events(task_id);
+CREATE INDEX idx_tool_call_events_criterion_id ON tool_call_events(criterion_id);
+CREATE INDEX idx_tool_call_events_skill_run_id ON tool_call_events(skill_run_id);
+TCE_SCHEMA
+
+  # Conventions (generalizable heuristics written by /retro)
+  sqlite3 "$DB_PATH" <<'CONV_SCHEMA'
+CREATE TABLE conventions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT NOT NULL,
+    source_skill TEXT,
+    lint_rule TEXT,
+    violation_count INTEGER NOT NULL DEFAULT 0,
+    qualitative INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+CONV_SCHEMA
+
+  # Lint rules (DB-backed grep rules added by skills or users)
+  sqlite3 "$DB_PATH" <<'LINT_RULES_SCHEMA'
+CREATE TABLE lint_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    grep_pattern TEXT NOT NULL,
+    file_glob TEXT NOT NULL,
+    message TEXT NOT NULL,
+    is_blocking INTEGER NOT NULL DEFAULT 0,
+    source_skill TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    CHECK (is_blocking IN (0, 1))
+);
+LINT_RULES_SCHEMA
+
   # Apply validation triggers from config (after all tables are created)
   local triggers
   triggers="$(generate_triggers)"
@@ -590,7 +864,7 @@ CR_SCHEMA
   fi
 
   # Set schema version so fresh DBs never need migration
-  sqlite3 "$DB_PATH" "PRAGMA user_version = 12;"
+  sqlite3 "$DB_PATH" "PRAGMA user_version = 34;"
 
   echo "Initialized task database at $DB_PATH"
 }
@@ -977,6 +1251,807 @@ cmd_migrate() {
     fi
   fi
 
+  # Migration 12→13: add status transition validation trigger
+  if [[ "$current" -lt 13 ]]; then
+    local triggers
+    triggers="$(generate_triggers)"
+    if [[ -n "$triggers" ]]; then
+      sqlite3 "$DB_PATH" "
+        $(sqlite3 "$DB_PATH" "SELECT 'DROP TRIGGER IF EXISTS ' || name || ';' FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'validate_%';")
+        $triggers
+        PRAGMA user_version = 13;
+      "
+    else
+      sqlite3 "$DB_PATH" "PRAGMA user_version = 13;"
+    fi
+    echo "  Migration 13: added status transition validation trigger"
+  fi
+
+  # Migration 13→14: create v_ready_tasks view
+  if [[ "$current" -lt 14 ]]; then
+    sqlite3 "$DB_PATH" "
+      CREATE VIEW IF NOT EXISTS v_ready_tasks AS
+      SELECT t.*
+      FROM tasks t
+      WHERE t.status = 'To Do'
+        AND NOT EXISTS (
+          SELECT 1 FROM task_dependencies d
+          JOIN tasks blocker ON d.depends_on_id = blocker.id
+          WHERE d.task_id = t.id AND blocker.status <> 'Done'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM external_blockers eb
+          WHERE eb.task_id = t.id AND eb.is_resolved = 0
+        );
+      PRAGMA user_version = 14;
+    "
+    echo "  Migration 14: created v_ready_tasks view"
+  fi
+
+  # Migration 14→15: add v_chain_heads, v_blocked_tasks, v_criteria_coverage views
+  if [[ "$current" -lt 15 ]]; then
+    sqlite3 "$DB_PATH" "
+      CREATE VIEW IF NOT EXISTS v_chain_heads AS
+      SELECT t.*
+      FROM tasks t
+      WHERE t.status <> 'Done'
+        AND EXISTS (
+          SELECT 1 FROM task_dependencies d
+          JOIN tasks downstream ON d.task_id = downstream.id
+          WHERE d.depends_on_id = t.id AND downstream.status <> 'Done'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM task_dependencies d
+          JOIN tasks blocker ON d.depends_on_id = blocker.id
+          WHERE d.task_id = t.id AND blocker.status <> 'Done'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM external_blockers eb
+          WHERE eb.task_id = t.id AND eb.is_resolved = 0
+        );
+
+      CREATE VIEW IF NOT EXISTS v_blocked_tasks AS
+      SELECT t.id, t.summary, t.status, t.priority, t.domain, t.assignee,
+             'dependency' AS block_reason,
+             blocker.id AS blocking_id,
+             blocker.summary AS blocking_summary
+      FROM tasks t
+      JOIN task_dependencies d ON d.task_id = t.id
+      JOIN tasks blocker ON d.depends_on_id = blocker.id
+      WHERE t.status <> 'Done' AND blocker.status <> 'Done'
+      UNION ALL
+      SELECT t.id, t.summary, t.status, t.priority, t.domain, t.assignee,
+             'external_blocker' AS block_reason,
+             eb.id AS blocking_id,
+             eb.description AS blocking_summary
+      FROM tasks t
+      JOIN external_blockers eb ON eb.task_id = t.id
+      WHERE t.status <> 'Done' AND eb.is_resolved = 0;
+
+      CREATE VIEW IF NOT EXISTS v_criteria_coverage AS
+      SELECT t.id AS task_id,
+             t.summary,
+             COUNT(CASE WHEN ac.is_deferred = 0 OR ac.is_deferred IS NULL THEN 1 END) AS total_criteria,
+             COALESCE(SUM(CASE WHEN ac.is_completed = 1 AND (ac.is_deferred = 0 OR ac.is_deferred IS NULL) THEN 1 ELSE 0 END), 0) AS completed_criteria,
+             COUNT(CASE WHEN ac.is_deferred = 0 OR ac.is_deferred IS NULL THEN 1 END) - COALESCE(SUM(CASE WHEN ac.is_completed = 1 AND (ac.is_deferred = 0 OR ac.is_deferred IS NULL) THEN 1 ELSE 0 END), 0) AS remaining_criteria
+      FROM tasks t
+      LEFT JOIN acceptance_criteria ac ON ac.task_id = t.id
+      GROUP BY t.id, t.summary;
+
+      PRAGMA user_version = 15;
+    "
+    echo "  Migration 15: added v_chain_heads, v_blocked_tasks, v_criteria_coverage views"
+  fi
+
+  # Migration 15→16: fix v_ready_tasks to exclude contingent deps from readiness check
+  if [[ "$current" -lt 16 ]]; then
+    sqlite3 "$DB_PATH" "
+      DROP VIEW IF EXISTS v_ready_tasks;
+
+      CREATE VIEW v_ready_tasks AS
+      SELECT t.*
+      FROM tasks t
+      WHERE t.status = 'To Do'
+        AND NOT EXISTS (
+          SELECT 1 FROM task_dependencies d
+          JOIN tasks blocker ON d.depends_on_id = blocker.id
+          WHERE d.task_id = t.id AND d.relationship_type = 'blocks' AND blocker.status <> 'Done'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM external_blockers eb
+          WHERE eb.task_id = t.id AND eb.is_resolved = 0
+        );
+
+      PRAGMA user_version = 16;
+    "
+    echo "  Migration 16: fixed v_ready_tasks to only filter 'blocks'-type deps (not contingent)"
+  fi
+
+  # Migration 16→17: fix v_chain_heads and v_blocked_tasks to exclude contingent deps
+  if [[ "$current" -lt 17 ]]; then
+    sqlite3 "$DB_PATH" "
+      DROP VIEW IF EXISTS v_chain_heads;
+      DROP VIEW IF EXISTS v_blocked_tasks;
+
+      CREATE VIEW v_chain_heads AS
+      SELECT t.*
+      FROM tasks t
+      WHERE t.status <> 'Done'
+        AND EXISTS (
+          SELECT 1 FROM task_dependencies d
+          JOIN tasks downstream ON d.task_id = downstream.id
+          WHERE d.depends_on_id = t.id AND downstream.status <> 'Done'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM task_dependencies d
+          JOIN tasks blocker ON d.depends_on_id = blocker.id
+          WHERE d.task_id = t.id AND d.relationship_type = 'blocks' AND blocker.status <> 'Done'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM external_blockers eb
+          WHERE eb.task_id = t.id AND eb.is_resolved = 0
+        );
+
+      CREATE VIEW v_blocked_tasks AS
+      SELECT t.id, t.summary, t.status, t.priority, t.domain, t.assignee,
+             'dependency' AS block_reason,
+             blocker.id AS blocking_id,
+             blocker.summary AS blocking_summary
+      FROM tasks t
+      JOIN task_dependencies d ON d.task_id = t.id
+      JOIN tasks blocker ON d.depends_on_id = blocker.id
+      WHERE t.status <> 'Done' AND d.relationship_type = 'blocks' AND blocker.status <> 'Done'
+      UNION ALL
+      SELECT t.id, t.summary, t.status, t.priority, t.domain, t.assignee,
+             'external_blocker' AS block_reason,
+             eb.id AS blocking_id,
+             eb.description AS blocking_summary
+      FROM tasks t
+      JOIN external_blockers eb ON eb.task_id = t.id
+      WHERE t.status <> 'Done' AND eb.is_resolved = 0;
+
+      PRAGMA user_version = 17;
+    "
+    echo "  Migration 17: fixed v_chain_heads and v_blocked_tasks to only filter 'blocks'-type deps (not contingent)"
+  fi
+
+  # Migration 17→18: add skill_runs table for per-skill cost tracking
+  if [[ "$current" -lt 18 ]]; then
+    sqlite3 "$DB_PATH" "
+      CREATE TABLE IF NOT EXISTS skill_runs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          skill_name TEXT NOT NULL,
+          started_at TEXT NOT NULL DEFAULT (datetime('now')),
+          ended_at TEXT,
+          cost_dollars REAL,
+          tokens_in INTEGER,
+          tokens_out INTEGER,
+          model TEXT,
+          metadata TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_skill_runs_skill_name ON skill_runs(skill_name);
+      PRAGMA user_version = 18;
+    "
+    echo "  Migration 18: added skill_runs table for per-skill cost tracking"
+  fi
+
+  # Migration 18→19: add tool_call_stats table for pre-computed per-tool-call cost aggregates
+  if [[ "$current" -lt 19 ]]; then
+    sqlite3 "$DB_PATH" "
+      CREATE TABLE IF NOT EXISTS tool_call_stats (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id INTEGER NOT NULL,
+          task_id INTEGER,
+          tool_name TEXT NOT NULL,
+          call_count INTEGER NOT NULL DEFAULT 0,
+          total_cost REAL NOT NULL DEFAULT 0.0,
+          max_cost REAL NOT NULL DEFAULT 0.0,
+          tokens_out INTEGER NOT NULL DEFAULT 0,
+          computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (session_id) REFERENCES task_sessions(id) ON DELETE CASCADE,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+          UNIQUE (session_id, tool_name)
+      );
+      CREATE INDEX IF NOT EXISTS idx_tool_call_stats_session_id ON tool_call_stats(session_id);
+      CREATE INDEX IF NOT EXISTS idx_tool_call_stats_task_id ON tool_call_stats(task_id);
+      PRAGMA user_version = 19;
+    "
+    echo "  Migration 19: added tool_call_stats table for per-tool-call cost aggregates"
+  fi
+
+  # Migration 19→20: add skill_run_id FK to tool_call_stats; make session_id nullable
+  if [[ "$current" -lt 20 ]]; then
+    sqlite3 "$DB_PATH" "
+      BEGIN;
+
+      -- 1. Create new table with updated schema
+      CREATE TABLE tool_call_stats_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id INTEGER,
+          task_id INTEGER,
+          skill_run_id INTEGER,
+          tool_name TEXT NOT NULL,
+          call_count INTEGER NOT NULL DEFAULT 0,
+          total_cost REAL NOT NULL DEFAULT 0.0,
+          max_cost REAL NOT NULL DEFAULT 0.0,
+          tokens_out INTEGER NOT NULL DEFAULT 0,
+          computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (session_id) REFERENCES task_sessions(id) ON DELETE CASCADE,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+          FOREIGN KEY (skill_run_id) REFERENCES skill_runs(id) ON DELETE CASCADE,
+          UNIQUE (session_id, tool_name),
+          UNIQUE (skill_run_id, tool_name)
+      );
+
+      -- 2. Copy existing data
+      INSERT INTO tool_call_stats_new (id, session_id, task_id, tool_name, call_count, total_cost, max_cost, tokens_out, computed_at)
+      SELECT id, session_id, task_id, tool_name, call_count, total_cost, max_cost, tokens_out, computed_at
+      FROM tool_call_stats;
+
+      -- 3. Drop old table
+      DROP TABLE tool_call_stats;
+
+      -- 4. Rename
+      ALTER TABLE tool_call_stats_new RENAME TO tool_call_stats;
+
+      -- 5. Recreate indexes
+      CREATE INDEX idx_tool_call_stats_session_id ON tool_call_stats(session_id);
+      CREATE INDEX idx_tool_call_stats_task_id ON tool_call_stats(task_id);
+      CREATE INDEX idx_tool_call_stats_skill_run_id ON tool_call_stats(skill_run_id);
+
+      -- 6. Bump schema version
+      -- Note: no trigger-drop/regenerate step needed — validation triggers only target
+      -- the tasks table, not tool_call_stats, so they are unaffected by this migration.
+      PRAGMA user_version = 20;
+
+      COMMIT;
+    "
+    echo "  Migration 20: added skill_run_id FK to tool_call_stats, made session_id nullable"
+  fi
+
+  # Migration 20→21: add CHECK constraint to tool_call_stats (session_id or skill_run_id must be set)
+  if [[ "$current" -lt 21 ]]; then
+    sqlite3 "$DB_PATH" "
+      BEGIN;
+
+      -- 1. Create new table with CHECK constraint
+      CREATE TABLE tool_call_stats_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id INTEGER,
+          task_id INTEGER,
+          skill_run_id INTEGER,
+          tool_name TEXT NOT NULL,
+          call_count INTEGER NOT NULL DEFAULT 0,
+          total_cost REAL NOT NULL DEFAULT 0.0,
+          max_cost REAL NOT NULL DEFAULT 0.0,
+          tokens_out INTEGER NOT NULL DEFAULT 0,
+          computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (session_id) REFERENCES task_sessions(id) ON DELETE CASCADE,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+          FOREIGN KEY (skill_run_id) REFERENCES skill_runs(id) ON DELETE CASCADE,
+          UNIQUE (session_id, tool_name),
+          UNIQUE (skill_run_id, tool_name),
+          CHECK (session_id IS NOT NULL OR skill_run_id IS NOT NULL)
+      );
+
+      -- 2. Copy existing data
+      INSERT INTO tool_call_stats_new (id, session_id, task_id, skill_run_id, tool_name, call_count, total_cost, max_cost, tokens_out, computed_at)
+      SELECT id, session_id, task_id, skill_run_id, tool_name, call_count, total_cost, max_cost, tokens_out, computed_at
+      FROM tool_call_stats;
+
+      -- 3. Drop old table
+      DROP TABLE tool_call_stats;
+
+      -- 4. Rename
+      ALTER TABLE tool_call_stats_new RENAME TO tool_call_stats;
+
+      -- 5. Recreate indexes
+      CREATE INDEX idx_tool_call_stats_session_id ON tool_call_stats(session_id);
+      CREATE INDEX idx_tool_call_stats_task_id ON tool_call_stats(task_id);
+      CREATE INDEX idx_tool_call_stats_skill_run_id ON tool_call_stats(skill_run_id);
+
+      -- 6. Bump schema version
+      -- Note: no trigger-drop/regenerate step needed — validation triggers only target
+      -- the tasks table, not tool_call_stats, so they are unaffected by this migration.
+      PRAGMA user_version = 21;
+
+      COMMIT;
+    "
+    echo "  Migration 21: added CHECK(session_id IS NOT NULL OR skill_run_id IS NOT NULL) to tool_call_stats"
+  fi
+
+  # Migration 21→22: add criterion_id FK to tool_call_stats for per-criterion tool-cost drilldown
+  if [[ "$current" -lt 22 ]]; then
+    sqlite3 "$DB_PATH" "
+      BEGIN;
+
+      -- 1. Create new table with criterion_id column and updated constraints
+      CREATE TABLE tool_call_stats_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_id INTEGER,
+          task_id INTEGER,
+          skill_run_id INTEGER,
+          criterion_id INTEGER,
+          tool_name TEXT NOT NULL,
+          call_count INTEGER NOT NULL DEFAULT 0,
+          total_cost REAL NOT NULL DEFAULT 0.0,
+          max_cost REAL NOT NULL DEFAULT 0.0,
+          tokens_out INTEGER NOT NULL DEFAULT 0,
+          computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (session_id) REFERENCES task_sessions(id) ON DELETE CASCADE,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+          FOREIGN KEY (skill_run_id) REFERENCES skill_runs(id) ON DELETE CASCADE,
+          FOREIGN KEY (criterion_id) REFERENCES acceptance_criteria(id) ON DELETE CASCADE,
+          UNIQUE (session_id, tool_name),
+          UNIQUE (skill_run_id, tool_name),
+          UNIQUE (criterion_id, tool_name),
+          CHECK (session_id IS NOT NULL OR skill_run_id IS NOT NULL OR criterion_id IS NOT NULL)
+      );
+
+      -- 2. Copy existing data
+      INSERT INTO tool_call_stats_new (id, session_id, task_id, skill_run_id, tool_name, call_count, total_cost, max_cost, tokens_out, computed_at)
+      SELECT id, session_id, task_id, skill_run_id, tool_name, call_count, total_cost, max_cost, tokens_out, computed_at
+      FROM tool_call_stats;
+
+      -- 3. Drop old table
+      DROP TABLE tool_call_stats;
+
+      -- 4. Rename
+      ALTER TABLE tool_call_stats_new RENAME TO tool_call_stats;
+
+      -- 5. Recreate indexes
+      CREATE INDEX idx_tool_call_stats_session_id ON tool_call_stats(session_id);
+      CREATE INDEX idx_tool_call_stats_task_id ON tool_call_stats(task_id);
+      CREATE INDEX idx_tool_call_stats_skill_run_id ON tool_call_stats(skill_run_id);
+      CREATE INDEX idx_tool_call_stats_criterion_id ON tool_call_stats(criterion_id);
+
+      -- 6. Bump schema version
+      PRAGMA user_version = 22;
+
+      COMMIT;
+    "
+    echo "  Migration 22: added criterion_id FK to tool_call_stats for per-criterion tool-cost drilldown"
+  fi
+
+  # Migration 22→23: add tokens_in column to tool_call_stats for per-tool input-token tracking
+  if [[ "$current" -lt 23 ]]; then
+    sqlite3 "$DB_PATH" "
+      ALTER TABLE tool_call_stats ADD COLUMN tokens_in INTEGER NOT NULL DEFAULT 0;
+      PRAGMA user_version = 23;
+    "
+    echo "  Migration 23: added tokens_in column to tool_call_stats"
+  fi
+
+  # Migration 23→24: add v_velocity view for task throughput and cost-per-task metrics by calendar week
+  if [[ "$current" -lt 24 ]]; then
+    sqlite3 "$DB_PATH" "
+      CREATE VIEW IF NOT EXISTS v_velocity AS
+      SELECT
+          strftime('%Y-W%W', updated_at) AS week,
+          COUNT(id) AS task_count,
+          AVG(total_cost) AS avg_cost,
+          AVG(total_tokens_in) AS avg_tokens_in,
+          AVG(total_tokens_out) AS avg_tokens_out
+      FROM task_metrics
+      WHERE status = 'Done' AND closed_reason = 'completed'
+      GROUP BY strftime('%Y-W%W', updated_at);
+      PRAGMA user_version = 24;
+    "
+    echo "  Migration 24: added v_velocity view for throughput and cost-per-task metrics"
+  fi
+
+  # Migration 24→25: drop github_pr column from tasks table
+  if [[ "$current" -lt 25 ]]; then
+    sqlite3 "$DB_PATH" "
+      BEGIN;
+
+      -- 1. Drop validation triggers (they reference the tasks table)
+      $(sqlite3 "$DB_PATH" "SELECT 'DROP TRIGGER IF EXISTS ' || name || ';' FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'validate_%';")
+
+      -- 2. Drop all views that reference tasks
+      DROP VIEW IF EXISTS v_velocity;
+      DROP VIEW IF EXISTS v_criteria_coverage;
+      DROP VIEW IF EXISTS v_blocked_tasks;
+      DROP VIEW IF EXISTS v_chain_heads;
+      DROP VIEW IF EXISTS v_ready_tasks;
+      DROP VIEW IF EXISTS task_metrics;
+
+      -- 3. Create new tasks table without github_pr
+      CREATE TABLE tasks_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          summary TEXT NOT NULL,
+          description TEXT,
+          status TEXT DEFAULT 'To Do',
+          priority TEXT DEFAULT 'Medium',
+          domain TEXT,
+          assignee TEXT,
+          task_type TEXT,
+          priority_score INTEGER DEFAULT 0,
+          expires_at TEXT,
+          closed_reason TEXT,
+          complexity TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      -- 4. Copy data (excluding github_pr)
+      INSERT INTO tasks_new (id, summary, description, status, priority, domain, assignee, task_type, priority_score, expires_at, closed_reason, complexity, created_at, updated_at)
+      SELECT id, summary, description, status, priority, domain, assignee, task_type, priority_score, expires_at, closed_reason, complexity, created_at, updated_at
+      FROM tasks;
+
+      -- 5. Drop old table
+      DROP TABLE tasks;
+
+      -- 6. Rename new table
+      ALTER TABLE tasks_new RENAME TO tasks;
+
+      -- 7. Recreate views
+      CREATE VIEW task_metrics AS
+      SELECT t.*,
+          COUNT(s.id) as session_count,
+          SUM(s.duration_seconds) as total_duration_seconds,
+          SUM(s.cost_dollars) as total_cost,
+          SUM(s.tokens_in) as total_tokens_in,
+          SUM(s.tokens_out) as total_tokens_out,
+          SUM(s.lines_added) as total_lines_added,
+          SUM(s.lines_removed) as total_lines_removed
+      FROM tasks t
+      LEFT JOIN task_sessions s ON t.id = s.task_id
+      GROUP BY t.id;
+
+      CREATE VIEW v_ready_tasks AS
+      SELECT t.*
+      FROM tasks t
+      WHERE t.status = 'To Do'
+        AND NOT EXISTS (
+          SELECT 1 FROM task_dependencies d
+          JOIN tasks blocker ON d.depends_on_id = blocker.id
+          WHERE d.task_id = t.id AND d.relationship_type = 'blocks' AND blocker.status <> 'Done'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM external_blockers eb
+          WHERE eb.task_id = t.id AND eb.is_resolved = 0
+        );
+
+      CREATE VIEW v_chain_heads AS
+      SELECT t.*
+      FROM tasks t
+      WHERE t.status <> 'Done'
+        AND EXISTS (
+          SELECT 1 FROM task_dependencies d
+          JOIN tasks downstream ON d.task_id = downstream.id
+          WHERE d.depends_on_id = t.id AND downstream.status <> 'Done'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM task_dependencies d
+          JOIN tasks blocker ON d.depends_on_id = blocker.id
+          WHERE d.task_id = t.id AND d.relationship_type = 'blocks' AND blocker.status <> 'Done'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM external_blockers eb
+          WHERE eb.task_id = t.id AND eb.is_resolved = 0
+        );
+
+      CREATE VIEW v_blocked_tasks AS
+      SELECT t.id, t.summary, t.status, t.priority, t.domain, t.assignee,
+             'dependency' AS block_reason,
+             blocker.id AS blocking_id,
+             blocker.summary AS blocking_summary
+      FROM tasks t
+      JOIN task_dependencies d ON d.task_id = t.id
+      JOIN tasks blocker ON d.depends_on_id = blocker.id
+      WHERE t.status <> 'Done' AND d.relationship_type = 'blocks' AND blocker.status <> 'Done'
+      UNION ALL
+      SELECT t.id, t.summary, t.status, t.priority, t.domain, t.assignee,
+             'external_blocker' AS block_reason,
+             eb.id AS blocking_id,
+             eb.description AS blocking_summary
+      FROM tasks t
+      JOIN external_blockers eb ON eb.task_id = t.id
+      WHERE t.status <> 'Done' AND eb.is_resolved = 0;
+
+      CREATE VIEW v_criteria_coverage AS
+      SELECT t.id AS task_id,
+             t.summary,
+             COUNT(CASE WHEN ac.is_deferred = 0 OR ac.is_deferred IS NULL THEN 1 END) AS total_criteria,
+             COALESCE(SUM(CASE WHEN ac.is_completed = 1 AND (ac.is_deferred = 0 OR ac.is_deferred IS NULL) THEN 1 ELSE 0 END), 0) AS completed_criteria,
+             COUNT(CASE WHEN ac.is_deferred = 0 OR ac.is_deferred IS NULL THEN 1 END) - COALESCE(SUM(CASE WHEN ac.is_completed = 1 AND (ac.is_deferred = 0 OR ac.is_deferred IS NULL) THEN 1 ELSE 0 END), 0) AS remaining_criteria
+      FROM tasks t
+      LEFT JOIN acceptance_criteria ac ON ac.task_id = t.id
+      GROUP BY t.id, t.summary;
+
+      CREATE VIEW v_velocity AS
+      SELECT
+          strftime('%Y-W%W', updated_at) AS week,
+          COUNT(id) AS task_count,
+          AVG(total_cost) AS avg_cost,
+          AVG(total_tokens_in) AS avg_tokens_in,
+          AVG(total_tokens_out) AS avg_tokens_out
+      FROM task_metrics
+      WHERE status = 'Done' AND closed_reason = 'completed'
+      GROUP BY strftime('%Y-W%W', updated_at);
+
+      -- 8. Bump schema version
+      PRAGMA user_version = 25;
+
+      COMMIT;
+    "
+
+    # 9. Regenerate validation triggers from config
+    local triggers
+    triggers="$(generate_triggers)"
+    if [[ -n "$triggers" ]]; then
+      sqlite3 "$DB_PATH" "$triggers"
+    fi
+
+    echo "  Migration 25: dropped github_pr column from tasks table"
+  fi
+
+  # Migration 25→26: add agent_name column to task_sessions and code_reviews
+  if [[ "$current" -lt 26 ]]; then
+    sqlite3 "$DB_PATH" "
+      ALTER TABLE task_sessions ADD COLUMN agent_name TEXT;
+      ALTER TABLE code_reviews ADD COLUMN agent_name TEXT;
+      PRAGMA user_version = 26;
+    "
+    echo "  Migration 26: added agent_name column to task_sessions and code_reviews"
+  fi
+
+  # Migration 26→27: add partial UNIQUE index on task_sessions(task_id) WHERE ended_at IS NULL
+  # Closes the concurrency gap where parallel /chain agents could create duplicate open sessions.
+  if [[ "$current" -lt 27 ]]; then
+    sqlite3 "$DB_PATH" "
+      -- Close duplicate open sessions first, keeping only the latest per task
+      DELETE FROM task_sessions
+      WHERE ended_at IS NULL
+        AND id NOT IN (
+          SELECT MAX(id) FROM task_sessions WHERE ended_at IS NULL GROUP BY task_id
+        );
+
+      CREATE UNIQUE INDEX idx_task_sessions_open ON task_sessions(task_id) WHERE ended_at IS NULL;
+
+      PRAGMA user_version = 27;
+    "
+    echo "  Migration 27: added partial UNIQUE index on task_sessions(task_id) WHERE ended_at IS NULL"
+  fi
+
+  # Migration 27→28: add is_deferred boolean column to tasks and backfill from [Deferred] prefix
+  if [[ "$current" -lt 28 ]]; then
+    sqlite3 "$DB_PATH" "
+      ALTER TABLE tasks ADD COLUMN is_deferred INTEGER NOT NULL DEFAULT 0 CHECK (is_deferred IN (0, 1));
+      UPDATE tasks SET is_deferred = 1 WHERE summary LIKE '[Deferred]%';
+      PRAGMA user_version = 28;
+    "
+    echo "  Migration 28: added is_deferred column to tasks and backfilled from [Deferred] prefix"
+  fi
+
+  # Migration 28→29: add conventions table and import existing conventions.md
+  if [[ "$current" -lt 29 ]]; then
+    sqlite3 "$DB_PATH" "
+      CREATE TABLE conventions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          text TEXT NOT NULL,
+          source_skill TEXT,
+          lint_rule TEXT,
+          violation_count INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now'))
+      );
+      PRAGMA user_version = 29;
+    "
+    # Import existing conventions.md entries into the DB (idempotent: skip if already imported)
+    local conventions_md="$REPO_ROOT/tusk/conventions.md"
+    if [[ -f "$conventions_md" ]]; then
+      python3 << PYEOF
+import sqlite3, re, sys
+db_path = "$DB_PATH"
+md_path = "$conventions_md"
+conn = sqlite3.connect(db_path)
+# Idempotent: skip import if rows already exist (allows safe retry after partial failure)
+existing = conn.execute("SELECT COUNT(*) FROM conventions").fetchone()[0]
+if existing > 0:
+    conn.close()
+    print(f"  Skipped import: {existing} convention(s) already in DB")
+    sys.exit(0)
+try:
+    with open(md_path) as f:
+        content = f.read()
+    # Split into individual convention blocks (each starts with ## )
+    blocks = re.split(r'(?m)^(?=## )', content)
+    count = 0
+    for block in blocks:
+        block = block.strip()
+        if not block.startswith('## '):
+            continue
+        # Extract date from _Source: session N — YYYY-MM-DD_ line
+        date_match = re.search(r'_Source: session \d+ — (\d{4}-\d{2}-\d{2})_', block)
+        created_at = date_match.group(1) if date_match else None
+        # Strip the _Source: ..._ line from text (keep ## title + blank line + body)
+        text = re.sub(r'\n_Source: session \d+ — \d{4}-\d{2}-\d{2}_', '', block).strip()
+        conn.execute(
+            "INSERT INTO conventions (text, source_skill, created_at) VALUES (?, ?, ?)",
+            (text, 'retro', created_at)
+        )
+        count += 1
+    conn.commit()
+    print(f"  Imported {count} convention(s) from conventions.md")
+except Exception as e:
+    conn.rollback()
+    print(f"  Warning: conventions.md import failed: {e}", file=sys.stderr)
+    print(f"  Re-run 'tusk migrate' to retry the import (idempotent when table is empty).", file=sys.stderr)
+finally:
+    conn.close()
+PYEOF
+    fi
+    echo "  Migration 29: added conventions table"
+  fi
+
+  # Migration 29→30: drop pending from review_comments.resolution; NULL is now the unresolved sentinel
+  if [[ "$current" -lt 30 ]]; then
+    sqlite3 "$DB_PATH" "
+      BEGIN;
+
+      -- 1. Drop validation triggers (they reference review_comments)
+      $(sqlite3 "$DB_PATH" "SELECT 'DROP TRIGGER IF EXISTS ' || name || ';' FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'validate_%';")
+
+      -- 2. Create new review_comments table without pending in resolution CHECK
+      CREATE TABLE review_comments_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          review_id INTEGER NOT NULL,
+          file_path TEXT,
+          line_start INTEGER,
+          line_end INTEGER,
+          category TEXT,
+          severity TEXT,
+          comment TEXT NOT NULL,
+          resolution TEXT DEFAULT NULL
+              CHECK (resolution IN ('fixed', 'deferred', 'dismissed')),
+          deferred_task_id INTEGER,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (review_id) REFERENCES code_reviews(id) ON DELETE CASCADE,
+          FOREIGN KEY (deferred_task_id) REFERENCES tasks(id)
+      );
+
+      -- 3. Copy data, mapping pending -> NULL
+      INSERT INTO review_comments_new (id, review_id, file_path, line_start, line_end, category, severity, comment, resolution, deferred_task_id, created_at, updated_at)
+      SELECT id, review_id, file_path, line_start, line_end, category, severity, comment,
+          CASE WHEN resolution = 'pending' THEN NULL ELSE resolution END,
+          deferred_task_id, created_at, updated_at
+      FROM review_comments;
+
+      -- 4. Drop old table and rename new
+      DROP TABLE review_comments;
+      ALTER TABLE review_comments_new RENAME TO review_comments;
+
+      -- 5. Recreate index
+      CREATE INDEX idx_review_comments_review_id ON review_comments(review_id);
+
+      -- 6. Bump schema version
+      PRAGMA user_version = 30;
+
+      COMMIT;
+    "
+
+    # 7. Regenerate validation triggers from config
+    local triggers
+    triggers="$(generate_triggers)"
+    if [[ -n "$triggers" ]]; then
+      sqlite3 "$DB_PATH" "$triggers"
+    fi
+
+    echo "  Migration 30: dropped pending from review_comments.resolution; NULL is now the unresolved sentinel"
+  fi
+
+  # Migration 30→31: add lint_rules table
+  if [[ "$current" -lt 31 ]]; then
+    local has_lint_rules
+    has_lint_rules="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='lint_rules';")"
+    if [[ "$has_lint_rules" -eq 0 ]]; then
+      sqlite3 "$DB_PATH" "
+        CREATE TABLE lint_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            grep_pattern TEXT NOT NULL,
+            file_glob TEXT NOT NULL,
+            message TEXT NOT NULL,
+            is_blocking INTEGER NOT NULL DEFAULT 0,
+            source_skill TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            CHECK (is_blocking IN (0, 1))
+        );
+        PRAGMA user_version = 31;
+      "
+    else
+      sqlite3 "$DB_PATH" "PRAGMA user_version = 31;"
+    fi
+    echo "  Migration 31: added lint_rules table"
+  fi
+
+  # Migration 31→32: add tool_call_events table
+  if [[ "$current" -lt 32 ]]; then
+    local has_tce
+    has_tce="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='tool_call_events';")"
+    if [[ "$has_tce" -eq 0 ]]; then
+      sqlite3 "$DB_PATH" "
+        CREATE TABLE tool_call_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER,
+            session_id INTEGER,
+            criterion_id INTEGER,
+            tool_name TEXT NOT NULL,
+            cost_dollars REAL NOT NULL DEFAULT 0.0,
+            tokens_in INTEGER NOT NULL DEFAULT 0,
+            tokens_out INTEGER NOT NULL DEFAULT 0,
+            call_sequence INTEGER NOT NULL DEFAULT 0,
+            called_at TEXT NOT NULL,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+            FOREIGN KEY (session_id) REFERENCES task_sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY (criterion_id) REFERENCES acceptance_criteria(id) ON DELETE CASCADE,
+            CHECK (session_id IS NOT NULL OR criterion_id IS NOT NULL)
+        );
+        CREATE INDEX idx_tool_call_events_session_id ON tool_call_events(session_id);
+        CREATE INDEX idx_tool_call_events_task_id ON tool_call_events(task_id);
+        CREATE INDEX idx_tool_call_events_criterion_id ON tool_call_events(criterion_id);
+        PRAGMA user_version = 32;
+      "
+    else
+      sqlite3 "$DB_PATH" "PRAGMA user_version = 32;"
+    fi
+    echo "  Migration 32: added tool_call_events table"
+  fi
+
+  # Migration 32→33: add qualitative boolean column to conventions table
+  if [[ "$current" -lt 33 ]]; then
+    local has_qual
+    has_qual="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM pragma_table_info('conventions') WHERE name='qualitative';")"
+    if [[ "$has_qual" -eq 0 ]]; then
+      sqlite3 "$DB_PATH" "ALTER TABLE conventions ADD COLUMN qualitative INTEGER NOT NULL DEFAULT 0;"
+    fi
+    sqlite3 "$DB_PATH" "PRAGMA user_version = 33;"
+    echo "  Migration 33: added qualitative column to conventions"
+  fi
+
+  # Migration 33→34: add skill_run_id FK to tool_call_events and update CHECK constraint
+  if [[ "$current" -lt 34 ]]; then
+    local has_skill_run_id
+    has_skill_run_id="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM pragma_table_info('tool_call_events') WHERE name='skill_run_id';")"
+    if [[ "$has_skill_run_id" -eq 0 ]]; then
+      sqlite3 "$DB_PATH" "BEGIN;
+        CREATE TABLE tool_call_events_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER,
+            session_id INTEGER,
+            criterion_id INTEGER,
+            skill_run_id INTEGER,
+            tool_name TEXT NOT NULL,
+            cost_dollars REAL NOT NULL DEFAULT 0.0,
+            tokens_in INTEGER NOT NULL DEFAULT 0,
+            tokens_out INTEGER NOT NULL DEFAULT 0,
+            call_sequence INTEGER NOT NULL DEFAULT 0,
+            called_at TEXT NOT NULL,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+            FOREIGN KEY (session_id) REFERENCES task_sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY (criterion_id) REFERENCES acceptance_criteria(id) ON DELETE CASCADE,
+            FOREIGN KEY (skill_run_id) REFERENCES skill_runs(id) ON DELETE CASCADE,
+            CHECK (session_id IS NOT NULL OR criterion_id IS NOT NULL OR skill_run_id IS NOT NULL)
+        );
+        INSERT INTO tool_call_events_new
+            (id, task_id, session_id, criterion_id, tool_name, cost_dollars, tokens_in, tokens_out, call_sequence, called_at)
+        SELECT id, task_id, session_id, criterion_id, tool_name, cost_dollars, tokens_in, tokens_out, call_sequence, called_at
+        FROM tool_call_events;
+        DROP TABLE tool_call_events;
+        ALTER TABLE tool_call_events_new RENAME TO tool_call_events;
+        CREATE INDEX idx_tool_call_events_session_id ON tool_call_events(session_id);
+        CREATE INDEX idx_tool_call_events_task_id ON tool_call_events(task_id);
+        CREATE INDEX idx_tool_call_events_criterion_id ON tool_call_events(criterion_id);
+        CREATE INDEX idx_tool_call_events_skill_run_id ON tool_call_events(skill_run_id);
+        PRAGMA user_version = 34;
+      COMMIT;"
+    else
+      sqlite3 "$DB_PATH" "PRAGMA user_version = 34;"
+    fi
+    echo "  Migration 34: added skill_run_id column to tool_call_events"
+  fi
+
   local final
   final="$(sqlite3 "$DB_PATH" "PRAGMA user_version;")"
   if [[ "$final" -eq "$current" ]]; then
@@ -987,6 +2062,20 @@ cmd_migrate() {
 }
 
 cmd_upgrade() {
+  local no_commit=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --no-commit) no_commit=true; shift ;;
+      --help|-h)
+        echo "Usage: tusk upgrade [--no-commit]"
+        echo "  --no-commit  Skip the automatic git commit after a successful upgrade"
+        exit 0
+        ;;
+      *) echo "Error: Unknown argument '$1'" >&2; exit 1 ;;
+    esac
+  done
+
   echo "Checking for updates..."
 
   # Get latest release tag from GitHub Releases API
@@ -1036,6 +2125,41 @@ cmd_upgrade() {
     exit 1
   fi
 
+  # Remove orphaned files using manifests
+  local old_manifest="$REPO_ROOT/.claude/tusk-manifest.json"
+  local new_manifest="$src/MANIFEST"
+  if [[ -f "$old_manifest" && -f "$new_manifest" ]]; then
+    python3 -c "
+import json, os
+
+old_manifest = '$old_manifest'
+new_manifest = '$new_manifest'
+repo_root = '$REPO_ROOT'
+
+with open(old_manifest) as f:
+    old_files = set(json.load(f))
+with open(new_manifest) as f:
+    new_files = set(json.load(f))
+
+orphans = old_files - new_files
+for rel_path in sorted(orphans):
+    full_path = os.path.join(repo_root, rel_path)
+    if os.path.isfile(full_path):
+        os.remove(full_path)
+        print('  Removed orphan: ' + rel_path)
+        parent = os.path.dirname(full_path)
+        try:
+            os.rmdir(parent)
+            print('  Removed empty dir: ' + os.path.relpath(parent, repo_root))
+        except OSError:
+            print('  Kept non-empty dir (user files present): ' + os.path.relpath(parent, repo_root))
+"
+  elif [[ ! -f "$old_manifest" ]]; then
+    echo "  No prior manifest found; skipping orphan removal (first upgrade with manifest support)"
+  else
+    echo "  Warning: new release has no MANIFEST file; skipping orphan removal"
+  fi
+
   # Copy bin files alongside current binary
   # Use mv (atomic rename) for the running script so bash's open fd keeps
   # reading the old inode instead of seeing overwritten content mid-execution.
@@ -1046,7 +2170,6 @@ cmd_upgrade() {
     [[ -f "$pyfile" ]] || continue
     cp "$pyfile" "$SCRIPT_DIR/"
   done
-  cp "$src/VERSION" "$SCRIPT_DIR/VERSION"
   cp "$src/config.default.json" "$SCRIPT_DIR/config.default.json"
   cp "$src/pricing.json" "$SCRIPT_DIR/pricing.json"
   echo "  Updated CLI and support files"
@@ -1143,23 +2266,74 @@ with open(target_settings_path, 'w') as f:
     f.write('\n')
 "
 
-  # Create conventions.md if it doesn't exist (for existing installs)
-  local conventions_path="$REPO_ROOT/tusk/conventions.md"
-  if [[ -d "$REPO_ROOT/tusk" && ! -f "$conventions_path" ]]; then
-    cat > "$conventions_path" << 'CONVENTIONS'
-# Project Conventions
-
-<!-- Append-only file for learned heuristics, coupling patterns, and decomposition rules.
-     Written by /retro after each session. Do not reorder or delete entries — newest last. -->
-CONVENTIONS
-    echo "  Created conventions file at $conventions_path"
-  fi
-
   # Run migrations using the NEW binary
   "$SCRIPT_DIR/tusk" migrate
 
+  # Remove deprecated files — must run AFTER migrate so that migration 28→29
+  # can import any existing conventions.md entries into the DB before deletion.
+  local conventions_path="$REPO_ROOT/tusk/conventions.md"
+  if [[ -f "$conventions_path" ]]; then
+    rm "$conventions_path"
+    echo "  Removed deprecated file: tusk/conventions.md"
+  fi
+  local dashboard_path="$REPO_ROOT/tusk/dashboard.html"
+  if [[ -f "$dashboard_path" ]]; then
+    rm "$dashboard_path"
+    echo "  Removed deprecated file: tusk/dashboard.html"
+  fi
+  local tusk_db_path="$REPO_ROOT/tusk/tusk.db"
+  if [[ -f "$tusk_db_path" ]]; then
+    rm "$tusk_db_path"
+    echo "  Removed deprecated file: tusk/tusk.db"
+  fi
+
+  # Write updated manifest (copy from the new release's MANIFEST)
+  if [[ -f "$new_manifest" ]]; then
+    cp "$new_manifest" "$REPO_ROOT/.claude/tusk-manifest.json"
+    echo "  Updated .claude/tusk-manifest.json"
+  fi
+
+  # Stamp VERSION last — only after all files are successfully written.
+  # If upgrade is interrupted before this point, the next run will re-copy
+  # everything instead of seeing "Already up to date" and skipping.
+  cp "$src/VERSION" "$SCRIPT_DIR/VERSION"
+
   echo ""
   echo "Upgrade complete (version $remote_version)."
+
+  # Auto-commit upgraded files
+  if [[ "$no_commit" == true ]]; then
+    echo "  Skipping auto-commit (--no-commit flag set)."
+  elif ! git -C "$REPO_ROOT" rev-parse --is-inside-work-tree &>/dev/null; then
+    echo "  Warning: Not inside a git repository — skipping auto-commit."
+  else
+    local manifest_path="$REPO_ROOT/.claude/tusk-manifest.json"
+    if [[ ! -f "$manifest_path" ]]; then
+      echo "  Warning: .claude/tusk-manifest.json not found — skipping auto-commit."
+    else
+      # Stage all manifest-listed files that exist
+      python3 -c "
+import json, subprocess, sys
+
+manifest_path = '$manifest_path'
+repo_root = '$REPO_ROOT'
+
+with open(manifest_path) as f:
+    files = json.load(f)
+
+to_stage = [p for p in files if __import__('os').path.isfile(__import__('os').path.join(repo_root, p))]
+if to_stage:
+    subprocess.run(['git', '-C', repo_root, 'add', '--'] + to_stage, check=True)
+"
+      # Only commit if there are staged changes
+      if ! git -C "$REPO_ROOT" diff --cached --quiet; then
+        git -C "$REPO_ROOT" commit -m "Upgrade tusk to v$remote_version"
+        echo "  Created commit: Upgrade tusk to v$remote_version"
+      else
+        echo "  No changes to commit (working tree already up to date)."
+      fi
+    fi
+  fi
 }
 
 # ── Session Close ────────────────────────────────────────────────────
@@ -1276,7 +2450,8 @@ cmd_session_close() {
 
   # Populate token/cost stats unless skipped
   if [[ "$skip_stats" = false ]]; then
-    exec python3 "$SCRIPT_DIR/tusk-session-stats.py" "$DB_PATH" "$(resolve_config)" "$session_id"
+    python3 "$SCRIPT_DIR/tusk-session-stats.py" "$DB_PATH" "$(resolve_config)" "$session_id"
+    python3 "$SCRIPT_DIR/tusk-call-breakdown.py" "$DB_PATH" "$(resolve_config)" --session "$session_id" --write-only || true
   fi
 }
 
@@ -1295,7 +2470,7 @@ cmd_wsjf() {
           WHEN 'Lowest' THEN 20
           ELSE 40
         END
-        + CASE WHEN summary NOT LIKE '%[Deferred]%' THEN 10 ELSE 0 END
+        + CASE WHEN is_deferred = 0 THEN 10 ELSE 0 END
         + MIN(COALESCE((
           SELECT COUNT(*) * 5
           FROM task_dependencies d
@@ -1333,8 +2508,9 @@ case "${1:-}" in
   validate) cmd_validate ;;
   sql-quote) shift; sql_quote "${1:-}" ;;
   branch) shift; exec python3 "$SCRIPT_DIR/tusk-branch.py" "$REPO_ROOT" "$@" ;;
-  commit) shift; exec python3 "$SCRIPT_DIR/tusk-commit.py" "$REPO_ROOT" "$@" ;;
+  commit) shift; exec python3 "$SCRIPT_DIR/tusk-commit.py" "$REPO_ROOT" "$(resolve_config)" "$@" ;;
   lint)   shift; exec python3 "$SCRIPT_DIR/tusk-lint.py" "$REPO_ROOT" "$@" ;;
+  lint-rule) shift; exec python3 "$SCRIPT_DIR/tusk-lint-rules.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   dupes)  shift; exec python3 "$SCRIPT_DIR/tusk-dupes.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   criteria) shift; exec python3 "$SCRIPT_DIR/tusk-criteria.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   dashboard) shift; exec python3 "$SCRIPT_DIR/tusk-dashboard.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
@@ -1344,18 +2520,22 @@ case "${1:-}" in
   deps) shift; exec python3 "$SCRIPT_DIR/tusk-deps.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   session-stats) shift; exec python3 "$SCRIPT_DIR/tusk-session-stats.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   session-recalc) shift; exec python3 "$SCRIPT_DIR/tusk-session-recalc.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  skill-run) shift; exec python3 "$SCRIPT_DIR/tusk-skill-run.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  call-breakdown) shift; exec python3 "$SCRIPT_DIR/tusk-call-breakdown.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   session-close) shift; cmd_session_close "$@" ;;
   task-start) shift; exec python3 "$SCRIPT_DIR/tusk-task-start.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   task-done) shift; exec python3 "$SCRIPT_DIR/tusk-task-done.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   task-insert) shift; exec python3 "$SCRIPT_DIR/tusk-task-insert.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   task-update) shift; exec python3 "$SCRIPT_DIR/tusk-task-update.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  task-reopen) shift; exec python3 "$SCRIPT_DIR/tusk-task-reopen.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   autoclose) shift; exec python3 "$SCRIPT_DIR/tusk-autoclose.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   loop) shift; exec python3 "$SCRIPT_DIR/tusk-loop.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
-  finalize) shift; exec python3 "$SCRIPT_DIR/tusk-finalize.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  merge) shift; exec python3 "$SCRIPT_DIR/tusk-merge.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   progress) shift; exec python3 "$SCRIPT_DIR/tusk-progress.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   setup) shift; exec python3 "$SCRIPT_DIR/tusk-setup.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   token-audit) shift; exec python3 "$SCRIPT_DIR/tusk-token-audit.py" "$REPO_ROOT" "$@" ;;
   sync-skills) shift; exec python3 "$SCRIPT_DIR/tusk-sync-skills.py" "$@" ;;
+  generate-manifest) shift; exec python3 "$SCRIPT_DIR/tusk-generate-manifest.py" "$@" ;;
   pricing-update) shift; exec python3 "$SCRIPT_DIR/tusk-pricing-update.py" "$@" ;;
   wsjf) cmd_wsjf ;;
   conventions) shift; cmd_conventions "$@" ;;
@@ -1363,7 +2543,7 @@ case "${1:-}" in
   version) cmd_version ;;
   migrate) cmd_migrate ;;
   regen-triggers) cmd_regen_triggers ;;
-  upgrade) cmd_upgrade ;;
-  "")     echo "Usage: tusk {init|path|config|validate|sql-quote|branch|commit|lint|dupes|deps|blockers|review|criteria|dag|dashboard|wsjf|conventions|setup|autoclose|token-audit|sync-skills|pricing-update|session-stats|session-recalc|session-close|task-start|task-done|task-insert|task-update|progress|shell|version|migrate|upgrade|regen-triggers|\"SQL ...\"}" >&2; exit 1 ;;
+  upgrade) shift; cmd_upgrade "$@" ;;
+  "")     echo "Usage: tusk {init|path|config|validate|sql-quote|commit|lint|lint-rule|dupes|deps|blockers|review|criteria|dag|dashboard|wsjf|conventions|setup|autoclose|token-audit|sync-skills|pricing-update|session-stats|session-recalc|session-close|skill-run|call-breakdown|task-start|task-done|task-insert|task-update|task-reopen|merge|progress|shell|version|migrate|upgrade|regen-triggers|\"SQL ...\"}" >&2; exit 1 ;;
   *)      cmd_query "$@" ;;
 esac

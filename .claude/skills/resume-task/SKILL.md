@@ -24,8 +24,10 @@ echo "Task ID: $TASK_ID"
 ## Step 2: Start the Task (Idempotent)
 
 ```bash
-tusk task-start <TASK_ID>
+tusk task-start <TASK_ID> --force
 ```
+
+The `--force` flag ensures the workflow proceeds even if the task has no acceptance criteria (emits a warning rather than hard-failing).
 
 Returns JSON with four keys:
 
@@ -63,9 +65,9 @@ Recent Commits: (git log output from Step 3)
 Next Steps: <most recent checkpoint's next_steps, or incomplete criteria if none>
 ```
 
-## Step 5: Resume the /next-task Workflow
+## Step 5: Resume the /tusk Workflow
 
-Continue from `/next-task` **step 4 onward** (subagents → explore → implement → commit → criteria → finalize). Steps 1-3 are already done.
+Continue from `/tusk` **step 4 onward** (subagents → explore → implement → commit → criteria → finalize). Steps 1-3 are already done.
 
 - Mark criteria done as you go: `tusk criteria done <cid>`
 - Log progress after each commit:
@@ -73,8 +75,8 @@ Continue from `/next-task` **step 4 onward** (subagents → explore → implemen
   tusk progress <TASK_ID> --next-steps "<what remains>"
   ```
 - Run `tusk lint` before pushing (advisory only)
-- For finalize steps, read:
+- For finalize steps (step 12), read step 12 directly from the tusk skill:
   ```
-  Read file: <next_task_base>/FINALIZE.md
+  Read file: <base_directory>/../tusk/SKILL.md
   ```
-  Where `<next_task_base>` is the `next-task` skill's base directory (sibling to this skill).
+  Where `<base_directory>` is the resume-task skill's base directory.

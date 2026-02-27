@@ -41,11 +41,29 @@ Configurable fields:
 | `statuses` | Yes | Always validated; changing can break workflow queries |
 | `priorities` | Yes | Always validated |
 | `closed_reasons` | Yes | Always validated |
-| `agents` | No | Free-form object; no DB triggers |
+| `agents` | No | `{ "<name>": "description" }` — see note below |
 | `test_command` | No | Shell command run before each commit; empty string disables the gate |
 | `dupes.strip_prefixes` | No | Python-side only |
 | `dupes.check_threshold` | No | Python-side only (0.0–1.0) |
 | `dupes.similar_threshold` | No | Python-side only (0.0–1.0) |
+| `review.mode` | No | `"disabled"` or `"ai_only"`; config-side only |
+| `review.max_passes` | No | Integer; max fix-and-re-review cycles; config-side only |
+| `review.reviewers` | No | Array of `{name, description}` objects; config-side only |
+| `review_categories` | Yes | Valid comment categories; empty array disables validation |
+| `review_severities` | Yes | Valid severity levels; empty array disables validation |
+
+**Agents object shape:** Each key is an agent name used for task assignment; each value is a plain string describing what that agent handles. Example:
+
+```json
+{
+  "agents": {
+    "backend": "API, business logic, data layer",
+    "frontend": "UI components, styling, client-side"
+  }
+}
+```
+
+This is the same shape `tusk-init` generates and what `tusk config` outputs. The object is **not DB-validated** — no triggers enforce agent names. It exists so `/tusk` can suggest the right agent when picking a task. An empty object (`{}`) disables agent filtering.
 
 ## Step 2b: Update test_command (if requested)
 
@@ -59,10 +77,32 @@ tusk config test_command
 
 Then scan the repo for test framework signals (check in this priority order):
 
-1. `package.json` present → suggest `npm test`
-2. `pyproject.toml` or `setup.py` present → suggest `pytest`
-3. `Cargo.toml` present → suggest `cargo test`
-4. `Makefile` present → check for a test target:
+**Sub-step – Inspect package.json for test runner** (used by items 1–3 below):
+Run from repo root:
+```bash
+node -e "const p=require('./package.json'); console.log(JSON.stringify({scripts:p.scripts||{},dev:Object.keys({...p.devDependencies,...p.dependencies})}));" 2>/dev/null
+```
+Interpret the output:
+- No output (no `package.json`, or `node` unavailable) → no result
+- `vitest` appears in `devDependencies` or `dependencies` → result: `vitest`
+- `jest` appears in `devDependencies`/`dependencies` OR a `test` script contains `jest` → result: `jest`
+- Otherwise → no result
+
+1. `bun.lockb` or `bun.lock` present → run **Inspect package.json for test runner**, then:
+   - No result → suggest `bun test`
+   - `vitest` → suggest `bun run vitest`
+   - `jest` → suggest `bun run jest`
+2. `pnpm-lock.yaml` present → run **Inspect package.json for test runner**, then:
+   - No result → suggest `pnpm test`
+   - `vitest` → suggest `pnpm vitest`
+   - `jest` → suggest `pnpm jest`
+3. `package.json` present (no lockfile) → run **Inspect package.json for test runner**, then:
+   - No result → suggest `npm test`
+   - `vitest` → suggest `npx vitest`
+   - `jest` → suggest `npx jest`
+4. `pyproject.toml` or `setup.py` present → suggest `pytest`
+5. `Cargo.toml` present → suggest `cargo test`
+6. `Makefile` present → check for a test target:
    ```bash
    grep -q "^test:" Makefile && echo "has_test_target"
    ```
@@ -128,12 +168,55 @@ Proposed config:
 
 Read the current config file, apply changes, and write it back:
 
+Use the Read tool to load `tusk/config.json`, then use the Edit tool to update it with the new values. Preserve all fields — only modify the ones the user requested.
+
+## Step 5b: Offer Task Reassignment for New Domains
+
+**Only run this step if one or more domains were added in this update.**
+
+After writing the config, check whether any open tasks have no domain assigned — these are natural candidates for the new domain:
+
 ```bash
-# Read current config
-cat tusk/config.json
+tusk -header -column "
+SELECT id, summary, task_type, priority
+FROM tasks
+WHERE status <> 'Done'
+AND (domain IS NULL OR domain = '')
+ORDER BY priority_score DESC, id
+"
 ```
 
-Use the Edit tool to update `tusk/config.json` with the new values. Preserve all fields — only modify the ones the user requested.
+If the query returns **no rows**, skip this step silently.
+
+If rows are returned, display them and prompt the user:
+
+> **N open task(s) have no domain assigned. Would you like to reassign any to `<new_domain>`?**
+>
+> - **Reassign all** — set `domain = '<new_domain>'` for every listed task
+> - **Pick specific tasks** — user provides a comma-separated list of IDs
+> - **Skip** — leave domain assignments unchanged
+
+If the user chooses **Reassign all**:
+
+```bash
+DOMAIN=$(tusk sql-quote "<new_domain>")
+tusk "UPDATE tasks SET domain = $DOMAIN, updated_at = datetime('now') WHERE status <> 'Done' AND (domain IS NULL OR domain = '')"
+tusk "SELECT changes() AS rows_updated"
+```
+
+If the user picks **specific IDs** (e.g., 12, 15, 18):
+
+```bash
+DOMAIN=$(tusk sql-quote "<new_domain>")
+tusk "UPDATE tasks SET domain = $DOMAIN, updated_at = datetime('now') WHERE id IN (12, 15, 18) AND status <> 'Done'"
+tusk "SELECT changes() AS rows_updated"
+```
+
+Report the `rows_updated` count to the user, then proceed to Step 6.
+
+If the user chooses **Skip**, proceed to Step 6 without any changes. This is always safe — triggers are not affected by unassigned domains.
+
+If multiple domains were added in this update, repeat this step for each new domain (showing a header like `--- Reassignment for domain: <new_domain> (1 of 2) ---`) before proceeding to Step 6.
 
 ## Step 6: Regenerate Triggers (if needed)
 
@@ -145,7 +228,7 @@ tusk regen-triggers
 
 This drops all existing `validate_*` triggers and recreates them from the updated config. **No data is lost.**
 
-If only non-trigger fields changed (`agents`, `dupes`, `test_command`), skip this step.
+If only non-trigger fields changed (`agents`, `dupes`, `test_command`, `review`), skip this step.
 
 ## Step 7: Verify
 
@@ -155,14 +238,71 @@ Confirm the changes took effect:
 tusk config
 ```
 
-If trigger-validated fields were changed, run a quick smoke test:
+If trigger-validated fields were changed, run a two-part smoke test for each modified field. Pick the `tasks` column that corresponds to the config key that was changed:
+
+| Config key changed | Column to test |
+|--------------------|----------------|
+| `domains`          | `domain`       |
+| `task_types`       | `task_type`    |
+| `statuses`         | `status`       |
+| `priorities`       | `priority`     |
+| `closed_reasons`   | `closed_reason`|
+
+Replace `<column>` with that column name and `<valid_value>` with a value that was **just added** to the config (prefer a newly-added value over a pre-existing default, to test the trigger against the actual change). Repeat the two-part test for each field that was modified; run cleanup once after all fields are tested.
+
+> **Note:** `review_categories` and `review_severities` apply to the `review_comments` table, which requires a `review_id` foreign key. Skip the INSERT smoke test for those fields — the absence of errors from `tusk regen-triggers` is sufficient confirmation.
+
+**Part A — Invalid value must be rejected** (core trigger check):
 
 ```bash
-# Verify new values are accepted (dry run — insert and immediately delete)
-tusk "INSERT INTO tasks (summary, domain) VALUES ('__config_test__', 'new_domain')"
-tusk "DELETE FROM tasks WHERE summary = '__config_test__'"
+tusk "INSERT INTO tasks (summary, <column>) VALUES ('__tusk_trigger_smoke_test__', '__invalid__')"
 ```
 
-Report success to the user.
+Expected: non-zero exit with a trigger error. If this INSERT **succeeds**, the trigger is not working — report failure.
+
+**Part B — Valid value must be accepted**:
+
+```bash
+tusk "INSERT INTO tasks (summary, <column>) VALUES ('__tusk_trigger_smoke_test__', '<valid_value>')"
+```
+
+Expected: zero exit. If this INSERT **fails**, the trigger is over-blocking valid values — report failure.
+
+**Part C — UPDATE trigger: invalid value must be rejected, valid value must be accepted** (run only if Part B succeeded):
+
+```bash
+tusk "UPDATE tasks SET <column> = '__invalid__' WHERE summary = '__tusk_trigger_smoke_test__'"
+```
+
+Expected: non-zero exit with a trigger error. If this UPDATE **succeeds**, the UPDATE trigger is not working — report failure.
+
+```bash
+tusk "UPDATE tasks SET <column> = '<valid_value>' WHERE summary = '__tusk_trigger_smoke_test__'"
+```
+
+Expected: zero exit. If this UPDATE **fails**, the UPDATE trigger is over-blocking valid values — report failure.
+
+> **Note:** Part C reuses the row inserted in Part B. If Part B failed (no row exists), these UPDATE commands will match 0 rows and succeed silently without firing the trigger — skip reporting Part C results in that case and rely on the Part B failure report.
+>
+> **Note (status column only):** When `<column>` is `status`, updating to `'__invalid__'` fires both `validate_status_update` (value validation) and `validate_status_transition` (transition validation). A non-zero exit confirms the trigger stack rejected the value but does not isolate which trigger fired. If `validate_status_update` were missing, the transition trigger would still catch it. This is acceptable — the combined rejection is the meaningful signal.
+
+**Cleanup (always run, even if Part A, Part B, or Part C failed)**:
+
+```bash
+tusk "DELETE FROM tasks WHERE summary = '__tusk_trigger_smoke_test__'"
+```
+
+Report success to the user only if Part A rejected the invalid value, Part B accepted the valid value, and Part C rejected the invalid UPDATE while accepting the valid UPDATE.
 
 **Never call `tusk init --force`** — this destroys the database. Use `tusk regen-triggers` instead.
+
+## Step 8: Final Validation
+
+Run `tusk validate` as the canonical final check after all writes and trigger regens:
+
+```bash
+tusk validate
+```
+
+- If `tusk validate` **fails**: show the full output to the user and warn that the configuration or database may have issues.
+- If `tusk validate` **passes**: report "✓ Configuration updated and validated successfully."

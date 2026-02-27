@@ -8,7 +8,19 @@ allowed-tools: Bash, Glob, Grep, Read
 
 Grooms the local task database by identifying completed, redundant, incorrectly prioritized, or unassigned tasks.
 
-## Setup: Fetch Config, Backlog, and Conventions
+> **Prefer `/create-task` for all task creation.** It handles decomposition, deduplication, acceptance criteria generation, and dependency proposals in one workflow. Use `bin/tusk task-insert` directly only when scripting bulk inserts or in automated contexts where the interactive review step is not applicable.
+
+## Step 0: Start Cost Tracking
+
+Record the start of this groom run so cost can be captured at the end:
+
+```bash
+tusk skill-run start groom-backlog
+```
+
+This prints `{"run_id": N, "started_at": "..."}`. Capture `run_id` — you will need it in Step 7.
+
+## Setup: Fetch Config and Backlog
 
 Before grooming, fetch everything needed in a single call:
 
@@ -16,10 +28,9 @@ Before grooming, fetch everything needed in a single call:
 tusk setup
 ```
 
-This returns a JSON object with three keys:
+This returns a JSON object with two keys:
 - **`config`** — full project config (domains, agents, task_types, priorities, complexity, etc.). Use these values (not hardcoded ones) throughout the grooming process.
 - **`backlog`** — all open tasks as an array of objects. Use this as the primary backlog data for Step 1 (you still need the dependency queries below).
-- **`conventions`** — learned project heuristics (string, may be empty). If non-empty and contains convention entries (not just the header comment), hold in context as **preamble rules** for the analysis in Steps 1–2. Conventions influence how you evaluate tasks — for example, a convention about file coupling patterns may reveal that two apparently separate tasks are really one piece of work (candidates for merging), or that a task is missing implicit sub-work.
 
 ## Pre-Check: Auto-Close Stale Tasks
 
@@ -216,12 +227,35 @@ ORDER BY priority_score DESC, id
 "
 ```
 
-## Important Guidelines
+## Step 7b: Finish Cost Tracking
 
-1. **Never modify without approval**: Always present findings and wait for explicit user confirmation
-2. **Verify against code thoroughly**: Use Glob, Grep, and Read to find evidence
-3. **Be conservative**: When in doubt, keep the task open
-4. **Preserve history**: Close with a reason rather than DELETE
-5. **Consider dependencies**: Check dependents before deleting
-6. **Batch operations carefully**: Execute changes one at a time
-7. **Keep the backlog lean (< 20 open tasks)**: The full backlog dump scales at ~700 tokens/task and is repeated across ~15+ agentic turns during grooming. A 30-task backlog can consume over 300k tokens in a single session. Aggressively close, merge, or defer tasks to stay under 20 open items
+Record cost for this groom run. Replace `<run_id>` with the value captured in Step 0, and fill in the actual counts from the actions taken:
+
+```bash
+tusk skill-run finish <run_id> --metadata '{"tasks_done":<W>,"tasks_deleted":<X>,"tasks_reprioritized":<Y>,"tasks_assigned":<U>}'
+```
+
+This reads the Claude Code transcript for the time window of this run and stores token counts and estimated cost in the `skill_runs` table.
+
+To view cost history across all groom runs:
+
+```bash
+tusk skill-run list groom-backlog
+```
+
+## Headless / CI Usage
+
+`/groom-backlog` can be run unattended via `claude -p` (non-interactive print mode):
+
+```bash
+claude -p /groom-backlog
+```
+
+**Caveats for unattended runs:**
+- **Step 4 user confirmation is typically skipped by the LLM in non-interactive mode**, so all recommendations from Steps 2–3 are likely applied automatically without approval. This is LLM behavior, not a hard-coded code path — there is no guarantee. Use this only on a trusted backlog where auto-apply is acceptable.
+- Best suited for scheduled maintenance jobs (e.g., nightly cron or CI pipelines) where the goal is to keep the backlog clean without manual intervention.
+- Review the run output afterward to audit what was changed.
+
+## Important Guideline
+
+**Keep the backlog lean (< 20 open tasks)**: The full backlog dump scales at ~700 tokens/task and is repeated across ~15+ agentic turns during grooming. A 30-task backlog can consume over 300k tokens in a single session. Aggressively close, merge, or defer tasks to stay under 20 open items.

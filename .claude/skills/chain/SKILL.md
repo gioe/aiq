@@ -6,28 +6,49 @@ allowed-tools: Bash, Task, Read, Glob, Grep
 
 # Chain
 
-Orchestrates parallel execution of a dependency sub-DAG. Validates the head task, displays the scope tree, executes the head task first, then spawns parallel background agents wave-by-wave for each frontier of ready tasks until the entire chain is complete.
+Orchestrates parallel execution of a dependency sub-DAG. Validates the head task(s), displays the scope tree, executes the head task(s) first, then spawns parallel background agents wave-by-wave for each frontier of ready tasks until the entire chain is complete.
+
+> **Prefer `/create-task` for all task creation.** It handles decomposition, deduplication, acceptance criteria generation, and dependency proposals in one workflow. Use `bin/tusk task-insert` directly only when scripting bulk inserts or in automated contexts where the interactive review step is not applicable.
 
 ## Arguments
 
-Requires a head task ID: `/chain <head_task_id>`
+Accepts one or more head task IDs and optional flags: `/chain <head_task_id1> [<head_task_id2> ...] [--on-failure skip|abort]`
 
-## Step 1: Validate the Head Task
+When multiple IDs are provided, all heads are treated as wave 0 (run in parallel), and subsequent waves use the union of their downstream sub-DAGs.
+
+## Flags
+
+| Flag | Values | Description |
+|------|--------|-------------|
+| `--on-failure` | `skip`, `abort` | Unattended failure strategy applied when an agent finishes without completing its task. **skip** — log a warning and continue to the next wave. **abort** — stop the chain immediately and report all incomplete tasks. Omit for interactive mode (default). |
+
+## Argument Parsing
+
+Before Step 1, extract flags from the skill arguments:
+
+- Parse `--on-failure <strategy>` from the argument string. Valid values: `skip`, `abort`.
+- If `--on-failure` is present with a valid value, store it as `on_failure_strategy`.
+- If `--on-failure` is absent or the value is invalid, `on_failure_strategy` is unset (interactive mode).
+- The remaining tokens (non-flag values) are the head task IDs.
+
+## Step 1: Validate the Head Task(s)
+
+For each provided task ID, run:
 
 ```bash
-tusk -header -column "SELECT id, summary, status, priority, complexity, assignee FROM tasks WHERE id = <head_task_id>"
+tusk -header -column "SELECT id, summary, status, priority, complexity, assignee FROM tasks WHERE id = <task_id>"
 ```
 
-- If no rows returned: abort — "Task `<head_task_id>` not found."
-- If status is not `To Do` and not `In Progress`: abort — "Task `<head_task_id>` has status `<status>` — only To Do or In Progress tasks can start a chain."
+- If no rows returned: abort — "Task `<task_id>` not found."
+- If status is not `To Do` and not `In Progress`: abort — "Task `<task_id>` has status `<status>` — only To Do or In Progress tasks can start a chain."
 
 ## Step 2: Compute and Display Scope
 
 ```bash
-tusk chain scope <head_task_id>
+tusk chain scope <head_task_id1> [<head_task_id2> ...]
 ```
 
-Parse the returned JSON. Fetch assignees for all scope task IDs:
+Parse the returned JSON. The `head_task_ids` array lists all head IDs. Fetch assignees for all scope task IDs:
 
 ```bash
 tusk -header -column "SELECT id, assignee FROM tasks WHERE id IN (<comma-separated scope IDs>)"
@@ -36,7 +57,7 @@ tusk -header -column "SELECT id, assignee FROM tasks WHERE id IN (<comma-separat
 Display the sub-DAG as an indented tree grouped by depth:
 
 ```
-Chain scope for Task <id>: <summary>
+Chain scope for Task(s) <id(s)>: <summary(ies)>
 ══════════════════════════════════════════════════════════════
 
 Depth 0 (head):
@@ -53,31 +74,36 @@ Progress: <completed>/<total> tasks completed (<percent>%)
 ```
 
 **Early exits:**
-- If `total_tasks` is 1 (head only, no dependents): inform the user this is a single task with no chain — suggest `/next-task <id>` instead. Stop here.
+- If `total_tasks` equals the number of head tasks (heads only, no shared dependents): inform the user there is no chain downstream — suggest `/tusk <id>` for each head instead. Stop here.
 - If all tasks are already Done: inform the user the chain is already complete. Stop here.
-- If the head task is already Done but dependents remain: skip Step 3 and go directly to Step 4 (wave loop).
+- If all head tasks are already Done but dependents remain: skip Step 3 and go directly to Step 4 (wave loop).
 
-## Step 3: Execute the Head Task
+## Step 3: Execute the Head Task(s)
 
-The head task must complete before any dependents can be spawned.
+The head task(s) must complete before any dependents can be spawned.
 
-Fetch the head task's full details for the agent prompt:
+**Single head:** Spawn a single background agent and monitor it as before.
+
+**Multiple heads:** Spawn all heads as **parallel wave 0** background agents — issue all Task tool calls in a single message, just like a wave in Step 4. Monitor all of them before proceeding to Step 4.
+
+For each head task, fetch its full details:
 
 ```bash
-tusk -header -column "SELECT id, summary, description, domain, assignee, complexity FROM tasks WHERE id = <head_task_id>"
+tusk -header -column "SELECT id, summary, description, domain, assignee, complexity FROM tasks WHERE id IN (<head_ids>)"
 ```
 
-Spawn a **single background agent** using the Task tool:
+Spawn **parallel background agents** (one per head task):
 
 ```
-Task tool call:
+Task tool call (for EACH head task):
   description: "TASK-<id> <first 3 words of summary>"
   subagent_type: general-purpose
   run_in_background: true
-  prompt: <use the Agent Prompt Template below, filled with task details>
+  isolation: worktree   ← include when this wave has more than one task; omit for single-task waves
+  prompt: <AGENT-PROMPT.md content with {placeholders} filled from task details>
 ```
 
-After spawning, store the **agent task ID** and **output file path** returned by the Task tool (this is separate from the tusk task ID). Keep a running list of all output file paths across the entire chain — these are needed for the post-chain retro in Step 6. Monitor until the head task reaches Done status or the agent finishes without completing:
+After spawning, store the **agent task ID** and **output file path** returned by the Task tool (this is separate from the tusk task ID). Keep a running list of all output file paths across the entire chain — these are needed for the post-chain retro in Step 6. Monitor until all head tasks reach Done status or all agents have finished:
 
 **Monitoring loop:**
 
@@ -88,27 +114,33 @@ After spawning, store the **agent task ID** and **output file path** returned by
 
 2. Check the task's DB status:
    ```bash
-   tusk "SELECT status FROM tasks WHERE id = <head_task_id>"
+   tusk "SELECT id, status FROM tasks WHERE id IN (<head_ids>) AND status <> 'Done'"
    ```
-   If status = `Done`, the task completed successfully — exit the loop and proceed to Step 4.
+   If the query returns no rows, all head tasks completed successfully — exit the loop and proceed to Step 4.
 
-3. Check whether the agent has finished using `TaskOutput` with `block: false` and the agent task ID:
-   - If the agent is **still running** (task not yet complete), go back to step 1.
-   - If the agent has **completed** but the task status is NOT `Done`, the agent likely exhausted its turn limit or hit an unrecoverable error. **Break out of the loop** and proceed to recovery below.
+3. Check whether each agent has finished using `TaskOutput` with `block: false` and the agent task ID:
+   - If **any agent is still running** (task not yet complete), go back to step 1.
+   - If **all agents have completed** but some task statuses are NOT `Done`, those agents likely exhausted turn limits or hit unrecoverable errors. **Break out of the loop** and proceed to recovery below.
 
-**Recovery (agent completed, task not Done):**
+**Recovery (agents completed, tasks not Done):**
 
-Read the agent's output file to capture any final messages, then report to the user:
+Read the agents' output files to capture any final messages.
 
-> Agent for Task `<id>` has finished, but the task status is still `<status>`.
-> Agent output file: `<output_file_path>`
+**If `on_failure_strategy` is set**, apply it automatically without prompting:
+- **skip**: Log a warning for each stuck task — "Warning: Task `<id>` (`<summary>`) did not complete (status: `<status>`). Skipping due to `--on-failure skip`." — then proceed to Step 4.
+- **abort**: Stop immediately. Report that the chain was aborted due to `--on-failure abort` and list which tasks completed vs. which did not.
+
+**Otherwise (interactive)**, report to the user:
+
+> Agent(s) for Task(s) `<ids>` have finished, but the task status is still `<status>`.
+> Agent output file(s): `<output_file_paths>`
 >
 > How would you like to proceed?
-> 1. **Resume** — spawn a new agent to continue where the previous one left off
-> 2. **Skip** — leave this task as-is and stop the chain
+> 1. **Resume** — spawn new agents to continue where the previous ones left off
+> 2. **Skip** — leave these tasks as-is and stop the chain
 > 3. **Abort** — stop the entire chain
 
-- **Resume**: spawn a new background agent using the same Agent Prompt Template (the new agent will pick up prior progress via `tusk task-start`) and restart the monitoring loop.
+- **Resume**: spawn new background agents using the same Agent Prompt Template (the new agents will pick up prior progress via `tusk task-start`) and restart the monitoring loop.
 - **Skip**: do not proceed to Step 4. Report that the chain was stopped.
 - **Abort**: stop entirely. Report that the chain was aborted.
 
@@ -119,17 +151,17 @@ Repeat the following until the chain is complete:
 ### 4a. Get the Frontier
 
 ```bash
-tusk chain frontier <head_task_id>
+tusk chain frontier <head_task_id1> [<head_task_id2> ...]
 ```
 
-Parse the returned JSON. The `frontier` array contains tasks that are `To Do` with all dependencies met within scope.
+Parse the returned JSON. The `frontier` array contains tasks that are `To Do` with all dependencies met within the union scope.
 
 ### 4b. Check Termination
 
 If `frontier` is empty:
 
 ```bash
-tusk chain status <head_task_id>
+tusk chain status <head_task_id1> [<head_task_id2> ...]
 ```
 
 - If all scope tasks are Done: **break** — chain is complete, go to Step 5.
@@ -150,7 +182,8 @@ Task tool call (for EACH frontier task):
   description: "TASK-<id> <first 3 words of summary>"
   subagent_type: general-purpose
   run_in_background: true
-  prompt: <use the Agent Prompt Template below, filled with that task's details>
+  isolation: worktree   ← include when the wave has more than one task; omit for single-task waves
+  prompt: <AGENT-PROMPT.md content with {placeholders} filled from task details>
 ```
 
 ### 4d. Monitor Wave Completion
@@ -176,7 +209,13 @@ Build a map of **tusk task ID → agent task ID → output file path** for every
 
 **Recovery (all agents completed, some tasks not Done):**
 
-For each stuck task, read the agent's output file to capture any final messages. Then report to the user:
+For each stuck task, read the agent's output file to capture any final messages.
+
+**If `on_failure_strategy` is set**, apply it automatically without prompting:
+- **skip**: Log a warning for each stuck task — "Warning: Task `<id>` (`<summary>`) did not complete (status: `<status>`). Skipping due to `--on-failure skip`." — then proceed to **4a** for the next frontier. Note: downstream tasks that depend on skipped tasks will never become ready — if the chain gets stuck later, report this to the user.
+- **abort**: Stop immediately. Report that the chain was aborted due to `--on-failure abort` and list which tasks completed vs. which did not.
+
+**Otherwise (interactive)**, report to the user:
 
 > The following tasks' agents have finished without completing:
 > - Task `<id>`: `<summary>` (status: `<status>`, agent output: `<output_file_path>`)
@@ -203,7 +242,7 @@ After all waves are complete, do a single VERSION bump and CHANGELOG update cove
 
 1. Collect the list of completed tasks in the chain:
    ```bash
-   tusk chain scope <head_task_id>
+   tusk chain scope <head_task_id1> [<head_task_id2> ...]
    ```
    Filter to tasks with status = Done that were completed during this chain run.
 
@@ -226,12 +265,12 @@ After all waves are complete, do a single VERSION bump and CHANGELOG update cove
 4. Commit, push, and merge:
    ```bash
    git checkout main && git pull origin main
-   git checkout -b chore/chain-<head_task_id>-version-bump
+   git checkout -b chore/chain-<head_task_ids>-version-bump
    # Write VERSION and CHANGELOG.md
    git add VERSION CHANGELOG.md
-   git commit -m "Bump VERSION to <new_version> for chain <head_task_id>"
-   git push -u origin chore/chain-<head_task_id>-version-bump
-   gh pr create --base main --title "Bump VERSION to <new_version> (chain <head_task_id>)" --body "Consolidates VERSION bump for all tasks completed in chain <head_task_id>."
+   git commit -m "Bump VERSION to <new_version> for chain <head_task_ids>"
+   git push -u origin chore/chain-<head_task_ids>-version-bump
+   gh pr create --base main --title "Bump VERSION to <new_version> (chain <head_task_ids>)" --body "Consolidates VERSION bump for all tasks completed in chain <head_task_ids>."
    gh pr merge --squash --delete-branch
    ```
 
@@ -265,7 +304,7 @@ Where `<base_directory>` is the skill base directory shown at the top of this fi
 Display the completed chain status:
 
 ```bash
-tusk chain status <head_task_id>
+tusk chain status <head_task_id1> [<head_task_id2> ...]
 ```
 
 Summarize:
@@ -275,84 +314,10 @@ Summarize:
 
 ## Agent Prompt Template
 
-Use this template for every spawned agent. Replace `{placeholders}` with actual values from the task query.
+Read the template from the companion file and fill in `{placeholders}` with values from the task query:
 
 ```
-You are an autonomous agent working on a single task as part of a dependency chain.
-
-**Task {id}: {summary}**
-
-Description:
-{description}
-
-Domain: {domain}
-Assignee: {assignee}
-Complexity: {complexity}
-
----
-
-**Instructions — follow the /next-task workflow end-to-end:**
-
-1. **Start the task:**
-   ```
-   tusk task-start {id}
-   ```
-   This returns JSON with task details, prior progress, criteria, and a session_id. Hold onto the session_id. The `criteria` array contains acceptance criteria — work through them in order and mark each done as you complete it.
-
-2. **Create a git branch** from the default branch:
-   ```
-   git remote set-head origin --auto 2>/dev/null
-   DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
-   git checkout "$DEFAULT_BRANCH" && git pull origin "$DEFAULT_BRANCH"
-   git checkout -b feature/TASK-{id}-<brief-slug>
-   ```
-   If the branch already exists (from prior progress), just check it out.
-
-3. **Explore the codebase** — understand what files need to change and what patterns to follow before writing any code.
-
-4. **Implement the changes:**
-   - Work through acceptance criteria as your checklist
-   - After completing each criterion: `tusk criteria done <criterion_id>`
-   - After each commit, log progress:
-     ```
-     tusk progress {id} --next-steps "<what remains to be done>"
-     ```
-   - If the commit includes a schema migration in bin/tusk, run `tusk migrate`
-
-5. **Run convention lint** (advisory — fix clear violations in files you touched):
-   ```
-   tusk lint
-   ```
-
-6. **Push and create a PR:**
-   ```
-   git push -u origin <branch>
-   gh pr create --base "$DEFAULT_BRANCH" --title "[TASK-{id}] <summary>" --body "## Summary\n<bullets>\n\n## Test plan\n<checklist>"
-   ```
-
-7. **Update task with PR URL:**
-   ```
-   tusk "UPDATE tasks SET github_pr = $(tusk sql-quote '<pr_url>'), updated_at = datetime('now') WHERE id = {id}"
-   ```
-
-8. **Self-review the PR** — read the diff, fix any issues, push follow-up commits.
-
-9. **Merge:**
-    ```
-    tusk session-close <session_id>
-    gh pr merge <pr_number> --squash --delete-branch
-    tusk task-done {id} --reason completed
-    ```
-
-IMPORTANT: Only work on Task {id}. Complete it fully — implement, commit, push, PR, merge, and mark Done. Do not expand scope beyond what the task description asks for.
-
-IMPORTANT: Do NOT bump the VERSION file or update CHANGELOG.md — version bumps are handled by a single consolidation step after the entire chain completes. Skipping this avoids merge conflicts when multiple agents run in parallel.
-
-IMPORTANT: If the task has acceptance criteria that require bumping VERSION or updating CHANGELOG, mark those criteria as deferred instead of using --force:
-```
-tusk criteria skip <criterion_id> --reason chain
-```
-Deferred criteria do not block `tusk task-done`, and the chain orchestrator will mark them done after the consolidation step.
+Read file: <base_directory>/AGENT-PROMPT.md
 ```
 
 ## Error Handling

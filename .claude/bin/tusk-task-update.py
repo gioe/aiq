@@ -17,7 +17,8 @@ Flags:
     --task-type <t>       Update task_type
     --assignee <a>        Update assignee
     --complexity <c>      Update complexity
-    --github-pr <url>     Update github_pr
+    --deferred            Set is_deferred=1, prefix summary with [Deferred], set expires_at +60d if unset
+    --no-deferred         Set is_deferred=0, strip [Deferred] prefix from summary
 
 Only specified fields are updated; unspecified fields are left unchanged.
 Always sets updated_at = datetime('now').
@@ -32,6 +33,8 @@ import json
 import sqlite3
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 
 def get_connection(db_path: str) -> sqlite3.Connection:
@@ -61,7 +64,7 @@ def main(argv: list[str]) -> int:
         print(
             "Usage: tusk task-update <task_id> [--priority P] [--domain D] "
             "[--task-type T] [--assignee A] [--complexity C] "
-            "[--summary S] [--description D] [--github-pr URL]",
+            "[--summary S] [--description D] [--deferred] [--no-deferred]",
             file=sys.stderr,
         )
         return 2
@@ -77,7 +80,8 @@ def main(argv: list[str]) -> int:
 
     # Parse flags
     remaining = argv[3:]
-    updates: dict[str, str] = {}
+    updates: dict[str, Any] = {}
+    deferred = None  # None = not specified, True = --deferred, False = --no-deferred
 
     flag_map = {
         "--summary": "summary",
@@ -87,7 +91,6 @@ def main(argv: list[str]) -> int:
         "--task-type": "task_type",
         "--assignee": "assignee",
         "--complexity": "complexity",
-        "--github-pr": "github_pr",
     }
 
     i = 0
@@ -99,12 +102,22 @@ def main(argv: list[str]) -> int:
                 return 2
             updates[flag_map[arg]] = remaining[i + 1]
             i += 2
+        elif arg == "--deferred":
+            deferred = True
+            i += 1
+        elif arg == "--no-deferred":
+            deferred = False
+            i += 1
         else:
             print(f"Error: Unknown argument: {arg}", file=sys.stderr)
             return 2
 
-    if not updates:
+    if not updates and deferred is None:
         print("Error: At least one field flag is required", file=sys.stderr)
+        return 2
+
+    if "--deferred" in remaining and "--no-deferred" in remaining:
+        print("Error: --deferred and --no-deferred are mutually exclusive", file=sys.stderr)
         return 2
 
     # Validate enum fields against config
@@ -146,43 +159,62 @@ def main(argv: list[str]) -> int:
 
     # Verify task exists
     conn = get_connection(db_path)
-    task = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    if not task:
-        print(f"Error: Task {task_id} not found", file=sys.stderr)
-        conn.close()
-        return 1
-
-    # Build dynamic SET clause
-    set_parts = []
-    params = []
-    for col, val in updates.items():
-        set_parts.append(f"{col} = ?")
-        params.append(val)
-    set_parts.append("updated_at = datetime('now')")
-    params.append(task_id)
-
-    sql = f"UPDATE tasks SET {', '.join(set_parts)} WHERE id = ?"
-
     try:
-        conn.execute(sql, params)
-        conn.commit()
-    except sqlite3.Error as e:
-        conn.rollback()
-        print(f"Database error: {e}", file=sys.stderr)
+        task = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        if not task:
+            print(f"Error: Task {task_id} not found", file=sys.stderr)
+            return 1
+
+        # Apply --deferred / --no-deferred logic using current task values as base
+        if deferred is True:
+            current_summary = updates.get("summary", task["summary"])
+            if not current_summary.startswith("[Deferred]"):
+                updates["summary"] = f"[Deferred] {current_summary}"
+            updates["is_deferred"] = 1
+            if task["expires_at"] is None and "expires_at" not in updates:
+                expires_dt = datetime.now(timezone.utc) + timedelta(days=60)
+                updates["expires_at"] = expires_dt.strftime("%Y-%m-%d %H:%M:%S")
+        elif deferred is False:
+            current_summary = updates.get("summary", task["summary"])
+            if current_summary.startswith("[Deferred] "):
+                updates["summary"] = current_summary[len("[Deferred] "):]
+            elif current_summary.startswith("[Deferred]"):
+                updates["summary"] = current_summary[len("[Deferred]"):]
+            updates["is_deferred"] = 0
+            if "expires_at" not in updates:
+                updates["expires_at"] = None
+
+        # Build dynamic SET clause
+        set_parts = []
+        params = []
+        for col, val in updates.items():
+            set_parts.append(f"{col} = ?")
+            params.append(val)
+        set_parts.append("updated_at = datetime('now')")
+        params.append(task_id)
+
+        sql = f"UPDATE tasks SET {', '.join(set_parts)} WHERE id = ?"
+
+        try:
+            conn.execute(sql, params)
+            conn.commit()
+        except sqlite3.Error as e:
+            conn.rollback()
+            print(f"Database error: {e}", file=sys.stderr)
+            return 2
+
+        # Re-score WSJF if priority or complexity changed (inputs to the formula)
+        if "priority" in updates or "complexity" in updates:
+            subprocess.run(["tusk", "wsjf"], capture_output=True)
+
+        # Re-fetch and return updated task
+        updated_task = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        task_dict = {key: updated_task[key] for key in updated_task.keys()}
+
+        print(json.dumps(task_dict, indent=2))
+        return 0
+    finally:
         conn.close()
-        return 2
-
-    # Re-score WSJF if priority or complexity changed (inputs to the formula)
-    if "priority" in updates or "complexity" in updates:
-        subprocess.run(["tusk", "wsjf"], capture_output=True)
-
-    # Re-fetch and return updated task
-    updated_task = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    task_dict = {key: updated_task[key] for key in updated_task.keys()}
-
-    print(json.dumps(task_dict, indent=2))
-    conn.close()
-    return 0
 
 
 if __name__ == "__main__":

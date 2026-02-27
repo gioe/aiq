@@ -2,7 +2,7 @@
 """Autonomous task loop — continuously works through the backlog.
 
 Called by the tusk wrapper:
-    tusk loop [--max-tasks N] [--dry-run]
+    tusk loop [--max-tasks N] [--dry-run] [--on-failure skip|abort]
 
 Arguments received from tusk:
     sys.argv[1] — DB path
@@ -12,39 +12,29 @@ Arguments received from tusk:
 Loop behavior:
   1. Query highest-priority ready task (no incomplete dependencies, no open blockers)
   2. If no task found: stop (empty backlog)
-  3. Check if chain head via tusk chain scope — total_tasks > 1 means dependents exist
-  4. If chain head → spawn claude -p /chain <id>
-     Else        → spawn claude -p /next-task <id>
+  3. Check if chain head via v_chain_heads view — task in view means it has downstream dependents
+  4. If chain head → spawn claude -p /chain <id> [--on-failure <strategy>]
+     Else        → spawn claude -p /tusk <id>
   5. On non-zero exit code: stop the loop
   6. Repeat until empty backlog or --max-tasks reached
 
 Flags:
-  --max-tasks N   Stop after N tasks regardless of backlog size
-  --dry-run       Print what would run without spawning any subprocess
+  --max-tasks N          Stop after N tasks regardless of backlog size
+  --dry-run              Print what would run without spawning any subprocess
+  --on-failure skip|abort  Passed through to each /chain dispatch for unattended runs
 """
 
 import argparse
-import json
 import sqlite3
 import subprocess
 import sys
 
 
 _READY_TASK_SQL = """
-SELECT t.id, t.summary, t.priority, t.priority_score, t.domain, t.assignee, t.complexity
-FROM tasks t
-WHERE t.status = 'To Do'
-  AND NOT EXISTS (
-    SELECT 1 FROM task_dependencies d
-    JOIN tasks blocker ON d.depends_on_id = blocker.id
-    WHERE d.task_id = t.id AND blocker.status <> 'Done'
-  )
-  AND NOT EXISTS (
-    SELECT 1 FROM external_blockers eb
-    WHERE eb.task_id = t.id AND eb.is_resolved = 0
-  )
+SELECT id, summary, priority, priority_score, domain, assignee, complexity
+FROM v_ready_tasks
 {exclude_clause}
-ORDER BY t.priority_score DESC, t.id
+ORDER BY priority_score DESC, id
 LIMIT 1
 """
 
@@ -60,7 +50,7 @@ def get_next_task(conn: sqlite3.Connection, exclude_ids: set[int] | None = None)
     """Return the highest-priority ready task, optionally excluding certain IDs."""
     if exclude_ids:
         placeholders = ",".join("?" * len(exclude_ids))
-        exclude_clause = f"AND t.id NOT IN ({placeholders})"
+        exclude_clause = f"WHERE id NOT IN ({placeholders})"
         sql = _READY_TASK_SQL.format(exclude_clause=exclude_clause)
         row = conn.execute(sql, list(exclude_ids)).fetchone()
     else:
@@ -80,29 +70,26 @@ def get_next_task(conn: sqlite3.Connection, exclude_ids: set[int] | None = None)
     }
 
 
-def is_chain_head(task_id: int) -> bool:
-    """Return True if the task has non-Done downstream dependents (use /chain).
+def is_chain_head(conn: sqlite3.Connection, task_id: int) -> bool:
+    """Return True if the task appears in v_chain_heads.
 
-    Calls tusk chain scope and checks total_tasks > 1.
-    Returns False on any error (falls back to /next-task dispatch).
+    v_chain_heads selects non-Done tasks that have non-Done downstream dependents,
+    no unmet blocks-type upstream deps, and no open external blockers.
+    Returns False on any error (falls back to /tusk dispatch).
     """
     try:
-        result = subprocess.run(
-            ["tusk", "chain", "scope", str(task_id)],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            return False
-        data = json.loads(result.stdout)
-        return data.get("total_tasks", 1) > 1
-    except (subprocess.SubprocessError, json.JSONDecodeError, KeyError):
+        row = conn.execute("SELECT 1 FROM v_chain_heads WHERE id = ?", (task_id,)).fetchone()
+        return row is not None
+    except sqlite3.Error:
         return False
 
 
-def spawn_agent(skill: str, task_id: int) -> int:
-    """Spawn claude -p /<skill> <task_id>. Returns the process exit code."""
-    result = subprocess.run(["claude", "-p", f"/{skill} {task_id}"])
+def spawn_agent(skill: str, task_id: int, on_failure: str | None = None) -> int:
+    """Spawn claude -p /<skill> <task_id> [--on-failure <strategy>]. Returns the process exit code."""
+    prompt = f"/{skill} {task_id}"
+    if skill == "chain" and on_failure:
+        prompt += f" --on-failure {on_failure}"
+    result = subprocess.run(["claude", "-p", prompt])
     return result.returncode
 
 
@@ -136,6 +123,14 @@ Examples:
         action="store_true",
         help="Print what would run without spawning any subprocess",
     )
+    parser.add_argument(
+        "--on-failure",
+        dest="on_failure",
+        choices=["skip", "abort"],
+        default=None,
+        metavar="STRATEGY",
+        help="Failure strategy passed through to /chain dispatches: skip (continue to next wave) or abort (stop chain immediately). Has no effect on standalone /tusk dispatches.",
+    )
     args = parser.parse_args(sys.argv[3:])
 
     if args.max_tasks < 0:
@@ -161,20 +156,30 @@ Examples:
             task_id = task["id"]
             summary = task["summary"]
 
-            chain_head = is_chain_head(task_id)
-            skill = "chain" if chain_head else "next-task"
+            chain_head = is_chain_head(conn, task_id)
+            skill = "chain" if chain_head else "tusk"
 
             if args.dry_run:
+                on_failure_suffix = (
+                    f" --on-failure {args.on_failure}"
+                    if skill == "chain" and args.on_failure
+                    else ""
+                )
                 print(
-                    f"[dry-run] Would dispatch: claude -p /{skill} {task_id}  ({summary})",
+                    f"[dry-run] Would dispatch: claude -p /{skill} {task_id}{on_failure_suffix}  ({summary})",
                     flush=True,
                 )
             else:
+                on_failure_suffix = (
+                    f" --on-failure {args.on_failure}"
+                    if skill == "chain" and args.on_failure
+                    else ""
+                )
                 print(
-                    f"Dispatching TASK-{task_id} ({summary}) → claude -p /{skill} {task_id}",
+                    f"Dispatching TASK-{task_id} ({summary}) → claude -p /{skill} {task_id}{on_failure_suffix}",
                     flush=True,
                 )
-                exit_code = spawn_agent(skill, task_id)
+                exit_code = spawn_agent(skill, task_id, on_failure=args.on_failure)
                 if exit_code != 0:
                     print(
                         f"Agent exited with code {exit_code} for TASK-{task_id} — stopping loop.",
