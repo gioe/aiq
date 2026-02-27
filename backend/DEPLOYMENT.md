@@ -328,6 +328,30 @@ railway connect postgres
 \q   # Quit
 ```
 
+### ❌ Password Authentication Failed (Login Returns 500)
+
+**Symptoms**: Health check returns 200 but `POST /v1/auth/login` returns 500 with `"Internal server error"`. The `/v1/health` response body shows `"database": "error"`. Backend logs contain `password authentication failed for user postgres`.
+
+**Root cause**: `DATABASE_URL` on Railway is set as a **hardcoded static string** instead of a Railway reference variable. When Railway rotates the Postgres password (which it does automatically), the hardcoded value becomes stale and authentication fails.
+
+**Fix (Railway Dashboard)**:
+1. Open the Railway dashboard → backend service → **Variables** tab
+2. Find `DATABASE_URL`
+3. If the value is a raw connection string like `postgresql://postgres:<password>@postgres-...railway.internal:5432/railway`, it is hardcoded and must be replaced
+4. Change it to the reference variable: `${{Postgres.DATABASE_URL}}`
+5. Railway will redeploy automatically with the correct, always-current credentials
+
+**Verify via Railway CLI** (requires `railway login`):
+```bash
+railway variables | grep DATABASE_URL
+# Bad:  DATABASE_URL=postgresql://postgres:<rotated-password>@postgres-6_4y.railway.internal:5432/railway
+# Good: DATABASE_URL=${{Postgres.DATABASE_URL}}
+```
+
+**Confirm fix**: After redeploy, the `/v1/health` endpoint will return `"database": "ok"` in the response body, and `POST /v1/auth/login` will return 200 for valid credentials.
+
+**Prevention**: Always use reference variables (`${{ServiceName.VARIABLE}}`) for credentials that Railway manages. Never paste raw values for Postgres credentials.
+
 ### ❌ Migrations Failed
 
 **Symptoms**: App starts but database schema is wrong/missing
