@@ -19,6 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
     CheckConstraint,
+    DateTime,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSON
@@ -62,17 +63,21 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     first_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     last_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=utc_now)
-    last_login_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     notification_enabled: Mapped[bool] = mapped_column(default=True)
     apns_device_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     day_30_reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )  # Timestamp when Day 30 reminder was sent (Phase 2.2 deduplication)
 
     # Token revocation epoch for "logout from all devices" functionality
     token_revoked_before: Mapped[Optional[datetime]] = mapped_column(
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )  # Timestamp before which all tokens are considered revoked
     # When set, any token with iat (issued-at) < token_revoked_before is rejected
     # Used by POST /v1/auth/logout-all to invalidate all existing user tokens
@@ -148,7 +153,9 @@ class Question(Base):
     prompt_version: Mapped[Optional[str]] = mapped_column(
         String(50), default="1.0", nullable=True
     )  # Version of prompts used for generation
-    created_at: Mapped[datetime] = mapped_column(default=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
     is_active: Mapped[bool] = mapped_column(default=True, index=True)
 
     # Question Performance Statistics (P11-007)
@@ -194,7 +201,7 @@ class Question(Base):
     # IRT calibration metadata (TASK-854)
     # Tracks when IRT parameters were calibrated and the precision of estimates
     irt_calibrated_at: Mapped[Optional[datetime]] = mapped_column(
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )  # Timestamp of IRT calibration run that produced current parameters
     # NULL means IRT parameters have not been calibrated yet
 
@@ -238,7 +245,7 @@ class Question(Base):
     # NULL indicates the question has never been recalibrated
 
     difficulty_recalibrated_at: Mapped[Optional[datetime]] = mapped_column(
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )  # Timestamp of most recent recalibration
     # NULL indicates the question has never been recalibrated
 
@@ -264,7 +271,7 @@ class Question(Base):
     # NULL when quality_flag is "normal" (no reason needed)
 
     quality_flag_updated_at: Mapped[Optional[datetime]] = mapped_column(
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )  # Timestamp when quality_flag was last updated
     # NULL for questions that have never been flagged (always "normal")
     # Used for audit trail and to identify recently flagged questions
@@ -286,7 +293,7 @@ class Question(Base):
     # 30 per domain (180 total). Selection: discrimination >= 0.30, balanced difficulty.
     is_anchor: Mapped[bool] = mapped_column(default=False, index=True)
     anchor_designated_at: Mapped[Optional[datetime]] = mapped_column(
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )  # When designated; NULL for non-anchors
 
     # Relationships
@@ -321,7 +328,7 @@ class UserQuestion(Base):
     test_session_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("test_sessions.id", ondelete="CASCADE"), nullable=True
     )
-    seen_at: Mapped[datetime] = mapped_column(default=utc_now)
+    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     # Relationships
     user: Mapped["User"] = relationship(back_populates="user_questions")
@@ -347,8 +354,12 @@ class TestSession(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    started_at: Mapped[datetime] = mapped_column(default=utc_now)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True, index=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     status: Mapped[TestStatus] = mapped_column(
         default=TestStatus.IN_PROGRESS, index=True
     )
@@ -433,7 +444,9 @@ class Response(Base):
     )
     user_answer: Mapped[str] = mapped_column(String(500))
     is_correct: Mapped[bool] = mapped_column()
-    answered_at: Mapped[datetime] = mapped_column(default=utc_now)
+    answered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
     # Time standardization (TS-001)
     time_spent_seconds: Mapped[Optional[int]] = mapped_column(
@@ -482,7 +495,9 @@ class TestResult(Base):
     total_questions: Mapped[int] = mapped_column()
     correct_answers: Mapped[int] = mapped_column()
     completion_time_seconds: Mapped[Optional[int]] = mapped_column(nullable=True)
-    completed_at: Mapped[datetime] = mapped_column(default=utc_now)
+    completed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
     # Confidence interval fields (P11-008)
     # These fields prepare for Phase 12 when we can calculate actual SEM
@@ -522,7 +537,7 @@ class TestResult(Base):
     # NULL indicates no validity checks have been run (pre-CD implementation sessions)
 
     validity_checked_at: Mapped[Optional[datetime]] = mapped_column(
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )  # Timestamp when validity assessment was performed
     # NULL indicates validity has not been checked yet
     # Used to track when checks were run and for potential re-analysis
@@ -536,7 +551,7 @@ class TestResult(Base):
     # Provides audit trail for why original assessment was changed
 
     validity_overridden_at: Mapped[Optional[datetime]] = mapped_column(
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )  # Timestamp when admin override was performed
     # NULL indicates no override has occurred (original assessment stands)
 
@@ -638,7 +653,9 @@ class ShadowCATResult(Base):
     )  # Dict[str, int] - items per domain
 
     # Metadata
-    executed_at: Mapped[datetime] = mapped_column(default=utc_now)
+    executed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
     execution_time_ms: Mapped[Optional[int]] = mapped_column(nullable=True)
 
     # Relationships
@@ -669,8 +686,10 @@ class QuestionGenerationRun(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
     # Execution timing
-    started_at: Mapped[datetime] = mapped_column()
-    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     duration_seconds: Mapped[Optional[float]] = mapped_column(nullable=True)
 
     # Status & outcome
@@ -745,7 +764,9 @@ class QuestionGenerationRun(Base):
     )  # 'scheduler', 'manual', 'webhook'
 
     # Metadata
-    created_at: Mapped[datetime] = mapped_column(default=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
     # Indexes for common queries
     __table_args__ = (
@@ -774,7 +795,9 @@ class SystemConfig(Base):
 
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[Any] = mapped_column(JSON)
-    updated_at: Mapped[datetime] = mapped_column(default=utc_now, onupdate=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
 
 
 class ClientAnalyticsEvent(Base):
@@ -797,10 +820,10 @@ class ClientAnalyticsEvent(Base):
 
     # Event timing
     client_timestamp: Mapped[datetime] = mapped_column(
-        index=True
+        DateTime(timezone=True), index=True
     )  # When event occurred on client
     received_at: Mapped[datetime] = mapped_column(
-        default=utc_now, index=True
+        DateTime(timezone=True), default=utc_now, index=True
     )  # When server received event
 
     # Event context
@@ -859,7 +882,9 @@ class ReliabilityMetric(Base):
     sample_size: Mapped[int] = mapped_column()  # Number of sessions/pairs used
 
     # Timestamp
-    calculated_at: Mapped[datetime] = mapped_column(default=utc_now)
+    calculated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
     # Additional context (interpretation, thresholds, item correlations, etc.)
     details: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
@@ -903,8 +928,10 @@ class CalibrationRun(Base):
     job_id: Mapped[str] = mapped_column(String(100), unique=True)
     status: Mapped[CalibrationRunStatus] = mapped_column()
     triggered_by: Mapped[CalibrationTrigger] = mapped_column()
-    started_at: Mapped[datetime] = mapped_column()
-    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     duration_seconds: Mapped[Optional[float]] = mapped_column(nullable=True)
     questions_calibrated: Mapped[Optional[int]] = mapped_column(nullable=True)
     questions_skipped: Mapped[Optional[int]] = mapped_column(nullable=True)
@@ -943,12 +970,14 @@ class PasswordResetToken(Base):
         String(255), unique=True, index=True
     )  # Secure random token (urlsafe)
     expires_at: Mapped[datetime] = mapped_column(
-        index=True
+        DateTime(timezone=True), index=True
     )  # Token expiration timestamp
     used_at: Mapped[Optional[datetime]] = mapped_column(
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )  # When token was consumed (NULL = unused)
-    created_at: Mapped[datetime] = mapped_column(default=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
     # Relationship
     user: Mapped["User"] = relationship()
@@ -997,7 +1026,9 @@ class FeedbackSubmission(Base):
 
     # Status tracking (index: composite only, see __table_args__)
     status: Mapped[FeedbackStatus] = mapped_column(default=FeedbackStatus.PENDING)
-    created_at: Mapped[datetime] = mapped_column(default=utc_now, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, index=True
+    )
 
     # Relationship (optional user)
     user: Mapped[Optional["User"]] = relationship()
