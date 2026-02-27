@@ -20,8 +20,25 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Database URL from environment
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/aiq_dev")
+# Database URL from environment.
+# If DATABASE_URL resolves to an empty string it usually means a Railway reference
+# variable (e.g. ${{Postgres.DATABASE_URL}}) didn't resolve because the service name
+# in the reference doesn't exactly match the Postgres service name in the dashboard.
+# Fix: open Railway dashboard → Postgres service → copy the exact service name →
+# update the variable to ${{<ExactName>.DATABASE_URL}}.
+_DATABASE_URL_RAW = os.getenv("DATABASE_URL", "")
+_is_production = os.getenv("ENV", "development").lower() == "production"
+if not _DATABASE_URL_RAW:
+    if _is_production:
+        raise RuntimeError(
+            "DATABASE_URL is not set or is empty. "
+            "On Railway, the reference variable is not resolving — check that the "
+            "service name in ${{<Name>.DATABASE_URL}} exactly matches the Postgres "
+            "service name shown in your Railway dashboard."
+        )
+    DATABASE_URL = "postgresql://localhost:5432/aiq_dev"
+else:
+    DATABASE_URL = _DATABASE_URL_RAW
 
 # Environment setting - echo SQL in development only
 DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
