@@ -87,11 +87,10 @@ def test_sqlalchemy_roundtrip_bug_is_documented():
         "postgresql+asyncpg://postgres-6_4y.railway.internal:5432/railway"
     )
 
-    if "postgres-6_4y" not in sqlalchemy_result:
-        # Bug is present in the current SQLAlchemy — the workaround is still needed.
-        assert "postgres-64y" in sqlalchemy_result, (
-            "SQLAlchemy mangled the hostname in an unexpected way: "
-            f"{sqlalchemy_result!r}"
-        )
-    # else: current SQLAlchemy preserves underscores — the workaround is a no-op
-    # but is harmless and guards against future regressions or downgrades.
+    # The SQLAlchemy result must be one of exactly two known states:
+    # (a) underscore preserved — bug is fixed in this version, or
+    # (b) underscore stripped to produce "postgres-64y" — known bug is present.
+    # Any other output means an unexpected regression; fail loudly.
+    assert "postgres-6_4y" in sqlalchemy_result or sqlalchemy_result == (
+        "postgresql+asyncpg://postgres-64y.railway.internal:5432/railway"
+    ), f"SQLAlchemy produced an unexpected hostname mangling: {sqlalchemy_result!r}"
