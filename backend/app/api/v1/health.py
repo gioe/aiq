@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from sqlalchemy import text
 from app.core.datetime_utils import utc_now
 from app.core.config import settings
-from app.models.base import async_engine, _ASYNC_DATABASE_URL
+from app.models.base import async_engine
 
 logger = logging.getLogger(__name__)
 
@@ -44,19 +44,12 @@ async def health_check():
         db_error = str(exc)
         logger.error("Health check database connectivity failed: %s", exc)
 
-    # Extract host/port only (no credentials) for diagnostics
-    from sqlalchemy.engine import make_url as _make_url
-
-    _u = _make_url(_ASYNC_DATABASE_URL)
-    db_host = f"{_u.host}:{_u.port}/{_u.database}"
-
     return {
         "status": "healthy",
         "timestamp": utc_now().isoformat(),
         "service": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "database": db_status,
-        "database_host": db_host,
         **({"database_error": db_error} if db_error else {}),
     }
 
