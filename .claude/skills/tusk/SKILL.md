@@ -75,7 +75,7 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
    - `criteria` — array of acceptance criteria objects (id, criterion, source, is_completed, criterion_type, verification_spec). These are the implementation checklist. Work through them in order during implementation. Mark each criterion done (`tusk criteria done <cid>`) as you complete it — do not defer this to the end. Non-manual criteria (type: code, test, file) run automated verification on `done`; use `--skip-verify` if needed. If the array is empty, proceed normally using the description as scope.
    - `session_id` — the session ID to use for the duration of the workflow (reuses an open session if one exists, otherwise creates a new one)
 
-   Hold onto `session_id` from the JSON — it will be used to close the session when the task is done.
+   Hold onto `session_id` from the JSON — it will be passed to `tusk merge` in step 12 to close the session. **Do not pass it to `tusk task-done`; use `tusk merge` for the full finalization sequence.**
 
 2. **Create a new git branch IMMEDIATELY** (skip if resuming and branch already exists):
    ```bash
@@ -162,6 +162,12 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
     tusk merge <id> --session $SESSION_ID
     ```
     `tusk merge` closes the session, merges the feature branch into the default branch, pushes, deletes the feature branch, and marks the task Done. It returns JSON including an `unblocked_tasks` array. If there are newly unblocked tasks, note them in the retro.
+
+    **PR mode:** If the project uses PR-based merges (`merge.mode = pr` in config, or when passing `--pr`), use:
+    ```bash
+    tusk merge <id> --session $SESSION_ID --pr --pr-number <N>
+    ```
+    This squash-merges via `gh pr merge` instead of a local fast-forward.
 
     Then run `/retro` immediately — do not ask "shall I run retro?". Invoke it to review the session, surface process improvements, and create follow-up tasks.
 

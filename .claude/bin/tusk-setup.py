@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Return config, backlog, and conventions in a single JSON object.
+"""Return config and backlog in a single JSON object.
 
 Called by the tusk wrapper:
     tusk setup
@@ -10,7 +10,6 @@ Arguments received from tusk:
 """
 
 import json
-import os
 import sqlite3
 import sys
 
@@ -39,28 +38,21 @@ def main(argv: list[str]) -> int:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
-        rows = conn.execute(
-            "SELECT id, summary, status, priority, domain, assignee, complexity, task_type, priority_score "
-            "FROM tasks WHERE status <> 'Done' ORDER BY priority_score DESC, id"
-        ).fetchall()
-        backlog = [dict(row) for row in rows]
-        conn.close()
+        try:
+            rows = conn.execute(
+                "SELECT id, summary, status, priority, domain, assignee, complexity, task_type, priority_score "
+                "FROM tasks WHERE status <> 'Done' ORDER BY priority_score DESC, id"
+            ).fetchall()
+            backlog = [dict(row) for row in rows]
+        finally:
+            conn.close()
     except sqlite3.Error as e:
         print(f"Error: Database query failed: {e}", file=sys.stderr)
         return 2
 
-    # Read conventions
-    conventions_path = os.path.join(os.path.dirname(db_path), "conventions.md")
-    try:
-        with open(conventions_path) as f:
-            conventions = f.read()
-    except FileNotFoundError:
-        conventions = ""
-
     result = {
         "config": config,
         "backlog": backlog,
-        "conventions": conventions,
     }
     print(json.dumps(result, indent=2))
     return 0

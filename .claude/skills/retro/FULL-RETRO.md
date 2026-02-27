@@ -4,6 +4,10 @@ Thorough retro for medium-to-large tasks. Includes subsumption analysis, depende
 
 ## Step 1: Review Session History
 
+**Check for custom focus areas first.** Attempt to read `<base_directory>/FOCUS.md`.
+- If the file exists: use the categories defined in it for Step 3 instead of the defaults.
+- If the file does not exist: use the default categories A–D defined in Step 3.
+
 Analyze the full conversation context. Look for:
 
 - **Friction points** — confusing instructions, missing context, repeated mistakes
@@ -11,33 +15,24 @@ Analyze the full conversation context. Look for:
 - **Tangential issues** — test failures, tech debt, bugs discovered out of scope
 - **Incomplete work** — deferred decisions, TODOs, partial implementations
 - **Failed approaches** — strategies that didn't work and why
-- **Conventions** — generalizable heuristics: file coupling patterns, decomposition rules, naming conventions, workflow patterns that recur across sessions
+- **Lint Rules** — concrete, grep-detectable anti-patterns observed in this session (max 3). Only if an actual mistake occurred that a grep rule could prevent.
 
 Review the entire session, not just the most recent messages.
 
-## Step 2: Fetch Config, Backlog, and Conventions
+## Step 2: Config, Backlog, and Conventions
 
-```bash
-tusk setup
-```
-
-Parse the JSON: use `config` for metadata assignment, `backlog` for semantic duplicate comparison in Step 3, and `conventions` for Step 5d.
+Use the JSON already fetched via `tusk setup` in Step 0 of the retro skill: `config` for metadata assignment and `backlog` for semantic duplicate comparison in Step 3.
 
 ## Step 3: Categorize Findings
 
-Organize into four categories:
+If `<base_directory>/FOCUS.md` was found in Step 1, use those categories.
 
-### Category A: Process Improvements
-Changes to skills, CLAUDE.md, or tooling that would have made the session smoother (misleading instructions, missing conventions, skill gaps).
+Otherwise organize into the default four categories:
 
-### Category B: Tangential Issues
-Problems discovered during the session that were out of scope but need tracking (unrelated test failures, tech debt, architectural concerns).
-
-### Category C: Follow-up Work
-Incomplete items, deferred decisions, or next steps (partial implementations, punted decisions, unhandled edge cases).
-
-### Category D: Conventions
-Generalizable project heuristics worth codifying — file coupling patterns (e.g., "X and Y always change together"), decomposition rules (e.g., "don't split mechanical consequences into separate tasks"), naming conventions, or workflow patterns that recur across sessions. These are written to `tusk/conventions.md`, not filed as tasks.
+- **A**: Process improvements — skill/CLAUDE.md/tooling friction, confusing instructions, missing conventions
+- **B**: Tangential issues — out-of-scope bugs, tech debt, architectural concerns
+- **C**: Follow-up work — incomplete items, deferred decisions, edge cases
+- **D**: Lint Rules — concrete, grep-detectable anti-patterns (max 3). Only if an actual mistake occurred that a grep rule could prevent. Filed as tasks, not written directly.
 
 If a category has no findings, note that explicitly — an empty category is a positive signal.
 
@@ -77,20 +72,11 @@ Show all findings in a structured report:
 ### Summary
 Brief (2-3 sentence) overview of what the session accomplished.
 
-### Category A: Process Improvements (N findings)
+### <Category name from Step 3> (N findings)
 1. **<title>** — <description>
    → Proposed: <summary> | <priority> | <task_type> | <domain>
 
-### Category B: Tangential Issues (N findings)
-1. **<title>** — <description>
-   → Proposed: <summary> | <priority> | <task_type> | <domain>
-
-### Category C: Follow-up Work (N findings)
-1. **<title>** — <description>
-   → Proposed: <summary> | <priority> | <task_type> | <domain>
-
-### Category D: Conventions (N findings) (omit if none)
-1. **<short title>** — <description of the heuristic>
+(Repeat for each category. Use the resolved category names — from FOCUS.md if present, or defaults A/B/C/D. Omit empty categories.)
 
 ### Duplicates Already Tracked (omit if none)
 | Finding | Matched Task | Similarity |
@@ -124,10 +110,11 @@ tusk "UPDATE tasks SET description = $(tusk sql-quote "$AMENDED_DESC"), updated_
 ### 5b: Insert New Tasks
 
 ```bash
-tusk task-insert "<summary>" "<description>" --priority "<priority>" --domain "<domain>" --task-type "<task_type>" --assignee "<assignee>" --complexity "<complexity>"
+tusk task-insert "<summary>" "<description>" --priority "<priority>" --domain "<domain>" --task-type "<task_type>" --assignee "<assignee>" --complexity "<complexity>" \
+  --criteria "<criterion 1>" [--criteria "<criterion 2>" ...]
 ```
 
-Omit `--domain` or `--assignee` entirely if the value is NULL/empty. Exit code 1 means duplicate — skip.
+Always include at least one `--criteria` flag — derive 1–3 concrete acceptance criteria from the task description. Omit `--domain` or `--assignee` entirely if the value is NULL/empty. Exit code 1 means duplicate — skip.
 
 ### 5c: Propose Dependencies
 
@@ -142,27 +129,22 @@ Present a numbered table for approval:
 
 Then insert approved dependencies with `tusk deps add <task_id> <depends_on_id> [--type contingent]`.
 
-### 5d: Write Conventions (only if Category D has findings)
+### 5d: Create Lint Rule Tasks (only if lint rule findings exist)
 
-Check the `conventions` string from `tusk setup` (fetched in Step 2) to avoid duplicates.
+Apply this step if there are lint rule findings — Category D when using defaults, or a "Lint Rules" section when using a custom FOCUS.md.
 
-Skip any convention whose meaning is already captured (even if worded differently). For each new convention, look up the current session ID:
+For each lint rule finding, create a task whose description contains the exact `tusk lint-rule add` invocation. The retro identifies the pattern and files; the implementing agent runs the command.
+
+The bar is high — only create a lint rule task if you observed an **actual mistake** that a grep rule would have caught. Do not create lint rule tasks for general advice.
 
 ```bash
-tusk "SELECT id FROM task_sessions WHERE task_id = (SELECT id FROM tasks WHERE status = 'Done' ORDER BY updated_at DESC LIMIT 1) ORDER BY id DESC LIMIT 1"
+tusk task-insert "Add lint rule: <short description>" \
+  "Run: tusk lint-rule add '<pattern>' '<file_glob>' '<message>'" \
+  --priority "Low" --task-type "chore" --complexity "XS" \
+  --criteria "tusk lint-rule add has been run with the specified pattern, glob, and message"
 ```
 
-Append each new convention to `tusk/conventions.md` using this format:
-
-```markdown
-
-## <short title>
-_Source: session <session_id> — <YYYY-MM-DD>_
-
-<one-to-two sentence description of the convention and when it applies>
-```
-
-Do not reorder or delete existing entries — always append at the end of the file.
+Fill in `<pattern>` (grep regex), `<file_glob>` (e.g., `*.md` or `bin/tusk-*.py`), and `<message>` (human-readable warning) with the specific values from your finding.
 
 ## Step 6: Report Results
 
@@ -170,9 +152,9 @@ Do not reorder or delete existing entries — always append at the end of the fi
 ## Retrospective Complete
 
 **Session**: <what was accomplished>
-**Findings**: A process / B tangential / C follow-up / D conventions
+**Findings**: N findings by category (use resolved category names)
 **Created**: N tasks (#id, #id)
-**Conventions written**: K new (L skipped as duplicates)
+**Lint rule tasks created**: K
 **Subsumed**: S findings into existing tasks (#id)
 **Dependencies added**: D (if any were created)
 **Skipped**: M duplicates

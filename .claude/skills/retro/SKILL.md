@@ -8,13 +8,18 @@ allowed-tools: Bash, Read
 
 Reviews the current conversation history to capture process learnings, instruction improvements, and tangential issues. Creates structured follow-up tasks so nothing falls through the cracks.
 
-## Step 0: Determine Retro Mode
+> **Prefer `/create-task` for all task creation.** It handles decomposition, deduplication, acceptance criteria generation, and dependency proposals in one workflow. Use `bin/tusk task-insert` directly only when scripting bulk inserts or in automated contexts where the interactive review step is not applicable.
 
-Check the complexity of the task that was just completed:
+## Step 0: Setup
+
+Fetch config, backlog, then determine retro mode:
 
 ```bash
 tusk "SELECT complexity FROM tasks WHERE status = 'Done' ORDER BY updated_at DESC LIMIT 1"
+tusk setup
 ```
+
+Parse the JSON from `tusk setup`: use `config` for metadata assignment and `backlog` for duplicate comparison.
 
 - **XS or S** → follow the **Lightweight Retro** path below
 - **M, L, XL, or NULL** → read the full retro guide:
@@ -31,61 +36,52 @@ Streamlined retro for small tasks. Skips subsumption analysis and dependency pro
 
 ### LR-1: Review & Categorize
 
-Analyze the full conversation context. Look for:
+**Check for custom focus areas first.** Attempt to read `<base_directory>/FOCUS.md`.
+- If the file exists: use the categories defined in it for the analysis below.
+- If the file does not exist: use the default categories:
+  - **Category A**: Process improvements — friction in skills, CLAUDE.md, tooling
+  - **Category B**: Tangential issues — bugs, tech debt, architectural concerns discovered out of scope
+  - **Category C**: Follow-up work — incomplete items, deferred decisions, edge cases
+  - **Category D**: Lint Rules — concrete, grep-detectable anti-patterns observed in this session (max 3). Only include if an actual mistake occurred that a grep rule could prevent — e.g., calling a deprecated command, using a wrong pattern in a specific file type. Do NOT include general advice or style preferences.
 
-- **Category A**: Process improvements — friction in skills, CLAUDE.md, tooling
-- **Category B**: Tangential issues — bugs, tech debt, architectural concerns discovered out of scope
-- **Category C**: Follow-up work — incomplete items, deferred decisions, edge cases
-- **Category D**: Conventions — generalizable project heuristics worth codifying (file coupling patterns, decomposition rules, naming conventions, workflow patterns that recur across sessions)
+Analyze the full conversation context using the resolved categories.
 
-Category D examples: "bin/tusk-*.py always needs a dispatcher entry in bin/tusk", "schema migrations require bumping both user_version and tusk init", "skills that INSERT tasks must run dupe check first".
-
-If **all categories are empty**, report "Clean session — no findings" and stop. Do not fetch config or backlog.
+If **all categories are empty**, report "Clean session — no findings" and stop. (Config and backlog were already fetched in Step 0 — no additional work needed.)
 
 ### LR-2: Create Tasks (only if findings exist)
 
-1. Fetch config, backlog, and conventions in one call:
-   ```bash
-   tusk setup
-   ```
-   Parse the JSON: use `config` for metadata assignment, `backlog` for duplicate comparison, and `conventions` for LR-2b.
+1. Compare each finding against the backlog for semantic overlap (use `backlog` from Step 0). Drop any already covered.
 
-2. Compare each finding against the backlog for semantic overlap. Drop any already covered.
-
-3. Run heuristic dupe check on surviving findings:
+2. Run heuristic dupe check on surviving findings:
    ```bash
    tusk dupes check "<proposed summary>"
    ```
 
-4. Present findings and proposed tasks in a table. Wait for explicit user approval before inserting.
+3. Present findings and proposed tasks in a table. Wait for explicit user approval before inserting.
 
-5. Insert approved tasks:
+4. Insert approved tasks:
    ```bash
-   tusk task-insert "<summary>" "<description>" --priority "<priority>" --domain "<domain>" --task-type "<task_type>" --assignee "<assignee>" --complexity "<complexity>"
+   tusk task-insert "<summary>" "<description>" --priority "<priority>" --domain "<domain>" --task-type "<task_type>" --assignee "<assignee>" --complexity "<complexity>" \
+     --criteria "<criterion 1>" [--criteria "<criterion 2>" ...]
    ```
-   Omit `--domain` or `--assignee` entirely if the value is NULL/empty. Exit code 1 means duplicate — skip. Skip subsumption and dependency proposals.
+   Always include at least one `--criteria` flag — derive 1–3 concrete acceptance criteria from the task description. Omit `--domain` or `--assignee` entirely if the value is NULL/empty. Exit code 1 means duplicate — skip. Skip subsumption and dependency proposals.
 
-### LR-2b: Write Conventions (only if Category D has findings)
+### LR-2b: Create Lint Rule Tasks (only if lint rule findings exist)
 
-For each Category D finding, check whether it is already captured in the `conventions` string from `tusk setup` (fetched in LR-2 step 1).
+Apply this step if there are lint rule findings — Category D when using defaults, or a "Lint Rules" section when using a custom FOCUS.md.
 
-Skip any convention whose meaning is already present (even if worded differently). For each new convention, append it:
+For each lint rule finding, create a task whose description contains the exact `tusk lint-rule add` invocation. The retro identifies the pattern and files; the implementing agent runs the command.
+
+The bar is high — only create a lint rule task if you observed an **actual mistake** that a grep rule would have caught. Do not create lint rule tasks for general advice.
 
 ```bash
-tusk "SELECT id FROM task_sessions WHERE task_id = (SELECT id FROM tasks WHERE status = 'Done' ORDER BY updated_at DESC LIMIT 1) ORDER BY id DESC LIMIT 1"
+tusk task-insert "Add lint rule: <short description>" \
+  "Run: tusk lint-rule add '<pattern>' '<file_glob>' '<message>'" \
+  --priority "Low" --task-type "chore" --complexity "XS" \
+  --criteria "tusk lint-rule add has been run with the specified pattern, glob, and message"
 ```
 
-Use the session ID and current date to stamp the entry. Append to `tusk/conventions.md` using this format (one block per convention):
-
-```markdown
-
-## <short title>
-_Source: session <session_id> — <YYYY-MM-DD>_
-
-<one-to-two sentence description of the convention and when it applies>
-```
-
-Do not reorder or delete existing entries — always append at the end of the file.
+Fill in `<pattern>` (grep regex), `<file_glob>` (e.g., `*.md` or `bin/tusk-*.py`), and `<message>` (human-readable warning) with the specific values from your finding.
 
 ### LR-3: Report
 
@@ -93,9 +89,9 @@ Do not reorder or delete existing entries — always append at the end of the fi
 ## Retrospective Complete (Lightweight)
 
 **Session**: <what was accomplished>
-**Findings**: X total (A process / B tangential / C follow-up / D conventions)
+**Findings**: X total (by category — use resolved category names)
 **Created**: N tasks (#id, #id)
-**Conventions written**: K new (L skipped as duplicates)
+**Lint rule tasks created**: K
 **Skipped**: M duplicates
 ```
 
@@ -106,3 +102,18 @@ tusk -header -column "SELECT id, summary, priority, domain, task_type, status FR
 ```
 
 **End of lightweight retro.** Do not continue to FULL-RETRO.md.
+
+---
+
+## Customization
+
+To override the default analysis categories, create a `FOCUS.md` file in the skill directory (replace `<base_directory>` with the actual path shown at the top of the loaded skill — typically `.claude/skills/retro`):
+
+```
+cp .claude/skills/retro/FOCUS.md.example .claude/skills/retro/FOCUS.md
+# Edit FOCUS.md to define your custom categories
+```
+
+A template is available at `<base_directory>/FOCUS.md.example` showing the default category format. Custom categories replace A–D. Include a **"Lint Rules"** section to retain lint-rule task creation.
+
+`FOCUS.md` is not part of the distributed skill and will not be overwritten by `tusk upgrade`.

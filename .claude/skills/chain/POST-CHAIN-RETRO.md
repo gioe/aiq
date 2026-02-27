@@ -24,7 +24,7 @@ For each agent transcript, extract findings into these categories:
 - **Workarounds** — manual steps the agent had to take that could be automated or codified
 - **Tangential issues** — bugs, tech debt, test failures, or architectural concerns discovered out of scope
 - **Failed approaches** — strategies the agent tried that didn't work, and why
-- **Conventions** — generalizable heuristics the agent discovered or relied on (file coupling patterns, naming conventions, workflow patterns)
+- **Lint rule candidates** — concrete, grep-detectable anti-patterns observed (e.g., calling a deprecated command, using a wrong pattern). Only include if an actual mistake occurred that a grep rule could prevent
 
 Build a per-agent findings list:
 
@@ -34,7 +34,7 @@ Agent for TASK-<id> (<summary>):
   Workarounds: [...]
   Tangential: [...]
   Failed approaches: [...]
-  Conventions: [...]
+  Lint rule candidates: [...]
 ```
 
 ## RA-3: Identify Cross-Agent Patterns
@@ -76,18 +76,18 @@ Display the report to the user:
 #### Failed Approaches (N total)
 - [TASK-<id>] <finding>
 
-#### Conventions Discovered (N total)
+#### Lint Rule Candidates (N total)
 - [TASK-<id>] <finding>
 
 ### Proposed Actions
 | # | Action | Type | Priority | Source |
 |---|--------|------|----------|--------|
-| 1 | <summary> | task/convention/skip | <priority> | Cross-agent pattern / Single agent |
+| 1 | <summary> | task/lint-rule/skip | <priority> | Cross-agent pattern / Single agent |
 ```
 
 **Proposed action types:**
 - **task** — create a new tusk task for this finding
-- **convention** — write to `tusk/conventions.md`
+- **lint-rule** — create a task to add a grep-detectable lint rule via `tusk lint-rule add`
 - **skip** — informational only, no action needed
 
 Cross-agent patterns should default to higher priority than single-agent findings.
@@ -107,27 +107,27 @@ For each approved task action:
 
 2. If no duplicate, insert:
    ```bash
-   tusk "INSERT INTO tasks (summary, description, status, priority, domain, task_type, complexity, created_at, updated_at)
-     VALUES ($(tusk sql-quote '<summary>'), $(tusk sql-quote '<description>'), 'To Do', '<priority>', '<domain_or_NULL>', '<task_type>', '<complexity_or_NULL>', datetime('now'), datetime('now'))"
+   tusk task-insert "<summary>" "<description>" \
+     --priority "<priority>" --task-type "<task_type>" \
+     --domain "<domain>" --complexity "<complexity>" \
+     --criteria "<criterion>"
    ```
+   Omit `--domain` or `--assignee` if NULL/empty.
 
-### Conventions
+### Lint Rules
 
-For each approved convention action, check existing conventions:
+For each approved lint-rule action, create a task whose description contains the exact `tusk lint-rule add` invocation. The implementing agent runs the command.
+
+The bar is high — only create a lint rule task if you observed an **actual mistake** that a grep rule would have caught.
 
 ```bash
-tusk conventions
+tusk task-insert "Add lint rule: <short description>" \
+  "Run: tusk lint-rule add '<pattern>' '<file_glob>' '<message>'" \
+  --priority "Low" --task-type "chore" --complexity "XS" \
+  --criteria "tusk lint-rule add has been run with the specified pattern, glob, and message"
 ```
 
-Skip any convention already captured. For new conventions, append to `tusk/conventions.md`:
-
-```markdown
-
-## <short title>
-_Source: chain <head_task_id> — <YYYY-MM-DD>_
-
-<one-to-two sentence description of the convention and when it applies>
-```
+Fill in `<pattern>` (grep regex), `<file_glob>` (e.g., `*.md` or `bin/tusk-*.py`), and `<message>` (human-readable warning) with the specific values from the finding.
 
 ## RA-6: Retro Summary
 
@@ -136,8 +136,8 @@ _Source: chain <head_task_id> — <YYYY-MM-DD>_
 
 **Chain**: <head_task_id> (<total agents> agents analyzed)
 **Cross-agent patterns**: N identified
-**Findings**: N friction / N workarounds / N tangential / N failed approaches / N conventions
-**Actions taken**: N tasks created, N conventions written, N skipped
+**Findings**: N friction / N workarounds / N tangential / N failed approaches / N lint rule candidates
+**Actions taken**: N tasks created, N lint-rule tasks created, N skipped
 ```
 
 If no findings were extracted from any agent (all transcripts were clean), report:

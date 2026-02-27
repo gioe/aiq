@@ -15,8 +15,8 @@ Flags:
     --task-type <t>       Task type (default: feature)
     --assignee <a>        Assignee (default: NULL)
     --complexity <c>      Complexity (default: M)
-    --criteria <text>     Acceptance criterion (repeatable, type=manual)
-    --typed-criteria <json>  Typed criterion as JSON (repeatable)
+    --criteria <text>     Acceptance criterion (repeatable, type=manual) [at least one required]
+    --typed-criteria <json>  Typed criterion as JSON (repeatable) [at least one required]
                              Format: {"text":"...","type":"...","spec":"..."}
     --deferred            Set expires_at to +60 days and prefix summary with [Deferred]
     --expires-in <days>   Set expires_at to +N days
@@ -80,9 +80,12 @@ def run_dupe_check(summary: str, domain: str | None) -> dict | None:
 def main(argv: list[str]) -> int:
     if len(argv) < 4:
         print(
-            "Usage: tusk task-insert \"<summary>\" \"<description>\" [--priority P] "
-            "[--domain D] [--task-type T] [--assignee A] [--complexity C] "
-            "[--criteria \"...\"] [--deferred] [--expires-in DAYS]",
+            "Usage: tusk task-insert \"<summary>\" \"<description>\" "
+            "--criteria \"...\" [--criteria \"...\"] "
+            "[--typed-criteria '{\"text\":\"...\"}'] "
+            "[--priority P] [--domain D] [--task-type T] [--assignee A] "
+            "[--complexity C] [--deferred] [--expires-in DAYS]\n"
+            "At least one --criteria or --typed-criteria is required.",
             file=sys.stderr,
         )
         return 2
@@ -186,6 +189,13 @@ def main(argv: list[str]) -> int:
     if not description:
         print("Error: description is required", file=sys.stderr)
         return 2
+    if not criteria and not typed_criteria:
+        print(
+            "Error: at least one acceptance criterion is required. "
+            "Use --criteria \"...\" or --typed-criteria '{\"text\":\"...\"}' to add one.",
+            file=sys.stderr,
+        )
+        return 2
 
     # Apply --deferred: prefix summary and set default expiry
     if deferred:
@@ -193,6 +203,9 @@ def main(argv: list[str]) -> int:
             summary = f"[Deferred] {summary}"
         if expires_in_days is None:
             expires_in_days = 60
+
+    # is_deferred=1 whenever summary starts with [Deferred] (covers --deferred flag and manual prefix)
+    is_deferred = 1 if summary.startswith("[Deferred]") else 0
 
     # Load and validate against config
     config = load_config(config_path)
@@ -259,19 +272,19 @@ def main(argv: list[str]) -> int:
         if expires_at_expr:
             conn.execute(
                 "INSERT INTO tasks (summary, description, status, priority, domain, "
-                "task_type, assignee, complexity, expires_at, created_at, updated_at) "
-                "VALUES (?, ?, 'To Do', ?, ?, ?, ?, ?, datetime('now', ?), "
+                "task_type, assignee, complexity, is_deferred, expires_at, created_at, updated_at) "
+                "VALUES (?, ?, 'To Do', ?, ?, ?, ?, ?, ?, datetime('now', ?), "
                 "datetime('now'), datetime('now'))",
                 (summary, description, priority, domain, task_type, assignee,
-                 complexity, expires_at_expr),
+                 complexity, is_deferred, expires_at_expr),
             )
         else:
             conn.execute(
                 "INSERT INTO tasks (summary, description, status, priority, domain, "
-                "task_type, assignee, complexity, created_at, updated_at) "
-                "VALUES (?, ?, 'To Do', ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+                "task_type, assignee, complexity, is_deferred, created_at, updated_at) "
+                "VALUES (?, ?, 'To Do', ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
                 (summary, description, priority, domain, task_type, assignee,
-                 complexity),
+                 complexity, is_deferred),
             )
 
         task_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]

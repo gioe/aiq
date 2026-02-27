@@ -11,6 +11,7 @@ Prints results grouped by rule and exits with status 1 if any violations found.
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -53,9 +54,17 @@ def is_self(rel):
 # ── Rule implementations ────────────────────────────────────────────
 
 def rule1_raw_sqlite3(root):
-    """No raw sqlite3 usage outside bin/tusk."""
+    """No raw sqlite3 CLI usage outside bin/tusk.
+
+    Skills/scripts: flag any 'sqlite3 ' reference (shell CLI invocation).
+    bin/tusk-*.py: flag only subprocess calls to sqlite3 (e.g. subprocess.run(['sqlite3',...]))
+                   — Python's native sqlite3 module (sqlite3.connect, etc.) is allowed for
+                   read-only lookups in bin scripts.
+    """
     violations = []
     exempt = {"bin/tusk", "CLAUDE.md", "README.md"}
+
+    # Skills and plain scripts: flag any sqlite3 CLI invocation
     for rel, full in find_files(root, ["skills", "scripts"], [".md", ".sh", ".py"]):
         if is_self(rel) or any(rel.endswith(e) or rel == e for e in exempt):
             continue
@@ -72,6 +81,23 @@ def rule1_raw_sqlite3(root):
                 if "sqlite3 " not in before_comment:
                     continue
             violations.append(f"  {rel}:{lineno}: {line.rstrip()}")
+
+    # bin/tusk-*.py: flag only subprocess-based sqlite3 CLI calls; allow Python's sqlite3 module
+    import re as _re
+    _subprocess_sqlite3 = _re.compile(r'subprocess[^#\n]*["\']sqlite3["\']')
+    bin_exempt = exempt | {"bin/tusk-lint.py"}
+    for rel, full in find_files(root, ["bin"], [".py"]):
+        if not _re.match(r"bin/tusk-.+\.py$", rel):
+            continue
+        if rel in bin_exempt:
+            continue
+        for lineno, line in read_lines(full):
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue
+            if _subprocess_sqlite3.search(line):
+                violations.append(f"  {rel}:{lineno}: {line.rstrip()}")
+
     return violations
 
 
@@ -178,7 +204,7 @@ def rule6_done_incomplete_criteria(root):
              "SELECT t.id, t.summary, COUNT(ac.id) AS incomplete "
              "FROM tasks t "
              "JOIN acceptance_criteria ac ON ac.task_id = t.id "
-             "WHERE t.status = 'Done' AND ac.is_completed = 0 "
+             "WHERE t.status = 'Done' AND ac.is_completed = 0 AND ac.is_deferred = 0 "
              "GROUP BY t.id"],
             capture_output=True, text=True, timeout=5,
         )
@@ -192,7 +218,7 @@ def rule6_done_incomplete_criteria(root):
 
 
 def rule9_deferred_missing_expiry(root):
-    """Tasks with [Deferred] prefix but no expires_at set."""
+    """Deferred tasks (is_deferred=1) with no expires_at set."""
     violations = []
     tusk_bin = os.path.join(root, "bin", "tusk")
     if not os.path.isfile(tusk_bin):
@@ -201,7 +227,7 @@ def rule9_deferred_missing_expiry(root):
         result = subprocess.run(
             [tusk_bin, "-header", "-column",
              "SELECT id, summary FROM tasks "
-             "WHERE summary LIKE '[Deferred]%' AND expires_at IS NULL AND status <> 'Done'"],
+             "WHERE is_deferred = 1 AND expires_at IS NULL AND status <> 'Done'"],
             capture_output=True, text=True, timeout=5,
         )
         for line in result.stdout.strip().splitlines():
@@ -393,20 +419,371 @@ def rule11_skill_frontmatter(root):
     return violations
 
 
+def rule12_python_syntax(root):
+    """Python syntax check for all bin/tusk-*.py files via py_compile."""
+    violations = []
+
+    # Guard: skip rule if python3 is not available (which python3)
+    if not shutil.which("python3"):
+        return []
+
+    bin_dir = os.path.join(root, "bin")
+    if not os.path.isdir(bin_dir):
+        return []
+
+    try:
+        scripts = sorted(
+            f for f in os.listdir(bin_dir)
+            if re.match(r"^tusk-.+\.py$", f)
+        )
+    except OSError:
+        return []
+
+    for script in scripts:
+        full = os.path.join(bin_dir, script)
+        rel = os.path.relpath(full, root)
+        try:
+            result = subprocess.run(
+                ["python3", "-m", "py_compile", full],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode != 0:
+                err = result.stderr.strip()
+                # Extract line number from "File ..., line N" in the traceback
+                line_match = re.search(r"line (\d+)", err)
+                line_info = f":{line_match.group(1)}" if line_match else ":(unknown line)"
+                # Surface the last (most informative) line of the error
+                last_line = err.splitlines()[-1] if err else "SyntaxError"
+                violations.append(f"  {rel}{line_info}: {last_line}")
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass  # Skip file if py_compile invocation fails
+
+    return violations
+
+
+def rule14_deferred_prefix_mismatch(root):
+    """Open tasks where is_deferred flag and [Deferred] summary prefix disagree."""
+    violations = []
+    tusk_bin = os.path.join(root, "bin", "tusk")
+    if not os.path.isfile(tusk_bin):
+        tusk_bin = "tusk"
+    try:
+        result = subprocess.run(
+            [tusk_bin, "-header", "-column",
+             "SELECT id, is_deferred, summary FROM tasks "
+             "WHERE status <> 'Done' AND ("
+             "  (summary LIKE '[Deferred]%' AND is_deferred = 0) OR "
+             "  (summary NOT LIKE '[Deferred]%' AND is_deferred = 1)"
+             ")"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if line and not line.startswith("id") and not line.startswith("--"):
+                violations.append(f"  {line}")
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass  # Skip rule if tusk CLI is unavailable
+    return violations
+
+
+def rule15_big_bang_commits(root):
+    """In Progress tasks where all completed non-deferred criteria share one commit_hash.
+
+    Advisory only — fires when 2+ eligible criteria exist and all share a single hash.
+    Partial grouping (some criteria on one hash, others on another) is NOT flagged.
+    Tasks with zero or one eligible criterion are NOT flagged.
+    """
+    violations = []
+    tusk_bin = os.path.join(root, "bin", "tusk")
+    if not os.path.isfile(tusk_bin):
+        tusk_bin = "tusk"
+    try:
+        result = subprocess.run(
+            [tusk_bin, "-header", "-column",
+             "SELECT t.id, MIN(t.summary) AS summary, COUNT(ac.id) AS criteria_count "
+             "FROM tasks t "
+             "JOIN acceptance_criteria ac ON ac.task_id = t.id "
+             "WHERE t.status = 'In Progress' "
+             "  AND ac.is_completed = 1 "
+             "  AND ac.is_deferred = 0 "
+             "  AND ac.commit_hash IS NOT NULL "
+             "GROUP BY t.id "
+             "HAVING COUNT(ac.id) > 1 AND COUNT(DISTINCT ac.commit_hash) = 1"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if line and not line.startswith("id") and not line.startswith("--"):
+                violations.append(f"  {line}")
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass  # Skip rule if tusk CLI is unavailable
+    return violations
+
+
+def rule13_version_bump_missing(root):
+    """bin/tusk-*.py modified in working tree or recent commits without VERSION bump.
+
+    Advisory only — violations are printed but do not contribute to the exit code.
+    """
+    violations = []
+
+    if not shutil.which("git"):
+        return []
+
+    # Verify we're inside a git repo
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            capture_output=True, text=True, timeout=5, cwd=root,
+        )
+        if r.returncode != 0:
+            return []
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return []
+
+    script_re = re.compile(r"^bin/tusk-.+\.py$")
+
+    def read_version():
+        try:
+            with open(os.path.join(root, "VERSION"), encoding="utf-8") as f:
+                return f.read().strip()
+        except OSError:
+            return "unknown"
+
+    # --- Part A: Uncommitted changes (staged or unstaged) ---
+    dirty_scripts = []
+    version_dirty = False
+    try:
+        r = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True, text=True, timeout=5, cwd=root,
+        )
+        if r.returncode == 0:
+            for line in r.stdout.splitlines():
+                if len(line) < 4:
+                    continue
+                xy = line[:2]
+                path = line[3:].strip()
+                # Handle renamed files: "R old -> new"
+                if " -> " in path:
+                    path = path.split(" -> ")[-1]
+                # Exclude untracked files (??) — they're not yet part of the project
+                if xy.strip() and xy != "??" and path == "VERSION":
+                    version_dirty = True
+                if xy.strip() and xy != "??" and script_re.match(path):
+                    dirty_scripts.append(path)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    if dirty_scripts and not version_dirty:
+        ver = read_version()
+        for s in sorted(dirty_scripts):
+            violations.append(f"  Uncommitted: VERSION={ver}, script modified without VERSION bump: {s}")
+
+    # --- Part B: Committed changes since last VERSION bump ---
+    # Skip if VERSION is currently dirty (user is already in the process of bumping it)
+    if not version_dirty:
+        try:
+            r = subprocess.run(
+                ["git", "log", "-1", "--format=%H", "--", "VERSION"],
+                capture_output=True, text=True, timeout=5, cwd=root,
+            )
+            last_ver_commit = r.stdout.strip() if r.returncode == 0 else ""
+            if last_ver_commit:
+                r2 = subprocess.run(
+                    ["git", "diff", "--name-only", f"{last_ver_commit}..HEAD"],
+                    capture_output=True, text=True, timeout=5, cwd=root,
+                )
+                if r2.returncode == 0:
+                    changed = r2.stdout.splitlines()
+                    committed_scripts = [p for p in changed if script_re.match(p)]
+                    # No need to check if VERSION is in the diff — last_ver_commit is by
+                    # definition the most recent commit that touched VERSION, so nothing
+                    # between it and HEAD can contain another VERSION change.
+                    if committed_scripts:
+                        ver = read_version()
+                        for s in sorted(committed_scripts):
+                            violations.append(
+                                f"  Committed since last VERSION bump: VERSION={ver}, script modified without VERSION bump: {s}"
+                            )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+
+    return violations
+
+
+# ── DB-backed rules ──────────────────────────────────────────────────
+
+def _db_path_from_root(root):
+    """Resolve the tusk DB path by calling 'tusk path'. Returns path str or None."""
+    tusk_bin = os.path.join(root, "bin", "tusk")
+    if not os.path.isfile(tusk_bin):
+        tusk_bin = "tusk"
+    try:
+        r = subprocess.run([tusk_bin, "path"], capture_output=True, text=True, timeout=5)
+        if r.returncode == 0:
+            p = r.stdout.strip()
+            if p and os.path.isfile(p):
+                return p
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+def _load_lint_rules(root, is_blocking):
+    """Load lint_rules rows from the DB filtered by is_blocking. Returns [] on any failure."""
+    import sqlite3 as _sqlite3
+    db_path = _db_path_from_root(root)
+    if not db_path:
+        return []
+    try:
+        conn = _sqlite3.connect(db_path)
+        conn.row_factory = _sqlite3.Row
+        try:
+            rows = conn.execute(
+                "SELECT id, grep_pattern, file_glob, message FROM lint_rules"
+                " WHERE is_blocking = ? ORDER BY id",
+                (1 if is_blocking else 0,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+        except _sqlite3.OperationalError:
+            return []  # lint_rules table not yet created (pre-migration DB)
+        finally:
+            conn.close()
+    except Exception:
+        return []
+
+
+def _run_lint_rules(root, rules):
+    """Run a list of DB rule dicts as grep checks. Returns a list of violation strings."""
+    import glob as _glob
+    violations = []
+    for rule in rules:
+        rid = rule["id"]
+        pattern = rule["grep_pattern"]
+        file_glob = rule["file_glob"]
+        message = rule["message"]
+        try:
+            matching = _glob.glob(os.path.join(root, file_glob), recursive=True)
+        except Exception:
+            continue
+        for filepath in sorted(matching):
+            if not os.path.isfile(filepath):
+                continue
+            try:
+                result = subprocess.run(
+                    ["grep", "-nE", pattern, filepath],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if result.returncode == 0:
+                    rel = os.path.relpath(filepath, root)
+                    for line in result.stdout.strip().splitlines():
+                        violations.append(f"  [rule {rid}] {rel}:{line} — {message}")
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                continue
+    return violations
+
+
+def rule16_db_rules_blocking(root):
+    """DB-backed lint rules with is_blocking=1 (count toward exit code)."""
+    rules = _load_lint_rules(root, is_blocking=True)
+    return _run_lint_rules(root, rules)
+
+
+def rule17_db_rules_advisory(root):
+    """DB-backed lint rules with is_blocking=0 (advisory warnings only)."""
+    rules = _load_lint_rules(root, is_blocking=False)
+    return _run_lint_rules(root, rules)
+
+
+def rule18_manifest_drift(root):
+    """MANIFEST file is out of sync with files distributed by install.sh."""
+    import glob as _glob
+
+    # This rule is only meaningful in the tusk source repo.  Target projects
+    # don't have a MANIFEST or a bin/tusk shell script.  Mirror rule8's guard.
+    if not os.path.isfile(os.path.join(root, "bin", "tusk")):
+        return []
+
+    manifest_path = os.path.join(root, "MANIFEST")
+    if not os.path.isfile(manifest_path):
+        return ["  MANIFEST file not found — update MANIFEST to match the current source tree"]
+
+    try:
+        with open(manifest_path, encoding="utf-8") as f:
+            on_disk = set(json.load(f))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"  MANIFEST could not be parsed: {exc}"]
+
+    # Generate expected manifest using the same logic as install.sh section 4c
+    # Scripts that are only meaningful in the tusk source repo — not distributed.
+    # Canonical source: bin/dist-excluded.txt (also read by tusk-generate-manifest.py and install.sh).
+    _dist_excl_path = os.path.join(root, "bin", "dist-excluded.txt")
+    try:
+        with open(_dist_excl_path, encoding="utf-8") as _f:
+            _dist_excluded = {line.strip() for line in _f if line.strip()}
+    except OSError as exc:
+        return [f"  bin/dist-excluded.txt could not be read: {exc}"]
+
+    expected = []
+
+    expected.append(".claude/bin/tusk")
+
+    for p in sorted(_glob.glob(os.path.join(root, "bin", "tusk-*.py"))):
+        if os.path.basename(p) in _dist_excluded:
+            continue
+        expected.append(".claude/bin/" + os.path.basename(p))
+
+    for name in ["config.default.json", "VERSION", "pricing.json"]:
+        expected.append(".claude/bin/" + name)
+
+    for skill_dir in sorted(_glob.glob(os.path.join(root, "skills", "*/"))):
+        skill_name = os.path.basename(skill_dir.rstrip("/"))
+        for fname in sorted(os.listdir(skill_dir)):
+            full = os.path.join(skill_dir, fname)
+            if os.path.isfile(full):
+                expected.append(".claude/skills/" + skill_name + "/" + fname)
+
+    hooks_src = os.path.join(root, ".claude", "hooks")
+    if os.path.isdir(hooks_src):
+        for fname in sorted(os.listdir(hooks_src)):
+            full = os.path.join(hooks_src, fname)
+            if os.path.isfile(full):
+                expected.append(".claude/hooks/" + fname)
+
+    expected_set = set(expected)
+    violations = []
+    for path in sorted(expected_set - on_disk):
+        violations.append(f"  MANIFEST: missing '{path}' (in source tree but not in MANIFEST)")
+    for path in sorted(on_disk - expected_set):
+        violations.append(f"  MANIFEST: extra '{path}' (in MANIFEST but not in source tree)")
+    return violations
+
+
 # ── Main ─────────────────────────────────────────────────────────────
 
+# Each entry: (display_name, check_function, advisory)
+# advisory=True  → violations are printed but do NOT count toward exit code
+# advisory=False → violations count toward the non-zero exit code
 RULES = [
-    ("Rule 1: No raw sqlite3 usage", rule1_raw_sqlite3),
-    ("Rule 2: SQL != operator", rule2_sql_not_equal),
-    ("Rule 3: Hardcoded database path", rule3_hardcoded_db_path),
-    ("Rule 4: Manual quote escaping", rule4_manual_quote_escaping),
-    ("Rule 5: Done without closed_reason", rule5_done_without_closed_reason),
-    ("Rule 6: Done with incomplete acceptance criteria", rule6_done_incomplete_criteria),
-    ("Rule 7: config.default.json keys match KNOWN_KEYS", rule7_config_keys_match_known_keys),
-    ("Rule 8: Orphaned tusk-*.py scripts (in bin/ but not in dispatcher)", rule8_orphaned_python_scripts),
-    ("Rule 9: Deferred tasks missing expires_at", rule9_deferred_missing_expiry),
-    ("Rule 10: acceptance_criteria with verification_spec but criterion_type='manual'", rule10_criteria_type_mismatch),
-    ("Rule 11: SKILL.md frontmatter validation", rule11_skill_frontmatter),
+    ("Rule 1: No raw sqlite3 usage", rule1_raw_sqlite3, False),
+    ("Rule 2: SQL != operator", rule2_sql_not_equal, False),
+    ("Rule 3: Hardcoded database path", rule3_hardcoded_db_path, False),
+    ("Rule 4: Manual quote escaping", rule4_manual_quote_escaping, False),
+    ("Rule 5: Done without closed_reason", rule5_done_without_closed_reason, False),
+    ("Rule 6: Done with incomplete acceptance criteria", rule6_done_incomplete_criteria, False),
+    ("Rule 7: config.default.json keys match KNOWN_KEYS", rule7_config_keys_match_known_keys, False),
+    ("Rule 8: Orphaned tusk-*.py scripts (in bin/ but not in dispatcher)", rule8_orphaned_python_scripts, False),
+    ("Rule 9: Deferred tasks missing expires_at", rule9_deferred_missing_expiry, False),
+    ("Rule 10: acceptance_criteria with verification_spec but criterion_type='manual'", rule10_criteria_type_mismatch, False),
+    ("Rule 11: SKILL.md frontmatter validation", rule11_skill_frontmatter, False),
+    ("Rule 12: Python syntax check (py_compile) for bin/tusk-*.py", rule12_python_syntax, False),
+    ("Rule 13: bin/tusk-*.py modified without VERSION bump (advisory)", rule13_version_bump_missing, True),
+    ("Rule 14: is_deferred flag / [Deferred] prefix mismatch (advisory)", rule14_deferred_prefix_mismatch, True),
+    ("Rule 15: Big-bang commits (all criteria on one commit) (advisory)", rule15_big_bang_commits, True),
+    ("Rule 16: DB-backed blocking lint rules", rule16_db_rules_blocking, False),
+    ("Rule 17: DB-backed advisory lint rules (advisory)", rule17_db_rules_advisory, True),
+    ("Rule 18: MANIFEST drift from source tree", rule18_manifest_drift, False),
 ]
 
 
@@ -426,13 +803,15 @@ def main():
     print("=== Lint Conventions Report ===")
     print()
 
-    for name, check_fn in RULES:
+    for name, check_fn, advisory in RULES:
         violations = check_fn(root)
         print(name)
         if violations:
-            total_violations += len(violations)
-            rules_with_violations += 1
-            print(f"  WARN — {len(violations)} violation{'s' if len(violations) != 1 else ''}")
+            if not advisory:
+                total_violations += len(violations)
+                rules_with_violations += 1
+            label = "WARN [ADVISORY]" if advisory else "WARN"
+            print(f"  {label} — {len(violations)} violation{'s' if len(violations) != 1 else ''}")
             for v in violations:
                 print(v)
         else:
