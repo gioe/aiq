@@ -35,13 +35,9 @@ def upgrade() -> None:
         " ON password_reset_tokens (user_id, used_at)"
     )
 
-    # Drop stale indexes that are no longer in the models
-    op.drop_index(
-        "ix_questions_irt_calibrated",
-        table_name="questions",
-        postgresql_where="(irt_calibrated_at IS NOT NULL)",
-    )
-    op.drop_index("ix_users_notification_day30", table_name="users")
+    # Drop stale indexes that are no longer in the models (IF EXISTS for idempotency)
+    op.execute("DROP INDEX IF EXISTS ix_questions_irt_calibrated")
+    op.execute("DROP INDEX IF EXISTS ix_users_notification_day30")
 
     # Migrate all TIMESTAMP WITHOUT TIME ZONE columns to TIMESTAMP WITH TIME ZONE.
     # The USING clause interprets existing stored values as UTC (which they are,
@@ -349,12 +345,10 @@ def downgrade() -> None:
         existing_nullable=False,
         postgresql_using="calculated_at AT TIME ZONE 'UTC'",
     )
-    op.create_index(
-        "ix_questions_irt_calibrated",
-        "questions",
-        ["irt_difficulty", "irt_discrimination"],
-        unique=False,
-        postgresql_where="(irt_calibrated_at IS NOT NULL)",
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_questions_irt_calibrated"
+        " ON questions (irt_difficulty, irt_discrimination)"
+        " WHERE (irt_calibrated_at IS NOT NULL)"
     )
     op.alter_column(
         "questions",
@@ -455,9 +449,7 @@ def downgrade() -> None:
         existing_nullable=False,
         postgresql_using="client_timestamp AT TIME ZONE 'UTC'",
     )
-    op.create_index(
-        "ix_users_notification_day30",
-        "users",
-        ["notification_enabled", "day_30_reminder_sent_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_users_notification_day30"
+        " ON users (notification_enabled, day_30_reminder_sent_at)"
     )
