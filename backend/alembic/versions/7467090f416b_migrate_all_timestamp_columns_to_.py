@@ -20,6 +20,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Safety: limit how long we wait for locks on each ALTER TABLE.
+    # Each ALTER COLUMN (type change) acquires AccessExclusiveLock for the
+    # duration of the table rewrite.  A 2-second timeout means we fail fast
+    # rather than silently queueing behind long-running transactions.
+    # Run this migration during a maintenance window or low-traffic period.
+    op.execute("SET LOCAL lock_timeout = '2s'")
+
     # Add missing index on password_reset_tokens(user_id, used_at)
     op.create_index(
         "ix_password_reset_tokens_user_used",
@@ -39,6 +46,17 @@ def upgrade() -> None:
     # Migrate all TIMESTAMP WITHOUT TIME ZONE columns to TIMESTAMP WITH TIME ZONE.
     # The USING clause interprets existing stored values as UTC (which they are,
     # since utc_now() always produces UTC datetimes).
+    #
+    # Note: 8 of these columns were partially converted by migration
+    # 29c0f32c19ea (add_timezone_support_to_datetime_columns) without USING
+    # clauses.  On a production DB that ran that migration successfully, those
+    # columns are already TIMESTAMPTZ and these ALTERs are harmless no-ops.
+    # On a fresh DB (or test DB that skipped 29c0f32c19ea), the USING clause
+    # ensures data is reinterpreted as UTC rather than rejected.
+    #
+    # Tables intentionally absent (already TIMESTAMPTZ from earlier migrations):
+    #   shadow_cat_results.executed_at  — created as TIMESTAMPTZ in a7b8c9d0e1f2
+    #   irt_calibration_runs.started_at / completed_at — from e5f6a7b8c9d0
     op.alter_column(
         "client_analytics_events",
         "client_timestamp",
