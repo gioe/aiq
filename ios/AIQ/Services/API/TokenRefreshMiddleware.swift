@@ -22,7 +22,7 @@ actor TokenRefreshMiddleware: ClientMiddleware {
     /// {operation_id}_{path_segments_with_underscores}_{http_method}
     /// This matches `POST /v1/auth/refresh` → "refresh_access_token_v1_auth_refresh_post".
     /// Must be kept in sync with the OpenAPI spec if the endpoint path or HTTP method changes.
-    private static let refreshOperationID = "refresh_access_token_v1_auth_refresh_post"
+    static let refreshOperationID = "refresh_access_token_v1_auth_refresh_post"
 
     /// Closure that performs the token refresh and updates stored tokens as a side effect.
     private let tokenRefreshHandler: () async throws -> Void

@@ -172,8 +172,7 @@ final class TokenRefreshMiddlewareTests: XCTestCase {
         }
 
         let request = makeRequest(path: "/v1/auth/refresh")
-        // Operation ID matches the constant inside TokenRefreshMiddleware.
-        let refreshOperationID = "refresh_access_token_v1_auth_refresh_post"
+        let refreshOperationID = TokenRefreshMiddleware.refreshOperationID
 
         // Act & Assert
         do {
