@@ -44,7 +44,7 @@ def upgrade() -> None:
     # We use raw SQL to ensure proper handling of the enum comparison.
     op.execute(
         """
-        CREATE UNIQUE INDEX ix_test_sessions_user_active
+        CREATE UNIQUE INDEX IF NOT EXISTS ix_test_sessions_user_active
         ON test_sessions (user_id)
         WHERE status = 'IN_PROGRESS'
         """
