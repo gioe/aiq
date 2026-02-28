@@ -189,6 +189,38 @@ from sqlalchemy import func
 avg_time = db.query(func.avg(Response.time_spent_seconds)).filter(Response.question_id == qid).scalar()
 ```
 
+## Alembic Migration Best Practices
+
+### Idempotent Index Operations
+
+Always use raw SQL with `IF [NOT] EXISTS` guards for index creation and deletion in Alembic migrations. The high-level helpers (`op.create_index`, `op.drop_index`) do not guard against pre-existing or missing indexes, causing migrations to fail when production DB state diverges from what the migration assumes.
+
+**This pattern was mandated after two successive Railway deployment failures** (migration `7467090f416b`) where the production database had already applied a partial migration, leaving the schema in a state that caused the next run to crash.
+
+**Create index — correct:**
+```python
+# GOOD: idempotent, survives re-runs and partial migrations
+op.execute("CREATE INDEX IF NOT EXISTS ix_responses_user_id ON responses (user_id)")
+
+# BAD: crashes if the index already exists
+op.create_index("ix_responses_user_id", "responses", ["user_id"])
+```
+
+**Drop index — correct:**
+```python
+# GOOD: idempotent, survives re-runs and partial rollbacks
+op.execute("DROP INDEX IF EXISTS ix_responses_user_id")
+
+# BAD: crashes if the index does not exist
+op.drop_index("ix_responses_user_id", table_name="responses")
+```
+
+**Rules:**
+- Never use `op.create_index()` or `op.drop_index()` in migration files.
+- Always use `op.execute("CREATE INDEX IF NOT EXISTS ...")` and `op.execute("DROP INDEX IF EXISTS ...")`.
+- This applies to both `upgrade()` and `downgrade()` functions.
+- For unique indexes: `CREATE UNIQUE INDEX IF NOT EXISTS ...` / `DROP INDEX IF EXISTS ...`.
+
 ## Test Quality Guidelines
 
 ### Floating-Point Comparisons
