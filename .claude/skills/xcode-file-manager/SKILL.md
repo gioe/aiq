@@ -1,12 +1,12 @@
 ---
 name: xcode-file-manager
-description: Add Swift files to the AIQ Xcode project. Use when creating new Swift files (views, view models, services, models, tests) that need to be added to the Xcode project and build targets.
+description: Add or remove Swift files in the AIQ Xcode project. Use when creating new Swift files (views, view models, services, models, tests) that need to be added to the Xcode project and build targets, or when dead files need to be removed.
 allowed-tools: Bash, Read, Write, Glob
 ---
 
 # Xcode File Manager Skill
 
-This skill handles adding Swift files to the AIQ Xcode project using the `xcodeproj` Ruby gem.
+This skill handles adding and removing Swift files in the AIQ Xcode project using the `xcodeproj` Ruby gem.
 
 ## When to Use This Skill
 
@@ -14,6 +14,7 @@ Use this skill whenever you:
 - Create a new Swift file in the `ios/AIQ/` directory
 - Create a new test file in the `ios/AIQTests/` directory
 - Need to add existing Swift files to the Xcode project
+- Need to remove dead or deleted Swift files from the Xcode project
 
 ## How to Add Files
 
@@ -60,6 +61,39 @@ cd ios && ruby scripts/add_files_to_xcode.rb AIQTests/NewTests.swift
 
 If you need to add a file to a group that doesn't exist in the Xcode project, you must first create the group in Xcode or modify the script to create groups dynamically.
 
+## How to Remove Files
+
+There is a reusable Ruby script at `ios/scripts/remove_files_from_xcode.rb`. Use it like this:
+
+```bash
+cd ios && ruby scripts/remove_files_from_xcode.rb <relative_path_to_file>
+```
+
+**Examples:**
+
+```bash
+# Remove a single file (deletes from project and disk)
+cd ios && ruby scripts/remove_files_from_xcode.rb AIQ/ViewModels/OldViewModel.swift
+
+# Remove multiple files
+cd ios && ruby scripts/remove_files_from_xcode.rb AIQ/Views/OldView.swift AIQ/ViewModels/OldViewModel.swift
+
+# Remove from project only, keep file on disk
+cd ios && ruby scripts/remove_files_from_xcode.rb --keep-files AIQ/openapi.json
+```
+
+The script:
+- Removes the file reference from `project.pbxproj`
+- Removes all build phase entries (Sources, Resources, etc.) across every target
+- Deletes the file from disk (unless `--keep-files` is passed)
+
+### Options
+
+| Flag | Effect |
+|------|--------|
+| *(none)* | Remove from project and delete from disk |
+| `--keep-files` | Remove from project only; file is not deleted |
+
 ## Prerequisites
 
 The `xcodeproj` gem must be installed:
@@ -72,4 +106,5 @@ gem install xcodeproj
 
 - **"Group not found"**: The directory structure in the file path must match the group structure in the Xcode project
 - **"File already in project"**: The file reference already exists; the script will skip it unless the path is incorrect
-- **"File not found"**: The Swift file must exist on disk before running the script
+- **"File not found"**: The Swift file must exist on disk before running the add script
+- **"File not found in project"**: The file reference doesn't exist in the project; nothing to remove
