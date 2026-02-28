@@ -95,14 +95,27 @@ public final class AIQAPIClientFactory {
     /// Creates a new configured API client
     /// - Returns: A Client instance configured with auth and logging middlewares
     public func makeClient() -> Client {
-        Client(
+        makeClient(tokenRefreshMiddleware: nil)
+    }
+
+    /// Creates a new configured API client with an optional token refresh middleware.
+    ///
+    /// - Parameter tokenRefreshMiddleware: Optional middleware that intercepts 401 responses
+    ///   and triggers token refresh before retrying. When provided, it is placed **before**
+    ///   `authMiddleware` so that the retry picks up the freshly-stored token.
+    /// - Returns: A Client instance configured with the given middleware chain
+    public func makeClient(tokenRefreshMiddleware: (any ClientMiddleware)?) -> Client {
+        var middlewares: [any ClientMiddleware] = []
+        if let trm = tokenRefreshMiddleware {
+            middlewares.append(trm)
+        }
+        middlewares.append(authMiddleware)
+        middlewares.append(loggingMiddleware)
+        return Client(
             serverURL: serverURL,
             configuration: .init(dateTranscoder: FlexibleISO8601DateTranscoder()),
             transport: URLSessionTransport(),
-            middlewares: [
-                authMiddleware,
-                loggingMiddleware
-            ]
+            middlewares: middlewares
         )
     }
 }

@@ -91,8 +91,30 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     /// Initialize with a server URL
     init(serverURL: URL) {
-        factory = AIQAPIClientFactory(serverURL: serverURL)
-        client = factory.makeClient()
+        let factory = AIQAPIClientFactory(serverURL: serverURL)
+        self.factory = factory
+
+        let refreshMiddleware = TokenRefreshMiddleware { [factory] in
+            // Use a bare client (no TokenRefreshMiddleware) to call the refresh endpoint.
+            // This prevents reentrancy: if the refresh token is also expired the error
+            // propagates cleanly without triggering another refresh cycle.
+            let bareClient = factory.makeClient()
+            let response = try await bareClient.refreshAccessTokenV1AuthRefreshPost()
+            switch response {
+            case let .ok(ok):
+                guard case let .json(tokenRefresh) = ok.body else {
+                    throw APIError.invalidResponse
+                }
+                await factory.authMiddleware.setTokens(
+                    accessToken: tokenRefresh.accessToken,
+                    refreshToken: tokenRefresh.refreshToken
+                )
+            case let .undocumented(statusCode, _):
+                throw APIError.unauthorized(message: "Refresh failed: HTTP \(statusCode)")
+            }
+        }
+
+        client = factory.makeClient(tokenRefreshMiddleware: refreshMiddleware)
     }
 
     /// Initialize with an existing factory (for testing)
