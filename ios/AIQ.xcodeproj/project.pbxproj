@@ -63,6 +63,7 @@
 		1EC7992AF7434E4DF7E0645A /* NetworkStatusBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 307696DC927CB42BD2DCD191 /* NetworkStatusBanner.swift */; };
 		1ECD60ACA9668E78C77BDB49 /* DeepLinkHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1CCFDDC157DB49DF3A01EBE /* DeepLinkHandlerTests.swift */; };
 		1FB7782EBA60319B4E17B93A /* ServiceContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 565626843F5F25C6E5794673 /* ServiceContainer.swift */; };
+		1FCFDDA6BDF951911D38FD23 /* TokenRefreshMiddlewareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81190A0D3ACF88BC9163244D /* TokenRefreshMiddlewareTests.swift */; };
 		21C1845EFFB1B692CCD409F6 /* TestResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9637C248817F379ABA042225 /* TestResultsView.swift */; };
 		224C51D2124BA600BBDD40DE /* ServiceConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD06AD9370E6A160F5546A00 /* ServiceConfiguration.swift */; };
 		228B5D811844F5ED4CB6C1D8 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF13982EAFF144B851628A49 /* FeedbackViewModel.swift */; };
@@ -463,6 +464,7 @@
 		7E16223DEE931BDB20685AC4 /* Date+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Extensions.swift"; sourceTree = "<group>"; };
 		7E493A4F4F186F1DC450D8A7 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		810EC6E0087704960C1ECAF2 /* ExampleUITest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExampleUITest.swift; sourceTree = "<group>"; };
+		81190A0D3ACF88BC9163244D /* TokenRefreshMiddlewareTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TokenRefreshMiddlewareTests.swift; sourceTree = "<group>"; };
 		81963765EA38F02A863FF0C9 /* PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryButton.swift; sourceTree = "<group>"; };
 		825C4BA5CEF4D5D8E8C70190 /* DashboardCardComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCardComponents.swift; sourceTree = "<group>"; };
 		82F108426CA2560D820236A0 /* ServiceContainerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DI/ServiceContainerTests.swift; sourceTree = "<group>"; };
@@ -1260,6 +1262,7 @@
 				11213FF1DC2D22E406EF823A /* BiometricAuthManagerTests.swift */,
 				73118F73B261EFB50B8A8782 /* DeepLinkNavigationServiceTests.swift */,
 				4956D5824BBEBCF145738D45 /* DeepLinkNavigationIntegrationTests.swift */,
+				81190A0D3ACF88BC9163244D /* TokenRefreshMiddlewareTests.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1522,6 +1525,7 @@
 				B5611F5C7375F251E6555E7B /* MockBiometricAuthManager.swift in Sources */,
 				BBA3938C76B2C591C45EC21F /* MockBiometricPreferenceStorage.swift in Sources */,
 				071051FE0B55D6E6FFF9386C /* BiometricLockViewTests.swift in Sources */,
+				1FCFDDA6BDF951911D38FD23 /* TokenRefreshMiddlewareTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
