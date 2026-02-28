@@ -41,6 +41,11 @@ struct TestTakingView: View {
         return false
     }
 
+    /// True when startTest failed and the full-page error state should be shown
+    private var shouldShowLoadFailure: Bool {
+        !viewModel.isLoading && viewModel.questions.isEmpty && viewModel.error != nil && !isActiveSessionConflict
+    }
+
     /// Extract session ID from active session conflict error
     private var conflictingSessionId: Int? {
         if let contextualError = viewModel.error as? ContextualError,
@@ -54,6 +59,8 @@ struct TestTakingView: View {
         ZStack {
             if viewModel.isTestCompleted {
                 testCompletedView
+            } else if shouldShowLoadFailure {
+                loadFailureView
             } else {
                 testContentView
             }
@@ -288,6 +295,25 @@ struct TestTakingView: View {
     }
 
     // MARK: - Test Content
+
+    private var loadFailureView: some View {
+        VStack(spacing: 16) {
+            if let error = viewModel.error {
+                ErrorView(
+                    error: error,
+                    retryAction: viewModel.canRetry ? { Task { await viewModel.retry() } } : nil
+                )
+            }
+            if !viewModel.canRetry {
+                Button("Go Back") {
+                    router.pop()
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
+    }
 
     private var testContentView: some View {
         VStack(spacing: 0) {
