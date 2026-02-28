@@ -13,7 +13,10 @@ or downgrade 7467090f416b to undo the column changes independently.
 Operations:
   - DROP ix_questions_irt_calibrated  (stale index; f3a4b5c6d7e8 recreates it
     with the correct partial predicate after adding the IRT calibration columns)
-  - DROP ix_users_notification_day30  (stale index, no longer in the models)
+  - DROP ix_users_notification_day30  (created by c4d5e6f7a8b9 as a
+    standalone migration but never promoted into User.__table_args__; Alembic
+    autogenerate would schedule it for removal on the next migration run, so
+    we drop it explicitly here during the index cleanup pass)
   - CREATE ix_password_reset_tokens_user_used  (was originally created by
     1f4a08342fc1; IF NOT EXISTS guards against DuplicateTable on production DBs
     that already have it)
@@ -32,6 +35,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Match the lock_timeout guard used by the adjacent column migration so that
+    # index DDL also fails fast rather than queueing behind long-running queries.
+    op.execute("SET LOCAL lock_timeout = '2s'")
+
     # Drop stale indexes that are no longer in the models (IF EXISTS for idempotency).
     op.execute("DROP INDEX IF EXISTS ix_questions_irt_calibrated")
     op.execute("DROP INDEX IF EXISTS ix_users_notification_day30")
@@ -57,5 +64,5 @@ def downgrade() -> None:
     op.execute(
         "CREATE INDEX IF NOT EXISTS ix_questions_irt_calibrated"
         " ON questions (irt_difficulty, irt_discrimination)"
-        " WHERE (irt_calibrated_at IS NOT NULL)"
+        " WHERE irt_calibrated_at IS NOT NULL"
     )
