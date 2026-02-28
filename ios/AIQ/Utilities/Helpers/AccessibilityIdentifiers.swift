@@ -109,6 +109,7 @@ enum AccessibilityIdentifiers {
         static let timeWarningBanner = "testTakingView.timeWarningBanner"
         static let questionNavigationGrid = "testTakingView.questionNavigationGrid"
         static let loadingOverlay = "testTakingView.loadingOverlay"
+        static let loadFailureOverlay = "testTakingView.loadFailureOverlay"
         static let successOverlay = "testTakingView.successOverlay"
         static let successIcon = "testTakingView.successIcon"
         static let successTitle = "testTakingView.successTitle"

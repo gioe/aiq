@@ -301,7 +301,14 @@ struct TestTakingView: View {
             if let error = viewModel.error {
                 ErrorView(
                     error: error,
-                    retryAction: viewModel.canRetry ? { Task { await viewModel.retry() } } : nil
+                    retryAction: viewModel.canRetry ? {
+                        Task {
+                            await viewModel.retry()
+                            if let session = viewModel.testSession {
+                                timerManager.startWithSessionTime(session.startedAt)
+                            }
+                        }
+                    } : nil
                 )
             }
             if !viewModel.canRetry {
@@ -313,6 +320,7 @@ struct TestTakingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.loadFailureOverlay)
     }
 
     private var testContentView: some View {
