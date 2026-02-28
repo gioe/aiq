@@ -94,11 +94,10 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         let factory = AIQAPIClientFactory(serverURL: serverURL)
         self.factory = factory
 
-        let refreshMiddleware = TokenRefreshMiddleware { [factory] in
-            // Use a bare client (no TokenRefreshMiddleware) to call the refresh endpoint.
-            // This prevents reentrancy: if the refresh token is also expired the error
-            // propagates cleanly without triggering another refresh cycle.
-            let bareClient = factory.makeClient()
+        // Bare client used exclusively for the refresh call — no TokenRefreshMiddleware to
+        // prevent reentrancy. Captured once here so each refresh reuses the same instance.
+        let bareClient = factory.makeClient()
+        let refreshMiddleware = TokenRefreshMiddleware { [bareClient, factory] in
             let response = try await bareClient.refreshAccessTokenV1AuthRefreshPost()
             switch response {
             case let .ok(ok):

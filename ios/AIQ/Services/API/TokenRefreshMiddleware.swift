@@ -18,6 +18,10 @@ import OpenAPIRuntime
 /// If a 401 arrives from the refresh endpoint itself, the error is rethrown immediately
 /// without triggering another refresh cycle.
 actor TokenRefreshMiddleware: ClientMiddleware {
+    /// Derived from the OpenAPI generator naming convention:
+    /// {operation_id}_{path_segments_with_underscores}_{http_method}
+    /// This matches `POST /v1/auth/refresh` → "refresh_access_token_v1_auth_refresh_post".
+    /// Must be kept in sync with the OpenAPI spec if the endpoint path or HTTP method changes.
     private static let refreshOperationID = "refresh_access_token_v1_auth_refresh_post"
 
     /// Closure that performs the token refresh and updates stored tokens as a side effect.
@@ -37,16 +41,16 @@ actor TokenRefreshMiddleware: ClientMiddleware {
         operationID: String,
         next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
     ) async throws -> (HTTPResponse, HTTPBody?) {
-        // Buffer the body so we can replay it on retry.
-        let bufferedBody: HTTPBody?
-        if let body {
-            let data = try await Data(collecting: body, upTo: 10 * 1024 * 1024)
-            bufferedBody = HTTPBody(data)
+        // Buffer the body to Data *before* the first next() call so the same bytes can be
+        // replayed on retry. HTTPBody is a consumable stream — reading it twice from the same
+        // instance yields 0 bytes on the second read.
+        let bodyData: Data? = if let body {
+            try await Data(collecting: body, upTo: 1024 * 1024)
         } else {
-            bufferedBody = nil
+            nil
         }
 
-        let (response, responseBody) = try await next(request, bufferedBody, baseURL)
+        let (response, responseBody) = try await next(request, bodyData.map { HTTPBody($0) }, baseURL)
 
         guard response.status == .unauthorized else {
             return (response, responseBody)
@@ -59,16 +63,8 @@ actor TokenRefreshMiddleware: ClientMiddleware {
 
         try await performRefresh()
 
-        // Re-buffer body for the retry (HTTPBody is consumed on read).
-        let retryBody: HTTPBody?
-        if let bufferedBody {
-            let data = try await Data(collecting: bufferedBody, upTo: 10 * 1024 * 1024)
-            retryBody = HTTPBody(data)
-        } else {
-            retryBody = nil
-        }
-
-        return try await next(request, retryBody, baseURL)
+        // Construct a fresh HTTPBody from the saved Data for the retry attempt.
+        return try await next(request, bodyData.map { HTTPBody($0) }, baseURL)
     }
 
     // MARK: - Private
