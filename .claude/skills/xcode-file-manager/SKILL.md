@@ -87,6 +87,8 @@ The script:
 - Removes all build phase entries (Sources, Resources, etc.) across every target
 - Deletes the file from disk (unless `--keep-files` is passed)
 
+> **Warning:** Disk deletion is permanent. Ensure the file is committed to git before running without `--keep-files`.
+
 ### Options
 
 | Flag | Effect |
