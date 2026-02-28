@@ -89,11 +89,9 @@ The script:
 
 > **Warning:** Disk deletion is permanent. Ensure the file is committed to git before running without `--keep-files`.
 
-> **Note:** The remove script does **not** stage the file deletion in git. After running the script, you must stage the deletion manually before committing:
-> ```bash
-> git rm <path/to/file>
-> ```
-> If you used `--keep-files`, there is no file to `git rm` — only `project.pbxproj` was modified and it will be staged automatically.
+> **Note:** The remove script does **not** stage any changes in git. After running the script, you must stage changes manually before committing:
+> - Without `--keep-files`: stage the deleted file with `git rm <path/to/file>`
+> - With `--keep-files`: stage the updated project file with `git add ios/AIQ.xcodeproj/project.pbxproj`
 
 ### Options
 
