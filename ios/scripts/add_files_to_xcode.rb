@@ -8,6 +8,11 @@ require 'xcodeproj'
 
 # Parse options
 no_target = ARGV.delete('--no-target')
+ascii_mode = ARGV.delete('--ascii') || ENV['CI'] || ENV['TERM'] == 'dumb'
+
+OK   = ascii_mode ? '[OK]'    : '✓'
+ERR  = ascii_mode ? '[ERROR]' : '✗'
+WARN = ascii_mode ? '[WARN]'  : '⚠'
 
 if ARGV.empty?
   puts "Usage: ruby add_files_to_xcode.rb [--no-target] <file_path1> <file_path2> ..."
@@ -39,7 +44,7 @@ ui_test_target = project.targets.find { |t| t.name == 'AIQUITests' }
 # Process each file
 ARGV.each do |file_path|
   unless File.exist?(file_path)
-    puts "✗ File not found: #{file_path}"
+    puts "#{ERR} File not found: #{file_path}"
     next
   end
 
@@ -53,7 +58,7 @@ ARGV.each do |file_path|
   path_parts.each do |part|
     existing_group = group[part]
     if existing_group.nil?
-      puts "✗ Group not found in project: #{path_parts.join('/')}"
+      puts "#{ERR} Group not found in project: #{path_parts.join('/')}"
       break
     end
     group = existing_group
@@ -62,7 +67,7 @@ ARGV.each do |file_path|
   # Check if file already exists in the group
   existing_file = group.files.find { |f| f.path == file_name }
   if existing_file
-    puts "⚠ File already in project: #{file_path}"
+    puts "#{WARN} File already in project: #{file_path}"
     # Remove it first if path is wrong
     if existing_file.real_path.to_s != File.absolute_path(file_path)
       puts "  Removing incorrect reference..."
@@ -94,7 +99,7 @@ ARGV.each do |file_path|
 
   if no_target
     # Don't add to any target - just add to project for reference
-    puts "✓ Added #{file_path} to project (no target)"
+    puts "#{OK} Added #{file_path} to project (no target)"
   else
     # Determine which target to add to based on file path
     target, target_name = if file_path.start_with?('AIQUITests/')
@@ -106,10 +111,10 @@ ARGV.each do |file_path|
     end
 
     target.add_file_references([file_ref])
-    puts "✓ Added #{file_path} to #{target_name} target"
+    puts "#{OK} Added #{file_path} to #{target_name} target"
   end
 end
 
 # Save the project
 project.save
-puts "✓ Project saved successfully"
+puts "#{OK} Project saved successfully"

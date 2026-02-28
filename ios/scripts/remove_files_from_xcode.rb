@@ -8,6 +8,10 @@ require 'xcodeproj'
 
 # Parse options
 keep_files = ARGV.delete('--keep-files')
+ascii_mode = ARGV.delete('--ascii') || ENV['CI'] || ENV['TERM'] == 'dumb'
+
+OK   = ascii_mode ? '[OK]'    : '✓'
+ERR  = ascii_mode ? '[ERROR]' : '✗'
 
 if ARGV.empty?
   puts "Usage: ruby remove_files_from_xcode.rb [--keep-files] <file_path1> <file_path2> ..."
@@ -45,7 +49,7 @@ ARGV.each do |file_path|
   path_parts.each do |part|
     existing_group = group[part]
     if existing_group.nil?
-      puts "✗ Group not found in project: #{path_parts.join('/')}"
+      puts "#{ERR} Group not found in project: #{path_parts.join('/')}"
       found = false
       failures += 1
       break
@@ -57,7 +61,7 @@ ARGV.each do |file_path|
   # Find the file reference in the group
   file_ref = group.files.find { |f| f.path == file_name }
   if file_ref.nil?
-    puts "✗ File not found in project: #{file_path}"
+    puts "#{ERR} File not found in project: #{file_path}"
     failures += 1
     next
   end
@@ -77,20 +81,20 @@ ARGV.each do |file_path|
 
   # Delete from disk unless --keep-files was passed
   if keep_files
-    puts "✓ Removed #{file_path} from project (file kept on disk)"
+    puts "#{OK} Removed #{file_path} from project (file kept on disk)"
   elsif File.exist?(file_path)
     puts "Deleting from disk: #{file_path}"
     File.delete(file_path)
-    puts "✓ Removed #{file_path} from project and deleted from disk"
+    puts "#{OK} Removed #{file_path} from project and deleted from disk"
   else
-    puts "✓ Removed #{file_path} from project (file was not on disk)"
+    puts "#{OK} Removed #{file_path} from project (file was not on disk)"
   end
 end
 
 # Only save when at least one file was actually removed
 if any_removed
   project.save
-  puts "✓ Project saved successfully"
+  puts "#{OK} Project saved successfully"
 end
 
 exit 1 if failures > 0
