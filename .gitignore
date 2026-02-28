@@ -107,3 +107,5 @@ temp/
 ios/TestResults.xcresult/
 *.xcresult
 ios/AIQ.xcodeproj/project.xcworkspace/xcuserdata/
+
+tusk/aiq-dashboard.html
