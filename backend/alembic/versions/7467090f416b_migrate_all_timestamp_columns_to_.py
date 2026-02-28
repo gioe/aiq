@@ -27,18 +27,6 @@ def upgrade() -> None:
     # Run this migration during a maintenance window or low-traffic period.
     op.execute("SET LOCAL lock_timeout = '2s'")
 
-    # Add missing index on password_reset_tokens(user_id, used_at) if not exists.
-    # This index was originally created by 1f4a08342fc1 so production DBs already
-    # have it; IF NOT EXISTS prevents a DuplicateTable error on redeploy.
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_user_used"
-        " ON password_reset_tokens (user_id, used_at)"
-    )
-
-    # Drop stale indexes that are no longer in the models (IF EXISTS for idempotency)
-    op.execute("DROP INDEX IF EXISTS ix_questions_irt_calibrated")
-    op.execute("DROP INDEX IF EXISTS ix_users_notification_day30")
-
     # Migrate all TIMESTAMP WITHOUT TIME ZONE columns to TIMESTAMP WITH TIME ZONE.
     # The USING clause interprets existing stored values as UTC (which they are,
     # since utc_now() always produces UTC datetimes).
@@ -345,11 +333,6 @@ def downgrade() -> None:
         existing_nullable=False,
         postgresql_using="calculated_at AT TIME ZONE 'UTC'",
     )
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_questions_irt_calibrated"
-        " ON questions (irt_difficulty, irt_discrimination)"
-        " WHERE (irt_calibrated_at IS NOT NULL)"
-    )
     op.alter_column(
         "questions",
         "quality_flag_updated_at",
@@ -398,9 +381,6 @@ def downgrade() -> None:
         existing_nullable=False,
         postgresql_using="started_at AT TIME ZONE 'UTC'",
     )
-    # Mirror the IF NOT EXISTS guard: only drop if this migration actually owns it.
-    # On DBs where 1f4a08342fc1 created the index, downgrade leaves it in place.
-    op.execute("DROP INDEX IF EXISTS ix_password_reset_tokens_user_used")
     op.alter_column(
         "password_reset_tokens",
         "created_at",
@@ -448,8 +428,4 @@ def downgrade() -> None:
         type_=postgresql.TIMESTAMP(),
         existing_nullable=False,
         postgresql_using="client_timestamp AT TIME ZONE 'UTC'",
-    )
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_users_notification_day30"
-        " ON users (notification_enabled, day_30_reminder_sent_at)"
     )
