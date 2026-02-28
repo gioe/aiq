@@ -9,12 +9,15 @@ mapped_column() for proper mypy type checking support. See BCQ-035 for details.
 Enum column note (TASK-1238):
   SQLAlchemy 2.0 infers SA Enum from Mapped[PythonEnum] annotations. When the DB
   column is VARCHAR this causes Alembic autogenerate to emit false ALTER COLUMN
-  statements — fix by passing String(N) explicitly (see IrtCalibrationRun below).
+  statements — fix by passing String(N) explicitly (see CalibrationRun below).
+
+  VARCHAR-backed enum columns requiring explicit String(N):
+    CalibrationRunStatus, CalibrationTrigger  (on CalibrationRun)
 
   All other enum-typed columns in this module (QuestionType, DifficultyLevel,
-  TestStatus, GenerationRunStatus, EducationLevel, FeedbackCategory, FeedbackStatus)
-  back native PostgreSQL enum types created by migrations; no String(N) override is
-  needed for them.  Only VARCHAR-backed enum columns require the explicit String(N).
+  TestStatus, NotificationType, GenerationRunStatus, EducationLevel,
+  FeedbackCategory, FeedbackStatus) back native PostgreSQL enum types created by
+  migrations; no String(N) override is needed for them.
 """
 
 from datetime import datetime
