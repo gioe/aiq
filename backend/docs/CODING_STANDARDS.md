@@ -221,6 +221,8 @@ op.drop_index("ix_responses_user_id", table_name="responses")
 - This applies to both `upgrade()` and `downgrade()` functions.
 - For unique indexes: `CREATE UNIQUE INDEX IF NOT EXISTS ...` / `DROP INDEX IF EXISTS ...`.
 
+> **Note:** The raw SQL patterns above use PostgreSQL syntax. This project targets PostgreSQL exclusively, so the `IF [NOT] EXISTS` guards work correctly. If the database backend ever changes, these raw SQL strings would need to be revisited.
+
 ## Test Quality Guidelines
 
 ### Floating-Point Comparisons
