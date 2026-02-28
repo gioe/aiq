@@ -926,8 +926,12 @@ class CalibrationRun(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     job_id: Mapped[str] = mapped_column(String(100), unique=True)
-    status: Mapped[CalibrationRunStatus] = mapped_column()
-    triggered_by: Mapped[CalibrationTrigger] = mapped_column()
+    # Explicit String(20) prevents Alembic autogenerate from inferring a
+    # PostgreSQL ENUM type from the Python annotation and emitting false
+    # ALTER COLUMN statements. The DB stores these as VARCHAR(20); Python-side
+    # enum validation is handled by the Mapped[] annotation alone.
+    status: Mapped[CalibrationRunStatus] = mapped_column(String(20))
+    triggered_by: Mapped[CalibrationTrigger] = mapped_column(String(20))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
