@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # Script to remove files from the Xcode project and disk
-# Usage: ruby remove_files_from_xcode.rb [--keep-files] <file_path1> <file_path2> ...
+# Usage: ruby remove_files_from_xcode.rb [--keep-files] [--ascii] <file_path1> <file_path2> ...
 # Example: ruby remove_files_from_xcode.rb AIQ/ViewModels/OldViewModel.swift
 # Example: ruby remove_files_from_xcode.rb --keep-files AIQ/openapi.json
 
@@ -12,13 +12,15 @@ ascii_mode = ARGV.delete('--ascii') || ENV['CI'] || ENV['TERM'] == 'dumb'
 
 OK   = ascii_mode ? '[OK]'    : '✓'
 ERR  = ascii_mode ? '[ERROR]' : '✗'
+# WARN not needed: this script emits no warning-level messages
 
 if ARGV.empty?
-  puts "Usage: ruby remove_files_from_xcode.rb [--keep-files] <file_path1> <file_path2> ..."
+  puts "Usage: ruby remove_files_from_xcode.rb [--keep-files] [--ascii] <file_path1> <file_path2> ..."
   puts "Example: ruby remove_files_from_xcode.rb AIQ/ViewModels/OldViewModel.swift"
   puts ""
   puts "Options:"
   puts "  --keep-files  Remove from project but do not delete files from disk"
+  puts "  --ascii       Use ASCII status symbols ([OK]/[ERROR]) instead of Unicode (auto-detected in CI)"
   exit 1
 end
 

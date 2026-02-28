@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # Script to add files to the Xcode project
-# Usage: ruby add_files_to_xcode.rb [--no-target] <file_path1> <file_path2> ...
+# Usage: ruby add_files_to_xcode.rb [--no-target] [--ascii] <file_path1> <file_path2> ...
 # Example: ruby add_files_to_xcode.rb AIQ/ViewModels/MyViewModel.swift
 # Example: ruby add_files_to_xcode.rb --no-target AIQ/openapi.json AIQ/openapi-generator-config.yaml
 
@@ -15,12 +15,13 @@ ERR  = ascii_mode ? '[ERROR]' : '✗'
 WARN = ascii_mode ? '[WARN]'  : '⚠'
 
 if ARGV.empty?
-  puts "Usage: ruby add_files_to_xcode.rb [--no-target] <file_path1> <file_path2> ..."
+  puts "Usage: ruby add_files_to_xcode.rb [--no-target] [--ascii] <file_path1> <file_path2> ..."
   puts "Example: ruby add_files_to_xcode.rb AIQ/ViewModels/MyViewModel.swift"
   puts "Example: ruby add_files_to_xcode.rb --no-target AIQ/openapi.json"
   puts ""
   puts "Options:"
   puts "  --no-target  Add file to project without adding to any build target"
+  puts "  --ascii      Use ASCII status symbols ([OK]/[ERROR]/[WARN]) instead of Unicode (auto-detected in CI)"
   exit 1
 end
 
