@@ -305,7 +305,10 @@ struct TestTakingView: View {
                         Task {
                             await viewModel.retry()
                             if let session = viewModel.testSession {
-                                timerManager.startWithSessionTime(session.startedAt)
+                                let timerStarted = timerManager.startWithSessionTime(session.startedAt)
+                                if !timerStarted {
+                                    handleTimerExpiration()
+                                }
                             }
                         }
                     } : nil
