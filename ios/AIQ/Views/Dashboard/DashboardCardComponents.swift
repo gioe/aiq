@@ -147,7 +147,7 @@ struct TestCardScores: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(result.iqScore)")
-                    .font(Typography.displaySmall)
+                    .displaySmallFont()
                     .foregroundStyle(
                         LinearGradient(
                             colors: [ColorPalette.primary, ColorPalette.primary.opacity(0.8)],

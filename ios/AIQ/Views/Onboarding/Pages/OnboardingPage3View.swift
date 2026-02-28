@@ -23,7 +23,7 @@ struct OnboardingPage3View: View {
                 // Headline and Body
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     Text("onboarding.page3.title")
-                        .font(Typography.displayMedium)
+                        .displayMediumFont()
                         .foregroundColor(ColorPalette.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)

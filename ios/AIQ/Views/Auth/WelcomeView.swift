@@ -53,7 +53,7 @@ struct WelcomeView: View {
                                 .accessibilityIdentifier(AccessibilityIdentifiers.WelcomeView.brainIcon)
 
                             Text("AIQ")
-                                .font(Typography.displayMedium)
+                                .displayMediumFont()
                                 .foregroundStyle(ColorPalette.scoreGradient)
                                 .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.0 : 0.95))
 

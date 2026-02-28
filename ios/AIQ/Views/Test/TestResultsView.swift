@@ -154,7 +154,7 @@ struct TestResultsView: View {
                     .accessibilityHidden(true) // Redundant with full label below
 
                 Text("\(result.iqScore)")
-                    .font(Typography.scoreDisplay)
+                    .scoreDisplayFont()
                     .foregroundStyle(ColorPalette.scoreGradient)
                     .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.8))
                     .opacity(showAnimation ? 1.0 : 0.0)

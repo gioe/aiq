@@ -3,25 +3,6 @@ import SwiftUI
 /// Centralized typography system for consistent text styling
 /// All styles support Dynamic Type for accessibility
 enum Typography {
-    // MARK: - Display Styles (Large, prominent text)
-
-    // Note: Uses helper class for @ScaledMetric since enums cannot have property wrappers
-
-    /// Extra large display text (48pt base, scales with Dynamic Type) - for major headings
-    static var displayLarge: Font {
-        FontScaling.displayLarge
-    }
-
-    /// Medium display text (42pt base, scales with Dynamic Type) - for app title, major headings
-    static var displayMedium: Font {
-        FontScaling.displayMedium
-    }
-
-    /// Small display text (36pt base, scales with Dynamic Type) - for section headings
-    static var displaySmall: Font {
-        FontScaling.displaySmall
-    }
-
     // MARK: - Heading Styles
 
     // Uses semantic text styles that automatically scale with Dynamic Type
@@ -79,11 +60,6 @@ enum Typography {
 
     // MARK: - Special Styles
 
-    /// Score display (72pt base, scales with Dynamic Type) - for IQ scores
-    static var scoreDisplay: Font {
-        FontScaling.scoreDisplay
-    }
-
     /// Stat value (title, bold) - for dashboard stats
     static let statValue = Font.title.weight(.bold)
 
@@ -91,46 +67,33 @@ enum Typography {
     static let button = Font.headline
 }
 
-// MARK: - Font Scaling Helper
+// MARK: - Scaled Display Font Modifiers
 
-/// Helper class to enable @ScaledMetric for special font sizes
-/// SwiftUI's @ScaledMetric property wrapper cannot be used directly in enums,
-/// so we use a helper class with static computed properties
-private enum FontScaling {
-    // MARK: - Scaled Metrics
-
-    /// Scaled metric for score display (72pt base)
-    @ScaledMetric(relativeTo: .largeTitle) private static var scoreSize: CGFloat = 72
-
-    /// Scaled metric for display large (48pt base)
-    @ScaledMetric(relativeTo: .largeTitle) private static var displayLargeSize: CGFloat = 48
-
-    /// Scaled metric for display medium (42pt base)
-    @ScaledMetric(relativeTo: .largeTitle) private static var displayMediumSize: CGFloat = 42
-
-    /// Scaled metric for display small (36pt base)
-    @ScaledMetric(relativeTo: .title) private static var displaySmallSize: CGFloat = 36
-
-    // MARK: - Font Getters
-
-    /// Score display font with Dynamic Type scaling
-    static var scoreDisplay: Font {
-        Font.system(size: scoreSize, weight: .bold, design: .rounded)
+private struct ScaledDisplayLargeFont: ViewModifier {
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 48
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: .bold, design: .rounded))
     }
+}
 
-    /// Display large font with Dynamic Type scaling
-    static var displayLarge: Font {
-        Font.system(size: displayLargeSize, weight: .bold, design: .rounded)
+private struct ScaledDisplayMediumFont: ViewModifier {
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 42
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: .bold))
     }
+}
 
-    /// Display medium font with Dynamic Type scaling
-    static var displayMedium: Font {
-        Font.system(size: displayMediumSize, weight: .bold, design: .default)
+private struct ScaledDisplaySmallFont: ViewModifier {
+    @ScaledMetric(relativeTo: .title) private var size: CGFloat = 36
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: .bold))
     }
+}
 
-    /// Display small font with Dynamic Type scaling
-    static var displaySmall: Font {
-        Font.system(size: displaySmallSize, weight: .bold, design: .default)
+private struct ScaledScoreDisplayFont: ViewModifier {
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 72
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: .bold, design: .rounded))
     }
 }
 
@@ -147,6 +110,22 @@ extension View {
     ) -> some View {
         font(typography)
             .foregroundColor(color)
+    }
+
+    func displayLargeFont() -> some View {
+        modifier(ScaledDisplayLargeFont())
+    }
+
+    func displayMediumFont() -> some View {
+        modifier(ScaledDisplayMediumFont())
+    }
+
+    func displaySmallFont() -> some View {
+        modifier(ScaledDisplaySmallFont())
+    }
+
+    func scoreDisplayFont() -> some View {
+        modifier(ScaledScoreDisplayFont())
     }
 }
 

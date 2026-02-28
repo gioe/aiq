@@ -228,7 +228,7 @@ struct SplashView: View {
 
                 // App Name
                 Text("AIQ")
-                    .font(Typography.displayMedium)
+                    .displayMediumFont()
                     .foregroundColor(.white)
                     .opacity(isAnimating ? 1.0 : 0.0)
             }

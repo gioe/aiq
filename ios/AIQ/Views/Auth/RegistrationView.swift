@@ -66,7 +66,7 @@ struct RegistrationView: View {
                             )
 
                         Text("Begin Your Journey")
-                            .font(Typography.displayMedium)
+                            .displayMediumFont()
                             .foregroundStyle(ColorPalette.scoreGradient)
                             .multilineTextAlignment(.center)
 

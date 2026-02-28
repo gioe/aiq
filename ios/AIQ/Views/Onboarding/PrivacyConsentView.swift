@@ -42,7 +42,7 @@ struct PrivacyConsentView: View {
                                 .accessibilityIdentifier(AccessibilityIdentifiers.PrivacyConsentView.privacyIcon)
 
                             Text("Privacy & Terms")
-                                .font(Typography.displayMedium)
+                                .displayMediumFont()
                                 .foregroundStyle(ColorPalette.scoreGradient)
                                 .multilineTextAlignment(.center)
 

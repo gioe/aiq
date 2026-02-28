@@ -87,7 +87,7 @@ struct BiometricLockView: View {
                 .foregroundStyle(.white)
 
             Text("AIQ")
-                .font(Typography.displayMedium)
+                .displayMediumFont()
                 .foregroundColor(.white)
         }
     }
