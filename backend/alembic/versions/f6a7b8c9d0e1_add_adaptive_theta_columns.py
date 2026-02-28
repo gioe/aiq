@@ -61,25 +61,23 @@ def upgrade() -> None:
     )
 
     # Add index on is_adaptive for filtering adaptive sessions
-    op.create_index(
-        "idx_test_sessions_adaptive",
-        "test_sessions",
-        ["is_adaptive"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_test_sessions_adaptive"
+        " ON test_sessions (is_adaptive)"
     )
 
     # Add partial index on theta_estimate for IRT-scored results
-    op.create_index(
-        "idx_test_results_theta",
-        "test_results",
-        ["theta_estimate"],
-        postgresql_where=sa.text("theta_estimate IS NOT NULL"),
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_test_results_theta"
+        " ON test_results (theta_estimate)"
+        " WHERE theta_estimate IS NOT NULL"
     )
 
 
 def downgrade() -> None:
     # Drop indexes first
-    op.drop_index("idx_test_results_theta", table_name="test_results")
-    op.drop_index("idx_test_sessions_adaptive", table_name="test_sessions")
+    op.execute("DROP INDEX IF EXISTS idx_test_results_theta")
+    op.execute("DROP INDEX IF EXISTS idx_test_sessions_adaptive")
 
     # Drop columns from test_results
     op.drop_column("test_results", "scoring_method")

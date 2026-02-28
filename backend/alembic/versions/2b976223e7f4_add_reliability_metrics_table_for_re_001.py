@@ -30,36 +30,27 @@ def upgrade() -> None:
         sa.Column("details", postgresql.JSON(astext_type=sa.Text()), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        "ix_reliability_metrics_calculated_at",
-        "reliability_metrics",
-        ["calculated_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_reliability_metrics_calculated_at"
+        " ON reliability_metrics (calculated_at)"
     )
-    op.create_index(
-        op.f("ix_reliability_metrics_id"), "reliability_metrics", ["id"], unique=False
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_reliability_metrics_id"
+        " ON reliability_metrics (id)"
     )
-    op.create_index(
-        op.f("ix_reliability_metrics_metric_type"),
-        "reliability_metrics",
-        ["metric_type"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_reliability_metrics_metric_type"
+        " ON reliability_metrics (metric_type)"
     )
-    op.create_index(
-        "ix_reliability_metrics_type_date",
-        "reliability_metrics",
-        ["metric_type", "calculated_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_reliability_metrics_type_date"
+        " ON reliability_metrics (metric_type, calculated_at)"
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_reliability_metrics_type_date", table_name="reliability_metrics")
-    op.drop_index(
-        op.f("ix_reliability_metrics_metric_type"), table_name="reliability_metrics"
-    )
-    op.drop_index(op.f("ix_reliability_metrics_id"), table_name="reliability_metrics")
-    op.drop_index(
-        "ix_reliability_metrics_calculated_at", table_name="reliability_metrics"
-    )
+    op.execute("DROP INDEX IF EXISTS ix_reliability_metrics_type_date")
+    op.execute("DROP INDEX IF EXISTS ix_reliability_metrics_metric_type")
+    op.execute("DROP INDEX IF EXISTS ix_reliability_metrics_id")
+    op.execute("DROP INDEX IF EXISTS ix_reliability_metrics_calculated_at")
     op.drop_table("reliability_metrics")

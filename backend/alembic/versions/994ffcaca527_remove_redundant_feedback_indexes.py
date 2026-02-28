@@ -29,7 +29,6 @@ See: backend/docs/TASK-56-FEEDBACK-INDEX-ANALYSIS.md
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -48,22 +47,18 @@ def upgrade() -> None:
     no additional query performance benefit.
     """
     # Remove redundant single-column indexes
-    op.drop_index("ix_feedback_submissions_category", table_name="feedback_submissions")
-    op.drop_index("ix_feedback_submissions_status", table_name="feedback_submissions")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_category")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_status")
 
 
 def downgrade() -> None:
     """Recreate single-column indexes if rollback is needed."""
     # Recreate the single-column indexes
-    op.create_index(
-        "ix_feedback_submissions_category",
-        "feedback_submissions",
-        ["category"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_category"
+        " ON feedback_submissions (category)"
     )
-    op.create_index(
-        "ix_feedback_submissions_status",
-        "feedback_submissions",
-        ["status"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_status"
+        " ON feedback_submissions (status)"
     )

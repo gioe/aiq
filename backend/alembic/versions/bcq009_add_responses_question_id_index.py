@@ -40,13 +40,11 @@ def upgrade() -> None:
     # Used in: discrimination analysis, distractor analysis, item correlations
     # High-cardinality column (one row per question-response pair) benefits
     # significantly from index for selective queries
-    op.create_index(
-        "ix_responses_question_id",
-        "responses",
-        ["question_id"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_responses_question_id"
+        " ON responses (question_id)"
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_responses_question_id", table_name="responses")
+    op.execute("DROP INDEX IF EXISTS ix_responses_question_id")

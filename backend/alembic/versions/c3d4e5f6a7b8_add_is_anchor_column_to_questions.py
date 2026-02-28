@@ -35,10 +35,12 @@ def upgrade() -> None:
         "questions",
         sa.Column("anchor_designated_at", sa.DateTime(timezone=True), nullable=True),
     )
-    op.create_index("ix_questions_is_anchor", "questions", ["is_anchor"])
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_questions_is_anchor ON questions (is_anchor)"
+    )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_questions_is_anchor", table_name="questions")
+    op.execute("DROP INDEX IF EXISTS ix_questions_is_anchor")
     op.drop_column("questions", "anchor_designated_at")
     op.drop_column("questions", "is_anchor")

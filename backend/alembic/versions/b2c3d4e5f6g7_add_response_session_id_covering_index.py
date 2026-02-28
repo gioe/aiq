@@ -23,12 +23,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_index(
-        "ix_responses_session_id_answered_at",
-        "responses",
-        ["test_session_id", "answered_at"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_responses_session_id_answered_at"
+        " ON responses (test_session_id, answered_at)"
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_responses_session_id_answered_at", table_name="responses")
+    op.execute("DROP INDEX IF EXISTS ix_responses_session_id_answered_at")

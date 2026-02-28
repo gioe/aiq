@@ -22,25 +22,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_index(
-        "ix_irt_calibration_runs_status_completed_at",
-        "irt_calibration_runs",
-        ["status", "completed_at"],
-        if_not_exists=True,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_irt_calibration_runs_status_completed_at"
+        " ON irt_calibration_runs (status, completed_at)"
     )
-    op.create_index(
-        "idx_shadow_cat_results_test_session_id",
-        "shadow_cat_results",
-        ["test_session_id"],
-        if_not_exists=True,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_shadow_cat_results_test_session_id"
+        " ON shadow_cat_results (test_session_id)"
     )
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "idx_shadow_cat_results_test_session_id", table_name="shadow_cat_results"
-    )
-    op.drop_index(
-        "ix_irt_calibration_runs_status_completed_at",
-        table_name="irt_calibration_runs",
-    )
+    op.execute("DROP INDEX IF EXISTS idx_shadow_cat_results_test_session_id")
+    op.execute("DROP INDEX IF EXISTS ix_irt_calibration_runs_status_completed_at")

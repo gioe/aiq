@@ -48,11 +48,10 @@ def upgrade() -> None:
 
     # Partial index for efficient CAT item selection
     # Only indexes calibrated items with valid IRT parameters
-    op.create_index(
-        "ix_questions_irt_calibrated",
-        "questions",
-        ["irt_difficulty", "irt_discrimination"],
-        postgresql_where=sa.text("irt_calibrated_at IS NOT NULL"),
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_questions_irt_calibrated"
+        " ON questions (irt_difficulty, irt_discrimination)"
+        " WHERE irt_calibrated_at IS NOT NULL"
     )
 
     # Adaptive testing flag on test_sessions
@@ -69,7 +68,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("test_sessions", "is_adaptive")
-    op.drop_index("ix_questions_irt_calibrated", table_name="questions")
+    op.execute("DROP INDEX IF EXISTS ix_questions_irt_calibrated")
     op.drop_column("questions", "irt_information_peak")
     op.drop_column("questions", "irt_calibration_n")
     op.drop_column("questions", "irt_se_discrimination")

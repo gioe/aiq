@@ -52,7 +52,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "ix_test_sessions_user_active",
-        table_name="test_sessions",
-    )
+    op.execute("DROP INDEX IF EXISTS ix_test_sessions_user_active")

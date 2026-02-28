@@ -59,19 +59,17 @@ def upgrade() -> None:
     )
 
     # Indexes for common queries
-    op.create_index(
-        "idx_shadow_cat_results_executed_at",
-        "shadow_cat_results",
-        ["executed_at"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_shadow_cat_results_executed_at"
+        " ON shadow_cat_results (executed_at)"
     )
-    op.create_index(
-        "idx_shadow_cat_results_delta",
-        "shadow_cat_results",
-        ["theta_iq_delta"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_shadow_cat_results_delta"
+        " ON shadow_cat_results (theta_iq_delta)"
     )
 
 
 def downgrade() -> None:
-    op.drop_index("idx_shadow_cat_results_delta", table_name="shadow_cat_results")
-    op.drop_index("idx_shadow_cat_results_executed_at", table_name="shadow_cat_results")
+    op.execute("DROP INDEX IF EXISTS idx_shadow_cat_results_delta")
+    op.execute("DROP INDEX IF EXISTS idx_shadow_cat_results_executed_at")
     op.drop_table("shadow_cat_results")

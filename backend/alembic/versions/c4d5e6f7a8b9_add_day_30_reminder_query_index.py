@@ -21,12 +21,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_index(
-        "ix_users_notification_day30",
-        "users",
-        ["notification_enabled", "day_30_reminder_sent_at"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_users_notification_day30"
+        " ON users (notification_enabled, day_30_reminder_sent_at)"
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_users_notification_day30", table_name="users")
+    op.execute("DROP INDEX IF EXISTS ix_users_notification_day30")

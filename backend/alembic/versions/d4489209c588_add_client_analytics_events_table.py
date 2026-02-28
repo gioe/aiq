@@ -34,69 +34,42 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        "ix_cae_event_received",
-        "client_analytics_events",
-        ["event_name", "received_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_cae_event_received"
+        " ON client_analytics_events (event_name, received_at)"
     )
-    op.create_index(
-        "ix_cae_user_received",
-        "client_analytics_events",
-        ["user_id", "received_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_cae_user_received"
+        " ON client_analytics_events (user_id, received_at)"
     )
-    op.create_index(
-        op.f("ix_client_analytics_events_client_timestamp"),
-        "client_analytics_events",
-        ["client_timestamp"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_client_analytics_events_client_timestamp"
+        " ON client_analytics_events (client_timestamp)"
     )
-    op.create_index(
-        op.f("ix_client_analytics_events_event_name"),
-        "client_analytics_events",
-        ["event_name"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_client_analytics_events_event_name"
+        " ON client_analytics_events (event_name)"
     )
-    op.create_index(
-        op.f("ix_client_analytics_events_id"),
-        "client_analytics_events",
-        ["id"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_client_analytics_events_id"
+        " ON client_analytics_events (id)"
     )
-    op.create_index(
-        op.f("ix_client_analytics_events_received_at"),
-        "client_analytics_events",
-        ["received_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_client_analytics_events_received_at"
+        " ON client_analytics_events (received_at)"
     )
-    op.create_index(
-        op.f("ix_client_analytics_events_user_id"),
-        "client_analytics_events",
-        ["user_id"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_client_analytics_events_user_id"
+        " ON client_analytics_events (user_id)"
     )
 
 
 def downgrade() -> None:
-    op.drop_index(
-        op.f("ix_client_analytics_events_user_id"), table_name="client_analytics_events"
-    )
-    op.drop_index(
-        op.f("ix_client_analytics_events_received_at"),
-        table_name="client_analytics_events",
-    )
-    op.drop_index(
-        op.f("ix_client_analytics_events_id"), table_name="client_analytics_events"
-    )
-    op.drop_index(
-        op.f("ix_client_analytics_events_event_name"),
-        table_name="client_analytics_events",
-    )
-    op.drop_index(
-        op.f("ix_client_analytics_events_client_timestamp"),
-        table_name="client_analytics_events",
-    )
-    op.drop_index("ix_cae_user_received", table_name="client_analytics_events")
-    op.drop_index("ix_cae_event_received", table_name="client_analytics_events")
+    op.execute("DROP INDEX IF EXISTS ix_client_analytics_events_user_id")
+    op.execute("DROP INDEX IF EXISTS ix_client_analytics_events_received_at")
+    op.execute("DROP INDEX IF EXISTS ix_client_analytics_events_id")
+    op.execute("DROP INDEX IF EXISTS ix_client_analytics_events_event_name")
+    op.execute("DROP INDEX IF EXISTS ix_client_analytics_events_client_timestamp")
+    op.execute("DROP INDEX IF EXISTS ix_cae_user_received")
+    op.execute("DROP INDEX IF EXISTS ix_cae_event_received")
     op.drop_table("client_analytics_events")

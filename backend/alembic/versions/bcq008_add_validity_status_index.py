@@ -38,13 +38,11 @@ def upgrade() -> None:
     # Used in: admin validity reports, filtering suspect/invalid sessions
     # The column has 3 possible values (valid, suspect, invalid) but index
     # still helps with selective queries (e.g., WHERE validity_status = 'suspect')
-    op.create_index(
-        "ix_test_results_validity_status",
-        "test_results",
-        ["validity_status"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_test_results_validity_status"
+        " ON test_results (validity_status)"
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_test_results_validity_status", table_name="test_results")
+    op.execute("DROP INDEX IF EXISTS ix_test_results_validity_status")

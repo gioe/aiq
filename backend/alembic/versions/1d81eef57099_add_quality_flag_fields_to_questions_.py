@@ -73,11 +73,9 @@ def upgrade() -> None:
 
     # Add index on quality_flag for efficient filtering by quality status
     # This is used by test composition (IDA-005) to exclude flagged questions
-    op.create_index(
-        "ix_questions_quality_flag",
-        "questions",
-        ["quality_flag"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_questions_quality_flag"
+        " ON questions (quality_flag)"
     )
 
     # Add check constraint to validate quality_flag values
@@ -98,7 +96,7 @@ def downgrade() -> None:
     )
 
     # Drop index
-    op.drop_index("ix_questions_quality_flag", table_name="questions")
+    op.execute("DROP INDEX IF EXISTS ix_questions_quality_flag")
 
     # Drop columns in reverse order of creation
     op.drop_column("questions", "quality_flag_updated_at")

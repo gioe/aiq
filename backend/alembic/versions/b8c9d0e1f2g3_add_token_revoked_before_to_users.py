@@ -31,20 +31,18 @@ def upgrade() -> None:
     # Falls back to a regular index on SQLite (which doesn't support partial indexes).
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
-        op.create_index(
-            "ix_users_token_revoked_before",
-            "users",
-            ["token_revoked_before"],
-            postgresql_where=sa.text("token_revoked_before IS NOT NULL"),
+        op.execute(
+            "CREATE INDEX IF NOT EXISTS ix_users_token_revoked_before"
+            " ON users (token_revoked_before)"
+            " WHERE token_revoked_before IS NOT NULL"
         )
     else:
-        op.create_index(
-            "ix_users_token_revoked_before",
-            "users",
-            ["token_revoked_before"],
+        op.execute(
+            "CREATE INDEX IF NOT EXISTS ix_users_token_revoked_before"
+            " ON users (token_revoked_before)"
         )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_users_token_revoked_before", table_name="users")
+    op.execute("DROP INDEX IF EXISTS ix_users_token_revoked_before")
     op.drop_column("users", "token_revoked_before")

@@ -42,11 +42,9 @@ def upgrade() -> None:
     # Index on response_count for filtering by minimum responses threshold
     # Used in: get_discrimination_report() WHERE response_count >= min_responses
     # Also used in: test composition queries with response count filtering
-    op.create_index(
-        "ix_questions_response_count",
-        "questions",
-        ["response_count"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_questions_response_count"
+        " ON questions (response_count)"
     )
 
     # Index on discrimination for ordering and filtering
@@ -55,27 +53,23 @@ def upgrade() -> None:
     # - test_composition.py ORDER BY discrimination DESC NULLS LAST
     # - calculate_percentile_rank() WHERE discrimination < value
     # - action_needed queries with ORDER BY discrimination ASC
-    op.create_index(
-        "ix_questions_discrimination",
-        "questions",
-        ["discrimination"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_questions_discrimination"
+        " ON questions (discrimination)"
     )
 
     # Index on difficulty_level for GROUP BY queries
     # Used in: get_discrimination_report() by_difficulty breakdown
     # The difficulty_level enum has only 3 values (easy, medium, hard)
     # but an index still helps with GROUP BY performance on large tables
-    op.create_index(
-        "ix_questions_difficulty_level",
-        "questions",
-        ["difficulty_level"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_questions_difficulty_level"
+        " ON questions (difficulty_level)"
     )
 
 
 def downgrade() -> None:
     # Drop indexes in reverse order of creation
-    op.drop_index("ix_questions_difficulty_level", table_name="questions")
-    op.drop_index("ix_questions_discrimination", table_name="questions")
-    op.drop_index("ix_questions_response_count", table_name="questions")
+    op.execute("DROP INDEX IF EXISTS ix_questions_difficulty_level")
+    op.execute("DROP INDEX IF EXISTS ix_questions_discrimination")
+    op.execute("DROP INDEX IF EXISTS ix_questions_response_count")

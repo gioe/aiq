@@ -58,82 +58,52 @@ def upgrade() -> None:
     )
 
     # Create indexes
-    op.create_index(
-        op.f("ix_feedback_submissions_id"),
-        "feedback_submissions",
-        ["id"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_id"
+        " ON feedback_submissions (id)"
     )
-    op.create_index(
-        op.f("ix_feedback_submissions_user_id"),
-        "feedback_submissions",
-        ["user_id"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_user_id"
+        " ON feedback_submissions (user_id)"
     )
-    op.create_index(
-        op.f("ix_feedback_submissions_email"),
-        "feedback_submissions",
-        ["email"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_email"
+        " ON feedback_submissions (email)"
     )
-    op.create_index(
-        op.f("ix_feedback_submissions_category"),
-        "feedback_submissions",
-        ["category"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_category"
+        " ON feedback_submissions (category)"
     )
-    op.create_index(
-        op.f("ix_feedback_submissions_status"),
-        "feedback_submissions",
-        ["status"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_status"
+        " ON feedback_submissions (status)"
     )
-    op.create_index(
-        op.f("ix_feedback_submissions_created_at"),
-        "feedback_submissions",
-        ["created_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_created_at"
+        " ON feedback_submissions (created_at)"
     )
 
     # Create composite indexes for common query patterns
-    op.create_index(
-        "ix_feedback_submissions_category_created",
-        "feedback_submissions",
-        ["category", "created_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_category_created"
+        " ON feedback_submissions (category, created_at)"
     )
-    op.create_index(
-        "ix_feedback_submissions_status_created",
-        "feedback_submissions",
-        ["status", "created_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_feedback_submissions_status_created"
+        " ON feedback_submissions (status, created_at)"
     )
 
 
 def downgrade() -> None:
     # Drop indexes
-    op.drop_index(
-        "ix_feedback_submissions_status_created", table_name="feedback_submissions"
-    )
-    op.drop_index(
-        "ix_feedback_submissions_category_created", table_name="feedback_submissions"
-    )
-    op.drop_index(
-        op.f("ix_feedback_submissions_created_at"), table_name="feedback_submissions"
-    )
-    op.drop_index(
-        op.f("ix_feedback_submissions_status"), table_name="feedback_submissions"
-    )
-    op.drop_index(
-        op.f("ix_feedback_submissions_category"), table_name="feedback_submissions"
-    )
-    op.drop_index(
-        op.f("ix_feedback_submissions_email"), table_name="feedback_submissions"
-    )
-    op.drop_index(
-        op.f("ix_feedback_submissions_user_id"), table_name="feedback_submissions"
-    )
-    op.drop_index(op.f("ix_feedback_submissions_id"), table_name="feedback_submissions")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_status_created")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_category_created")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_created_at")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_status")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_category")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_email")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_user_id")
+    op.execute("DROP INDEX IF EXISTS ix_feedback_submissions_id")
 
     # Drop table
     op.drop_table("feedback_submissions")

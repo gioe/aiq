@@ -16,7 +16,6 @@ Create Date: 2025-12-22
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -32,22 +31,13 @@ def upgrade() -> None:
     # which is essential for production deployments with active traffic.
     # CREATE INDEX CONCURRENTLY cannot run inside a transaction block.
     with op.get_context().autocommit_block():
-        op.create_index(
-            "ix_test_results_user_completed",
-            "test_results",
-            [
-                "user_id",
-                sa.text("completed_at DESC"),
-            ],
-            postgresql_concurrently=True,
+        op.execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_test_results_user_completed"
+            " ON test_results (user_id, completed_at DESC)"
         )
 
 
 def downgrade() -> None:
     # Drop index CONCURRENTLY as well to avoid locks during rollback
     with op.get_context().autocommit_block():
-        op.drop_index(
-            "ix_test_results_user_completed",
-            table_name="test_results",
-            postgresql_concurrently=True,
-        )
+        op.execute("DROP INDEX CONCURRENTLY IF EXISTS ix_test_results_user_completed")

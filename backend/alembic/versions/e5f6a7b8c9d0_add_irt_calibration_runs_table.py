@@ -45,21 +45,17 @@ def upgrade() -> None:
         sa.Column("new_responses_since_last", sa.Integer(), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
     )
-    op.create_index(
-        "ix_irt_calibration_runs_started_at",
-        "irt_calibration_runs",
-        ["started_at"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_irt_calibration_runs_started_at"
+        " ON irt_calibration_runs (started_at)"
     )
-    op.create_index(
-        "ix_irt_calibration_runs_status",
-        "irt_calibration_runs",
-        ["status"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_irt_calibration_runs_status"
+        " ON irt_calibration_runs (status)"
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_irt_calibration_runs_status", table_name="irt_calibration_runs")
-    op.drop_index(
-        "ix_irt_calibration_runs_started_at", table_name="irt_calibration_runs"
-    )
+    op.execute("DROP INDEX IF EXISTS ix_irt_calibration_runs_status")
+    op.execute("DROP INDEX IF EXISTS ix_irt_calibration_runs_started_at")
     op.drop_table("irt_calibration_runs")

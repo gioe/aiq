@@ -32,77 +32,49 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     # Primary key index
-    op.create_index(
-        op.f("ix_password_reset_tokens_id"),
-        "password_reset_tokens",
-        ["id"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_id"
+        " ON password_reset_tokens (id)"
     )
     # Token uniqueness index
-    op.create_index(
-        op.f("ix_password_reset_tokens_token"),
-        "password_reset_tokens",
-        ["token"],
-        unique=True,
+    op.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_password_reset_tokens_token"
+        " ON password_reset_tokens (token)"
     )
     # User lookup index
-    op.create_index(
-        op.f("ix_password_reset_tokens_user_id"),
-        "password_reset_tokens",
-        ["user_id"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_user_id"
+        " ON password_reset_tokens (user_id)"
     )
     # Expiration lookup index
-    op.create_index(
-        op.f("ix_password_reset_tokens_expires_at"),
-        "password_reset_tokens",
-        ["expires_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_expires_at"
+        " ON password_reset_tokens (expires_at)"
     )
     # Composite index for user + expiration queries
-    op.create_index(
-        "ix_password_reset_tokens_user_expires",
-        "password_reset_tokens",
-        ["user_id", "expires_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_user_expires"
+        " ON password_reset_tokens (user_id, expires_at)"
     )
     # Composite index for token + expiration queries (constant-time lookup)
-    op.create_index(
-        "ix_password_reset_tokens_token_expires",
-        "password_reset_tokens",
-        ["token", "expires_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_token_expires"
+        " ON password_reset_tokens (token, expires_at)"
     )
     # Composite index for user + used_at queries (token invalidation)
-    op.create_index(
-        "ix_password_reset_tokens_user_used",
-        "password_reset_tokens",
-        ["user_id", "used_at"],
-        unique=False,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_user_used"
+        " ON password_reset_tokens (user_id, used_at)"
     )
 
 
 def downgrade() -> None:
     """Drop password_reset_tokens table and all indexes."""
-    op.drop_index(
-        "ix_password_reset_tokens_user_used", table_name="password_reset_tokens"
-    )
-    op.drop_index(
-        "ix_password_reset_tokens_token_expires", table_name="password_reset_tokens"
-    )
-    op.drop_index(
-        "ix_password_reset_tokens_user_expires", table_name="password_reset_tokens"
-    )
-    op.drop_index(
-        op.f("ix_password_reset_tokens_expires_at"), table_name="password_reset_tokens"
-    )
-    op.drop_index(
-        op.f("ix_password_reset_tokens_user_id"), table_name="password_reset_tokens"
-    )
-    op.drop_index(
-        op.f("ix_password_reset_tokens_token"), table_name="password_reset_tokens"
-    )
-    op.drop_index(
-        op.f("ix_password_reset_tokens_id"), table_name="password_reset_tokens"
-    )
+    op.execute("DROP INDEX IF EXISTS ix_password_reset_tokens_user_used")
+    op.execute("DROP INDEX IF EXISTS ix_password_reset_tokens_token_expires")
+    op.execute("DROP INDEX IF EXISTS ix_password_reset_tokens_user_expires")
+    op.execute("DROP INDEX IF EXISTS ix_password_reset_tokens_expires_at")
+    op.execute("DROP INDEX IF EXISTS ix_password_reset_tokens_user_id")
+    op.execute("DROP INDEX IF EXISTS ix_password_reset_tokens_token")
+    op.execute("DROP INDEX IF EXISTS ix_password_reset_tokens_id")
     op.drop_table("password_reset_tokens")
