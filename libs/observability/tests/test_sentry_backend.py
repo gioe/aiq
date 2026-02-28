@@ -107,10 +107,9 @@ class TestCaptureMessageInitialized:
     """Tests for capture_message when backend is initialized."""
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_message")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_message_calls_sdk(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_message calls SDK with correct parameters."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -118,9 +117,9 @@ class TestCaptureMessageInitialized:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_message.return_value = "event-id"
 
         result = backend.capture_message(
             "Test message",
@@ -133,13 +132,12 @@ class TestCaptureMessageInitialized:
         mock_scope.set_context.assert_called_once_with("additional", {"key": "value"})
         mock_scope.set_tag.assert_called_once_with("tag", "val")
         assert mock_scope.level == "warning"
-        mock_capture.assert_called_once_with("Test message", level="warning")
+        mock_scope.capture_message.assert_called_once_with("Test message", level="warning")
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_message")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_message_default_level_is_info(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_message uses 'info' level by default."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -147,20 +145,19 @@ class TestCaptureMessageInitialized:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_message.return_value = "event-id"
 
         backend.capture_message("Test message")
 
         assert mock_scope.level == "info"
-        mock_capture.assert_called_once_with("Test message", level="info")
+        mock_scope.capture_message.assert_called_once_with("Test message", level="info")
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_message")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_message_without_optional_params(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_message works without optional context/tags."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -168,9 +165,9 @@ class TestCaptureMessageInitialized:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_message.return_value = "event-id"
 
         result = backend.capture_message("Test message")
 
@@ -179,10 +176,9 @@ class TestCaptureMessageInitialized:
         mock_scope.set_tag.assert_not_called()
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_message")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_message_serializes_context(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_message serializes non-JSON types in context."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -190,9 +186,9 @@ class TestCaptureMessageInitialized:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_message.return_value = "event-id"
 
         context = {
             "timestamp": datetime(2024, 1, 15, 10, 30, 0),
@@ -344,10 +340,9 @@ class TestExceptionTypes:
     """Tests for capture_error with various exception types."""
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_value_error(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with ValueError."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -355,21 +350,20 @@ class TestExceptionTypes:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         exc = ValueError("invalid input")
         result = backend.capture_error(exc)
 
         assert result == "event-id"
-        mock_capture.assert_called_once_with(exc)
+        mock_scope.capture_exception.assert_called_once_with(exc)
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_type_error(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with TypeError."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -377,21 +371,20 @@ class TestExceptionTypes:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         exc = TypeError("wrong type")
         result = backend.capture_error(exc)
 
         assert result == "event-id"
-        mock_capture.assert_called_once_with(exc)
+        mock_scope.capture_exception.assert_called_once_with(exc)
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_runtime_error(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with RuntimeError."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -399,21 +392,20 @@ class TestExceptionTypes:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         exc = RuntimeError("something went wrong")
         result = backend.capture_error(exc)
 
         assert result == "event-id"
-        mock_capture.assert_called_once_with(exc)
+        mock_scope.capture_exception.assert_called_once_with(exc)
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_custom_exception(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with a custom exception class."""
 
@@ -425,21 +417,20 @@ class TestExceptionTypes:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         exc = CustomError("custom error")
         result = backend.capture_error(exc)
 
         assert result == "event-id"
-        mock_capture.assert_called_once_with(exc)
+        mock_scope.capture_exception.assert_called_once_with(exc)
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_keyboard_interrupt(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with KeyboardInterrupt (BaseException subclass)."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -447,25 +438,24 @@ class TestExceptionTypes:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         exc = KeyboardInterrupt()
         result = backend.capture_error(exc)
 
         assert result == "event-id"
-        mock_capture.assert_called_once_with(exc)
+        mock_scope.capture_exception.assert_called_once_with(exc)
 
 
 class TestCaptureErrorWithContext:
     """Tests for capture_error with various context scenarios."""
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_request_context(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with request context information."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -473,9 +463,9 @@ class TestCaptureErrorWithContext:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         context = {
             "request_id": UUID("12345678-1234-5678-1234-567812345678"),
@@ -493,10 +483,9 @@ class TestCaptureErrorWithContext:
         assert serialized["user_agent"] == "AIQ-iOS/1.0"
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_user_context(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with user context information."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -504,9 +493,9 @@ class TestCaptureErrorWithContext:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         user = {"id": "user-123", "email": "test@example.com", "username": "testuser"}
         backend.capture_error(ValueError("test"), user=user)
@@ -514,10 +503,9 @@ class TestCaptureErrorWithContext:
         mock_scope.set_user.assert_called_once_with(user)
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_multiple_tags(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with multiple tags."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -525,9 +513,9 @@ class TestCaptureErrorWithContext:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         tags = {"service": "api", "endpoint": "/v1/tests", "version": "1.0.0"}
         backend.capture_error(ValueError("test"), tags=tags)
@@ -584,8 +572,7 @@ class TestAllErrorLevels:
     """Tests for all valid error levels."""
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     @pytest.mark.parametrize(
         "level",
         ["debug", "info", "warning", "error", "fatal"],
@@ -593,8 +580,7 @@ class TestAllErrorLevels:
     )
     def test_capture_error_with_all_levels(
         self,
-        mock_push_scope: mock.MagicMock,
-        mock_capture: mock.MagicMock,
+        mock_new_scope: mock.MagicMock,
         level: str,
     ) -> None:
         """Test capture_error with all valid severity levels."""
@@ -603,9 +589,9 @@ class TestAllErrorLevels:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         backend.capture_error(ValueError("test"), level=level)
         assert mock_scope.level == level

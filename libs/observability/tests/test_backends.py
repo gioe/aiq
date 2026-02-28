@@ -227,10 +227,9 @@ class TestSentryBackendCapture:
         assert result is None
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_calls_sdk(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error calls SDK with correct parameters."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -238,9 +237,9 @@ class TestSentryBackendCapture:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         exc = ValueError("test")
         result = backend.capture_error(
@@ -891,10 +890,9 @@ class TestContextSerialization:
         assert result["child"]["parent"] == "<circular reference: dict>"
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_serializes_context(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error serializes non-JSON types in context."""
         from datetime import datetime
@@ -905,9 +903,9 @@ class TestContextSerialization:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
-        mock_capture.return_value = "event-id"
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope.capture_exception.return_value = "event-id"
 
         exc = ValueError("test")
         context = {
@@ -943,10 +941,9 @@ class TestCaptureErrorLevels:
     """Tests for error level handling in capture_error."""
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_fatal_level(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with fatal level."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -954,17 +951,16 @@ class TestCaptureErrorLevels:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
 
         backend.capture_error(ValueError("test"), level="fatal")
         assert mock_scope.level == "fatal"
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_info_level(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with info level."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -972,17 +968,16 @@ class TestCaptureErrorLevels:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
 
         backend.capture_error(ValueError("test"), level="info")
         assert mock_scope.level == "info"
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_default_level_is_error(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error uses 'error' level by default."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -990,8 +985,8 @@ class TestCaptureErrorLevels:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
 
         backend.capture_error(ValueError("test"))
         assert mock_scope.level == "error"
@@ -1001,10 +996,9 @@ class TestCaptureErrorFingerprinting:
     """Tests for custom fingerprinting in capture_error."""
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_with_custom_fingerprint(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error with custom fingerprint for grouping."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
@@ -1012,8 +1006,8 @@ class TestCaptureErrorFingerprinting:
         backend._initialized = True
 
         mock_scope = mock.MagicMock()
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
 
         backend.capture_error(
             ValueError("test"),
@@ -1022,19 +1016,18 @@ class TestCaptureErrorFingerprinting:
         assert mock_scope.fingerprint == ["{{ default }}", "payment-error", "user-123"]
 
     @requires_sentry_sdk
-    @mock.patch("sentry_sdk.capture_exception")
-    @mock.patch("sentry_sdk.push_scope")
+    @mock.patch("sentry_sdk.new_scope")
     def test_capture_error_without_fingerprint_uses_default(
-        self, mock_push_scope: mock.MagicMock, mock_capture: mock.MagicMock
+        self, mock_new_scope: mock.MagicMock
     ) -> None:
         """Test capture_error without fingerprint lets Sentry use default grouping."""
         config = SentryConfig(enabled=True, dsn="https://test@sentry.io/123")
         backend = SentryBackend(config)
         backend._initialized = True
 
-        mock_scope = mock.MagicMock(spec=["set_context", "set_user", "set_tag", "level"])
-        mock_push_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
-        mock_push_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
+        mock_scope = mock.MagicMock(spec=["set_context", "set_user", "set_tag", "level", "capture_exception"])
+        mock_new_scope.return_value.__enter__ = mock.MagicMock(return_value=mock_scope)
+        mock_new_scope.return_value.__exit__ = mock.MagicMock(return_value=False)
 
         backend.capture_error(ValueError("test"))
         # Verify fingerprint attribute was never set on scope (uses Sentry's default grouping)

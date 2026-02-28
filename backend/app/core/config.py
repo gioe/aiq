@@ -2,7 +2,7 @@
 Application configuration settings.
 """
 
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Dict, List, Literal, Self
 
@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "AIQ API"
     APP_VERSION: str = "0.1.0"
-    ENV: str = "development"
+    ENV: str = Field(
+        default="development",
+        validation_alias=AliasChoices("ENV", "RAILWAY_ENVIRONMENT"),
+    )
     DEBUG: bool = True
 
     # API

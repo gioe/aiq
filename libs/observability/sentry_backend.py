@@ -225,7 +225,7 @@ class SentryBackend:
 
         import sentry_sdk
 
-        with sentry_sdk.push_scope() as scope:
+        with sentry_sdk.new_scope() as scope:
             if context:
                 # Serialize context to handle non-JSON types
                 serialized_context = _serialize_context(context)
@@ -239,7 +239,7 @@ class SentryBackend:
                 scope.fingerprint = fingerprint
             scope.level = level
 
-            return sentry_sdk.capture_exception(exception)
+            return scope.capture_exception(exception)
 
     def capture_message(
         self,
@@ -265,7 +265,7 @@ class SentryBackend:
 
         import sentry_sdk
 
-        with sentry_sdk.push_scope() as scope:
+        with sentry_sdk.new_scope() as scope:
             if context:
                 # Serialize context to handle non-JSON types
                 serialized_context = _serialize_context(context)
@@ -275,7 +275,7 @@ class SentryBackend:
                     scope.set_tag(key, value)
             scope.level = level
 
-            return sentry_sdk.capture_message(message, level=level)
+            return scope.capture_message(message, level=level)
 
     @contextmanager
     def start_span(
