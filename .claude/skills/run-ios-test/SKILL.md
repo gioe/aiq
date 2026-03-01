@@ -17,7 +17,7 @@ When this skill is invoked, determine what tests to run based on the user's requ
 If no specific test is requested, run the full test suite:
 
 ```bash
-cd /Users/mattgioe/aiq/ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
+cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
 ```
 
 ### Run a Specific Test File
@@ -25,7 +25,7 @@ cd /Users/mattgioe/aiq/ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ
 To run tests from a specific test class, use the `-only-testing` flag:
 
 ```bash
-cd /Users/mattgioe/aiq/ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName 2>&1
+cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName 2>&1
 ```
 
 **Examples:**
@@ -45,7 +45,7 @@ cd /Users/mattgioe/aiq/ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ
 To run a single test method within a class:
 
 ```bash
-cd /Users/mattgioe/aiq/ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName/testMethodName 2>&1
+cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName/testMethodName 2>&1
 ```
 
 **Example:**
@@ -58,7 +58,7 @@ cd /Users/mattgioe/aiq/ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ
 Chain multiple `-only-testing` flags to run several test classes:
 
 ```bash
-cd /Users/mattgioe/aiq/ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/AuthManagerTests -only-testing:AIQTests/APIClientTests 2>&1
+cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/AuthManagerTests -only-testing:AIQTests/APIClientTests 2>&1
 ```
 
 ## Common Test Classes
