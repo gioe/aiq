@@ -1223,10 +1223,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then – banner conditions met: error set, questions non-empty, not activeSessionConflict
         XCTAssertNotNil(sut.error, "Error should be set after submit failure")
         XCTAssertFalse(sut.questions.isEmpty, "Questions should remain loaded after submit failure")
-        if let contextualError = sut.error as? ContextualError,
-           case .activeSessionConflict = contextualError.underlyingError {
-            XCTFail("Submit failure error should not be activeSessionConflict")
-        }
+        XCTAssertTrue(sut.shouldShowSubmitErrorBanner, "Submit error banner should be showing after submit failure")
     }
 
     /// When an error exists but questions have not been loaded, the View uses
@@ -1247,6 +1244,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // The second condition fails → banner is suppressed, deferring to shouldShowLoadFailure
         XCTAssertNotNil(sut.error, "Error is present")
         XCTAssertTrue(sut.questions.isEmpty, "Empty questions suppresses the submit error banner")
+        XCTAssertFalse(sut.shouldShowSubmitErrorBanner, "Banner should not show when questions are not loaded")
     }
 
     /// An `activeSessionConflict` error is excluded from the submit error banner;
@@ -1271,6 +1269,8 @@ final class TestTakingViewModelTests: XCTestCase {
             return
         }
         XCTAssertEqual(errorSessionId, 9999, "Session ID should match the conflict error")
+        XCTAssertTrue(sut.isActiveSessionConflict, "isActiveSessionConflict should be true")
+        XCTAssertFalse(sut.shouldShowSubmitErrorBanner, "Banner should be suppressed for activeSessionConflict errors")
     }
 
     /// With a submit error present the View disables the submit button via the expression
@@ -1299,6 +1299,7 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.error, "Error should be set so the banner appears")
         XCTAssertFalse(sut.questions.isEmpty, "Questions must remain loaded for banner to show")
         XCTAssertTrue(sut.allQuestionsAnswered, "Answers are preserved after a submit failure")
+        XCTAssertTrue(sut.shouldShowSubmitErrorBanner, "Banner should be showing, disabling the submit button")
     }
 
     /// The View calls `viewModel.clearError()` when the user dismisses the error banner.
@@ -1326,5 +1327,6 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then
         XCTAssertNil(sut.error, "Error should be cleared after dismiss")
         XCTAssertFalse(sut.canRetry, "canRetry should be false after clearError")
+        XCTAssertFalse(sut.shouldShowSubmitErrorBanner, "Banner should be hidden after clearError")
     }
 }

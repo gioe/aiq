@@ -142,6 +142,23 @@ class TestTakingViewModel: BaseViewModel {
         testCountAtStart == 0
     }
 
+    /// True when the current error is an active-session conflict.
+    /// Used to suppress the submit error banner and show the dedicated conflict alert instead.
+    var isActiveSessionConflict: Bool {
+        if let contextualError = error as? ContextualError,
+           case .activeSessionConflict = contextualError.underlyingError {
+            return true
+        }
+        return false
+    }
+
+    /// True when a post-load error (e.g. submission failure) should surface as an inline banner.
+    /// Requires questions to already be loaded so this does not conflict with the load-failure state.
+    /// Excludes active session conflicts, which are handled by their dedicated alert.
+    var shouldShowSubmitErrorBanner: Bool {
+        error != nil && !questions.isEmpty && !isActiveSessionConflict
+    }
+
     /// Cached set of answered question indices for performance
     /// Recalculated when userAnswers changes
     @Published private(set) var answeredQuestionIndices: Set<Int> = []

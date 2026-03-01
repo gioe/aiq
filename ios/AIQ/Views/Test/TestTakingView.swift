@@ -32,25 +32,10 @@ struct TestTakingView: View {
         _viewModel = StateObject(wrappedValue: vm)
     }
 
-    /// Check if the current error is an active session conflict
-    private var isActiveSessionConflict: Bool {
-        if let contextualError = viewModel.error as? ContextualError,
-           case .activeSessionConflict = contextualError.underlyingError {
-            return true
-        }
-        return false
-    }
-
     /// True when startTest failed and the full-page error state should be shown
     private var shouldShowLoadFailure: Bool {
-        !viewModel.isLoading && viewModel.questions.isEmpty && viewModel.error != nil && !isActiveSessionConflict
-    }
-
-    /// True when a post-load error (e.g. submission failure) should surface as an inline banner.
-    /// Requires questions to already be loaded so this does not conflict with `shouldShowLoadFailure`.
-    /// Excludes active session conflicts, which are handled by their dedicated alert.
-    private var shouldShowSubmitErrorBanner: Bool {
-        viewModel.error != nil && !viewModel.questions.isEmpty && !isActiveSessionConflict
+        !viewModel.isLoading && viewModel.questions.isEmpty
+            && viewModel.error != nil && !viewModel.isActiveSessionConflict
     }
 
     /// Extract session ID from active session conflict error
@@ -163,7 +148,7 @@ struct TestTakingView: View {
         } message: {
             Text("You have \(viewModel.answeredCount) unsaved answers. Are you sure you want to exit?")
         }
-        .alert("Test in Progress", isPresented: .constant(isActiveSessionConflict)) {
+        .alert("Test in Progress", isPresented: .constant(viewModel.isActiveSessionConflict)) {
             if let sessionId = conflictingSessionId {
                 Button("Resume Test") {
                     Task {
@@ -365,7 +350,7 @@ struct TestTakingView: View {
             // Inline error banner for post-load failures (e.g. submission errors).
             // Only shown when questions are already visible; full-page errors are handled
             // by shouldShowLoadFailure / loadFailureView instead.
-            if shouldShowSubmitErrorBanner, let error = viewModel.error {
+            if viewModel.shouldShowSubmitErrorBanner, let error = viewModel.error {
                 ErrorBanner(
                     message: error.localizedDescription,
                     onDismiss: { viewModel.clearError() },
@@ -562,7 +547,7 @@ struct TestTakingView: View {
             .fontWeight(.semibold)
         }
         .buttonStyle(.borderedProminent)
-        .disabled(!viewModel.allQuestionsAnswered || shouldShowSubmitErrorBanner)
+        .disabled(!viewModel.allQuestionsAnswered || viewModel.shouldShowSubmitErrorBanner)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.submitButton)
     }
 
