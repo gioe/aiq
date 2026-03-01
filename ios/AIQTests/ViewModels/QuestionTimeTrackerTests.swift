@@ -72,17 +72,18 @@ final class QuestionTimeTrackerTests: XCTestCase {
 
         // Simulate backgrounding
         NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
-        try await Task.sleep(nanoseconds: 100_000_000) // let observer task execute
+        await Task.yield(); await Task.yield(); await Task.yield()
 
         XCTAssertGreaterThanOrEqual(sut.elapsed(for: 1), 1, "Pause should record elapsed time")
 
         // Simulate foregrounding — resume should restart because questionId was kept by pause
         NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        await Task.yield(); await Task.yield(); await Task.yield()
         try await Task.sleep(nanoseconds: 1_100_000_000) // 1.1s while resumed
 
         // Pause again to record resumed time
         NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await Task.yield(); await Task.yield(); await Task.yield()
 
         XCTAssertGreaterThanOrEqual(sut.elapsed(for: 1), 2, "Time should accumulate across pause/resume cycle")
     }
@@ -94,16 +95,17 @@ final class QuestionTimeTrackerTests: XCTestCase {
 
         // Pause with negligible time
         NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await Task.yield(); await Task.yield(); await Task.yield()
         let elapsedAfterPause = sut.elapsed(for: 1) // 0 since < 1s
 
         // Resume
         NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        await Task.yield(); await Task.yield(); await Task.yield()
         try await Task.sleep(nanoseconds: 1_100_000_000) // let resumed tracking accumulate
 
         // Pause again to commit
         NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await Task.yield(); await Task.yield(); await Task.yield()
 
         XCTAssertGreaterThanOrEqual(
             sut.elapsed(for: 1),
@@ -113,18 +115,20 @@ final class QuestionTimeTrackerTests: XCTestCase {
     }
 
     func testResumeTracking_IsNoOpWhenNoActiveQuestion() async throws {
-        // Complete a question normally — clears currentQuestionId
+        // Accumulate real time so elapsedAfterRecord is non-zero
         sut.startTracking(questionId: 2)
+        try await Task.sleep(nanoseconds: 1_100_000_000)
         sut.recordCurrent()
         let elapsedAfterRecord = sut.elapsed(for: 2)
+        XCTAssertGreaterThanOrEqual(elapsedAfterRecord, 1)
 
         // Resume with no active question — should be a no-op
         NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await Task.yield(); await Task.yield(); await Task.yield()
 
         // Background — if resume incorrectly started the timer, pause would record spurious time
         NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await Task.yield(); await Task.yield(); await Task.yield()
 
         XCTAssertEqual(sut.elapsed(for: 2), elapsedAfterRecord, "Resume without active question should not record time")
     }
@@ -151,9 +155,12 @@ final class QuestionTimeTrackerTests: XCTestCase {
         XCTAssertEqual(sut.elapsed(for: 1), 0, "Reset should clear in-progress tracking")
     }
 
-    func testReset_ClearsAllQuestions() {
+    func testReset_ClearsAllQuestions() async throws {
         sut.startTracking(questionId: 1)
+        try await Task.sleep(nanoseconds: 1_100_000_000)
         sut.recordCurrent()
+        XCTAssertGreaterThanOrEqual(sut.elapsed(for: 1), 1)
+
         sut.startTracking(questionId: 2)
         sut.recordCurrent()
 
