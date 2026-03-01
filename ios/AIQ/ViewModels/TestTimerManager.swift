@@ -29,6 +29,7 @@ class TestTimerManager: ObservableObject {
     private var timer: Timer?
     private var backgroundEntryTime: Date?
     private var wasRunningBeforeBackground: Bool = false
+    private var backgroundObservers: [NSObjectProtocol] = []
 
     /// Reference point for wall-clock based timing (eliminates drift)
     private var sessionStartTime: Date?
@@ -71,6 +72,7 @@ class TestTimerManager: ObservableObject {
     }
 
     deinit {
+        backgroundObservers.forEach { NotificationCenter.default.removeObserver($0) }
         timer?.invalidate()
     }
 
@@ -250,20 +252,21 @@ class TestTimerManager: ObservableObject {
     // MARK: - Background Handling
 
     private func setupBackgroundNotifications() {
-        NotificationCenter.default.addObserver(
+        let resignToken = NotificationCenter.default.addObserver(
             forName: UIApplication.willResignActiveNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in self?.handleAppWillResignActive() }
         }
-        NotificationCenter.default.addObserver(
+        let activeToken = NotificationCenter.default.addObserver(
             forName: UIApplication.didBecomeActiveNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in self?.handleAppDidBecomeActive() }
         }
+        backgroundObservers = [resignToken, activeToken]
     }
 
     private func handleAppWillResignActive() {
