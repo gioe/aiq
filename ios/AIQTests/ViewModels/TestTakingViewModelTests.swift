@@ -80,6 +80,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(sut.error, "Error should be set")
+        XCTAssertTrue(sut.questions.isEmpty, "Questions should be empty after a non-conflict start failure")
         if let contextualError = sut.error as? ContextualError,
            case .activeSessionConflict = contextualError.underlyingError {
             XCTFail("Error should not be activeSessionConflict")
