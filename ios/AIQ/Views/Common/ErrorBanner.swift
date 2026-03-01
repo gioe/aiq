@@ -16,6 +16,20 @@ struct ErrorBanner: View {
     var retryAction: (() -> Void)?
 
     var body: some View {
+        if retryAction != nil {
+            // When a retry button is present, omit the container label so VoiceOver
+            // does not announce the message twice (once for the container, once for
+            // the button's own label).  The button's .accessibilityLabel already
+            // provides full context; the dismiss button handles its own label.
+            containerStack
+        } else {
+            containerStack
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Error: \(message)")
+        }
+    }
+
+    private var containerStack: some View {
         HStack(spacing: 12) {
             bannerContent
 
@@ -33,8 +47,6 @@ struct ErrorBanner: View {
         .background(Color.red)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Error: \(message)")
     }
 
     /// The icon and message area. Rendered as a tappable `Button` when `retryAction` is
