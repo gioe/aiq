@@ -12,11 +12,21 @@ This skill builds the AIQ iOS project using `xcodebuild` to verify that the proj
 
 When this skill is invoked, build the iOS project to verify compilation.
 
-### Build the Project
-
-Run the following command to build the project:
+**Detecting xcpretty availability:** Before running, check whether xcpretty is installed:
 
 ```bash
+which xcpretty
+```
+
+If it exits 0, use the xcpretty variant below. Otherwise use the fallback variant (raw `xcodebuild` output without truncation).
+
+### Build the Project
+
+```bash
+# With xcpretty (recommended) — pipefail ensures build failures propagate correctly
+set -o pipefail && cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1 | xcpretty
+
+# Without xcpretty (fallback — streams full output, no truncation)
 cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
 ```
 
@@ -25,6 +35,10 @@ cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'plat
 If specifically requested, build in Release configuration:
 
 ```bash
+# With xcpretty
+set -o pipefail && cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -configuration Release 2>&1 | xcpretty
+
+# Without xcpretty (fallback)
 cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -configuration Release 2>&1
 ```
 
@@ -33,6 +47,10 @@ cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'plat
 If a clean build is requested or there are stale build artifacts:
 
 ```bash
+# With xcpretty
+set -o pipefail && cd ios && xcodebuild clean build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1 | xcpretty
+
+# Without xcpretty (fallback)
 cd ios && xcodebuild clean build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
 ```
 
