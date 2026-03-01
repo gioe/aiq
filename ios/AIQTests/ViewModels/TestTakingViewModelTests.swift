@@ -1239,8 +1239,8 @@ final class TestTakingViewModelTests: XCTestCase {
             operation: .fetchQuestions
         )
 
-        // Then – shouldShowSubmitErrorBanner would be false: questions is empty
-        // View computes: viewModel.error != nil && !viewModel.questions.isEmpty && !isActiveSessionConflict
+        // Then – shouldShowSubmitErrorBanner is false: ViewModel computes
+        // error != nil && !questions.isEmpty && !isActiveSessionConflict
         // The second condition fails → banner is suppressed, deferring to shouldShowLoadFailure
         XCTAssertNotNil(sut.error, "Error is present")
         XCTAssertTrue(sut.questions.isEmpty, "Empty questions suppresses the submit error banner")
