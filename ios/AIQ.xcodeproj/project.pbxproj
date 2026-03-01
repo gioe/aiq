@@ -76,6 +76,7 @@
 		253DB88D03548BADAFF80023 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA9D8DFE3D7775DC45E88DD /* Typography.swift */; };
 		25F8149AA5AD3B8B578234D6 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 5F67568DF35617BE6981320E /* FirebaseAnalytics */; };
 		274DEA0A6EC19369D9E10DA0 /* MockApplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1DA3C6605F4AD495B2FDD3B /* MockApplication.swift */; };
+		2944C2349B5735D57B68F6F3 /* TestCompletionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66425643128045A6319C485 /* TestCompletionView.swift */; };
 		2AF8C8825E45CC0D1E5CD180 /* UITestMockSecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0528989EAABEC1CC29EFF6D6 /* UITestMockSecureStorage.swift */; };
 		2B5CCA8DB0C2482BBDEB778D /* NotificationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C496159D2E04EA9B19FA657 /* NotificationManagerTests.swift */; };
 		2C0C55F3DEC090A91726FC04 /* AccessibilityIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7DA3D24FA5595BDFEC7213 /* AccessibilityIdentifiers.swift */; };
@@ -503,6 +504,7 @@
 		A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockUserNotificationCenter.swift; sourceTree = "<group>"; };
 		A4822133E0084FC6B5E58520 /* UserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTests.swift; sourceTree = "<group>"; };
 		A5B06BA013E990ABEEDA78DD /* DifficultyBadgeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DifficultyBadgeTests.swift; sourceTree = "<group>"; };
+		A66425643128045A6319C485 /* TestCompletionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestCompletionView.swift; sourceTree = "<group>"; };
 		A69F71CE91E33159738DFCAC /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
 		A6C113F55160505AB65C0AA7 /* RegistrationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelTests.swift; sourceTree = "<group>"; };
 		A7512C54CC7A4B6650C48386 /* TestHistoryListItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHistoryListItem.swift; sourceTree = "<group>"; };
@@ -829,6 +831,7 @@
 				69BE11B403643CEA1B4384A0 /* MemoryQuestionView.swift */,
 				9C8C883BCEBA6CCDD0AFFE38 /* AdaptiveProgressHeader.swift */,
 				BE2F8BBE7ADDAF12A4059722 /* AdaptiveTestView.swift */,
+				A66425643128045A6319C485 /* TestCompletionView.swift */,
 			);
 			path = Test;
 			sourceTree = "<group>";
@@ -1687,6 +1690,7 @@
 				C45FC0023585321A8D6BD6B3 /* BiometricLockView.swift in Sources */,
 				1862D5E3AEAE001552CE628C /* UITestMockBiometricPreferenceStorage.swift in Sources */,
 				58BC4F28BC3CC3BC3AA961BE /* TokenRefreshMiddleware.swift in Sources */,
+				2944C2349B5735D57B68F6F3 /* TestCompletionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

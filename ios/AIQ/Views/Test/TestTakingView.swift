@@ -1,7 +1,5 @@
 import SwiftUI
 
-// swiftlint:disable type_body_length
-
 /// Main view for taking an IQ test
 struct TestTakingView: View {
     @StateObject private var viewModel: TestTakingViewModel
@@ -50,7 +48,18 @@ struct TestTakingView: View {
     var body: some View {
         ZStack {
             if viewModel.isTestCompleted {
-                testCompletedView
+                TestCompletionView(
+                    answeredCount: viewModel.answeredCount,
+                    totalQuestions: viewModel.questions.count,
+                    onViewResults: {
+                        if let result = viewModel.testResult {
+                            router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
+                        }
+                    },
+                    onReturnToDashboard: {
+                        router.popToRoot()
+                    }
+                )
             } else if shouldShowLoadFailure {
                 loadFailureView
             } else {
@@ -550,82 +559,7 @@ struct TestTakingView: View {
         .disabled(!viewModel.allQuestionsAnswered || viewModel.shouldShowSubmitErrorBanner)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.submitButton)
     }
-
-    // MARK: - Test Completed
-
-    @State private var showCompletionAnimation = false
-
-    private var testCompletedView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            // Success icon with celebratory animation
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
-                .scaleEffect(reduceMotion ? 1.0 : (showCompletionAnimation ? 1.0 : 0.5))
-                .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                .rotationEffect(.degrees(reduceMotion ? 0 : (showCompletionAnimation ? 0 : -180)))
-                .accessibilityHidden(true)
-
-            VStack(spacing: 12) {
-                Text("Test Completed!")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                    .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successTitle)
-
-                Text("Your answers have been submitted")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                    .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successSubtitle)
-
-                Text("You answered \(viewModel.answeredCount) out of \(viewModel.questions.count) questions")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                    .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successAnswerCount)
-            }
-            .onAppear {
-                // Staggered animations for text elements
-                withAnimation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.6)) {
-                    showCompletionAnimation = true
-                }
-            }
-
-            Spacer()
-
-            // Action buttons
-            VStack(spacing: 12) {
-                PrimaryButton(
-                    title: "View Results",
-                    action: {
-                        if let result = viewModel.testResult {
-                            router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
-                        }
-                    },
-                    isLoading: false,
-                    accessibilityId: AccessibilityIdentifiers.TestTakingView.viewResultsButton
-                )
-
-                Button("Return to Dashboard") {
-                    router.popToRoot()
-                }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.returnToDashboardButton)
-            }
-            .padding(.horizontal)
-        }
-        .padding()
-        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successOverlay)
-    }
 }
-
-// swiftlint:enable type_body_length
 
 // MARK: - Preview
 
