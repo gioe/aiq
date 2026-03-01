@@ -371,7 +371,8 @@ struct TestTakingView: View {
                     onDismiss: { viewModel.clearError() },
                     retryAction: viewModel.canRetry ? {
                         Task { await viewModel.retry() }
-                    } : nil
+                    } : nil,
+                    dismissHint: viewModel.canRetry ? nil : "error.banner.submit.dismiss.hint".localized
                 )
                 .padding(.horizontal)
                 .padding(.top, 8)

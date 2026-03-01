@@ -400,6 +400,7 @@
 
 // MARK: - Error Banner
 "error.banner.dismiss" = "Dismiss error";
+"error.banner.submit.dismiss.hint" = "Dismiss to re-enable submission";
 
 // MARK: - Error View
 "error.default.title" = "Something went wrong";

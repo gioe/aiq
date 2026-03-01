@@ -14,6 +14,9 @@ struct ErrorBanner: View {
     /// Optional action called when the user taps the banner's content area (icon + message).
     /// When non-nil, the content area renders as a tappable `Button` with `.plain` style.
     var retryAction: (() -> Void)?
+    /// Optional hint announced by VoiceOver on the dismiss button to guide the user.
+    /// Pass a caller-specific string when the banner's presence blocks an action (e.g. submission).
+    var dismissHint: String?
 
     var body: some View {
         if retryAction != nil {
@@ -26,7 +29,6 @@ struct ErrorBanner: View {
             containerStack
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Error: \(message)")
-                .accessibilityHint("Dismiss this banner to re-enable submission")
         }
     }
 
@@ -43,6 +45,7 @@ struct ErrorBanner: View {
                 foregroundColor: .white
             )
             .accessibilityIdentifier(AccessibilityIdentifiers.ErrorBanner.dismissButton)
+            .accessibilityHint(dismissHint ?? "")
         }
         .padding()
         .background(Color.red)
