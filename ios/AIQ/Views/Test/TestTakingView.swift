@@ -46,6 +46,12 @@ struct TestTakingView: View {
         !viewModel.isLoading && viewModel.questions.isEmpty && viewModel.error != nil && !isActiveSessionConflict
     }
 
+    /// True when a post-load error (e.g. submission failure) should surface as an inline banner.
+    /// Requires questions to already be loaded so this does not conflict with `shouldShowLoadFailure`.
+    private var shouldShowSubmitErrorBanner: Bool {
+        viewModel.error != nil && !viewModel.questions.isEmpty
+    }
+
     /// Extract session ID from active session conflict error
     private var conflictingSessionId: Int? {
         if let contextualError = viewModel.error as? ContextualError,
@@ -355,6 +361,23 @@ struct TestTakingView: View {
                 .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
 
+            // Inline error banner for post-load failures (e.g. submission errors).
+            // Only shown when questions are already visible; full-page errors are handled
+            // by shouldShowLoadFailure / loadFailureView instead.
+            if shouldShowSubmitErrorBanner, let error = viewModel.error {
+                ErrorBanner(
+                    message: error.localizedDescription,
+                    onDismiss: { viewModel.clearError() },
+                    retryAction: viewModel.canRetry ? {
+                        Task { await viewModel.retry() }
+                    } : nil
+                )
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.submitErrorBanner)
+            }
+
             // Compact header: timer, progress, and grid toggle
             compactHeader
 
@@ -537,7 +560,7 @@ struct TestTakingView: View {
             .fontWeight(.semibold)
         }
         .buttonStyle(.borderedProminent)
-        .disabled(!viewModel.allQuestionsAnswered)
+        .disabled(!viewModel.allQuestionsAnswered || shouldShowSubmitErrorBanner)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.submitButton)
     }
 
