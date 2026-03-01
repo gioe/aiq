@@ -73,6 +73,7 @@ class TestTakingViewModel: BaseViewModel {
 
     private let apiService: OpenAPIServiceProtocol
     private let answerStorage: LocalAnswerStorageProtocol
+    let coordinator: AdaptiveTestCoordinator
     private var saveWorkItem: DispatchWorkItem?
 
     /// Test count before starting this test (used to determine if this is the first test)
@@ -86,11 +87,15 @@ class TestTakingViewModel: BaseViewModel {
 
     init(
         apiService: OpenAPIServiceProtocol,
-        answerStorage: LocalAnswerStorageProtocol
+        answerStorage: LocalAnswerStorageProtocol,
+        coordinator: AdaptiveTestCoordinator? = nil
     ) {
         self.apiService = apiService
         self.answerStorage = answerStorage
+        self.coordinator = coordinator ?? AdaptiveTestCoordinator(apiService: apiService)
         super.init()
+        self.coordinator.delegate = self
+        setupCoordinatorBindings()
         setupAutoSave()
         setupBackgroundingNotifications()
     }
@@ -199,7 +204,7 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     /// Update the cached answered indices set
-    private func updateAnsweredIndices() {
+    func updateAnsweredIndices() {
         var indices = Set<Int>()
         for (index, question) in questions.enumerated() {
             if let answer = userAnswers[question.id], !answer.isEmpty {
@@ -306,7 +311,7 @@ class TestTakingViewModel: BaseViewModel {
         #endif
     }
 
-    private func handleTestStartError(_ error: APIError, questionCount: Int) {
+    func handleTestStartError(_ error: APIError, questionCount: Int) {
         // Check if this is an active session conflict
         if case let .activeSessionConflict(sessionId, _) = error {
             // Track analytics for this edge case
@@ -336,7 +341,7 @@ class TestTakingViewModel: BaseViewModel {
         #endif
     }
 
-    private func handleGenericTestStartError(_ error: Error, questionCount: Int) {
+    func handleGenericTestStartError(_ error: Error, questionCount: Int) {
         let contextualError = ContextualError(
             error: .unknown(message: error.localizedDescription),
             operation: .fetchQuestions
@@ -388,8 +393,6 @@ class TestTakingViewModel: BaseViewModel {
 
     // MARK: - Adaptive Test Management
 
-    /// Starts an adaptive (CAT) test session.
-    /// Gated by `Constants.Features.adaptiveTesting` — does nothing when the flag is off.
     func startAdaptiveTest() async {
         guard Constants.Features.adaptiveTesting else {
             #if DEBUG
@@ -397,146 +400,12 @@ class TestTakingViewModel: BaseViewModel {
             #endif
             return
         }
-
-        setLoading(true)
-        clearError()
-
         await fetchTestCountAtStart()
-
-        do {
-            let response = try await apiService.startAdaptiveTest()
-            handleAdaptiveTestStartSuccess(response: response)
-        } catch let error as APIError {
-            #if DEBUG
-                print("[TestTakingViewModel] APIError in startAdaptiveTest: \(error)")
-            #endif
-            handleTestStartError(error, questionCount: Constants.Test.defaultQuestionCount)
-        } catch {
-            #if DEBUG
-                print("[TestTakingViewModel] Generic error in startAdaptiveTest: \(error)")
-            #endif
-            handleGenericTestStartError(error, questionCount: Constants.Test.defaultQuestionCount)
-        }
+        await coordinator.start()
     }
 
-    private func handleAdaptiveTestStartSuccess(response: StartTestResponse) {
-        isAdaptiveTest = true
-        testSession = response.session
-        questions = response.questions
-        currentQuestionIndex = 0
-        userAnswers.removeAll()
-        stimulusSeen.removeAll()
-        isTestCompleted = false
-
-        // Extract adaptive-specific fields
-        currentTheta = response.currentTheta
-        currentSE = response.currentSe
-        itemsAdministered = response.questions.count
-
-        // Initialize time tracking
-        resetTimeTracking()
-        startQuestionTiming()
-
-        AnalyticsService.shared.trackTestStarted(
-            sessionId: response.session.id,
-            questionCount: response.questions.count
-        )
-
-        setLoading(false)
-    }
-
-    /// Submits the current answer and retrieves the next adaptive question.
-    /// If the CAT engine determines the test is complete, handles test completion.
     func submitAnswerAndGetNext() async {
-        guard isAdaptiveTest else { return }
-        guard let session = testSession,
-              let question = currentQuestion,
-              let answer = userAnswers[question.id], !answer.isEmpty else {
-            return
-        }
-
-        recordCurrentQuestionTime()
-        isLoadingNextQuestion = true
-        clearError()
-
-        let timeSpent = questionTimeSpent[question.id]
-
-        do {
-            let response = try await apiService.submitAdaptiveResponse(
-                sessionId: session.id,
-                questionId: question.id,
-                userAnswer: answer,
-                timeSpentSeconds: timeSpent
-            )
-
-            handleAdaptiveResponseSuccess(response)
-        } catch {
-            handleAdaptiveResponseError(error)
-        }
-    }
-
-    private func handleAdaptiveResponseSuccess(_ response: Components.Schemas.AdaptiveNextResponse) {
-        currentTheta = response.currentTheta
-        currentSE = response.currentSe
-        itemsAdministered = response.itemsAdministered
-
-        if response.testComplete ?? false {
-            handleAdaptiveTestCompletion(response)
-        } else if let nextQuestion = response.nextQuestion?.value1 {
-            questions.append(nextQuestion)
-            currentQuestionIndex = questions.count - 1
-            startQuestionTiming()
-            updateAnsweredIndices()
-        }
-
-        isLoadingNextQuestion = false
-    }
-
-    private func handleAdaptiveTestCompletion(_ response: Components.Schemas.AdaptiveNextResponse) {
-        clearSavedProgress()
-        isTestCompleted = true
-        isLoadingNextQuestion = false
-
-        if let session = testSession {
-            AnalyticsService.shared.trackTestCompleted(
-                sessionId: session.id,
-                iqScore: 0,
-                durationSeconds: 0,
-                accuracy: 0
-            )
-        }
-
-        #if DEBUG
-            // swiftlint:disable:next line_length
-            print("[CAT] Adaptive test completed. Items: \(response.itemsAdministered), Reason: \(response.stoppingReason ?? "unknown")")
-        #endif
-    }
-
-    private func handleAdaptiveResponseError(_ error: Error) {
-        isLoadingNextQuestion = false
-
-        let contextualError = ContextualError(
-            error: error as? APIError ?? .unknown(message: error.localizedDescription),
-            operation: .submitTest
-        )
-
-        handleError(contextualError, context: .submitTest) { [weak self] in
-            guard let self, !self.isTestCompleted, isAdaptiveTest else { return }
-            await submitAnswerAndGetNext()
-        }
-
-        #if DEBUG
-            print("[ERROR] Failed to submit adaptive response: \(error)")
-        #endif
-    }
-
-    /// Resets adaptive-specific state
-    private func resetAdaptiveState() {
-        isAdaptiveTest = false
-        currentTheta = nil
-        currentSE = nil
-        itemsAdministered = 0
-        isLoadingNextQuestion = false
+        await coordinator.submitAnswerAndGetNext()
     }
 
     /// Resume an active test session
@@ -892,7 +761,17 @@ class TestTakingViewModel: BaseViewModel {
         testResult = nil
         error = nil
         resetTimeTracking()
-        resetAdaptiveState()
+        coordinator.reset()
+    }
+
+    // MARK: - Coordinator Bindings
+
+    private func setupCoordinatorBindings() {
+        coordinator.$isAdaptiveTest.assign(to: &$isAdaptiveTest)
+        coordinator.$currentTheta.assign(to: &$currentTheta)
+        coordinator.$currentSE.assign(to: &$currentSE)
+        coordinator.$itemsAdministered.assign(to: &$itemsAdministered)
+        coordinator.$isLoadingNextQuestion.assign(to: &$isLoadingNextQuestion)
     }
 
     // MARK: - Local Storage
@@ -1094,12 +973,12 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     /// Starts timing for the current question
-    private func startQuestionTiming() {
+    func startQuestionTiming() {
         currentQuestionStartTime = Date()
     }
 
     /// Records time spent on current question and prepares for next
-    private func recordCurrentQuestionTime() {
+    func recordCurrentQuestionTime() {
         guard let startTime = currentQuestionStartTime,
               let question = currentQuestion else { return }
 
@@ -1126,3 +1005,37 @@ class TestTakingViewModel: BaseViewModel {
 }
 
 // swiftlint:enable type_body_length
+
+// MARK: - AdaptiveTestCoordinatorDelegate
+
+extension TestTakingViewModel: AdaptiveTestCoordinatorDelegate {
+    func prepareForAdaptiveStart(session: TestSession, questions: [Question]) {
+        testSession = session
+        self.questions = questions
+        currentQuestionIndex = 0
+        userAnswers.removeAll()
+        stimulusSeen.removeAll()
+        isTestCompleted = false
+        resetTimeTracking()
+        startQuestionTiming()
+    }
+
+    func appendQuestionAndAdvance(_ question: Question) {
+        questions.append(question)
+        currentQuestionIndex = questions.count - 1
+        startQuestionTiming()
+        updateAnsweredIndices()
+    }
+
+    func setIsTestCompleted(_ value: Bool) {
+        isTestCompleted = value
+    }
+
+    func handleStartError(_ error: Error) {
+        if let apiError = error as? APIError {
+            handleTestStartError(apiError, questionCount: Constants.Test.defaultQuestionCount)
+        } else {
+            handleGenericTestStartError(error, questionCount: Constants.Test.defaultQuestionCount)
+        }
+    }
+}
