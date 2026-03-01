@@ -26,6 +26,7 @@ struct ErrorBanner: View {
             containerStack
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Error: \(message)")
+                .accessibilityHint("Dismiss this banner to re-enable submission")
         }
     }
 
