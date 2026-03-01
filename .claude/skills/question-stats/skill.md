@@ -21,7 +21,7 @@ Displays a breakdown of questions in the AIQ database by type and difficulty, in
 Run this Python script to query the database and display the results:
 
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python -c "
+cd question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python -c "
 import os
 import yaml
 from sqlalchemy import create_engine, text

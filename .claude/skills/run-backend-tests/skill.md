@@ -37,27 +37,27 @@ Runs pytest for the AIQ backend with proper virtual environment activation.
 
 ### Run all tests
 ```bash
-cd /Users/mattgioe/aiq/backend && source venv/bin/activate && python -m pytest -v --tb=short
+cd backend && source venv/bin/activate && python -m pytest -v --tb=short
 ```
 
 ### Run specific test file
 ```bash
-cd /Users/mattgioe/aiq/backend && source venv/bin/activate && python -m pytest tests/<test_file>.py -v --tb=short
+cd backend && source venv/bin/activate && python -m pytest tests/<test_file>.py -v --tb=short
 ```
 
 ### Run specific test class or method
 ```bash
-cd /Users/mattgioe/aiq/backend && source venv/bin/activate && python -m pytest tests/<test_file>.py::<TestClass>::<test_method> -v --tb=short
+cd backend && source venv/bin/activate && python -m pytest tests/<test_file>.py::<TestClass>::<test_method> -v --tb=short
 ```
 
 ### Run with pattern matching
 ```bash
-cd /Users/mattgioe/aiq/backend && source venv/bin/activate && python -m pytest -k "auth" -v --tb=short
+cd backend && source venv/bin/activate && python -m pytest -k "auth" -v --tb=short
 ```
 
 ### Run and stop on first failure
 ```bash
-cd /Users/mattgioe/aiq/backend && source venv/bin/activate && python -m pytest -x -v --tb=short
+cd backend && source venv/bin/activate && python -m pytest -x -v --tb=short
 ```
 
 ## Common Test Files
@@ -104,7 +104,7 @@ Run auth tests, stop on first failure.
 This means the venv wasn't activated. The skill commands above include `source venv/bin/activate` to prevent this.
 
 ### Import errors
-Ensure you're running from the `/Users/mattgioe/aiq/backend` directory.
+Ensure you're running from the `backend` directory.
 
 ### Database errors
 Some tests require database setup. Run `alembic upgrade head` if you see migration errors.

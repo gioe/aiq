@@ -46,44 +46,44 @@ Validate:
 Construct the command with only the specified arguments:
 
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --async --async-judge --verbose [additional args based on input]
+cd question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --async --async-judge --verbose [additional args based on input]
 ```
 
 **Examples:**
 
 No arguments (generate all types/difficulties):
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --count 50 --async --async-judge --verbose
+cd question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --count 50 --async --async-judge --verbose
 ```
 
 With type only:
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types math --count 50 --async --async-judge --verbose
+cd question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types math --count 50 --async --async-judge --verbose
 ```
 
 With difficulty only:
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --difficulties hard --count 50 --async --async-judge --verbose
+cd question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --difficulties hard --count 50 --async --async-judge --verbose
 ```
 
 With both:
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types spatial --difficulties easy --count 50 --async --async-judge --verbose
+cd question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types spatial --difficulties easy --count 50 --async --async-judge --verbose
 ```
 
 With provider tier (fallback):
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --provider-tier fallback --count 50 --async --async-judge --verbose
+cd question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --provider-tier fallback --count 50 --async --async-judge --verbose
 ```
 
 With type and provider tier:
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types math --provider-tier fallback --count 50 --async --async-judge --verbose
+cd question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types math --provider-tier fallback --count 50 --async --async-judge --verbose
 ```
 
 Dry run:
 ```bash
-cd /Users/mattgioe/aiq/question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types math --count 10 --async --async-judge --verbose --dry-run
+cd question-service && source venv/bin/activate && export $(grep -v '^#' .env | xargs) && python run_generation.py --types math --count 10 --async --async-judge --verbose --dry-run
 ```
 
 ### Step 3: Run and Report
