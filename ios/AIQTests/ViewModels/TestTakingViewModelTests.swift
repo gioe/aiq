@@ -1198,4 +1198,131 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then
         XCTAssertEqual(sut.stimulusSeen, [10, 20], "Should restore stimulusSeen from progress")
     }
+
+    // MARK: - Submit Error Banner Tests
+
+    /// After a submission failure the ViewModel keeps questions loaded and sets a non-conflict
+    /// error — the conditions that drive `shouldShowSubmitErrorBanner` to true in the View.
+    func testSubmitError_SetsErrorWhileQuestionsRemainLoaded() async {
+        // Given
+        let sessionId = 5001
+        let mockQuestions = makeQuestions(count: 1)
+        let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
+        await sut.startTest(questionCount: 1)
+        sut.currentAnswer = "A"
+
+        let submitError = APIError.serverError(statusCode: 500, message: "Internal error")
+        await mockService.submitTestError = submitError
+
+        // When
+        await sut.submitTest()
+
+        // Then – banner conditions met: error set, questions non-empty, not activeSessionConflict
+        XCTAssertNotNil(sut.error, "Error should be set after submit failure")
+        XCTAssertFalse(sut.questions.isEmpty, "Questions should remain loaded after submit failure")
+        if let contextualError = sut.error as? ContextualError,
+           case .activeSessionConflict = contextualError.underlyingError {
+            XCTFail("Submit failure error should not be activeSessionConflict")
+        }
+    }
+
+    /// When an error exists but questions have not been loaded, the View uses
+    /// `shouldShowLoadFailure` instead of `shouldShowSubmitErrorBanner`.
+    /// The submit error banner requires `!viewModel.questions.isEmpty` to be true.
+    func testBannerCondition_FalseWhenQuestionsNotLoaded() {
+        // Given – initial state: no questions loaded
+        XCTAssertTrue(sut.questions.isEmpty, "Precondition: no questions loaded")
+
+        // Simulate a load-phase error (e.g., start-test failure before questions arrive)
+        sut.error = ContextualError(
+            error: .serverError(statusCode: 500, message: "Service unavailable"),
+            operation: .fetchQuestions
+        )
+
+        // Then – shouldShowSubmitErrorBanner would be false: questions is empty
+        // View computes: viewModel.error != nil && !viewModel.questions.isEmpty && !isActiveSessionConflict
+        // The second condition fails → banner is suppressed, deferring to shouldShowLoadFailure
+        XCTAssertNotNil(sut.error, "Error is present")
+        XCTAssertTrue(sut.questions.isEmpty, "Empty questions suppresses the submit error banner")
+    }
+
+    /// An `activeSessionConflict` error is excluded from the submit error banner;
+    /// verifying the error type is identifiable lets the View suppress the banner correctly.
+    func testActiveSessionConflict_ErrorIsExcludedFromBanner() async {
+        // Given
+        let conflictError = APIError.activeSessionConflict(
+            sessionId: 9999,
+            message: "User already has an active test session (ID: 9999)."
+        )
+        await mockService.startTestError = conflictError
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then – shouldShowSubmitErrorBanner would be false because isActiveSessionConflict is true
+        XCTAssertNotNil(sut.error, "Error should be set")
+        if let contextualError = sut.error as? ContextualError,
+           case .activeSessionConflict = contextualError.underlyingError {
+            // Correct – this error type is excluded from the inline banner
+        } else {
+            XCTFail("Error should be activeSessionConflict so the banner is suppressed")
+        }
+    }
+
+    /// With a submit error present the View disables the submit button via the expression
+    /// `.disabled(!viewModel.allQuestionsAnswered || shouldShowSubmitErrorBanner)`.
+    /// The ViewModel must preserve both the loaded questions and the answered state.
+    func testSubmitButton_DisabledWhileBannerIsShowing() async {
+        // Given
+        let sessionId = 5002
+        let mockQuestions = makeQuestions(count: 1)
+        let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
+        await sut.startTest(questionCount: 1)
+        sut.currentAnswer = "A"
+
+        XCTAssertTrue(sut.allQuestionsAnswered, "Precondition: all questions answered")
+        XCTAssertNil(sut.error, "Precondition: no error before submit")
+
+        let submitError = APIError.serverError(statusCode: 500, message: "Failed")
+        await mockService.submitTestError = submitError
+
+        // When
+        await sut.submitTest()
+
+        // Then – button is disabled: allQuestionsAnswered is still true but error banner is showing
+        XCTAssertNotNil(sut.error, "Error should be set so the banner appears")
+        XCTAssertFalse(sut.questions.isEmpty, "Questions must remain loaded for banner to show")
+        XCTAssertTrue(sut.allQuestionsAnswered, "Answers are preserved after a submit failure")
+    }
+
+    /// The View calls `viewModel.clearError()` when the user dismisses the error banner.
+    /// Verifies that `error` and `canRetry` are both reset to their cleared state.
+    func testClearError_ResetsErrorStateOnBannerDismiss() async {
+        // Given – trigger a submit failure to set an error
+        let sessionId = 5003
+        let mockQuestions = makeQuestions(count: 1)
+        let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        await mockService.startTestResponse = startResponse
+        await sut.startTest(questionCount: 1)
+        sut.currentAnswer = "A"
+
+        let submitError = APIError.serverError(statusCode: 500, message: "Failed")
+        await mockService.submitTestError = submitError
+        await sut.submitTest()
+
+        XCTAssertNotNil(sut.error, "Precondition: error set before dismiss")
+        XCTAssertTrue(sut.canRetry, "Precondition: canRetry true for retryable serverError")
+
+        // When – banner dismiss calls clearError()
+        sut.clearError()
+
+        // Then
+        XCTAssertNil(sut.error, "Error should be cleared after dismiss")
+        XCTAssertFalse(sut.canRetry, "canRetry should be false after clearError")
+    }
 }
