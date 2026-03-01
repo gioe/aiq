@@ -71,7 +71,6 @@ class TestTimerManager: ObservableObject {
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(self)
         timer?.invalidate()
     }
 
@@ -252,20 +251,22 @@ class TestTimerManager: ObservableObject {
 
     private func setupBackgroundNotifications() {
         NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAppWillResignActive),
-            name: UIApplication.willResignActiveNotification,
-            object: nil
-        )
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.handleAppWillResignActive() }
+        }
         NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAppDidBecomeActive),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.handleAppDidBecomeActive() }
+        }
     }
 
-    @objc private func handleAppWillResignActive() {
+    private func handleAppWillResignActive() {
         // Record whether timer was running
         wasRunningBeforeBackground = timer != nil
         backgroundEntryTime = Date()
@@ -280,7 +281,7 @@ class TestTimerManager: ObservableObject {
         #endif
     }
 
-    @objc private func handleAppDidBecomeActive() {
+    private func handleAppDidBecomeActive() {
         guard wasRunningBeforeBackground else {
             backgroundEntryTime = nil
             return
