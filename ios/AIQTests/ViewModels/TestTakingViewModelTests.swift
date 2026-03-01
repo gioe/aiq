@@ -1256,6 +1256,7 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: 9999,
             message: "User already has an active test session (ID: 9999)."
         )
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
         await mockService.startTestError = conflictError
 
         // When
@@ -1263,12 +1264,12 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then – shouldShowSubmitErrorBanner would be false because isActiveSessionConflict is true
         XCTAssertNotNil(sut.error, "Error should be set")
-        if let contextualError = sut.error as? ContextualError,
-           case .activeSessionConflict = contextualError.underlyingError {
-            // Correct – this error type is excluded from the inline banner
-        } else {
+        guard let contextualError = sut.error as? ContextualError,
+              case let .activeSessionConflict(errorSessionId, _) = contextualError.underlyingError else {
             XCTFail("Error should be activeSessionConflict so the banner is suppressed")
+            return
         }
+        XCTAssertEqual(errorSessionId, 9999, "Session ID should match the conflict error")
     }
 
     /// With a submit error present the View disables the submit button via the expression
