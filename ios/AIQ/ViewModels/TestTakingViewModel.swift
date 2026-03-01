@@ -528,22 +528,6 @@ class TestTakingViewModel: BaseViewModel {
         }
     }
 
-    /// Show recovery alert for active session conflict
-    /// - Parameter sessionId: The ID of the conflicting session
-    private func showActiveSessionRecoveryAlert(sessionId: Int) async {
-        // This will be handled by the view layer
-        // The view should observe the error state and show an appropriate alert
-        let error = APIError.activeSessionConflict(
-            sessionId: sessionId,
-            message: "viewmodel.test.resume.or.abandon".localized
-        )
-
-        self.error = ContextualError(
-            error: error,
-            operation: .fetchQuestions
-        )
-    }
-
     /// Locks the test to prevent further answer modifications.
     /// Called when the timer expires to prevent race conditions.
     func lockAnswers() {
