@@ -18,6 +18,26 @@ Enum column note (TASK-1238):
   TestStatus, NotificationType, GenerationRunStatus, EducationLevel,
   FeedbackCategory, FeedbackStatus) back native PostgreSQL enum types created by
   migrations; no String(N) override is needed for them.
+
+Enum case note (TASK-1247):
+  The older migrations (questiontype, difficultylevel, teststatus,
+  generationrunstatus, educationlevel) created PostgreSQL enum types with
+  UPPERCASE labels (e.g. 'EASY', 'PATTERN'), while the Python enum members have
+  lowercase .value strings (e.g. DifficultyLevel.EASY.value == 'easy').
+
+  This is NOT a bug. SQLAlchemy's Enum() type uses the Python enum member's
+  .name attribute — not .value — as the PostgreSQL enum label. So
+  Enum(DifficultyLevel).enums == ['EASY', 'MEDIUM', 'HARD'] (the member names),
+  which matches the labels in the native PG type exactly. Reads and writes both
+  go through the member name, so there are no runtime insert errors and alembic
+  check emits no false ALTER TYPE statements for these columns.
+
+  The newer migrations (feedbackcategory, feedbackstatus) happened to use
+  lowercase labels that also match their member names, so they are consistent
+  by coincidence.
+
+  Practical implication: raw SQL against these columns must use UPPERCASE
+  literals ('EASY', not 'easy'). Python ORM code is unaffected.
 """
 
 from datetime import datetime
