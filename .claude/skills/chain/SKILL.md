@@ -148,24 +148,25 @@ Read the agents' output files to capture any final messages.
 
 Repeat the following until the chain is complete:
 
-### 4a. Get the Frontier
+### 4a. Get Frontier and Check Termination
 
 ```bash
-tusk chain frontier <head_task_id1> [<head_task_id2> ...]
+tusk chain frontier-check <head_task_id1> [<head_task_id2> ...]
 ```
 
-Parse the returned JSON. The `frontier` array contains tasks that are `To Do` with all dependencies met within the union scope.
+Parse the returned JSON. It has two fields:
+- `status` — one of `complete`, `stuck`, or `continue`
+- `frontier` — array of ready tasks (non-empty only when `status=continue`)
 
-### 4b. Check Termination
+### 4b. Branch on Status
 
-If `frontier` is empty:
-
-```bash
-tusk chain status <head_task_id1> [<head_task_id2> ...]
-```
-
-- If all scope tasks are Done: **break** — chain is complete, go to Step 5.
-- If tasks remain but no frontier exists: the chain is **stuck**. Display the status output showing which tasks are blocked, and ask the user how to proceed.
+- **`complete`**: all tasks in the subgraph are Done — **break** out of the wave loop and go to Step 5.
+- **`stuck`**: tasks remain but no ready tasks exist in the frontier. Display the chain status for context:
+  ```bash
+  tusk chain status <head_task_id1> [<head_task_id2> ...]
+  ```
+  Show the output to the user and ask how to proceed.
+- **`continue`**: the `frontier` array contains at least one ready task — proceed to Step 4c.
 
 ### 4c. Spawn Parallel Agents
 
@@ -246,28 +247,18 @@ After all waves are complete, do a single VERSION bump and CHANGELOG update cove
    ```
    Filter to tasks with status = Done that were completed during this chain run.
 
-2. Read the current VERSION and CHANGELOG:
+2. Bump VERSION and update CHANGELOG in one step each:
    ```bash
-   cat VERSION
-   cat CHANGELOG.md | head -20
+   new_version=$(tusk version-bump)
+   tusk changelog-add $new_version <task_id1> [<task_id2> ...]
    ```
+   `tusk version-bump` reads VERSION, increments by 1, writes it back, stages it, and prints the new version number.
+   `tusk changelog-add` prepends a dated `## [N] - YYYY-MM-DD` heading to CHANGELOG.md with a bullet for each task ID, stages CHANGELOG.md, then outputs the inserted block to stdout for review.
 
-3. Increment VERSION by 1 and add a CHANGELOG entry under a new version heading. The entry should list all completed chain tasks:
-   ```markdown
-   ## [<new_version>] - <YYYY-MM-DD>
-
-   ### Added/Changed/Fixed
-   - [TASK-<id>] <summary>
-   - [TASK-<id>] <summary>
-   ...
-   ```
-
-4. Commit, push, and merge:
+3. Review the changelog output, then commit, push, and merge:
    ```bash
    git checkout main && git pull origin main
    git checkout -b chore/chain-<head_task_ids>-version-bump
-   # Write VERSION and CHANGELOG.md
-   git add VERSION CHANGELOG.md
    git commit -m "Bump VERSION to <new_version> for chain <head_task_ids>"
    git push -u origin chore/chain-<head_task_ids>-version-bump
    gh pr create --base main --title "Bump VERSION to <new_version> (chain <head_task_ids>)" --body "Consolidates VERSION bump for all tasks completed in chain <head_task_ids>."

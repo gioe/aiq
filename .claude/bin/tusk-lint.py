@@ -520,10 +520,10 @@ def rule15_big_bang_commits(root):
     return violations
 
 
-def rule13_version_bump_missing(root):
-    """bin/tusk-*.py modified in working tree or recent commits without VERSION bump.
+def _version_bump_check(root, path_re, label):
+    """Shared helper: check if files matching path_re were modified without a VERSION bump.
 
-    Advisory only — violations are printed but do not contribute to the exit code.
+    Advisory only — caller is responsible for not counting violations toward exit code.
     """
     violations = []
 
@@ -541,8 +541,6 @@ def rule13_version_bump_missing(root):
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return []
 
-    script_re = re.compile(r"^bin/tusk-.+\.py$")
-
     def read_version():
         try:
             with open(os.path.join(root, "VERSION"), encoding="utf-8") as f:
@@ -551,7 +549,7 @@ def rule13_version_bump_missing(root):
             return "unknown"
 
     # --- Part A: Uncommitted changes (staged or unstaged) ---
-    dirty_scripts = []
+    dirty_files = []
     version_dirty = False
     try:
         r = subprocess.run(
@@ -570,15 +568,15 @@ def rule13_version_bump_missing(root):
                 # Exclude untracked files (??) — they're not yet part of the project
                 if xy.strip() and xy != "??" and path == "VERSION":
                     version_dirty = True
-                if xy.strip() and xy != "??" and script_re.match(path):
-                    dirty_scripts.append(path)
+                if xy.strip() and xy != "??" and path_re.match(path):
+                    dirty_files.append(path)
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
-    if dirty_scripts and not version_dirty:
+    if dirty_files and not version_dirty:
         ver = read_version()
-        for s in sorted(dirty_scripts):
-            violations.append(f"  Uncommitted: VERSION={ver}, script modified without VERSION bump: {s}")
+        for s in sorted(dirty_files):
+            violations.append(f"  Uncommitted: VERSION={ver}, {label} modified without VERSION bump: {s}")
 
     # --- Part B: Committed changes since last VERSION bump ---
     # Skip if VERSION is currently dirty (user is already in the process of bumping it)
@@ -596,20 +594,39 @@ def rule13_version_bump_missing(root):
                 )
                 if r2.returncode == 0:
                     changed = r2.stdout.splitlines()
-                    committed_scripts = [p for p in changed if script_re.match(p)]
+                    committed_files = [p for p in changed if path_re.match(p)]
                     # No need to check if VERSION is in the diff — last_ver_commit is by
                     # definition the most recent commit that touched VERSION, so nothing
                     # between it and HEAD can contain another VERSION change.
-                    if committed_scripts:
+                    if committed_files:
                         ver = read_version()
-                        for s in sorted(committed_scripts):
+                        for s in sorted(committed_files):
                             violations.append(
-                                f"  Committed since last VERSION bump: VERSION={ver}, script modified without VERSION bump: {s}"
+                                f"  Committed since last VERSION bump: VERSION={ver}, {label} modified without VERSION bump: {s}"
                             )
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
 
     return violations
+
+
+def rule13_version_bump_missing(root):
+    """bin/tusk-*.py modified in working tree or recent commits without VERSION bump.
+
+    Advisory only — violations are printed but do not contribute to the exit code.
+    """
+    return _version_bump_check(root, re.compile(r"^bin/tusk-.+\.py$"), "script")
+
+
+def rule20_skills_version_bump_missing(root):
+    """skills/ file modified in working tree or recent commits without VERSION bump.
+
+    Advisory only — violations are printed but do not contribute to the exit code.
+    skills-internal/ is excluded: those files are not distributed to target projects.
+    """
+    if not os.path.isfile(os.path.join(root, "bin", "tusk")):
+        return []
+    return _version_bump_check(root, re.compile(r"^skills/"), "skill")
 
 
 # ── DB-backed rules ──────────────────────────────────────────────────
@@ -760,6 +777,48 @@ def rule18_manifest_drift(root):
     return violations
 
 
+def rule19_tusk_manifest_json_sync(root):
+    """.claude/tusk-manifest.json must have identical entries to MANIFEST."""
+    # This rule is only meaningful in the tusk source repo.  Target projects
+    # don't have a MANIFEST file.  Mirror rule8's guard.
+    if not os.path.isfile(os.path.join(root, "bin", "tusk")):
+        return []
+
+    manifest_path = os.path.join(root, "MANIFEST")
+    tusk_manifest_path = os.path.join(root, ".claude", "tusk-manifest.json")
+
+    if not os.path.isfile(manifest_path):
+        return ["  MANIFEST file not found"]
+
+    if not os.path.isfile(tusk_manifest_path):
+        return ["  .claude/tusk-manifest.json file not found"]
+
+    try:
+        with open(manifest_path, encoding="utf-8") as f:
+            manifest = set(json.load(f))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"  MANIFEST could not be parsed: {exc}"]
+
+    try:
+        with open(tusk_manifest_path, encoding="utf-8") as f:
+            tusk_manifest = set(json.load(f))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"  .claude/tusk-manifest.json could not be parsed: {exc}"]
+
+    violations = []
+    for path in sorted(manifest - tusk_manifest):
+        violations.append(
+            f"  MANIFEST has '{path}' but .claude/tusk-manifest.json does not"
+            " (run bin/tusk-generate-manifest.py to regenerate both files)"
+        )
+    for path in sorted(tusk_manifest - manifest):
+        violations.append(
+            f"  .claude/tusk-manifest.json has '{path}' but MANIFEST does not"
+            " (run bin/tusk-generate-manifest.py to regenerate both files)"
+        )
+    return violations
+
+
 # ── Main ─────────────────────────────────────────────────────────────
 
 # Each entry: (display_name, check_function, advisory)
@@ -784,6 +843,8 @@ RULES = [
     ("Rule 16: DB-backed blocking lint rules", rule16_db_rules_blocking, False),
     ("Rule 17: DB-backed advisory lint rules (advisory)", rule17_db_rules_advisory, True),
     ("Rule 18: MANIFEST drift from source tree", rule18_manifest_drift, False),
+    ("Rule 19: .claude/tusk-manifest.json out of sync with MANIFEST", rule19_tusk_manifest_json_sync, False),
+    ("Rule 20: skills/ file modified without VERSION bump (advisory)", rule20_skills_version_bump_missing, True),
 ]
 
 

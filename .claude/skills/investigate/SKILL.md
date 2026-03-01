@@ -8,6 +8,16 @@ allowed-tools: Bash, Read, Glob, Grep, Task, Write, EnterPlanMode
 
 Scopes a problem through structured codebase research, then proposes concrete remediation tasks for later work. **This skill is investigation-only — it never modifies files, runs tests, or implements anything.** All output feeds into `/create-task`.
 
+## Step 0: Start Cost Tracking
+
+Record the start of this investigation so cost can be captured at the end:
+
+```bash
+tusk skill-run start investigate
+```
+
+This prints `{"run_id": N, "started_at": "..."}`. Capture `run_id` — you will need it in Step 8.
+
 ## Step 1: Capture the Problem
 
 The user provides a problem statement after `/investigate`. It could be:
@@ -112,6 +122,8 @@ Wait for the user to review. They may:
 
 ## Step 7: Create Tasks via /create-task
 
+> **Note:** Keep the `run_id` from Step 0 in context — you will need it after `/create-task` completes in Step 8.
+
 Once the user approves, pass the proposed remediation tasks to the `/create-task` workflow. Read the skill:
 
 ```
@@ -124,6 +136,22 @@ Follow its instructions from **Step 1**, using the Proposed Remediation section 
 - Duplicate detection
 - Metadata assignment (priority, domain, task_type, complexity, assignee)
 - Dependency proposals
+
+## Step 8: Finish Cost Tracking
+
+Record cost for this investigation run. Replace `<run_id>` with the value captured in Step 0, `<N>` with the number of tasks proposed in your Investigation Report (Step 5), and `<M>` with the number of tasks actually created by `/create-task` (Step 7). If the user declined to create tasks, set `<M>` to 0.
+
+```bash
+tusk skill-run finish <run_id> --metadata '{"tasks_proposed":<N>,"tasks_created":<M>}'
+```
+
+This reads the Claude Code transcript for the time window of this run and stores token counts, estimated cost, and productivity metadata in the `skill_runs` table. Note that the captured window covers the full session — including both the investigation phase and the `/create-task` workflow — so the reported cost reflects the entire `/investigate` invocation.
+
+To view cost history across all investigate runs:
+
+```bash
+tusk skill-run list investigate
+```
 
 ## Hard Constraints
 
