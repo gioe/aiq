@@ -56,7 +56,7 @@ extension TestTakingViewModel {
             }
         }
 
-        questions = allQuestions
+        navigationState.questions = allQuestions
         testSession = MockDataFactory.makeTestSession(
             id: 1,
             userId: 1,

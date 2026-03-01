@@ -80,7 +80,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(sut.error, "Error should be set")
-        XCTAssertTrue(sut.questions.isEmpty, "Questions should be empty after a non-conflict start failure")
+        XCTAssertTrue(sut.navigationState.questions.isEmpty, "Questions should be empty after a non-conflict start failure")
         if let contextualError = sut.error as? ContextualError,
            case .activeSessionConflict = contextualError.underlyingError {
             XCTFail("Error should not be activeSessionConflict")
@@ -111,7 +111,7 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertEqual(lastSessionId, sessionId, "Should call with correct session ID")
         XCTAssertNotNil(sut.testSession, "Test session should be set")
         XCTAssertEqual(sut.testSession?.id, sessionId, "Session ID should match")
-        XCTAssertEqual(sut.questions.count, 2, "Should have 2 questions")
+        XCTAssertEqual(sut.navigationState.questions.count, 2, "Should have 2 questions")
         XCTAssertFalse(sut.isLoading, "Loading should be false")
         XCTAssertNil(sut.error, "Error should be nil")
         XCTAssertFalse(sut.isTestCompleted, "Test should not be completed")
@@ -149,9 +149,9 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then
         XCTAssertTrue(mockAnswerStorage.loadProgressCalled, "Should load saved progress")
-        XCTAssertEqual(sut.userAnswers.count, 1, "Should restore 1 saved answer")
-        XCTAssertEqual(sut.userAnswers[10], "A", "Should restore correct answer")
-        XCTAssertEqual(sut.currentQuestionIndex, 1, "Should restore question index to first unanswered")
+        XCTAssertEqual(sut.navigationState.userAnswers.count, 1, "Should restore 1 saved answer")
+        XCTAssertEqual(sut.navigationState.userAnswers[10], "A", "Should restore correct answer")
+        XCTAssertEqual(sut.navigationState.currentQuestionIndex, 1, "Should restore question index to first unanswered")
     }
 
     func testResumeActiveSession_StartsFromBeginningWithNoSavedProgress() async {
@@ -170,8 +170,8 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then
         XCTAssertTrue(mockAnswerStorage.loadProgressCalled, "Should check for saved progress")
-        XCTAssertEqual(sut.currentQuestionIndex, 0, "Should start from beginning")
-        XCTAssertEqual(sut.userAnswers.count, 0, "Should have no answers")
+        XCTAssertEqual(sut.navigationState.currentQuestionIndex, 0, "Should start from beginning")
+        XCTAssertEqual(sut.navigationState.userAnswers.count, 0, "Should have no answers")
     }
 
     func testResumeActiveSession_HandlesNoQuestionsError() async {
@@ -197,7 +197,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then
         XCTAssertFalse(sut.isLoading, "Loading should be false")
         XCTAssertNotNil(sut.error, "Error should be set")
-        XCTAssertTrue(sut.questions.isEmpty, "Questions should be empty")
+        XCTAssertTrue(sut.navigationState.questions.isEmpty, "Questions should be empty")
     }
 
     func testResumeActiveSession_HandlesAPIError() async {
@@ -213,7 +213,7 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertFalse(sut.isLoading, "Loading should be false")
         XCTAssertNotNil(sut.error, "Error should be set")
         XCTAssertNil(sut.testSession, "Test session should be nil")
-        XCTAssertTrue(sut.questions.isEmpty, "Questions should be empty")
+        XCTAssertTrue(sut.navigationState.questions.isEmpty, "Questions should be empty")
     }
 
     // MARK: - Abandon and Start New Tests
@@ -250,7 +250,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Verify the new test was started successfully
         XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
-        XCTAssertEqual(sut.questions.count, 1, "Should have new questions")
+        XCTAssertEqual(sut.navigationState.questions.count, 1, "Should have new questions")
         XCTAssertFalse(sut.isLoading, "Loading should be false")
         XCTAssertNil(sut.error, "Should have no error")
     }
@@ -305,7 +305,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Verify the new test was started successfully
         XCTAssertEqual(sut.testSession?.id, newSessionId, "Should have new session")
-        XCTAssertEqual(sut.questions.count, 1, "Should have new questions")
+        XCTAssertEqual(sut.navigationState.questions.count, 1, "Should have new questions")
         XCTAssertFalse(sut.isLoading, "Loading should be false")
         XCTAssertNil(sut.error, "Should have no error")
     }
@@ -424,9 +424,9 @@ final class TestTakingViewModelTests: XCTestCase {
         await sut.resumeActiveSession(sessionId: sessionId)
 
         // Then
-        XCTAssertEqual(sut.userAnswers.count, 1, "Should only restore valid answers")
-        XCTAssertEqual(sut.userAnswers[1], "A", "Should restore answer for question 1")
-        XCTAssertNil(sut.userAnswers[3], "Should not restore answer for question 3")
+        XCTAssertEqual(sut.navigationState.userAnswers.count, 1, "Should only restore valid answers")
+        XCTAssertEqual(sut.navigationState.userAnswers[1], "A", "Should restore answer for question 1")
+        XCTAssertNil(sut.navigationState.userAnswers[3], "Should not restore answer for question 3")
     }
 
     // MARK: - Test Factory Methods
@@ -729,7 +729,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Set an initial answer
         sut.currentAnswer = "A"
         XCTAssertEqual(
-            sut.userAnswers[mockQuestions[0].id],
+            sut.navigationState.userAnswers[mockQuestions[0].id],
             "A",
             "Answer should be set initially"
         )
@@ -742,7 +742,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then - Answer should not change
         XCTAssertEqual(
-            sut.userAnswers[mockQuestions[0].id],
+            sut.navigationState.userAnswers[mockQuestions[0].id],
             "A",
             "Answer should not change when locked"
         )
@@ -1074,7 +1074,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
     func testStimulusSeen_InitiallyEmpty() {
         // Then
-        XCTAssertTrue(sut.stimulusSeen.isEmpty, "stimulusSeen should be empty initially")
+        XCTAssertTrue(sut.navigationState.stimulusSeen.isEmpty, "stimulusSeen should be empty initially")
     }
 
     func testMarkStimulusSeen_AddsQuestionId() {
@@ -1092,7 +1092,7 @@ final class TestTakingViewModelTests: XCTestCase {
         sut.markStimulusSeen(for: 42)
 
         // Then
-        XCTAssertEqual(sut.stimulusSeen.count, 1, "Should not duplicate entries")
+        XCTAssertEqual(sut.navigationState.stimulusSeen.count, 1, "Should not duplicate entries")
         XCTAssertTrue(sut.hasStimulusSeen(for: 42))
     }
 
@@ -1103,7 +1103,7 @@ final class TestTakingViewModelTests: XCTestCase {
         sut.markStimulusSeen(for: 10)
 
         // Then
-        XCTAssertEqual(sut.stimulusSeen.count, 3)
+        XCTAssertEqual(sut.navigationState.stimulusSeen.count, 3)
         XCTAssertTrue(sut.hasStimulusSeen(for: 1))
         XCTAssertTrue(sut.hasStimulusSeen(for: 5))
         XCTAssertTrue(sut.hasStimulusSeen(for: 10))
@@ -1114,19 +1114,19 @@ final class TestTakingViewModelTests: XCTestCase {
         // Given
         sut.markStimulusSeen(for: 1)
         sut.markStimulusSeen(for: 2)
-        XCTAssertEqual(sut.stimulusSeen.count, 2)
+        XCTAssertEqual(sut.navigationState.stimulusSeen.count, 2)
 
         // When
         sut.resetTest()
 
         // Then
-        XCTAssertTrue(sut.stimulusSeen.isEmpty, "stimulusSeen should be cleared on reset")
+        XCTAssertTrue(sut.navigationState.stimulusSeen.isEmpty, "stimulusSeen should be cleared on reset")
     }
 
     func testStimulusSeen_ClearedOnStartNewTest() async {
         // Given
         sut.markStimulusSeen(for: 1)
-        XCTAssertFalse(sut.stimulusSeen.isEmpty)
+        XCTAssertFalse(sut.navigationState.stimulusSeen.isEmpty)
 
         let sessionId = 4001
         let mockQuestions = makeQuestions(count: 2)
@@ -1141,7 +1141,7 @@ final class TestTakingViewModelTests: XCTestCase {
         await sut.startTest(questionCount: 20)
 
         // Then
-        XCTAssertTrue(sut.stimulusSeen.isEmpty, "stimulusSeen should be cleared when starting new test")
+        XCTAssertTrue(sut.navigationState.stimulusSeen.isEmpty, "stimulusSeen should be cleared when starting new test")
     }
 
     func testStimulusSeen_RestoredFromSavedProgress() async {
@@ -1177,7 +1177,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then
         XCTAssertTrue(sut.hasStimulusSeen(for: 10), "Should restore stimulus seen for question 10")
         XCTAssertFalse(sut.hasStimulusSeen(for: 20), "Question 20 stimulus should not be marked seen")
-        XCTAssertEqual(sut.stimulusSeen.count, 1)
+        XCTAssertEqual(sut.navigationState.stimulusSeen.count, 1)
     }
 
     func testRestoreProgress_RestoresStimulusSeen() {
@@ -1197,7 +1197,7 @@ final class TestTakingViewModelTests: XCTestCase {
         sut.restoreProgress(progress)
 
         // Then
-        XCTAssertEqual(sut.stimulusSeen, [10, 20], "Should restore stimulusSeen from progress")
+        XCTAssertEqual(sut.navigationState.stimulusSeen, [10, 20], "Should restore stimulusSeen from progress")
     }
 
     // MARK: - Submit Error Banner Tests
@@ -1222,7 +1222,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then – banner conditions met: error set, questions non-empty, not activeSessionConflict
         XCTAssertNotNil(sut.error, "Error should be set after submit failure")
-        XCTAssertFalse(sut.questions.isEmpty, "Questions should remain loaded after submit failure")
+        XCTAssertFalse(sut.navigationState.questions.isEmpty, "Questions should remain loaded after submit failure")
         XCTAssertTrue(sut.shouldShowSubmitErrorBanner, "Submit error banner should be showing after submit failure")
     }
 
@@ -1231,7 +1231,7 @@ final class TestTakingViewModelTests: XCTestCase {
     /// The submit error banner requires `!viewModel.questions.isEmpty` to be true.
     func testBannerCondition_FalseWhenQuestionsNotLoaded() {
         // Given – initial state: no questions loaded
-        XCTAssertTrue(sut.questions.isEmpty, "Precondition: no questions loaded")
+        XCTAssertTrue(sut.navigationState.questions.isEmpty, "Precondition: no questions loaded")
 
         // Simulate a load-phase error (e.g., start-test failure before questions arrive)
         sut.error = ContextualError(
@@ -1243,7 +1243,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // error != nil && !questions.isEmpty && !isActiveSessionConflict
         // The second condition fails → banner is suppressed, deferring to shouldShowLoadFailure
         XCTAssertNotNil(sut.error, "Error is present")
-        XCTAssertTrue(sut.questions.isEmpty, "Empty questions suppresses the submit error banner")
+        XCTAssertTrue(sut.navigationState.questions.isEmpty, "Empty questions suppresses the submit error banner")
         XCTAssertFalse(sut.shouldShowSubmitErrorBanner, "Banner should not show when questions are not loaded")
     }
 
@@ -1297,7 +1297,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then – button is disabled: allQuestionsAnswered is still true but error banner is showing
         XCTAssertNotNil(sut.error, "Error should be set so the banner appears")
-        XCTAssertFalse(sut.questions.isEmpty, "Questions must remain loaded for banner to show")
+        XCTAssertFalse(sut.navigationState.questions.isEmpty, "Questions must remain loaded for banner to show")
         XCTAssertTrue(sut.allQuestionsAnswered, "Answers are preserved after a submit failure")
         XCTAssertTrue(sut.shouldShowSubmitErrorBanner, "Banner should be showing, disabling the submit button")
     }
@@ -1371,7 +1371,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then
         XCTAssertEqual(sut.resumeIntent, .expiredProgress, "Should signal expired progress")
-        XCTAssertEqual(sut.userAnswers[1], "A", "Should have restored saved answers")
+        XCTAssertEqual(sut.navigationState.userAnswers[1], "A", "Should have restored saved answers")
         let startTestCalled = await mockService.startTestCalled
         XCTAssertFalse(startTestCalled, "Should not call startTest for expired progress")
     }
@@ -1442,9 +1442,9 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then
         XCTAssertEqual(sut.resumeIntent, .none, "resumeIntent should be cleared")
-        XCTAssertEqual(sut.userAnswers[10], "C", "Should have restored answer for q10")
-        XCTAssertEqual(sut.userAnswers[20], "D", "Should have restored answer for q20")
-        XCTAssertEqual(sut.currentQuestionIndex, 1, "Should have restored question index")
+        XCTAssertEqual(sut.navigationState.userAnswers[10], "C", "Should have restored answer for q10")
+        XCTAssertEqual(sut.navigationState.userAnswers[20], "D", "Should have restored answer for q20")
+        XCTAssertEqual(sut.navigationState.currentQuestionIndex, 1, "Should have restored question index")
     }
 
     func testDismissResumePrompt_clearsPendingProgressAndIntent() async {

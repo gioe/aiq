@@ -69,7 +69,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertTrue(startTestCalled, "API should be called")
         XCTAssertNotNil(testTakingViewModel.testSession, "Test session should be set")
         XCTAssertEqual(testTakingViewModel.testSession?.id, 100, "Session ID should match")
-        XCTAssertEqual(testTakingViewModel.questions.count, 3, "Should have 3 questions")
+        XCTAssertEqual(testTakingViewModel.navigationState.questions.count, 3, "Should have 3 questions")
         XCTAssertFalse(testTakingViewModel.isLoading, "Loading should be false")
         XCTAssertNil(testTakingViewModel.error, "Should have no error")
     }
@@ -158,8 +158,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(lastGetTestSessionId, sessionId, "Should call getTestSession with correct sessionId")
         XCTAssertNotNil(testTakingViewModel.testSession, "Test session should be set")
         XCTAssertEqual(testTakingViewModel.testSession?.id, sessionId, "Session ID should match")
-        XCTAssertEqual(testTakingViewModel.questions.count, 5, "Should have 5 questions")
-        XCTAssertEqual(testTakingViewModel.currentQuestionIndex, 0, "Should start from first question")
+        XCTAssertEqual(testTakingViewModel.navigationState.questions.count, 5, "Should have 5 questions")
+        XCTAssertEqual(testTakingViewModel.navigationState.currentQuestionIndex, 0, "Should start from first question")
         XCTAssertFalse(testTakingViewModel.isLoading, "Loading should be false")
         XCTAssertNil(testTakingViewModel.error, "Should have no error")
     }
@@ -219,11 +219,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // Then - Saved progress is restored
         XCTAssertTrue(mockAnswerStorage.loadProgressCalled, "Should load saved progress")
-        XCTAssertEqual(testTakingViewModel.userAnswers.count, 2, "Should restore 2 saved answers")
-        XCTAssertEqual(testTakingViewModel.userAnswers[10], "A", "Should restore answer 1")
-        XCTAssertEqual(testTakingViewModel.userAnswers[20], "B", "Should restore answer 2")
-        XCTAssertEqual(testTakingViewModel.currentQuestionIndex, 2, "Should restore to question 3")
-        XCTAssertEqual(testTakingViewModel.questions.count, 3, "Should have all questions")
+        XCTAssertEqual(testTakingViewModel.navigationState.userAnswers.count, 2, "Should restore 2 saved answers")
+        XCTAssertEqual(testTakingViewModel.navigationState.userAnswers[10], "A", "Should restore answer 1")
+        XCTAssertEqual(testTakingViewModel.navigationState.userAnswers[20], "B", "Should restore answer 2")
+        XCTAssertEqual(testTakingViewModel.navigationState.currentQuestionIndex, 2, "Should restore to question 3")
+        XCTAssertEqual(testTakingViewModel.navigationState.questions.count, 3, "Should have all questions")
     }
 
     // MARK: - Test 3: Abandoning Test from Dashboard
@@ -419,7 +419,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(lastGetTestSessionId, sessionId, "Should call getTestSession with correct sessionId")
         XCTAssertNotNil(testTakingViewModel.testSession, "Test session should be set")
         XCTAssertEqual(testTakingViewModel.testSession?.id, sessionId, "Session ID should match")
-        XCTAssertEqual(testTakingViewModel.questions.count, 4, "Should have 4 questions")
+        XCTAssertEqual(testTakingViewModel.navigationState.questions.count, 4, "Should have 4 questions")
         XCTAssertNil(testTakingViewModel.error, "Error should be cleared")
     }
 
@@ -472,7 +472,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertTrue(getTestHistoryCalled, "Should call getTestHistory")
         XCTAssertTrue(startTestCalled, "Should call startTest")
         XCTAssertEqual(testTakingViewModel.testSession?.id, newSessionId, "Should have new session")
-        XCTAssertEqual(testTakingViewModel.questions.count, 3, "Should have new questions")
+        XCTAssertEqual(testTakingViewModel.navigationState.questions.count, 3, "Should have new questions")
         XCTAssertNil(testTakingViewModel.error, "Error should be cleared")
     }
 
@@ -581,8 +581,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         await testTakingViewModel.startTest(questionCount: 2)
 
         // Simulate answering all questions and submitting
-        testTakingViewModel.userAnswers[mockQuestions[0].id] = "A"
-        testTakingViewModel.userAnswers[mockQuestions[1].id] = "B"
+        testTakingViewModel.navigationState.userAnswers[mockQuestions[0].id] = "A"
+        testTakingViewModel.navigationState.userAnswers[mockQuestions[1].id] = "B"
 
         // Reset and set up submit response
         await mockService.reset()

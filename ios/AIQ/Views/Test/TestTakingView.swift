@@ -27,7 +27,7 @@ struct TestTakingView: View {
 
     /// True when startTest failed and the full-page error state should be shown
     private var shouldShowLoadFailure: Bool {
-        !viewModel.isLoading && viewModel.questions.isEmpty
+        !viewModel.isLoading && viewModel.navigationState.questions.isEmpty
             && viewModel.error != nil && !viewModel.isActiveSessionConflict
     }
 
@@ -45,7 +45,7 @@ struct TestTakingView: View {
             if viewModel.isTestCompleted {
                 TestCompletionView(
                     answeredCount: viewModel.answeredCount,
-                    totalQuestions: viewModel.questions.count,
+                    totalQuestions: viewModel.navigationState.questions.count,
                     onViewResults: {
                         if let result = viewModel.testResult {
                             router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
@@ -62,7 +62,7 @@ struct TestTakingView: View {
             }
 
             // Loading overlay for initial test fetch
-            if viewModel.isLoading && viewModel.questions.isEmpty {
+            if viewModel.isLoading && viewModel.navigationState.questions.isEmpty {
                 LoadingOverlay(message: "Preparing your test...")
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
                     .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.loadingOverlay)
@@ -292,13 +292,16 @@ struct TestTakingView: View {
             #if DEBUG
                 // Debug indicator for test mode - shows question count and loading state
                 HStack {
-                    let qCount = viewModel.questions.count
+                    let qCount = viewModel.navigationState.questions.count
                     let loadState = viewModel.isLoading ? "Y" : "N"
                     let mockState = MockModeDetector.isMockMode ? "Y" : "N"
                     Text("Q:\(qCount) L:\(loadState) M:\(mockState)")
                         .font(.caption)
                         .padding(4)
-                        .background(viewModel.questions.isEmpty ? Color.red.opacity(0.3) : Color.green.opacity(0.3))
+                        .background(
+                            viewModel.navigationState.questions.isEmpty
+                                ? Color.red.opacity(0.3) : Color.green.opacity(0.3)
+                        )
                         .cornerRadius(4)
                         .accessibilityIdentifier("testTakingView.debugState")
                 }
@@ -340,9 +343,9 @@ struct TestTakingView: View {
             // Collapsible question navigation grid
             if showQuestionGrid {
                 QuestionNavigationGrid(
-                    totalQuestions: viewModel.questions.count,
-                    currentQuestionIndex: viewModel.currentQuestionIndex,
-                    answeredQuestionIndices: viewModel.answeredQuestionIndices,
+                    totalQuestions: viewModel.navigationState.questions.count,
+                    currentQuestionIndex: viewModel.navigationState.currentQuestionIndex,
+                    answeredQuestionIndices: viewModel.navigationState.answeredQuestionIndices,
                     onQuestionTap: { index in
                         withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
                             viewModel.goToQuestion(at: index)
@@ -361,8 +364,8 @@ struct TestTakingView: View {
                             // Memory questions use a two-phase view (stimulus then question)
                             MemoryQuestionView(
                                 question: question,
-                                questionNumber: viewModel.currentQuestionIndex + 1,
-                                totalQuestions: viewModel.questions.count,
+                                questionNumber: viewModel.navigationState.currentQuestionIndex + 1,
+                                totalQuestions: viewModel.navigationState.questions.count,
                                 userAnswer: Binding(
                                     get: { viewModel.currentAnswer },
                                     set: { viewModel.currentAnswer = $0 }
@@ -425,7 +428,8 @@ struct TestTakingView: View {
             HStack {
                 TestTimerView(timerManager: timerManager)
                 Spacer()
-                Text("\(viewModel.currentQuestionIndex + 1)/\(viewModel.questions.count)")
+                let nav = viewModel.navigationState
+                Text("\(nav.currentQuestionIndex + 1)/\(nav.questions.count)")
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressLabel)
@@ -447,10 +451,11 @@ struct TestTakingView: View {
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionNavigationGrid)
             }
 
-            let allAnswered = viewModel.answeredCount == viewModel.questions.count && !viewModel.questions.isEmpty
+            let questions = viewModel.navigationState.questions
+            let allAnswered = viewModel.answeredCount == questions.count && !questions.isEmpty
             ProgressView(
                 value: Double(viewModel.answeredCount),
-                total: Double(max(viewModel.questions.count, 1))
+                total: Double(max(viewModel.navigationState.questions.count, 1))
             )
             .tint(allAnswered ? .green : .accentColor)
         }

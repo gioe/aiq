@@ -71,8 +71,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         XCTAssertTrue(sut.isAdaptiveTest, "Should be in adaptive mode")
         XCTAssertNotNil(sut.testSession, "Session should be set")
         XCTAssertEqual(sut.testSession?.id, sessionId)
-        XCTAssertEqual(sut.questions.count, 1, "Should have exactly 1 question")
-        XCTAssertEqual(sut.currentQuestionIndex, 0)
+        XCTAssertEqual(sut.navigationState.questions.count, 1, "Should have exactly 1 question")
+        XCTAssertEqual(sut.navigationState.currentQuestionIndex, 0)
         XCTAssertEqual(sut.currentTheta, 0.0)
         XCTAssertEqual(sut.currentSE, 1.0)
         XCTAssertEqual(sut.itemsAdministered, 1)
@@ -140,8 +140,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         await sut.startAdaptiveTest()
 
         // Then
-        XCTAssertTrue(sut.stimulusSeen.isEmpty, "Should clear stimulus state")
-        XCTAssertTrue(sut.userAnswers.isEmpty, "Should clear answers")
+        XCTAssertTrue(sut.navigationState.stimulusSeen.isEmpty, "Should clear stimulus state")
+        XCTAssertTrue(sut.navigationState.userAnswers.isEmpty, "Should clear answers")
     }
 
     // MARK: - Submit Answer and Get Next Tests
@@ -170,8 +170,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         // Then
         let submitCalled = await mockService.submitAdaptiveResponseCalled
         XCTAssertTrue(submitCalled)
-        XCTAssertEqual(sut.questions.count, 2, "Questions should grow incrementally")
-        XCTAssertEqual(sut.currentQuestionIndex, 1, "Should advance to new question")
+        XCTAssertEqual(sut.navigationState.questions.count, 2, "Questions should grow incrementally")
+        XCTAssertEqual(sut.navigationState.currentQuestionIndex, 1, "Should advance to new question")
         XCTAssertEqual(sut.currentTheta, 0.5)
         XCTAssertEqual(sut.currentSE, 0.8)
         XCTAssertEqual(sut.itemsAdministered, 2)
@@ -255,7 +255,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.error, "Error should be set")
         XCTAssertFalse(sut.isLoadingNextQuestion, "Loading should be cleared on error")
         XCTAssertFalse(sut.isTestCompleted, "Test should not complete on error")
-        XCTAssertEqual(sut.questions.count, 1, "Questions should not change on error")
+        XCTAssertEqual(sut.navigationState.questions.count, 1, "Questions should not change on error")
     }
 
     func testSubmitAnswerAndGetNext_SendsCorrectParameters() async {
@@ -388,7 +388,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
     func testAdaptiveFlow_QuestionsGrowIncrementally() async {
         // Given - Start with 1 question
         await setupAdaptiveTestInProgress(sessionId: 5015, questionId: 1)
-        XCTAssertEqual(sut.questions.count, 1)
+        XCTAssertEqual(sut.navigationState.questions.count, 1)
 
         // Answer and get next
         sut.currentAnswer = "A"
@@ -401,7 +401,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             testComplete: false
         )
         await sut.submitAnswerAndGetNext()
-        XCTAssertEqual(sut.questions.count, 2, "Should have 2 questions now")
+        XCTAssertEqual(sut.navigationState.questions.count, 2, "Should have 2 questions now")
 
         // Answer and get next again
         sut.currentAnswer = "B"
@@ -414,8 +414,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             testComplete: false
         )
         await sut.submitAnswerAndGetNext()
-        XCTAssertEqual(sut.questions.count, 3, "Should have 3 questions now")
-        XCTAssertEqual(sut.currentQuestionIndex, 2, "Should be on third question")
+        XCTAssertEqual(sut.navigationState.questions.count, 3, "Should have 3 questions now")
+        XCTAssertEqual(sut.navigationState.currentQuestionIndex, 2, "Should be on third question")
     }
 
     // MARK: - Time Tracking in Adaptive Mode Tests

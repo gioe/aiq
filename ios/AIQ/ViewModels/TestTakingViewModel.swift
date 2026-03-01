@@ -84,41 +84,16 @@ class TestTakingViewModel: BaseViewModel {
         setupAutoSave()
     }
 
-    // MARK: - Navigation State Forwarding
-
-    /// Direct access to the current question list; reads and writes through to ``navigationState``.
-    var questions: [Question] {
-        get { navigationState.questions }
-        set { navigationState.questions = newValue }
-    }
-
-    /// Current position in the question list; reads and writes through to ``navigationState``.
-    var currentQuestionIndex: Int {
-        get { navigationState.currentQuestionIndex }
-        set { navigationState.currentQuestionIndex = newValue }
-    }
-
-    /// All user answers keyed by question ID; reads and writes through to ``navigationState``.
-    var userAnswers: [Int: String] {
-        get { navigationState.userAnswers }
-        set { navigationState.userAnswers = newValue }
-    }
-
-    /// Tracks which question IDs have had their stimulus viewed; reads and writes through to ``navigationState``.
-    var stimulusSeen: Set<Int> {
-        get { navigationState.stimulusSeen }
-        set { navigationState.stimulusSeen = newValue }
-    }
-
-    /// Indices of questions in the question array with a non-empty answer.
-    var answeredQuestionIndices: Set<Int> {
-        navigationState.answeredQuestionIndices
-    }
-
     // MARK: - Computed Properties
 
     var currentQuestion: Question? {
         navigationState.currentQuestion
+    }
+
+    /// Read-only accessor required by ``AdaptiveTestCoordinatorDelegate``.
+    /// All writes go through `navigationState.userAnswers` directly.
+    var userAnswers: [Int: String] {
+        navigationState.userAnswers
     }
 
     /// The sessionStartedAt from pending saved progress, used by the View to start the timer
@@ -195,7 +170,7 @@ class TestTakingViewModel: BaseViewModel {
     /// Requires questions to already be loaded so this does not conflict with the load-failure state.
     /// Excludes active session conflicts, which are handled by their dedicated alert.
     var shouldShowSubmitErrorBanner: Bool {
-        error != nil && !questions.isEmpty && !isActiveSessionConflict
+        error != nil && !navigationState.questions.isEmpty && !isActiveSessionConflict
     }
 
     // MARK: - Navigation
@@ -271,13 +246,13 @@ class TestTakingViewModel: BaseViewModel {
             print("[TestTakingViewModel] handleTestStartSuccess: received \(response.questions.count) questions")
         #endif
         testSession = response.session
-        questions = response.questions
-        currentQuestionIndex = 0
-        userAnswers.removeAll()
-        stimulusSeen.removeAll()
+        navigationState.questions = response.questions
+        navigationState.currentQuestionIndex = 0
+        navigationState.userAnswers.removeAll()
+        navigationState.stimulusSeen.removeAll()
         isTestCompleted = false
         #if DEBUG
-            print("[TestTakingViewModel] questions array now has \(questions.count) items")
+            print("[TestTakingViewModel] questions array now has \(navigationState.questions.count) items")
         #endif
 
         // Initialize time tracking
@@ -291,7 +266,7 @@ class TestTakingViewModel: BaseViewModel {
 
         setLoading(false)
         #if DEBUG
-            print("[TestTakingViewModel] isLoading set to false, questions.count = \(questions.count)")
+            print("[TestTakingViewModel] isLoading set to false, questions.count = \(navigationState.questions.count)")
         #endif
     }
 
@@ -409,15 +384,15 @@ class TestTakingViewModel: BaseViewModel {
 
             // Set session and questions
             testSession = response.session
-            questions = fetchedQuestions
+            navigationState.questions = fetchedQuestions
 
             // Check for local saved progress and merge if available
             if let savedProgress = loadSavedProgress(), savedProgress.sessionId == sessionId {
                 mergeSavedProgress(savedProgress)
             } else {
                 // No saved progress, start from beginning
-                currentQuestionIndex = 0
-                userAnswers.removeAll()
+                navigationState.currentQuestionIndex = 0
+                navigationState.userAnswers.removeAll()
             }
 
             isTestCompleted = false
@@ -436,10 +411,10 @@ class TestTakingViewModel: BaseViewModel {
 
             #if DEBUG
                 print("[SUCCESS] Resumed session \(sessionId) with \(fetchedQuestions.count) questions")
-                if userAnswers.isEmpty {
+                if navigationState.userAnswers.isEmpty {
                     print("   Starting fresh - no saved progress found")
                 } else {
-                    print("   Restored \(userAnswers.count) saved answers")
+                    print("   Restored \(navigationState.userAnswers.count) saved answers")
                 }
             #endif
         } catch {
@@ -448,23 +423,23 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func mergeSavedProgress(_ progress: SavedTestProgress) {
-        guard !questions.isEmpty else {
+        guard !navigationState.questions.isEmpty else {
             showNoQuestionsAvailableError()
             return
         }
 
         // Filter out state for questions not in this session
-        let validQuestionIds = Set(questions.map(\.id))
-        userAnswers = progress.userAnswers.filter { validQuestionIds.contains($0.key) }
-        stimulusSeen = progress.stimulusSeen.intersection(validQuestionIds)
+        let validQuestionIds = Set(navigationState.questions.map(\.id))
+        navigationState.userAnswers = progress.userAnswers.filter { validQuestionIds.contains($0.key) }
+        navigationState.stimulusSeen = progress.stimulusSeen.intersection(validQuestionIds)
 
-        if let firstUnansweredIndex = questions.firstIndex(where: {
-            guard let answer = userAnswers[$0.id] else { return true }
+        if let firstUnansweredIndex = navigationState.questions.firstIndex(where: {
+            guard let answer = navigationState.userAnswers[$0.id] else { return true }
             return answer.isEmpty
         }) {
-            currentQuestionIndex = firstUnansweredIndex
+            navigationState.currentQuestionIndex = firstUnansweredIndex
         } else {
-            currentQuestionIndex = max(0, questions.count - 1)
+            navigationState.currentQuestionIndex = max(0, navigationState.questions.count - 1)
         }
     }
 
@@ -554,7 +529,7 @@ class TestTakingViewModel: BaseViewModel {
                 code: -1,
                 userInfo: [
                     NSLocalizedDescriptionKey: "viewmodel.test.incomplete.submission".localized(
-                        with: questions.count,
+                        with: navigationState.questions.count,
                         answeredCount
                     )
                 ]
@@ -597,7 +572,8 @@ class TestTakingViewModel: BaseViewModel {
             return
         }
         #if DEBUG
-            print("[TIMEOUT] Auto-submitting test due to timeout: \(answeredCount)/\(questions.count) answered")
+            let qCount = navigationState.questions.count
+            print("[TIMEOUT] Auto-submitting test due to timeout: \(answeredCount)/\(qCount) answered")
         #endif
         await performSubmission(timeLimitExceeded: true)
     }
@@ -606,8 +582,8 @@ class TestTakingViewModel: BaseViewModel {
         // Record final question time before submission
         recordCurrentQuestionTime()
 
-        let responses = questions.compactMap { question -> QuestionResponse? in
-            guard let answer = userAnswers[question.id], !answer.isEmpty else { return nil }
+        let responses = navigationState.questions.compactMap { question -> QuestionResponse? in
+            guard let answer = navigationState.userAnswers[question.id], !answer.isEmpty else { return nil }
             let timeSpent = timeTracker.elapsed(for: question.id)
             do {
                 return try QuestionResponse.validated(
@@ -726,9 +702,9 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     func resetTest() {
-        currentQuestionIndex = 0
-        userAnswers.removeAll()
-        stimulusSeen.removeAll()
+        navigationState.currentQuestionIndex = 0
+        navigationState.userAnswers.removeAll()
+        navigationState.stimulusSeen.removeAll()
         isTestCompleted = false
         testResult = nil
         error = nil
@@ -773,23 +749,23 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func saveProgress() {
-        guard let session = testSession, !questions.isEmpty else { return }
+        guard let session = testSession, !navigationState.questions.isEmpty else { return }
 
         let progress = SavedTestProgress(
             sessionId: session.id,
             userId: session.userId,
-            questionIds: questions.map(\.id),
-            userAnswers: userAnswers,
-            currentQuestionIndex: currentQuestionIndex,
+            questionIds: navigationState.questions.map(\.id),
+            userAnswers: navigationState.userAnswers,
+            currentQuestionIndex: navigationState.currentQuestionIndex,
             savedAt: Date(),
             sessionStartedAt: session.startedAt,
-            stimulusSeen: stimulusSeen
+            stimulusSeen: navigationState.stimulusSeen
         )
 
         do {
             try answerStorage.saveProgress(progress)
             #if DEBUG
-                print("[AUTOSAVE] Auto-saved test progress: \(userAnswers.count) answers")
+                print("[AUTOSAVE] Auto-saved test progress: \(navigationState.userAnswers.count) answers")
             #endif
         } catch {
             // Record non-fatal error to Crashlytics for production monitoring
@@ -802,9 +778,9 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     func restoreProgress(_ progress: SavedTestProgress) {
-        userAnswers = progress.userAnswers
-        currentQuestionIndex = progress.currentQuestionIndex
-        stimulusSeen = progress.stimulusSeen
+        navigationState.userAnswers = progress.userAnswers
+        navigationState.currentQuestionIndex = progress.currentQuestionIndex
+        navigationState.stimulusSeen = progress.stimulusSeen
     }
 
     func clearSavedProgress() {
@@ -922,18 +898,18 @@ class TestTakingViewModel: BaseViewModel {
 extension TestTakingViewModel: AdaptiveTestCoordinatorDelegate {
     func prepareForAdaptiveStart(session: TestSession, questions: [Question]) {
         testSession = session
-        self.questions = questions
-        currentQuestionIndex = 0
-        userAnswers.removeAll()
-        stimulusSeen.removeAll()
+        navigationState.questions = questions
+        navigationState.currentQuestionIndex = 0
+        navigationState.userAnswers.removeAll()
+        navigationState.stimulusSeen.removeAll()
         isTestCompleted = false
         resetTimeTracking()
         startQuestionTiming()
     }
 
     func appendQuestionAndAdvance(_ question: Question) {
-        questions.append(question)
-        currentQuestionIndex = questions.count - 1
+        navigationState.questions.append(question)
+        navigationState.currentQuestionIndex = navigationState.questions.count - 1
         startQuestionTiming()
     }
 

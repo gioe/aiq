@@ -37,7 +37,7 @@ struct AdaptiveTestView: View {
             }
 
             // Loading overlay for initial test fetch
-            if viewModel.isLoading && viewModel.questions.isEmpty {
+            if viewModel.isLoading && viewModel.navigationState.questions.isEmpty {
                 LoadingOverlay(message: "Preparing your adaptive test...")
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
                     .accessibilityIdentifier(AccessibilityIdentifiers.AdaptiveTestView.loadingOverlay)
@@ -117,11 +117,11 @@ struct AdaptiveTestView: View {
                 handleTimerExpiration()
             }
         }
-        .onChange(of: viewModel.questions.count) { _ in
+        .onChange(of: viewModel.navigationState.questions.count) { _ in
             // Incrementally add the latest question's domain to the cache.
             // In adaptive mode, questions are always appended one at a time
             // via submitAnswerAndGetNext(), so checking only the last item is safe.
-            if let lastQuestion = viewModel.questions.last,
+            if let lastQuestion = viewModel.navigationState.questions.last,
                let domain = lastQuestion.questionTypeEnum {
                 cachedAdministeredDomains.insert(domain)
             }
