@@ -14,9 +14,17 @@ Install `xcpretty` for clean, readable test output:
 
 ```bash
 gem install xcpretty
+# On macOS system Ruby you may need: sudo gem install xcpretty
+# Alternatively, use a user-managed Ruby (rbenv/rvm) to install without sudo.
 ```
 
-If xcpretty is not installed, the commands below fall back to raw `xcodebuild` output streamed in full (no truncation).
+**Detecting xcpretty availability:** Before running tests, check whether xcpretty is installed:
+
+```bash
+which xcpretty
+```
+
+If it exits 0, use the xcpretty variant below; otherwise use the fallback variant (raw `xcodebuild` output, streamed in full without truncation).
 
 ## Usage
 
@@ -27,8 +35,8 @@ When this skill is invoked, determine what tests to run based on the user's requ
 If no specific test is requested, run the full test suite:
 
 ```bash
-# With xcpretty (recommended)
-cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1 | xcpretty
+# With xcpretty (recommended) — pipefail ensures test failures propagate correctly
+set -o pipefail && cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1 | xcpretty
 
 # Without xcpretty (fallback — streams full output, no truncation)
 cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
@@ -40,7 +48,7 @@ To run tests from a specific test class, use the `-only-testing` flag:
 
 ```bash
 # With xcpretty (recommended)
-cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName 2>&1 | xcpretty
+set -o pipefail && cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName 2>&1 | xcpretty
 
 # Without xcpretty (fallback)
 cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName 2>&1
@@ -64,7 +72,7 @@ To run a single test method within a class:
 
 ```bash
 # With xcpretty (recommended)
-cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName/testMethodName 2>&1 | xcpretty
+set -o pipefail && cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName/testMethodName 2>&1 | xcpretty
 
 # Without xcpretty (fallback)
 cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName/testMethodName 2>&1
@@ -81,7 +89,7 @@ Chain multiple `-only-testing` flags to run several test classes:
 
 ```bash
 # With xcpretty (recommended)
-cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/AuthManagerTests -only-testing:AIQTests/APIClientTests 2>&1 | xcpretty
+set -o pipefail && cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/AuthManagerTests -only-testing:AIQTests/APIClientTests 2>&1 | xcpretty
 
 # Without xcpretty (fallback)
 cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/AuthManagerTests -only-testing:AIQTests/APIClientTests 2>&1
