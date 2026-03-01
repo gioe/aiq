@@ -3,6 +3,14 @@ import Combine
 import Foundation
 import UIKit
 
+/// Describes what the ViewModel determined after evaluating saved progress / deep-link state.
+/// The View observes this to decide which alert to show and when to start the timer.
+enum TestResumeIntent: Equatable {
+    case none // default / fresh start / deep-link complete
+    case showResumePrompt // valid unexpired saved progress found – show "Resume Test?" alert
+    case expiredProgress // saved progress found but time expired – trigger timer expiration
+}
+
 // swiftlint:disable type_body_length file_length
 /// ViewModel for managing test-taking state and logic
 @MainActor
@@ -21,6 +29,17 @@ class TestTakingViewModel: BaseViewModel {
     @Published var testResult: SubmittedTestResult?
     /// When true, prevents further answer modifications (used when timer expires)
     @Published private(set) var isLocked: Bool = false
+
+    // MARK: - Resume & Alert State
+
+    /// Published to the View to drive resume-related alert presentation.
+    @Published private(set) var resumeIntent: TestResumeIntent = .none
+
+    /// True when the "Exit Test?" confirmation alert should be shown.
+    @Published private(set) var showExitConfirmation: Bool = false
+
+    /// True when the "Time's Up!" alert should be shown.
+    @Published private(set) var showTimeExpiredAlert: Bool = false
 
     // MARK: - Adaptive Test Properties
 
@@ -60,6 +79,9 @@ class TestTakingViewModel: BaseViewModel {
     /// Defaults to 1 (not first test) as a safe fallback until actual count is fetched
     private var testCountAtStart: Int = 1
 
+    /// Stash of valid unexpired saved progress awaiting the user's Resume/Start-New choice.
+    private var pendingResumeProgress: SavedTestProgress?
+
     // MARK: - Initialization
 
     init(
@@ -83,6 +105,12 @@ class TestTakingViewModel: BaseViewModel {
     var currentQuestion: Question? {
         guard currentQuestionIndex < questions.count else { return nil }
         return questions[currentQuestionIndex]
+    }
+
+    /// The sessionStartedAt from pending saved progress, used by the View to start the timer
+    /// after the user taps "Resume". Non-nil only while resumeIntent == .showResumePrompt.
+    var pendingResumeSessionStartedAt: Date? {
+        pendingResumeProgress?.sessionStartedAt
     }
 
     var currentAnswer: String {
@@ -934,6 +962,86 @@ class TestTakingViewModel: BaseViewModel {
 
     var hasSavedProgress: Bool {
         answerStorage.hasProgress()
+    }
+
+    // MARK: - Resume Orchestration
+
+    /// Single entry point called by the View's `.task { }` on appearance.
+    /// Handles both the normal flow (check saved progress) and deep-link resume.
+    func checkResume(sessionId: Int?) async {
+        if let sessionId {
+            await performDeepLinkResume(sessionId: sessionId)
+        } else {
+            await performSavedProgressCheck()
+        }
+    }
+
+    private func performSavedProgressCheck() async {
+        #if DEBUG
+            print("[TestTakingViewModel] checkForSavedProgress called")
+        #endif
+        if let progress = loadSavedProgress() {
+            if progress.isTimeExpired {
+                restoreProgress(progress)
+                resumeIntent = .expiredProgress
+            } else {
+                pendingResumeProgress = progress
+                resumeIntent = .showResumePrompt
+            }
+        } else {
+            #if DEBUG
+                print("[TestTakingViewModel] No saved progress, calling startTest")
+            #endif
+            await startTest()
+        }
+    }
+
+    private func performDeepLinkResume(sessionId: Int) async {
+        #if DEBUG
+            print("[TestTakingViewModel] resumeSessionFromDeepLink called with sessionId: \(sessionId)")
+        #endif
+        await resumeActiveSession(sessionId: sessionId)
+    }
+
+    /// Called by the View when the user taps "Resume" in the saved-progress alert.
+    /// Restores saved answers and clears the resume intent so the alert dismisses.
+    /// The View should capture `pendingResumeSessionStartedAt` before calling this.
+    func acceptResumeProgress() {
+        guard let progress = pendingResumeProgress else { return }
+        restoreProgress(progress)
+        resumeIntent = .none // clear immediately so the alert binding sees false
+        // pendingResumeProgress intentionally NOT cleared here;
+        // the View reads pendingResumeSessionStartedAt after this call.
+        // It is cleared by dismissResumePrompt() via the binding's set:.
+    }
+
+    /// Clears pending resume state. Called via the isPresented Binding's set: = false
+    /// for the "Resume Test?" alert (fires after either "Resume" or "Start New" is tapped).
+    func dismissResumePrompt() {
+        pendingResumeProgress = nil
+        resumeIntent = .none
+    }
+
+    // MARK: - Alert State Management
+
+    /// Called when the user taps the "Exit" toolbar button and has unsaved answers.
+    func requestExit() {
+        showExitConfirmation = true
+    }
+
+    /// Called when the "Exit Test?" alert is dismissed without confirming.
+    func cancelExit() {
+        showExitConfirmation = false
+    }
+
+    /// Called by `handleTimerExpiration()` in the View to show the "Time's Up!" alert.
+    func presentTimeExpiredAlert() {
+        showTimeExpiredAlert = true
+    }
+
+    /// Called via the "Time's Up!" alert binding's set: = false when the alert dismisses.
+    func dismissTimeExpiredAlert() {
+        showTimeExpiredAlert = false
     }
 
     // MARK: - Time Tracking
