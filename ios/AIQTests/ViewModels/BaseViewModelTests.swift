@@ -132,4 +132,45 @@ final class BaseViewModelTests: XCTestCase {
         XCTAssertEqual(receivedCount, 3)
         cancellable.cancel()
     }
+
+    // MARK: - Retry Tests
+
+    func testRetryCallsSetLoadingBeforeClearError() async {
+        // Given
+        var isLoadingWhenErrorCleared: Bool?
+        let operationExpectation = expectation(description: "retry operation runs")
+
+        let retryOperation: () async -> Void = {
+            operationExpectation.fulfill()
+        }
+
+        let testError = NSError(
+            domain: "TestDomain",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Test error"]
+        )
+        sut.handleError(testError, context: .unknown, retryOperation: retryOperation)
+
+        // Observe $error — capture isLoading the moment error is cleared.
+        // @Published fires in willSet, so when the error transitions to nil,
+        // isLoading has already been set to true by the preceding setLoading(true) call.
+        let cancellable = sut.$error
+            .dropFirst() // skip initial nil emitted at subscription time
+            .sink { [weak sut] errorValue in
+                if errorValue == nil {
+                    isLoadingWhenErrorCleared = sut?.isLoading
+                }
+            }
+
+        // When
+        await sut.retry()
+
+        // Then
+        await fulfillment(of: [operationExpectation], timeout: 1.0)
+        cancellable.cancel()
+        XCTAssertTrue(
+            isLoadingWhenErrorCleared == true,
+            "isLoading must be true at the moment clearError() fires during retry()"
+        )
+    }
 }
