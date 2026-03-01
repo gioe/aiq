@@ -6,14 +6,9 @@ struct TestTakingView: View {
     @StateObject private var timerManager = TestTimerManager()
     @EnvironmentObject var router: AppRouter
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    @State private var showResumeAlert = false
-    @State private var showExitConfirmation = false
-    @State private var savedProgress: SavedTestProgress?
-    @State private var activeSessionConflictId: Int?
     @State private var showQuestionGrid = false
     @State private var showTimeWarningBanner = false
     @State private var warningBannerDismissed = false
-    @State private var showTimeExpiredAlert = false
     @State private var isAutoSubmitting = false
 
     /// The session ID to resume (if any)
@@ -96,12 +91,20 @@ struct TestTakingView: View {
             }
         }
         .task {
-            if let sessionId {
-                // Deep link resume: use the provided session ID
-                await resumeSessionFromDeepLink(sessionId: sessionId)
-            } else {
-                // Normal flow: check for saved progress
-                await checkForSavedProgress()
+            await viewModel.checkResume(sessionId: sessionId)
+            switch viewModel.resumeIntent {
+            case .none:
+                // Fresh start or deep-link resume — start timer if session is available
+                if let session = viewModel.testSession {
+                    let timerStarted = timerManager.startWithSessionTime(session.startedAt)
+                    if !timerStarted {
+                        handleTimerExpiration()
+                    }
+                }
+            case .showResumePrompt:
+                break // timer starts when the user taps "Resume"
+            case .expiredProgress:
+                handleTimerExpiration()
             }
         }
         .onChange(of: timerManager.showWarning) { showWarning in
@@ -116,22 +119,21 @@ struct TestTakingView: View {
                 timerManager.stop()
             }
         }
-        .alert("Resume Test?", isPresented: $showResumeAlert) {
+        .alert("Resume Test?", isPresented: Binding(
+            get: { viewModel.resumeIntent == .showResumePrompt },
+            set: { if !$0 { viewModel.dismissResumePrompt() } }
+        )) {
             Button("Resume") {
-                if let progress = savedProgress {
-                    viewModel.restoreProgress(progress)
-                    // Start timer with the original session start time
-                    if let sessionStartedAt = progress.sessionStartedAt {
-                        let timerStarted = timerManager.startWithSessionTime(sessionStartedAt)
-                        if !timerStarted {
-                            // Time expired while viewing the alert - trigger auto-submit
-                            handleTimerExpiration()
-                        }
-                    } else {
-                        // Fallback: no session start time saved, start fresh timer
-                        // This handles legacy saved progress without sessionStartedAt
-                        timerManager.start()
+                // Capture sessionStartedAt before acceptResumeProgress clears resumeIntent
+                let sessionStartedAt = viewModel.pendingResumeSessionStartedAt
+                viewModel.acceptResumeProgress()
+                if let sessionStartedAt {
+                    let timerStarted = timerManager.startWithSessionTime(sessionStartedAt)
+                    if !timerStarted {
+                        handleTimerExpiration()
                     }
+                } else {
+                    timerManager.start()
                 }
             }
             Button("Start New") {
@@ -139,14 +141,17 @@ struct TestTakingView: View {
                 Task {
                     await viewModel.startTest()
                     if let session = viewModel.testSession {
-                        timerManager.startWithSessionTime(session.startedAt)
+                        _ = timerManager.startWithSessionTime(session.startedAt)
                     }
                 }
             }
         } message: {
             Text("You have an incomplete test. Would you like to resume where you left off?")
         }
-        .alert("Exit Test?", isPresented: $showExitConfirmation) {
+        .alert("Exit Test?", isPresented: Binding(
+            get: { viewModel.showExitConfirmation },
+            set: { if !$0 { viewModel.cancelExit() } }
+        )) {
             Button("Exit", role: .destructive) {
                 Task {
                     await viewModel.abandonTest()
@@ -195,7 +200,10 @@ struct TestTakingView: View {
                 """
             )
         }
-        .alert("Time's Up!", isPresented: $showTimeExpiredAlert) {
+        .alert("Time's Up!", isPresented: Binding(
+            get: { viewModel.showTimeExpiredAlert },
+            set: { if !$0 { viewModel.dismissTimeExpiredAlert() } }
+        )) {
             Button("OK") {
                 // Alert dismissed - auto-submit happens automatically
             }
@@ -216,54 +224,6 @@ struct TestTakingView: View {
         }
     }
 
-    private func checkForSavedProgress() async {
-        #if DEBUG
-            print("[TestTakingView] checkForSavedProgress called")
-        #endif
-        if let progress = viewModel.loadSavedProgress() {
-            // Check if test time has already expired
-            if progress.isTimeExpired {
-                // Time expired - restore progress and trigger auto-submit
-                viewModel.restoreProgress(progress)
-                handleTimerExpiration()
-                return
-            }
-            savedProgress = progress
-            showResumeAlert = true
-        } else {
-            #if DEBUG
-                print("[TestTakingView] No saved progress, calling startTest")
-            #endif
-            await viewModel.startTest()
-            #if DEBUG
-                let qCount = viewModel.questions.count
-                print("[TestTakingView] After startTest: questions.count=\(qCount), isLoading=\(viewModel.isLoading)")
-            #endif
-            // Start timer after test loads successfully using session start time
-            if let session = viewModel.testSession {
-                timerManager.startWithSessionTime(session.startedAt)
-            }
-        }
-    }
-
-    /// Resume a test session from a deep link
-    /// - Parameter sessionId: The ID of the session to resume
-    private func resumeSessionFromDeepLink(sessionId: Int) async {
-        #if DEBUG
-            print("[TestTakingView] resumeSessionFromDeepLink called with sessionId: \(sessionId)")
-        #endif
-        await viewModel.resumeActiveSession(sessionId: sessionId)
-
-        // Start timer using the session's original start time
-        if let session = viewModel.testSession {
-            let timerStarted = timerManager.startWithSessionTime(session.startedAt)
-            if !timerStarted {
-                // Time expired - trigger auto-submit
-                handleTimerExpiration()
-            }
-        }
-    }
-
     /// Handles timer expiration by locking answers, showing alert, and auto-submitting
     private func handleTimerExpiration() {
         // Prevent multiple auto-submits
@@ -274,7 +234,7 @@ struct TestTakingView: View {
         viewModel.lockAnswers()
 
         // Show the "Time's Up" alert
-        showTimeExpiredAlert = true
+        viewModel.presentTimeExpiredAlert()
 
         // Auto-submit the test
         Task {
@@ -289,7 +249,7 @@ struct TestTakingView: View {
 
     private func handleExit() {
         if viewModel.answeredCount > 0 && !viewModel.isTestCompleted {
-            showExitConfirmation = true
+            viewModel.requestExit()
         } else {
             router.pop()
         }
