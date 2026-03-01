@@ -33,8 +33,8 @@ import sys
 TRAILER = "Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 
 
-def run(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(args, capture_output=True, text=True, check=check)
+def run(args: list[str], check: bool = True, cwd: str | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(args, capture_output=True, text=True, check=check, cwd=cwd)
 
 
 def load_test_command(config_path: str) -> str:
@@ -135,24 +135,38 @@ def main(argv: list[str]) -> int:
         print()
 
     # ── Step 3: Stage files ──────────────────────────────────────────
-    to_add = [f for f in files if os.path.exists(f)]
-    to_remove = [f for f in files if not os.path.exists(f)]
+    # Resolve relative paths against repo_root so os.path.exists works
+    # correctly regardless of the cwd from which tusk was invoked.
+    def file_exists(f: str) -> bool:
+        if os.path.isabs(f):
+            return os.path.exists(f)
+        return os.path.exists(os.path.join(repo_root, f))
+
+    to_add = [f for f in files if file_exists(f)]
+    to_remove = [f for f in files if not file_exists(f)]
 
     if to_add:
-        result = run(["git", "add"] + to_add, check=False)
+        result = run(["git", "add"] + to_add, check=False, cwd=repo_root)
         if result.returncode != 0:
             print(f"Error: git add failed:\n{result.stderr.strip()}", file=sys.stderr)
             return 3
 
     if to_remove:
-        result = run(["git", "rm"] + to_remove, check=False)
+        result = run(["git", "rm"] + to_remove, check=False, cwd=repo_root)
         if result.returncode != 0:
-            print(f"Error: git rm failed:\n{result.stderr.strip()}", file=sys.stderr)
+            stderr = result.stderr.strip()
+            msg = f"Error: git rm failed:\n{stderr}"
+            if "pathspec did not match" in stderr:
+                msg += (
+                    "\nHint: The file may still exist on disk but was not found at the given path. "
+                    "Run 'git add <file>' manually and then 'git commit' to stage and commit it."
+                )
+            print(msg, file=sys.stderr)
             return 3
 
     # ── Step 4: Commit ───────────────────────────────────────────────
     full_message = f"[TASK-{task_id}] {message}\n\n{TRAILER}"
-    result = run(["git", "commit", "-m", full_message], check=False)
+    result = run(["git", "commit", "-m", full_message], check=False, cwd=repo_root)
     if result.returncode != 0:
         print(f"Error: git commit failed:\n{result.stderr.strip()}", file=sys.stderr)
         return 3
