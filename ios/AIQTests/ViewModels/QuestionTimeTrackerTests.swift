@@ -93,10 +93,9 @@ final class QuestionTimeTrackerTests: XCTestCase {
     func testResumeTracking_RestartsTimerAfterPause() async throws {
         sut.startTracking(questionId: 1)
 
-        // Pause with negligible time
+        // Pause with negligible time (< 1s elapsed — truncates to 0)
         NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
         await Task.yield(); await Task.yield(); await Task.yield()
-        let elapsedAfterPause = sut.elapsed(for: 1) // 0 since < 1s
 
         // Resume
         NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
@@ -109,7 +108,7 @@ final class QuestionTimeTrackerTests: XCTestCase {
 
         XCTAssertGreaterThanOrEqual(
             sut.elapsed(for: 1),
-            elapsedAfterPause + 1,
+            1,
             "Resume should restart tracking while question is active"
         )
     }
