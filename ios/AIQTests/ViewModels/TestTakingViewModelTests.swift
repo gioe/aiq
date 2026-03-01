@@ -1361,7 +1361,7 @@ final class TestTakingViewModelTests: XCTestCase {
             userAnswers: [1: "A"],
             currentQuestionIndex: 1,
             savedAt: Date(),
-            sessionStartedAt: Date().addingTimeInterval(-2200), // > 35 min (totalTestTimeSeconds = 2100)
+            sessionStartedAt: Date().addingTimeInterval(-TimeInterval(Constants.Timing.totalTestTimeSeconds + 100)), // > totalTestTimeSeconds
             stimulusSeen: []
         )
         mockAnswerStorage.mockProgress = expiredProgress
