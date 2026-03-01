@@ -17,7 +17,7 @@ When this skill is invoked, build the iOS project to verify compilation.
 Run the following command to build the project:
 
 ```bash
-cd /Users/mattgioe/aiq/ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
+cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
 ```
 
 ### Build for Release (Optional)
@@ -25,7 +25,7 @@ cd /Users/mattgioe/aiq/ios && xcodebuild build -project AIQ.xcodeproj -scheme AI
 If specifically requested, build in Release configuration:
 
 ```bash
-cd /Users/mattgioe/aiq/ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -configuration Release 2>&1
+cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -configuration Release 2>&1
 ```
 
 ### Clean Build (Optional)
@@ -33,7 +33,7 @@ cd /Users/mattgioe/aiq/ios && xcodebuild build -project AIQ.xcodeproj -scheme AI
 If a clean build is requested or there are stale build artifacts:
 
 ```bash
-cd /Users/mattgioe/aiq/ios && xcodebuild clean build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
+cd ios && xcodebuild clean build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
 ```
 
 ## Arguments
