@@ -54,25 +54,17 @@ Determine the base branch and compute the diff:
 ```bash
 git remote set-head origin --auto 2>/dev/null
 DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+CURRENT_BRANCH=$(git branch --show-current)
 git diff "${DEFAULT_BRANCH}...HEAD"
 ```
 
-**Direct-to-main fallback:** If the diff is empty, check whether HEAD is on the default branch (i.e., commits were pushed directly to `main` instead of via a feature branch):
-
-```bash
-git rev-parse HEAD
-git rev-parse "origin/${DEFAULT_BRANCH}"
-```
-
-If both resolve to the same commit hash, the session committed directly to the default branch. In this case, fall back to diffing the last commit:
+If the diff is empty **and** `CURRENT_BRANCH == DEFAULT_BRANCH` (i.e., working directly on the default branch), fall back to the last commit:
 
 ```bash
 git diff HEAD~1..HEAD
 ```
 
-Use this fallback diff as the diff content for all subsequent steps, and note in the review summary that the diff covers the last commit (direct-to-main workflow).
-
-If the diff is still empty after the fallback, report "No changes found — working tree is clean and HEAD~1..HEAD produced no diff." and stop.
+If the diff is still empty after the fallback (or if on a feature branch with no changes), report "No changes found compared to the base branch." and stop.
 
 Capture the diff content — it will be passed to each reviewer agent.
 
@@ -214,12 +206,11 @@ If any `must_fix` comments were fixed in Step 7, re-run the review to verify the
 
 Track current pass number (starts at 1). If `current_pass < max_passes`:
 
-1. Get the updated diff using the same strategy as Step 3 (branch diff, or HEAD~1..HEAD fallback if on the default branch):
+1. Get the updated diff:
    ```bash
    git diff "${DEFAULT_BRANCH}...HEAD"
-   # If empty and HEAD == origin/${DEFAULT_BRANCH}, fall back to:
-   git diff HEAD~1..HEAD
    ```
+   If the diff is empty and on the default branch, fall back to `HEAD~1..HEAD` (same logic as Step 3).
 
 2. Start a new review pass:
    ```bash
