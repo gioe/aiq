@@ -17,14 +17,15 @@ class QuestionTimeTracker {
         setupBackgroundNotifications()
     }
 
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
     // MARK: - Public API
 
     /// Starts timing for the given question.
     func startTracking(questionId: Int) {
+        #if DEBUG
+            if currentQuestionStartTime != nil {
+                assertionFailure("[TIMING] startTracking called while already tracking — missing recordCurrent() call")
+            }
+        #endif
         currentQuestionId = questionId
         currentQuestionStartTime = Date()
     }
@@ -58,32 +59,34 @@ class QuestionTimeTracker {
 
     private func setupBackgroundNotifications() {
         NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAppWillResignActive),
-            name: UIApplication.willResignActiveNotification,
-            object: nil
-        )
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.pauseTracking() }
+        }
         NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAppDidBecomeActive),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.resumeTracking() }
+        }
     }
 
-    @objc private func handleAppWillResignActive() {
+    private func pauseTracking() {
         guard let startTime = currentQuestionStartTime,
               let questionId = currentQuestionId else { return }
         let elapsed = Int(Date().timeIntervalSince(startTime))
         questionTimeSpent[questionId, default: 0] += elapsed
         currentQuestionStartTime = nil
-        // Keep currentQuestionId so foreground handler knows to resume
+        // Keep currentQuestionId so resumeTracking knows to restart
         #if DEBUG
             print("[TIMING] Time tracking paused - app backgrounded")
         #endif
     }
 
-    @objc private func handleAppDidBecomeActive() {
+    private func resumeTracking() {
         guard currentQuestionId != nil else { return }
         currentQuestionStartTime = Date()
         #if DEBUG

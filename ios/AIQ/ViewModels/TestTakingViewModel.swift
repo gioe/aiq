@@ -654,6 +654,7 @@ class TestTakingViewModel: BaseViewModel {
         testSession = response.session
         clearSavedProgress()
         isTestCompleted = true
+        resetTimeTracking()
 
         // Track analytics
         let durationSeconds = response.result.completionTimeSeconds ?? 0
