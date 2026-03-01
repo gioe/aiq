@@ -104,7 +104,7 @@ Run auth tests, stop on first failure.
 This means the venv wasn't activated. The skill commands above include `source venv/bin/activate` to prevent this.
 
 ### Import errors
-Ensure you're running from the `backend` directory.
+Ensure the skill is invoked from the project root directory (the command handles `cd backend` automatically).
 
 ### Database errors
 Some tests require database setup. Run `alembic upgrade head` if you see migration errors.
