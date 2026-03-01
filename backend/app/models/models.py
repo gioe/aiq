@@ -349,6 +349,15 @@ class Question(Base):
         Index(
             "ix_questions_quality_flag", "quality_flag"
         ),  # IDA-001: For filtering by quality status
+        # Partial index for CAT item-selection queries on calibrated questions.
+        # Created by migration f3a4b5c6d7e8; declared here so alembic autogenerate
+        # does not flag it as a spurious "remove_index" operation.
+        Index(
+            "ix_questions_irt_calibrated",
+            "irt_difficulty",
+            "irt_discrimination",
+            postgresql_where=sa.text("irt_calibrated_at IS NOT NULL"),
+        ),
         CheckConstraint(
             "quality_flag IN ('normal', 'under_review', 'deactivated')",
             name="ck_questions_quality_flag_valid",
