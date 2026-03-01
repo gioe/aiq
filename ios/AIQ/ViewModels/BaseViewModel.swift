@@ -58,6 +58,10 @@ class BaseViewModel: ObservableObject {
     /// Retry the last failed operation
     func retry() async {
         guard let operation = lastFailedOperation else { return }
+        // Set loading before clearing the error so the loading overlay appears
+        // immediately when shouldShowLoadFailure transitions to false, preventing
+        // testContentView from briefly rendering without the overlay.
+        isLoading = true
         clearError()
         await operation()
     }
