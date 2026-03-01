@@ -1329,4 +1329,146 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertFalse(sut.canRetry, "canRetry should be false after clearError")
         XCTAssertFalse(sut.shouldShowSubmitErrorBanner, "Banner should be hidden after clearError")
     }
+
+    // MARK: - checkResume Orchestration Tests
+
+    func testCheckResume_noSessionId_noSavedProgress_callsStartTest() async {
+        // Given
+        mockAnswerStorage.mockProgress = nil
+        let mockQuestions = makeQuestions(count: 2)
+        await mockService.startTestResponse = makeStartTestResponse(
+            sessionId: 1,
+            questions: mockQuestions
+        )
+        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+
+        // When
+        await sut.checkResume(sessionId: nil)
+
+        // Then
+        let startTestCalled = await mockService.startTestCalled
+        XCTAssertTrue(startTestCalled, "Should call startTest when no saved progress")
+        XCTAssertEqual(sut.resumeIntent, .none, "resumeIntent should remain .none after fresh start")
+        XCTAssertNotNil(sut.testSession, "testSession should be set after startTest")
+    }
+
+    func testCheckResume_noSessionId_savedProgressExpired_setsExpiredIntent() async {
+        // Given - progress with session started 31+ minutes ago (expired)
+        let expiredProgress = SavedTestProgress(
+            sessionId: 42,
+            userId: 1,
+            questionIds: [1, 2],
+            userAnswers: [1: "A"],
+            currentQuestionIndex: 1,
+            savedAt: Date(),
+            sessionStartedAt: Date().addingTimeInterval(-2200), // > 35 min (totalTestTimeSeconds = 2100)
+            stimulusSeen: []
+        )
+        mockAnswerStorage.mockProgress = expiredProgress
+
+        // When
+        await sut.checkResume(sessionId: nil)
+
+        // Then
+        XCTAssertEqual(sut.resumeIntent, .expiredProgress, "Should signal expired progress")
+        XCTAssertEqual(sut.userAnswers[1], "A", "Should have restored saved answers")
+        let startTestCalled = await mockService.startTestCalled
+        XCTAssertFalse(startTestCalled, "Should not call startTest for expired progress")
+    }
+
+    func testCheckResume_noSessionId_savedProgressValid_setsShowResumePromptIntent() async {
+        // Given - fresh valid progress
+        let validProgress = SavedTestProgress(
+            sessionId: 99,
+            userId: 1,
+            questionIds: [1, 2],
+            userAnswers: [1: "B"],
+            currentQuestionIndex: 1,
+            savedAt: Date(),
+            sessionStartedAt: Date().addingTimeInterval(-300), // 5 min ago – not expired
+            stimulusSeen: []
+        )
+        mockAnswerStorage.mockProgress = validProgress
+
+        // When
+        await sut.checkResume(sessionId: nil)
+
+        // Then
+        XCTAssertEqual(sut.resumeIntent, .showResumePrompt, "Should signal resume prompt")
+        XCTAssertEqual(sut.pendingResumeSessionStartedAt, validProgress.sessionStartedAt)
+        let startTestCalled = await mockService.startTestCalled
+        XCTAssertFalse(startTestCalled, "Should not call startTest while waiting for user choice")
+    }
+
+    func testCheckResume_withSessionId_callsResumeActiveSession() async {
+        // Given
+        let sessionId = 77
+        let mockQuestions = makeQuestions(count: 3)
+        await mockService.getTestSessionResponse = makeSessionStatusResponse(
+            sessionId: sessionId,
+            questions: mockQuestions
+        )
+
+        // When
+        await sut.checkResume(sessionId: sessionId)
+
+        // Then
+        let called = await mockService.getTestSessionCalled
+        let lastId = await mockService.lastGetTestSessionId
+        XCTAssertTrue(called, "Should call getTestSession for deep-link resume")
+        XCTAssertEqual(lastId, sessionId)
+        XCTAssertEqual(sut.resumeIntent, .none, "resumeIntent should remain .none after deep-link")
+        XCTAssertNotNil(sut.testSession)
+    }
+
+    func testAcceptResumeProgress_restoresProgressAndClearsIntent() async {
+        // Given - put ViewModel into showResumePrompt state
+        let validProgress = SavedTestProgress(
+            sessionId: 55,
+            userId: 1,
+            questionIds: [10, 20],
+            userAnswers: [10: "C", 20: "D"],
+            currentQuestionIndex: 1,
+            savedAt: Date(),
+            sessionStartedAt: Date().addingTimeInterval(-60),
+            stimulusSeen: []
+        )
+        mockAnswerStorage.mockProgress = validProgress
+        await sut.checkResume(sessionId: nil)
+        XCTAssertEqual(sut.resumeIntent, .showResumePrompt)
+
+        // When
+        sut.acceptResumeProgress()
+
+        // Then
+        XCTAssertEqual(sut.resumeIntent, .none, "resumeIntent should be cleared")
+        XCTAssertEqual(sut.userAnswers[10], "C", "Should have restored answer for q10")
+        XCTAssertEqual(sut.userAnswers[20], "D", "Should have restored answer for q20")
+        XCTAssertEqual(sut.currentQuestionIndex, 1, "Should have restored question index")
+    }
+
+    func testDismissResumePrompt_clearsPendingProgressAndIntent() async {
+        // Given - put ViewModel into showResumePrompt state
+        let validProgress = SavedTestProgress(
+            sessionId: 66,
+            userId: 1,
+            questionIds: [1],
+            userAnswers: [:],
+            currentQuestionIndex: 0,
+            savedAt: Date(),
+            sessionStartedAt: Date().addingTimeInterval(-60),
+            stimulusSeen: []
+        )
+        mockAnswerStorage.mockProgress = validProgress
+        await sut.checkResume(sessionId: nil)
+        XCTAssertEqual(sut.resumeIntent, .showResumePrompt)
+        XCTAssertNotNil(sut.pendingResumeSessionStartedAt)
+
+        // When
+        sut.dismissResumePrompt()
+
+        // Then
+        XCTAssertEqual(sut.resumeIntent, .none)
+        XCTAssertNil(sut.pendingResumeSessionStartedAt)
+    }
 }
