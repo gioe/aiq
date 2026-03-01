@@ -30,21 +30,21 @@ struct TestCompletionView: View {
                     .fontWeight(.bold)
                     .opacity(showCompletionAnimation ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successTitle)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestCompletionView.successTitle)
 
                 Text("Your answers have been submitted")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .opacity(showCompletionAnimation ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successSubtitle)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestCompletionView.successSubtitle)
 
                 Text("You answered \(answeredCount) out of \(totalQuestions) questions")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .opacity(showCompletionAnimation ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successAnswerCount)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestCompletionView.successAnswerCount)
             }
             .onAppear {
                 withAnimation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.6)) {
@@ -59,17 +59,17 @@ struct TestCompletionView: View {
                     title: "View Results",
                     action: onViewResults,
                     isLoading: false,
-                    accessibilityId: AccessibilityIdentifiers.TestTakingView.viewResultsButton
+                    accessibilityId: AccessibilityIdentifiers.TestCompletionView.viewResultsButton
                 )
 
                 Button("Return to Dashboard", action: onReturnToDashboard)
                     .buttonStyle(.bordered)
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.returnToDashboardButton)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestCompletionView.returnToDashboardButton)
             }
             .padding(.horizontal)
         }
         .padding()
-        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.successOverlay)
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestCompletionView.successOverlay)
     }
 }
 

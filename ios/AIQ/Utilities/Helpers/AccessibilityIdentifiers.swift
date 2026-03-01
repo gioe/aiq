@@ -111,12 +111,6 @@ enum AccessibilityIdentifiers {
         static let loadingOverlay = "testTakingView.loadingOverlay"
         static let loadFailureOverlay = "testTakingView.loadFailureOverlay"
         static let submitErrorBanner = "testTakingView.submitErrorBanner"
-        static let successOverlay = "testTakingView.successOverlay"
-        static let successTitle = "testTakingView.successTitle"
-        static let successSubtitle = "testTakingView.successSubtitle"
-        static let successAnswerCount = "testTakingView.successAnswerCount"
-        static let viewResultsButton = "testTakingView.viewResultsButton"
-        static let returnToDashboardButton = "testTakingView.returnToDashboardButton"
 
         /// Generate identifier for answer button at specific index
         static func answerButton(at index: Int) -> String {
@@ -127,6 +121,17 @@ enum AccessibilityIdentifiers {
         static func questionNavigationButton(at index: Int) -> String {
             "testTakingView.questionNavigationButton.\(index)"
         }
+    }
+
+    // MARK: - Test Completion View
+
+    enum TestCompletionView {
+        static let successOverlay = "testCompletionView.successOverlay"
+        static let successTitle = "testCompletionView.successTitle"
+        static let successSubtitle = "testCompletionView.successSubtitle"
+        static let successAnswerCount = "testCompletionView.successAnswerCount"
+        static let viewResultsButton = "testCompletionView.viewResultsButton"
+        static let returnToDashboardButton = "testCompletionView.returnToDashboardButton"
     }
 
     // MARK: - Memory Question View
