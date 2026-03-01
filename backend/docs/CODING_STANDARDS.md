@@ -223,6 +223,37 @@ op.drop_index("ix_responses_user_id", table_name="responses")
 
 > **Note:** The raw SQL patterns above use PostgreSQL syntax. This project targets PostgreSQL exclusively, so the `IF [NOT] EXISTS` guards work correctly. If the database backend ever changes, these raw SQL strings would need to be revisited.
 
+### search_path and Schema Qualifiers
+
+**Expected `search_path` configuration:**
+
+This project operates with a **single PostgreSQL schema** (`public`). All tables and indexes are created in the `public` schema. The expected `search_path` is the PostgreSQL default (`"$user", public`), which resolves unqualified object names to the `public` schema automatically.
+
+Railway sets no custom `search_path`, and `alembic/env.py` does not override it, so migrations rely on the default resolution.
+
+**Why schema qualifiers are omitted from `DROP INDEX` statements:**
+
+Statements like `DROP INDEX IF EXISTS ix_responses_user_id` (without a schema prefix) work correctly because:
+1. All indexes live in `public`, which is first in the default `search_path`.
+2. Adding `public.ix_...` would be redundant in this single-schema deployment.
+
+**What to do in multi-schema deployments:**
+
+If this project is ever deployed with a custom `search_path` (e.g., a per-tenant schema that shadows `public`), unqualified `DROP INDEX` statements could resolve to the wrong schema or fail silently. In that case:
+
+- Set `search_path` explicitly in the connection string or via `alembic/env.py`:
+  ```python
+  # In run_migrations_online(), after connect():
+  connection.execute(text("SET search_path TO public"))
+  ```
+- Or qualify every index reference with the schema:
+  ```python
+  op.execute("DROP INDEX IF EXISTS public.ix_responses_user_id")
+  op.execute("CREATE INDEX IF NOT EXISTS public.ix_responses_user_id ON responses (user_id)")
+  ```
+
+**Current decision:** Do not add `public.` qualifiers to existing migration statements. The default `search_path` is sufficient for this single-schema deployment. If a multi-schema configuration is ever introduced, update `alembic/env.py` to pin `search_path = public` and revisit all unqualified index statements.
+
 ## Test Quality Guidelines
 
 ### Floating-Point Comparisons
