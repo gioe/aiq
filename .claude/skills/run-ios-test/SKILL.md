@@ -18,13 +18,13 @@ gem install xcpretty
 # Alternatively, use a user-managed Ruby (rbenv/rvm) to install without sudo.
 ```
 
-**Detecting xcpretty availability:** Before running tests, check whether xcpretty is installed:
+**Detecting xcpretty availability:** At invocation time (before running tests), the agent should check whether xcpretty is installed:
 
 ```bash
 which xcpretty
 ```
 
-If it exits 0, use the xcpretty variant below; otherwise use the fallback variant (raw `xcodebuild` output, streamed in full without truncation).
+If it exits 0, xcpretty is available — use the xcpretty variant below. Otherwise use the fallback variant (raw `xcodebuild` output, streamed in full without truncation).
 
 ## Usage
 
@@ -47,7 +47,7 @@ cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platf
 To run tests from a specific test class, use the `-only-testing` flag:
 
 ```bash
-# With xcpretty (recommended)
+# With xcpretty (recommended) — pipefail ensures test failures propagate correctly
 set -o pipefail && cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName 2>&1 | xcpretty
 
 # Without xcpretty (fallback)
@@ -71,7 +71,7 @@ cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platf
 To run a single test method within a class:
 
 ```bash
-# With xcpretty (recommended)
+# With xcpretty (recommended) — pipefail ensures test failures propagate correctly
 set -o pipefail && cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName/testMethodName 2>&1 | xcpretty
 
 # Without xcpretty (fallback)
@@ -88,7 +88,7 @@ cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platf
 Chain multiple `-only-testing` flags to run several test classes:
 
 ```bash
-# With xcpretty (recommended)
+# With xcpretty (recommended) — pipefail ensures test failures propagate correctly
 set -o pipefail && cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/AuthManagerTests -only-testing:AIQTests/APIClientTests 2>&1 | xcpretty
 
 # Without xcpretty (fallback)
