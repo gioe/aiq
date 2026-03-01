@@ -240,6 +240,7 @@
 		C97E76EB8E5BA8F0817EC243 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5C4061DEB7041061A94125B9 /* Localizable.strings */; };
 		CAAEB2F88F58B07D096FEF9B /* Auth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7951C4CC161112894FD8C0A0 /* Auth.swift */; };
 		CAB88873281F64A404D1CF83 /* NetworkLoggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BC4FF0AE985922793BCA32C /* NetworkLoggerTests.swift */; };
+		CB80205554162400F23261A6 /* QuestionTimeTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6288F3A27881DADBBD1CDED8 /* QuestionTimeTrackerTests.swift */; };
 		CF1450DC01D4A2844B320030 /* DeepLinkNavigationIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4956D5824BBEBCF145738D45 /* DeepLinkNavigationIntegrationTests.swift */; };
 		CF1CC65EAF5C7434E9A41C8A /* MockSecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26347A6B9043CA83E741FBB /* MockSecureStorage.swift */; };
 		CF8D0CD438776E479A6030F5 /* FeedbackHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFC40BD7A1DF41D954DF073 /* FeedbackHelper.swift */; };
@@ -439,6 +440,7 @@
 		60A184BD55BD802DB5E86BC7 /* BiometricPreferenceStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricPreferenceStorage.swift; sourceTree = "<group>"; };
 		61414EF7BFDDBDE88634E357 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		623601A01E92AC254F0DD5B5 /* LoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModel.swift; sourceTree = "<group>"; };
+		6288F3A27881DADBBD1CDED8 /* QuestionTimeTrackerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuestionTimeTrackerTests.swift; sourceTree = "<group>"; };
 		6383FA2E98A892E5A45E2EB3 /* OnboardingSkippedInfoCardTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingSkippedInfoCardTests.swift; sourceTree = "<group>"; };
 		63EA23F0234680209D47E0F1 /* AccessibilityIdentifierTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilityIdentifierTests.swift; sourceTree = "<group>"; };
 		65E35EFF2A9D35CE899EB4F1 /* NotificationSettingsViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationSettingsViewModelTests.swift; sourceTree = "<group>"; };
@@ -790,6 +792,7 @@
 				5967D9C64B6BBDFB1D3C205F /* ToastManagerObserverTests.swift */,
 				E1EBD3CA1F81A974E0F00C5D /* AdaptiveTestTakingViewModelTests.swift */,
 				F6A92C060373617CDE405730 /* TestNavigationStateTests.swift */,
+				6288F3A27881DADBBD1CDED8 /* QuestionTimeTrackerTests.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -1536,6 +1539,7 @@
 				071051FE0B55D6E6FFF9386C /* BiometricLockViewTests.swift in Sources */,
 				1FCFDDA6BDF951911D38FD23 /* TokenRefreshMiddlewareTests.swift in Sources */,
 				4C5CD642D86749FB7D644FDD /* TestNavigationStateTests.swift in Sources */,
+				CB80205554162400F23261A6 /* QuestionTimeTrackerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
