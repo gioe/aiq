@@ -61,7 +61,7 @@ class BaseViewModel: ObservableObject {
         // Set loading before clearing the error so the loading overlay appears
         // immediately when shouldShowLoadFailure transitions to false, preventing
         // testContentView from briefly rendering without the overlay.
-        isLoading = true
+        setLoading(true)
         clearError()
         await operation()
     }
