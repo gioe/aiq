@@ -319,8 +319,8 @@ class TestTakingViewModel: BaseViewModel {
                     "[TestTakingViewModel] API call failed, using mock data. " +
                         "Error: \(error). Check network/backend configuration."
                 )
+                loadMockQuestions(count: questionCount)
             }
-            loadMockQuestions(count: questionCount)
             setLoading(false)
         }
     #endif
