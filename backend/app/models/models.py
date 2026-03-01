@@ -20,24 +20,32 @@ Enum column note (TASK-1238):
   migrations; no String(N) override is needed for them.
 
 Enum case note (TASK-1247):
-  The older migrations (questiontype, difficultylevel, teststatus,
-  generationrunstatus, educationlevel) created PostgreSQL enum types with
-  UPPERCASE labels (e.g. 'EASY', 'PATTERN'), while the Python enum members have
+  All Python enums in libs/domain_types are defined as str, enum.Enum with
   lowercase .value strings (e.g. DifficultyLevel.EASY.value == 'easy').
+  SQLAlchemy's Enum() type exposes the Python enum member's .name attribute as
+  the set of PostgreSQL enum labels (Enum(DifficultyLevel).enums ==
+  ['EASY', 'MEDIUM', 'HARD']).  When SA stores a value it sends the member name
+  to PostgreSQL, so the PG native enum type labels MUST match the Python enum
+  member names (UPPERCASE).
 
-  This is NOT a bug. SQLAlchemy's Enum() type uses the Python enum member's
-  .name attribute — not .value — as the PostgreSQL enum label. So
-  Enum(DifficultyLevel).enums == ['EASY', 'MEDIUM', 'HARD'] (the member names),
-  which matches the labels in the native PG type exactly. Reads and writes both
-  go through the member name, so there are no runtime insert errors and alembic
-  check emits no false ALTER TYPE statements for these columns.
+  Status of each native PG enum type:
+    questiontype        — labels UPPERCASE ('PATTERN', …) → matches SA .name → OK
+    difficultylevel     — labels UPPERCASE ('EASY', …)    → matches SA .name → OK
+    teststatus          — labels UPPERCASE ('IN_PROGRESS', …) → matches SA .name → OK
+    generationrunstatus — labels UPPERCASE ('RUNNING', …) → matches SA .name → OK
+    educationlevel      — labels UPPERCASE ('HIGH_SCHOOL', …) → matches SA .name → OK
+    feedbackcategory    — labels lowercase ('bug_report', …) → MISMATCH → runtime
+                          INSERT will fail with "invalid input value for enum"
+    feedbackstatus      — labels lowercase ('pending', …)   → MISMATCH → runtime
+                          INSERT will fail with "invalid input value for enum"
 
-  The newer migrations (feedbackcategory, feedbackstatus) happened to use
-  lowercase labels that also match their member names, so they are consistent
-  by coincidence.
+  The feedbackcategory/feedbackstatus mismatch is fixed by the migration
+  added in TASK-1247 (rename_feedback_enum_labels_to_uppercase), which renames
+  each label to its uppercase equivalent matching the Python member name.
 
-  Practical implication: raw SQL against these columns must use UPPERCASE
-  literals ('EASY', not 'easy'). Python ORM code is unaffected.
+  Practical implication: raw SQL against enum-backed columns must use the PG
+  label, which is UPPERCASE for all enum types in this project (after the
+  TASK-1247 migration runs).
 """
 
 from datetime import datetime
