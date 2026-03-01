@@ -48,8 +48,9 @@ struct TestTakingView: View {
 
     /// True when a post-load error (e.g. submission failure) should surface as an inline banner.
     /// Requires questions to already be loaded so this does not conflict with `shouldShowLoadFailure`.
+    /// Excludes active session conflicts, which are handled by their dedicated alert.
     private var shouldShowSubmitErrorBanner: Bool {
-        viewModel.error != nil && !viewModel.questions.isEmpty
+        viewModel.error != nil && !viewModel.questions.isEmpty && !isActiveSessionConflict
     }
 
     /// Extract session ID from active session conflict error
