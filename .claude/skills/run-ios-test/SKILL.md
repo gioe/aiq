@@ -8,6 +8,16 @@ allowed-tools: Bash
 
 This skill runs iOS unit tests for the AIQ project using `xcodebuild`.
 
+## Prerequisites
+
+Install `xcpretty` for clean, readable test output:
+
+```bash
+gem install xcpretty
+```
+
+If xcpretty is not installed, the commands below fall back to raw `xcodebuild` output streamed in full (no truncation).
+
 ## Usage
 
 When this skill is invoked, determine what tests to run based on the user's request or the context.
@@ -17,6 +27,10 @@ When this skill is invoked, determine what tests to run based on the user's requ
 If no specific test is requested, run the full test suite:
 
 ```bash
+# With xcpretty (recommended)
+cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1 | xcpretty
+
+# Without xcpretty (fallback — streams full output, no truncation)
 cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
 ```
 
@@ -25,6 +39,10 @@ cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platf
 To run tests from a specific test class, use the `-only-testing` flag:
 
 ```bash
+# With xcpretty (recommended)
+cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName 2>&1 | xcpretty
+
+# Without xcpretty (fallback)
 cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName 2>&1
 ```
 
@@ -45,6 +63,10 @@ cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platf
 To run a single test method within a class:
 
 ```bash
+# With xcpretty (recommended)
+cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName/testMethodName 2>&1 | xcpretty
+
+# Without xcpretty (fallback)
 cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/TestClassName/testMethodName 2>&1
 ```
 
@@ -58,6 +80,10 @@ cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platf
 Chain multiple `-only-testing` flags to run several test classes:
 
 ```bash
+# With xcpretty (recommended)
+cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/AuthManagerTests -only-testing:AIQTests/APIClientTests 2>&1 | xcpretty
+
+# Without xcpretty (fallback)
 cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -only-testing:AIQTests/AuthManagerTests -only-testing:AIQTests/APIClientTests 2>&1
 ```
 
