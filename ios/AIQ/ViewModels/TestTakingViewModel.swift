@@ -18,12 +18,7 @@ class TestTakingViewModel: BaseViewModel {
     // MARK: - Published Properties
 
     @Published var testSession: TestSession?
-    @Published var questions: [Question] = []
-    @Published var currentQuestionIndex: Int = 0
-    @Published var userAnswers: [Int: String] = [:] // questionId -> answer
-    /// Tracks question IDs where the user has viewed the stimulus and moved to the question phase.
-    /// Used to persist the stimulus→question transition across navigation.
-    @Published var stimulusSeen: Set<Int> = []
+    @Published var navigationState: TestNavigationState = .init()
     @Published var isSubmitting: Bool = false
     @Published var isTestCompleted: Bool = false
     @Published var testResult: SubmittedTestResult?
@@ -89,11 +84,41 @@ class TestTakingViewModel: BaseViewModel {
         setupAutoSave()
     }
 
+    // MARK: - Navigation State Forwarding
+
+    /// Direct access to the current question list; reads and writes through to ``navigationState``.
+    var questions: [Question] {
+        get { navigationState.questions }
+        set { navigationState.questions = newValue }
+    }
+
+    /// Current position in the question list; reads and writes through to ``navigationState``.
+    var currentQuestionIndex: Int {
+        get { navigationState.currentQuestionIndex }
+        set { navigationState.currentQuestionIndex = newValue }
+    }
+
+    /// All user answers keyed by question ID; reads and writes through to ``navigationState``.
+    var userAnswers: [Int: String] {
+        get { navigationState.userAnswers }
+        set { navigationState.userAnswers = newValue }
+    }
+
+    /// Tracks which question IDs have had their stimulus viewed; reads and writes through to ``navigationState``.
+    var stimulusSeen: Set<Int> {
+        get { navigationState.stimulusSeen }
+        set { navigationState.stimulusSeen = newValue }
+    }
+
+    /// Indices of questions in the question array with a non-empty answer.
+    var answeredQuestionIndices: Set<Int> {
+        navigationState.answeredQuestionIndices
+    }
+
     // MARK: - Computed Properties
 
     var currentQuestion: Question? {
-        guard currentQuestionIndex < questions.count else { return nil }
-        return questions[currentQuestionIndex]
+        navigationState.currentQuestion
     }
 
     /// The sessionStartedAt from pending saved progress, used by the View to start the timer
@@ -104,54 +129,51 @@ class TestTakingViewModel: BaseViewModel {
 
     var currentAnswer: String {
         get {
-            guard let question = currentQuestion else { return "" }
-            return userAnswers[question.id] ?? ""
+            guard let question = navigationState.currentQuestion else { return "" }
+            return navigationState.userAnswers[question.id] ?? ""
         }
         set {
             // Prevent modifications when test is locked (timer expired)
             guard !isLocked else { return }
-            guard let question = currentQuestion else { return }
-            userAnswers[question.id] = newValue
-            // Update cached indices when answer changes
-            updateAnsweredIndices()
+            guard let question = navigationState.currentQuestion else { return }
+            navigationState.userAnswers[question.id] = newValue
         }
     }
 
     var canGoNext: Bool {
-        currentQuestionIndex < questions.count - 1
+        navigationState.canGoNext
     }
 
     var canGoPrevious: Bool {
-        currentQuestionIndex > 0
+        navigationState.canGoPrevious
     }
 
     var isLastQuestion: Bool {
         if isAdaptiveTest {
             return false // In adaptive mode, we never know if it's the last question
         }
-        return currentQuestionIndex == questions.count - 1
+        return navigationState.isLastQuestion
     }
 
     var answeredCount: Int {
-        userAnswers.values.filter { !$0.isEmpty }.count
+        navigationState.answeredCount
     }
 
     var allQuestionsAnswered: Bool {
         if isAdaptiveTest {
             // In adaptive mode, check if current question is answered
-            guard let question = currentQuestion else { return false }
-            return userAnswers[question.id]?.isEmpty == false
+            guard let question = navigationState.currentQuestion else { return false }
+            return navigationState.userAnswers[question.id]?.isEmpty == false
         }
-        return answeredCount == questions.count
+        return navigationState.allQuestionsAnswered
     }
 
     var progress: Double {
-        guard !questions.isEmpty else { return 0 }
         if isAdaptiveTest {
             // Adaptive: progress based on items administered vs max items
             return min(Double(itemsAdministered) / Double(Constants.Test.maxAdaptiveItems), 1.0)
         }
-        return Double(currentQuestionIndex + 1) / Double(questions.count)
+        return navigationState.progress
     }
 
     /// Whether this test will be the user's first completed test
@@ -176,59 +198,37 @@ class TestTakingViewModel: BaseViewModel {
         error != nil && !questions.isEmpty && !isActiveSessionConflict
     }
 
-    /// Cached set of answered question indices for performance
-    /// Recalculated when userAnswers changes
-    @Published private(set) var answeredQuestionIndices: Set<Int> = []
-
-    /// Returns the set of question IDs that have been answered
-    private var answeredQuestionIds: Set<Int> {
-        Set(userAnswers.compactMap { questionId, answer in
-            answer.isEmpty ? nil : questionId
-        })
-    }
-
-    /// Update the cached answered indices set
-    func updateAnsweredIndices() {
-        var indices = Set<Int>()
-        for (index, question) in questions.enumerated() {
-            if let answer = userAnswers[question.id], !answer.isEmpty {
-                indices.insert(index)
-            }
-        }
-        answeredQuestionIndices = indices
-    }
-
     // MARK: - Navigation
 
     func goToNext() {
-        guard canGoNext else { return }
+        guard navigationState.canGoNext else { return }
         recordCurrentQuestionTime()
-        currentQuestionIndex += 1
+        navigationState.goToNext()
         startQuestionTiming()
     }
 
     func goToPrevious() {
-        guard canGoPrevious else { return }
+        guard navigationState.canGoPrevious else { return }
         recordCurrentQuestionTime()
-        currentQuestionIndex -= 1
+        navigationState.goToPrevious()
         startQuestionTiming()
     }
 
     func goToQuestion(at index: Int) {
-        guard index >= 0, index < questions.count else { return }
+        guard index >= 0, index < navigationState.questions.count else { return }
         recordCurrentQuestionTime()
-        currentQuestionIndex = index
+        navigationState.goToQuestion(at: index)
         startQuestionTiming()
     }
 
     /// Marks the stimulus as seen for a given question, transitioning to the question phase
     func markStimulusSeen(for questionId: Int) {
-        stimulusSeen.insert(questionId)
+        navigationState.markStimulusSeen(for: questionId)
     }
 
     /// Returns whether the stimulus has been seen for a given question
     func hasStimulusSeen(for questionId: Int) -> Bool {
-        stimulusSeen.contains(questionId)
+        navigationState.hasStimulusSeen(for: questionId)
     }
 
     // MARK: - Test Management
@@ -458,7 +458,10 @@ class TestTakingViewModel: BaseViewModel {
         userAnswers = progress.userAnswers.filter { validQuestionIds.contains($0.key) }
         stimulusSeen = progress.stimulusSeen.intersection(validQuestionIds)
 
-        if let firstUnansweredIndex = questions.firstIndex(where: { !answeredQuestionIds.contains($0.id) }) {
+        if let firstUnansweredIndex = questions.firstIndex(where: {
+            guard let answer = userAnswers[$0.id] else { return true }
+            return answer.isEmpty
+        }) {
             currentQuestionIndex = firstUnansweredIndex
         } else {
             currentQuestionIndex = max(0, questions.count - 1)
@@ -762,10 +765,10 @@ class TestTakingViewModel: BaseViewModel {
     // MARK: - Local Storage
 
     private func setupAutoSave() {
-        // Watch for changes to userAnswers, currentQuestionIndex, and stimulusSeen
-        Publishers.CombineLatest3($userAnswers, $currentQuestionIndex, $stimulusSeen)
+        // Watch for changes to navigationState (which wraps userAnswers, currentQuestionIndex, and stimulusSeen)
+        $navigationState
             .dropFirst() // Skip initial value
-            .sink { [weak self] _, _, _ in
+            .sink { [weak self] _ in
                 self?.scheduleAutoSave()
             }
             .store(in: &cancellables)
@@ -948,7 +951,6 @@ extension TestTakingViewModel: AdaptiveTestCoordinatorDelegate {
         questions.append(question)
         currentQuestionIndex = questions.count - 1
         startQuestionTiming()
-        updateAnsweredIndices()
     }
 
     func setIsTestCompleted(_ value: Bool) {

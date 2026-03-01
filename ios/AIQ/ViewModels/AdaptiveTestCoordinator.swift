@@ -18,7 +18,7 @@ protocol AdaptiveTestCoordinatorDelegate: AnyObject {
     func prepareForAdaptiveStart(session: TestSession, questions: [Question])
 
     /// Appends a new question to the question list and advances currentQuestionIndex to it,
-    /// then calls startQuestionTiming() and updateAnsweredIndices().
+    /// then calls startQuestionTiming().
     func appendQuestionAndAdvance(_ question: Question)
 
     func setIsTestCompleted(_ value: Bool)
@@ -27,7 +27,6 @@ protocol AdaptiveTestCoordinatorDelegate: AnyObject {
     func clearSavedProgress()
     func recordCurrentQuestionTime()
     func startQuestionTiming()
-    func updateAnsweredIndices()
 
     /// Routes the error from a failed adaptive-start call through the ViewModel's
     /// existing handleTestStartError / handleGenericTestStartError logic.
