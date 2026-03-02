@@ -151,7 +151,7 @@ final class TestTakingFlowTests: BaseUITest {
         // Check that it shows "1/X" (e.g. "1/5" in mock mode)
         let progressText = testHelper.progressLabel.label
         XCTAssertTrue(
-            progressText.contains("1/"),
+            progressText.hasPrefix("1/"),
             "Should show '1/X' in progress indicator, got: '\(progressText)'"
         )
 
@@ -225,7 +225,7 @@ final class TestTakingFlowTests: BaseUITest {
         // Verify we moved to question 2
         wait(for: testHelper.progressLabel, timeout: standardTimeout)
         let progress = testHelper.progressLabel.label
-        XCTAssertTrue(progress.contains("2/"), "Should be on question 2, got: '\(progress)'")
+        XCTAssertTrue(progress.hasPrefix("2/"), "Should be on question 2, got: '\(progress)'")
 
         takeScreenshot(named: "Question2")
 
@@ -239,7 +239,7 @@ final class TestTakingFlowTests: BaseUITest {
 
         // Verify we're back on question 1
         let newProgress = testHelper.progressLabel.label
-        XCTAssertTrue(newProgress.contains("1/"), "Should be back on question 1, got: '\(newProgress)'")
+        XCTAssertTrue(newProgress.hasPrefix("1/"), "Should be back on question 1, got: '\(newProgress)'")
 
         takeScreenshot(named: "BackToQuestion1")
     }
@@ -261,7 +261,7 @@ final class TestTakingFlowTests: BaseUITest {
         XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
         let prevDisabledLabel = testHelper.progressLabel.label
         XCTAssertTrue(
-            prevDisabledLabel.contains("1/"),
+            prevDisabledLabel.hasPrefix("1/"),
             "Should be on question 1, got: '\(prevDisabledLabel)'"
         )
         takeScreenshot(named: "FirstQuestionPreviousDisabled")
@@ -352,7 +352,7 @@ final class TestTakingFlowTests: BaseUITest {
         XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
         let answerPersistenceLabel = testHelper.progressLabel.label
         XCTAssertTrue(
-            answerPersistenceLabel.contains("1/"),
+            answerPersistenceLabel.hasPrefix("1/"),
             "Should be back on question 1, got: '\(answerPersistenceLabel)'"
         )
         takeScreenshot(named: "AnswerPersistence")
@@ -586,7 +586,7 @@ final class TestTakingFlowTests: BaseUITest {
             let answered = testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: false)
             XCTAssertTrue(answered, "Should answer Q\(questionNum)")
             XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test screen")
-            let onCorrectQ = testHelper.progressLabel.label.contains("\(questionNum)/")
+            let onCorrectQ = testHelper.progressLabel.label.hasPrefix("\(questionNum)/")
             XCTAssertTrue(onCorrectQ, "On question \(questionNum), got: '\(testHelper.progressLabel.label)'")
             takeScreenshot(named: "E2E_Step3_Question\(questionNum)")
             if questionNum < totalQuestions {
@@ -652,7 +652,7 @@ final class TestTakingFlowTests: BaseUITest {
 
         XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test screen")
         let q4Label = testHelper.progressLabel.label
-        XCTAssertTrue(q4Label.contains("4/"), "Should be on Q4, got: '\(q4Label)'")
+        XCTAssertTrue(q4Label.hasPrefix("4/"), "Should be on Q4, got: '\(q4Label)'")
         takeScreenshot(named: "AfterFirst3Questions")
 
         // Navigate backward
@@ -660,19 +660,19 @@ final class TestTakingFlowTests: BaseUITest {
         previousButton.tap()
         wait(for: testHelper.progressLabel, timeout: standardTimeout)
         let q3aLabel = testHelper.progressLabel.label
-        XCTAssertTrue(q3aLabel.contains("3/"), "Should be on Q3, got: '\(q3aLabel)'")
+        XCTAssertTrue(q3aLabel.hasPrefix("3/"), "Should be on Q3, got: '\(q3aLabel)'")
 
         previousButton.tap()
         wait(for: testHelper.progressLabel, timeout: standardTimeout)
         let q2Label = testHelper.progressLabel.label
-        XCTAssertTrue(q2Label.contains("2/"), "Should be on Q2, got: '\(q2Label)'")
+        XCTAssertTrue(q2Label.hasPrefix("2/"), "Should be on Q2, got: '\(q2Label)'")
         takeScreenshot(named: "NavigatedBackToQuestion2")
 
         // Navigate forward
         XCTAssertTrue(testHelper.tapNextButton(), "Should navigate forward")
         wait(for: testHelper.progressLabel, timeout: standardTimeout)
         let q3bLabel = testHelper.progressLabel.label
-        XCTAssertTrue(q3bLabel.contains("3/"), "Should be back on Q3, got: '\(q3bLabel)'")
+        XCTAssertTrue(q3bLabel.hasPrefix("3/"), "Should be back on Q3, got: '\(q3bLabel)'")
         takeScreenshot(named: "NavigatedForwardToQuestion3")
     }
 
