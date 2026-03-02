@@ -179,6 +179,7 @@
 		8F0F0CA35FDF9A40497B1D54 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEC694746FB50E12EE49113 /* NotificationSettingsView.swift */; };
 		8FB4911833FE509204A93C4B /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87CCC3CB1D4822BF88041880 /* WelcomeView.swift */; };
 		902D9BB3EB95C85FC560056E /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB7CB297B401BB40A27456F0 /* Constants.swift */; };
+		928FBD282B9F3178C0A26A0A /* DashboardInProgressCardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A07785B263B8F092AF23CCB0 /* DashboardInProgressCardUITests.swift */; };
 		929ED8D7803C929C948A74E3 /* User+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B08C80B1D24AB583E52D4D2 /* User+Extensions.swift */; };
 		932D70F55858628AD7493718 /* TestProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67917E637F178829655DE396 /* TestProgressView.swift */; };
 		943DE3B36FA4BDF9A177F017 /* AIQApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3516CD4A60A499D8C2B07525 /* AIQApp.swift */; };
@@ -512,6 +513,7 @@
 		9C8C883BCEBA6CCDD0AFFE38 /* AdaptiveProgressHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AdaptiveProgressHeader.swift; sourceTree = "<group>"; };
 		9E4FAEB67D62A917317348E0 /* RegistrationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModel.swift; sourceTree = "<group>"; };
 		9EC23CD0B01044C988C0DF26 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
+		A07785B263B8F092AF23CCB0 /* DashboardInProgressCardUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardInProgressCardUITests.swift; sourceTree = "<group>"; };
 		A0B5DE45427D4A5C1E897541 /* EducationLevelPickerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EducationLevelPickerTests.swift; sourceTree = "<group>"; };
 		A16988A601D72DDA897C6605 /* MockAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthManager.swift; sourceTree = "<group>"; };
 		A1CCFDDC157DB49DF3A01EBE /* DeepLinkHandlerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkHandlerTests.swift; sourceTree = "<group>"; };
@@ -740,6 +742,7 @@
 				284313B81892FFA1AE606BC6 /* NotificationSettingsAccessibilityTests.swift */,
 				285552C8C6133F2BE7F80248 /* BiometricLockViewUITests.swift */,
 				7C72FCC4AB905F01F4A75F1B /* TestTakingLoadFailureTests.swift */,
+				A07785B263B8F092AF23CCB0 /* DashboardInProgressCardUITests.swift */,
 			);
 			path = AIQUITests;
 			sourceTree = "<group>";
@@ -1461,6 +1464,7 @@
 				307A47136CDEB4184C5068FA /* NotificationSettingsAccessibilityTests.swift in Sources */,
 				B2FEAD0CB8B33B318E1A7043 /* BiometricLockViewUITests.swift in Sources */,
 				2EAE7CA409AFB167B4CB029A /* TestTakingLoadFailureTests.swift in Sources */,
+				928FBD282B9F3178C0A26A0A /* DashboardInProgressCardUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

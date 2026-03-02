@@ -286,45 +286,6 @@ struct DashboardView: View {
         TestCardProgress(result: result)
     }
 
-    // MARK: - Status Badge
-
-    @ViewBuilder
-    private var statusBadge: some View {
-        if viewModel.hasActiveTest {
-            HStack(spacing: DesignSystem.Spacing.xs) {
-                Image(systemName: "exclamationmark.circle.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(ColorPalette.warning)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Test in Progress")
-                        .font(Typography.bodySmall.weight(.semibold))
-                        .foregroundColor(ColorPalette.textPrimary)
-
-                    if let questionsAnswered = viewModel.activeSessionQuestionsAnswered {
-                        Text("\(questionsAnswered) questions answered")
-                            .font(Typography.captionMedium)
-                            .foregroundColor(ColorPalette.textSecondary)
-                    }
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, DesignSystem.Spacing.md)
-            .padding(.vertical, DesignSystem.Spacing.sm)
-            .background(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                    .fill(ColorPalette.warning.opacity(0.1))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                    .strokeBorder(ColorPalette.warning.opacity(0.3), lineWidth: 1)
-            )
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Test in Progress. \(viewModel.activeSessionQuestionsAnswered ?? 0) questions answered")
-        }
-    }
-
     // MARK: - Routing Helpers
 
     /// Determines the correct test route based on active session and feature flags
@@ -342,54 +303,48 @@ struct DashboardView: View {
     // MARK: - Action Button
 
     private var actionButton: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            // Status badge above button
-            statusBadge
+        Button {
+            navigateToTest()
+        } label: {
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                Image(systemName: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile")
+                    .font(.system(size: DesignSystem.IconSize.md, weight: .semibold))
 
-            // Action button
-            Button {
-                navigateToTest()
-            } label: {
-                HStack(spacing: DesignSystem.Spacing.sm) {
-                    Image(systemName: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile")
-                        .font(.system(size: DesignSystem.IconSize.md, weight: .semibold))
+                Text(viewModel.hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
+                    .font(Typography.button)
 
-                    Text(viewModel.hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
-                        .font(Typography.button)
+                Spacer()
 
-                    Spacer()
-
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: DesignSystem.IconSize.md))
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(DesignSystem.Spacing.lg)
-                .background(
-                    LinearGradient(
-                        colors: [ColorPalette.primary, ColorPalette.primary.opacity(0.8)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .cornerRadius(DesignSystem.CornerRadius.lg)
-                .shadow(
-                    color: ColorPalette.primary.opacity(0.3),
-                    radius: 8,
-                    x: 0,
-                    y: 4
-                )
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: DesignSystem.IconSize.md))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(viewModel.hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
-            .accessibilityHint(
-                viewModel.hasActiveTest
-                    ? "Continue your in-progress cognitive performance test"
-                    : "Start a new cognitive performance test"
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(DesignSystem.Spacing.lg)
+            .background(
+                LinearGradient(
+                    colors: [ColorPalette.primary, ColorPalette.primary.opacity(0.8)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
             )
-            .accessibilityAddTraits(.isButton)
-            .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.actionButton)
+            .cornerRadius(DesignSystem.CornerRadius.lg)
+            .shadow(
+                color: ColorPalette.primary.opacity(0.3),
+                radius: 8,
+                x: 0,
+                y: 4
+            )
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(viewModel.hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
+        .accessibilityHint(
+            viewModel.hasActiveTest
+                ? "Continue your in-progress cognitive performance test"
+                : "Start a new cognitive performance test"
+        )
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.actionButton)
     }
 
     // MARK: - Empty State
