@@ -151,7 +151,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -211,7 +211,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -238,7 +238,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -265,7 +265,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -286,7 +286,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -309,7 +309,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -327,7 +327,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -353,7 +353,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -394,7 +394,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -420,7 +420,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -446,7 +446,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -472,7 +472,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -501,7 +501,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -527,7 +527,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -551,7 +551,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -585,7 +585,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -609,7 +609,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -638,7 +638,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -656,7 +656,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -683,7 +683,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -704,7 +704,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -753,7 +753,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch let error as APIError {
             throw error
         } catch {
-            throw mapToAPIError(error)
+            throw try mapToAPIError(error)
         }
     }
 
@@ -774,7 +774,10 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     /// Maps non-APIError errors (e.g. ClientError from OpenAPIRuntime) to typed APIError cases.
     /// This ensures all errors leaving OpenAPIService are properly typed.
-    private func mapToAPIError(_ error: Error) -> APIError {
+    /// Throws `CancellationError` directly so task cancellation is never swallowed as APIError.unknown.
+    func mapToAPIError(_ error: Error) throws -> APIError {
+        if error is CancellationError { throw error }
+
         // Already an APIError — pass through
         if let apiError = error as? APIError {
             return apiError
