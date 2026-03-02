@@ -175,6 +175,8 @@ class DashboardViewModel: BaseViewModel {
             updateActiveSessionState(response)
             return nil
 
+        } catch is CancellationError {
+            return nil // view is gone; discard silently
         } catch {
             // Record non-fatal error to Crashlytics for production monitoring
             CrashlyticsErrorRecorder.recordError(error, context: .fetchActiveSession)
