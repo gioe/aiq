@@ -94,8 +94,30 @@ class BaseUITest: XCTestCase {
 
     // MARK: - Launch Configuration
 
-    /// Configure launch arguments and environment variables
-    /// Override this method in subclasses to customize launch configuration
+    /// Configure launch arguments and environment variables.
+    ///
+    /// Override this method in subclasses to customize launch configuration.
+    ///
+    /// ## Subclass Override Contract
+    ///
+    /// If your override sets `mockScenario`, you **must** guard the assignment so
+    /// it only runs when no scenario has already been chosen:
+    ///
+    /// ```swift
+    /// override func setupLaunchConfiguration() {
+    ///     if mockScenario == "default" {
+    ///         mockScenario = "myScenario"
+    ///     }
+    ///     super.setupLaunchConfiguration()
+    /// }
+    /// ```
+    ///
+    /// Without this guard, `relaunchWithScenario(_:)` will **silently break**: it sets
+    /// `mockScenario` to the requested scenario, then calls `setupLaunchConfiguration()`,
+    /// and an unconditional override will overwrite that value before it is read —
+    /// causing the wrong scenario to be injected into the app.
+    ///
+    /// See TASK-1294 for the root-cause analysis.
     func setupLaunchConfiguration() {
         // Enable mock mode for UI tests
         app.launchArguments.append("-UITestMockMode")
@@ -120,8 +142,15 @@ class BaseUITest: XCTestCase {
         // block all tab navigation.
     }
 
-    /// Relaunch the app with a specific mock scenario
-    /// - Parameter scenario: The scenario name (e.g., "loggedIn", "loggedOut", "testInProgress")
+    /// Relaunch the app with a specific mock scenario.
+    ///
+    /// - Parameter scenario: The scenario name (e.g., `"loggedIn"`, `"loggedOut"`, `"testInProgress"`)
+    ///
+    /// This method sets `mockScenario` to `scenario` **before** calling
+    /// `setupLaunchConfiguration()`.  Subclass overrides of `setupLaunchConfiguration()`
+    /// that also assign `mockScenario` must therefore guard their assignment with
+    /// `if mockScenario == "default"` — otherwise they will overwrite the scenario
+    /// requested here and the app will launch under the wrong scenario.
     func relaunchWithScenario(_ scenario: String) {
         app.terminate()
 
