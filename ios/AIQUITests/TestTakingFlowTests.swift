@@ -591,7 +591,7 @@ final class TestTakingFlowTests: BaseUITest {
             takeScreenshot(named: "E2E_Step3_Question\(questionNum)")
             if questionNum < totalQuestions {
                 XCTAssertTrue(testHelper.tapNextButton(), "Should navigate to next")
-                let predicate = NSPredicate(format: "label CONTAINS[c] '\(questionNum + 1)/'")
+                let predicate = NSPredicate(format: "label BEGINSWITH[c] '\(questionNum + 1)/'")
                 let exp = XCTNSPredicateExpectation(predicate: predicate, object: testHelper.progressLabel)
                 _ = XCTWaiter.wait(for: [exp], timeout: standardTimeout)
             }
@@ -645,7 +645,7 @@ final class TestTakingFlowTests: BaseUITest {
         for questionNum in 1 ... 3 {
             let answered = testHelper.answerCurrentQuestion(optionIndex: 0, tapNext: true)
             XCTAssertTrue(answered, "Should answer Q\(questionNum)")
-            let predicate = NSPredicate(format: "label CONTAINS[c] '\(questionNum + 1)/'")
+            let predicate = NSPredicate(format: "label BEGINSWITH[c] '\(questionNum + 1)/'")
             let exp = XCTNSPredicateExpectation(predicate: predicate, object: testHelper.progressLabel)
             _ = XCTWaiter.wait(for: [exp], timeout: standardTimeout)
         }
