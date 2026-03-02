@@ -148,7 +148,7 @@ final class TestTakingFlowTests: BaseUITest {
         // Verify progress indicator
         XCTAssertTrue(testHelper.progressLabel.exists, "Progress label should exist")
 
-        // Check that it shows "1/X" (e.g. "1/5")
+        // Check that it shows "1/X" (e.g. "1/5" in mock mode)
         let progressText = testHelper.progressLabel.label
         XCTAssertTrue(
             progressText.contains("1/"),
@@ -259,9 +259,10 @@ final class TestTakingFlowTests: BaseUITest {
 
         // Assert we are on first question before screenshot
         XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
+        let prevDisabledLabel = testHelper.progressLabel.label
         XCTAssertTrue(
-            testHelper.progressLabel.label.contains("1/"),
-            "Should be on question 1, got: '\(testHelper.progressLabel.label)'"
+            prevDisabledLabel.contains("1/"),
+            "Should be on question 1, got: '\(prevDisabledLabel)'"
         )
         takeScreenshot(named: "FirstQuestionPreviousDisabled")
     }
@@ -349,9 +350,10 @@ final class TestTakingFlowTests: BaseUITest {
 
         // Assert we navigated back to question 1 before screenshot
         XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
+        let answerPersistenceLabel = testHelper.progressLabel.label
         XCTAssertTrue(
-            testHelper.progressLabel.label.contains("1/"),
-            "Should be back on question 1, got: '\(testHelper.progressLabel.label)'"
+            answerPersistenceLabel.contains("1/"),
+            "Should be back on question 1, got: '\(answerPersistenceLabel)'"
         )
         takeScreenshot(named: "AnswerPersistence")
     }
