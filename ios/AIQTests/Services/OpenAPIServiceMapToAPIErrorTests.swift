@@ -1,8 +1,9 @@
 @testable import AIQ
 import AIQAPIClient
+import OpenAPIRuntime
 import XCTest
 
-/// Tests for OpenAPIService.mapToAPIError(_:) — specifically the CancellationError pass-through.
+/// Tests for OpenAPIService.mapToAPIError(_:).
 final class OpenAPIServiceMapToAPIErrorTests: XCTestCase {
     private var service: OpenAPIService!
 
@@ -105,6 +106,62 @@ final class OpenAPIServiceMapToAPIErrorTests: XCTestCase {
             // expected
         } else {
             XCTFail("Expected APIError.decodingError, got \(result)")
+        }
+    }
+
+    // MARK: - ClientError Unwrapping
+
+    private func makeClientError(wrapping underlying: any Error) -> ClientError {
+        ClientError(
+            operationID: "testOp",
+            operationInput: "input" as any Sendable,
+            causeDescription: "test",
+            underlyingError: underlying
+        )
+    }
+
+    /// A URLError.notConnectedToInternet wrapped inside a ClientError surfaces as APIError.noInternetConnection.
+    func testMapToAPIError_ClientErrorWrappingNotConnected_MapsToNoInternetConnection() throws {
+        let result = try service.mapToAPIError(makeClientError(wrapping: URLError(.notConnectedToInternet)))
+        if case .noInternetConnection = result {
+            // expected
+        } else {
+            XCTFail("Expected APIError.noInternetConnection, got \(result)")
+        }
+    }
+
+    /// A URLError.timedOut wrapped inside a ClientError surfaces as APIError.timeout.
+    func testMapToAPIError_ClientErrorWrappingTimedOut_MapsToTimeout() throws {
+        let result = try service.mapToAPIError(makeClientError(wrapping: URLError(.timedOut)))
+        if case .timeout = result {
+            // expected
+        } else {
+            XCTFail("Expected APIError.timeout, got \(result)")
+        }
+    }
+
+    /// A DecodingError wrapped inside a ClientError surfaces as APIError.decodingError.
+    func testMapToAPIError_ClientErrorWrappingDecodingError_MapsToDecodingError() throws {
+        let decodingError = DecodingError.dataCorrupted(
+            .init(codingPath: [], debugDescription: "corrupted")
+        )
+        let result = try service.mapToAPIError(makeClientError(wrapping: decodingError))
+        if case .decodingError = result {
+            // expected
+        } else {
+            XCTFail("Expected APIError.decodingError, got \(result)")
+        }
+    }
+
+    /// A CancellationError wrapped inside a ClientError is rethrown as CancellationError.
+    func testMapToAPIError_ClientErrorWrappingCancellationError_Rethrows() {
+        XCTAssertThrowsError(
+            try service.mapToAPIError(makeClientError(wrapping: CancellationError()))
+        ) { error in
+            XCTAssertTrue(
+                error is CancellationError,
+                "CancellationError inside ClientError must propagate as CancellationError"
+            )
         }
     }
 
