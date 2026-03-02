@@ -24,10 +24,10 @@ If it exits 0, use the xcpretty variant below. Otherwise use the fallback varian
 
 ```bash
 # With xcpretty (recommended) — pipefail ensures build failures propagate correctly
-set -o pipefail && cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1 | xcpretty
+set -o pipefail && cd "$(git rev-parse --show-toplevel)/ios" && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1 | xcpretty
 
 # Without xcpretty (fallback — streams full output, no truncation)
-cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
+cd "$(git rev-parse --show-toplevel)/ios" && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
 ```
 
 ### Build for Release (Optional)
@@ -36,10 +36,10 @@ If specifically requested, build in Release configuration:
 
 ```bash
 # With xcpretty
-set -o pipefail && cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -configuration Release 2>&1 | xcpretty
+set -o pipefail && cd "$(git rev-parse --show-toplevel)/ios" && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -configuration Release 2>&1 | xcpretty
 
 # Without xcpretty (fallback)
-cd ios && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -configuration Release 2>&1
+cd "$(git rev-parse --show-toplevel)/ios" && xcodebuild build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' -configuration Release 2>&1
 ```
 
 ### Clean Build (Optional)
@@ -48,10 +48,10 @@ If a clean build is requested or there are stale build artifacts:
 
 ```bash
 # With xcpretty
-set -o pipefail && cd ios && xcodebuild clean build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1 | xcpretty
+set -o pipefail && cd "$(git rev-parse --show-toplevel)/ios" && xcodebuild clean build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1 | xcpretty
 
 # Without xcpretty (fallback)
-cd ios && xcodebuild clean build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
+cd "$(git rev-parse --show-toplevel)/ios" && xcodebuild clean build -project AIQ.xcodeproj -scheme AIQ -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' 2>&1
 ```
 
 ## Arguments
