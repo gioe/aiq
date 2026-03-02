@@ -85,7 +85,20 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
    - Task assignee field (often indicates the right agent type)
    - Task description and requirements
 
-4. **Explore the codebase before implementing** — use a sub-agent to research:
+4. **Confirm failure** — Run the failing tests *before* exploring any code when the task is about *fixing* an existing failure. This confirms the bug still exists and avoids wasted investigation.
+
+   **When to run this step:**
+   - `task_type: bug` → always run
+   - `task_type: test` AND the summary/description indicates fixing a failing or flaky test → run
+   - `task_type: test` AND the summary/description indicates *writing new tests* (no existing failure to reproduce, e.g. "Add tests for X", "Write test suite for Y") → **skip this step entirely and proceed to Explore**
+   - All other task types (feature, chore, docs, etc.) → skip
+
+   1. Check the task description and acceptance criteria for specific test commands or test names to run.
+   2. If specific tests are named, run them directly. Otherwise, use `tusk test-detect` to find the project's test command, then run the most relevant subset.
+   3. **If tests pass**: the issue may already be fixed or the description may be inaccurate — surface this to the user and stop before investigating further.
+   4. **If tests fail**: capture the failure output. Use it as the primary diagnostic anchor in step 5 (Explore).
+
+5. **Explore the codebase before implementing** — use a sub-agent to research:
    - What files will need to change?
    - Are there existing patterns to follow?
    - What tests already exist for this area?
@@ -110,6 +123,12 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
        tusk commit <id> "<message>" <file1> [file2 ...] --criteria <cid1> --criteria <cid2>
        ```
        Always include a brief rationale in the commit message when grouping. **Never** bundle all criteria onto a single end-of-task commit.
+
+    **If `tusk commit` fails with `pathspec did not match any files`** (exit code 3, git-add error), always pass file paths relative to the repo root (e.g., `ios/SomeFile.swift`, not `SomeFile.swift` from inside `ios/`). If the error persists, fall back to:
+    ```bash
+    git add <file1> [file2 ...] && git commit -m "[TASK-<id>] <message>" --trailer "Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+    ```
+    Then mark criteria done with `tusk criteria done <cid> --skip-verify` as usual.
 
     **If `tusk commit` hard-fails because tests fail** (exit code 2 — `test_command` is set and returned non-zero), follow this diagnosis loop before retrying. Do **not** modify any code until you've completed steps i–ii:
     1. **Read the full test output** — scroll through the entire failure log. Do not make any code changes until you understand what failed and why.
