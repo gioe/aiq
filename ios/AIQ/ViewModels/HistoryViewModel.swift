@@ -252,9 +252,6 @@ class HistoryViewModel: BaseViewModel {
     func refreshHistory() async {
         isRefreshing = true
         defer { isRefreshing = false }
-        // Reset pagination state
-        currentOffset = 0
-        hasMore = false
         // Clear cache and force refresh
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
         await fetchHistory(forceRefresh: true)
