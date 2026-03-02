@@ -66,6 +66,48 @@ final class OpenAPIServiceMapToAPIErrorTests: XCTestCase {
         }
     }
 
+    /// URLError.networkConnectionLost also maps to APIError.noInternetConnection (same switch case).
+    func testMapToAPIError_URLErrorNetworkConnectionLost_MapsToNoInternetConnection() throws {
+        let urlError = URLError(.networkConnectionLost)
+        let result = try service.mapToAPIError(urlError)
+        if case .noInternetConnection = result {
+            // expected
+        } else {
+            XCTFail("Expected APIError.noInternetConnection, got \(result)")
+        }
+    }
+
+    /// URLError default case (e.g. .cannotConnectToHost) maps to APIError.networkError.
+    func testMapToAPIError_URLErrorOther_MapsToNetworkError() throws {
+        let urlError = URLError(.cannotConnectToHost)
+        let result = try service.mapToAPIError(urlError)
+        if case .networkError = result {
+            // expected
+        } else {
+            XCTFail("Expected APIError.networkError, got \(result)")
+        }
+    }
+
+    // MARK: - DecodingError Mapping
+
+    /// A DecodingError nested under NSUnderlyingErrorKey maps to APIError.decodingError.
+    func testMapToAPIError_WrappedDecodingError_MapsToDecodingError() throws {
+        let decodingError = DecodingError.dataCorrupted(
+            .init(codingPath: [], debugDescription: "corrupted")
+        )
+        let wrappedError = NSError(
+            domain: "OpenAPIRuntime",
+            code: 1,
+            userInfo: [NSUnderlyingErrorKey: decodingError]
+        )
+        let result = try service.mapToAPIError(wrappedError)
+        if case .decodingError = result {
+            // expected
+        } else {
+            XCTFail("Expected APIError.decodingError, got \(result)")
+        }
+    }
+
     // MARK: - Unknown Error Fallback
 
     /// Unrecognised errors fall back to APIError.unknown without wrapping CancellationError.
