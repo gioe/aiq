@@ -21,7 +21,7 @@ struct DashboardActionButton: View {
                 Image(systemName: "arrow.right.circle.fill")
                     .font(.system(size: DesignSystem.IconSize.md))
             }
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(DesignSystem.Spacing.lg)
             .background(
@@ -31,7 +31,7 @@ struct DashboardActionButton: View {
                     endPoint: .trailing
                 )
             )
-            .cornerRadius(DesignSystem.CornerRadius.lg)
+            .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg))
             .shadow(
                 color: ColorPalette.primary.opacity(0.3),
                 radius: 8,
@@ -46,7 +46,6 @@ struct DashboardActionButton: View {
                 ? "Continue your in-progress cognitive performance test"
                 : "Start a new cognitive performance test"
         )
-        .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.actionButton)
     }
 }
