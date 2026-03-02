@@ -135,9 +135,7 @@ class DashboardViewModel: BaseViewModel {
         } catch is CancellationError {
             return nil // view is gone; discard silently
         } catch {
-            // Record non-fatal error to Crashlytics for production monitoring
-            CrashlyticsErrorRecorder.recordError(error, context: .fetchDashboard)
-            // Set empty state on error
+            // Set empty state on error; Crashlytics recording handled by fetchDashboardData via handleError
             updateDashboardState(with: [], totalCount: 0)
             return error
         }
