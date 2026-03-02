@@ -247,6 +247,7 @@
 		CAAEB2F88F58B07D096FEF9B /* Auth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7951C4CC161112894FD8C0A0 /* Auth.swift */; };
 		CAB88873281F64A404D1CF83 /* NetworkLoggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BC4FF0AE985922793BCA32C /* NetworkLoggerTests.swift */; };
 		CB80205554162400F23261A6 /* QuestionTimeTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6288F3A27881DADBBD1CDED8 /* QuestionTimeTrackerTests.swift */; };
+		CD47A9E9A0E6CAC397430095 /* DashboardWelcomeHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11459CEAB371E00B2B7C0515 /* DashboardWelcomeHeader.swift */; };
 		CF1450DC01D4A2844B320030 /* DeepLinkNavigationIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4956D5824BBEBCF145738D45 /* DeepLinkNavigationIntegrationTests.swift */; };
 		CF1CC65EAF5C7434E9A41C8A /* MockSecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26347A6B9043CA83E741FBB /* MockSecureStorage.swift */; };
 		CF8D0CD438776E479A6030F5 /* FeedbackHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFC40BD7A1DF41D954DF073 /* FeedbackHelper.swift */; };
@@ -345,6 +346,7 @@
 		1060D68A34C714AEE7BAB31E /* SettingsViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsViewModelTests.swift; sourceTree = "<group>"; };
 		110312C04FD9AC92B125E89D /* ColorPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorPalette.swift; sourceTree = "<group>"; };
 		11213FF1DC2D22E406EF823A /* BiometricAuthManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricAuthManagerTests.swift; sourceTree = "<group>"; };
+		11459CEAB371E00B2B7C0515 /* DashboardWelcomeHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardWelcomeHeader.swift; sourceTree = "<group>"; };
 		11C5A7D620E9ED27D3968B2F /* OnboardingPage4View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingPage4View.swift; sourceTree = "<group>"; };
 		11FC47CAFCC74AFAEFF03D41 /* OpenAPIServiceMapToAPIErrorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenAPIServiceMapToAPIErrorTests.swift; sourceTree = "<group>"; };
 		123792FFFEC35608BD39FE0B /* AnswerInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerInputView.swift; sourceTree = "<group>"; };
@@ -1118,6 +1120,7 @@
 				F845907D460CC2DAB74F0F53 /* DashboardView.swift */,
 				FF1F00979D347B1863E91D9A /* InProgressTestCard.swift */,
 				4CB0EDB62E57E4DDA855DA95 /* OnboardingSkippedInfoCard.swift */,
+				11459CEAB371E00B2B7C0515 /* DashboardWelcomeHeader.swift */,
 			);
 			path = Dashboard;
 			sourceTree = "<group>";
@@ -1735,6 +1738,7 @@
 				AC99C9DD2B77E8D59AB1A39D /* TestNavigationState.swift in Sources */,
 				220A8DBAA11F195848296FDD /* UITestMockHistoryPreferencesStorage.swift in Sources */,
 				4D2C1AB620879530E14AA561 /* TimeProvider.swift in Sources */,
+				CD47A9E9A0E6CAC397430095 /* DashboardWelcomeHeader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
