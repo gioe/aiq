@@ -609,6 +609,13 @@ final class TestTakingFlowTests: BaseUITest {
             takeScreenshot(named: "E2E_Step5_Results")
             let doneButton = app.buttons["testResultsView.doneButton"]
             if doneButton.exists { doneButton.tap() }
+            // In the default mock scenario the user has zero test history, so isFirstTest=true
+            // and the notification soft prompt sheet appears after tapping Done. Dismiss it
+            // so the navigation unwinds back to the dashboard and the tab bar becomes visible.
+            let notNowButton = app.buttons["notificationSoftPrompt.notNowButton"]
+            if notNowButton.waitForExistence(timeout: standardTimeout) {
+                notNowButton.tap()
+            }
         }
 
         // Step 6: Verify history
@@ -619,6 +626,10 @@ final class TestTakingFlowTests: BaseUITest {
 
         // Step 7: Logout
         navHelper.navigateToTab(.settings)
+        // Scroll the settings list so the Logout button (in the last section) enters the
+        // accessibility tree. SwiftUI List lazily adds off-screen cells to the accessibility
+        // hierarchy, so the button is absent until it scrolls into the visible area.
+        app.swipeUp()
         XCTAssertTrue(loginHelper.logout(), "Should log out")
         takeScreenshot(named: "E2E_Step7_Logout")
     }

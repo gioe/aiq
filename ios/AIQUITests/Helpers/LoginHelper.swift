@@ -301,8 +301,19 @@ class LoginHelper {
         // Ordered by likelihood: "Log Out" is iOS standard, "Logout" is common alternative
         let possibleLabels = ["Log Out", "Logout", "Sign Out", "Yes"]
 
+        // Scope to the dialog container to avoid matching same-label buttons in the
+        // underlying settings list (e.g. both the list row and the action sheet are
+        // named "Logout", causing an ambiguous-match tap failure).
+        let container: XCUIElement = if app.sheets.firstMatch.exists {
+            app.sheets.firstMatch
+        } else if app.alerts.firstMatch.exists {
+            app.alerts.firstMatch
+        } else {
+            app
+        }
+
         for label in possibleLabels {
-            let button = app.buttons[label]
+            let button = container.buttons[label]
             if button.waitForExistence(timeout: confirmationTimeout) {
                 return button
             }
