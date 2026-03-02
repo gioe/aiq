@@ -41,7 +41,7 @@ struct DashboardLatestTestResultCard: View {
             accuracyPercentage: 80.0,
             completedAt: Date()
         ),
-        dateFormatted: "March 2, 2026"
+        dateFormatted: "Jan 15, 2025"
     )
     .padding()
 }
