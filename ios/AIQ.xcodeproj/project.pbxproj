@@ -183,6 +183,7 @@
 		929ED8D7803C929C948A74E3 /* User+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B08C80B1D24AB583E52D4D2 /* User+Extensions.swift */; };
 		932D70F55858628AD7493718 /* TestProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67917E637F178829655DE396 /* TestProgressView.swift */; };
 		943DE3B36FA4BDF9A177F017 /* AIQApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3516CD4A60A499D8C2B07525 /* AIQApp.swift */; };
+		96565155349D534E78DFFC02 /* DashboardActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1913A34AB068C6EBD01FA534 /* DashboardActionButton.swift */; };
 		97221E76F5EB721FE399CBED /* MainTabViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B177163E2A9A5F2FA27742F /* MainTabViewTests.swift */; };
 		97A450C6E0924DD1AEEBE823 /* NotificationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D026ECF13B446C281C58F76 /* NotificationServiceTests.swift */; };
 		9920B3E6F9848F654507D50C /* ScrollPositionStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73568203E42275D471EF8420 /* ScrollPositionStorage.swift */; };
@@ -353,6 +354,7 @@
 		16F36CBD4C5AA3EB8471373F /* TestTakingViewModel+MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestTakingViewModel+MockData.swift"; sourceTree = "<group>"; };
 		17BB6908342F97951E8B9152 /* NetworkLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkLogger.swift; sourceTree = "<group>"; };
 		17C0A64EAF99E3024394A88D /* NetworkErrorScenarioTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkErrorScenarioTests.swift; sourceTree = "<group>"; };
+		1913A34AB068C6EBD01FA534 /* DashboardActionButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardActionButton.swift; sourceTree = "<group>"; };
 		195285F632CE542931965E57 /* FeedbackView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
 		19D5E51F4712FCE75F777B75 /* Validators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Validators.swift; sourceTree = "<group>"; };
 		1A57DF952EFE222F009F9E9D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -1121,6 +1123,7 @@
 				FF1F00979D347B1863E91D9A /* InProgressTestCard.swift */,
 				4CB0EDB62E57E4DDA855DA95 /* OnboardingSkippedInfoCard.swift */,
 				11459CEAB371E00B2B7C0515 /* DashboardWelcomeHeader.swift */,
+				1913A34AB068C6EBD01FA534 /* DashboardActionButton.swift */,
 			);
 			path = Dashboard;
 			sourceTree = "<group>";
@@ -1739,6 +1742,7 @@
 				220A8DBAA11F195848296FDD /* UITestMockHistoryPreferencesStorage.swift in Sources */,
 				4D2C1AB620879530E14AA561 /* TimeProvider.swift in Sources */,
 				CD47A9E9A0E6CAC397430095 /* DashboardWelcomeHeader.swift in Sources */,
+				96565155349D534E78DFFC02 /* DashboardActionButton.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

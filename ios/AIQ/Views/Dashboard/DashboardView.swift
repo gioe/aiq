@@ -113,7 +113,7 @@ struct DashboardView: View {
                 }
 
                 // Action Button
-                actionButton
+                DashboardActionButton(hasActiveTest: viewModel.hasActiveTest, onTap: navigateToTest)
 
                 Spacer()
             }
@@ -237,53 +237,6 @@ struct DashboardView: View {
         } else {
             router.push(.testTaking())
         }
-    }
-
-    // MARK: - Action Button
-
-    private var actionButton: some View {
-        Button {
-            navigateToTest()
-        } label: {
-            HStack(spacing: DesignSystem.Spacing.sm) {
-                Image(systemName: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile")
-                    .font(.system(size: DesignSystem.IconSize.md, weight: .semibold))
-
-                Text(viewModel.hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
-                    .font(Typography.button)
-
-                Spacer()
-
-                Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: DesignSystem.IconSize.md))
-            }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(DesignSystem.Spacing.lg)
-            .background(
-                LinearGradient(
-                    colors: [ColorPalette.primary, ColorPalette.primary.opacity(0.8)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .cornerRadius(DesignSystem.CornerRadius.lg)
-            .shadow(
-                color: ColorPalette.primary.opacity(0.3),
-                radius: 8,
-                x: 0,
-                y: 4
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(viewModel.hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
-        .accessibilityHint(
-            viewModel.hasActiveTest
-                ? "Continue your in-progress cognitive performance test"
-                : "Start a new cognitive performance test"
-        )
-        .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.actionButton)
     }
 
     // MARK: - Empty State
