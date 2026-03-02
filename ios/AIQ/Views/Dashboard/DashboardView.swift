@@ -108,7 +108,7 @@ struct DashboardView: View {
 
                 // Latest Test Result
                 if let latest = viewModel.latestTestResult {
-                    latestTestCard(latest)
+                    DashboardLatestTestResultCard(result: latest, dateFormatted: viewModel.latestTestDateFormatted)
                         .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.latestTestCard)
                 }
 
@@ -186,43 +186,6 @@ struct DashboardView: View {
                 )
             }
         }
-    }
-
-    // MARK: - Latest Test Card
-
-    private func latestTestCard(_ result: TestResult) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
-            testCardHeader
-            testCardScores(result)
-            testCardProgress(result)
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .background(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                .fill(ColorPalette.backgroundSecondary)
-                .shadow(
-                    color: Color.black.opacity(0.1),
-                    radius: DesignSystem.Shadow.lg.radius,
-                    x: 0,
-                    y: DesignSystem.Shadow.lg.y
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                .strokeBorder(Color.gray.opacity(0.1), lineWidth: 1)
-        )
-    }
-
-    private var testCardHeader: some View {
-        TestCardHeader(dateFormatted: viewModel.latestTestDateFormatted)
-    }
-
-    private func testCardScores(_ result: TestResult) -> some View {
-        TestCardScores(result: result)
-    }
-
-    private func testCardProgress(_ result: TestResult) -> some View {
-        TestCardProgress(result: result)
     }
 
     // MARK: - Routing Helpers

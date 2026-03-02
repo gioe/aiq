@@ -123,6 +123,7 @@
 		4C5CD642D86749FB7D644FDD /* TestNavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A92C060373617CDE405730 /* TestNavigationStateTests.swift */; };
 		4D2C1AB620879530E14AA561 /* TimeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43DA52DE707D84F68E8C52A /* TimeProvider.swift */; };
 		4F4F0B7533AC07C3F512C6C4 /* NotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF12F610A34FC4A061178E1F /* NotificationSettingsViewModel.swift */; };
+		50BD4B34EEFE6F5ABA501FA9 /* DashboardLatestTestResultCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9E53029DEFAE2C3B440646 /* DashboardLatestTestResultCard.swift */; };
 		50CBB32BC0FEC58929FE3779 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E493A4F4F186F1DC450D8A7 /* EmptyStateView.swift */; };
 		51595BB873676DE691DBE7D2 /* NotificationUpgradePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB94772581EEB839D019AEF9 /* NotificationUpgradePromptView.swift */; };
 		54A97B52762E3312F1938F15 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D90F0480B621765EDC45755 /* NotificationManager.swift */; };
@@ -445,6 +446,7 @@
 		5BBFE65A83AF58F9902B38D8 /* NetworkMonitorObserver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkMonitorObserver.swift; sourceTree = "<group>"; };
 		5C1CB382DBE5CA2DD6BDFAAA /* FeedbackViewUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeedbackViewUITests.swift; sourceTree = "<group>"; };
 		5D77FAF15383915BA01D39FC /* OnboardingPage2View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingPage2View.swift; sourceTree = "<group>"; };
+		5D9E53029DEFAE2C3B440646 /* DashboardLatestTestResultCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardLatestTestResultCard.swift; sourceTree = "<group>"; };
 		5E271D9299641787F0F895AD /* NotificationManagerIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationManagerIntegrationTests.swift; sourceTree = "<group>"; };
 		5E92CF0848C8EACC3C1FF0DE /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		5ED0FE853EEB74DF308E3DE5 /* SavedTestProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedTestProgress.swift; sourceTree = "<group>"; };
@@ -1124,6 +1126,7 @@
 				4CB0EDB62E57E4DDA855DA95 /* OnboardingSkippedInfoCard.swift */,
 				11459CEAB371E00B2B7C0515 /* DashboardWelcomeHeader.swift */,
 				1913A34AB068C6EBD01FA534 /* DashboardActionButton.swift */,
+				5D9E53029DEFAE2C3B440646 /* DashboardLatestTestResultCard.swift */,
 			);
 			path = Dashboard;
 			sourceTree = "<group>";
@@ -1743,6 +1746,7 @@
 				4D2C1AB620879530E14AA561 /* TimeProvider.swift in Sources */,
 				CD47A9E9A0E6CAC397430095 /* DashboardWelcomeHeader.swift in Sources */,
 				96565155349D534E78DFFC02 /* DashboardActionButton.swift in Sources */,
+				50BD4B34EEFE6F5ABA501FA9 /* DashboardLatestTestResultCard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
