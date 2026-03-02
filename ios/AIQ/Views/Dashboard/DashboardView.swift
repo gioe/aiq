@@ -241,7 +241,7 @@ private struct DashboardScrollBody<OnboardingCard: View, BottomContent: View>: V
                         onResume: onResume,
                         onAbandon: onAbandon
                     )
-                    .inProgressCardTransition(sessionId: activeTestSession?.id)
+                    .inProgressCardTransition(sessionId: activeSession.id)
                 }
 
                 bottomContent
