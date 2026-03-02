@@ -843,4 +843,35 @@ final class HistoryViewModelTests: XCTestCase {
         XCTAssertEqual(newViewModel.testHistory.first?.id, 1, "Oldest within filter should be first")
         XCTAssertEqual(newViewModel.testHistory.last?.id, 2, "Newest within filter should be last")
     }
+
+    // MARK: - CancellationError Cleanup Tests
+
+    func testFetchHistory_CancellationError_ResetsIsLoading() async {
+        // Given - inject CancellationError to simulate task cancellation mid-flight
+        await mockService.getTestHistoryError = CancellationError()
+
+        // When
+        await sut.fetchHistory(forceRefresh: true)
+
+        // Then - isLoading cleanup guard must fire even on cancellation
+        XCTAssertFalse(sut.isLoading, "isLoading should be false after CancellationError in fetchHistory")
+        XCTAssertNil(sut.error, "error should not be set when task is cancelled")
+    }
+
+    func testLoadMore_CancellationError_ResetsIsLoadingMore() async {
+        // Given - initial fetch to set hasMore = true, enabling loadMore
+        let results = [createMockTestResult(id: 1)]
+        await mockService.setTestHistoryResponse(results, totalCount: 10, hasMore: true)
+        await sut.fetchHistory(forceRefresh: true)
+
+        // Inject CancellationError for the loadMore API call
+        await mockService.getTestHistoryError = CancellationError()
+
+        // When
+        await sut.loadMore()
+
+        // Then - isLoadingMore cleanup guard must fire even on cancellation
+        XCTAssertFalse(sut.isLoadingMore, "isLoadingMore should be false after CancellationError in loadMore")
+        XCTAssertNil(sut.error, "error should not be set when task is cancelled")
+    }
 }

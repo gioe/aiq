@@ -447,4 +447,42 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(sut.testCount, 1, "Dashboard should be refreshed with updated test count")
         XCTAssertNotNil(sut.latestTestResult, "Latest test result should be updated after refresh")
     }
+
+    // MARK: - CancellationError Cleanup Tests
+
+    func testFetchTestHistory_CancellationError_ReturnsNilWithoutStateWipe() async {
+        // Given - pre-populate dashboard state with a successful fetch
+        let mockTestResult = TestResult(
+            accuracyPercentage: 75.0,
+            completedAt: Date(),
+            completionTimeSeconds: 300,
+            confidenceInterval: nil,
+            correctAnswers: 15,
+            domainScores: nil,
+            id: 1,
+            iqScore: 120,
+            percentileRank: 84.0,
+            responseTimeFlags: nil,
+            strongestDomain: nil,
+            testSessionId: 100,
+            totalQuestions: 20,
+            userId: 1,
+            weakestDomain: nil
+        )
+        await mockService.setTestHistoryResponse([mockTestResult])
+        await sut.fetchTestHistory(forceRefresh: true)
+        XCTAssertEqual(sut.testCount, 1, "Pre-condition: testCount should be 1 after initial fetch")
+        XCTAssertNotNil(sut.latestTestResult, "Pre-condition: latestTestResult should be set after initial fetch")
+
+        // Inject CancellationError for the next API call
+        await mockService.getTestHistoryError = CancellationError()
+
+        // When - simulate task cancellation during fetchTestHistory
+        let result = await sut.fetchTestHistory(forceRefresh: true)
+
+        // Then - CancellationError returns nil without wiping existing state
+        XCTAssertNil(result, "CancellationError should return nil, not propagate as an error")
+        XCTAssertEqual(sut.testCount, 1, "testCount should not be wiped to zero on cancellation")
+        XCTAssertNotNil(sut.latestTestResult, "latestTestResult should not be wiped on cancellation")
+    }
 }
