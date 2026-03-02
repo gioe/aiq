@@ -124,11 +124,7 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
        ```
        Always include a brief rationale in the commit message when grouping. **Never** bundle all criteria onto a single end-of-task commit.
 
-    **If `tusk commit` fails with `pathspec did not match any files`** (exit code 3, git-add error), always pass file paths relative to the repo root (e.g., `ios/SomeFile.swift`, not `SomeFile.swift` from inside `ios/`). If the error persists, fall back to:
-    ```bash
-    git add <file1> [file2 ...] && git commit -m "[TASK-<id>] <message>" --trailer "Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
-    ```
-    Then mark criteria done with `tusk criteria done <cid> --skip-verify` as usual.
+    **If `tusk commit` fails with `pathspec did not match any files`** (exit code 3, git-add error), always pass file paths relative to the repo root (e.g., `ios/SomeFile.swift`, not `SomeFile.swift` from inside `ios/`). `tusk commit` always runs `git add` relative to the repo root regardless of your shell's working directory, so paths like `ios/AIQ/SomeFile.swift` work correctly even when invoked from a subdirectory.
 
     **If `tusk commit` hard-fails because tests fail** (exit code 2 — `test_command` is set and returned non-zero), follow this diagnosis loop before retrying. Do **not** modify any code until you've completed steps i–ii:
     1. **Read the full test output** — scroll through the entire failure log. Do not make any code changes until you understand what failed and why.
