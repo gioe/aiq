@@ -39,7 +39,12 @@ final class TestTakingLoadFailureTests: BaseUITest {
     /// Default scenario: retryable network failure with authenticated user.
     /// Tests that need a different scenario call relaunchWithScenario() directly.
     override func setupLaunchConfiguration() {
-        mockScenario = "startTestNetworkFailure"
+        // Only set the default scenario for the initial launch.
+        // relaunchWithScenario() sets mockScenario before calling this method,
+        // so guard against overwriting it.
+        if mockScenario == "default" {
+            mockScenario = "startTestNetworkFailure"
+        }
         super.setupLaunchConfiguration()
     }
 
