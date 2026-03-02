@@ -2892,6 +2892,37 @@ VStack { ... }
     .accessibilityIdentifier("myContainer")     // identifier on the container, not promoted to child
 ```
 
+### Launch Arguments and @AppStorage: The Arguments Domain Lock
+
+**Never use launch arguments for UserDefaults keys that `@AppStorage` writes to during tests.**
+Launch arguments (`app.launchArguments.append("-<key>")`) create entries in the UserDefaults
+**Arguments domain**, which has the highest priority over the Application domain. Any `@AppStorage`
+write goes to the Application domain and is immediately overridden when the value is read back —
+causing silent state reversion that is very difficult to diagnose.
+
+**Bad** — locks the key in the Arguments domain, blocking all `@AppStorage` writes:
+```swift
+// In BaseUITest.setupLaunchConfiguration()
+app.launchArguments.append("-com.aiq.selectedTab")
+app.launchArguments.append("0")
+// Result: every @AppStorage write to "com.aiq.selectedTab" is silently reverted to 0
+```
+
+**Good** — clear the key in the app at startup instead, preserving `@AppStorage` write access:
+```swift
+// In AIQApp.init(), under #if DEBUG and isMockMode:
+UserDefaults.standard.removeObject(forKey: "com.aiq.selectedTab")
+// @AppStorage falls back to its default (.dashboard), and writes work freely during tests
+```
+
+**Symptom:** State changes (e.g., tab switches, feature flags) work in production but silently
+revert in UI tests to the launch-argument value after every write attempt.
+
+**UserDefaults Domain Priority (highest → lowest):**
+1. **Arguments domain** — set by `launchArguments` (overrides everything)
+2. **Application domain** — set by `UserDefaults.standard.set(...)` and `@AppStorage`
+3. **Registration domain** — set by `register(defaults:)`
+
 ### Verify Implementation Before Testing Advanced Capabilities
 
 When writing tests for advanced capabilities (concurrency, thread-safety, security), **verify the implementation has the required primitives BEFORE writing tests that assume them**.
