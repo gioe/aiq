@@ -69,6 +69,11 @@ struct TestCompletionView: View {
             .padding(.horizontal)
         }
         .padding()
+        // .accessibilityElement(children: .contain) forces the VStack to be a real
+        // otherElement container in XCTest so that app.otherElements["testCompletionView.successOverlay"]
+        // finds the overlay AND child buttons remain accessible as descendants.
+        // Without .contain the VStack is accessibility-transparent and the identifier is lost.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestCompletionView.successOverlay)
     }
 }

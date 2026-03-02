@@ -37,7 +37,7 @@ class NavigationHelper {
             case .history: "History"
             case .settings: "Settings"
             case .testTaking: "" // Typically full screen, no nav bar
-            case .testResults: "Results"
+            case .testResults: "Test Results"
             case .notificationSettings: "Notifications"
             case .help: "Help"
             }
@@ -108,22 +108,12 @@ class NavigationHelper {
                 emailField.exists
 
         case .dashboard, .history, .settings:
-            // Check for tab bar button using identifier and navigation title
-            let identifier: String
-            switch screen {
-            case .dashboard:
-                identifier = "tabBar.dashboardTab"
-            case .history:
-                identifier = "tabBar.historyTab"
-            case .settings:
-                identifier = "tabBar.settingsTab"
-            default:
-                return false
-            }
-
-            let tab = app.buttons[identifier]
+            // Verify using the navigation bar title. Tab bar button identifiers are
+            // unreliable across different launch scenarios (they may not be accessible
+            // when the tab bar is hidden during test-taking). The navigation bar title
+            // is the authoritative indicator that the correct screen is active.
             let navBar = app.navigationBars[screen.navigationTitle]
-            return tab.waitForExistence(timeout: waitTimeout) && navBar.exists
+            return navBar.waitForExistence(timeout: waitTimeout)
 
         case .testTaking:
             // Look for test-taking specific elements
@@ -185,20 +175,36 @@ class NavigationHelper {
     /// - Returns: true if navigation succeeded, false otherwise
     @discardableResult
     func navigateToTab(_ tab: Tab, waitForScreen: Bool = true) -> Bool {
-        // Use accessibility identifiers for tabs
-        let identifier = switch tab {
-        case .dashboard:
-            "tabBar.dashboardTab"
-        case .history:
-            "tabBar.historyTab"
-        case .settings:
-            "tabBar.settingsTab"
+        // Tab bar button index (0-based) for each tab.
+        //
+        // SwiftUI TabView tab bar buttons are not reliably queryable by label or
+        // by the custom `.accessibilityIdentifier` set on the tab-view content (that
+        // identifier lands on the content view, not the tab bar button). The tab bar
+        // button's accessibility identifier is the SF Symbol image name (e.g.
+        // "clock.arrow.circlepath"). Index-based access is the most stable approach.
+        //
+        // NOTE: This relies on the @AppStorage("com.aiq.selectedTab") binding NOT being
+        // locked by a launch argument. If `-com.aiq.selectedTab` were set as a launch
+        // argument it would create an Arguments-domain entry with highest priority that
+        // overrides all writes to @AppStorage, causing every tap to immediately revert.
+        // BaseUITest no longer sets that launch argument; AIQApp.init() clears the key
+        // in mock mode instead so @AppStorage can be written freely during tests.
+        let tabIndex = switch tab {
+        case .dashboard: 0
+        case .history: 1
+        case .settings: 2
         }
 
-        let tabButton = app.buttons[identifier]
+        // Wait for the tab bar to appear (it may be hidden during test-taking)
+        let tabBar = app.tabBars.firstMatch
+        guard tabBar.waitForExistence(timeout: timeout) else {
+            XCTFail("Tab bar not found")
+            return false
+        }
 
+        let tabButton = tabBar.buttons.element(boundBy: tabIndex)
         guard tabButton.waitForExistence(timeout: timeout) else {
-            XCTFail("Tab '\(tab.rawValue)' not found")
+            XCTFail("Tab '\(tab.rawValue)' not found at index \(tabIndex)")
             return false
         }
 

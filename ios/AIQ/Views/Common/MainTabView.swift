@@ -303,7 +303,7 @@ private struct DashboardTabNavigationView: View {
             TestResultsView(
                 result: result,
                 onDismiss: {
-                    router.pop()
+                    router.popToRoot()
                 },
                 isFirstTest: isFirstTest
             )

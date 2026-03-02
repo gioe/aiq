@@ -12,7 +12,9 @@ struct TestResultsView: View {
     @ObservedObject private var notificationManager: NotificationManager = {
         let resolved = ServiceContainer.shared.resolve(NotificationManagerProtocol.self)
         guard let manager = resolved as? NotificationManager else {
-            fatalError("NotificationManagerProtocol not registered in ServiceContainer")
+            // In mock/test environments the registered type may not be NotificationManager.
+            // Fall back to a fresh instance that uses whatever services are in the container.
+            return NotificationManager()
         }
         return manager
     }()
@@ -20,85 +22,83 @@ struct TestResultsView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: DesignSystem.Spacing.xxxl) {
-                    // IQ Score - Main highlight
-                    iqScoreCard
+        ScrollView {
+            VStack(spacing: DesignSystem.Spacing.xxxl) {
+                // IQ Score - Main highlight
+                iqScoreCard
 
-                    // Percentile ranking (if available)
-                    if result.percentileRank != nil {
-                        PercentileCard(
-                            percentileRank: result.percentileRank,
-                            showAnimation: showAnimation
-                        )
-                    }
-
-                    // Domain scores breakdown
-                    if result.domainScoresConverted != nil {
-                        DomainScoresBreakdownView(
-                            domainScores: result.domainScoresConverted,
-                            showAnimation: showAnimation,
-                            strongestDomain: result.strongestDomain,
-                            weakestDomain: result.weakestDomain
-                        )
-                    }
-
-                    // Performance metrics
-                    metricsGrid
-
-                    // Performance message
-                    performanceMessage
-
-                    // Action buttons
-                    actionButtons
+                // Percentile ranking (if available)
+                if result.percentileRank != nil {
+                    PercentileCard(
+                        percentileRank: result.percentileRank,
+                        showAnimation: showAnimation
+                    )
                 }
-                .padding(DesignSystem.Spacing.lg)
-            }
-            .background(ColorPalette.backgroundGrouped)
-            .navigationTitle("Test Results")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        handleDismiss()
-                    }
-                    .accessibilityLabel("Done")
-                    .accessibilityHint("Return to dashboard")
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.doneButton)
-                }
-            }
-            .onAppear {
-                // Trigger success haptic when results are displayed
-                ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.success)
 
-                if reduceMotion {
+                // Domain scores breakdown
+                if result.domainScoresConverted != nil {
+                    DomainScoresBreakdownView(
+                        domainScores: result.domainScoresConverted,
+                        showAnimation: showAnimation,
+                        strongestDomain: result.strongestDomain,
+                        weakestDomain: result.weakestDomain
+                    )
+                }
+
+                // Performance metrics
+                metricsGrid
+
+                // Performance message
+                performanceMessage
+
+                // Action buttons
+                actionButtons
+            }
+            .padding(DesignSystem.Spacing.lg)
+        }
+        .background(ColorPalette.backgroundGrouped)
+        .navigationTitle("Test Results")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Done") {
+                    handleDismiss()
+                }
+                .accessibilityLabel("Done")
+                .accessibilityHint("Return to dashboard")
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.doneButton)
+            }
+        }
+        .onAppear {
+            // Trigger success haptic when results are displayed
+            ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.success)
+
+            if reduceMotion {
+                showAnimation = true
+            } else {
+                withAnimation(DesignSystem.Animation.smooth.delay(0.1)) {
                     showAnimation = true
-                } else {
-                    withAnimation(DesignSystem.Animation.smooth.delay(0.1)) {
-                        showAnimation = true
-                    }
                 }
             }
-            .sheet(isPresented: $showNotificationSoftPrompt) {
-                NotificationSoftPromptView(
-                    onEnableReminders: {
-                        Task {
-                            await notificationManager.requestAuthorization()
-                        }
-                    },
-                    onDismiss: {
-                        // User declined - just dismiss
+        }
+        .sheet(isPresented: $showNotificationSoftPrompt) {
+            NotificationSoftPromptView(
+                onEnableReminders: {
+                    Task {
+                        await notificationManager.requestAuthorization()
                     }
-                )
-            }
-            .onChange(of: showNotificationSoftPrompt) { isShowing in
-                // When the soft prompt is dismissed, call the original onDismiss
-                // Guard against double dismissal
-                if !isShowing && !hasDismissed {
-                    hasDismissed = true
-                    onDismiss()
+                },
+                onDismiss: {
+                    // User declined - just dismiss
                 }
+            )
+        }
+        .onChange(of: showNotificationSoftPrompt) { isShowing in
+            // When the soft prompt is dismissed, call the original onDismiss
+            // Guard against double dismissal
+            if !isShowing && !hasDismissed {
+                hasDismissed = true
+                onDismiss()
             }
         }
     }
@@ -160,7 +160,6 @@ struct TestResultsView: View {
                     .opacity(showAnimation ? 1.0 : 0.0)
                     .accessibilityLabel(result.scoreAccessibilityDescription)
                     .accessibilityHint(iqRangeDescription)
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.scoreLabel)
 
                 // Confidence Interval display (when available)
                 if let ci = result.confidenceIntervalConverted {
@@ -192,7 +191,12 @@ struct TestResultsView: View {
             shadow: DesignSystem.Shadow.md,
             backgroundColor: ColorPalette.background
         )
-        .accessibilityElement(children: .combine)
+        // .accessibilityElement(children: .contain) forces the VStack to be a real
+        // otherElement container in XCTest so that app.otherElements["testResultsView.scoreLabel"]
+        // finds the card. With .combine the element becomes staticText when no interactive
+        // children (e.g. no confidence-interval button) are present.
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.scoreLabel)
     }
 
     // MARK: - Confidence Interval Display

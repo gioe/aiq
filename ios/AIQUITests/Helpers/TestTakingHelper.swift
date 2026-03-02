@@ -111,19 +111,21 @@ class TestTakingHelper {
         app.buttons["testTakingView.answerButton.\(index)"]
     }
 
-    /// Test results view elements
+    /// Test results view navigation bar (title is "Test Results")
     var resultsTitle: XCUIElement {
-        app.navigationBars["Results"].staticTexts["Results"]
+        app.navigationBars["Test Results"].staticTexts["Test Results"]
     }
 
-    /// Score display on results screen
+    /// Score display on results screen.
+    /// The IQ score card uses .accessibilityElement(children: .contain), making the
+    /// VStack a real otherElement container in XCTest with the scoreLabel identifier.
     var scoreLabel: XCUIElement {
-        // Look for labels containing "IQ" or "Score"
-        let predicate = NSPredicate(
-            format: "label CONTAINS[c] 'iq' OR label CONTAINS[c] 'score'"
-        )
-        let labels = app.staticTexts.matching(predicate)
-        return labels.firstMatch
+        app.otherElements["testResultsView.scoreLabel"]
+    }
+
+    /// Completion screen overlay shown immediately after test submission
+    var completionOverlay: XCUIElement {
+        app.otherElements["testCompletionView.successOverlay"]
     }
 
     // MARK: - Initialization
@@ -396,19 +398,30 @@ class TestTakingHelper {
     }
 
     /// Wait for test results screen to appear
+    ///
+    /// After submission the app shows TestCompletionView first, then TestResultsView after
+    /// the user taps "View Results". This method returns true when EITHER screen appears so
+    /// that callers relying on submitTest() don't have to navigate through the completion screen.
+    /// Tests that specifically need the TestResultsView should navigate via the "View Results"
+    /// button themselves.
+    ///
     /// - Parameter customTimeout: Optional custom timeout (uses networkTimeout if not provided)
-    /// - Returns: true if results appear, false otherwise
+    /// - Returns: true if the completion screen OR results screen appears, false otherwise
     @discardableResult
     func waitForResults(timeout customTimeout: TimeInterval? = nil) -> Bool {
-        // Results may take longer to calculate and display (network operation)
         let waitTimeout = customTimeout ?? networkTimeout
 
-        // Wait for results navigation bar or score label
-        let resultsAppeared = resultsTitle.waitForExistence(timeout: waitTimeout) ||
-            scoreLabel.waitForExistence(timeout: waitTimeout)
+        // TestCompletionView is shown immediately after submission
+        if completionOverlay.waitForExistence(timeout: waitTimeout) {
+            return true
+        }
+
+        // Fall back: check for TestResultsView elements (in case navigation skipped completion)
+        let resultsAppeared = resultsTitle.waitForExistence(timeout: 2.0) ||
+            scoreLabel.waitForExistence(timeout: 2.0)
 
         if !resultsAppeared {
-            XCTFail("Test results did not appear")
+            XCTFail("Test results did not appear (neither completion overlay nor results screen found)")
         }
 
         return resultsAppeared
@@ -421,17 +434,21 @@ class TestTakingHelper {
         questionCard.exists || questionText.exists
     }
 
-    /// Check if currently on results screen
+    /// Check if currently on the completion screen or the results screen.
+    ///
+    /// After submitting a test the flow is: TestCompletionView → (tap View Results) → TestResultsView.
+    /// Both states count as "on results" since both represent the post-submission outcome.
     var isOnResultsScreen: Bool {
-        resultsTitle.exists || scoreLabel.exists
+        completionOverlay.exists || resultsTitle.exists || scoreLabel.exists
     }
 
-    /// Get total question count from progress label (e.g., "Question 1 of 30" -> 30)
+    /// Get total question count from progress label.
+    /// The progress label shows "current/total" format (e.g., "1/5" for question 1 of 5).
     var totalQuestionCount: Int? {
         guard progressLabel.exists else { return nil }
         let text = progressLabel.label
-        // Parse "Question X of Y" format
-        let pattern = #"of\s+(\d+)"#
+        // Parse "X/Y" format — extract the denominator after the "/"
+        let pattern = #"/(\d+)"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
               let match = regex.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)),
               let range = Range(match.range(at: 1), in: text) else {

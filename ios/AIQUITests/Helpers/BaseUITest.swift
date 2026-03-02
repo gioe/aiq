@@ -112,10 +112,12 @@ class BaseUITest: XCTestCase {
         app.launchArguments.append("-com.aiq.privacyConsentAccepted")
         app.launchArguments.append("1")
 
-        // Reset tab selection to dashboard to prevent persisted tab state
-        // from a previous test run causing DashboardView to never render.
-        app.launchArguments.append("-com.aiq.selectedTab")
-        app.launchArguments.append("0")
+        // Tab selection reset is handled by AIQApp.init() in mock mode:
+        // it calls UserDefaults.removeObject(forKey: "com.aiq.selectedTab") so
+        // @AppStorage falls back to .dashboard on each launch. Using a launch
+        // argument here would lock the key in the Arguments domain (highest
+        // priority), which would prevent @AppStorage writes during tests and
+        // block all tab navigation.
     }
 
     /// Relaunch the app with a specific mock scenario

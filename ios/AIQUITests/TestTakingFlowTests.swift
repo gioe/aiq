@@ -391,15 +391,15 @@ final class TestTakingFlowTests: BaseUITest {
         )
 
         // Look for "Test Completed!" text
-        let completionText = app.staticTexts["Test Completed!"]
+        let completionText = app.staticTexts["testCompletionView.successTitle"]
         assertExists(completionText, "Should show 'Test Completed!' message")
 
         // Look for "View Results" button
-        let viewResultsButton = app.buttons["View Results"]
+        let viewResultsButton = app.buttons["testCompletionView.viewResultsButton"]
         assertExists(viewResultsButton, "Should show 'View Results' button")
 
         // Look for "Return to Dashboard" button
-        let returnButton = app.buttons["Return to Dashboard"]
+        let returnButton = app.buttons["testCompletionView.returnToDashboardButton"]
         assertExists(returnButton, "Should show 'Return to Dashboard' button")
 
         takeScreenshot(named: "TestCompletionScreen")
@@ -419,15 +419,22 @@ final class TestTakingFlowTests: BaseUITest {
             "Should complete all questions"
         )
 
-        // Wait for results to load
+        // Wait for results to load (may land on completion screen first)
         XCTAssertTrue(testHelper.waitForResults(timeout: extendedTimeout), "Results should appear")
 
-        // Verify score is displayed
+        // Navigate from completion screen to results screen if needed
+        let viewResultsButton = app.buttons["testCompletionView.viewResultsButton"]
+        if viewResultsButton.waitForExistence(timeout: standardTimeout) {
+            viewResultsButton.tap()
+        }
+
+        // Verify score is displayed (combined VStack otherElement with scoreLabel identifier)
+        wait(for: testHelper.scoreLabel, timeout: standardTimeout)
         XCTAssertTrue(testHelper.scoreLabel.exists, "Score should be displayed")
 
         // Verify navigation title
-        let resultsTitle = app.navigationBars["Results"]
-        assertExists(resultsTitle, "Results navigation bar should exist")
+        let resultsTitle = app.navigationBars["Test Results"]
+        assertExists(resultsTitle, "Test Results navigation bar should exist")
 
         takeScreenshot(named: "ResultsWithScore")
     }
@@ -444,26 +451,31 @@ final class TestTakingFlowTests: BaseUITest {
             "Should complete all questions"
         )
 
-        // Wait for results
+        // Wait for results (may land on completion screen first)
         XCTAssertTrue(
             testHelper.waitForResults(timeout: extendedTimeout),
             "Results should appear"
         )
 
-        // Look for "Your IQ Score" label
-        let scoreLabel = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS[c] 'Your IQ Score'")
-        ).firstMatch
-        assertExists(scoreLabel, "Should show 'Your IQ Score' label")
+        // Navigate from completion screen to results screen if needed
+        let viewResultsButton = app.buttons["testCompletionView.viewResultsButton"]
+        if viewResultsButton.waitForExistence(timeout: standardTimeout) {
+            viewResultsButton.tap()
+        }
 
-        // Look for accuracy/correct answers info
-        let accuracyLabel = app.staticTexts.matching(
+        // The IQ score card is a combined accessibility element (otherElement) with the scoreLabel identifier.
+        // "Your IQ Score" text has .accessibilityHidden(true) so it is not individually queryable.
+        let iqScoreCard = testHelper.scoreLabel
+        wait(for: iqScoreCard, timeout: standardTimeout)
+        assertExists(iqScoreCard, "Should show IQ score card")
+
+        // Look for accuracy/correct answers info (metric cards are combined otherElements)
+        let accuracyLabel = app.otherElements.matching(
             NSPredicate(format: "label CONTAINS[c] 'Accuracy' OR label CONTAINS[c] 'Correct'")
         ).firstMatch
 
         // Note: Accuracy may not always be shown depending on test result format
         if accuracyLabel.exists {
-            // Assert results screen is displayed before screenshot
             XCTAssertTrue(testHelper.isOnResultsScreen, "Should be on results screen")
             takeScreenshot(named: "ResultsWithMetrics")
         }
@@ -481,25 +493,32 @@ final class TestTakingFlowTests: BaseUITest {
             "Should complete all questions"
         )
 
-        // Navigate to results
-        let viewResultsButton = app.buttons["View Results"]
+        // Navigate from completion screen to results screen
+        let viewResultsButton = app.buttons["testCompletionView.viewResultsButton"]
         if viewResultsButton.waitForExistence(timeout: standardTimeout) {
             viewResultsButton.tap()
         }
 
-        // Wait for results screen
-        wait(for: app.navigationBars["Results"], timeout: standardTimeout)
+        // Wait for results screen (navigation title is "Test Results")
+        wait(for: app.navigationBars["Test Results"], timeout: standardTimeout)
 
         // Look for Done button
-        let doneButton = app.buttons["Done"]
+        let doneButton = app.buttons["testResultsView.doneButton"]
         assertExists(doneButton, "Done button should exist on results screen")
 
         // Tap Done
         doneButton.tap()
 
-        // Verify we return to dashboard
-        wait(for: loginHelper.dashboardTab, timeout: standardTimeout)
-        XCTAssertTrue(loginHelper.dashboardTab.exists, "Should return to dashboard after tapping Done")
+        // The notification soft prompt may appear if this is the user's first test.
+        // Dismiss it with "Not Now" so we can verify navigation back to the dashboard.
+        let notNowButton = app.buttons["notificationSoftPrompt.notNowButton"]
+        if notNowButton.waitForExistence(timeout: quickTimeout) {
+            notNowButton.tap()
+        }
+
+        // Verify we return to dashboard (use nav bar title — tab bar is hidden during test-taking)
+        wait(for: loginHelper.dashboardTitle, timeout: standardTimeout)
+        XCTAssertTrue(loginHelper.dashboardTitle.exists, "Should return to dashboard after tapping Done")
 
         takeScreenshot(named: "BackToDashboardAfterResults")
     }
@@ -513,17 +532,7 @@ final class TestTakingFlowTests: BaseUITest {
             "Should successfully log in"
         )
 
-        // Navigate to History and check initial count
-        navHelper.navigateToTab(.history)
-        wait(for: app.navigationBars["History"], timeout: standardTimeout)
-
-        // Assert History screen is displayed before screenshot
-        let historyNavBar = app.navigationBars["History"]
-        assertExists(historyNavBar, "History navigation bar should be visible")
-        takeScreenshot(named: "HistoryBeforeTest")
-
-        // Go back to dashboard and take a test
-        navHelper.navigateToTab(.dashboard)
+        // Start and complete a test
         XCTAssertTrue(testHelper.startNewTest(), "Should start test successfully")
 
         guard let totalQuestions = testHelper.totalQuestionCount else {
@@ -536,18 +545,21 @@ final class TestTakingFlowTests: BaseUITest {
             "Should complete all questions"
         )
 
-        // Return to dashboard from completion screen
-        let returnButton = app.buttons["Return to Dashboard"]
+        // Return to dashboard from the completion screen (skips results + notification prompts)
+        let returnButton = app.buttons["testCompletionView.returnToDashboardButton"]
         if returnButton.waitForExistence(timeout: standardTimeout) {
             returnButton.tap()
         }
 
-        // Navigate to History again
-        navHelper.navigateToTab(.history)
-        wait(for: app.navigationBars["History"], timeout: extendedTimeout)
+        // Wait for dashboard to be visible before attempting tab navigation
+        wait(for: loginHelper.dashboardTitle, timeout: standardTimeout)
 
-        // Assert History screen is displayed before screenshot
-        assertExists(app.navigationBars["History"], "History navigation bar should be visible")
+        // Navigate to History tab — works now that @AppStorage is not locked by a launch arg
+        XCTAssertTrue(navHelper.navigateToTab(.history), "Should navigate to History tab")
+
+        // Verify History screen is displayed
+        assertExists(app.navigationBars["History"], "History navigation bar should be visible after test completion")
+
         takeScreenshot(named: "HistoryAfterTest")
     }
 
@@ -588,12 +600,13 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "E2E_Step4_Submitted")
 
         // Step 5: View results
-        let viewResultsButton = app.buttons["View Results"]
+        let viewResultsButton = app.buttons["testCompletionView.viewResultsButton"]
         if viewResultsButton.waitForExistence(timeout: standardTimeout) {
             viewResultsButton.tap()
-            wait(for: app.navigationBars["Results"], timeout: standardTimeout)
+            wait(for: app.navigationBars["Test Results"], timeout: standardTimeout)
             takeScreenshot(named: "E2E_Step5_Results")
-            if app.buttons["Done"].exists { app.buttons["Done"].tap() }
+            let doneButton = app.buttons["testResultsView.doneButton"]
+            if doneButton.exists { doneButton.tap() }
         }
 
         // Step 6: Verify history

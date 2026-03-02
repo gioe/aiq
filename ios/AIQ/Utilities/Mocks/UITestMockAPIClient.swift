@@ -269,31 +269,36 @@ import Foundation
                 id: 1,
                 questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange?",
                 questionType: "logic",
-                difficultyLevel: "easy"
+                difficultyLevel: "easy",
+                answerOptions: ["Apple", "Banana", "Carrot", "Orange"]
             ),
             MockDataFactory.makeQuestion(
                 id: 2,
                 questionText: "What is 15% of 200?",
                 questionType: "math",
-                difficultyLevel: "easy"
+                difficultyLevel: "easy",
+                answerOptions: ["20", "25", "30", "35"]
             ),
             MockDataFactory.makeQuestion(
                 id: 3,
                 questionText: "What number comes next: 2, 4, 8, 16, ?",
                 questionType: "pattern",
-                difficultyLevel: "medium"
+                difficultyLevel: "medium",
+                answerOptions: ["18", "24", "32", "64"]
             ),
             MockDataFactory.makeQuestion(
                 id: 4,
                 questionText: "If all cats have whiskers, and Fluffy is a cat, what can we conclude?",
                 questionType: "logic",
-                difficultyLevel: "easy"
+                difficultyLevel: "easy",
+                answerOptions: ["Fluffy has whiskers", "Fluffy is a dog", "Whiskers are rare", "Cats are unique"]
             ),
             MockDataFactory.makeQuestion(
                 id: 5,
                 questionText: "Which shape completes the pattern?",
                 questionType: "spatial",
-                difficultyLevel: "medium"
+                difficultyLevel: "medium",
+                answerOptions: ["Circle", "Square", "Triangle", "Hexagon"]
             )
         ]
 

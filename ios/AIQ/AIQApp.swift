@@ -16,6 +16,12 @@ struct AIQApp: App {
                 MainActor.assumeIsolated {
                     MockServiceConfiguration.configureServices(container: ServiceContainer.shared)
                 }
+                // Clear persisted tab selection so @AppStorage falls back to its default
+                // (.dashboard) on each test run. This prevents a previously-saved non-Dashboard
+                // tab from causing tests to start on the wrong screen, while also avoiding the
+                // Arguments-domain lock that launch arguments would create (which blocks all
+                // @AppStorage writes and prevents tab switching during tests).
+                UserDefaults.standard.removeObject(forKey: "com.aiq.selectedTab")
             } else {
                 ServiceConfiguration.configureServices(container: ServiceContainer.shared)
             }
