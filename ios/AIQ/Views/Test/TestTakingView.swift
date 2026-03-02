@@ -295,7 +295,9 @@ struct TestTakingView: View {
                     let qCount = viewModel.navigationState.questions.count
                     let loadState = viewModel.isLoading ? "Y" : "N"
                     let mockState = MockModeDetector.isMockMode ? "Y" : "N"
-                    Text("Q:\(qCount) L:\(loadState) M:\(mockState)")
+                    let scenarioSuffix = MockModeDetector.isMockMode
+                        ? " S:\(MockModeDetector.currentScenario.rawValue)" : ""
+                    Text("Q:\(qCount) L:\(loadState) M:\(mockState)\(scenarioSuffix)")
                         .font(.caption)
                         .padding(4)
                         .background(
