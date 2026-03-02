@@ -84,6 +84,11 @@ import Foundation
             mockNotificationManager.configureForScenario(scenario)
             container.register(NotificationManagerProtocol.self, instance: mockNotificationManager)
 
+            // MARK: - Layer 4b: History Preferences Storage
+
+            let mockHistoryPreferencesStorage = UITestMockHistoryPreferencesStorage()
+            container.register(HistoryPreferencesStorageProtocol.self, instance: mockHistoryPreferencesStorage)
+
             // MARK: - Layer 5: BiometricAuthManager
 
             let mockBiometricAuthManager = UITestMockBiometricAuthManager()

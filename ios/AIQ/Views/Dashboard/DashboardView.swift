@@ -3,7 +3,7 @@ import SwiftUI
 /// Dashboard/Home view showing user stats and test availability
 struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
-    @ObservedObject private var authManager: AuthManager
+    private let authManager: any AuthManagerProtocol
     @EnvironmentObject var router: AppRouter
 
     /// Whether user skipped onboarding (determines if info card should show)
@@ -24,10 +24,10 @@ struct DashboardView: View {
     init(serviceContainer: ServiceContainer = .shared) {
         let vm = ViewModelFactory.makeDashboardViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
-        guard let resolved = serviceContainer.resolve(AuthManagerProtocol.self) as? AuthManager else {
+        guard let resolved = serviceContainer.resolve(AuthManagerProtocol.self) else {
             fatalError("AuthManagerProtocol not registered in ServiceContainer")
         }
-        _authManager = ObservedObject(wrappedValue: resolved)
+        authManager = resolved
     }
 
     var body: some View {

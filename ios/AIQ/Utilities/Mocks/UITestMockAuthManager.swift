@@ -24,6 +24,10 @@ import Foundation
         @Published var isLoading: Bool = false
         @Published var authError: Error?
 
+        var userFullName: String? {
+            currentUser?.fullName
+        }
+
         var isAuthenticatedPublisher: Published<Bool>.Publisher {
             $isAuthenticated
         }

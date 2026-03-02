@@ -13,6 +13,9 @@ protocol AuthManagerProtocol: AnyObject {
     var isLoadingPublisher: Published<Bool>.Publisher { get }
     var authErrorPublisher: Published<Error?>.Publisher { get }
 
+    /// The authenticated user's full name, or nil if not authenticated
+    var userFullName: String? { get }
+
     func register( // swiftlint:disable:this function_parameter_count
         email: String,
         password: String,

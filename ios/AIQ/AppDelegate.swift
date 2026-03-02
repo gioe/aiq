@@ -7,9 +7,8 @@ import UIKit
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-    private let notificationManager: NotificationManager = {
-        let resolved = ServiceContainer.shared.resolve(NotificationManagerProtocol.self)
-        guard let manager = resolved as? NotificationManager else {
+    private let notificationManager: any NotificationManagerProtocol = {
+        guard let manager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self) else {
             fatalError("NotificationManagerProtocol not registered in ServiceContainer")
         }
         return manager

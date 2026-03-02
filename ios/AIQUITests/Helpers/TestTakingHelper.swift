@@ -90,10 +90,10 @@ class TestTakingHelper {
         app.otherElements["testTakingView.progressBar"]
     }
 
-    /// Progress label showing "Question X of Y"
-    /// Note: This is an HStack container, not a StaticText, so we use otherElements
+    /// Progress label showing current question position (e.g. "1/5")
+    /// Note: This is a Text element in the compact header, so we use staticTexts
     var progressLabel: XCUIElement {
-        app.otherElements["testTakingView.progressLabel"]
+        app.staticTexts["testTakingView.progressLabel"]
     }
 
     /// All answer option buttons (for multiple choice questions)
@@ -148,7 +148,15 @@ class TestTakingHelper {
     func startNewTest(waitForFirstQuestion: Bool = true) -> Bool {
         // Look for start/take test button
         guard startTestButton.waitForExistence(timeout: timeout) else {
-            XCTFail("Start test button not found")
+            let allButtons = app.buttons.allElementsBoundByIndex.map { "\($0.identifier): \($0.label)" }
+            let allNavBars = app.navigationBars.allElementsBoundByIndex.map(\.identifier)
+            let allStaticTexts = app.staticTexts.allElementsBoundByIndex.prefix(10).map(\.label)
+            XCTFail("""
+            Start test button not found after \(timeout)s.
+            Available buttons: \(allButtons.joined(separator: ", "))
+            Navigation bars: \(allNavBars.joined(separator: ", "))
+            Static texts (first 10): \(allStaticTexts.joined(separator: ", "))
+            """)
             return false
         }
 
@@ -370,13 +378,17 @@ class TestTakingHelper {
             // Capture debugging information
             let allButtons = app.buttons.allElementsBoundByIndex.map { "\($0.identifier): \($0.label)" }
             let allNavBars = app.navigationBars.allElementsBoundByIndex.map(\.identifier)
-            let allStaticTexts = app.staticTexts.allElementsBoundByIndex.prefix(10).map(\.label)
+            let allStaticTexts = app.staticTexts.allElementsBoundByIndex.prefix(15)
+                .map { "[\($0.identifier)] \($0.label)" }
+            let allOtherElements = app.otherElements.allElementsBoundByIndex.prefix(20)
+                .map { "[\($0.identifier)] \($0.label)" }
 
             XCTFail("""
             Question did not appear.
             Available buttons: \(allButtons.joined(separator: ", "))
             Navigation bars: \(allNavBars.joined(separator: ", "))
-            Static texts (first 10): \(allStaticTexts.joined(separator: ", "))
+            Static texts (first 15) [id] label: \(allStaticTexts.joined(separator: ", "))
+            Other elements (first 20) [id] label: \(allOtherElements.joined(separator: ", "))
             """)
         }
 

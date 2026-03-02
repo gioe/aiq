@@ -111,6 +111,11 @@ class BaseUITest: XCTestCase {
         // Skip privacy consent for tests (UserDefaults key)
         app.launchArguments.append("-com.aiq.privacyConsentAccepted")
         app.launchArguments.append("1")
+
+        // Reset tab selection to dashboard to prevent persisted tab state
+        // from a previous test run causing DashboardView to never render.
+        app.launchArguments.append("-com.aiq.selectedTab")
+        app.launchArguments.append("0")
     }
 
     /// Relaunch the app with a specific mock scenario

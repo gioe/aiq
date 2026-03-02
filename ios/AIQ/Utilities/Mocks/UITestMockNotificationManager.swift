@@ -56,6 +56,14 @@ import UserNotifications
         func retryDeviceTokenRegistration() async {
             isDeviceTokenRegistered = true
         }
+
+        func didReceiveDeviceToken(_: Data) {
+            isDeviceTokenRegistered = true
+        }
+
+        func didFailToRegisterForRemoteNotifications(error _: Error) {
+            // No-op for UI tests
+        }
     }
 
 #endif

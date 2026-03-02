@@ -166,13 +166,16 @@ class LoginHelper {
     /// Wait for the dashboard screen to appear after login
     /// - Parameter customTimeout: Optional custom timeout (uses networkTimeout if not provided)
     /// - Returns: true if dashboard appears, false otherwise
+    ///
+    /// Uses the navigation bar title as the primary indicator rather than the tab bar button.
+    /// The tab bar button also matches hidden keyboard shortcut buttons (e.g. `Button("Dashboard").hidden()`)
+    /// that exist in the accessibility tree regardless of which tab is currently active. The navigation
+    /// bar "Dashboard" only appears when DashboardView is the active tab and has rendered its content.
     @discardableResult
     func waitForDashboard(timeout customTimeout: TimeInterval? = nil) -> Bool {
         let waitTimeout = customTimeout ?? networkTimeout
 
-        // Wait for dashboard tab or navigation title
-        // Using tab as primary indicator since it's more reliable
-        let dashboardAppeared = dashboardTab.waitForExistence(timeout: waitTimeout)
+        let dashboardAppeared = dashboardTitle.waitForExistence(timeout: waitTimeout)
 
         if !dashboardAppeared {
             // Capture debugging information

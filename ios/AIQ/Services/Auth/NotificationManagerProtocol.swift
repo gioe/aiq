@@ -42,4 +42,10 @@ protocol NotificationManagerProtocol: AnyObject {
 
     /// Retry registration with cached device token
     func retryDeviceTokenRegistration() async
+
+    /// Handle a successfully registered APNs device token
+    func didReceiveDeviceToken(_ deviceToken: Data)
+
+    /// Handle a failure to register for remote notifications
+    func didFailToRegisterForRemoteNotifications(error: Error)
 }
