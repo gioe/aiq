@@ -56,11 +56,11 @@ class DashboardViewModel: BaseViewModel {
     /// Refresh dashboard data (pull-to-refresh)
     func refreshDashboard() async {
         isRefreshing = true
+        defer { isRefreshing = false }
         // Clear cache and force refresh
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
         await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
         await fetchDashboardData(forceRefresh: true)
-        isRefreshing = false
     }
 
     /// Abandon the active test session
