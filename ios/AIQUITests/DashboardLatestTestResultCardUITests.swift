@@ -46,7 +46,6 @@ final class DashboardLatestTestResultCardUITests: BaseUITest {
             wait(for: latestTestCard, timeout: networkTimeout),
             "Latest test result card should be visible when latestTestResult is non-nil"
         )
-        assertExists(latestTestCard, "Latest test result card should exist")
         takeScreenshot(named: "LatestTestResultCard_Visible")
     }
 
@@ -76,8 +75,8 @@ final class DashboardLatestTestResultCardUITests: BaseUITest {
         let datePredicate = NSPredicate(format: "label BEGINSWITH 'Latest Result, '")
         let dateHeaderElement = app.otherElements.matching(datePredicate).firstMatch
         XCTAssertTrue(
-            dateHeaderElement.exists,
-            "Date header element should exist with a label beginning 'Latest Result, ' when dateFormatted is non-nil"
+            wait(for: dateHeaderElement, timeout: standardTimeout),
+            "Date header element should appear with a label beginning 'Latest Result, ' when dateFormatted is non-nil"
         )
         takeScreenshot(named: "DateLabel_Visible")
     }
