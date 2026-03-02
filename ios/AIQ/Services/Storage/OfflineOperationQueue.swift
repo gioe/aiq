@@ -159,7 +159,7 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
     private var cancellables = Set<AnyCancellable>()
 
     /// Task for network monitoring initialization (stored to enable cancellation on deinit)
-    private var networkMonitoringTask: Task<Void, Never>?
+    private nonisolated(unsafe) var networkMonitoringTask: Task<Void, Never>?
 
     /// Published state for UI updates (MainActor-isolated)
     ///
