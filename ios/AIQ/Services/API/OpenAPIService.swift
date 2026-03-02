@@ -785,8 +785,13 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             return apiError
         }
 
-        // Dig through the error chain to find the underlying cause.
-        // ClientError wraps the real error; NSError bridging may add another layer.
+        // ClientError wraps the real error in a typed property; NSError bridging cannot
+        // reach it because ClientError does not conform to CustomNSError.
+        if let clientError = error as? ClientError {
+            return try mapToAPIError(clientError.underlyingError)
+        }
+
+        // Dig through the error chain via NSError bridging for other error types.
         let underlying = (error as NSError).userInfo[NSUnderlyingErrorKey] as? Error ?? error
 
         if underlying is DecodingError {
