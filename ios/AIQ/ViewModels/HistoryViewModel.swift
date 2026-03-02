@@ -109,6 +109,9 @@ class HistoryViewModel: BaseViewModel {
             let response = try await fetchFromAPI()
             await cacheResults(response.results)
             updateState(with: response, fromCache: false)
+        } catch is CancellationError {
+            setLoading(false)
+            return // view is gone; discard silently
         } catch {
             let contextualError = ContextualError(
                 error: error as? APIError ?? .unknown(message: error.localizedDescription),
@@ -196,6 +199,9 @@ class HistoryViewModel: BaseViewModel {
                 let loaded = allTestHistory.count
                 print("[SUCCESS] Loaded \(newResults.count) more (total: \(loaded)/\(totalCount), hasMore: \(hasMore))")
             #endif
+        } catch is CancellationError {
+            isLoadingMore = false
+            return // view is gone; discard silently
         } catch {
             isLoadingMore = false
             let contextualError = ContextualError(
