@@ -7,13 +7,15 @@ import UIKit
 class QuestionTimeTracker {
     // MARK: - Private Properties
 
+    private let clock: any TimeProvider
     private var questionTimeSpent: [Int: Int] = [:]
     private var currentQuestionId: Int?
     private var currentQuestionStartTime: Date?
 
     // MARK: - Initialization
 
-    init() {
+    init(clock: any TimeProvider = SystemTimeProvider()) {
+        self.clock = clock
         setupBackgroundNotifications()
     }
 
@@ -27,14 +29,14 @@ class QuestionTimeTracker {
             }
         #endif
         currentQuestionId = questionId
-        currentQuestionStartTime = Date()
+        currentQuestionStartTime = clock.now
     }
 
     /// Records elapsed time for the current question and stops active tracking.
     func recordCurrent() {
         guard let startTime = currentQuestionStartTime,
               let questionId = currentQuestionId else { return }
-        let elapsed = Int(Date().timeIntervalSince(startTime))
+        let elapsed = Int(clock.now.timeIntervalSince(startTime))
         questionTimeSpent[questionId, default: 0] += elapsed
         currentQuestionStartTime = nil
         currentQuestionId = nil
@@ -77,7 +79,7 @@ class QuestionTimeTracker {
     private func pauseTracking() {
         guard let startTime = currentQuestionStartTime,
               let questionId = currentQuestionId else { return }
-        let elapsed = Int(Date().timeIntervalSince(startTime))
+        let elapsed = Int(clock.now.timeIntervalSince(startTime))
         questionTimeSpent[questionId, default: 0] += elapsed
         currentQuestionStartTime = nil
         // Keep currentQuestionId so resumeTracking knows to restart
@@ -88,7 +90,7 @@ class QuestionTimeTracker {
 
     private func resumeTracking() {
         guard currentQuestionId != nil else { return }
-        currentQuestionStartTime = Date()
+        currentQuestionStartTime = clock.now
         #if DEBUG
             print("[TIMING] Time tracking resumed - app foregrounded")
         #endif

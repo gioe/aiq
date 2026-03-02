@@ -39,7 +39,7 @@ final class TestTakingLoadFailureTests: BaseUITest {
     /// Default scenario: retryable network failure with authenticated user.
     /// Tests that need a different scenario call relaunchWithScenario() directly.
     override func setupLaunchConfiguration() {
-        mockScenario = MockScenario.startTestNetworkFailure.rawValue
+        mockScenario = "startTestNetworkFailure"
         super.setupLaunchConfiguration()
     }
 
@@ -77,7 +77,7 @@ final class TestTakingLoadFailureTests: BaseUITest {
     }
 
     func testStartTestFailureThenSuccess_RetryShowsTestContent() {
-        relaunchWithScenario(MockScenario.startTestFailureThenSuccess.rawValue)
+        relaunchWithScenario("startTestFailureThenSuccess")
         testHelper = TestTakingHelper(app: app, timeout: standardTimeout)
 
         // Navigate; first startTest() call fails
@@ -97,7 +97,7 @@ final class TestTakingLoadFailureTests: BaseUITest {
     }
 
     func testStartTestNonRetryableFailure_GoBackNavigatesBack() {
-        relaunchWithScenario(MockScenario.startTestNonRetryableFailure.rawValue)
+        relaunchWithScenario("startTestNonRetryableFailure")
         testHelper = TestTakingHelper(app: app, timeout: standardTimeout)
 
         // Navigate; startTest() throws a non-retryable error
