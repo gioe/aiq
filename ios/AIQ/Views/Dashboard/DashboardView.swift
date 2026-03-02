@@ -206,7 +206,11 @@ struct DashboardView: View {
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
 
-                DashboardActionButton(hasActiveTest: viewModel.hasActiveTest, onTap: navigateToTest)
+                DashboardActionButton(
+                    hasActiveTest: viewModel.hasActiveTest,
+                    onTap: navigateToTest,
+                    label: viewModel.hasActiveTest ? nil : "Start Your First Test"
+                )
             }
         )
     }

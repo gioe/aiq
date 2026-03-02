@@ -4,6 +4,11 @@ import SwiftUI
 struct DashboardActionButton: View {
     let hasActiveTest: Bool
     let onTap: () -> Void
+    var label: String?
+
+    private var resolvedLabel: String {
+        label ?? (hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
+    }
 
     var body: some View {
         Button {
@@ -13,7 +18,7 @@ struct DashboardActionButton: View {
                 Image(systemName: hasActiveTest ? "play.circle.fill" : "brain.head.profile")
                     .font(.system(size: DesignSystem.IconSize.md, weight: .semibold))
 
-                Text(hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
+                Text(resolvedLabel)
                     .font(Typography.button)
 
                 Spacer()
@@ -40,7 +45,7 @@ struct DashboardActionButton: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
+        .accessibilityLabel(resolvedLabel)
         .accessibilityHint(
             hasActiveTest
                 ? "Continue your in-progress cognitive performance test"
