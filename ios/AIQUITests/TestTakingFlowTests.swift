@@ -675,7 +675,7 @@ final class TestTakingFlowTests: BaseUITest {
         )
 
         // Tap Exit button
-        let exitButton = app.buttons["Exit"]
+        let exitButton = app.buttons["testTakingView.exitButton"]
         assertExists(exitButton, "Exit button should exist")
         exitButton.tap()
 
@@ -713,7 +713,7 @@ final class TestTakingFlowTests: BaseUITest {
         )
 
         // Tap Exit button
-        let exitButton = app.buttons["Exit"]
+        let exitButton = app.buttons["testTakingView.exitButton"]
         exitButton.tap()
 
         // Wait for confirmation dialog
