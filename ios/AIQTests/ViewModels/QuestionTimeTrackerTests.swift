@@ -5,17 +5,20 @@ import XCTest
 final class QuestionTimeTrackerTests: XCTestCase {
     private var sut: QuestionTimeTracker!
     private var clock: MockTimeProvider!
+    private var notificationCenter: NotificationCenter!
 
     override func setUp() {
         super.setUp()
         clock = MockTimeProvider()
-        sut = QuestionTimeTracker(clock: clock)
+        notificationCenter = NotificationCenter()
+        sut = QuestionTimeTracker(clock: clock, notificationCenter: notificationCenter)
     }
 
     override func tearDown() {
         sut.reset()
         sut = nil
         clock = nil
+        notificationCenter = nil
         super.tearDown()
     }
 
@@ -75,18 +78,18 @@ final class QuestionTimeTrackerTests: XCTestCase {
         clock.advance(by: 5)
 
         // Simulate backgrounding
-        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+        notificationCenter.post(name: UIApplication.willResignActiveNotification, object: nil)
         await Task.yield(); await Task.yield(); await Task.yield()
 
         XCTAssertEqual(sut.elapsed(for: 1), 5, "Pause should record elapsed time")
 
         // Simulate foregrounding — resume sets start time to clock.now
-        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        notificationCenter.post(name: UIApplication.didBecomeActiveNotification, object: nil)
         await Task.yield(); await Task.yield(); await Task.yield()
         clock.advance(by: 3) // 3s while resumed
 
         // Pause again to record resumed time
-        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+        notificationCenter.post(name: UIApplication.willResignActiveNotification, object: nil)
         await Task.yield(); await Task.yield(); await Task.yield()
 
         XCTAssertEqual(sut.elapsed(for: 1), 8, "Time should accumulate across pause/resume cycle")
@@ -98,16 +101,16 @@ final class QuestionTimeTrackerTests: XCTestCase {
         sut.startTracking(questionId: 1)
 
         // Pause with negligible time (0s elapsed)
-        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+        notificationCenter.post(name: UIApplication.willResignActiveNotification, object: nil)
         await Task.yield(); await Task.yield(); await Task.yield()
 
         // Resume
-        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        notificationCenter.post(name: UIApplication.didBecomeActiveNotification, object: nil)
         await Task.yield(); await Task.yield(); await Task.yield()
         clock.advance(by: 4) // let resumed tracking accumulate
 
         // Pause again to commit
-        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+        notificationCenter.post(name: UIApplication.willResignActiveNotification, object: nil)
         await Task.yield(); await Task.yield(); await Task.yield()
 
         XCTAssertEqual(sut.elapsed(for: 1), 4, "Resume should restart tracking while question is active")
@@ -121,12 +124,12 @@ final class QuestionTimeTrackerTests: XCTestCase {
         XCTAssertEqual(elapsedAfterRecord, 5)
 
         // Resume with no active question — should be a no-op
-        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        notificationCenter.post(name: UIApplication.didBecomeActiveNotification, object: nil)
         await Task.yield(); await Task.yield(); await Task.yield()
 
         // Background — if resume incorrectly started the timer, pause would record spurious time
         clock.advance(by: 3)
-        NotificationCenter.default.post(name: UIApplication.willResignActiveNotification, object: nil)
+        notificationCenter.post(name: UIApplication.willResignActiveNotification, object: nil)
         await Task.yield(); await Task.yield(); await Task.yield()
 
         XCTAssertEqual(sut.elapsed(for: 2), elapsedAfterRecord, "Resume without active question should not record time")

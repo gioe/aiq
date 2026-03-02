@@ -8,14 +8,16 @@ class QuestionTimeTracker {
     // MARK: - Private Properties
 
     private let clock: any TimeProvider
+    private let notificationCenter: NotificationCenter
     private var questionTimeSpent: [Int: Int] = [:]
     private var currentQuestionId: Int?
     private var currentQuestionStartTime: Date?
 
     // MARK: - Initialization
 
-    init(clock: any TimeProvider = SystemTimeProvider()) {
+    init(clock: any TimeProvider = SystemTimeProvider(), notificationCenter: NotificationCenter = .default) {
         self.clock = clock
+        self.notificationCenter = notificationCenter
         setupBackgroundNotifications()
     }
 
@@ -60,14 +62,14 @@ class QuestionTimeTracker {
     // MARK: - Background Handling
 
     private func setupBackgroundNotifications() {
-        NotificationCenter.default.addObserver(
+        notificationCenter.addObserver(
             forName: UIApplication.willResignActiveNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in self?.pauseTracking() }
         }
-        NotificationCenter.default.addObserver(
+        notificationCenter.addObserver(
             forName: UIApplication.didBecomeActiveNotification,
             object: nil,
             queue: .main
