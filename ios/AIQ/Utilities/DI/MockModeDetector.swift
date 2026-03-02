@@ -133,4 +133,13 @@ enum MockScenario: String, CaseIterable {
 
     /// Registration will fail with server error (500)
     case registrationServerError
+
+    /// startTest() fails with a retryable network error; user is logged in with no history
+    case startTestNetworkFailure
+
+    /// startTest() fails once then succeeds on retry; user is logged in with no history
+    case startTestFailureThenSuccess
+
+    /// startTest() fails with a non-retryable error; user is logged in with no history
+    case startTestNonRetryableFailure
 }

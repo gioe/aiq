@@ -17,6 +17,9 @@ import Foundation
         /// Whether to simulate network errors
         private var shouldSimulateNetworkError: Bool = false
 
+        /// Tracks the number of startTest() calls for failure-then-success scenarios
+        private var startTestCallCount = 0
+
         init() {}
 
         /// Configure the mock for a specific test scenario
@@ -80,12 +83,33 @@ import Foundation
         // MARK: - Test Management
 
         func startTest() async throws -> StartTestResponse {
-            try throwIfNetworkError()
-            return StartTestResponse(
-                questions: UITestMockData.sampleQuestions,
-                session: UITestMockData.newSession,
-                totalQuestions: UITestMockData.sampleQuestions.count
-            )
+            switch scenario {
+            case .startTestNetworkFailure:
+                throw APIError.networkError(
+                    NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
+                )
+            case .startTestNonRetryableFailure:
+                throw APIError.badRequest(message: "Questions not available.")
+            case .startTestFailureThenSuccess:
+                startTestCallCount += 1
+                if startTestCallCount == 1 {
+                    throw APIError.networkError(
+                        NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
+                    )
+                }
+                return StartTestResponse(
+                    questions: UITestMockData.sampleQuestions,
+                    session: UITestMockData.newSession,
+                    totalQuestions: UITestMockData.sampleQuestions.count
+                )
+            default:
+                try throwIfNetworkError()
+                return StartTestResponse(
+                    questions: UITestMockData.sampleQuestions,
+                    session: UITestMockData.newSession,
+                    totalQuestions: UITestMockData.sampleQuestions.count
+                )
+            }
         }
 
         func submitTest(
@@ -129,7 +153,8 @@ import Foundation
             try throwIfNetworkError()
 
             switch scenario {
-            case .loggedInNoHistory, .loggedOut, .default, .registrationTimeout, .registrationServerError:
+            case .loggedInNoHistory, .loggedOut, .default, .registrationTimeout, .registrationServerError,
+                 .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure:
                 return PaginatedTestHistoryResponse(
                     hasMore: false,
                     limit: 50,

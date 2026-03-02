@@ -36,6 +36,16 @@ import Foundation
         /// The mock implementations require main actor isolation for their @Published properties.
         ///
         /// - Parameter container: The ServiceContainer to register services with
+        private static func requiresAuthentication(_ scenario: MockScenario) -> Bool {
+            switch scenario {
+            case .loggedInWithHistory, .loggedInNoHistory, .testInProgress,
+                 .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure:
+                true
+            default:
+                false
+            }
+        }
+
         @MainActor
         static func configureServices(container: ServiceContainer) {
             print("=== MOCK SERVICE CONFIGURATION CALLED ===")
@@ -64,7 +74,7 @@ import Foundation
             // MARK: - Layer 2: Services depending on Layer 1
 
             let mockSecureStorage = UITestMockSecureStorage()
-            if scenario == .loggedInWithHistory || scenario == .loggedInNoHistory || scenario == .testInProgress {
+            if requiresAuthentication(scenario) {
                 mockSecureStorage.configureAuthenticated()
             }
             container.register(SecureStorageProtocol.self, instance: mockSecureStorage)

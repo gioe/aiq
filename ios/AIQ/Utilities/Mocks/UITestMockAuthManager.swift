@@ -66,7 +66,8 @@ import Foundation
                 currentUser = nil
                 shouldSucceedLogin = true
 
-            case .loggedInNoHistory, .loggedInWithHistory, .testInProgress:
+            case .loggedInNoHistory, .loggedInWithHistory, .testInProgress,
+                 .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure:
                 isAuthenticated = true
                 currentUser = Self.mockUser
                 shouldSucceedLogin = true

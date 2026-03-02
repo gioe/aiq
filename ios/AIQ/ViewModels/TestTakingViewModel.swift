@@ -323,7 +323,7 @@ class TestTakingViewModel: BaseViewModel {
             print("[ERROR] [TestTakingViewModel] API FAILURE - Falling back to mock data!")
             print("   Error type: \(type(of: error))")
             print("   Error details: \(error)")
-            if !isRunningTests {
+            if !isRunningTests && !MockModeDetector.isMockMode {
                 assertionFailure(
                     "[TestTakingViewModel] API call failed, using mock data. " +
                         "Error: \(error). Check network/backend configuration."
