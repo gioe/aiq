@@ -26,6 +26,7 @@ class BaseViewModel: ObservableObject {
         context: CrashlyticsErrorRecorder.ErrorContext,
         retryOperation: (() async -> Void)? = nil
     ) {
+        guard !(error is CancellationError) else { return }
         isLoading = false
         self.error = error
         lastFailedOperation = retryOperation

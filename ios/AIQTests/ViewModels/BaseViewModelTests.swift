@@ -44,6 +44,19 @@ final class BaseViewModelTests: XCTestCase {
         )
     }
 
+    func testHandleError_doesNotSetStateForCancellationError() {
+        // Given
+        sut.isLoading = true
+
+        // When
+        sut.handleError(CancellationError(), context: .unknown)
+
+        // Then
+        XCTAssertTrue(sut.isLoading, "isLoading should remain unchanged for CancellationError")
+        XCTAssertNil(sut.error, "error should not be set for CancellationError")
+        XCTAssertFalse(sut.canRetry, "canRetry should not be set for CancellationError")
+    }
+
     func testClearError() {
         // Given
         let testError = NSError(
