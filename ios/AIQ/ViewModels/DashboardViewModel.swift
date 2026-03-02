@@ -132,6 +132,8 @@ class DashboardViewModel: BaseViewModel {
             updateDashboardState(with: paginatedResponse.results, totalCount: paginatedResponse.totalCount)
             return nil
 
+        } catch is CancellationError {
+            return nil // view is gone; discard silently
         } catch {
             // Record non-fatal error to Crashlytics for production monitoring
             CrashlyticsErrorRecorder.recordError(error, context: .fetchDashboard)
