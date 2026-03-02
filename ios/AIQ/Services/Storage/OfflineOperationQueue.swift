@@ -191,7 +191,7 @@ actor OfflineOperationQueue: OfflineOperationQueueProtocol {
 
         // Start monitoring network connectivity (store task to enable cancellation on deinit)
         networkMonitoringTask = Task {
-            await startNetworkMonitoring()
+            startNetworkMonitoring()
         }
     }
 
