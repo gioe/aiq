@@ -202,11 +202,11 @@ struct DashboardView: View {
                         """
                         Take your first cognitive performance assessment to establish your baseline score. \
                         Track your progress over time and discover insights about your performance.
-                        """,
-                    actionTitle: viewModel.hasActiveTest ? "Resume Test in Progress" : "Start Your First Test",
-                    action: { navigateToTest() }
+                        """
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
+
+                DashboardActionButton(hasActiveTest: viewModel.hasActiveTest, onTap: navigateToTest)
             }
         )
     }
