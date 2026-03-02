@@ -53,7 +53,7 @@ final class DashboardActionButtonUITests: BaseUITest {
     // MARK: - hasActiveTest = true Tests
 
     func testActionButton_ActiveSession_ShowsResumeTestInProgress() {
-        relaunchWithScenario("testInProgress")
+        relaunchWithTestInProgress()
 
         XCTAssertTrue(
             wait(for: actionButton, timeout: networkTimeout),
@@ -83,6 +83,9 @@ final class DashboardActionButtonUITests: BaseUITest {
             wait(for: actionButton, timeout: networkTimeout),
             "Action button should appear before tapping"
         )
+
+        app.scrollViews.firstMatch.swipeUp()
+
         XCTAssertTrue(
             waitForHittable(actionButton),
             "Action button should be hittable before tapping"
