@@ -2855,6 +2855,43 @@ Thread.sleep(forTimeInterval: 0.5)  // OK - no UI to wait on after termination
 app.launch()
 ```
 
+### XCUITest Failure Debug Dumps
+
+When a `waitForExistence` call fails, the debug dump must include **both the identifier and the label** for each element. Without identifiers, the dump confirms the element is visually present but cannot explain why the query failed.
+
+**Bad** — labels only, cannot diagnose identifier/type mismatches:
+```swift
+let staticTexts = app.staticTexts.allElementsBoundByIndex.prefix(10).map(\.label)
+XCTFail("Question did not appear. Texts: \(staticTexts)")
+// Output: "Which word doesn't belong..." — element IS there, but WHY did the query fail?
+```
+
+**Good** — identifier and label together, immediately surfaces root cause:
+```swift
+let staticTexts = app.staticTexts.allElementsBoundByIndex.prefix(15)
+    .map { "[\($0.identifier)] \($0.label)" }
+let otherElements = app.otherElements.allElementsBoundByIndex.prefix(20)
+    .map { "[\($0.identifier)] \($0.label)" }
+XCTFail("""
+Element did not appear.
+Static texts (first 15): \(staticTexts.joined(separator: ", "))
+Other elements (first 20): \(otherElements.joined(separator: ", "))
+""")
+// Output: "[testTakingView.questionCard] Which word doesn't belong..."
+// Immediately shows: identifier is on a staticText, not otherElement — wrong query type.
+```
+
+**Why this matters — SwiftUI accessibility identifier promotion:**
+A `VStack` with `.accessibilityIdentifier("foo")` but without `.accessibilityElement(children: .contain)` is transparent in the accessibility tree. SwiftUI promotes the outer identifier down to the first child, overriding the child's own identifier. The symptom: `app.otherElements["foo"]` finds nothing, `app.staticTexts["foo"]` finds the child text. Without the `[identifier]` dump format, the element appears present and the failure cause is invisible.
+
+**SwiftUI container accessibility rule:**
+If you need a container `VStack`/`HStack` to be independently queryable as `app.otherElements["id"]` in XCTest while its children remain queryable too, you must add `.accessibilityElement(children: .contain)` before `.accessibilityIdentifier(...)`:
+```swift
+VStack { ... }
+    .accessibilityElement(children: .contain)   // forces container into accessibility tree
+    .accessibilityIdentifier("myContainer")     // identifier on the container, not promoted to child
+```
+
 ### Verify Implementation Before Testing Advanced Capabilities
 
 When writing tests for advanced capabilities (concurrency, thread-safety, security), **verify the implementation has the required primitives BEFORE writing tests that assume them**.
