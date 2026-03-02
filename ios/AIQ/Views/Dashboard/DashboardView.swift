@@ -78,31 +78,18 @@ struct DashboardView: View {
     // MARK: - Dashboard Content
 
     private var dashboardContent: some View {
-        ScrollView {
-            VStack(spacing: DesignSystem.Spacing.xxl) {
-                // Welcome Header
-                DashboardWelcomeHeader(userName: authManager.userFullName)
-
-                // Onboarding Skipped Info Card
-                onboardingInfoCardSection
-
-                // In-Progress Test Card
-                if let activeSession = viewModel.activeTestSession {
-                    InProgressTestCard(
-                        session: activeSession,
-                        questionsAnswered: viewModel.activeSessionQuestionsAnswered,
-                        onResume: {
-                            viewModel.trackTestResumed()
-                            // Resume always uses fixed-form TestTakingView
-                            router.push(.testTaking())
-                        },
-                        onAbandon: {
-                            await viewModel.abandonActiveTest()
-                        }
-                    )
-                    .inProgressCardTransition(sessionId: viewModel.activeTestSession?.id)
-                }
-
+        DashboardScrollBody(
+            userName: authManager.userFullName,
+            activeTestSession: viewModel.activeTestSession,
+            questionsAnswered: viewModel.activeSessionQuestionsAnswered,
+            onResume: {
+                viewModel.trackTestResumed()
+                router.push(.testTaking())
+            },
+            onAbandon: { await viewModel.abandonActiveTest() },
+            onRefresh: { await viewModel.refreshDashboard() },
+            onboardingInfoCard: { onboardingInfoCardSection },
+            bottomContent: {
                 // Stats Grid
                 statsGrid
 
@@ -114,15 +101,8 @@ struct DashboardView: View {
 
                 // Action Button
                 DashboardActionButton(hasActiveTest: viewModel.hasActiveTest, onTap: navigateToTest)
-
-                Spacer()
             }
-            .padding(DesignSystem.Spacing.lg)
-            .adaptiveContentWidth()
-        }
-        .refreshable {
-            await viewModel.refreshDashboard()
-        }
+        )
     }
 
     // MARK: - Onboarding Info Card
@@ -205,29 +185,15 @@ struct DashboardView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        ScrollView {
-            VStack(spacing: DesignSystem.Spacing.xxl) {
-                DashboardWelcomeHeader(userName: authManager.userFullName)
-
-                // Onboarding Skipped Info Card
-                onboardingInfoCardSection
-
-                // In-Progress Test Card for empty state
-                if let activeSession = viewModel.activeTestSession {
-                    InProgressTestCard(
-                        session: activeSession,
-                        questionsAnswered: viewModel.activeSessionQuestionsAnswered,
-                        onResume: {
-                            // Resume always uses fixed-form TestTakingView
-                            router.push(.testTaking())
-                        },
-                        onAbandon: {
-                            await viewModel.abandonActiveTest()
-                        }
-                    )
-                    .inProgressCardTransition(sessionId: viewModel.activeTestSession?.id)
-                }
-
+        DashboardScrollBody(
+            userName: authManager.userFullName,
+            activeTestSession: viewModel.activeTestSession,
+            questionsAnswered: viewModel.activeSessionQuestionsAnswered,
+            onResume: { router.push(.testTaking()) },
+            onAbandon: { await viewModel.abandonActiveTest() },
+            onRefresh: { await viewModel.refreshDashboard() },
+            onboardingInfoCard: { onboardingInfoCardSection },
+            bottomContent: {
                 EmptyStateView(
                     icon: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile",
                     title: viewModel.hasActiveTest ? "Test in Progress" : "Ready to Begin?",
@@ -238,11 +204,47 @@ struct DashboardView: View {
                         Track your progress over time and discover insights about your performance.
                         """,
                     actionTitle: viewModel.hasActiveTest ? "Resume Test in Progress" : "Start Your First Test",
-                    action: {
-                        navigateToTest()
-                    }
+                    action: { navigateToTest() }
                 )
                 .padding(.vertical, DesignSystem.Spacing.xl)
+            }
+        )
+    }
+}
+
+// MARK: - Shared Scroll Body
+
+/// Shared scroll container used by both dashboardContent and emptyState.
+/// Renders the common preamble (header, onboarding card, in-progress test card) followed
+/// by caller-supplied content via a @ViewBuilder closure.
+private struct DashboardScrollBody<OnboardingCard: View, BottomContent: View>: View {
+    let userName: String?
+    let activeTestSession: TestSession?
+    let questionsAnswered: Int?
+    let onResume: () -> Void
+    let onAbandon: () async -> Void
+    let onRefresh: () async -> Void
+    @ViewBuilder let onboardingInfoCard: OnboardingCard
+    @ViewBuilder let bottomContent: BottomContent
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: DesignSystem.Spacing.xxl) {
+                DashboardWelcomeHeader(userName: userName)
+
+                onboardingInfoCard
+
+                if let activeSession = activeTestSession {
+                    InProgressTestCard(
+                        session: activeSession,
+                        questionsAnswered: questionsAnswered,
+                        onResume: onResume,
+                        onAbandon: onAbandon
+                    )
+                    .inProgressCardTransition(sessionId: activeTestSession?.id)
+                }
+
+                bottomContent
 
                 Spacer()
             }
@@ -250,7 +252,7 @@ struct DashboardView: View {
             .adaptiveContentWidth()
         }
         .refreshable {
-            await viewModel.refreshDashboard()
+            await onRefresh()
         }
     }
 }
