@@ -40,7 +40,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         await sut.startAdaptiveTest()
 
         // Then
-        let startAdaptiveTestCalled = await mockService.startAdaptiveTestCalled
+        let startAdaptiveTestCalled = mockService.startAdaptiveTestCalled
         XCTAssertFalse(startAdaptiveTestCalled, "API should not be called when feature flag is off")
         XCTAssertFalse(sut.isAdaptiveTest, "Should not be in adaptive mode")
         XCTAssertNil(sut.testSession, "No session should be created")
@@ -59,14 +59,14 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             session: makeTestSession(id: sessionId),
             totalQuestions: 1
         )
-        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
-        await mockService.startAdaptiveTestResponse = startResponse
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startAdaptiveTestResponse = startResponse
 
         // When
         await sut.startAdaptiveTest()
 
         // Then
-        let startAdaptiveTestCalled = await mockService.startAdaptiveTestCalled
+        let startAdaptiveTestCalled = mockService.startAdaptiveTestCalled
         XCTAssertTrue(startAdaptiveTestCalled, "Should call adaptive start API")
         XCTAssertTrue(sut.isAdaptiveTest, "Should be in adaptive mode")
         XCTAssertNotNil(sut.testSession, "Session should be set")
@@ -88,7 +88,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             message: "User already has an active test session"
         )
-        await mockService.startAdaptiveTestError = conflictError
+        mockService.startAdaptiveTestError = conflictError
 
         // When
         await sut.startAdaptiveTest()
@@ -109,7 +109,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
     func testStartAdaptiveTest_HandlesServerError() async {
         // Given
         let serverError = APIError.serverError(statusCode: 500, message: "Internal error")
-        await mockService.startAdaptiveTestError = serverError
+        mockService.startAdaptiveTestError = serverError
 
         // When
         await sut.startAdaptiveTest()
@@ -133,8 +133,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             session: makeTestSession(id: sessionId),
             totalQuestions: 1
         )
-        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
-        await mockService.startAdaptiveTestResponse = startResponse
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startAdaptiveTestResponse = startResponse
 
         // When
         await sut.startAdaptiveTest()
@@ -162,13 +162,13 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             nextQuestion: .init(value1: nextQuestion),
             testComplete: false
         )
-        await mockService.submitAdaptiveResponseResponse = adaptiveResponse
+        mockService.submitAdaptiveResponseResponse = adaptiveResponse
 
         // When
         await sut.submitAnswerAndGetNext()
 
         // Then
-        let submitCalled = await mockService.submitAdaptiveResponseCalled
+        let submitCalled = mockService.submitAdaptiveResponseCalled
         XCTAssertTrue(submitCalled)
         XCTAssertEqual(sut.navigationState.questions.count, 2, "Questions should grow incrementally")
         XCTAssertEqual(sut.navigationState.currentQuestionIndex, 1, "Should advance to new question")
@@ -192,7 +192,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             stoppingReason: "se_threshold",
             testComplete: true
         )
-        await mockService.submitAdaptiveResponseResponse = adaptiveResponse
+        mockService.submitAdaptiveResponseResponse = adaptiveResponse
 
         // When
         await sut.submitAnswerAndGetNext()
@@ -214,7 +214,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         await sut.submitAnswerAndGetNext()
 
         // Then
-        let submitCalled = await mockService.submitAdaptiveResponseCalled
+        let submitCalled = mockService.submitAdaptiveResponseCalled
         XCTAssertFalse(submitCalled, "Should not call API without an answer")
     }
 
@@ -227,8 +227,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             session: makeTestSession(id: sessionId),
             totalQuestions: 1
         )
-        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
-        await mockService.startTestResponse = startResponse
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 1)
         sut.currentAnswer = "A"
 
@@ -236,7 +236,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         await sut.submitAnswerAndGetNext()
 
         // Then
-        let submitCalled = await mockService.submitAdaptiveResponseCalled
+        let submitCalled = mockService.submitAdaptiveResponseCalled
         XCTAssertFalse(submitCalled, "Should not call adaptive API for non-adaptive test")
     }
 
@@ -246,7 +246,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         sut.currentAnswer = "A"
 
         let networkError = APIError.networkError(URLError(.notConnectedToInternet))
-        await mockService.submitAdaptiveResponseError = networkError
+        mockService.submitAdaptiveResponseError = networkError
 
         // When
         await sut.submitAnswerAndGetNext()
@@ -271,15 +271,15 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             nextQuestion: .init(value1: nextQuestion),
             testComplete: false
         )
-        await mockService.submitAdaptiveResponseResponse = adaptiveResponse
+        mockService.submitAdaptiveResponseResponse = adaptiveResponse
 
         // When
         await sut.submitAnswerAndGetNext()
 
         // Then
-        let lastSessionId = await mockService.lastAdaptiveResponseSessionId
-        let lastQuestionId = await mockService.lastAdaptiveResponseQuestionId
-        let lastAnswer = await mockService.lastAdaptiveResponseUserAnswer
+        let lastSessionId = mockService.lastAdaptiveResponseSessionId
+        let lastQuestionId = mockService.lastAdaptiveResponseQuestionId
+        let lastAnswer = mockService.lastAdaptiveResponseUserAnswer
 
         XCTAssertEqual(lastSessionId, 5008)
         XCTAssertEqual(lastQuestionId, 42)
@@ -345,8 +345,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             session: makeTestSession(id: sessionId),
             totalQuestions: 2
         )
-        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
-        await mockService.startTestResponse = startResponse
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 2)
@@ -372,8 +372,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             session: makeTestSession(id: sessionId),
             totalQuestions: 4
         )
-        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
-        await mockService.startTestResponse = startResponse
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startTestResponse = startResponse
 
         // When
         await sut.startTest(questionCount: 4)
@@ -393,7 +393,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         // Answer and get next
         sut.currentAnswer = "A"
         let q2 = makeQuestion(id: 2, text: "Q2?")
-        await mockService.submitAdaptiveResponseResponse = Components.Schemas.AdaptiveNextResponse(
+        mockService.submitAdaptiveResponseResponse = Components.Schemas.AdaptiveNextResponse(
             currentSe: 0.9,
             currentTheta: 0.3,
             itemsAdministered: 2,
@@ -406,7 +406,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         // Answer and get next again
         sut.currentAnswer = "B"
         let q3 = makeQuestion(id: 3, text: "Q3?")
-        await mockService.submitAdaptiveResponseResponse = Components.Schemas.AdaptiveNextResponse(
+        mockService.submitAdaptiveResponseResponse = Components.Schemas.AdaptiveNextResponse(
             currentSe: 0.7,
             currentTheta: 0.6,
             itemsAdministered: 3,
@@ -430,7 +430,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         // Answer and get next
         sut.currentAnswer = "A"
         let q2 = makeQuestion(id: 2)
-        await mockService.submitAdaptiveResponseResponse = Components.Schemas.AdaptiveNextResponse(
+        mockService.submitAdaptiveResponseResponse = Components.Schemas.AdaptiveNextResponse(
             currentSe: 0.9,
             currentTheta: 0.3,
             itemsAdministered: 2,
@@ -455,8 +455,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             session: makeTestSession(id: sessionId),
             totalQuestions: 1
         )
-        await mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
-        await mockService.startAdaptiveTestResponse = startResponse
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startAdaptiveTestResponse = startResponse
         await sut.startAdaptiveTest()
     }
 
