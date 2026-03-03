@@ -19,18 +19,18 @@ class TestGeneratedQuestion:
     def test_create_valid_question(self):
         """Test creating a valid question."""
         question = GeneratedQuestion(
-            question_text="What is 2 + 2?",
+            question_text="What is the sum of two and two?",
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="4",
             answer_options=["2", "3", "4", "5"],
-            explanation="2 + 2 equals 4 by basic addition.",
+            explanation="Two plus two equals four by basic addition.",
             metadata={"tag": "arithmetic"},
             source_llm="openai",
             source_model="gpt-4",
         )
 
-        assert question.question_text == "What is 2 + 2?"
+        assert question.question_text == "What is the sum of two and two?"
         assert question.question_type == QuestionType.MATH
         assert question.difficulty_level == DifficultyLevel.EASY
         assert question.correct_answer == "4"
@@ -44,8 +44,8 @@ class TestGeneratedQuestion:
                 question_text="Short",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
-                correct_answer="4",
-                answer_options=["2", "3", "4", "5"],
+                correct_answer="X",
+                answer_options=["W", "X", "Y", "Z"],
                 source_llm="openai",
                 source_model="gpt-4",
             )
@@ -54,7 +54,7 @@ class TestGeneratedQuestion:
         """Test that correct answer must be in answer_options."""
         with pytest.raises(ValidationError) as exc_info:
             GeneratedQuestion(
-                question_text="What is 2 + 2?",
+                question_text="What is the sum of two and two?",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer="4",
@@ -68,7 +68,7 @@ class TestGeneratedQuestion:
         """Test that at least 2 answer options are required."""
         with pytest.raises(ValidationError):
             GeneratedQuestion(
-                question_text="What is 2 + 2?",
+                question_text="What is the sum of two and two?",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer="4",
@@ -114,7 +114,7 @@ class TestGeneratedQuestion:
     def test_question_without_stimulus(self):
         """Test that stimulus is optional and defaults to None."""
         question = GeneratedQuestion(
-            question_text="What is 2 + 2?",
+            question_text="What is the sum of two and two?",
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="4",
@@ -128,7 +128,7 @@ class TestGeneratedQuestion:
     def test_sub_type_defaults_to_none(self):
         """Test that sub_type defaults to None."""
         question = GeneratedQuestion(
-            question_text="What is 2 + 2?",
+            question_text="What is the sum of two and two?",
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="4",
@@ -141,11 +141,11 @@ class TestGeneratedQuestion:
     def test_sub_type_can_be_set(self):
         """Test that sub_type can be set on a question."""
         question = GeneratedQuestion(
-            question_text="Which shape results from rotating the cube 90 degrees?",
+            question_text="Which shape results from rotating the figure 90 degrees?",
             question_type=QuestionType.SPATIAL,
             difficulty_level=DifficultyLevel.MEDIUM,
-            correct_answer="B",
-            answer_options=["A", "B", "C", "D"],
+            correct_answer="Omega",
+            answer_options=["Alpha", "Beta", "Omega", "Gamma"],
             sub_type="cube rotations and transformations",
             source_llm="openai",
             source_model="gpt-4",
@@ -155,7 +155,7 @@ class TestGeneratedQuestion:
     def test_to_dict(self):
         """Test converting question to dictionary."""
         question = GeneratedQuestion(
-            question_text="What is 2 + 2?",
+            question_text="What is the sum of two and two?",
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="4",
@@ -168,7 +168,7 @@ class TestGeneratedQuestion:
 
         result = question.to_dict()
 
-        assert result["question_text"] == "What is 2 + 2?"
+        assert result["question_text"] == "What is the sum of two and two?"
         assert result["question_type"] == "math"
         assert result["difficulty_level"] == "easy"
         assert result["correct_answer"] == "4"
@@ -197,11 +197,11 @@ class TestGeneratedQuestion:
     def test_to_dict_with_sub_type(self):
         """Test that to_dict includes sub_type field when present."""
         question = GeneratedQuestion(
-            question_text="Which shape results from rotating the cube 90 degrees?",
+            question_text="Which shape results from rotating the figure 90 degrees?",
             question_type=QuestionType.SPATIAL,
             difficulty_level=DifficultyLevel.MEDIUM,
-            correct_answer="B",
-            answer_options=["A", "B", "C", "D"],
+            correct_answer="Omega",
+            answer_options=["Alpha", "Beta", "Omega", "Gamma"],
             sub_type="cube rotations and transformations",
             source_llm="openai",
             source_model="gpt-4",
@@ -213,11 +213,11 @@ class TestGeneratedQuestion:
     def test_stimulus_with_empty_string(self):
         """Test that stimulus can be an empty string."""
         question = GeneratedQuestion(
-            question_text="What comes next in the pattern?",
+            question_text="Which item follows in the progression?",
             question_type=QuestionType.PATTERN,
             difficulty_level=DifficultyLevel.EASY,
-            correct_answer="D",
-            answer_options=["A", "B", "C", "D"],
+            correct_answer="Delta",
+            answer_options=["Alpha", "Beta", "Gamma", "Delta"],
             stimulus="",
             source_llm="openai",
             source_model="gpt-4",
@@ -285,6 +285,63 @@ class TestGeneratedQuestion:
         result = question.to_dict()
         assert result["stimulus"] == question.stimulus
 
+    def test_answer_leak_exact_match_rejected(self):
+        """Validator raises ValueError when correct_answer is found in question_text."""
+        with pytest.raises(ValidationError) as exc_info:
+            GeneratedQuestion(
+                question_text="The answer is Paris. What is the capital of France?",
+                question_type=QuestionType.VERBAL,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="Paris",
+                answer_options=["London", "Berlin", "Paris", "Rome"],
+                source_llm="openai",
+                source_model="gpt-4",
+            )
+        assert "correct_answer" in str(exc_info.value)
+        assert "Paris" in str(exc_info.value)
+
+    def test_answer_leak_case_insensitive_rejected(self):
+        """Validator raises ValueError on case-insensitive match of correct_answer in question_text."""
+        with pytest.raises(ValidationError) as exc_info:
+            GeneratedQuestion(
+                question_text="Which country borders france to the north?",
+                question_type=QuestionType.VERBAL,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="France",
+                answer_options=["Spain", "France", "Italy", "Germany"],
+                source_llm="openai",
+                source_model="gpt-4",
+            )
+        assert "correct_answer" in str(exc_info.value)
+
+    def test_answer_option_leak_rejected(self):
+        """Validator raises ValueError when any answer_option text appears in question_text."""
+        with pytest.raises(ValidationError) as exc_info:
+            GeneratedQuestion(
+                question_text="Select the largest planet. Saturn is well known for its rings.",
+                question_type=QuestionType.VERBAL,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="Jupiter",
+                answer_options=["Jupiter", "Saturn", "Neptune", "Mars"],
+                source_llm="openai",
+                source_model="gpt-4",
+            )
+        assert "answer_option" in str(exc_info.value)
+        assert "Saturn" in str(exc_info.value)
+
+    def test_clean_question_passes_validator(self):
+        """Validator passes when no answer text appears in the question body."""
+        question = GeneratedQuestion(
+            question_text="Which planet is the largest in the solar system?",
+            question_type=QuestionType.VERBAL,
+            difficulty_level=DifficultyLevel.MEDIUM,
+            correct_answer="Jupiter",
+            answer_options=["Jupiter", "Saturn", "Neptune", "Mars"],
+            source_llm="openai",
+            source_model="gpt-4",
+        )
+        assert question.correct_answer == "Jupiter"
+
     def test_memory_question_without_stimulus_rejected(self):
         """Test that memory questions without stimulus are rejected at model level."""
         with pytest.raises(ValidationError) as exc_info:
@@ -339,11 +396,11 @@ class TestGeneratedQuestion:
             QuestionType.VERBAL,
         ]:
             question = GeneratedQuestion(
-                question_text="What is the answer to this question?",
+                question_text="Identify the next item in the given progression.",
                 question_type=qtype,
                 difficulty_level=DifficultyLevel.EASY,
-                correct_answer="A",
-                answer_options=["A", "B", "C", "D"],
+                correct_answer="Alpha",
+                answer_options=["Alpha", "Beta", "Gamma", "Delta"],
                 source_llm="openai",
                 source_model="gpt-4",
             )
@@ -400,7 +457,7 @@ class TestEvaluatedQuestion:
     def test_create_evaluated_question(self):
         """Test creating an evaluated question."""
         question = GeneratedQuestion(
-            question_text="What is 2 + 2?",
+            question_text="What is the sum of two and two?",
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
             correct_answer="4",
@@ -427,7 +484,7 @@ class TestEvaluatedQuestion:
 
         assert evaluated.is_approved is True
         assert evaluated.judge_model == "gpt-4-turbo"
-        assert evaluated.question.question_text == "What is 2 + 2?"
+        assert evaluated.question.question_text == "What is the sum of two and two?"
 
 
 class TestGenerationBatch:
@@ -437,7 +494,7 @@ class TestGenerationBatch:
         """Test creating a generation batch."""
         questions = [
             GeneratedQuestion(
-                question_text=f"Question {i}?",
+                question_text=f"Evaluate the expression labeled item {chr(65 + i)}.",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer=str(i),
