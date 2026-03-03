@@ -162,7 +162,7 @@ import Foundation
                     results: [],
                     totalCount: 0
                 )
-            case .loggedInWithHistory, .testInProgress, .loginFailure, .networkError:
+            case .loggedInWithHistory, .loggedInWithHistoryNilDate, .testInProgress, .loginFailure, .networkError:
                 return PaginatedTestHistoryResponse(
                     hasMore: false,
                     limit: 50,

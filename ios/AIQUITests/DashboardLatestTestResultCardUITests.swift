@@ -80,4 +80,32 @@ final class DashboardLatestTestResultCardUITests: BaseUITest {
         )
         takeScreenshot(named: "DateLabel_Visible")
     }
+
+    func testDateLabel_IsAbsentWhenDateFormattedIsNil() {
+        relaunchWithScenario("loggedInWithHistoryNilDate")
+
+        XCTAssertTrue(
+            wait(for: latestTestCard, timeout: networkTimeout),
+            "Latest test result card should still render when dateFormatted is nil"
+        )
+        takeScreenshot(named: "DateLabel_Nil_CardVisible")
+
+        // Accessibility label must be exactly "Latest Result" with no date suffix
+        let exactLabelPredicate = NSPredicate(format: "label == 'Latest Result'")
+        let noDateHeaderElement = app.otherElements.matching(exactLabelPredicate).firstMatch
+        XCTAssertTrue(
+            wait(for: noDateHeaderElement, timeout: standardTimeout),
+            "Card header accessibility label should be exactly 'Latest Result' when dateFormatted is nil"
+        )
+        takeScreenshot(named: "DateLabel_Nil_NoDateSuffix")
+
+        // No element should exist with the date-suffix variant
+        let dateSuffixPredicate = NSPredicate(format: "label BEGINSWITH 'Latest Result, '")
+        let dateSuffixElement = app.otherElements.matching(dateSuffixPredicate).firstMatch
+        XCTAssertFalse(
+            dateSuffixElement.exists,
+            "Card header should not carry a date suffix when dateFormatted is nil"
+        )
+        takeScreenshot(named: "DateLabel_Nil_Confirmed")
+    }
 }

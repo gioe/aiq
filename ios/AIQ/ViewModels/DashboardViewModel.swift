@@ -256,6 +256,12 @@ class DashboardViewModel: BaseViewModel {
     /// Formatted latest test date
     var latestTestDateFormatted: String? {
         guard let latest = latestTestResult else { return nil }
+        #if DEBUG
+            let mockScenario = ProcessInfo.processInfo.environment["MOCK_SCENARIO"]
+            if mockScenario == MockScenario.loggedInWithHistoryNilDate.rawValue {
+                return nil
+            }
+        #endif
         return latest.completedAt.toShortString()
     }
 

@@ -142,4 +142,7 @@ enum MockScenario: String, CaseIterable {
 
     /// startTest() fails with a non-retryable error; user is logged in with no history
     case startTestNonRetryableFailure
+
+    /// User is authenticated with sample test history but latestTestDateFormatted is nil
+    case loggedInWithHistoryNilDate
 }

@@ -26,7 +26,7 @@ import UserNotifications
         /// Configure for a specific scenario
         func configureForScenario(_ scenario: MockScenario) {
             switch scenario {
-            case .loggedInWithHistory, .loggedInNoHistory, .testInProgress:
+            case .loggedInWithHistory, .loggedInWithHistoryNilDate, .loggedInNoHistory, .testInProgress:
                 authorizationStatus = .authorized
                 isDeviceTokenRegistered = true
             default:
