@@ -23,6 +23,7 @@ final class MockAnalyticsService: AnalyticsService {
 
     private(set) var trackDeepLinkSuccessCalled = false
     private(set) var trackDeepLinkFailedCalled = false
+    private(set) var trackTestResumedFromDashboardCalled = false
 
     // MARK: - Parameter Capture
 
@@ -33,6 +34,9 @@ final class MockAnalyticsService: AnalyticsService {
     private(set) var lastFailedErrorType: String?
     private(set) var lastFailedSource: String?
     private(set) var lastFailedURL: String?
+
+    private(set) var lastResumedSessionId: Int?
+    private(set) var lastResumedQuestionsAnswered: Int?
 
     // MARK: - Initialization
 
@@ -63,6 +67,9 @@ final class MockAnalyticsService: AnalyticsService {
         lastFailedErrorType = nil
         lastFailedSource = nil
         lastFailedURL = nil
+        trackTestResumedFromDashboardCalled = false
+        lastResumedSessionId = nil
+        lastResumedQuestionsAnswered = nil
     }
 
     // MARK: - Overrides
@@ -89,6 +96,14 @@ final class MockAnalyticsService: AnalyticsService {
         lastFailedErrorType = errorType
         lastFailedSource = source
         lastFailedURL = url
+
+        // Don't call super to avoid actually tracking events in tests
+    }
+
+    override func trackTestResumedFromDashboard(sessionId: Int, questionsAnswered: Int) {
+        trackTestResumedFromDashboardCalled = true
+        lastResumedSessionId = sessionId
+        lastResumedQuestionsAnswered = questionsAnswered
 
         // Don't call super to avoid actually tracking events in tests
     }

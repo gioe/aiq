@@ -6,11 +6,13 @@ import XCTest
 final class DashboardViewModelTests: XCTestCase {
     var sut: DashboardViewModel!
     var mockService: MockOpenAPIService!
+    var mockAnalyticsService: MockAnalyticsService!
 
     override func setUp() async throws {
         try await super.setUp()
         mockService = MockOpenAPIService()
-        sut = DashboardViewModel(apiService: mockService)
+        mockAnalyticsService = MockAnalyticsService()
+        sut = DashboardViewModel(apiService: mockService, analyticsService: mockAnalyticsService)
 
         await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
@@ -484,5 +486,53 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNil(result, "CancellationError should return nil, not propagate as an error")
         XCTAssertEqual(sut.testCount, 1, "testCount should not be wiped to zero on cancellation")
         XCTAssertNotNil(sut.latestTestResult, "latestTestResult should not be wiped on cancellation")
+    }
+
+    // MARK: - trackTestResumed Analytics Tests
+
+    func testTrackTestResumed_DashboardContentPath_CallsAnalytics() {
+        // Given - VM in dashboardContent state: has test history and an active session
+        let mockSession = MockDataFactory.makeTestSession(
+            id: 42,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date()
+        )
+        sut.activeTestSession = mockSession
+        sut.activeSessionQuestionsAnswered = 7
+
+        // When - onResume closure fires from dashboardContent (DashboardView line 86)
+        sut.trackTestResumed()
+
+        // Then
+        XCTAssertTrue(
+            mockAnalyticsService.trackTestResumedFromDashboardCalled,
+            "trackTestResumedFromDashboard should be called when onResume fires from dashboardContent"
+        )
+        XCTAssertEqual(mockAnalyticsService.lastResumedSessionId, 42)
+        XCTAssertEqual(mockAnalyticsService.lastResumedQuestionsAnswered, 7)
+    }
+
+    func testTrackTestResumed_EmptyStatePath_CallsAnalytics() {
+        // Given - VM in emptyState: no test history, but has an active session (resume button visible)
+        let mockSession = MockDataFactory.makeTestSession(
+            id: 99,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date()
+        )
+        sut.activeTestSession = mockSession
+        sut.activeSessionQuestionsAnswered = 0
+
+        // When - onResume closure fires from emptyState (DashboardView line 192)
+        sut.trackTestResumed()
+
+        // Then
+        XCTAssertTrue(
+            mockAnalyticsService.trackTestResumedFromDashboardCalled,
+            "trackTestResumedFromDashboard should be called when onResume fires from emptyState"
+        )
+        XCTAssertEqual(mockAnalyticsService.lastResumedSessionId, 99)
+        XCTAssertEqual(mockAnalyticsService.lastResumedQuestionsAnswered, 0)
     }
 }

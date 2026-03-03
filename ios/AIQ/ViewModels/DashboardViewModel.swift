@@ -18,11 +18,13 @@ class DashboardViewModel: BaseViewModel {
     // MARK: - Private Properties
 
     private let apiService: OpenAPIServiceProtocol
+    private let analyticsService: AnalyticsService
 
     // MARK: - Initialization
 
-    init(apiService: OpenAPIServiceProtocol) {
+    init(apiService: OpenAPIServiceProtocol, analyticsService: AnalyticsService = .shared) {
         self.apiService = apiService
+        self.analyticsService = analyticsService
         super.init()
     }
 
@@ -87,7 +89,7 @@ class DashboardViewModel: BaseViewModel {
             #endif
 
             // Track abandonment from dashboard
-            AnalyticsService.shared.trackTestAbandonedFromDashboard(
+            analyticsService.trackTestAbandonedFromDashboard(
                 sessionId: sessionId,
                 questionsAnswered: questionsAnswered
             )
@@ -216,7 +218,7 @@ class DashboardViewModel: BaseViewModel {
             activeSessionQuestionsAnswered = response.questionsCount
 
             // Track active session detection
-            AnalyticsService.shared.trackActiveSessionDetected(
+            analyticsService.trackActiveSessionDetected(
                 sessionId: response.session.id,
                 questionsAnswered: response.questionsCount
             )
@@ -235,7 +237,7 @@ class DashboardViewModel: BaseViewModel {
             return
         }
 
-        AnalyticsService.shared.trackTestResumedFromDashboard(
+        analyticsService.trackTestResumedFromDashboard(
             sessionId: sessionId,
             questionsAnswered: questionsAnswered
         )
