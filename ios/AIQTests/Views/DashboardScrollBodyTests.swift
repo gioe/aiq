@@ -1,4 +1,5 @@
 @testable import AIQ
+import SwiftUI
 import XCTest
 
 /// Tests for DashboardScrollBody's conditional rendering logic.
