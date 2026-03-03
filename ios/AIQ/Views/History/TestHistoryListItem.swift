@@ -124,34 +124,36 @@ private struct MetricView: View {
     }
 }
 
-#Preview("High Score") {
-    TestHistoryListItem(
-        testResult: MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 1,
-            userId: 1,
-            iqScore: 125,
-            totalQuestions: 20,
-            correctAnswers: 17,
-            accuracyPercentage: 85.0,
-            completedAt: Date()
+#if DEBUG
+    #Preview("High Score") {
+        TestHistoryListItem(
+            testResult: MockDataFactory.makeTestResult(
+                id: 1,
+                testSessionId: 1,
+                userId: 1,
+                iqScore: 125,
+                totalQuestions: 20,
+                correctAnswers: 17,
+                accuracyPercentage: 85.0,
+                completedAt: Date()
+            )
         )
-    )
-    .padding()
-}
+        .padding()
+    }
 
-#Preview("Average Score") {
-    TestHistoryListItem(
-        testResult: MockDataFactory.makeTestResult(
-            id: 2,
-            testSessionId: 2,
-            userId: 1,
-            iqScore: 105,
-            totalQuestions: 20,
-            correctAnswers: 14,
-            accuracyPercentage: 70.0,
-            completedAt: Date()
+    #Preview("Average Score") {
+        TestHistoryListItem(
+            testResult: MockDataFactory.makeTestResult(
+                id: 2,
+                testSessionId: 2,
+                userId: 1,
+                iqScore: 105,
+                totalQuestions: 20,
+                correctAnswers: 14,
+                accuracyPercentage: 70.0,
+                completedAt: Date()
+            )
         )
-    )
-    .padding()
-}
+        .padding()
+    }
+#endif

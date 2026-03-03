@@ -35,28 +35,31 @@ struct QuestionCardView: View {
     }
 }
 
-// MARK: - Preview
+#if DEBUG
 
-#Preview {
-    VStack {
-        QuestionCardView(
-            question: MockDataFactory.makeQuestion(
-                id: 1,
-                questionText: "What number comes next in this sequence: 2, 4, 8, 16, ?",
-                questionType: "pattern",
-                difficultyLevel: "medium"
-            )
-        )
-        .padding()
+    // MARK: - Preview
 
-        QuestionCardView(
-            question: MockDataFactory.makeQuestion(
-                id: 2,
-                questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange",
-                questionType: "logic",
-                difficultyLevel: "easy"
+    #Preview {
+        VStack {
+            QuestionCardView(
+                question: MockDataFactory.makeQuestion(
+                    id: 1,
+                    questionText: "What number comes next in this sequence: 2, 4, 8, 16, ?",
+                    questionType: "pattern",
+                    difficultyLevel: "medium"
+                )
             )
-        )
-        .padding()
+            .padding()
+
+            QuestionCardView(
+                question: MockDataFactory.makeQuestion(
+                    id: 2,
+                    questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange",
+                    questionType: "logic",
+                    difficultyLevel: "easy"
+                )
+            )
+            .padding()
+        }
     }
-}
+#endif

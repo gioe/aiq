@@ -312,18 +312,21 @@ struct InsightsCardView: View {
     }
 }
 
-// MARK: - Preview
+#if DEBUG
 
-#Preview("Improving Trend") {
-    ScrollView {
-        InsightsCardView(insights: MockDataFactory.improvingPerformanceInsights)
-            .padding()
-    }
-}
+    // MARK: - Preview
 
-#Preview("Stable Performance") {
-    ScrollView {
-        InsightsCardView(insights: MockDataFactory.stablePerformanceInsights)
-            .padding()
+    #Preview("Improving Trend") {
+        ScrollView {
+            InsightsCardView(insights: MockDataFactory.improvingPerformanceInsights)
+                .padding()
+        }
     }
-}
+
+    #Preview("Stable Performance") {
+        ScrollView {
+            InsightsCardView(insights: MockDataFactory.stablePerformanceInsights)
+                .padding()
+        }
+    }
+#endif

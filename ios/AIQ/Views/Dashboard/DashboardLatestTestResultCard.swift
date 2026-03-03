@@ -36,19 +36,21 @@ struct DashboardLatestTestResultCard: View {
     }
 }
 
-#Preview {
-    DashboardLatestTestResultCard(
-        result: MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 1,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        ),
-        dateFormatted: "Jan 15, 2025"
-    )
-    .padding()
-}
+#if DEBUG
+    #Preview {
+        DashboardLatestTestResultCard(
+            result: MockDataFactory.makeTestResult(
+                id: 1,
+                testSessionId: 1,
+                userId: 1,
+                iqScore: 115,
+                totalQuestions: 20,
+                correctAnswers: 16,
+                accuracyPercentage: 80.0,
+                completedAt: Date()
+            ),
+            dateFormatted: "Jan 15, 2025"
+        )
+        .padding()
+    }
+#endif

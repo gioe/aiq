@@ -338,58 +338,61 @@ struct TestDetailView: View {
     }
 }
 
-// MARK: - Preview
+#if DEBUG
 
-#Preview("High Score") {
-    NavigationStack {
-        TestDetailView(
-            testResult: MockDataFactory.makeTestResult(
-                id: 1,
-                testSessionId: 123,
-                userId: 1,
-                iqScore: 135,
-                totalQuestions: 20,
-                correctAnswers: 18,
-                accuracyPercentage: 90.0,
-                completedAt: Date()
-            ),
-            userAverage: 120
-        )
-    }
-}
+    // MARK: - Preview
 
-#Preview("Average Score") {
-    NavigationStack {
-        TestDetailView(
-            testResult: MockDataFactory.makeTestResult(
-                id: 2,
-                testSessionId: 124,
-                userId: 1,
-                iqScore: 105,
-                totalQuestions: 20,
-                correctAnswers: 14,
-                accuracyPercentage: 70.0,
-                completedAt: Date().addingTimeInterval(-86400 * 7)
-            ),
-            userAverage: 110
-        )
+    #Preview("High Score") {
+        NavigationStack {
+            TestDetailView(
+                testResult: MockDataFactory.makeTestResult(
+                    id: 1,
+                    testSessionId: 123,
+                    userId: 1,
+                    iqScore: 135,
+                    totalQuestions: 20,
+                    correctAnswers: 18,
+                    accuracyPercentage: 90.0,
+                    completedAt: Date()
+                ),
+                userAverage: 120
+            )
+        }
     }
-}
 
-#Preview("First Test") {
-    NavigationStack {
-        TestDetailView(
-            testResult: MockDataFactory.makeTestResult(
-                id: 3,
-                testSessionId: 125,
-                userId: 1,
-                iqScore: 115,
-                totalQuestions: 20,
-                correctAnswers: 16,
-                accuracyPercentage: 80.0,
-                completedAt: Date().addingTimeInterval(-86400 * 30)
-            ),
-            userAverage: nil
-        )
+    #Preview("Average Score") {
+        NavigationStack {
+            TestDetailView(
+                testResult: MockDataFactory.makeTestResult(
+                    id: 2,
+                    testSessionId: 124,
+                    userId: 1,
+                    iqScore: 105,
+                    totalQuestions: 20,
+                    correctAnswers: 14,
+                    accuracyPercentage: 70.0,
+                    completedAt: Date().addingTimeInterval(-86400 * 7)
+                ),
+                userAverage: 110
+            )
+        }
     }
-}
+
+    #Preview("First Test") {
+        NavigationStack {
+            TestDetailView(
+                testResult: MockDataFactory.makeTestResult(
+                    id: 3,
+                    testSessionId: 125,
+                    userId: 1,
+                    iqScore: 115,
+                    totalQuestions: 20,
+                    correctAnswers: 16,
+                    accuracyPercentage: 80.0,
+                    completedAt: Date().addingTimeInterval(-86400 * 30)
+                ),
+                userAverage: nil
+            )
+        }
+    }
+#endif

@@ -223,70 +223,73 @@ private struct OptionButton: View {
     }
 }
 
-// MARK: - Preview
+#if DEBUG
 
-#Preview("Multiple Choice") {
-    AnswerInputView(
-        question: MockDataFactory.makeQuestion(
-            id: 1,
-            questionText: "Which word doesn't belong?",
-            questionType: "logic",
-            difficultyLevel: "easy",
-            answerOptions: ["Apple", "Banana", "Carrot", "Orange"]
-        ),
-        userAnswer: .constant("Carrot")
-    )
-    .padding()
-}
+    // MARK: - Preview
 
-#Preview("Math Question") {
-    AnswerInputView(
-        question: MockDataFactory.makeQuestion(
-            id: 2,
-            questionText: "What is 15% of 200?",
-            questionType: "math",
-            difficultyLevel: "easy"
-        ),
-        userAnswer: .constant("")
-    )
-    .padding()
-}
+    #Preview("Multiple Choice") {
+        AnswerInputView(
+            question: MockDataFactory.makeQuestion(
+                id: 1,
+                questionText: "Which word doesn't belong?",
+                questionType: "logic",
+                difficultyLevel: "easy",
+                answerOptions: ["Apple", "Banana", "Carrot", "Orange"]
+            ),
+            userAnswer: .constant("Carrot")
+        )
+        .padding()
+    }
 
-#Preview("Pattern Question - Number") {
-    AnswerInputView(
-        question: MockDataFactory.makeQuestion(
-            id: 3,
-            questionText: "What number comes next in the sequence: 2, 4, 8, 16, ?",
-            questionType: "pattern",
-            difficultyLevel: "medium"
-        ),
-        userAnswer: .constant("")
-    )
-    .padding()
-}
+    #Preview("Math Question") {
+        AnswerInputView(
+            question: MockDataFactory.makeQuestion(
+                id: 2,
+                questionText: "What is 15% of 200?",
+                questionType: "math",
+                difficultyLevel: "easy"
+            ),
+            userAnswer: .constant("")
+        )
+        .padding()
+    }
 
-#Preview("Pattern Question - Letter") {
-    AnswerInputView(
-        question: MockDataFactory.makeQuestion(
-            id: 4,
-            questionText: "What letter comes next: A, C, F, J, ?",
-            questionType: "pattern",
-            difficultyLevel: "medium"
-        ),
-        userAnswer: .constant("")
-    )
-    .padding()
-}
+    #Preview("Pattern Question - Number") {
+        AnswerInputView(
+            question: MockDataFactory.makeQuestion(
+                id: 3,
+                questionText: "What number comes next in the sequence: 2, 4, 8, 16, ?",
+                questionType: "pattern",
+                difficultyLevel: "medium"
+            ),
+            userAnswer: .constant("")
+        )
+        .padding()
+    }
 
-#Preview("Verbal Question") {
-    AnswerInputView(
-        question: MockDataFactory.makeQuestion(
-            id: 5,
-            questionText: "Complete the analogy: Dog is to puppy as cat is to ___",
-            questionType: "verbal",
-            difficultyLevel: "easy"
-        ),
-        userAnswer: .constant("")
-    )
-    .padding()
-}
+    #Preview("Pattern Question - Letter") {
+        AnswerInputView(
+            question: MockDataFactory.makeQuestion(
+                id: 4,
+                questionText: "What letter comes next: A, C, F, J, ?",
+                questionType: "pattern",
+                difficultyLevel: "medium"
+            ),
+            userAnswer: .constant("")
+        )
+        .padding()
+    }
+
+    #Preview("Verbal Question") {
+        AnswerInputView(
+            question: MockDataFactory.makeQuestion(
+                id: 5,
+                questionText: "Complete the analogy: Dog is to puppy as cat is to ___",
+                questionType: "verbal",
+                difficultyLevel: "easy"
+            ),
+            userAnswer: .constant("")
+        )
+        .padding()
+    }
+#endif

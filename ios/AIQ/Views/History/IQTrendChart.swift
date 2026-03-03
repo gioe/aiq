@@ -193,40 +193,42 @@ struct IQTrendChart: View {
     }
 }
 
-#Preview("With Confidence Intervals") {
-    let sampleHistory = MockDataFactory.sampleTestHistory
+#if DEBUG
+    #Preview("With Confidence Intervals") {
+        let sampleHistory = MockDataFactory.sampleTestHistory
 
-    ScrollView {
-        IQTrendChart(testHistory: sampleHistory)
-            .padding()
+        ScrollView {
+            IQTrendChart(testHistory: sampleHistory)
+                .padding()
+        }
     }
-}
 
-#Preview("Without Confidence Intervals") {
-    let sampleHistory = MockDataFactory.sampleTestHistory
+    #Preview("Without Confidence Intervals") {
+        let sampleHistory = MockDataFactory.sampleTestHistory
 
-    ScrollView {
-        IQTrendChart(testHistory: sampleHistory)
-            .padding()
+        ScrollView {
+            IQTrendChart(testHistory: sampleHistory)
+                .padding()
+        }
     }
-}
 
-#Preview("Not Enough Data") {
-    let sampleHistory: [TestResult] = [
-        MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 1,
-            userId: 1,
-            iqScore: 105,
-            totalQuestions: 20,
-            correctAnswers: 13,
-            accuracyPercentage: 65.0,
-            completedAt: Date()
-        )
-    ]
+    #Preview("Not Enough Data") {
+        let sampleHistory: [TestResult] = [
+            MockDataFactory.makeTestResult(
+                id: 1,
+                testSessionId: 1,
+                userId: 1,
+                iqScore: 105,
+                totalQuestions: 20,
+                correctAnswers: 13,
+                accuracyPercentage: 65.0,
+                completedAt: Date()
+            )
+        ]
 
-    ScrollView {
-        IQTrendChart(testHistory: sampleHistory)
-            .padding()
+        ScrollView {
+            IQTrendChart(testHistory: sampleHistory)
+                .padding()
+        }
     }
-}
+#endif

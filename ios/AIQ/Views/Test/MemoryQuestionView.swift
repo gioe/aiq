@@ -136,52 +136,55 @@ struct MemoryQuestionView: View {
     }
 }
 
-// MARK: - Preview
+#if DEBUG
 
-#Preview("Stimulus Phase") {
-    ScrollView {
-        MemoryQuestionView(
-            question: MockDataFactory.makeMemoryQuestion(
-                id: 1,
-                stimulus: "Apple, Banana, Cherry, Date, Elderberry",
-                questionText: "Which of the following fruits did you see in the list?",
-                difficultyLevel: "medium",
-                answerOptions: ["Apple", "Grape", "Mango", "Kiwi"]
-            ),
-            questionNumber: 5,
-            totalQuestions: 20,
-            userAnswer: .constant(""),
-            showingStimulus: .constant(true)
-        )
-        .padding()
-    }
-}
+    // MARK: - Preview
 
-#Preview("Question Phase") {
-    // Note: In actual preview, you'd need to manipulate state
-    ScrollView {
-        VStack(spacing: 24) {
-            QuestionCardView(
+    #Preview("Stimulus Phase") {
+        ScrollView {
+            MemoryQuestionView(
                 question: MockDataFactory.makeMemoryQuestion(
                     id: 1,
-                    stimulus: "Apple, Banana, Cherry",
-                    questionText: "Which of the following fruits did you see in the list?",
-                    difficultyLevel: "medium",
-                    answerOptions: ["Apple", "Grape", "Mango", "Kiwi"]
-                )
-            )
-
-            AnswerInputView(
-                question: MockDataFactory.makeMemoryQuestion(
-                    id: 1,
-                    stimulus: "Apple, Banana, Cherry",
+                    stimulus: "Apple, Banana, Cherry, Date, Elderberry",
                     questionText: "Which of the following fruits did you see in the list?",
                     difficultyLevel: "medium",
                     answerOptions: ["Apple", "Grape", "Mango", "Kiwi"]
                 ),
-                userAnswer: .constant("")
+                questionNumber: 5,
+                totalQuestions: 20,
+                userAnswer: .constant(""),
+                showingStimulus: .constant(true)
             )
+            .padding()
         }
-        .padding()
     }
-}
+
+    #Preview("Question Phase") {
+        // Note: In actual preview, you'd need to manipulate state
+        ScrollView {
+            VStack(spacing: 24) {
+                QuestionCardView(
+                    question: MockDataFactory.makeMemoryQuestion(
+                        id: 1,
+                        stimulus: "Apple, Banana, Cherry",
+                        questionText: "Which of the following fruits did you see in the list?",
+                        difficultyLevel: "medium",
+                        answerOptions: ["Apple", "Grape", "Mango", "Kiwi"]
+                    )
+                )
+
+                AnswerInputView(
+                    question: MockDataFactory.makeMemoryQuestion(
+                        id: 1,
+                        stimulus: "Apple, Banana, Cherry",
+                        questionText: "Which of the following fruits did you see in the list?",
+                        difficultyLevel: "medium",
+                        answerOptions: ["Apple", "Grape", "Mango", "Kiwi"]
+                    ),
+                    userAnswer: .constant("")
+                )
+            }
+            .padding()
+        }
+    }
+#endif

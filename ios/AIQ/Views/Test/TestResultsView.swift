@@ -436,89 +436,92 @@ struct TestResultsView: View {
     }
 }
 
-// MARK: - Preview
+#if DEBUG
 
-#Preview("Excellent Score") {
-    TestResultsView(
-        result: MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 123,
-            userId: 1,
-            iqScore: 142,
-            totalQuestions: 20,
-            correctAnswers: 19,
-            accuracyPercentage: 95.0,
-            completedAt: Date()
-        ),
-        onDismiss: {},
-        isFirstTest: false
-    )
-}
+    // MARK: - Preview
 
-#Preview("Average Score") {
-    TestResultsView(
-        result: MockDataFactory.makeTestResult(
-            id: 2,
-            testSessionId: 124,
-            userId: 1,
-            iqScore: 105,
-            totalQuestions: 20,
-            correctAnswers: 14,
-            accuracyPercentage: 70.0,
-            completedAt: Date()
-        ),
-        onDismiss: {},
-        isFirstTest: false
-    )
-}
+    #Preview("Excellent Score") {
+        TestResultsView(
+            result: MockDataFactory.makeTestResult(
+                id: 1,
+                testSessionId: 123,
+                userId: 1,
+                iqScore: 142,
+                totalQuestions: 20,
+                correctAnswers: 19,
+                accuracyPercentage: 95.0,
+                completedAt: Date()
+            ),
+            onDismiss: {},
+            isFirstTest: false
+        )
+    }
 
-#Preview("Low Score") {
-    TestResultsView(
-        result: MockDataFactory.makeTestResult(
-            id: 3,
-            testSessionId: 125,
-            userId: 1,
-            iqScore: 88,
-            totalQuestions: 20,
-            correctAnswers: 9,
-            accuracyPercentage: 45.0,
-            completedAt: Date()
-        ),
-        onDismiss: {},
-        isFirstTest: false
-    )
-}
+    #Preview("Average Score") {
+        TestResultsView(
+            result: MockDataFactory.makeTestResult(
+                id: 2,
+                testSessionId: 124,
+                userId: 1,
+                iqScore: 105,
+                totalQuestions: 20,
+                correctAnswers: 14,
+                accuracyPercentage: 70.0,
+                completedAt: Date()
+            ),
+            onDismiss: {},
+            isFirstTest: false
+        )
+    }
 
-#Preview("Average IQ") {
-    TestResultsView(
-        result: MockDataFactory.makeTestResult(
-            id: 4,
-            testSessionId: 126,
-            userId: 1,
-            iqScore: 100,
-            totalQuestions: 20,
-            correctAnswers: 12,
-            accuracyPercentage: 60.0,
-            completedAt: Date()
-        ),
-        onDismiss: {},
-        isFirstTest: false
-    )
-}
+    #Preview("Low Score") {
+        TestResultsView(
+            result: MockDataFactory.makeTestResult(
+                id: 3,
+                testSessionId: 125,
+                userId: 1,
+                iqScore: 88,
+                totalQuestions: 20,
+                correctAnswers: 9,
+                accuracyPercentage: 45.0,
+                completedAt: Date()
+            ),
+            onDismiss: {},
+            isFirstTest: false
+        )
+    }
 
-#Preview("First Test") {
-    TestResultsView(
-        result: MockDataFactory.makeTestResult(
-            id: 5,
-            testSessionId: 127,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        ),
-        onDismiss: {},
-        isFirstTest: true
-    )
-}
+    #Preview("Average IQ") {
+        TestResultsView(
+            result: MockDataFactory.makeTestResult(
+                id: 4,
+                testSessionId: 126,
+                userId: 1,
+                iqScore: 100,
+                totalQuestions: 20,
+                correctAnswers: 12,
+                accuracyPercentage: 60.0,
+                completedAt: Date()
+            ),
+            onDismiss: {},
+            isFirstTest: false
+        )
+    }
+
+    #Preview("First Test") {
+        TestResultsView(
+            result: MockDataFactory.makeTestResult(
+                id: 5,
+                testSessionId: 127,
+                userId: 1,
+                iqScore: 115,
+                totalQuestions: 20,
+                correctAnswers: 16,
+                accuracyPercentage: 80.0,
+                completedAt: Date()
+            ),
+            onDismiss: {},
+            isFirstTest: true
+        )
+    }
+#endif

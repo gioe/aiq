@@ -247,67 +247,70 @@ struct InProgressTestCard: View {
     }
 }
 
-// MARK: - Preview
+#if DEBUG
 
-#Preview("With Progress") {
-    ScrollView {
-        InProgressTestCard(
-            session: MockDataFactory.makeInProgressSession(
-                id: 123,
-                userId: 1,
-                startedAt: Date().addingTimeInterval(-3600 * 2) // 2 hours ago
-            ),
-            questionsAnswered: 12,
-            onResume: {
-                print("Resume tapped")
-            },
-            onAbandon: {
-                print("Abandon tapped")
-            }
-        )
-        .padding()
-    }
-    .background(ColorPalette.background)
-}
+    // MARK: - Preview
 
-#Preview("Just Started") {
-    ScrollView {
-        InProgressTestCard(
-            session: MockDataFactory.makeInProgressSession(
-                id: 456,
-                userId: 1,
-                startedAt: Date().addingTimeInterval(-30) // 30 seconds ago
-            ),
-            questionsAnswered: 0,
-            onResume: {
-                print("Resume tapped")
-            },
-            onAbandon: {
-                print("Abandon tapped")
-            }
-        )
-        .padding()
+    #Preview("With Progress") {
+        ScrollView {
+            InProgressTestCard(
+                session: MockDataFactory.makeInProgressSession(
+                    id: 123,
+                    userId: 1,
+                    startedAt: Date().addingTimeInterval(-3600 * 2) // 2 hours ago
+                ),
+                questionsAnswered: 12,
+                onResume: {
+                    print("Resume tapped")
+                },
+                onAbandon: {
+                    print("Abandon tapped")
+                }
+            )
+            .padding()
+        }
+        .background(ColorPalette.background)
     }
-    .background(ColorPalette.background)
-}
 
-#Preview("Days Ago") {
-    ScrollView {
-        InProgressTestCard(
-            session: MockDataFactory.makeInProgressSession(
-                id: 789,
-                userId: 1,
-                startedAt: Date().addingTimeInterval(-86400 * 3) // 3 days ago
-            ),
-            questionsAnswered: 5,
-            onResume: {
-                print("Resume tapped")
-            },
-            onAbandon: {
-                print("Abandon tapped")
-            }
-        )
-        .padding()
+    #Preview("Just Started") {
+        ScrollView {
+            InProgressTestCard(
+                session: MockDataFactory.makeInProgressSession(
+                    id: 456,
+                    userId: 1,
+                    startedAt: Date().addingTimeInterval(-30) // 30 seconds ago
+                ),
+                questionsAnswered: 0,
+                onResume: {
+                    print("Resume tapped")
+                },
+                onAbandon: {
+                    print("Abandon tapped")
+                }
+            )
+            .padding()
+        }
+        .background(ColorPalette.background)
     }
-    .background(ColorPalette.background)
-}
+
+    #Preview("Days Ago") {
+        ScrollView {
+            InProgressTestCard(
+                session: MockDataFactory.makeInProgressSession(
+                    id: 789,
+                    userId: 1,
+                    startedAt: Date().addingTimeInterval(-86400 * 3) // 3 days ago
+                ),
+                questionsAnswered: 5,
+                onResume: {
+                    print("Resume tapped")
+                },
+                onAbandon: {
+                    print("Abandon tapped")
+                }
+            )
+            .padding()
+        }
+        .background(ColorPalette.background)
+    }
+#endif
