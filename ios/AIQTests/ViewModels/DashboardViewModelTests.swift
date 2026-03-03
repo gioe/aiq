@@ -195,7 +195,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(sut.activeTestSession?.id, 456)
 
         // Reset mock to verify cache is used
-        await mockService.reset()
+        mockService.reset()
 
         // When - Second call should use cache (within TTL)
         await sut.fetchActiveSession()
@@ -237,7 +237,7 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(getActiveTestCalled)
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
         await mockService.getActiveTestResponse = mockResponse
 
         // When - Second call with forceRefresh
