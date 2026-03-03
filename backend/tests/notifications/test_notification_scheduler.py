@@ -137,7 +137,7 @@ class TestGetUsersDueForTest:
         self, async_db_session, user_with_device_token
     ):
         """Test that a user who is due for a test is returned."""
-        # Create a test result from 6 months ago
+        # Create a test result from 90 days ago
         ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
             async_db_session, user_with_device_token.id, ninety_days_ago
@@ -210,7 +210,7 @@ class TestGetUsersDueForTest:
             await async_db_session.refresh(user)
             users.append(user)
 
-            # Create test results from 6 months ago
+            # Create test results from 90 days ago
             ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
             await create_test_result(async_db_session, user.id, ninety_days_ago)
 
@@ -359,7 +359,7 @@ class TestNotificationScheduler:
         self, async_db_session, user_with_device_token
     ):
         """Test getting users to notify without including never-tested users."""
-        # Create a test result from 6 months ago
+        # Create a test result from 90 days ago
         ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
             async_db_session, user_with_device_token.id, ninety_days_ago
@@ -389,7 +389,7 @@ class TestNotificationScheduler:
         self, async_db_session, user_with_device_token
     ):
         """Test getting users to notify including never-tested users."""
-        # Create a test result from 6 months ago
+        # Create a test result from 90 days ago
         ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
             async_db_session, user_with_device_token.id, ninety_days_ago
@@ -447,7 +447,7 @@ class TestNotificationScheduler:
         self, async_db_session, user_with_device_token
     ):
         """Test checking if user is due when they are."""
-        # Create a test result from 6 months ago
+        # Create a test result from 90 days ago
         ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
             async_db_session, user_with_device_token.id, ninety_days_ago
