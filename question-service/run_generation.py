@@ -1896,6 +1896,16 @@ def main() -> int:
         logger.info(f"Script completed with exit code: {exit_code}")
         logger.info("=" * 80)
 
+        alert_manager.send_run_completion(
+            exit_code,
+            {
+                "questions_generated": stats.get("questions_generated", 0),
+                "questions_inserted": inserted_count,
+                "approval_rate": approval_rate,
+                "duration_seconds": stats.get("duration_seconds", 0),
+            },
+        )
+
         return exit_code
 
     except KeyboardInterrupt:
@@ -1906,6 +1916,8 @@ def main() -> int:
             exit_code=EXIT_PARTIAL_FAILURE,
             error_message="Script interrupted by user",
         )
+        if "alert_manager" in locals():
+            alert_manager.send_run_completion(EXIT_PARTIAL_FAILURE, {})
         return EXIT_PARTIAL_FAILURE
 
     except Exception as e:
@@ -1955,6 +1967,8 @@ def main() -> int:
             exit_code=EXIT_COMPLETE_FAILURE,
             error_message=f"Unexpected error: {str(e)[:100]}",
         )
+        if "alert_manager" in locals():
+            alert_manager.send_run_completion(EXIT_COMPLETE_FAILURE, {})
         return EXIT_COMPLETE_FAILURE
 
     finally:
