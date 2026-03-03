@@ -35,6 +35,8 @@ alembic upgrade head
 
 > **Note:** Rate limiting is enabled by default. During local development, you may want to set `RATE_LIMIT_ENABLED=False` in your `.env` file to avoid hitting limits (e.g., 5 login attempts per 5 minutes).
 
+> **Note:** The test cadence check (90-day cooldown between tests) is enforced by default. During local development, you can bypass it by setting `DISABLE_TEST_CADENCE=True` in your `.env` file. A warning is logged at startup when this flag is active. **Never set this in Railway production.**
+
 Start the server:
 ```bash
 uvicorn app.main:app --reload
