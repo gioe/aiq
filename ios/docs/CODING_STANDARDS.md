@@ -2346,7 +2346,7 @@ override func setUp() async throws {
 // OR, when sharing a mock across tests in a class:
 override func setUp() async throws {
     try await super.setUp()
-    await mockService.reset()  // Reset shared mock state
+    mockService.reset()  // Reset shared mock state
     sut = DashboardViewModel(apiClient: mockService)
 }
 ```
