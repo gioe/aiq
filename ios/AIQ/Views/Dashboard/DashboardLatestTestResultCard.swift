@@ -7,6 +7,9 @@ struct DashboardLatestTestResultCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+            // Hidden from VoiceOver: the container VStack already exposes the full
+            // "Latest Result, <date>" label via .accessibilityLabel above, so surfacing
+            // TestCardHeader's own .combine label would cause a double-read.
             TestCardHeader(dateFormatted: dateFormatted)
                 .accessibilityHidden(true)
             TestCardScores(result: result)

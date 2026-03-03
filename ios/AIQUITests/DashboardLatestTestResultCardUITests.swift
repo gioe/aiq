@@ -73,10 +73,11 @@ final class DashboardLatestTestResultCardUITests: BaseUITest {
         takeScreenshot(named: "DateLabel_CardLoaded")
 
         let datePredicate = NSPredicate(format: "label BEGINSWITH 'Latest Result, '")
-        let dateHeaderElement = app.otherElements.matching(datePredicate).firstMatch
+        // Matches the card container (not TestCardHeader, which is accessibilityHidden)
+        let latestResultCardElement = app.otherElements.matching(datePredicate).firstMatch
         XCTAssertTrue(
-            wait(for: dateHeaderElement, timeout: standardTimeout),
-            "Date header element should appear with a label beginning 'Latest Result, ' when dateFormatted is non-nil"
+            wait(for: latestResultCardElement, timeout: standardTimeout),
+            "Card container should have accessibility label beginning 'Latest Result, ' when dateFormatted is non-nil"
         )
         takeScreenshot(named: "DateLabel_Visible")
     }
