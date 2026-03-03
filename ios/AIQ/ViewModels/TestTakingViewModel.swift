@@ -294,10 +294,6 @@ class TestTakingViewModel: BaseViewModel {
         handleError(contextualError, context: .startTest) { [weak self] in
             await self?.startTest(questionCount: questionCount)
         }
-
-        #if DEBUG
-            fallbackToMockData(error: error, questionCount: questionCount)
-        #endif
     }
 
     func handleGenericTestStartError(_ error: Error, questionCount: Int) {
@@ -308,31 +304,7 @@ class TestTakingViewModel: BaseViewModel {
         handleError(contextualError, context: .startTest) { [weak self] in
             await self?.startTest(questionCount: questionCount)
         }
-
-        #if DEBUG
-            fallbackToMockData(error: error, questionCount: questionCount)
-        #endif
     }
-
-    #if DEBUG
-        private var isRunningTests: Bool {
-            NSClassFromString("XCTestCase") != nil
-        }
-
-        private func fallbackToMockData(error: Error, questionCount: Int) {
-            print("[ERROR] [TestTakingViewModel] API FAILURE - Falling back to mock data!")
-            print("   Error type: \(type(of: error))")
-            print("   Error details: \(error)")
-            if !isRunningTests && !MockModeDetector.isMockMode {
-                assertionFailure(
-                    "[TestTakingViewModel] API call failed, using mock data. " +
-                        "Error: \(error). Check network/backend configuration."
-                )
-                loadMockQuestions(count: questionCount)
-            }
-            setLoading(false)
-        }
-    #endif
 
     /// Fetch the current test count before starting a new test
     /// This is used to determine if the upcoming test will be the user's first test

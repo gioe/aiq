@@ -280,7 +280,6 @@
 		E1E4BAE8253AB55069423A15 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC950D172D44B8BAE9ECE039 /* HelpView.swift */; };
 		E22045BF2DEC6A933D130442 /* TabNavigationIsolationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 864D0C1119BD772731133D6D /* TabNavigationIsolationTests.swift */; };
 		E311311A5DB43E3067D9F958 /* SettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1060D68A34C714AEE7BAB31E /* SettingsViewModelTests.swift */; };
-		E3D6380D0A7297370B66E082 /* TestTakingViewModel+MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16F36CBD4C5AA3EB8471373F /* TestTakingViewModel+MockData.swift */; };
 		E5909B5E7CA1D71194803586 /* TestSessionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF3DD9397AACDA7CDAC43ECE /* TestSessionStatus.swift */; };
 		E904B381E22BD76186DF144C /* NotificationPermissionBannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B794E1EC683537C5661C9A8F /* NotificationPermissionBannerTests.swift */; };
 		EAB0CB5AE0087B71E58F6943 /* TestTakingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9839EE4D75666CE025D3DDB /* TestTakingView.swift */; };
@@ -357,7 +356,6 @@
 		11C5A7D620E9ED27D3968B2F /* OnboardingPage4View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingPage4View.swift; sourceTree = "<group>"; };
 		11FC47CAFCC74AFAEFF03D41 /* OpenAPIServiceMapToAPIErrorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenAPIServiceMapToAPIErrorTests.swift; sourceTree = "<group>"; };
 		123792FFFEC35608BD39FE0B /* AnswerInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerInputView.swift; sourceTree = "<group>"; };
-		16F36CBD4C5AA3EB8471373F /* TestTakingViewModel+MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestTakingViewModel+MockData.swift"; sourceTree = "<group>"; };
 		17BB6908342F97951E8B9152 /* NetworkLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkLogger.swift; sourceTree = "<group>"; };
 		17C0A64EAF99E3024394A88D /* NetworkErrorScenarioTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkErrorScenarioTests.swift; sourceTree = "<group>"; };
 		1913A34AB068C6EBD01FA534 /* DashboardActionButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardActionButton.swift; sourceTree = "<group>"; };
@@ -1025,7 +1023,6 @@
 				DF12F610A34FC4A061178E1F /* NotificationSettingsViewModel.swift */,
 				9E4FAEB67D62A917317348E0 /* RegistrationViewModel.swift */,
 				0051F7DB14979791E28BFE79 /* TestTakingViewModel.swift */,
-				16F36CBD4C5AA3EB8471373F /* TestTakingViewModel+MockData.swift */,
 				8B2C12636F62D9CB068BF0D5 /* TestTimerManager.swift */,
 				6F65A561E55D0962F63D8A98 /* ViewModelProtocol.swift */,
 				578FAC9B7717F895FC3AE5CB /* OnboardingViewModel.swift */,
@@ -1665,7 +1662,6 @@
 				81D2112FC23B041BBACC8D82 /* TestSession.swift in Sources */,
 				E5909B5E7CA1D71194803586 /* TestSessionStatus.swift in Sources */,
 				EAB0CB5AE0087B71E58F6943 /* TestTakingView.swift in Sources */,
-				E3D6380D0A7297370B66E082 /* TestTakingViewModel+MockData.swift in Sources */,
 				65EA67F2F7C51CA558A15F95 /* TestTakingViewModel.swift in Sources */,
 				06E9311FFA4FD65043CA90B1 /* TestTimerManager.swift in Sources */,
 				2CE5E95B1E8B58E4951D07FE /* TestTimerView.swift in Sources */,
