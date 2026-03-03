@@ -3,7 +3,7 @@ Tests for admin session deletion endpoints.
 """
 
 from app.core.auth.security import hash_password
-from app.models import TestSession, User
+from app.models import TestSession, User, UserQuestion
 from app.models.models import Response, TestResult, TestStatus
 
 
@@ -145,3 +145,64 @@ class TestDeleteSession:
             headers=admin_headers,
         )
         assert response.status_code == 404
+
+    def test_delete_session_cascades_child_records(
+        self, client, admin_headers, db_session, test_questions
+    ):
+        """Deletion cascades to child Responses, TestResult, and UserQuestions."""
+        user = self._make_user(db_session, email="sess_cascade@example.com")
+        session = self._make_session(db_session, user)
+        question = test_questions[0]
+
+        resp = Response(
+            test_session_id=session.id,
+            user_id=user.id,
+            question_id=question.id,
+            user_answer="A",
+            is_correct=True,
+        )
+        result = TestResult(
+            test_session_id=session.id,
+            user_id=user.id,
+            iq_score=100,
+            total_questions=1,
+            correct_answers=1,
+        )
+        db_session.add_all([resp, result])
+        db_session.commit()
+        resp_id = resp.id
+        result_id = result.id
+
+        http_response = client.delete(
+            f"/v1/admin/sessions/{session.id}",
+            headers=admin_headers,
+        )
+
+        assert http_response.status_code == 204
+        db_session.expunge_all()
+        assert db_session.get(Response, resp_id) is None
+        assert db_session.get(TestResult, result_id) is None
+
+    def test_delete_session_dry_run_counts_user_questions(
+        self, client, admin_headers, db_session, test_questions
+    ):
+        """Dry-run preview accurately counts associated user_questions."""
+        user = self._make_user(db_session, email="sess_uq@example.com")
+        session = self._make_session(db_session, user)
+        question = test_questions[0]
+
+        uq = UserQuestion(
+            user_id=user.id,
+            question_id=question.id,
+            test_session_id=session.id,
+        )
+        db_session.add(uq)
+        db_session.commit()
+
+        response = client.delete(
+            f"/v1/admin/sessions/{session.id}?dry_run=true",
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["user_questions_count"] == 1

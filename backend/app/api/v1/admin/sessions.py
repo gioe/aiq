@@ -7,12 +7,13 @@ with optional dry-run preview.
 
 import logging
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth.security_audit import get_client_ip_from_request
 from app.core.error_responses import ErrorMessages, raise_not_found
 from app.models import get_db
 from app.models.models import Response as ResponseModel
@@ -45,6 +46,7 @@ class SessionDeletionPreview(BaseModel):
     },
 )
 async def delete_session(
+    request: Request,
     session_id: int,
     dry_run: bool = Query(
         False, description="Preview what would be deleted without committing"
@@ -82,12 +84,16 @@ async def delete_session(
 
     # Count associated records for the preview
     responses_count_result = await db.execute(
-        select(func.count()).where(ResponseModel.test_session_id == session_id)
+        select(func.count(ResponseModel.id)).where(
+            ResponseModel.test_session_id == session_id
+        )
     )
     responses_count = responses_count_result.scalar_one()
 
     user_questions_count_result = await db.execute(
-        select(func.count()).where(UserQuestion.test_session_id == session_id)
+        select(func.count(UserQuestion.id)).where(
+            UserQuestion.test_session_id == session_id
+        )
     )
     user_questions_count = user_questions_count_result.scalar_one()
 
@@ -109,10 +115,11 @@ async def delete_session(
     await db.delete(session)
     await db.commit()
 
+    client_ip = get_client_ip_from_request(request)
     logger.info(
         f"Admin hard-deleted test session {session_id} "
         f"(responses={responses_count}, user_questions={user_questions_count}, "
-        f"has_result={has_test_result})"
+        f"has_result={has_test_result}, ip={client_ip})"
     )
 
     return Response(status_code=204)
