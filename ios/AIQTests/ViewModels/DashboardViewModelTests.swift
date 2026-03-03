@@ -355,6 +355,10 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.activeTestSession, "activeTestSession should remain when abandon fails")
         XCTAssertNotNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should remain when abandon fails")
         XCTAssertTrue(sut.hasActiveTest, "hasActiveTest should still be true when abandon fails")
+        XCTAssertFalse(
+            mockAnalyticsService.trackTestAbandonedFromDashboardCalled,
+            "trackTestAbandonedFromDashboard should not be called when abandon fails"
+        )
     }
 
     func testAbandonActiveTest_InvalidatesCache() async {

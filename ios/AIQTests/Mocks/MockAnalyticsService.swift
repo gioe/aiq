@@ -1,11 +1,13 @@
 @testable import AIQ
 import Foundation
 
-/// Mock AnalyticsService for testing deep link analytics tracking
+/// Mock AnalyticsService for testing analytics tracking across features
 ///
 /// Subclasses the real AnalyticsService to capture tracking calls without actually
 /// sending analytics events. This is necessary because AnalyticsService is not
 /// protocol-based, so we use class inheritance for testing.
+///
+/// Covers: deep link navigation, active session detection, test resume, and test abandonment.
 ///
 /// ## Usage in Tests
 ///
