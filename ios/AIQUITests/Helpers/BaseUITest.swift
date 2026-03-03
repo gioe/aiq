@@ -183,6 +183,51 @@ class BaseUITest: XCTestCase {
         relaunchWithScenario("testInProgress")
     }
 
+    /// Relaunch the app in the default (logged-out, clean) state
+    func relaunchWithDefaultScenario() {
+        relaunchWithScenario("default")
+    }
+
+    /// Relaunch the app with login failure scenario
+    func relaunchWithLoginFailure() {
+        relaunchWithScenario("loginFailure")
+    }
+
+    /// Relaunch the app with network error scenario
+    func relaunchWithNetworkError() {
+        relaunchWithScenario("networkError")
+    }
+
+    /// Relaunch the app with registration timeout scenario
+    func relaunchWithRegistrationTimeout() {
+        relaunchWithScenario("registrationTimeout")
+    }
+
+    /// Relaunch the app with registration server error scenario
+    func relaunchWithRegistrationServerError() {
+        relaunchWithScenario("registrationServerError")
+    }
+
+    /// Relaunch the app with start-test network failure scenario
+    func relaunchWithStartTestNetworkFailure() {
+        relaunchWithScenario("startTestNetworkFailure")
+    }
+
+    /// Relaunch the app with start-test failure-then-success scenario
+    func relaunchWithStartTestFailureThenSuccess() {
+        relaunchWithScenario("startTestFailureThenSuccess")
+    }
+
+    /// Relaunch the app with start-test non-retryable failure scenario
+    func relaunchWithStartTestNonRetryableFailure() {
+        relaunchWithScenario("startTestNonRetryableFailure")
+    }
+
+    /// Relaunch the app with logged-in history but nil latest test date scenario
+    func relaunchWithHistoryNilDate() {
+        relaunchWithScenario("loggedInWithHistoryNilDate")
+    }
+
     // MARK: - Helper Methods
 
     /// Wait for an element to exist with a custom timeout
