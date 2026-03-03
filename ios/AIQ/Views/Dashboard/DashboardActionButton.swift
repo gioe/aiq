@@ -4,10 +4,25 @@ import SwiftUI
 struct DashboardActionButton: View {
     let hasActiveTest: Bool
     let onTap: () -> Void
-    var label: String?
+    let label: String?
+
+    init(hasActiveTest: Bool, onTap: @escaping () -> Void, label: String? = nil) {
+        self.hasActiveTest = hasActiveTest
+        self.onTap = onTap
+        self.label = label
+    }
 
     private var resolvedLabel: String {
         label ?? (hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
+    }
+
+    private var resolvedHint: String {
+        if hasActiveTest {
+            return "Continue your in-progress cognitive performance test"
+        }
+        return label != nil
+            ? "Start your first cognitive performance test"
+            : "Start a new cognitive performance test"
     }
 
     var body: some View {
@@ -46,11 +61,7 @@ struct DashboardActionButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(resolvedLabel)
-        .accessibilityHint(
-            hasActiveTest
-                ? "Continue your in-progress cognitive performance test"
-                : "Start a new cognitive performance test"
-        )
+        .accessibilityHint(resolvedHint)
         .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.actionButton)
     }
 }
