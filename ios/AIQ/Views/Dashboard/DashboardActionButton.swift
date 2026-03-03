@@ -66,11 +66,14 @@ struct DashboardActionButton: View {
     }
 }
 
-#Preview {
-    VStack(spacing: DesignSystem.Spacing.lg) {
-        DashboardActionButton(hasActiveTest: false, onTap: {})
-        DashboardActionButton(hasActiveTest: true, onTap: {})
-        DashboardActionButton(hasActiveTest: false, onTap: {}, label: "Start Your First Test")
-    }
-    .padding()
+#Preview("Default") {
+    DashboardActionButton(hasActiveTest: false, onTap: {}).padding()
+}
+
+#Preview("Active Test") {
+    DashboardActionButton(hasActiveTest: true, onTap: {}).padding()
+}
+
+#Preview("Custom Label") {
+    DashboardActionButton(hasActiveTest: false, onTap: {}, label: "Start Your First Test").padding()
 }
