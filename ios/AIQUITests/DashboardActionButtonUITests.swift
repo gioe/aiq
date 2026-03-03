@@ -33,6 +33,27 @@ final class DashboardActionButtonUITests: BaseUITest {
         super.setupLaunchConfiguration()
     }
 
+    // MARK: - Empty State Tests (loggedInNoHistory)
+
+    /// Verifies that the action button is rendered in the empty state (no test history)
+    /// and displays the "Start Your First Test" label override introduced in TASK-1313.
+    func testActionButton_EmptyState_IsRenderedWithStartYourFirstTestLabel() {
+        relaunchAsLoggedInNoHistory()
+
+        XCTAssertTrue(
+            wait(for: actionButton, timeout: networkTimeout),
+            "Action button should be rendered in the empty state when there is no test history"
+        )
+        takeScreenshot(named: "ActionButton_EmptyState_Loaded")
+
+        XCTAssertEqual(
+            actionButton.label,
+            "Start Your First Test",
+            "Action button label should read 'Start Your First Test' in empty state (custom label override)"
+        )
+        takeScreenshot(named: "ActionButton_EmptyState_LabelVerified")
+    }
+
     // MARK: - hasActiveTest = false Tests
 
     func testActionButton_NoActiveSession_ShowsTakeAnotherTestAndIdentifier() {
