@@ -28,6 +28,7 @@ final class MockAnalyticsService: AnalyticsService {
     private(set) var trackTestResumedFromDashboardCalled = false
     private(set) var trackTestAbandonedFromDashboardCalled = false
     private(set) var trackActiveSessionDetectedCalled = false
+    private(set) var trackActiveSessionDetectedCallCount = 0
 
     // MARK: - Parameter Capture
 
@@ -84,6 +85,7 @@ final class MockAnalyticsService: AnalyticsService {
         lastAbandonedSessionId = nil
         lastAbandonedQuestionsAnswered = nil
         trackActiveSessionDetectedCalled = false
+        trackActiveSessionDetectedCallCount = 0
         lastDetectedSessionId = nil
         lastDetectedQuestionsAnswered = nil
     }
@@ -134,6 +136,7 @@ final class MockAnalyticsService: AnalyticsService {
 
     override func trackActiveSessionDetected(sessionId: Int, questionsAnswered: Int) {
         trackActiveSessionDetectedCalled = true
+        trackActiveSessionDetectedCallCount += 1
         lastDetectedSessionId = sessionId
         lastDetectedQuestionsAnswered = questionsAnswered
 

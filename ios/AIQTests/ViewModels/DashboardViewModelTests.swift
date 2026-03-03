@@ -203,6 +203,15 @@ final class DashboardViewModelTests: XCTestCase {
         // Then - Should still have session data even though API wasn't called
         XCTAssertEqual(sut.activeTestSession?.id, 456, "Should load from cache")
         XCTAssertEqual(sut.activeSessionQuestionsAnswered, 3)
+
+        // trackActiveSessionDetected fires on every fetchActiveSession call — both the initial
+        // API fetch and subsequent cache-hit loads — because updateActiveSessionState is called
+        // unconditionally in both code paths. This means the event fires once per dashboard
+        // refresh cycle while a session is active, not only on first discovery.
+        XCTAssertEqual(
+            mockAnalyticsService.trackActiveSessionDetectedCallCount, 2,
+            "trackActiveSessionDetected should fire on both the API call and the cache-hit call"
+        )
     }
 
     func testFetchActiveSession_ForceRefreshBypassesCache() async {
