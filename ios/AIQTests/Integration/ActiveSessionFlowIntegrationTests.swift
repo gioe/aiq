@@ -51,7 +51,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertNil(dashboardViewModel.activeTestSession, "Active session should be nil")
 
         // Reset mock for start test call
-        await mockService.reset()
+        mockService.reset()
 
         // When - User starts a new test
         let mockQuestions = makeQuestions(count: 3)
@@ -84,7 +84,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertNotNil(testTakingViewModel.testSession, "Test should be started")
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
 
         // When - Dashboard refreshes and detects active session
         let activeSession = MockDataFactory.makeTestSession(
@@ -137,7 +137,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(dashboardViewModel.activeTestSession?.id, sessionId)
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
 
         // When - User resumes test from dashboard
         let mockQuestions = makeQuestions(count: 5)
@@ -205,7 +205,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         mockAnswerStorage.mockProgress = savedProgress
 
         // Reset mock and set up resume response
-        await mockService.reset()
+        mockService.reset()
         let resumeResponse = TestSessionStatusResponse(
             questions: mockQuestions,
             questionsCount: 3,
@@ -256,7 +256,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(dashboardViewModel.activeSessionQuestionsAnswered, 10)
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
 
         // When - User abandons test from dashboard
         let abandonedSession = MockDataFactory.makeTestSession(
@@ -392,7 +392,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertNotNil(testTakingViewModel.error, "Should have conflict error")
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
 
         // When - User chooses to resume the conflicted session
         let mockQuestions = makeQuestions(count: 4)
@@ -438,7 +438,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertNotNil(testTakingViewModel.error, "Should have conflict error")
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
 
         // When - User chooses to abandon and start new
         let abandonResponse = TestAbandonResponse(
@@ -526,7 +526,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(dashboardViewModel.activeSessionQuestionsAnswered, 5)
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
 
         // When - User answers more questions (simulated by updated count)
         // and dashboard refreshes
@@ -569,7 +569,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertTrue(dashboardViewModel.hasActiveTest)
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
 
         // When - User completes test
         let mockQuestions = makeQuestions(count: 2)
@@ -585,7 +585,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         testTakingViewModel.navigationState.userAnswers[mockQuestions[1].id] = "B"
 
         // Reset and set up submit response
-        await mockService.reset()
+        mockService.reset()
         let testResult = SubmittedTestResult(
             accuracyPercentage: 100.0,
             completedAt: Date(),
@@ -623,7 +623,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertNotNil(testTakingViewModel.testResult, "Test result should be set")
 
         // Reset mock for dashboard refresh
-        await mockService.reset()
+        mockService.reset()
 
         // When - Dashboard refreshes after completion
         // Convert SubmittedTestResult to TestResult for history fetch
@@ -680,7 +680,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertEqual(dashboardViewModel.activeSessionQuestionsAnswered, 3)
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
 
         // When - Session is completed externally (e.g., on another device)
         // and dashboard fetches again without force refresh (uses cache)
@@ -690,7 +690,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertTrue(dashboardViewModel.hasActiveTest, "Should still show active from cache")
 
         // Reset mock
-        await mockService.reset()
+        mockService.reset()
 
         // When - Dashboard force refreshes (bypasses cache)
         await mockService.setTestHistoryResponse([])
@@ -712,7 +712,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertFalse(dashboardViewModel.hasActiveTest)
 
         // When - Multiple rapid refreshes occur
-        await mockService.reset()
+        mockService.reset()
 
         let sessionId = 1400
         let activeSession = MockDataFactory.makeTestSession(

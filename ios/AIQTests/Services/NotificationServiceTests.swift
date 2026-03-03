@@ -411,7 +411,7 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertTrue(registerDeviceCalled, "registerDevice should be called")
 
         // Reset the mock to track unregister call
-        await mockService.reset()
+        mockService.reset()
 
         // When - Unregister device token
         try await sut.unregisterDeviceToken()
@@ -430,7 +430,7 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertTrue(updateNotificationPreferencesCalled, "updateNotificationPreferences should be called")
 
         // Reset the mock and set response for get
-        await mockService.reset()
+        mockService.reset()
         let getResponse = Components.Schemas.NotificationPreferencesResponse(message: "Success", notificationEnabled: true)
         mockService.getNotificationPreferencesResponse = getResponse
 

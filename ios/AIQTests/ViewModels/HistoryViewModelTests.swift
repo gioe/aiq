@@ -147,7 +147,7 @@ final class HistoryViewModelTests: XCTestCase {
         await mockService.setTestHistoryResponse(results, totalCount: 1, hasMore: false)
         await sut.fetchHistory(forceRefresh: true)
 
-        await mockService.reset()
+        mockService.reset()
 
         // When
         await sut.loadMore()
@@ -219,7 +219,7 @@ final class HistoryViewModelTests: XCTestCase {
         let testHistoryCalled = await mockService.getTestHistoryCalled
         XCTAssertTrue(testHistoryCalled)
 
-        await mockService.reset()
+        mockService.reset()
 
         // When - Second fetch should use cache
         await sut.fetchHistory(forceRefresh: false)
@@ -266,7 +266,7 @@ final class HistoryViewModelTests: XCTestCase {
             totalCount: 4
         )
 
-        await mockService.reset()
+        mockService.reset()
         await mockService.getTestHistoryResponse = PaginatedTestHistoryResponse(
             hasMore: true,
             limit: 50,

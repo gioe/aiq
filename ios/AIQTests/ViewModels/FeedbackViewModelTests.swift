@@ -572,7 +572,7 @@ final class FeedbackViewModelTests: XCTestCase {
         XCTAssertFalse(sut.showSuccessMessage, "should not show success message")
 
         // When - Clear error and retry with success
-        await mockService.reset()
+        mockService.reset()
         let mockResponse = FeedbackSubmitResponse(
             message: "Success on retry",
             submissionId: 999,
@@ -612,7 +612,7 @@ final class FeedbackViewModelTests: XCTestCase {
             XCTAssertTrue(sut.showSuccessMessage, "should show success for category \(category.displayName)")
 
             // Reset for next iteration
-            await mockService.reset()
+            mockService.reset()
             sut.resetForm()
         }
     }
@@ -640,7 +640,7 @@ final class FeedbackViewModelTests: XCTestCase {
         // Immediately update form and submit again (before the 2-second reset fires)
         sut.name = "Jane Doe"
         sut.description = "Second submission before reset"
-        await mockService.reset()
+        mockService.reset()
         await mockService.submitFeedbackResponse = mockResponse
         await sut.submitFeedback()
 
@@ -668,7 +668,7 @@ final class FeedbackViewModelTests: XCTestCase {
         for i in 1 ... 3 {
             sut.name = "User \(i)"
             sut.description = "Submission number \(i) with details"
-            await mockService.reset()
+            mockService.reset()
             await mockService.submitFeedbackResponse = mockResponse
             await sut.submitFeedback()
         }

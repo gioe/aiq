@@ -323,7 +323,7 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
         // Reset mock to track new calls
-        await mockService.reset()
+        mockService.reset()
 
         let email = "test@example.com"
         let password = "password123"
@@ -891,7 +891,7 @@ final class AuthServiceTests: XCTestCase {
 
         // Now configure storage to fail on deleteAll
         mockSecureStorage.setShouldThrowOnDeleteAll(true)
-        await mockService.reset()
+        mockService.reset()
 
         // When - Logout should handle storage error gracefully
         try await sut.logout()
@@ -1447,7 +1447,7 @@ final class AuthServiceTests: XCTestCase {
         XCTAssertEqual(currentUser?.id, 1)
 
         // When - Second login (different user)
-        await mockService.reset()
+        mockService.reset()
         await mockService.loginResponse = secondResponse
         _ = try await sut.login(email: "second@example.com", password: "password2")
 
