@@ -82,7 +82,7 @@ final class TestTakingLoadFailureTests: BaseUITest {
     }
 
     func testStartTestFailureThenSuccess_RetryShowsTestContent() {
-        relaunchWithScenario("startTestFailureThenSuccess")
+        relaunchWithStartTestFailureThenSuccess()
         testHelper = TestTakingHelper(app: app, timeout: standardTimeout)
 
         // Navigate; first startTest() call fails
@@ -102,7 +102,7 @@ final class TestTakingLoadFailureTests: BaseUITest {
     }
 
     func testStartTestNonRetryableFailure_GoBackNavigatesBack() {
-        relaunchWithScenario("startTestNonRetryableFailure")
+        relaunchWithStartTestNonRetryableFailure()
         testHelper = TestTakingHelper(app: app, timeout: standardTimeout)
 
         // Navigate; startTest() throws a non-retryable error

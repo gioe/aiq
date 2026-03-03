@@ -582,7 +582,7 @@ final class AuthenticationFlowTests: BaseUITest {
 
         // Setup: Configure app to mock network error
         app.launchArguments.append("-MockNetworkError")
-        relaunchWithScenario("loggedOut")
+        relaunchAsLoggedOut()
 
         // Attempt login (should fail with network error, not auth error)
         loginHelper.login(email: validEmail, password: validPassword, waitForDashboard: false)

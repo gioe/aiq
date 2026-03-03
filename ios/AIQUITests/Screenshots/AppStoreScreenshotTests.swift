@@ -392,7 +392,7 @@ extension AppStoreScreenshotTests {
     func testCaptureOnboarding() {
         // Enable onboarding flow and relaunch with logged out scenario
         enableOnboardingFlow = true
-        relaunchWithScenario("loggedOut")
+        relaunchAsLoggedOut()
 
         // Wait for onboarding to appear
         let onboardingContainer = app.otherElements["onboardingContainer"]

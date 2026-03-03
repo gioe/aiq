@@ -50,7 +50,7 @@ final class DashboardLatestTestResultCardUITests: BaseUITest {
     }
 
     func testLatestTestResultCard_IsAbsentWithNilResult() {
-        relaunchWithScenario("loggedInNoHistory")
+        relaunchAsLoggedInNoHistory()
 
         XCTAssertTrue(
             wait(for: emptyStateActionButton, timeout: networkTimeout),
@@ -82,7 +82,7 @@ final class DashboardLatestTestResultCardUITests: BaseUITest {
     }
 
     func testDateLabel_IsAbsentWhenDateFormattedIsNil() {
-        relaunchWithScenario("loggedInWithHistoryNilDate")
+        relaunchWithHistoryNilDate()
 
         XCTAssertTrue(
             wait(for: latestTestCard, timeout: networkTimeout),

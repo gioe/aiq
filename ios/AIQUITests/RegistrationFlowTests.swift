@@ -469,7 +469,7 @@ final class RegistrationFlowTests: BaseUITest {
         throw XCTSkip("UI test infrastructure issue - see MARK comment above")
 
         // Relaunch app with registration timeout scenario
-        relaunchWithScenario("registrationTimeout")
+        relaunchWithRegistrationTimeout()
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
@@ -509,7 +509,7 @@ final class RegistrationFlowTests: BaseUITest {
         throw XCTSkip("UI test infrastructure issue - see MARK comment above")
 
         // Relaunch app with server error scenario
-        relaunchWithScenario("registrationServerError")
+        relaunchWithRegistrationServerError()
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
@@ -549,7 +549,7 @@ final class RegistrationFlowTests: BaseUITest {
         throw XCTSkip("UI test infrastructure issue - see MARK comment above")
 
         // Relaunch app with network error scenario
-        relaunchWithScenario("networkError")
+        relaunchWithNetworkError()
 
         // Navigate to registration
         registrationHelper.navigateToRegistration()
