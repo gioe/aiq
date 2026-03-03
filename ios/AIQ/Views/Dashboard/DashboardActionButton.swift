@@ -70,6 +70,7 @@ struct DashboardActionButton: View {
     VStack(spacing: DesignSystem.Spacing.lg) {
         DashboardActionButton(hasActiveTest: false, onTap: {})
         DashboardActionButton(hasActiveTest: true, onTap: {})
+        DashboardActionButton(hasActiveTest: false, onTap: {}, label: "Start Your First Test")
     }
     .padding()
 }
