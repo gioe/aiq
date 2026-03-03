@@ -21,6 +21,7 @@ Submodules:
     - shadow_cat: Shadow CAT testing results and statistics
     - token_blacklist: Token blacklist statistics for monitoring
     - security_monitoring: Logout-all event monitoring and password reset correlation
+    - sessions: Test session management (hard-delete with dry-run preview)
     - users: Per-user admin flag management (cooldown bypass)
 """
 
@@ -41,6 +42,7 @@ from . import (
     notifications,
     reliability,
     security_monitoring,
+    sessions,
     shadow_cat,
     token_blacklist,
     users,
@@ -135,6 +137,11 @@ router.include_router(
 router.include_router(
     security_monitoring.router,
     tags=["Admin - Security"],
+)
+
+router.include_router(
+    sessions.router,
+    tags=["Admin - Sessions"],
 )
 
 router.include_router(
