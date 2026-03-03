@@ -8,6 +8,7 @@ struct DashboardLatestTestResultCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
             TestCardHeader(dateFormatted: dateFormatted)
+                .accessibilityHidden(true)
             TestCardScores(result: result)
             TestCardProgress(result: result)
         }
