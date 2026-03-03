@@ -36,6 +36,11 @@ class TestTakingViewModel: BaseViewModel {
     /// True when the "Time's Up!" alert should be shown.
     @Published private(set) var showTimeExpiredAlert: Bool = false
 
+    // MARK: - Cooldown State
+
+    /// When non-nil, a test-cooldown error has been received and the user must wait before testing again.
+    @Published var testCooldownInfo: (nextDate: Date, daysRemaining: Int)?
+
     // MARK: - Adaptive Test Properties
 
     /// Whether this test session uses adaptive (CAT) delivery
@@ -282,6 +287,13 @@ class TestTakingViewModel: BaseViewModel {
                 operation: .fetchQuestions
             )
             self.error = contextualError
+            setLoading(false)
+            return
+        }
+
+        // Check if this is a test cooldown error
+        if case let .testCooldown(nextEligibleDate, daysRemaining) = error {
+            testCooldownInfo = (nextDate: nextEligibleDate, daysRemaining: daysRemaining)
             setLoading(false)
             return
         }
