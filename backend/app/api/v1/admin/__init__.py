@@ -21,6 +21,7 @@ Submodules:
     - shadow_cat: Shadow CAT testing results and statistics
     - token_blacklist: Token blacklist statistics for monitoring
     - security_monitoring: Logout-all event monitoring and password reset correlation
+    - users: Per-user admin flag management (cooldown bypass)
 """
 
 from fastapi import APIRouter
@@ -42,6 +43,7 @@ from . import (
     security_monitoring,
     shadow_cat,
     token_blacklist,
+    users,
     validity,
 )
 
@@ -133,4 +135,9 @@ router.include_router(
 router.include_router(
     security_monitoring.router,
     tags=["Admin - Security"],
+)
+
+router.include_router(
+    users.router,
+    tags=["Admin - Users"],
 )
