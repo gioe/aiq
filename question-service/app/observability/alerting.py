@@ -162,6 +162,180 @@ class AlertManager:
 
         return success
 
+    def send_run_completion(
+        self,
+        exit_code: int,
+        stats: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Send a run completion summary email after every generation run.
+
+        A no-op when email_enabled=False. SMTP errors are caught and logged
+        without raising, so they never affect the caller's exit code.
+
+        Args:
+            exit_code: Run exit code (0=success, 1=partial failure, 2+=failure)
+            stats: Optional run statistics with keys: questions_generated,
+                   questions_inserted, approval_rate, duration_seconds
+        """
+        if not self.email_enabled:
+            return
+
+        stats = stats or {}
+
+        try:
+            subject = self._get_completion_subject(exit_code)
+            text_body = self._build_completion_text(exit_code, stats)
+            html_body = self._build_completion_html(exit_code, stats)
+
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = self.from_email or ""
+            msg["To"] = ", ".join(self.to_emails)
+            msg.attach(MIMEText(text_body, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
+
+            if self.smtp_host is None:
+                raise ValueError("SMTP host must be configured for email alerts")
+            if self.smtp_username is None:
+                raise ValueError("SMTP username must be configured for email alerts")
+            if self.smtp_password is None:
+                raise ValueError("SMTP password must be configured for email alerts")
+
+            with smtplib.SMTP(
+                self.smtp_host, self.smtp_port, timeout=self.SMTP_TIMEOUT_SECONDS
+            ) as server:
+                server.starttls()
+                server.login(self.smtp_username, self.smtp_password)
+                server.send_message(msg)
+
+            logger.info(f"Run completion email sent (exit_code={exit_code})")
+        except Exception as e:
+            logger.error(f"Failed to send run completion email: {e}")
+
+    def _get_completion_subject(self, exit_code: int) -> str:
+        """Generate email subject for run completion notification."""
+        if exit_code == 0:
+            return "\u2705 AIQ Question Generation: Success"
+        elif exit_code == 1:
+            return "\u26a0\ufe0f AIQ Question Generation: Partial Failure"
+        else:
+            return f"\u274c AIQ Question Generation: Failed (exit {exit_code})"
+
+    def _build_completion_text(self, exit_code: int, stats: Dict[str, Any]) -> str:
+        """Build plain-text run completion email body."""
+        if exit_code == 0:
+            status = "Success"
+        elif exit_code == 1:
+            status = "Partial Failure"
+        else:
+            status = f"Failed (exit {exit_code})"
+
+        questions_generated = stats.get("questions_generated", "N/A")
+        questions_inserted = stats.get("questions_inserted", "N/A")
+        approval_rate = stats.get("approval_rate", None)
+        duration_seconds = stats.get("duration_seconds", None)
+
+        lines = [
+            f"AIQ Question Generation Run \u2014 {status}",
+            f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+            f"Exit Code: {exit_code}",
+            "",
+            "Run Statistics:",
+            f"  Questions Generated: {questions_generated}",
+            f"  Questions Inserted:  {questions_inserted}",
+            f"  Approval Rate:       {f'{approval_rate:.1f}%' if approval_rate is not None else 'N/A'}",
+            f"  Duration:            {f'{duration_seconds:.1f}s' if duration_seconds is not None else 'N/A'}",
+        ]
+        return "\n".join(lines)
+
+    def _build_completion_html(self, exit_code: int, stats: Dict[str, Any]) -> str:
+        """Build HTML run completion email body."""
+        if exit_code == 0:
+            status = "Success"
+            color = "#28a745"
+        elif exit_code == 1:
+            status = "Partial Failure"
+            color = "#ffc107"
+        else:
+            status = f"Failed (exit {exit_code})"
+            color = "#dc3545"
+
+        questions_generated = stats.get("questions_generated", "N/A")
+        questions_inserted = stats.get("questions_inserted", "N/A")
+        approval_rate = stats.get("approval_rate", None)
+        duration_seconds = stats.get("duration_seconds", None)
+
+        approval_str = f"{approval_rate:.1f}%" if approval_rate is not None else "N/A"
+        duration_str = (
+            f"{duration_seconds:.1f}s" if duration_seconds is not None else "N/A"
+        )
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        html = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                }}
+                .status-box {{
+                    border-left: 4px solid {color};
+                    padding: 15px;
+                    background-color: #f8f9fa;
+                    margin: 20px 0;
+                }}
+                .status {{
+                    color: {color};
+                    font-weight: bold;
+                    font-size: 18px;
+                }}
+                table {{
+                    border-collapse: collapse;
+                    width: 100%;
+                    max-width: 400px;
+                    margin-top: 15px;
+                }}
+                th, td {{
+                    text-align: left;
+                    padding: 8px 12px;
+                    border-bottom: 1px solid #dee2e6;
+                }}
+                th {{
+                    background-color: #e9ecef;
+                    font-weight: bold;
+                }}
+                .footer {{
+                    margin-top: 30px;
+                    font-size: 12px;
+                    color: #6c757d;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="status-box">
+                <div class="status">{status}</div>
+                <div>Time: {timestamp}</div>
+            </div>
+
+            <table>
+                <tr><th>Metric</th><th>Value</th></tr>
+                <tr><td>Questions Generated</td><td>{questions_generated}</td></tr>
+                <tr><td>Questions Inserted</td><td>{questions_inserted}</td></tr>
+                <tr><td>Approval Rate</td><td>{approval_str}</td></tr>
+                <tr><td>Duration</td><td>{duration_str}</td></tr>
+            </table>
+
+            <div class="footer">
+                <p>This is an automated notification from the AIQ Question Generation Service.</p>
+                <p>Exit code: {exit_code}</p>
+            </div>
+        </body>
+        </html>
+        """
+        return html
+
     def _build_alert_message(
         self,
         classified_error: ClassifiedError,
