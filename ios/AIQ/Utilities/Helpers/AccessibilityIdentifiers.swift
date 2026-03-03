@@ -89,6 +89,7 @@ enum AccessibilityIdentifiers {
         static let onboardingInfoCard = "dashboardView.onboardingInfoCard"
         static let onboardingInfoCardCTA = "dashboardView.onboardingInfoCard.cta"
         static let onboardingInfoCardDismiss = "dashboardView.onboardingInfoCard.dismiss"
+        static let noCompletedTestsNote = "dashboardView.noCompletedTestsNote"
     }
 
     // MARK: - Test Taking View

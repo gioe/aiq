@@ -103,6 +103,7 @@ struct DashboardView: View {
                             .foregroundStyle(ColorPalette.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.top, DesignSystem.Spacing.sm)
+                            .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.noCompletedTestsNote)
                     }
                 )
             } else if viewModel.hasTests && !viewModel.hasActiveTest {
@@ -126,6 +127,8 @@ struct DashboardView: View {
                 )
             } else {
                 // State 4: completed tests exist + active test in progress — stats + in-progress card
+                // No "Take Another Test" CTA here by design: only one test session can be active at a time.
+                // InProgressTestCard's own Abandon action transitions back to State 3 where the CTA appears.
                 DashboardScrollBody(
                     userName: authManager.userFullName,
                     onRefresh: { await viewModel.refreshDashboard() },
