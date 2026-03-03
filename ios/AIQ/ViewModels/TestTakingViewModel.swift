@@ -692,6 +692,7 @@ class TestTakingViewModel: BaseViewModel {
         isTestCompleted = false
         testResult = nil
         error = nil
+        testCooldownInfo = nil
         resetTimeTracking()
         coordinator.reset()
     }
