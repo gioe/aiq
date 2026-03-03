@@ -28,7 +28,8 @@ struct TestTakingView: View {
     /// True when startTest failed and the full-page error state should be shown
     private var shouldShowLoadFailure: Bool {
         !viewModel.isLoading && viewModel.navigationState.questions.isEmpty
-            && viewModel.error != nil && !viewModel.isActiveSessionConflict
+            && (viewModel.error != nil || viewModel.testCooldownInfo != nil)
+            && !viewModel.isActiveSessionConflict
     }
 
     /// Extract session ID from active session conflict error
@@ -258,33 +259,52 @@ struct TestTakingView: View {
     // MARK: - Test Content
 
     private var loadFailureView: some View {
-        VStack(spacing: 16) {
-            if let error = viewModel.error {
-                ErrorView(
-                    error: error,
-                    retryAction: viewModel.canRetry ? {
-                        Task {
-                            await viewModel.retry()
-                            if let session = viewModel.testSession {
-                                let timerStarted = timerManager.startWithSessionTime(session.startedAt)
-                                if !timerStarted {
-                                    handleTimerExpiration()
+        Group {
+            if let cooldown = viewModel.testCooldownInfo {
+                cooldownStateView(cooldown: cooldown)
+            } else if let error = viewModel.error {
+                VStack(spacing: 16) {
+                    ErrorView(
+                        error: error,
+                        retryAction: viewModel.canRetry ? {
+                            Task {
+                                await viewModel.retry()
+                                if let session = viewModel.testSession {
+                                    let timerStarted = timerManager.startWithSessionTime(session.startedAt)
+                                    if !timerStarted {
+                                        handleTimerExpiration()
+                                    }
                                 }
                             }
+                        } : nil
+                    )
+                    if !viewModel.canRetry {
+                        Button("Go Back") {
+                            router.pop()
                         }
-                    } : nil
-                )
-            }
-            if !viewModel.canRetry {
-                Button("Go Back") {
-                    router.pop()
+                        .buttonStyle(.bordered)
+                    }
                 }
-                .buttonStyle(.bordered)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.loadFailureOverlay)
+    }
+
+    private func cooldownStateView(cooldown: (nextDate: Date, daysRemaining: Int)) -> some View {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        formatter.timeStyle = .none
+        let dateString = formatter.string(from: cooldown.nextDate)
+        let days = cooldown.daysRemaining
+        return EmptyStateView(
+            icon: "calendar.badge.clock",
+            title: "Come Back Later",
+            message: "You're next eligible on \(dateString). \(days) day\(days == 1 ? "" : "s") remaining.",
+            actionTitle: "Go Back",
+            action: { router.pop() }
+        )
     }
 
     private var testContentView: some View {
