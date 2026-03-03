@@ -82,27 +82,27 @@ async def delete_session(
     if not session:
         raise_not_found(ErrorMessages.TEST_SESSION_NOT_FOUND)
 
-    # Count associated records for the preview
-    responses_count_result = await db.execute(
-        select(func.count(ResponseModel.id)).where(
-            ResponseModel.test_session_id == session_id
-        )
-    )
-    responses_count = responses_count_result.scalar_one()
-
-    user_questions_count_result = await db.execute(
-        select(func.count(UserQuestion.id)).where(
-            UserQuestion.test_session_id == session_id
-        )
-    )
-    user_questions_count = user_questions_count_result.scalar_one()
-
-    test_result_result = await db.execute(
-        select(TestResult).where(TestResult.test_session_id == session_id)
-    )
-    has_test_result = test_result_result.scalar_one_or_none() is not None
-
     if dry_run:
+        # Count associated records only for the dry-run preview
+        responses_count_result = await db.execute(
+            select(func.count(ResponseModel.id)).where(
+                ResponseModel.test_session_id == session_id
+            )
+        )
+        responses_count = responses_count_result.scalar_one()
+
+        user_questions_count_result = await db.execute(
+            select(func.count(UserQuestion.id)).where(
+                UserQuestion.test_session_id == session_id
+            )
+        )
+        user_questions_count = user_questions_count_result.scalar_one()
+
+        test_result_result = await db.execute(
+            select(TestResult).where(TestResult.test_session_id == session_id)
+        )
+        has_test_result = test_result_result.scalar_one_or_none() is not None
+
         preview = SessionDeletionPreview(
             session_id=session_id,
             responses_count=responses_count,
@@ -116,10 +116,6 @@ async def delete_session(
     await db.commit()
 
     client_ip = get_client_ip_from_request(request)
-    logger.info(
-        f"Admin hard-deleted test session {session_id} "
-        f"(responses={responses_count}, user_questions={user_questions_count}, "
-        f"has_result={has_test_result}, ip={client_ip})"
-    )
+    logger.info(f"Admin hard-deleted test session {session_id} (ip={client_ip})")
 
     return Response(status_code=204)
