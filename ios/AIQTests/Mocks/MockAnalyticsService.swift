@@ -24,6 +24,8 @@ final class MockAnalyticsService: AnalyticsService {
     private(set) var trackDeepLinkSuccessCalled = false
     private(set) var trackDeepLinkFailedCalled = false
     private(set) var trackTestResumedFromDashboardCalled = false
+    private(set) var trackTestAbandonedFromDashboardCalled = false
+    private(set) var trackActiveSessionDetectedCalled = false
 
     // MARK: - Parameter Capture
 
@@ -37,6 +39,12 @@ final class MockAnalyticsService: AnalyticsService {
 
     private(set) var lastResumedSessionId: Int?
     private(set) var lastResumedQuestionsAnswered: Int?
+
+    private(set) var lastAbandonedSessionId: Int?
+    private(set) var lastAbandonedQuestionsAnswered: Int?
+
+    private(set) var lastDetectedSessionId: Int?
+    private(set) var lastDetectedQuestionsAnswered: Int?
 
     // MARK: - Initialization
 
@@ -70,6 +78,12 @@ final class MockAnalyticsService: AnalyticsService {
         trackTestResumedFromDashboardCalled = false
         lastResumedSessionId = nil
         lastResumedQuestionsAnswered = nil
+        trackTestAbandonedFromDashboardCalled = false
+        lastAbandonedSessionId = nil
+        lastAbandonedQuestionsAnswered = nil
+        trackActiveSessionDetectedCalled = false
+        lastDetectedSessionId = nil
+        lastDetectedQuestionsAnswered = nil
     }
 
     // MARK: - Overrides
@@ -104,6 +118,22 @@ final class MockAnalyticsService: AnalyticsService {
         trackTestResumedFromDashboardCalled = true
         lastResumedSessionId = sessionId
         lastResumedQuestionsAnswered = questionsAnswered
+
+        // Don't call super to avoid actually tracking events in tests
+    }
+
+    override func trackTestAbandonedFromDashboard(sessionId: Int, questionsAnswered: Int) {
+        trackTestAbandonedFromDashboardCalled = true
+        lastAbandonedSessionId = sessionId
+        lastAbandonedQuestionsAnswered = questionsAnswered
+
+        // Don't call super to avoid actually tracking events in tests
+    }
+
+    override func trackActiveSessionDetected(sessionId: Int, questionsAnswered: Int) {
+        trackActiveSessionDetectedCalled = true
+        lastDetectedSessionId = sessionId
+        lastDetectedQuestionsAnswered = questionsAnswered
 
         // Don't call super to avoid actually tracking events in tests
     }
