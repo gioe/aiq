@@ -2,60 +2,41 @@
 import SwiftUI
 import XCTest
 
-/// Tests for DashboardScrollBody's conditional rendering logic.
+/// Tests for DashboardScrollBody's structure after the 4-state refactor.
 ///
-/// DashboardScrollBody is the shared scroll container used by both dashboardContent and
-/// emptyState in DashboardView. It renders InProgressTestCard only when activeTestSession
-/// is non-nil. These tests verify that conditional binding by checking the stored property
-/// that drives the conditional rendering decision.
+/// DashboardScrollBody is now a thin scroll container that renders only the
+/// header, onboarding card, and caller-supplied bottomContent. InProgressTestCard
+/// is no longer injected here — each call site in DashboardView owns it explicitly.
 @MainActor
 final class DashboardScrollBodyTests: XCTestCase {
-    // MARK: - InProgressTestCard Visibility
+    // MARK: - Structural Tests
 
-    /// Verifies that DashboardScrollBody stores a non-nil activeTestSession when one is
-    /// provided, which causes InProgressTestCard to render in the view body.
-    func testInProgressCard_IsShownWhenActiveTestSessionIsNonNil() {
-        // Given
-        let mockSession = MockDataFactory.makeInProgressSession()
-
-        // When
+    /// Verifies DashboardScrollBody can be instantiated without active-test parameters,
+    /// confirming the simplified post-refactor signature compiles and initialises correctly.
+    func testScrollBody_CanBeInstantiated_WithoutActiveTestParams() {
+        // Given / When
         let sut = DashboardScrollBody(
             userName: "Test User",
-            activeTestSession: mockSession,
-            questionsAnswered: 5,
-            onResume: {},
-            onAbandon: {},
             onRefresh: {},
             onboardingInfoCard: { EmptyView() },
             bottomContent: { EmptyView() }
         )
 
-        // Then - non-nil activeTestSession means the `if let activeSession` branch fires
-        XCTAssertNotNil(
-            sut.activeTestSession,
-            "InProgressTestCard should be shown when activeTestSession is non-nil"
-        )
+        // Then - userName is stored and surfaced to the header
+        XCTAssertEqual(sut.userName, "Test User")
     }
 
-    /// Verifies that DashboardScrollBody stores a nil activeTestSession when none is
-    /// provided, which causes InProgressTestCard to be omitted from the view body.
-    func testInProgressCard_IsAbsentWhenActiveTestSessionIsNil() {
+    /// Verifies DashboardScrollBody accepts a nil userName without crashing.
+    func testScrollBody_AcceptsNilUserName() {
         // Given / When
         let sut = DashboardScrollBody(
             userName: nil,
-            activeTestSession: nil,
-            questionsAnswered: nil,
-            onResume: {},
-            onAbandon: {},
             onRefresh: {},
             onboardingInfoCard: { EmptyView() },
             bottomContent: { EmptyView() }
         )
 
-        // Then - nil activeTestSession means the `if let activeSession` branch is skipped
-        XCTAssertNil(
-            sut.activeTestSession,
-            "InProgressTestCard should be absent when activeTestSession is nil"
-        )
+        // Then
+        XCTAssertNil(sut.userName)
     }
 }

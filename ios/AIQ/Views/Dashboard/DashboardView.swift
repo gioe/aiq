@@ -54,10 +54,106 @@ struct DashboardView: View {
                         }
                     }
                 )
-            } else if viewModel.hasTests {
-                dashboardContent
+            } else if !viewModel.hasTests && !viewModel.hasActiveTest {
+                // State 1: no completed tests, no active test — first-run empty state
+                DashboardScrollBody(
+                    userName: authManager.userFullName,
+                    onRefresh: { await viewModel.refreshDashboard() },
+                    onboardingInfoCard: { onboardingInfoCardSection },
+                    bottomContent: {
+                        EmptyStateView(
+                            icon: "brain.head.profile",
+                            title: "Ready to Begin?",
+                            message: """
+                            Take your first cognitive performance assessment to establish your baseline score. \
+                            Track your progress over time and discover insights about your performance.
+                            """
+                        )
+                        .padding(.vertical, DesignSystem.Spacing.xl)
+
+                        DashboardActionButton(
+                            hasActiveTest: false,
+                            onTap: navigateToTest,
+                            label: "Start Your First Test"
+                        )
+                    }
+                )
+            } else if !viewModel.hasTests && viewModel.hasActiveTest {
+                // State 2: active test in progress, no completed tests yet
+                DashboardScrollBody(
+                    userName: authManager.userFullName,
+                    onRefresh: { await viewModel.refreshDashboard() },
+                    onboardingInfoCard: { onboardingInfoCardSection },
+                    bottomContent: {
+                        if let activeSession = viewModel.activeTestSession {
+                            InProgressTestCard(
+                                session: activeSession,
+                                questionsAnswered: viewModel.activeSessionQuestionsAnswered,
+                                onResume: {
+                                    viewModel.trackTestResumed()
+                                    router.push(.testTaking())
+                                },
+                                onAbandon: { await viewModel.abandonActiveTest() }
+                            )
+                            .inProgressCardTransition(sessionId: activeSession.id)
+                        }
+
+                        Text("No completed tests yet")
+                            .font(Typography.captionMedium)
+                            .foregroundStyle(ColorPalette.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, DesignSystem.Spacing.sm)
+                    }
+                )
+            } else if viewModel.hasTests && !viewModel.hasActiveTest {
+                // State 3: completed tests exist, no active test — stats + new test CTA
+                DashboardScrollBody(
+                    userName: authManager.userFullName,
+                    onRefresh: { await viewModel.refreshDashboard() },
+                    onboardingInfoCard: { onboardingInfoCardSection },
+                    bottomContent: {
+                        statsGrid
+
+                        if let latest = viewModel.latestTestResult {
+                            DashboardLatestTestResultCard(
+                                result: latest,
+                                dateFormatted: viewModel.latestTestDateFormatted
+                            )
+                        }
+
+                        DashboardActionButton(hasActiveTest: false, onTap: navigateToTest)
+                    }
+                )
             } else {
-                emptyState
+                // State 4: completed tests exist + active test in progress — stats + in-progress card
+                DashboardScrollBody(
+                    userName: authManager.userFullName,
+                    onRefresh: { await viewModel.refreshDashboard() },
+                    onboardingInfoCard: { onboardingInfoCardSection },
+                    bottomContent: {
+                        statsGrid
+
+                        if let latest = viewModel.latestTestResult {
+                            DashboardLatestTestResultCard(
+                                result: latest,
+                                dateFormatted: viewModel.latestTestDateFormatted
+                            )
+                        }
+
+                        if let activeSession = viewModel.activeTestSession {
+                            InProgressTestCard(
+                                session: activeSession,
+                                questionsAnswered: viewModel.activeSessionQuestionsAnswered,
+                                onResume: {
+                                    viewModel.trackTestResumed()
+                                    router.push(.testTaking())
+                                },
+                                onAbandon: { await viewModel.abandonActiveTest() }
+                            )
+                            .inProgressCardTransition(sessionId: activeSession.id)
+                        }
+                    }
+                )
             }
         }
         .navigationTitle("Dashboard")
@@ -73,35 +169,6 @@ struct DashboardView: View {
                 await viewModel.refreshDashboard()
             }
         }
-    }
-
-    // MARK: - Dashboard Content
-
-    private var dashboardContent: some View {
-        DashboardScrollBody(
-            userName: authManager.userFullName,
-            activeTestSession: viewModel.activeTestSession,
-            questionsAnswered: viewModel.activeSessionQuestionsAnswered,
-            onResume: {
-                viewModel.trackTestResumed()
-                router.push(.testTaking())
-            },
-            onAbandon: { await viewModel.abandonActiveTest() },
-            onRefresh: { await viewModel.refreshDashboard() },
-            onboardingInfoCard: { onboardingInfoCardSection },
-            bottomContent: {
-                // Stats Grid
-                statsGrid
-
-                // Latest Test Result
-                if let latest = viewModel.latestTestResult {
-                    DashboardLatestTestResultCard(result: latest, dateFormatted: viewModel.latestTestDateFormatted)
-                }
-
-                // Action Button
-                DashboardActionButton(hasActiveTest: viewModel.hasActiveTest, onTap: navigateToTest)
-            }
-        )
     }
 
     // MARK: - Onboarding Info Card
@@ -180,55 +247,15 @@ struct DashboardView: View {
             router.push(.testTaking())
         }
     }
-
-    // MARK: - Empty State
-
-    private var emptyState: some View {
-        DashboardScrollBody(
-            userName: authManager.userFullName,
-            activeTestSession: viewModel.activeTestSession,
-            questionsAnswered: viewModel.activeSessionQuestionsAnswered,
-            onResume: {
-                viewModel.trackTestResumed()
-                router.push(.testTaking())
-            },
-            onAbandon: { await viewModel.abandonActiveTest() },
-            onRefresh: { await viewModel.refreshDashboard() },
-            onboardingInfoCard: { onboardingInfoCardSection },
-            bottomContent: {
-                EmptyStateView(
-                    icon: viewModel.hasActiveTest ? "play.circle.fill" : "brain.head.profile",
-                    title: viewModel.hasActiveTest ? "Test in Progress" : "Ready to Begin?",
-                    message: viewModel.hasActiveTest ?
-                        "You have a test in progress. Resume it to continue or complete it to see your results." :
-                        """
-                        Take your first cognitive performance assessment to establish your baseline score. \
-                        Track your progress over time and discover insights about your performance.
-                        """
-                )
-                .padding(.vertical, DesignSystem.Spacing.xl)
-
-                DashboardActionButton(
-                    hasActiveTest: viewModel.hasActiveTest,
-                    onTap: navigateToTest,
-                    label: viewModel.hasActiveTest ? nil : "Start Your First Test"
-                )
-            }
-        )
-    }
 }
 
 // MARK: - Shared Scroll Body
 
-/// Shared scroll container used by both dashboardContent and emptyState.
-/// Renders the common preamble (header, onboarding card, in-progress test card) followed
-/// by caller-supplied content via a @ViewBuilder closure.
+/// Shared scroll container used by all four dashboard states.
+/// Renders the common preamble (header, onboarding card) followed by
+/// caller-supplied content via a @ViewBuilder closure.
 struct DashboardScrollBody<OnboardingCard: View, BottomContent: View>: View {
     let userName: String?
-    let activeTestSession: TestSession?
-    let questionsAnswered: Int?
-    let onResume: () -> Void
-    let onAbandon: () async -> Void
     let onRefresh: () async -> Void
     @ViewBuilder let onboardingInfoCard: OnboardingCard
     @ViewBuilder let bottomContent: BottomContent
@@ -239,16 +266,6 @@ struct DashboardScrollBody<OnboardingCard: View, BottomContent: View>: View {
                 DashboardWelcomeHeader(userName: userName)
 
                 onboardingInfoCard
-
-                if let activeSession = activeTestSession {
-                    InProgressTestCard(
-                        session: activeSession,
-                        questionsAnswered: questionsAnswered,
-                        onResume: onResume,
-                        onAbandon: onAbandon
-                    )
-                    .inProgressCardTransition(sessionId: activeSession.id)
-                }
 
                 bottomContent
 
