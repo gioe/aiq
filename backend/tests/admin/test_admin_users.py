@@ -10,7 +10,7 @@ from app.models.models import TestStatus
 
 
 class TestGetCooldownBypass:
-    """Tests for GET /v1/admin/users/{user_id}/cooldown-bypass."""
+    """Tests for GET /v1/admin/user-flags/{user_id}/cooldown-bypass."""
 
     def test_get_bypass_default_false(self, client, admin_headers, db_session):
         """New user has bypass_cooldown=False by default."""
@@ -23,7 +23,7 @@ class TestGetCooldownBypass:
         db_session.refresh(user)
 
         response = client.get(
-            f"/v1/admin/users/{user.id}/cooldown-bypass",
+            f"/v1/admin/user-flags/{user.id}/cooldown-bypass",
             headers=admin_headers,
         )
 
@@ -44,7 +44,7 @@ class TestGetCooldownBypass:
         db_session.refresh(user)
 
         response = client.get(
-            f"/v1/admin/users/{user.id}/cooldown-bypass",
+            f"/v1/admin/user-flags/{user.id}/cooldown-bypass",
             headers=admin_headers,
         )
 
@@ -54,7 +54,7 @@ class TestGetCooldownBypass:
     def test_get_bypass_user_not_found(self, client, admin_headers):
         """Returns 404 for a non-existent user_id."""
         response = client.get(
-            "/v1/admin/users/999999/cooldown-bypass",
+            "/v1/admin/user-flags/999999/cooldown-bypass",
             headers=admin_headers,
         )
         assert response.status_code == 404
@@ -69,7 +69,7 @@ class TestGetCooldownBypass:
         db_session.commit()
         db_session.refresh(user)
 
-        response = client.get(f"/v1/admin/users/{user.id}/cooldown-bypass")
+        response = client.get(f"/v1/admin/user-flags/{user.id}/cooldown-bypass")
         assert response.status_code in (401, 422)
 
     def test_get_bypass_invalid_admin_token(self, client, db_session):
@@ -83,14 +83,14 @@ class TestGetCooldownBypass:
         db_session.refresh(user)
 
         response = client.get(
-            f"/v1/admin/users/{user.id}/cooldown-bypass",
+            f"/v1/admin/user-flags/{user.id}/cooldown-bypass",
             headers={"X-Admin-Token": "wrong-token"},
         )
         assert response.status_code == 401
 
 
 class TestSetCooldownBypass:
-    """Tests for PATCH /v1/admin/users/{user_id}/cooldown-bypass."""
+    """Tests for PATCH /v1/admin/user-flags/{user_id}/cooldown-bypass."""
 
     def test_set_bypass_true(self, client, admin_headers, db_session):
         """Sets bypass_cooldown to True and returns updated status."""
@@ -103,7 +103,7 @@ class TestSetCooldownBypass:
         db_session.refresh(user)
 
         response = client.patch(
-            f"/v1/admin/users/{user.id}/cooldown-bypass",
+            f"/v1/admin/user-flags/{user.id}/cooldown-bypass",
             json={"bypass_cooldown": True},
             headers=admin_headers,
         )
@@ -129,7 +129,7 @@ class TestSetCooldownBypass:
         db_session.refresh(user)
 
         response = client.patch(
-            f"/v1/admin/users/{user.id}/cooldown-bypass",
+            f"/v1/admin/user-flags/{user.id}/cooldown-bypass",
             json={"bypass_cooldown": False},
             headers=admin_headers,
         )
@@ -143,7 +143,7 @@ class TestSetCooldownBypass:
     def test_set_bypass_user_not_found(self, client, admin_headers):
         """Returns 404 for a non-existent user_id."""
         response = client.patch(
-            "/v1/admin/users/999999/cooldown-bypass",
+            "/v1/admin/user-flags/999999/cooldown-bypass",
             json={"bypass_cooldown": True},
             headers=admin_headers,
         )
@@ -160,7 +160,7 @@ class TestSetCooldownBypass:
         db_session.refresh(user)
 
         response = client.patch(
-            f"/v1/admin/users/{user.id}/cooldown-bypass",
+            f"/v1/admin/user-flags/{user.id}/cooldown-bypass",
             json={"bypass_cooldown": True},
         )
         assert response.status_code in (401, 422)
@@ -176,7 +176,7 @@ class TestSetCooldownBypass:
         db_session.refresh(user)
 
         response = client.patch(
-            f"/v1/admin/users/{user.id}/cooldown-bypass",
+            f"/v1/admin/user-flags/{user.id}/cooldown-bypass",
             json={"bypass_cooldown": True},
             headers={"X-Admin-Token": "wrong-token"},
         )

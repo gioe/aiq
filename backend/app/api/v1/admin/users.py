@@ -37,7 +37,7 @@ class CooldownBypassUpdate(BaseModel):
 
 
 @router.get(
-    "/users/{user_id}/cooldown-bypass",
+    "/user-flags/{user_id}/cooldown-bypass",
     response_model=CooldownBypassStatus,
 )
 async def get_cooldown_bypass(
@@ -74,7 +74,7 @@ async def get_cooldown_bypass(
 
 
 @router.patch(
-    "/users/{user_id}/cooldown-bypass",
+    "/user-flags/{user_id}/cooldown-bypass",
     response_model=CooldownBypassStatus,
 )
 async def set_cooldown_bypass(
