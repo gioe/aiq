@@ -85,18 +85,7 @@ struct DashboardView: View {
                     onRefresh: { await viewModel.refreshDashboard() },
                     onboardingInfoCard: { onboardingInfoCardSection },
                     bottomContent: {
-                        if let activeSession = viewModel.activeTestSession {
-                            InProgressTestCard(
-                                session: activeSession,
-                                questionsAnswered: viewModel.activeSessionQuestionsAnswered,
-                                onResume: {
-                                    viewModel.trackTestResumed()
-                                    router.push(.testTaking())
-                                },
-                                onAbandon: { await viewModel.abandonActiveTest() }
-                            )
-                            .inProgressCardTransition(sessionId: activeSession.id)
-                        }
+                        inProgressCardView
 
                         Text("No completed tests yet")
                             .font(Typography.captionMedium)
@@ -143,18 +132,7 @@ struct DashboardView: View {
                             )
                         }
 
-                        if let activeSession = viewModel.activeTestSession {
-                            InProgressTestCard(
-                                session: activeSession,
-                                questionsAnswered: viewModel.activeSessionQuestionsAnswered,
-                                onResume: {
-                                    viewModel.trackTestResumed()
-                                    router.push(.testTaking())
-                                },
-                                onAbandon: { await viewModel.abandonActiveTest() }
-                            )
-                            .inProgressCardTransition(sessionId: activeSession.id)
-                        }
+                        inProgressCardView
                     }
                 )
             }
@@ -210,6 +188,26 @@ struct DashboardView: View {
         hasDismissedOnboardingInfoCard = true
         withAnimation(DesignSystem.Animation.quick) {
             showOnboardingInfoCard = false
+        }
+    }
+
+    // MARK: - In-Progress Card
+
+    /// Renders the in-progress test card with its transition modifier for the current active session.
+    /// Both State 2 and State 4 use this helper to avoid duplication.
+    @ViewBuilder
+    private var inProgressCardView: some View {
+        if let activeSession = viewModel.activeTestSession {
+            InProgressTestCard(
+                session: activeSession,
+                questionsAnswered: viewModel.activeSessionQuestionsAnswered,
+                onResume: {
+                    viewModel.trackTestResumed()
+                    router.push(.testTaking())
+                },
+                onAbandon: { await viewModel.abandonActiveTest() }
+            )
+            .inProgressCardTransition(sessionId: activeSession.id)
         }
     }
 
