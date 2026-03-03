@@ -20,7 +20,7 @@ final class DashboardViewStateTests: XCTestCase {
     override func tearDown() async throws {
         await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
-        await mockService.reset()
+        mockService.reset()
         try await super.tearDown()
     }
 
@@ -42,7 +42,8 @@ final class DashboardViewStateTests: XCTestCase {
         sut.activeTestSession = nil
 
         // Then
-        XCTAssertTrue(!sut.hasTests && !sut.hasActiveTest, "State 1 branch condition should be true")
+        XCTAssertFalse(sut.hasTests, "State 1: hasTests should be false")
+        XCTAssertFalse(sut.hasActiveTest, "State 1: hasActiveTest should be false")
         XCTAssertNil(sut.latestTestResult, "latestTestResult should be nil in State 1")
         XCTAssertNil(sut.activeTestSession, "activeTestSession should be nil in State 1")
     }
@@ -74,7 +75,8 @@ final class DashboardViewStateTests: XCTestCase {
         sut.activeTestSession = MockDataFactory.makeInProgressSession()
 
         // Then
-        XCTAssertTrue(!sut.hasTests && sut.hasActiveTest, "State 2 branch condition should be true")
+        XCTAssertFalse(sut.hasTests, "State 2: hasTests should be false")
+        XCTAssertTrue(sut.hasActiveTest, "State 2: hasActiveTest should be true")
         XCTAssertNotNil(sut.activeTestSession, "activeTestSession should not be nil in State 2")
     }
 
@@ -92,18 +94,7 @@ final class DashboardViewStateTests: XCTestCase {
 
     func testState3_HasTestsNoActiveTest_HasTestsTrue() {
         // Given
-        sut.testCount = 3
-        sut.latestTestResult = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 100,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        )
-        sut.activeTestSession = nil
+        setUpState3()
 
         // Then
         XCTAssertTrue(sut.hasTests, "hasTests should be true when testCount is 3")
@@ -112,39 +103,18 @@ final class DashboardViewStateTests: XCTestCase {
 
     func testState3_HasTestsNoActiveTest_ShowsStatsBranch() {
         // Given
-        sut.testCount = 3
-        sut.latestTestResult = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 100,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        )
-        sut.activeTestSession = nil
+        setUpState3()
 
         // Then
-        XCTAssertTrue(sut.hasTests && !sut.hasActiveTest, "State 3 branch condition should be true")
+        XCTAssertTrue(sut.hasTests, "State 3: hasTests should be true")
+        XCTAssertFalse(sut.hasActiveTest, "State 3: hasActiveTest should be false")
         XCTAssertTrue(sut.testCount > 0, "testCount should be greater than 0 in State 3")
         XCTAssertNotNil(sut.latestTestResult, "latestTestResult should not be nil in State 3")
     }
 
     func testState3_HasTestsNoActiveTest_InProgressCardNotVisible() {
         // Given
-        sut.testCount = 3
-        sut.latestTestResult = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 100,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        )
-        sut.activeTestSession = nil
+        setUpState3()
 
         // Then
         XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should be false so InProgressTestCard is not shown")
@@ -154,19 +124,7 @@ final class DashboardViewStateTests: XCTestCase {
 
     func testState4_HasTestsAndActiveTest_BothFlagsTrue() {
         // Given
-        sut.testCount = 2
-        sut.latestTestResult = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 100,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        )
-        sut.activeTestSession = MockDataFactory.makeInProgressSession()
-        sut.activeSessionQuestionsAnswered = 5
+        setUpState4()
 
         // Then
         XCTAssertTrue(sut.hasTests, "hasTests should be true when testCount is 2")
@@ -175,22 +133,11 @@ final class DashboardViewStateTests: XCTestCase {
 
     func testState4_HasTestsAndActiveTest_ShowsFullStatsBranch() {
         // Given
-        sut.testCount = 2
-        sut.latestTestResult = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 100,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        )
-        sut.activeTestSession = MockDataFactory.makeInProgressSession()
-        sut.activeSessionQuestionsAnswered = 5
+        setUpState4()
 
         // Then
-        XCTAssertTrue(sut.hasTests && sut.hasActiveTest, "State 4 branch condition should be true")
+        XCTAssertTrue(sut.hasTests, "State 4: hasTests should be true")
+        XCTAssertTrue(sut.hasActiveTest, "State 4: hasActiveTest should be true")
         XCTAssertTrue(sut.testCount > 0, "testCount should be greater than 0 in State 4")
         XCTAssertNotNil(sut.latestTestResult, "latestTestResult should not be nil in State 4")
         XCTAssertNotNil(sut.activeTestSession, "activeTestSession should not be nil in State 4")
@@ -198,19 +145,7 @@ final class DashboardViewStateTests: XCTestCase {
 
     func testState4_HasTestsAndActiveTest_NoSecondResumeCTA() {
         // Given
-        sut.testCount = 2
-        sut.latestTestResult = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 100,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        )
-        sut.activeTestSession = MockDataFactory.makeInProgressSession()
-        sut.activeSessionQuestionsAnswered = 5
+        setUpState4()
 
         // Then - "Take Another Test" CTA branch requires hasTests && !hasActiveTest
         XCTAssertFalse(
@@ -225,19 +160,64 @@ final class DashboardViewStateTests: XCTestCase {
         // Given - State 1
         sut.testCount = 0
         sut.activeTestSession = nil
-        XCTAssertTrue(!sut.hasTests && !sut.hasActiveTest, "Pre-condition: should be in State 1")
+        XCTAssertFalse(sut.hasTests, "Pre-condition: hasTests should be false")
+        XCTAssertFalse(sut.hasActiveTest, "Pre-condition: hasActiveTest should be false")
 
         // When
         sut.activeTestSession = MockDataFactory.makeInProgressSession()
 
         // Then - State 2
-        XCTAssertTrue(!sut.hasTests && sut.hasActiveTest, "Should transition to State 2 after adding active test")
+        XCTAssertFalse(sut.hasTests, "After transition: hasTests should remain false")
+        XCTAssertTrue(sut.hasActiveTest, "After transition: hasActiveTest should be true")
+    }
+
+    func testTransition_State2ToState1_ClearActiveTest() {
+        // Given - State 2
+        sut.testCount = 0
+        sut.activeTestSession = MockDataFactory.makeInProgressSession()
+        XCTAssertFalse(sut.hasTests, "Pre-condition: hasTests should be false")
+        XCTAssertTrue(sut.hasActiveTest, "Pre-condition: hasActiveTest should be true")
+
+        // When
+        sut.activeTestSession = nil
+
+        // Then - State 1
+        XCTAssertFalse(sut.hasTests, "After transition: hasTests should remain false")
+        XCTAssertFalse(sut.hasActiveTest, "After transition: hasActiveTest should be false")
     }
 
     func testTransition_State3ToState4_AddActiveTest() {
         // Given - State 3
-        sut.testCount = 1
-        sut.latestTestResult = MockDataFactory.makeTestResult(
+        setUpState3()
+        XCTAssertTrue(sut.hasTests, "Pre-condition: hasTests should be true")
+        XCTAssertFalse(sut.hasActiveTest, "Pre-condition: hasActiveTest should be false")
+
+        // When
+        sut.activeTestSession = MockDataFactory.makeInProgressSession()
+
+        // Then - State 4
+        XCTAssertTrue(sut.hasTests, "After transition: hasTests should remain true")
+        XCTAssertTrue(sut.hasActiveTest, "After transition: hasActiveTest should be true")
+    }
+
+    func testTransition_State4ToState3_ClearActiveTest() {
+        // Given - State 4
+        setUpState4()
+        XCTAssertTrue(sut.hasTests, "Pre-condition: hasTests should be true")
+        XCTAssertTrue(sut.hasActiveTest, "Pre-condition: hasActiveTest should be true")
+
+        // When
+        sut.activeTestSession = nil
+
+        // Then - State 3
+        XCTAssertTrue(sut.hasTests, "After transition: hasTests should remain true")
+        XCTAssertFalse(sut.hasActiveTest, "After transition: hasActiveTest should be false")
+    }
+
+    // MARK: - Private Helpers
+
+    private func makeLatestResult() -> TestResult {
+        MockDataFactory.makeTestResult(
             id: 1,
             testSessionId: 100,
             userId: 1,
@@ -247,13 +227,18 @@ final class DashboardViewStateTests: XCTestCase {
             accuracyPercentage: 80.0,
             completedAt: Date()
         )
+    }
+
+    private func setUpState3() {
+        sut.testCount = 3
+        sut.latestTestResult = makeLatestResult()
         sut.activeTestSession = nil
-        XCTAssertTrue(sut.hasTests && !sut.hasActiveTest, "Pre-condition: should be in State 3")
+    }
 
-        // When
+    private func setUpState4() {
+        sut.testCount = 2
+        sut.latestTestResult = makeLatestResult()
         sut.activeTestSession = MockDataFactory.makeInProgressSession()
-
-        // Then - State 4
-        XCTAssertTrue(sut.hasTests && sut.hasActiveTest, "Should transition to State 4 after adding active test")
+        sut.activeSessionQuestionsAnswered = 5
     }
 }
