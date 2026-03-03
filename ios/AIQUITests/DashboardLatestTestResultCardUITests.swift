@@ -23,7 +23,7 @@ final class DashboardLatestTestResultCardUITests: BaseUITest {
     }
 
     private var emptyStateActionButton: XCUIElement {
-        app.buttons["emptyStateView.actionButton"]
+        app.buttons["dashboardView.actionButton"]
     }
 
     // MARK: - Launch Configuration

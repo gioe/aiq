@@ -26,6 +26,9 @@ struct DashboardLatestTestResultCard: View {
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
                 .strokeBorder(Color.gray.opacity(0.1), lineWidth: 1)
         )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Latest Result" + (dateFormatted.map { ", \($0)" } ?? ""))
+        .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.latestTestCard)
     }
 }
 

@@ -96,7 +96,6 @@ struct DashboardView: View {
                 // Latest Test Result
                 if let latest = viewModel.latestTestResult {
                     DashboardLatestTestResultCard(result: latest, dateFormatted: viewModel.latestTestDateFormatted)
-                        .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.latestTestCard)
                 }
 
                 // Action Button
