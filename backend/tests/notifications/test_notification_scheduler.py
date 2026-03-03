@@ -138,9 +138,9 @@ class TestGetUsersDueForTest:
     ):
         """Test that a user who is due for a test is returned."""
         # Create a test result from 6 months ago
-        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
-            async_db_session, user_with_device_token.id, six_months_ago
+            async_db_session, user_with_device_token.id, ninety_days_ago
         )
 
         users = await get_users_due_for_test(async_db_session)
@@ -168,9 +168,9 @@ class TestGetUsersDueForTest:
         self, async_db_session, user_without_notifications
     ):
         """Test that users with notifications disabled are not returned."""
-        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
-            async_db_session, user_without_notifications.id, six_months_ago
+            async_db_session, user_without_notifications.id, ninety_days_ago
         )
 
         users = await get_users_due_for_test(async_db_session)
@@ -182,9 +182,9 @@ class TestGetUsersDueForTest:
         self, async_db_session, user_without_device_token
     ):
         """Test that users without device tokens are not returned."""
-        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
-            async_db_session, user_without_device_token.id, six_months_ago
+            async_db_session, user_without_device_token.id, ninety_days_ago
         )
 
         users = await get_users_due_for_test(async_db_session)
@@ -211,8 +211,8 @@ class TestGetUsersDueForTest:
             users.append(user)
 
             # Create test results from 6 months ago
-            six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-            await create_test_result(async_db_session, user.id, six_months_ago)
+            ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+            await create_test_result(async_db_session, user.id, ninety_days_ago)
 
         users_due = await get_users_due_for_test(async_db_session)
 
@@ -284,8 +284,8 @@ class TestGetUsersDueForTest:
         await async_db_session.refresh(bypass_user)
 
         # Create a test result that would normally qualify this user for a reminder
-        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-        await create_test_result(async_db_session, bypass_user.id, six_months_ago)
+        ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        await create_test_result(async_db_session, bypass_user.id, ninety_days_ago)
 
         users = await get_users_due_for_test(async_db_session)
 
@@ -297,9 +297,9 @@ class TestGetUsersDueForTest:
     ):
         """Users without bypass_cooldown are still included in test-due notifications."""
         # user_with_device_token has bypass_cooldown=False (default)
-        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
-            async_db_session, user_with_device_token.id, six_months_ago
+            async_db_session, user_with_device_token.id, ninety_days_ago
         )
 
         users = await get_users_due_for_test(async_db_session)
@@ -360,9 +360,9 @@ class TestNotificationScheduler:
     ):
         """Test getting users to notify without including never-tested users."""
         # Create a test result from 6 months ago
-        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
-            async_db_session, user_with_device_token.id, six_months_ago
+            async_db_session, user_with_device_token.id, ninety_days_ago
         )
 
         # Create another user who never tested
@@ -390,9 +390,9 @@ class TestNotificationScheduler:
     ):
         """Test getting users to notify including never-tested users."""
         # Create a test result from 6 months ago
-        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
-            async_db_session, user_with_device_token.id, six_months_ago
+            async_db_session, user_with_device_token.id, ninety_days_ago
         )
 
         # Create another user who never tested
@@ -448,9 +448,9 @@ class TestNotificationScheduler:
     ):
         """Test checking if user is due when they are."""
         # Create a test result from 6 months ago
-        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        ninety_days_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         await create_test_result(
-            async_db_session, user_with_device_token.id, six_months_ago
+            async_db_session, user_with_device_token.id, ninety_days_ago
         )
 
         scheduler = NotificationScheduler(async_db_session)
