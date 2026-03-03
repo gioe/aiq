@@ -124,6 +124,9 @@ class User(Base):
     # Used by POST /v1/auth/logout-all to invalidate all existing user tokens
     # NULL = no revocation epoch (tokens valid according to normal expiration)
 
+    # Admin bypass flag for cooldown enforcement
+    bypass_cooldown: Mapped[bool] = mapped_column(default=False)
+
     # Demographic data for norming study (P13-001)
     # All fields are optional to ensure privacy and voluntary participation
     birth_year: Mapped[Optional[int]] = mapped_column(
