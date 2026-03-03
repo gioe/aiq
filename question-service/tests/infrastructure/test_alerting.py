@@ -606,6 +606,159 @@ class TestInventoryAlertManager:
         assert len(manager._alerts_this_hour) == 1  # Only recent one kept
 
 
+class TestSendRunCompletion:
+    """Tests for AlertManager.send_run_completion()."""
+
+    def test_noop_when_email_disabled(self):
+        """send_run_completion() is a no-op when email_enabled=False."""
+        manager = AlertManager(email_enabled=False)
+        # Should return without raising and without sending anything
+        manager.send_run_completion(exit_code=0, stats={"questions_generated": 10})
+
+    def test_noop_when_email_disabled_no_smtp_call(self):
+        """No SMTP connection is attempted when email is disabled."""
+        import smtplib
+        from unittest.mock import patch
+
+        manager = AlertManager(email_enabled=False)
+        with patch.object(smtplib, "SMTP") as mock_smtp:
+            manager.send_run_completion(exit_code=0, stats={})
+            mock_smtp.assert_not_called()
+
+    def test_smtp_error_caught_and_logged(self, caplog):
+        """SMTP errors are caught and logged, not raised."""
+        import smtplib
+        from unittest.mock import patch
+        import logging
+
+        manager = AlertManager(
+            email_enabled=True,
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            smtp_username="user@example.com",
+            smtp_password="test-password-not-real",  # pragma: allowlist secret
+            from_email="alerts@example.com",
+            to_emails=["recipient@example.com"],
+        )
+
+        with patch("smtplib.SMTP") as mock_smtp_class:
+            mock_smtp_class.return_value.__enter__.return_value.send_message.side_effect = smtplib.SMTPException(
+                "connection refused"
+            )
+            with caplog.at_level(logging.ERROR):
+                # Must not raise
+                manager.send_run_completion(exit_code=0, stats={})
+
+        assert any(
+            "Failed to send run completion email" in r.message for r in caplog.records
+        )
+
+    def test_subject_success(self):
+        """Subject clearly indicates success for exit code 0."""
+        manager = AlertManager()
+        subject = manager._get_completion_subject(0)
+        assert "Success" in subject
+
+    def test_subject_partial_failure(self):
+        """Subject clearly indicates partial failure for exit code 1."""
+        manager = AlertManager()
+        subject = manager._get_completion_subject(1)
+        assert "Partial Failure" in subject
+
+    def test_subject_failure(self):
+        """Subject clearly indicates failure for exit codes 2+."""
+        manager = AlertManager()
+        for code in [2, 3, 4]:
+            subject = manager._get_completion_subject(code)
+            assert "Failed" in subject
+
+    def test_completion_text_includes_stats(self):
+        """Plain-text body includes all required statistics."""
+        manager = AlertManager()
+        stats = {
+            "questions_generated": 50,
+            "questions_inserted": 42,
+            "approval_rate": 84.0,
+            "duration_seconds": 123.5,
+        }
+        text = manager._build_completion_text(0, stats)
+
+        assert "50" in text
+        assert "42" in text
+        assert "84.0%" in text
+        assert "123.5s" in text
+
+    def test_completion_text_missing_stats_defaults(self):
+        """Plain-text body handles missing stats gracefully."""
+        manager = AlertManager()
+        text = manager._build_completion_text(2, {})
+        assert "N/A" in text
+
+    def test_completion_html_includes_stats(self):
+        """HTML body includes all required statistics."""
+        manager = AlertManager()
+        stats = {
+            "questions_generated": 30,
+            "questions_inserted": 28,
+            "approval_rate": 93.3,
+            "duration_seconds": 60.0,
+        }
+        html = manager._build_completion_html(0, stats)
+
+        assert "30" in html
+        assert "28" in html
+        assert "93.3%" in html
+        assert "60.0s" in html
+
+    def test_completion_html_success_color(self):
+        """HTML uses green color for successful run."""
+        manager = AlertManager()
+        html = manager._build_completion_html(0, {})
+        assert "#28a745" in html
+
+    def test_completion_html_partial_failure_color(self):
+        """HTML uses yellow color for partial failure."""
+        manager = AlertManager()
+        html = manager._build_completion_html(1, {})
+        assert "#ffc107" in html
+
+    def test_completion_html_failure_color(self):
+        """HTML uses red color for failed run."""
+        manager = AlertManager()
+        html = manager._build_completion_html(2, {})
+        assert "#dc3545" in html
+
+    def test_send_run_completion_sends_email_on_success(self):
+        """Email is sent when email_enabled and SMTP is configured."""
+        from unittest.mock import MagicMock, patch
+
+        manager = AlertManager(
+            email_enabled=True,
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            smtp_username="user@example.com",
+            smtp_password="test-password-not-real",  # pragma: allowlist secret
+            from_email="alerts@example.com",
+            to_emails=["recipient@example.com"],
+        )
+
+        with patch("smtplib.SMTP") as mock_smtp_class:
+            mock_server = MagicMock()
+            mock_smtp_class.return_value.__enter__.return_value = mock_server
+
+            manager.send_run_completion(
+                exit_code=0,
+                stats={
+                    "questions_generated": 10,
+                    "questions_inserted": 8,
+                    "approval_rate": 80.0,
+                    "duration_seconds": 30.0,
+                },
+            )
+
+            mock_server.send_message.assert_called_once()
+
+
 class TestInventoryAlertingIntegration:
     """Integration tests for inventory alerting."""
 
