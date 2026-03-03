@@ -120,6 +120,8 @@ async def get_users_due_for_test(
                 # User must have a device token registered
                 User.apns_device_token.isnot(None),
                 User.apns_device_token != "",
+                # Bypass users are not subject to cadence and don't need reminders
+                User.bypass_cooldown.is_(False),
                 # User's last test date must be in the range that makes them due
                 latest_test_subquery.c.last_test_date >= due_date_start,
                 latest_test_subquery.c.last_test_date <= due_date_end,
