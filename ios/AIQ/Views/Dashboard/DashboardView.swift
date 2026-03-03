@@ -188,7 +188,10 @@ struct DashboardView: View {
             userName: authManager.userFullName,
             activeTestSession: viewModel.activeTestSession,
             questionsAnswered: viewModel.activeSessionQuestionsAnswered,
-            onResume: { router.push(.testTaking()) },
+            onResume: {
+                viewModel.trackTestResumed()
+                router.push(.testTaking())
+            },
             onAbandon: { await viewModel.abandonActiveTest() },
             onRefresh: { await viewModel.refreshDashboard() },
             onboardingInfoCard: { onboardingInfoCardSection },
