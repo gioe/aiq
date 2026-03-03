@@ -137,6 +137,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     process_registry.register_shutdown_handler()
     logger.info("Process registry shutdown handlers registered")
 
+    if settings.DISABLE_TEST_CADENCE:
+        logger.warning(
+            "DISABLE_TEST_CADENCE is enabled — test cadence checks are bypassed. "
+            "This flag must never be set in production."
+        )
+
     # Initialize token blacklist for JWT revocation
     from app.core.auth.token_blacklist import init_token_blacklist
 
