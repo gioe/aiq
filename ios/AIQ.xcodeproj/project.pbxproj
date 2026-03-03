@@ -304,6 +304,7 @@
 		FB7D65582C800C59971692EC /* AnswerInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123792FFFEC35608BD39FE0B /* AnswerInputView.swift */; };
 		FC3162E0ADD5408CE98F4060 /* MockModeDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972EDF14D846639206E3F31D /* MockModeDetectorTests.swift */; };
 		FD1FE7FED0EB5C96E249AD14 /* IQTrendChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5543C79EE5CE3EF74CD6B111 /* IQTrendChart.swift */; };
+		FF71F632823D6199E2EC7C1A /* TestTakingViewModelCooldownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254B4CBC6C147AF6D1ED6A33 /* TestTakingViewModelCooldownTests.swift */; };
 		ICG005001A0CA1845CAED4FB5 /* CrashlyticsErrorRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG005002B4712FCE75F777B76 /* CrashlyticsErrorRecorder.swift */; };
 		ICG006001BBBB /* IQScoreUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG006002BBBB /* IQScoreUtility.swift */; };
 		ICG007001AAAA /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG007002AAAA /* AppRouter.swift */; };
@@ -391,6 +392,7 @@
 		22F955B0D3A59C417C4CE16C /* TestDetailView+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestDetailView+Helpers.swift"; sourceTree = "<group>"; };
 		247C2966272215BF7BB8FC46 /* TestTakingAccessibilityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestTakingAccessibilityTests.swift; sourceTree = "<group>"; };
 		24CAE6529B2BFA6BFF5AB971 /* TestNavigationState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestNavigationState.swift; sourceTree = "<group>"; };
+		254B4CBC6C147AF6D1ED6A33 /* TestTakingViewModelCooldownTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestTakingViewModelCooldownTests.swift; sourceTree = "<group>"; };
 		2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockDeepLinkHandler.swift; sourceTree = "<group>"; };
 		284313B81892FFA1AE606BC6 /* NotificationSettingsAccessibilityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationSettingsAccessibilityTests.swift; sourceTree = "<group>"; };
 		285552C8C6133F2BE7F80248 /* BiometricLockViewUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricLockViewUITests.swift; sourceTree = "<group>"; };
@@ -826,6 +828,7 @@
 				E1EBD3CA1F81A974E0F00C5D /* AdaptiveTestTakingViewModelTests.swift */,
 				F6A92C060373617CDE405730 /* TestNavigationStateTests.swift */,
 				6288F3A27881DADBBD1CDED8 /* QuestionTimeTrackerTests.swift */,
+				254B4CBC6C147AF6D1ED6A33 /* TestTakingViewModelCooldownTests.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -1588,6 +1591,7 @@
 				F872DE0AE292C7F2B91DBE25 /* DashboardScrollBodyTests.swift in Sources */,
 				44FC9BBBF530F8114776B4B9 /* DashboardViewStateTests.swift in Sources */,
 				2B749C79C80BFF7C1E617F24 /* APIErrorParseBadRequestTests.swift in Sources */,
+				FF71F632823D6199E2EC7C1A /* TestTakingViewModelCooldownTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
