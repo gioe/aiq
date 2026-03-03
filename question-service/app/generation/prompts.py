@@ -54,6 +54,7 @@ ANTI-PATTERNS TO AVOID:
 ✗ Content that could be easily memorized and recognized on retesting
 ✗ Multiple correct or arguably correct answers in the options
 ✗ Answer options where more than one could be defended as correct
+✗ Embedding the correct answer or any answer option verbatim in the question body (answer leakage)
 """
 
 # Question type-specific generation prompts
@@ -952,6 +953,12 @@ Evaluate the following question across these criteria:
    - Would it feel fresh even to someone who took an IQ test recently?
    - Does it show innovative problem design?
 
+6. LEAKAGE (0.0-1.0):
+   - Does the question body reveal the correct answer?
+   - Score 0.0 if the correct answer text appears verbatim anywhere in the question body
+   - Score 0.0 if any answer option text is quoted or reproduced in the question itself
+   - Score 1.0 if the question body contains no part of the correct answer
+
 Question to evaluate:
 ---
 Type: {question_type}
@@ -975,11 +982,13 @@ Respond with valid JSON matching this exact structure:
     "validity_score": <float 0.0-1.0>,
     "formatting_score": <float 0.0-1.0>,
     "creativity_score": <float 0.0-1.0>,
+    "leakage_score": <float 0.0-1.0>,
     "feedback": "<brief explanation of scores and any issues>"
 }}
 
 Be rigorous in your evaluation. Questions must score above 0.7 in ALL categories to be acceptable.
 A question with even one weak dimension should be rejected.
+CRITICAL: A leakage_score of 0.0 means automatic rejection — the question must be completely rewritten.
 """
 
 
