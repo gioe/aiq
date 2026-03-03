@@ -89,6 +89,8 @@ enum APIError: Error, LocalizedError {
     case unprocessableEntity(message: String? = nil)
     /// Rate limit exceeded
     case rateLimitExceeded(message: String? = nil)
+    /// User must wait before taking another test
+    case testCooldown(nextEligibleDate: Date, daysRemaining: Int)
 
     /// User-friendly error description with clear guidance
     var errorDescription: String? {
@@ -141,6 +143,8 @@ enum APIError: Error, LocalizedError {
             "No internet connection detected. Please check your Wi-Fi or cellular data settings and try again."
         case let .rateLimitExceeded(message):
             message ?? "You've made too many requests. Please wait a moment and try again."
+        case let .testCooldown(_, daysRemaining):
+            "You must wait \(daysRemaining) more day\(daysRemaining == 1 ? "" : "s") before taking another test."
         case let .unknown(message):
             message ?? "Something unexpected happened. Please try again or contact support if the issue continues."
         }
@@ -153,7 +157,7 @@ enum APIError: Error, LocalizedError {
             true
         case .badRequest, .unprocessableEntity, .unauthorized, .forbidden,
              .invalidURL, .invalidResponse, .notFound,
-             .activeSessionConflict, .decodingError, .unknown:
+             .activeSessionConflict, .decodingError, .unknown, .testCooldown:
             false
         }
     }
@@ -205,9 +209,9 @@ struct ErrorResponse: Codable {
 // MARK: - Active Session Error Parsing
 
 extension APIError {
-    /// Parse a 400 error to detect active session conflicts
+    /// Parse a 400 error to detect typed error cases (active session conflicts, test cooldown).
     /// - Parameter message: The error message from the server
-    /// - Returns: An activeSessionConflict error if detected, otherwise a badRequest error
+    /// - Returns: A typed APIError case if detected, otherwise a badRequest error
     static func parseBadRequest(message: String?) -> APIError {
         guard let message else {
             return .badRequest(message: nil)
@@ -230,7 +234,49 @@ extension APIError {
             }
         }
 
-        // Not an active session conflict - return generic bad request
+        // Check if this is a test cooldown error
+        // Expected format: "You must wait 90 days (3 months) between tests. ... You can take your
+        //                   next test on YYYY-MM-DD ({days_remaining} days remaining)."
+        if message.contains("must wait 90 days") {
+            if let cooldownError = parseCooldownMessage(message) {
+                return cooldownError
+            }
+        }
+
+        // Not a typed error - return generic bad request
         return .badRequest(message: message)
+    }
+
+    /// Extract next-eligible date and days-remaining from a cooldown message.
+    /// Returns nil if either value cannot be parsed.
+    private static func parseCooldownMessage(_ message: String) -> APIError? {
+        let datePattern = #"You can take your next test on (\d{4}-\d{2}-\d{2})"#
+        let daysPattern = #"\((\d+) days remaining\)"#
+
+        guard
+            let dateRegex = try? NSRegularExpression(pattern: datePattern),
+            let daysRegex = try? NSRegularExpression(pattern: daysPattern),
+            let dateMatch = dateRegex.firstMatch(
+                in: message, range: NSRange(message.startIndex..., in: message)
+            ),
+            let daysMatch = daysRegex.firstMatch(
+                in: message, range: NSRange(message.startIndex..., in: message)
+            ),
+            let dateRange = Range(dateMatch.range(at: 1), in: message),
+            let daysRange = Range(daysMatch.range(at: 1), in: message),
+            let daysRemaining = Int(message[daysRange])
+        else {
+            return nil
+        }
+
+        let dateString = String(message[dateRange])
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        guard let nextEligibleDate = formatter.date(from: dateString) else {
+            return nil
+        }
+
+        return .testCooldown(nextEligibleDate: nextEligibleDate, daysRemaining: daysRemaining)
     }
 }
