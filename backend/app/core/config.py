@@ -70,6 +70,9 @@ class Settings(BaseSettings):
 
     # Notification Scheduling
     TEST_CADENCE_DAYS: int = 90  # 3 months = 90 days
+    # Local dev only — disables the test cadence check in POST /test/start.
+    # MUST NOT be set in Railway production.
+    DISABLE_TEST_CADENCE: bool = False
     NOTIFICATION_ADVANCE_DAYS: int = 0  # Days before test is due to send notification
     NOTIFICATION_REMINDER_DAYS: int = 7  # Days after due date to send reminder
 

@@ -437,8 +437,9 @@ async def start_test(
         raise_bad_request(ErrorMessages.active_session_exists(active_session.id))
 
     # Check 6-month test cadence: user cannot take another test within 180 days
-    # of their last completed test (skipped for users with bypass_cooldown flag)
-    if not current_user.bypass_cooldown:
+    # of their last completed test (skipped for users with bypass_cooldown flag,
+    # or when DISABLE_TEST_CADENCE is True in local dev environments)
+    if not current_user.bypass_cooldown and not settings.DISABLE_TEST_CADENCE:
         cadence_cutoff = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
         stmt = (
             select(TestSession)
