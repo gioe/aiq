@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from app.data.models import DifficultyLevel, QuestionType
 from app.generation.prompts import (
+    SYSTEM_PROMPT,
     build_generation_prompt,
     build_judge_prompt,
     build_regeneration_prompt,
@@ -281,6 +282,55 @@ class TestSubtypeGoldStandard:
             assert (
                 len(mapped) >= 1
             ), f"No GOLD_STANDARD_BY_SUBTYPE entries for {question_type.value}"
+
+
+class TestAntiLeakageRule:
+    """Tests for anti-leakage rule in SYSTEM_PROMPT and build_judge_prompt."""
+
+    def test_system_prompt_anti_patterns_forbids_answer_in_question(self):
+        """SYSTEM_PROMPT ANTI-PATTERNS section must forbid embedding the correct answer."""
+        assert "answer leakage" in SYSTEM_PROMPT.lower() or (
+            "verbatim in the question" in SYSTEM_PROMPT.lower()
+            and "answer" in SYSTEM_PROMPT.lower()
+        ), "SYSTEM_PROMPT ANTI-PATTERNS should forbid embedding answer in question body"
+
+    def test_system_prompt_anti_patterns_contains_leakage_rule(self):
+        """SYSTEM_PROMPT ANTI-PATTERNS should include the answer-leakage bullet."""
+        assert "answer leakage" in SYSTEM_PROMPT.lower()
+
+    def test_judge_prompt_includes_leakage_criterion(self):
+        """build_judge_prompt must include a LEAKAGE criterion section."""
+        prompt = build_judge_prompt(
+            question="What is 2 + 2?",
+            answer_options=["2", "3", "4", "5"],
+            correct_answer="4",
+            question_type="math",
+            difficulty="easy",
+        )
+        assert "LEAKAGE" in prompt
+
+    def test_judge_prompt_leakage_scores_zero_for_verbatim_answer(self):
+        """Judge rubric must instruct scoring 0.0 when correct answer appears in question."""
+        prompt = build_judge_prompt(
+            question="What is 2 + 2?",
+            answer_options=["2", "3", "4", "5"],
+            correct_answer="4",
+            question_type="math",
+            difficulty="easy",
+        )
+        assert "0.0" in prompt
+        assert "verbatim" in prompt.lower() or "appears" in prompt.lower()
+
+    def test_judge_prompt_includes_leakage_score_in_json_format(self):
+        """Judge prompt JSON response format must include leakage_score field."""
+        prompt = build_judge_prompt(
+            question="What is 2 + 2?",
+            answer_options=["2", "3", "4", "5"],
+            correct_answer="4",
+            question_type="math",
+            difficulty="easy",
+        )
+        assert '"leakage_score"' in prompt
 
 
 class TestBuildJudgePrompt:
