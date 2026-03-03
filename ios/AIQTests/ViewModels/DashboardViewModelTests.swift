@@ -245,6 +245,11 @@ final class DashboardViewModelTests: XCTestCase {
         let getActiveTestCalledAgain = await mockService.getActiveTestCalled
         // Then - Should make API request again despite cache
         XCTAssertTrue(getActiveTestCalledAgain, "Force refresh should bypass cache")
+        // Force-refresh is an intentional re-detection event; analytics should fire again
+        XCTAssertEqual(
+            mockAnalyticsService.trackActiveSessionDetectedCallCount, 2,
+            "trackActiveSessionDetected should fire on both the initial and force-refreshed API fetch"
+        )
     }
 
     // MARK: - Computed Properties Tests
