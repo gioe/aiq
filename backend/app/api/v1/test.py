@@ -437,34 +437,35 @@ async def start_test(
         raise_bad_request(ErrorMessages.active_session_exists(active_session.id))
 
     # Check 6-month test cadence: user cannot take another test within 180 days
-    # of their last completed test
-    cadence_cutoff = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
-    stmt = (
-        select(TestSession)
-        .where(
-            TestSession.user_id == user_id,
-            TestSession.status == TestStatus.COMPLETED,
-            TestSession.completed_at > cadence_cutoff,
-        )
-        .order_by(TestSession.completed_at.desc())
-    )
-    result = await db.execute(stmt)
-    recent_completed_session = result.scalar_one_or_none()
-
-    if recent_completed_session:
-        # Calculate next eligible date
-        completed_at = ensure_timezone_aware(recent_completed_session.completed_at)
-        next_eligible = completed_at + timedelta(days=settings.TEST_CADENCE_DAYS)
-        days_remaining = (next_eligible - utc_now()).days + 1  # Round up
-
-        raise_bad_request(
-            ErrorMessages.test_cadence_not_met(
-                cadence_days=settings.TEST_CADENCE_DAYS,
-                last_completed=completed_at.strftime("%Y-%m-%d"),
-                next_eligible=next_eligible.strftime("%Y-%m-%d"),
-                days_remaining=days_remaining,
+    # of their last completed test (skipped for users with bypass_cooldown flag)
+    if not current_user.bypass_cooldown:
+        cadence_cutoff = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        stmt = (
+            select(TestSession)
+            .where(
+                TestSession.user_id == user_id,
+                TestSession.status == TestStatus.COMPLETED,
+                TestSession.completed_at > cadence_cutoff,
             )
+            .order_by(TestSession.completed_at.desc())
         )
+        result = await db.execute(stmt)
+        recent_completed_session = result.scalar_one_or_none()
+
+        if recent_completed_session:
+            # Calculate next eligible date
+            completed_at = ensure_timezone_aware(recent_completed_session.completed_at)
+            next_eligible = completed_at + timedelta(days=settings.TEST_CADENCE_DAYS)
+            days_remaining = (next_eligible - utc_now()).days + 1  # Round up
+
+            raise_bad_request(
+                ErrorMessages.test_cadence_not_met(
+                    cadence_days=settings.TEST_CADENCE_DAYS,
+                    last_completed=completed_at.strftime("%Y-%m-%d"),
+                    next_eligible=next_eligible.strftime("%Y-%m-%d"),
+                    days_remaining=days_remaining,
+                )
+            )
 
     # TASK-878: Branch based on adaptive parameter
     if adaptive:
