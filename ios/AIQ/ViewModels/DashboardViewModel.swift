@@ -155,6 +155,9 @@ class DashboardViewModel: BaseViewModel {
                 forKey: DataCache.Key.activeTestSession
             ) {
                 updateActiveSessionState(cached)
+                // Cache hit: skip trackActiveSessionDetected — the session was
+                // already detected on the previous API fetch; re-firing here
+                // would inflate analytics counts with no new discovery.
                 return nil
             }
         }
@@ -173,6 +176,14 @@ class DashboardViewModel: BaseViewModel {
 
             // Update active session state
             updateActiveSessionState(response)
+
+            // Track first detection on fresh API fetch (not on cache-hit reloads)
+            if let response {
+                analyticsService.trackActiveSessionDetected(
+                    sessionId: response.session.id,
+                    questionsAnswered: response.questionsCount
+                )
+            }
             return nil
 
         } catch is CancellationError {
@@ -216,12 +227,10 @@ class DashboardViewModel: BaseViewModel {
         if let response {
             activeTestSession = response.session
             activeSessionQuestionsAnswered = response.questionsCount
-
-            // Track active session detection
-            analyticsService.trackActiveSessionDetected(
-                sessionId: response.session.id,
-                questionsAnswered: response.questionsCount
-            )
+            // Note: analytics tracking is the caller's responsibility;
+            // cache-hit loads skip trackActiveSessionDetected to avoid
+            // inflating session-detection counts with repeated reads of
+            // already-known state.
         } else {
             activeTestSession = nil
             activeSessionQuestionsAnswered = nil

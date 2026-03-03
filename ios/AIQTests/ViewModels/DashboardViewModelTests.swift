@@ -204,13 +204,12 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(sut.activeTestSession?.id, 456, "Should load from cache")
         XCTAssertEqual(sut.activeSessionQuestionsAnswered, 3)
 
-        // trackActiveSessionDetected fires on every fetchActiveSession call — both the initial
-        // API fetch and subsequent cache-hit loads — because updateActiveSessionState is called
-        // unconditionally in both code paths. This means the event fires once per dashboard
-        // refresh cycle while a session is active, not only on first discovery.
+        // trackActiveSessionDetected fires only on fresh API fetches, not on cache-hit loads.
+        // The cache-hit path skips the analytics call to avoid inflating session-detection
+        // counts with repeated reads of already-known state.
         XCTAssertEqual(
-            mockAnalyticsService.trackActiveSessionDetectedCallCount, 2,
-            "trackActiveSessionDetected should fire on both the API call and the cache-hit call"
+            mockAnalyticsService.trackActiveSessionDetectedCallCount, 1,
+            "trackActiveSessionDetected should fire only on the initial API fetch, not on cache-hit reloads"
         )
     }
 
