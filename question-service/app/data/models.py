@@ -67,6 +67,24 @@ class GeneratedQuestion(BaseModel):
                 )
         return self
 
+    @model_validator(mode="after")
+    def validate_no_answer_in_question(self) -> "GeneratedQuestion":
+        """Reject questions where the correct answer or any option text leaks into the question body."""
+        question_lower = self.question_text.lower()
+        if self.correct_answer.lower() in question_lower:
+            raise ValueError(
+                f"correct_answer '{self.correct_answer}' appears as a substring of "
+                "question_text — the answer must not be revealed in the question body"
+            )
+        if self.answer_options:
+            for option in self.answer_options:
+                if option.lower() in question_lower:
+                    raise ValueError(
+                        f"answer_option '{option}' appears as a substring of "
+                        "question_text — answer options must not appear in the question body"
+                    )
+        return self
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for database insertion."""
         return {
