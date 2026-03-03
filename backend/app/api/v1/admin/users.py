@@ -74,6 +74,34 @@ async def get_cooldown_bypass(
 
 
 @router.patch(
+    "/user-flags/by-email/cooldown-bypass",
+    response_model=CooldownBypassStatus,
+)
+async def set_cooldown_bypass_by_email(
+    body: CooldownBypassUpdate,
+    email: str,
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    """Set or unset cooldown bypass by email. Requires X-Admin-Token header."""
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise_not_found(ErrorMessages.USER_NOT_FOUND)
+
+    user.bypass_cooldown = body.bypass_cooldown
+    await db.commit()
+    await db.refresh(user)
+
+    logger.info(
+        f"Admin set bypass_cooldown={body.bypass_cooldown} for user {user.id} ({email})"
+    )
+
+    return CooldownBypassStatus(user_id=user.id, bypass_cooldown=user.bypass_cooldown)
+
+
+@router.patch(
     "/user-flags/{user_id}/cooldown-bypass",
     response_model=CooldownBypassStatus,
 )
