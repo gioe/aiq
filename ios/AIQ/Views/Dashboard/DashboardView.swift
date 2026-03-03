@@ -221,7 +221,7 @@ struct DashboardView: View {
 /// Shared scroll container used by both dashboardContent and emptyState.
 /// Renders the common preamble (header, onboarding card, in-progress test card) followed
 /// by caller-supplied content via a @ViewBuilder closure.
-private struct DashboardScrollBody<OnboardingCard: View, BottomContent: View>: View {
+struct DashboardScrollBody<OnboardingCard: View, BottomContent: View>: View {
     let userName: String?
     let activeTestSession: TestSession?
     let questionsAnswered: Int?

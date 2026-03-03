@@ -296,6 +296,7 @@
 		F5EE7639E0CF8C80E0991EF8 /* ToastManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D5AC4F47FAFDCEE18F69897 /* ToastManagerTests.swift */; };
 		F72C86809705C7905142295B /* BiometricAuthManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11213FF1DC2D22E406EF823A /* BiometricAuthManagerTests.swift */; };
 		F72D5096AAE9AC2423EBDECA /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 578FAC9B7717F895FC3AE5CB /* OnboardingViewModel.swift */; };
+		F872DE0AE292C7F2B91DBE25 /* DashboardScrollBodyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B17332707DC76A794225D9A /* DashboardScrollBodyTests.swift */; };
 		F8D28DE01F161F392675F33F /* NumberExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E32836E4C5FF9CA1853060FC /* NumberExtensionsTests.swift */; };
 		F936E2A0F43FCA979BBE3977 /* MockServiceConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70608F3722C3538B465EA556 /* MockServiceConfiguration.swift */; };
 		F93BC9EFDC7FB233C2D7DF8D /* ColorPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110312C04FD9AC92B125E89D /* ColorPalette.swift */; };
@@ -411,6 +412,7 @@
 		371115D3822A172CFA005D0A /* NotificationPermissionBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationPermissionBanner.swift; sourceTree = "<group>"; };
 		3840D923065164044B435316 /* MainTabViewNotificationTappedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabViewNotificationTappedTests.swift; sourceTree = "<group>"; };
 		3A4B65E62F6171B7088396F6 /* MockModeDetector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockModeDetector.swift; sourceTree = "<group>"; };
+		3B17332707DC76A794225D9A /* DashboardScrollBodyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardScrollBodyTests.swift; sourceTree = "<group>"; };
 		3B5C1E149CCF4B87A4831570 /* BiometricAuthManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricAuthManager.swift; sourceTree = "<group>"; };
 		3C496159D2E04EA9B19FA657 /* NotificationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManagerTests.swift; sourceTree = "<group>"; };
 		3D026ECF13B446C281C58F76 /* NotificationServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationServiceTests.swift; sourceTree = "<group>"; };
@@ -697,6 +699,7 @@
 				42BF66297B81C3976226ED04 /* MemoryQuestionViewTests.swift */,
 				A5B06BA013E990ABEEDA78DD /* DifficultyBadgeTests.swift */,
 				3E76CB8FC47B1D9F5FE6FB50 /* BiometricLockViewTests.swift */,
+				3B17332707DC76A794225D9A /* DashboardScrollBodyTests.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1579,6 +1582,7 @@
 				CB80205554162400F23261A6 /* QuestionTimeTrackerTests.swift in Sources */,
 				212340F6E7E3946F5C4856E9 /* MockTimeProvider.swift in Sources */,
 				A0719326721984567C906017 /* OpenAPIServiceMapToAPIErrorTests.swift in Sources */,
+				F872DE0AE292C7F2B91DBE25 /* DashboardScrollBodyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
