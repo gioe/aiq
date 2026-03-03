@@ -77,6 +77,12 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(sut.activeTestSession?.status, "in_progress", "Should set correct status")
         XCTAssertEqual(sut.activeSessionQuestionsAnswered, 5, "Should set questions count")
         XCTAssertTrue(sut.hasActiveTest, "hasActiveTest should be true")
+        XCTAssertTrue(
+            mockAnalyticsService.trackActiveSessionDetectedCalled,
+            "trackActiveSessionDetected should be called when an active session is found"
+        )
+        XCTAssertEqual(mockAnalyticsService.lastDetectedSessionId, 123, "Should track correct sessionId")
+        XCTAssertEqual(mockAnalyticsService.lastDetectedQuestionsAnswered, 5, "Should track correct questionsAnswered")
     }
 
     func testFetchActiveSession_ErrorHandling() async {
@@ -299,6 +305,12 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should be cleared")
         XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should be false after abandoning")
         XCTAssertFalse(sut.isLoading, "isLoading should be false after completion")
+        XCTAssertTrue(
+            mockAnalyticsService.trackTestAbandonedFromDashboardCalled,
+            "trackTestAbandonedFromDashboard should be called on successful abandon"
+        )
+        XCTAssertEqual(mockAnalyticsService.lastAbandonedSessionId, 456, "Should track correct sessionId")
+        XCTAssertEqual(mockAnalyticsService.lastAbandonedQuestionsAnswered, 5, "Should track correct questionsAnswered")
     }
 
     func testAbandonActiveTest_NoActiveSession() async {
