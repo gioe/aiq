@@ -258,3 +258,87 @@ class TestBypassCooldownSkipsCadence:
 
         assert response.status_code == 400
         assert "days remaining" in response.json()["detail"]
+
+
+class TestDisableTestCadenceFlag:
+    """Tests that DISABLE_TEST_CADENCE=True bypasses the cadence check in POST /test/start."""
+
+    def test_disable_cadence_flag_allows_test_within_window(
+        self, client, db_session, test_questions
+    ):
+        """Any user can start a test within the cadence window when DISABLE_TEST_CADENCE=True."""
+        from unittest.mock import patch
+
+        from app.core.auth.security import create_access_token
+
+        user = User(
+            email="disable_cadence@example.com",
+            password_hash=hash_password("pw123"),
+            bypass_cooldown=False,
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create a recent completed session (within cadence window)
+        recent_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=datetime.utcnow() - timedelta(days=30, hours=1),
+            completed_at=datetime.utcnow() - timedelta(days=30),
+        )
+        db_session.add(recent_session)
+        db_session.commit()
+
+        headers = {
+            "Authorization": f"Bearer {create_access_token({'user_id': user.id})}"
+        }
+
+        with patch("app.api.v1.test.settings") as mock_settings:
+            mock_settings.DISABLE_TEST_CADENCE = True
+            mock_settings.TEST_CADENCE_DAYS = 90
+            mock_settings.TEST_TOTAL_QUESTIONS = 25
+            mock_settings.ADAPTIVE_TEST_PERCENTAGE = 0.0
+            response = client.post(
+                "/v1/test/start?question_count=2",
+                headers=headers,
+            )
+
+        assert response.status_code == 200
+        assert response.json()["session"]["status"] == "in_progress"
+
+    def test_disable_cadence_flag_false_still_enforces_cadence(
+        self, client, db_session, test_questions
+    ):
+        """When DISABLE_TEST_CADENCE=False, cadence check is still enforced."""
+        from app.core.auth.security import create_access_token
+
+        user = User(
+            email="cadence_enforced@example.com",
+            password_hash=hash_password("pw123"),
+            bypass_cooldown=False,
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        # Create a recent completed session (within cadence window)
+        recent_session = TestSession(
+            user_id=user.id,
+            status=TestStatus.COMPLETED,
+            started_at=datetime.utcnow() - timedelta(days=30, hours=1),
+            completed_at=datetime.utcnow() - timedelta(days=30),
+        )
+        db_session.add(recent_session)
+        db_session.commit()
+
+        headers = {
+            "Authorization": f"Bearer {create_access_token({'user_id': user.id})}"
+        }
+        response = client.post(
+            "/v1/test/start?question_count=2",
+            headers=headers,
+        )
+
+        assert response.status_code == 400
+        assert "days remaining" in response.json()["detail"]
