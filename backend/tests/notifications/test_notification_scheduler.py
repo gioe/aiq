@@ -267,6 +267,45 @@ class TestGetUsersDueForTest:
 
         assert len(users) == 0
 
+    @pytest.mark.asyncio
+    async def test_bypass_cooldown_user_excluded_from_notifications(
+        self, async_db_session
+    ):
+        """Users with bypass_cooldown=True are excluded from test-due notifications."""
+        bypass_user = User(
+            email="bypass_notif@example.com",
+            password_hash=hash_password("pw123"),
+            notification_enabled=True,
+            apns_device_token="bypasstoken" + "0" * 32,
+            bypass_cooldown=True,
+        )
+        async_db_session.add(bypass_user)
+        await async_db_session.commit()
+        await async_db_session.refresh(bypass_user)
+
+        # Create a test result that would normally qualify this user for a reminder
+        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        await create_test_result(async_db_session, bypass_user.id, six_months_ago)
+
+        users = await get_users_due_for_test(async_db_session)
+
+        assert bypass_user.id not in [u.id for u in users]
+
+    @pytest.mark.asyncio
+    async def test_non_bypass_user_still_included_in_notifications(
+        self, async_db_session, user_with_device_token
+    ):
+        """Users without bypass_cooldown are still included in test-due notifications."""
+        # user_with_device_token has bypass_cooldown=False (default)
+        six_months_ago = utc_now() - timedelta(days=settings.TEST_CADENCE_DAYS)
+        await create_test_result(
+            async_db_session, user_with_device_token.id, six_months_ago
+        )
+
+        users = await get_users_due_for_test(async_db_session)
+
+        assert user_with_device_token.id in [u.id for u in users]
+
 
 class TestGetUsersNeverTested:
     """Tests for get_users_never_tested function."""

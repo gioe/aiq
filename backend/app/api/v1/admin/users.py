@@ -112,6 +112,7 @@ async def set_cooldown_bypass(
 
     user.bypass_cooldown = body.bypass_cooldown
     await db.commit()
+    await db.refresh(user)
 
     logger.info(f"Admin set bypass_cooldown={body.bypass_cooldown} for user {user_id}")
 
