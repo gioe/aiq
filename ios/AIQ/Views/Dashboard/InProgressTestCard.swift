@@ -81,6 +81,7 @@ struct InProgressTestCard: View {
             }
         }
         .disabled(isAbandoning)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.inProgressTestCard)
     }
 

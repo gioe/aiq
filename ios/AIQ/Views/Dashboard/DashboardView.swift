@@ -203,7 +203,7 @@ struct DashboardView: View {
                 questionsAnswered: viewModel.activeSessionQuestionsAnswered,
                 onResume: {
                     viewModel.trackTestResumed()
-                    router.push(.testTaking())
+                    router.push(.testTaking(sessionId: activeSession.id))
                 },
                 onAbandon: { await viewModel.abandonActiveTest() }
             )

@@ -38,8 +38,9 @@ import Foundation
         /// - Parameter container: The ServiceContainer to register services with
         private static func requiresAuthentication(_ scenario: MockScenario) -> Bool {
             switch scenario {
-            case .loggedInWithHistory, .loggedInNoHistory, .testInProgress,
-                 .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure:
+            case .loggedInWithHistory, .loggedInNoHistory, .testInProgress, .memoryInProgress,
+                 .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure,
+                 .loggedInWithHistoryNilDate:
                 true
             default:
                 false
