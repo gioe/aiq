@@ -8,8 +8,13 @@ extension View {
     /// iOS banking-app pattern. iOS excludes the secure canvas layer from
     /// capture, so content embedded inside it appears blank in screenshots
     /// and screen recordings while remaining fully visible during normal use.
-    func screenshotPrevented() -> some View {
-        ScreenshotPreventedView(content: self)
+    ///
+    /// - Parameter accessibilityIdentifier: XCUITest identifier set directly on the
+    ///   underlying `ScreenshotContainerView`.  SwiftUI's `.accessibilityIdentifier()`
+    ///   modifier does not propagate through the UIViewRepresentable bridge, so the
+    ///   identifier must be injected here and applied at the UIKit level.
+    func screenshotPrevented(accessibilityIdentifier: String? = nil) -> some View {
+        ScreenshotPreventedView(content: self, accessibilityIdentifier: accessibilityIdentifier)
     }
 }
 
@@ -17,6 +22,7 @@ extension View {
 
 private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
     let content: Content
+    let accessibilityIdentifier: String?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -90,6 +96,12 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
             hostingController.didMove(toParent: parentVC)
         }
 
+        // Set the XCUITest identifier directly at the UIKit level.
+        // SwiftUI's .accessibilityIdentifier() modifier does not propagate through
+        // the UIViewRepresentable bridge to UIView.accessibilityIdentifier, so the
+        // identifier must be applied here to be discoverable by XCUITest.
+        container.accessibilityIdentifier = accessibilityIdentifier
+
         return container
     }
 
@@ -106,6 +118,7 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
     func updateUIView(_ uiView: ScreenshotContainerView, context: Context) {
         context.coordinator.hostingController?.rootView = content
         uiView.invalidateIntrinsicContentSize()
+        uiView.accessibilityIdentifier = accessibilityIdentifier
     }
 
     final class Coordinator {
@@ -137,6 +150,28 @@ private final class ScreenshotContainerView: UIView {
             return super.sizeThatFits(size)
         }
         return provider(size)
+    }
+
+    /// UIView's default `isAccessibilityElement` is `false`, which causes UIKit to
+    /// traverse into subviews.  The subviews here are a UITextField's private secure
+    /// canvas — opaque to the accessibility tree — so traversal finds nothing useful.
+    /// Returning `true` makes XCUITest and VoiceOver treat this container as a single
+    /// accessible element whose identifier is set directly via the `accessibilityIdentifier`
+    /// parameter on `.screenshotPrevented()`.
+    override var isAccessibilityElement: Bool {
+        get { true }
+        set { _ = newValue }
+    }
+
+    /// Stores the accessibility identifier injected via the `accessibilityIdentifier`
+    /// parameter on `.screenshotPrevented()`.  SwiftUI may reset `UIView.accessibilityIdentifier`
+    /// after `makeUIView`/`updateUIView` via its own accessibility bridge, so we lock the value
+    /// here: the getter always returns our stored id, ignoring any external clears.
+    private var _lockedAccessibilityId: String?
+
+    override var accessibilityIdentifier: String? {
+        get { _lockedAccessibilityId }
+        set { _lockedAccessibilityId = newValue }
     }
 
     override func didMoveToWindow() {
