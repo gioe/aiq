@@ -2,8 +2,9 @@
 
 import os
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -824,3 +825,182 @@ class TestInventoryAlertingIntegration:
                 content = f.read()
                 assert "CRITICAL" in content
                 assert "math/easy" in content
+
+
+class TestDiscordAlerting:
+    """Tests for Discord webhook alert functionality."""
+
+    FAKE_WEBHOOK = "https://discord.com/api/webhooks/test/fake"
+
+    def _make_manager(self, webhook: str = FAKE_WEBHOOK) -> AlertManager:
+        return AlertManager(discord_webhook_url=webhook)
+
+    def _billing_error(self, provider: str = "openai") -> ClassifiedError:
+        return ClassifiedError(
+            category=ErrorCategory.BILLING_QUOTA,
+            severity=ErrorSeverity.CRITICAL,
+            provider=provider,
+            original_error="BillingError",
+            message="Quota exhausted",
+            is_retryable=False,
+        )
+
+    # ------------------------------------------------------------------
+    # _send_discord_alert
+    # ------------------------------------------------------------------
+
+    def test_send_discord_alert_no_webhook_returns_false(self):
+        manager = AlertManager()  # no webhook
+        result = manager._send_discord_alert("title", "desc", 0xFF0000)
+        assert result is False
+
+    def test_send_discord_alert_http_success(self):
+        manager = self._make_manager()
+        with patch("urllib.request.urlopen") as mock_open:
+            mock_open.return_value.__enter__ = lambda s: s
+            mock_open.return_value.__exit__ = Mock(return_value=False)
+            result = manager._send_discord_alert("t", "d", 0xFF0000, fields=[])
+        assert result is True
+        assert mock_open.called
+
+    def test_send_discord_alert_http_failure_returns_false(self):
+        manager = self._make_manager()
+        with patch("urllib.request.urlopen", side_effect=Exception("network error")):
+            result = manager._send_discord_alert("t", "d", 0xFF0000)
+        assert result is False
+
+    def test_send_discord_alert_payload_format(self):
+        """Verify the JSON payload sent to Discord has the expected structure."""
+        import json
+
+        manager = self._make_manager()
+        captured = {}
+
+        def fake_urlopen(req, timeout):
+            captured["data"] = json.loads(req.data)
+            ctx = Mock()
+            ctx.__enter__ = lambda s: s
+            ctx.__exit__ = Mock(return_value=False)
+            return ctx
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            manager._send_discord_alert(
+                title="Test Title",
+                description="Test Desc",
+                color=0xDC3545,
+                fields=[{"name": "Provider", "value": "openai", "inline": True}],
+            )
+
+        payload = captured["data"]
+        assert "embeds" in payload
+        embed = payload["embeds"][0]
+        assert embed["title"] == "Test Title"
+        assert embed["description"] == "Test Desc"
+        assert embed["color"] == 0xDC3545
+        assert embed["fields"][0]["name"] == "Provider"
+
+    # ------------------------------------------------------------------
+    # send_circuit_breaker_alert
+    # ------------------------------------------------------------------
+
+    def test_circuit_breaker_alert_no_webhook_returns_false(self):
+        manager = AlertManager()
+        result = manager.send_circuit_breaker_alert("openai", "threshold exceeded")
+        assert result is False
+
+    def test_circuit_breaker_alert_sends_discord(self):
+        manager = self._make_manager()
+        with patch.object(
+            manager, "_send_discord_alert", return_value=True
+        ) as mock_send:
+            result = manager.send_circuit_breaker_alert(
+                "openai", "5 consecutive failures"
+            )
+        assert result is True
+        assert mock_send.called
+        args = mock_send.call_args
+        assert "openai" in args.kwargs.get("title", args[0][0] if args[0] else "")
+
+    def test_circuit_breaker_alert_sets_cooldown(self):
+        manager = self._make_manager()
+        with patch.object(manager, "_send_discord_alert", return_value=True):
+            manager.send_circuit_breaker_alert("openai", "reason")
+        assert "cb:openai" in manager._discord_cooldowns
+
+    def test_circuit_breaker_alert_cooldown_suppresses_second(self):
+        manager = self._make_manager()
+        with patch.object(
+            manager, "_send_discord_alert", return_value=True
+        ) as mock_send:
+            manager.send_circuit_breaker_alert("openai", "reason")
+            result = manager.send_circuit_breaker_alert("openai", "reason again")
+        assert result is False
+        # Only one actual Discord send should have occurred
+        assert mock_send.call_count == 1
+
+    def test_circuit_breaker_alert_different_providers_independent_cooldowns(self):
+        manager = self._make_manager()
+        with patch.object(
+            manager, "_send_discord_alert", return_value=True
+        ) as mock_send:
+            manager.send_circuit_breaker_alert("openai", "reason")
+            result = manager.send_circuit_breaker_alert("anthropic", "reason")
+        assert result is True
+        assert mock_send.call_count == 2
+
+    def test_circuit_breaker_alert_cooldown_expires(self):
+        manager = self._make_manager()
+        # Pre-set cooldown to 11 minutes ago (expired)
+        manager._discord_cooldowns["cb:openai"] = time.time() - 660
+        with patch.object(
+            manager, "_send_discord_alert", return_value=True
+        ) as mock_send:
+            result = manager.send_circuit_breaker_alert("openai", "new open")
+        assert result is True
+        assert mock_send.call_count == 1
+
+    # ------------------------------------------------------------------
+    # BILLING_QUOTA → Discord via send_alert
+    # ------------------------------------------------------------------
+
+    def test_send_alert_billing_quota_triggers_discord(self):
+        manager = self._make_manager()
+        with patch.object(
+            manager, "_send_discord_alert", return_value=True
+        ) as mock_send:
+            manager.send_alert(self._billing_error())
+        assert mock_send.called
+
+    def test_send_alert_rate_limit_does_not_trigger_discord(self):
+        manager = self._make_manager()
+        rate_error = ClassifiedError(
+            category=ErrorCategory.RATE_LIMIT,
+            severity=ErrorSeverity.HIGH,
+            provider="openai",
+            original_error="RateLimitError",
+            message="rate limit hit",
+            is_retryable=True,
+        )
+        with patch.object(
+            manager, "_send_discord_alert", return_value=True
+        ) as mock_send:
+            manager.send_alert(rate_error)
+        assert not mock_send.called
+
+    def test_billing_quota_alert_cooldown(self):
+        manager = self._make_manager()
+        with patch.object(
+            manager, "_send_discord_alert", return_value=True
+        ) as mock_send:
+            manager.send_alert(self._billing_error("openai"))
+            manager.send_alert(self._billing_error("openai"))
+        assert mock_send.call_count == 1
+
+    def test_discord_alert_callback_failure_does_not_raise(self):
+        """Discord failure must never propagate to the caller."""
+        manager = self._make_manager()
+        with patch.object(
+            manager, "_send_discord_alert", side_effect=RuntimeError("bang")
+        ):
+            # Should not raise
+            manager.send_circuit_breaker_alert("openai", "reason")

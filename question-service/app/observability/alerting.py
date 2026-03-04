@@ -5,9 +5,11 @@ when critical errors occur in the question generation pipeline, including
 low inventory alerts for question strata.
 """
 
+import json
 import logging
 import re
 import smtplib
+import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
@@ -38,6 +40,16 @@ class AlertManager:
     # Default SMTP timeout in seconds
     SMTP_TIMEOUT_SECONDS = 30
 
+    # Discord color codes (decimal)
+    DISCORD_COLOR_CRITICAL = 0xDC3545  # Red
+    DISCORD_COLOR_WARNING = 0xFFC107  # Amber
+
+    # Cooldown between Discord alerts for the same provider (seconds)
+    DISCORD_COOLDOWN_SECONDS = 600  # 10 minutes
+
+    # Timeout for Discord webhook HTTP requests (seconds)
+    DISCORD_HTTP_TIMEOUT = 10
+
     def __init__(
         self,
         email_enabled: bool = False,
@@ -48,6 +60,7 @@ class AlertManager:
         from_email: Optional[str] = None,
         to_emails: Optional[List[str]] = None,
         alert_file_path: Optional[str] = None,
+        discord_webhook_url: Optional[str] = None,
     ):
         """Initialize alert manager.
 
@@ -60,6 +73,7 @@ class AlertManager:
             from_email: Sender email address
             to_emails: List of recipient email addresses
             alert_file_path: Path to file for logging critical alerts
+            discord_webhook_url: Discord webhook URL for circuit breaker / quota alerts
         """
         self.email_enabled = email_enabled
         self.smtp_host = smtp_host
@@ -69,6 +83,10 @@ class AlertManager:
         self.from_email = from_email
         self.to_emails = to_emails or []
         self.alert_file_path = alert_file_path
+        self.discord_webhook_url = discord_webhook_url
+
+        # Track last Discord alert time per provider for cooldown enforcement
+        self._discord_cooldowns: Dict[str, float] = {}
 
         # Track alerts sent (capped to prevent unbounded memory growth)
         self.alerts_sent: List[dict] = []
@@ -106,8 +124,175 @@ class AlertManager:
 
         logger.info(
             f"AlertManager initialized: email_enabled={self.email_enabled}, "
-            f"alert_file={bool(self.alert_file_path)}"
+            f"alert_file={bool(self.alert_file_path)}, "
+            f"discord_enabled={bool(self.discord_webhook_url)}"
         )
+
+    # ------------------------------------------------------------------
+    # Discord alerting
+    # ------------------------------------------------------------------
+
+    def _is_discord_cooldown_active(self, provider: str) -> bool:
+        """Return True if a Discord alert was sent for this provider within the cooldown window."""
+        import time
+
+        last_sent = self._discord_cooldowns.get(provider)
+        return last_sent is not None and (
+            time.time() - last_sent < self.DISCORD_COOLDOWN_SECONDS
+        )
+
+    def _send_discord_alert(
+        self,
+        title: str,
+        description: str,
+        color: int,
+        fields: Optional[List[Dict[str, Any]]] = None,
+    ) -> bool:
+        """Send a Discord embed via webhook using stdlib urllib.
+
+        Args:
+            title: Embed title
+            description: Embed description
+            color: Embed color as decimal integer
+            fields: Optional list of embed fields ({name, value, inline})
+
+        Returns:
+            True if the request succeeded (HTTP 2xx)
+        """
+        if not self.discord_webhook_url:
+            return False
+
+        embed: Dict[str, Any] = {
+            "title": title,
+            "description": description,
+            "color": color,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        if fields:
+            embed["fields"] = fields
+
+        payload = json.dumps({"embeds": [embed]}).encode("utf-8")
+        req = urllib.request.Request(
+            url=self.discord_webhook_url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.DISCORD_HTTP_TIMEOUT):
+                pass  # Discord returns 204 No Content on success
+            return True
+        except Exception as exc:
+            logger.warning(f"Discord webhook request failed: {exc}")
+            return False
+
+    def send_circuit_breaker_alert(self, provider_name: str, reason: str) -> bool:
+        """Send a Discord alert when a circuit breaker opens (CLOSED→OPEN).
+
+        Alerts are suppressed if a Discord alert for the same provider was sent
+        within the last DISCORD_COOLDOWN_SECONDS (10 minutes).
+
+        Args:
+            provider_name: Provider whose circuit breaker opened
+            reason: Human-readable reason for the transition
+
+        Returns:
+            True if the alert was sent, False if suppressed or disabled
+        """
+        import time
+
+        if not self.discord_webhook_url:
+            logger.debug(
+                f"Discord webhook not configured; skipping circuit breaker alert for {provider_name}"
+            )
+            return False
+
+        cooldown_key = f"cb:{provider_name}"
+        if self._is_discord_cooldown_active(cooldown_key):
+            logger.debug(
+                f"Discord circuit breaker alert suppressed for {provider_name} (cooldown active)"
+            )
+            return False
+
+        title = f"\u26a0\ufe0f Circuit Breaker OPEN: {provider_name}"
+        description = (
+            f"The circuit breaker for **{provider_name}** has opened. "
+            "Requests to this provider are now failing fast until the recovery timeout elapses."
+        )
+        fields = [
+            {"name": "Provider", "value": provider_name, "inline": True},
+            {"name": "Reason", "value": reason, "inline": False},
+        ]
+        try:
+            sent = self._send_discord_alert(
+                title=title,
+                description=description,
+                color=self.DISCORD_COLOR_CRITICAL,
+                fields=fields,
+            )
+        except Exception:
+            logger.warning(
+                f"Unexpected error sending Discord circuit breaker alert for {provider_name}",
+                exc_info=True,
+            )
+            return False
+        if sent:
+            self._discord_cooldowns[cooldown_key] = time.time()
+            logger.info(f"Discord circuit breaker alert sent for {provider_name}")
+        return sent
+
+    def _send_billing_quota_discord_alert(
+        self,
+        classified_error: ClassifiedError,
+        context: Optional[str] = None,
+    ) -> bool:
+        """Send a Discord alert for a BILLING_QUOTA classified error.
+
+        Uses the same 10-minute per-provider cooldown as circuit breaker alerts.
+
+        Args:
+            classified_error: The classified BILLING_QUOTA error
+            context: Additional context string
+
+        Returns:
+            True if sent, False if suppressed or Discord not configured
+        """
+        import time
+
+        if not self.discord_webhook_url:
+            return False
+
+        cooldown_key = f"billing:{classified_error.provider}"
+        if self._is_discord_cooldown_active(cooldown_key):
+            logger.debug(
+                f"Discord billing quota alert suppressed for {classified_error.provider} (cooldown active)"
+            )
+            return False
+
+        title = f"\U0001f6a8 Billing Quota Exhausted: {classified_error.provider}"
+        description = classified_error.message
+        if context:
+            description += f"\n\n{context}"
+        fields: List[Dict[str, Any]] = [
+            {"name": "Provider", "value": classified_error.provider, "inline": True},
+            {
+                "name": "Severity",
+                "value": classified_error.severity.value.upper(),
+                "inline": True,
+            },
+        ]
+        sent = self._send_discord_alert(
+            title=title,
+            description=description,
+            color=self.DISCORD_COLOR_CRITICAL,
+            fields=fields,
+        )
+        if sent:
+            self._discord_cooldowns[cooldown_key] = time.time()
+            logger.info(
+                f"Discord billing quota alert sent for {classified_error.provider}"
+            )
+        return sent
 
     def send_alert(
         self,
@@ -145,6 +330,10 @@ class AlertManager:
             except Exception as e:
                 logger.error(f"Failed to write alert file: {e}")
                 success = False
+
+        # Send Discord alert for BILLING_QUOTA errors
+        if classified_error.category == ErrorCategory.BILLING_QUOTA:
+            self._send_billing_quota_discord_alert(classified_error, context)
 
         # Track alert (with bounded memory)
         self.alerts_sent.append(
