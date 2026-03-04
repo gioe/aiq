@@ -114,6 +114,7 @@ Mathematical reasoning is critical for evaluating IQ questions involving numeric
 ⚠️ claude-sonnet composite inflated — FrontierMath data missing, weight redistributed to 2 benchmarks.
 
 **Selected for Math Generation:** `gpt-5.2` (OpenAI)
+**Judge:** `claude-opus-4-5` (Anthropic)
 
 **Rationale:** GPT-5.2 leads all models with complete benchmark coverage: AIME 2025 (100%), FrontierMath (40.3%), GSM8K (99.0%), composite 81.79. Grok-4 has world-class AIME scores but FrontierMath (13.0%) drags its composite to 69.66 (Δ−12.1 vs gpt-5.2). Updated Mar 2026 via /refresh-providers. Fallback: google/gemini-3-pro-preview (composite 79.10).
 
@@ -133,6 +134,7 @@ Logical reasoning benchmarks assess the ability to evaluate deductive reasoning,
 ★ newly verified score (Mar 2026)
 
 **Selected for Logic Generation:** `claude-sonnet-4-5-20250929` (Anthropic)
+**Judge:** `gemini-3-pro-preview` (Google)
 
 **Rationale:** Claude Sonnet 4.5 combines exceptional coding benchmark performance (HumanEval >95%) with strong GPQA Diamond scores (83.4%) and leading SWE-bench results (77-82%), making it ideal for generating questions that measure logical reasoning.
 
@@ -154,6 +156,7 @@ Pattern recognition benchmarks measure abstract reasoning and the ability to ide
 *GPT-5.2 Pro and Gemini 3 Deep Think use extended reasoning modes not currently enabled in our pipeline.
 
 **Selected for Pattern Generation:** `gpt-5.2` (OpenAI)
+**Judge:** `gemini-3-pro-preview` (Google)
 
 **Rationale:** GPT-5.2 achieves the highest ARC-AGI-2 score (52.9% Thinking, 54.2% Pro) among all models, the gold-standard benchmark for abstract pattern reasoning. This represents a 70% improvement over Gemini 3 Pro standard mode (31.1%) and surpasses Claude Opus 4.5 (37.6%). Fallback: Claude Opus 4.5 (ARC-AGI-2: 37.6%).
 
@@ -172,6 +175,7 @@ Spatial reasoning benchmarks evaluate the ability to mentally manipulate objects
 ★ newly verified score (Mar 2026)
 
 **Selected for Spatial Generation:** `gpt-5.2` (OpenAI)
+**Judge:** `claude-opus-4-5` (Anthropic)
 
 **Rationale:** GPT-5.2 leads across all spatial reasoning benchmarks: ARC-AGI-2 (52.9%), MMMU-Pro (86.5%), and Video-MMMU (90.5%). Composite score 75.9. Fallback: Gemini 3 Pro (composite 65.5, ARC-AGI-2: 31.1%, MMMU-Pro: 81.0%, Video-MMMU: 87.6%).
 
@@ -189,6 +193,7 @@ Verbal reasoning benchmarks measure language understanding, reading comprehensio
 | gpt-4-turbo | 86.4% | - | - | - |
 
 **Selected for Verbal Generation:** `claude-sonnet-4-5-20250929` (Anthropic)
+**Judge:** `gemini-3-pro-preview` (Google)
 
 **Rationale:** Claude Sonnet 4.5 achieves strong MMLU performance (89%) and excellent HellaSwag scores (~95%), demonstrating superior language understanding and commonsense reasoning essential for evaluating verbal IQ questions.
 
@@ -206,6 +211,7 @@ Memory evaluation requires both broad knowledge and the ability to process long 
 | gpt-4-turbo | 86.4% | - | 128,000 tokens | - |
 
 **Selected for Memory Generation:** `gemini-3-pro-preview` (Google)
+**Judge:** `claude-opus-4-5` (Anthropic)
 
 **Rationale:** Gemini 3 Pro leads with composite score 72.3, combining top MMLU (91.8%) and MMLU-Pro (90.1%) scores with the largest usable context window (1M tokens, norm 50.0). This provides the strongest combination of knowledge breadth and context retention for memory-intensive evaluation.
 
