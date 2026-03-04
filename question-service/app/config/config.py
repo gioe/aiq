@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     alert_from_email: Optional[str] = None
     alert_to_emails: Optional[str] = None  # Comma-separated list
     alert_file_path: str = "./logs/alerts.log"
+    discord_webhook_url: Optional[str] = (
+        None  # Discord webhook for circuit breaker / quota alerts
+    )
 
     # Run Reporter Configuration
     enable_run_reporting: bool = True  # Enable/disable reporting to backend API

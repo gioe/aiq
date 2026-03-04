@@ -911,9 +911,19 @@ def main() -> int:
             from_email=settings.alert_from_email,
             to_emails=to_emails,
             alert_file_path=settings.alert_file_path,
+            discord_webhook_url=settings.discord_webhook_url,
         )
         logger.info(
-            f"Alert manager initialized (email={'enabled' if settings.enable_email_alerts else 'disabled'})"
+            f"Alert manager initialized (email={'enabled' if settings.enable_email_alerts else 'disabled'}, "
+            f"discord={'enabled' if settings.discord_webhook_url else 'disabled'})"
+        )
+
+        # Register circuit breaker open callback so Discord alerts fire when
+        # any provider's circuit transitions CLOSED → OPEN during this run.
+        from app.infrastructure.circuit_breaker import get_circuit_breaker_registry
+
+        get_circuit_breaker_registry().set_on_open_callback(
+            alert_manager.send_circuit_breaker_alert
         )
 
         # Initialize run reporter
