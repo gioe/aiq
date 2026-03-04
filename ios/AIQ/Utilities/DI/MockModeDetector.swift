@@ -145,4 +145,7 @@ enum MockScenario: String, CaseIterable {
 
     /// User is authenticated with sample test history but latestTestDateFormatted is nil
     case loggedInWithHistoryNilDate
+
+    /// User has an active test session whose first question is a memory type (stimulus phase)
+    case memoryInProgress
 }

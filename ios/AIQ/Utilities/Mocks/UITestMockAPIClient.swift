@@ -137,8 +137,11 @@ import Foundation
 
         func getTestSession(sessionId _: Int) async throws -> TestSessionStatusResponse {
             try throwIfNetworkError()
+            let questions = scenario == .memoryInProgress
+                ? UITestMockData.sampleMemoryQuestions
+                : UITestMockData.sampleQuestions
             return TestSessionStatusResponse(
-                questions: UITestMockData.sampleQuestions,
+                questions: questions,
                 questionsCount: 0,
                 session: UITestMockData.inProgressSession
             )
@@ -162,7 +165,8 @@ import Foundation
                     results: [],
                     totalCount: 0
                 )
-            case .loggedInWithHistory, .loggedInWithHistoryNilDate, .testInProgress, .loginFailure, .networkError:
+            case .loggedInWithHistory, .loggedInWithHistoryNilDate, .testInProgress, .loginFailure,
+                 .networkError, .memoryInProgress:
                 return PaginatedTestHistoryResponse(
                     hasMore: false,
                     limit: 50,
@@ -180,6 +184,12 @@ import Foundation
             case .testInProgress:
                 return TestSessionStatusResponse(
                     questions: UITestMockData.sampleQuestions,
+                    questionsCount: 0,
+                    session: UITestMockData.inProgressSession
+                )
+            case .memoryInProgress:
+                return TestSessionStatusResponse(
+                    questions: UITestMockData.sampleMemoryQuestions,
                     questionsCount: 0,
                     session: UITestMockData.inProgressSession
                 )
@@ -288,6 +298,16 @@ import Foundation
     /// Factory for creating mock data for UI tests
     enum UITestMockData {
         // MARK: - Sample Questions
+
+        static let sampleMemoryQuestions: [Question] = [
+            MockDataFactory.makeMemoryQuestion(
+                id: 10,
+                stimulus: "The sequence is: Red, Blue, Green, Yellow, Purple",
+                questionText: "Which color appeared first in the sequence?",
+                difficultyLevel: "medium",
+                answerOptions: ["Red", "Blue", "Green", "Yellow"]
+            )
+        ]
 
         static let sampleQuestions: [Question] = [
             MockDataFactory.makeQuestion(
