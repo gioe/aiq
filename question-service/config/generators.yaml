@@ -2,8 +2,9 @@
 # Maps question types to specific LLM providers for question generation
 #
 # Each question type is assigned to the provider that performs best
-# on relevant benchmarks for that cognitive domain. This is the same
-# mapping used for judging (Option A: specialists do both).
+# on relevant benchmarks for that cognitive domain. Judges are assigned
+# separately in judges.yaml using cross-provider judging (different provider
+# from generator to avoid self-evaluation bias).
 #
 # Configuration Structure:
 #   question_type:
@@ -31,12 +32,12 @@ version: "1.0"
 
 generators:
   math:
-    provider: "xai"
-    model: "grok-4"
+    provider: "openai"
+    model: "gpt-5.2"
     max_batch_size: 10
-    rationale: "Exceptional math performance: GSM8K (95.2%), AIME 2024 (100%), USAMO 2025 (61.9%). Grok 4 demonstrates world-class mathematical reasoning."
-    fallback: "openai"
-    fallback_model: "gpt-5.2"
+    rationale: "Leads all models with full benchmark coverage: AIME 2025 (100%), FrontierMath (40.3%), GSM8K (99.0%). Composite 81.79 — best among models with complete math data. Grok-4 was strong on AIME alone but scored 13% on FrontierMath, dragging its composite to 69.66. Updated Mar 2026."
+    fallback: "google"
+    fallback_model: "gemini-3-pro-preview"
 
   logic:
     provider: "anthropic"
@@ -93,4 +94,4 @@ use_specialist_routing: true
 # Notes:
 # - Provider names must match: "openai", "anthropic", "google", or "xai"
 # - Fallback is used when primary provider's circuit breaker is open
-# - This config aligns with judges.yaml for Option A (specialists do both)
+# - judges.yaml uses cross-provider judging (different provider than generator)

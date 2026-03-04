@@ -1,7 +1,7 @@
 # Benchmark scoring rubric and stored scores for /refresh-providers
 # Auto-updated by the skill. Manual edits to rubric/threshold are fine.
 
-last_updated: "2026-01-29"
+last_updated: "2026-03-03"
 
 # Composite delta must exceed this to recommend a provider change
 change_threshold: 5.0
@@ -60,7 +60,7 @@ scores:
     GSM8K:               { value: 99.0,  source: "third-party",           date: "2026-01-15" }
     GPQA_Diamond:        { value: 93.2,  source: "official-announcement", date: "2025-12-11" }
     SWE_bench_Verified:  { value: 80.0,  source: "artificial-analysis",  date: "2026-01-15" }
-    HumanEval:           { value: null }
+    HumanEval:           { value: 95.0,  source: "third-party",           date: "2026-03-03" }
     ARC_AGI_2:           { value: 52.9,  source: "official-announcement", date: "2025-12-11" }
     MMMU_Pro:            { value: 86.5,  source: "official-announcement", date: "2025-12-11" }
     Video_MMMU:          { value: 90.5,  source: "official-announcement", date: "2025-12-11" }
@@ -93,7 +93,7 @@ scores:
     GPQA_Diamond:        { value: 83.4,  source: "official-announcement", date: "2025-09-29" }
     SWE_bench_Verified:  { value: 77.2,  source: "official-announcement", date: "2025-09-29" }
     HumanEval:           { value: 95.0,  source: "official-announcement", date: "2025-09-29" }
-    ARC_AGI_2:           { value: null }
+    ARC_AGI_2:           { value: 13.6,  source: "arc-prize",             date: "2026-03-03" }
     MMMU_Pro:            { value: 55.0,  source: "third-party",           date: "2026-01-15" }
     Video_MMMU:          { value: null }
     MMLU:                { value: 89.0,  source: "official-announcement", date: "2025-09-29" }
@@ -105,10 +105,10 @@ scores:
   gemini-3-pro-preview:
     AIME_2025:           { value: 95.0,  source: "official-announcement", date: "2025-11-18" }
     FrontierMath:        { value: 38.0,  source: "epoch-ai",              date: "2025-11-18" }
-    GSM8K:               { value: null }
+    GSM8K:               { value: 99.0,  source: "third-party",           date: "2026-03-03" }
     GPQA_Diamond:        { value: 91.9,  source: "official-announcement", date: "2025-11-18" }
     SWE_bench_Verified:  { value: 76.2,  source: "official-announcement", date: "2025-11-18" }
-    HumanEval:           { value: null }
+    HumanEval:           { value: 93.0,  source: "third-party",           date: "2026-03-03" }
     ARC_AGI_2:           { value: 31.1,  source: "official-announcement", date: "2025-11-18" }
     MMMU_Pro:            { value: 81.0,  source: "official-announcement", date: "2025-11-18" }
     Video_MMMU:          { value: 87.6,  source: "official-announcement", date: "2025-11-18" }
@@ -124,9 +124,9 @@ scores:
     GSM8K:               { value: 95.2,  source: "official-announcement", date: "2025-07-10" }
     GPQA_Diamond:        { value: 88.0,  source: "official-announcement", date: "2025-07-10" }
     SWE_bench_Verified:  { value: 72.0,  source: "third-party",          date: "2025-07-10" }
-    HumanEval:           { value: null }
+    HumanEval:           { value: 88.0,  source: "third-party",          date: "2026-03-03" }
     ARC_AGI_2:           { value: 16.0,  source: "third-party",          date: "2025-08-01" }
-    MMMU_Pro:            { value: null }
+    MMMU_Pro:            { value: 59.2,  source: "third-party",          date: "2026-03-03" }
     Video_MMMU:          { value: null }
     MMLU:                { value: 92.1,  source: "official-announcement", date: "2025-07-10" }
     MMLU_Pro:            { value: 87.0,  source: "third-party",          date: "2025-07-10" }
