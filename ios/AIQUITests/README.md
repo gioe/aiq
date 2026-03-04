@@ -154,6 +154,26 @@ The test is designed to skip when:
 
 #### Element Not Found Errors
 
+**First step: dump the accessibility tree.** Add `print(app.debugDescription)` in the failing test before any assertions. This prints the complete hierarchy of all visible elements with their identifiers, labels, and types — instantly revealing what is actually on screen and under what identifier:
+
+```swift
+// Add at the point of failure to see the full accessibility tree:
+print(app.debugDescription)
+```
+
+Example output:
+```
+Application, pid: 12345, label: 'AIQ'
+  Window, ...
+    Other, ...
+      TabBar, ...
+        Button, label: 'Dashboard', identifier: 'tabBar.dashboard', ...
+      Other, identifier: 'dashboardView', ...
+        Button, label: 'Start Test', identifier: 'startTestButton', ...
+```
+
+This is the fastest way to diagnose missing or misnamed identifiers — faster than Xcode's Accessibility Inspector for failures that only reproduce at runtime.
+
 1. Review accessibility identifiers in `AccessibilityIdentifiers.swift`
 2. Check if UI has changed since tests were written
 3. Use Accessibility Inspector to verify element identifiers

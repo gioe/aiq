@@ -337,6 +337,25 @@ class BaseUITest: XCTestCase {
         XCTAssertTrue(element.isHittable, message)
     }
 
+    // MARK: - Debugging
+
+    //
+    // When a test fails with "element not found", print `app.debugDescription` to dump
+    // the full accessibility tree immediately. This reveals every element's identifier,
+    // label, and hierarchy — making it clear exactly what is visible and under what path:
+    //
+    //   print(app.debugDescription)
+    //
+    // Example output:
+    //   Application, ..., identifier: 'com.example.AIQ'
+    //     Window, ...
+    //       Other, ...
+    //         Button, label: 'Sign In', identifier: 'signInButton', ...
+    //
+    // This is the fastest diagnostic for "element not found" failures and avoids
+    // guessing at identifier names or spellings. Use it before reaching for Accessibility
+    // Inspector or adding breakpoints.
+
     // MARK: - App State Helpers
 
     /// Wait for the app to enter a backgrounded state
