@@ -7,13 +7,12 @@
 
 import XCTest
 
-/// UI tests that verify the `stimulusCard` accessibility identifier survives the
-/// `UIViewRepresentable` bridge introduced by the `.screenshotPrevented()` modifier.
+/// UI tests that verify the `stimulusCard` accessibility identifier is reachable from XCUITest.
 ///
-/// The `.screenshotPrevented()` modifier wraps the stimulus `VStack` inside a
-/// `UIHostingController` embedded in a `UITextField`'s secure canvas.  This UIKit
-/// bridge layer can reorder the accessibility tree, making elements set via SwiftUI's
-/// `.accessibilityIdentifier(_:)` unreachable from XCUITest.
+/// The stimulus card shell is a pure SwiftUI `VStack` with `.accessibilityElement(children: .contain)`
+/// and `.accessibilityIdentifier("memoryQuestionView.stimulusCard")`.  Only the inner `Text(stimulus)`
+/// is wrapped in `.screenshotPrevented()`, so the card itself appears in the accessibility tree as a
+/// native SwiftUI `otherElement` — identical to `QuestionCardView`.
 ///
 /// These tests launch the app with the `memoryInProgress` mock scenario so the
 /// dashboard immediately shows an in-progress session whose first question is a
@@ -62,12 +61,10 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
         // Wait for TestTakingView navigation to complete before asserting stimulus card
         _ = wait(for: app.buttons["testTakingView.exitButton"], timeout: extendedTimeout)
 
-        // The stimulusCard identifier must survive the UIViewRepresentable bridge
-        // applied by screenshotPrevented().
+        // The stimulusCard is a pure SwiftUI VStack — it should be directly reachable.
         XCTAssertTrue(
             wait(for: stimulusCard, timeout: extendedTimeout),
-            "memoryQuestionView.stimulusCard should be reachable via XCUITest " +
-                "after the UIViewRepresentable bridge introduced by screenshotPrevented()"
+            "memoryQuestionView.stimulusCard should be reachable via XCUITest as a native SwiftUI element"
         )
         takeScreenshot(named: "StimulusCard_Exists")
     }
@@ -89,19 +86,16 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
 
         XCTAssertTrue(
             waitForHittable(stimulusCard, timeout: extendedTimeout),
-            "memoryQuestionView.stimulusCard should be hittable, confirming the " +
-                "UIViewRepresentable bridge does not suppress the element's hit-testability"
+            "memoryQuestionView.stimulusCard should be hittable as a native SwiftUI element"
         )
         takeScreenshot(named: "StimulusCard_Hittable")
     }
 
-    /// Regression guard for TASK-1370: verifies the stimulus card renders taller than
-    /// UITextField's default secure-canvas height (~34 pt).
+    /// Verifies the stimulus card renders taller than UITextField's default height (~34 pt).
     ///
-    /// Without the `preferredSizeProvider` wiring added to `ScreenshotContainerView` in
-    /// TASK-1370, the `UIHostingController` would be constrained to UITextField's intrinsic
-    /// ~34 pt height.  This test fails if either the `preferredSizeProvider` closure or the
-    /// `invalidateIntrinsicContentSize()` call is accidentally removed.
+    /// The card shell is now a pure SwiftUI VStack, so its height is determined by SwiftUI
+    /// layout (not UITextField's intrinsic size).  This test guards against any regression
+    /// that re-introduces UIKit size constraints on the card.
     func testStimulusCard_HeightExceedsUITextFieldDefault() {
         XCTAssertTrue(
             wait(for: resumeButton, timeout: networkTimeout),

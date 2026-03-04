@@ -64,7 +64,10 @@ struct MemoryQuestionView: View {
                         .fontWeight(.medium)
                         .fixedSize(horizontal: false, vertical: true)
                         .foregroundColor(.primary)
-                        .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.stimulusText)
+                        .screenshotPrevented(
+                            accessibilityIdentifier: AccessibilityIdentifiers.MemoryQuestionView.stimulusText,
+                            accessibilityLabel: stimulusAccessibilityLabel
+                        )
                 }
             }
             .padding(24)
@@ -72,10 +75,8 @@ struct MemoryQuestionView: View {
             .background(Color(.systemBackground))
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-            .screenshotPrevented(
-                accessibilityIdentifier: AccessibilityIdentifiers.MemoryQuestionView.stimulusCard,
-                accessibilityLabel: stimulusAccessibilityLabel
-            )
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.stimulusCard)
 
             // Continue button
             PrimaryButton(
