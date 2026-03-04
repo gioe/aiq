@@ -22,10 +22,10 @@ AIQ integrates with four major LLM providers:
 
 | Provider | Current Default Model | Primary Use Case |
 |----------|----------------------|------------------|
-| **Anthropic** | claude-sonnet-4-5-20250929 | Logic, Verbal evaluation |
-| **Google** | gemini-3-pro-preview | Memory evaluation; Spatial fallback |
-| **OpenAI** | gpt-5.2 | Pattern, Spatial evaluation; Math/Logic fallback |
-| **xAI** | grok-4 | Mathematical reasoning |
+| **Anthropic** | claude-sonnet-4-5-20250929 | Logic, Verbal generation |
+| **Google** | gemini-3-pro-preview | Memory generation; Math/Spatial fallback |
+| **OpenAI** | gpt-5.2 | Math, Pattern, Spatial generation; Logic/Verbal fallback |
+| **xAI** | grok-4 | Math generation fallback (strong AIME) |
 
 ### Available Models by Provider
 
@@ -89,7 +89,7 @@ The following table shows which models excel at each cognitive task type used in
 
 | Task Type | Best Model | Provider | Key Benchmark | Score |
 |-----------|------------|----------|---------------|-------|
-| **Math** | grok-4 | xAI | AIME 2024 | 100% |
+| **Math** | gpt-5.2 | OpenAI | AIME 2025 + FrontierMath (composite 81.79) | 100% / 40.3% |
 | **Logic** | claude-sonnet-4-5 | Anthropic | SWE-bench | 77-82% |
 | **Pattern** | gpt-5.2 | OpenAI | ARC-AGI-2 | 52.9% |
 | **Spatial** | gpt-5.2 | OpenAI | ARC-AGI-2 | 52.9% |
@@ -102,18 +102,20 @@ The following table shows which models excel at each cognitive task type used in
 
 Mathematical reasoning is critical for evaluating IQ questions involving numerical patterns, algebraic problems, and quantitative logic.
 
-| Model | GSM8K | AIME 2024 | AIME 2025 | USAMO 2025 | MATH | FrontierMath |
-|-------|-------|-----------|-----------|------------|------|--------------|
-| **grok-4** | 95.2% | **100%** | 93.0% | **61.9%** | - | 13.0% |
-| **gpt-5.2** | 99.0% | - | **100%** | - | - | **40.3%** |
-| claude-opus-4-5 | 96.4% | - | 92.8% | - | 96.4% | 21.0% |
-| claude-sonnet-4-5 | 98.0% | - | 87.0% | - | - | - |
-| gemini-3-pro-preview | - | - | 95% | - | - | 38.0% |
-| gpt-4-turbo | 92.0% | - | - | - | 52.9% | - |
+| Model | GSM8K | AIME 2024 | AIME 2025 | USAMO 2025 | MATH | FrontierMath | Composite |
+|-------|-------|-----------|-----------|------------|------|--------------|-----------|
+| **gpt-5.2** | 99.0% | - | **100%** | - | - | **40.3%** | **81.79** |
+| gemini-3-pro-preview | 99.0% | - | 95.0% | - | - | 38.0% | 79.10 |
+| claude-opus-4-5 | 96.4% | - | 92.8% | - | 96.4% | 21.0% | 72.34 |
+| grok-4 | 95.2% | **100%** | 93.0% | **61.9%** | - | 13.0% | 69.66 |
+| claude-sonnet-4-5 | 98.0% | - | 87.0% | - | - | - | 91.71 ⚠️ |
+| gpt-4-turbo | 92.0% | - | - | - | 52.9% | - | - |
 
-**Selected for Math Evaluation:** `grok-4` (xAI)
+⚠️ claude-sonnet composite inflated — FrontierMath data missing, weight redistributed to 2 benchmarks.
 
-**Rationale:** Grok 4 demonstrates world-class mathematical reasoning with a perfect 100% score on AIME 2024 and exceptional 61.9% on USAMO 2025, outperforming competitors on advanced competition mathematics.
+**Selected for Math Generation:** `gpt-5.2` (OpenAI)
+
+**Rationale:** GPT-5.2 leads all models with complete benchmark coverage: AIME 2025 (100%), FrontierMath (40.3%), GSM8K (99.0%), composite 81.79. Grok-4 has world-class AIME scores but FrontierMath (13.0%) drags its composite to 69.66 (Δ−12.1 vs gpt-5.2). Updated Mar 2026 via /refresh-providers. Fallback: google/gemini-3-pro-preview (composite 79.10).
 
 ### Logical Reasoning
 
@@ -121,12 +123,14 @@ Logical reasoning benchmarks assess the ability to evaluate deductive reasoning,
 
 | Model | HumanEval | GPQA Diamond | SWE-bench Verified | SWE-bench Pro | LiveCodeBench |
 |-------|-----------|--------------|-------------------|---------------|---------------|
-| **claude-sonnet-4-5** | >95% | 83.4% | **77-82%** | - | - |
+| **claude-sonnet-4-5** | 95.0% | 83.4% | **77-82%** | - | - |
 | claude-opus-4-5 | 97.6% | 83.3% | 80.9% | - | - |
-| gpt-5.2 | - | **92.4-93.2%** | 80.0% | 55.6% | - |
-| gemini-3-pro-preview | - | 91.9% | 76.2% | - | - |
+| gpt-5.2 | **95.0%** ★ | **92.4-93.2%** | 80.0% | 55.6% | - |
+| gemini-3-pro-preview | 93.0% ★ | 91.9% | 76.2% | - | - |
 | gpt-4-turbo | 87.1% | - | - | - | - |
-| grok-4 | - | 88.0% | 72.0% | - | - |
+| grok-4 | 88.0% ★ | 88.0% | 72.0% | - | - |
+
+★ newly verified score (Mar 2026)
 
 **Selected for Logic Evaluation:** `claude-sonnet-4-5-20250929` (Anthropic)
 
@@ -141,9 +145,11 @@ Pattern recognition benchmarks measure abstract reasoning and the ability to ide
 | **gpt-5.2** | **52.9%** | **54.2%** (Pro) | **86.5%** | - |
 | gemini-3-pro-preview | 31.1% | 45.1% (Deep Think) | 81.0% | 62% |
 | claude-opus-4-5 | 37.6% | - | 60.0% | - |
-| claude-sonnet-4-5 | - | - | 55.0% | - |
-| grok-4 | 16.0% | - | - | - |
+| claude-sonnet-4-5 | 13.6% ★ | - | 55.0% | - |
+| grok-4 | 16.0% | - | 59.2% ★ | - |
 | gpt-4-turbo | - | - | - | - |
+
+★ newly verified score (Mar 2026)
 
 *GPT-5.2 Pro and Gemini 3 Deep Think use extended reasoning modes not currently enabled in our pipeline.
 
@@ -160,8 +166,10 @@ Spatial reasoning benchmarks evaluate the ability to mentally manipulate objects
 | **gpt-5.2** | **52.9%** | **86.5%** | - | **90.5%** |
 | claude-opus-4-5 | 37.6% | 60.0% | - | - |
 | gemini-3-pro-preview | 31.1% | 81.0% | 62% | 87.6% |
-| grok-4 | 16.0% | - | - | - |
+| grok-4 | 16.0% | 59.2% ★ | - | - |
 | gpt-4-turbo | - | - | - | - |
+
+★ newly verified score (Mar 2026)
 
 **Selected for Spatial Evaluation:** `gpt-5.2` (OpenAI)
 
@@ -203,21 +211,20 @@ Memory evaluation requires both broad knowledge and the ability to process long 
 
 ## Model Selection Rationale
 
-AIQ uses a "specialists-do-both" approach where the same model that excels at a cognitive task type is used for both:
-1. **Generating** questions of that type
-2. **Evaluating** (judging) questions of that type
+AIQ uses **cross-provider judging**: the judge for each question type uses a *different* provider than the generator. This prevents self-evaluation bias and improves question quality by having an independent model assess generated output.
 
-This ensures domain expertise is applied consistently throughout the pipeline.
+- **Generator** = specialist model for that cognitive domain
+- **Judge** = generator's configured fallback provider (independent verification)
 
-| Question Type | Generator | Judge | Provider | Fallback Provider |
-|---------------|-----------|-------|----------|-------------------|
-| Math | grok-4 | grok-4 | xAI | OpenAI |
-| Logic | claude-sonnet-4-5 | claude-sonnet-4-5 | Anthropic | OpenAI |
-| Pattern | gpt-5.2 | gpt-5.2 | OpenAI | Anthropic |
-| Spatial | gpt-5.2 | gpt-5.2 | OpenAI | Google |
-| Verbal | claude-sonnet-4-5 | claude-sonnet-4-5 | Anthropic | OpenAI |
-| Memory | gemini-3-pro | gemini-3-pro | Google | OpenAI |
-| Default | gpt-4-turbo | gpt-4-turbo | OpenAI | Anthropic |
+| Question Type | Generator | Provider | Judge | Provider | Gen Fallback |
+|---------------|-----------|----------|-------|----------|--------------|
+| Math | gpt-5.2 | OpenAI | gemini-3-pro-preview | Google | Google |
+| Logic | claude-sonnet-4-5 | Anthropic | gpt-5.2 | OpenAI | OpenAI |
+| Pattern | gpt-5.2 | OpenAI | claude-opus-4-5 | Anthropic | Anthropic |
+| Spatial | gpt-5.2 | OpenAI | gemini-3-pro-preview | Google | Google |
+| Verbal | claude-sonnet-4-5 | Anthropic | gpt-5.2 | OpenAI | OpenAI |
+| Memory | gemini-3-pro | Google | gpt-5.2 | OpenAI | OpenAI |
+| Default | gpt-4-turbo | OpenAI | claude-sonnet-4-5 | Anthropic | Anthropic |
 
 ## Benchmark Sources
 
@@ -264,5 +271,5 @@ All benchmark data is sourced from official provider announcements, research pap
 
 ---
 
-*Last updated: 2026-01-29*
+*Last updated: 2026-03-03*
 *See also: [question-service/docs/PERFORMANCE.md](../question-service/docs/PERFORMANCE.md) for operational performance metrics*

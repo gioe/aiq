@@ -1,8 +1,10 @@
 # Judge Model Configuration
 # Maps question types to specific judge models for quality evaluation
 #
-# Each question type can be evaluated by a different model based on
-# benchmark performance and domain expertise.
+# Each question type is evaluated by a model from a DIFFERENT provider
+# than the generator. This prevents self-evaluation bias (same model
+# judging its own output). The judge is typically the generator's
+# configured fallback provider, which already has domain-relevant rationale.
 #
 # Configuration Structure:
 #   question_type:
@@ -31,86 +33,84 @@ version: "1.0"
 
 judges:
   math:
-    model: "grok-4"
-    provider: "xai"
-    rationale: "Exceptional math performance: GSM8K (95.2%), AIME 2024 (100%), USAMO 2025 (61.9%). Grok 4 demonstrates world-class mathematical reasoning with perfect scores on advanced math competitions."
+    model: "gemini-3-pro-preview"
+    provider: "google"
+    rationale: "Cross-provider judge: generator is openai/gpt-5.2. Gemini 3 Pro provides independent math evaluation — AIME 2025 (95%), FrontierMath (38%), GSM8K (99%), composite 79.10. Using a different provider prevents self-evaluation bias. Updated Mar 2026."
     benchmark_data:
-      GSM8K: "95.2%"
-      AIME_2024: "100%"
-      USAMO_2025: "61.9%"
-      MMLU: "92.1%"
-    enabled: true
-    fallback: "openai"
-    fallback_model: "gpt-5.2"
-    # Decision Log (Jan 2026): Evaluated Grok 4 Heavy as alternative.
-    # Grok 4 Heavy achieves identical USAMO performance (61.9%) but is NOT available
-    # via API - only through SuperGrok Heavy subscription ($300/month). The multi-agent
-    # architecture adds 4-7x latency overhead with no meaningful improvement for our
-    # math judging use case. Keeping grok-4 as optimal choice for API-accessible math judging.
-
-  logic:
-    model: "claude-sonnet-4-5-20250929"
-    provider: "anthropic"
-    rationale: "Claude Sonnet 4.5 (Jan 2026): SWE-bench verified 77-82%, GPQA Diamond 83.4%, HumanEval >95%. Major upgrade from Claude 3.5 Sonnet with superior logical reasoning and coding capabilities."
-    benchmark_data:
-      HumanEval: ">95%"
-      GPQA_Diamond: "83.4%"
-      SWE_bench: "77-82%"
-    enabled: true
-    fallback: "openai"
-    fallback_model: "gpt-5.2"
-
-  pattern:
-    model: "gpt-5.2"
-    provider: "openai"
-    rationale: "Leads abstract reasoning: ARC-AGI-2 (52.9%), MMMU-Pro (86.5%). Surpasses Gemini 3 Pro (31.1%) and Claude Opus 4.5 (37.6%) on pattern recognition. Updated Jan 2026."
-    benchmark_data:
-      ARC_AGI_2: "52.9%"
-      MMMU_Pro: "86.5%"
+      AIME_2025: "95.0%"
+      FrontierMath: "38.0%"
+      GSM8K: "99.0%"
+      GPQA_Diamond: "91.9%"
     enabled: true
     fallback: "anthropic"
     fallback_model: "claude-opus-4-5-20251101"
 
-  spatial:
+  logic:
     model: "gpt-5.2"
     provider: "openai"
-    rationale: "Leads spatial reasoning: ARC-AGI-2 (52.9%), MMMU-Pro (86.5%), Video-MMMU (90.5%). Composite 75.9. Fallback upgraded to Gemini 3 Pro (composite 65.5). Updated Jan 2026."
+    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5. GPT-5.2 provides independent logic evaluation — GPQA Diamond (93.2%), SWE-bench Verified (80%), HumanEval (95%), composite 89.03. Strongest non-anthropic model for logical reasoning. Updated Mar 2026."
     benchmark_data:
-      ARC_AGI_2: "52.9%"
-      MMMU_Pro: "86.5%"
-      Video_MMMU: "90.5%"
+      GPQA_Diamond: "93.2%"
+      SWE_bench_Verified: "80.0%"
+      HumanEval: "95.0%"
     enabled: true
     fallback: "google"
     fallback_model: "gemini-3-pro-preview"
 
-  verbal:
-    model: "claude-sonnet-4-5-20250929"
+  pattern:
+    model: "claude-opus-4-5-20251101"
     provider: "anthropic"
-    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89%, HellaSwag ~95%. Enhanced language understanding and generation with superior performance on natural language reasoning tasks."
+    rationale: "Cross-provider judge: generator is openai/gpt-5.2. Claude Opus 4.5 provides independent pattern evaluation — ARC-AGI-2 (37.6%), MMMU-Pro (60%), composite 46.56. Best non-openai model for abstract reasoning evaluation. Updated Mar 2026."
     benchmark_data:
-      MMLU: "89%"
-      HellaSwag: "~95%"
+      ARC_AGI_2: "37.6%"
+      MMMU_Pro: "60.0%"
+      HumanEval: "97.6%"
     enabled: true
-    fallback: "openai"
-    fallback_model: "gpt-5.2"
+    fallback: "google"
+    fallback_model: "gemini-3-pro-preview"
 
-  memory:
+  spatial:
     model: "gemini-3-pro-preview"
     provider: "google"
-    rationale: "Composite 72.3 leads all models. MMLU 91.8% with 1M token context window. Strong knowledge + largest context for memory-intensive evaluation. Updated Jan 2026."
+    rationale: "Cross-provider judge: generator is openai/gpt-5.2. Gemini 3 Pro provides independent spatial evaluation — ARC-AGI-2 (31.1%), MMMU-Pro (81%), Video-MMMU (87.6%), composite 65.52. Best non-openai model for spatial reasoning. Updated Mar 2026."
     benchmark_data:
-      MMLU: "91.8%"
-      MMLU_Pro: "90.1%"
-      context_window: "1,000,000 tokens"
+      ARC_AGI_2: "31.1%"
+      MMMU_Pro: "81.0%"
+      Video_MMMU: "87.6%"
     enabled: true
-    fallback: "openai"
-    fallback_model: "gpt-5.2"
+    fallback: "anthropic"
+    fallback_model: "claude-opus-4-5-20251101"
+
+  verbal:
+    model: "gpt-5.2"
+    provider: "openai"
+    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5. GPT-5.2 provides independent verbal evaluation — MMLU (88%), MMLU-Pro (83%), composite 85.67. Strong language understanding without self-evaluation bias. Updated Mar 2026."
+    benchmark_data:
+      MMLU: "88.0%"
+      MMLU_Pro: "83.0%"
+      HumanEval: "95.0%"
+    enabled: true
+    fallback: "google"
+    fallback_model: "gemini-3-pro-preview"
+
+  memory:
+    model: "gpt-5.2"
+    provider: "openai"
+    rationale: "Cross-provider judge: generator is google/gemini-3-pro-preview. GPT-5.2 provides independent memory evaluation — MMLU (88%), 400K context window, composite 56.27. Best non-google model for knowledge and retention assessment. Updated Mar 2026."
+    benchmark_data:
+      MMLU: "88.0%"
+      MMLU_Pro: "83.0%"
+      context_window: "400,000 tokens"
+    enabled: true
+    fallback: "anthropic"
+    fallback_model: "claude-opus-4-5-20251101"
 
 # Default judge (fallback for unknown question types)
+# Uses anthropic since default_generator uses openai — cross-provider convention.
 default_judge:
-  model: "gpt-4-turbo"
-  provider: "openai"
-  rationale: "General-purpose fallback judge"
+  model: "claude-sonnet-4-5-20250929"
+  provider: "anthropic"
+  rationale: "Cross-provider fallback judge: default generator is openai/gpt-4-turbo"
   enabled: true
 
 # Evaluation criteria weights (0.0 to 1.0)
