@@ -3245,6 +3245,30 @@ Before implementing accessibility, review these frequent mistakes:
 | `.updatesFrequently` on loading views | Adding to LoadingOverlay, LoadingView | Only use for timers, live counters |
 | `.accessibilityValue` overuse | Using on static text elements | Only for adjustable controls (sliders, steppers) |
 | Missing menu hints | Menu without `.accessibilityHint` | Always explain "Double tap to open menu..." |
+| Accessibility modifiers before `.screenshotPrevented()` | Chaining `.accessibilityIdentifier()` / `.accessibilityLabel()` on a view before calling `.screenshotPrevented()` | Pass them as parameters: `.screenshotPrevented(accessibilityIdentifier:accessibilityLabel:)` |
+
+#### UIViewRepresentable Accessibility Bridge: `.screenshotPrevented()`
+
+SwiftUI accessibility modifiers applied to a view **before** `.screenshotPrevented()` are **silently dropped**.  The modifier wraps its content in a `UIViewRepresentable`, which replaces the SwiftUI node in the iOS accessibility tree with the underlying UIKit container view.  Any `.accessibilityIdentifier()`, `.accessibilityLabel()`, or `.accessibilityElement()` applied outside the modifier — whether before or after — never reach the UIKit layer.
+
+**Always pass accessibility values as parameters:**
+
+```swift
+// ✅ Correct — identifier and label applied at the UIKit level
+myView
+    .screenshotPrevented(
+        accessibilityIdentifier: "questionCard",
+        accessibilityLabel: "Question card"
+    )
+
+// ❌ Silent failure — SwiftUI modifiers dropped by the UIViewRepresentable bridge
+myView
+    .accessibilityIdentifier("questionCard")   // dropped
+    .accessibilityLabel("Question card")       // dropped
+    .screenshotPrevented()
+```
+
+This limitation is inherent to how `UIViewRepresentable` integrates with the SwiftUI accessibility tree and is not specific to this project.  It applies to any custom `UIViewRepresentable` wrapper.
 
 ### VoiceOver Support
 

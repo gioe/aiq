@@ -9,6 +9,28 @@ extension View {
     /// capture, so content embedded inside it appears blank in screenshots
     /// and screen recordings while remaining fully visible during normal use.
     ///
+    /// ## Accessibility Bridge Limitation
+    ///
+    /// SwiftUI accessibility modifiers applied to a view **before** calling
+    /// `.screenshotPrevented()` are **silently dropped**.  Internally this modifier
+    /// wraps its content in a `UIViewRepresentable`, which replaces the SwiftUI node
+    /// in the accessibility tree with the underlying UIKit view.  As a result,
+    /// `.accessibilityIdentifier()`, `.accessibilityLabel()`, and
+    /// `.accessibilityElement()` chained outside this modifier have no effect.
+    ///
+    /// Always supply accessibility values as parameters to this modifier:
+    /// ```swift
+    /// // ✅ Correct
+    /// myView
+    ///     .screenshotPrevented(accessibilityIdentifier: "my-view",
+    ///                          accessibilityLabel: "My view")
+    ///
+    /// // ❌ Silent failure — modifiers are dropped by the UIViewRepresentable bridge
+    /// myView
+    ///     .accessibilityIdentifier("my-view")   // dropped
+    ///     .screenshotPrevented()
+    /// ```
+    ///
     /// - Parameter accessibilityIdentifier: XCUITest identifier set directly on the
     ///   underlying `ScreenshotContainerView`.  SwiftUI's `.accessibilityIdentifier()`
     ///   modifier does not propagate through the UIViewRepresentable bridge, so the
