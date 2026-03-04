@@ -678,3 +678,100 @@ class TestCircuitBreakerIntegration:
         # One success should close it
         breaker.record_success()
         assert breaker.state == CircuitState.CLOSED
+
+
+class TestCircuitBreakerOnOpenCallback:
+    """Tests for the on_open callback fired on CLOSED→OPEN transitions."""
+
+    def _config(self) -> CircuitBreakerConfig:
+        return CircuitBreakerConfig(
+            failure_threshold=2,
+            error_rate_threshold=1.0,
+            recovery_timeout=60.0,
+            success_threshold=1,
+            window_size=5,
+        )
+
+    def _open_breaker(self, breaker: CircuitBreaker) -> None:
+        for _ in range(breaker.config.failure_threshold):
+            breaker.record_failure()
+
+    def test_on_open_called_on_closed_to_open(self):
+        callback = MagicMock()
+        breaker = CircuitBreaker("openai", config=self._config(), on_open=callback)
+        self._open_breaker(breaker)
+        assert breaker.state == CircuitState.OPEN
+        callback.assert_called_once()
+        provider, reason = callback.call_args[0]
+        assert provider == "openai"
+        assert isinstance(reason, str)
+
+    def test_on_open_not_called_when_no_callback(self):
+        # Should not raise — simply no callback to invoke
+        breaker = CircuitBreaker("openai", config=self._config())
+        self._open_breaker(breaker)
+        assert breaker.state == CircuitState.OPEN
+
+    def test_on_open_not_called_for_half_open_to_open(self):
+        """HALF_OPEN→OPEN must NOT re-trigger the callback."""
+        callback = MagicMock()
+        breaker = CircuitBreaker("openai", config=self._config(), on_open=callback)
+        # Trip to OPEN (fires callback once)
+        self._open_breaker(breaker)
+        callback.reset_mock()
+        # Manually force HALF_OPEN
+        breaker._stats.state = CircuitState.HALF_OPEN
+        # A failure in HALF_OPEN transitions back to OPEN
+        breaker.record_failure()
+        assert breaker.state == CircuitState.OPEN
+        callback.assert_not_called()
+
+    def test_on_open_exception_does_not_propagate(self):
+        """Callback exceptions must be swallowed so breaker logic is unaffected."""
+
+        def bad_callback(provider, reason):
+            raise RuntimeError("boom")
+
+        breaker = CircuitBreaker("openai", config=self._config(), on_open=bad_callback)
+        # Should not raise
+        self._open_breaker(breaker)
+        assert breaker.state == CircuitState.OPEN
+
+    def test_on_open_not_called_for_noop_transition(self):
+        """If circuit is already OPEN, no callback on repeated record_failure."""
+        callback = MagicMock()
+        breaker = CircuitBreaker("openai", config=self._config(), on_open=callback)
+        self._open_breaker(breaker)
+        callback.reset_mock()
+        breaker.record_failure()  # already OPEN — no state change
+        callback.assert_not_called()
+
+    def test_registry_passes_callback_to_new_breakers(self):
+        callback = MagicMock()
+        registry = CircuitBreakerRegistry(config=self._config(), on_open=callback)
+        breaker = registry.get_or_create("anthropic")
+        self._open_breaker(breaker)
+        callback.assert_called_once()
+
+    def test_set_on_open_callback_propagates_to_existing_breakers(self):
+        """set_on_open_callback should update already-created breakers."""
+        registry = CircuitBreakerRegistry(config=self._config())
+        breaker = registry.get_or_create("google")
+        assert breaker._on_open is None
+
+        callback = MagicMock()
+        registry.set_on_open_callback(callback)
+        assert breaker._on_open is callback
+
+        self._open_breaker(breaker)
+        callback.assert_called_once()
+
+    def test_set_on_open_callback_applies_to_future_breakers(self):
+        registry = CircuitBreakerRegistry(config=self._config())
+        callback = MagicMock()
+        registry.set_on_open_callback(callback)
+        # Create breaker AFTER setting callback
+        breaker = registry.get_or_create("xai")
+        assert breaker._on_open is callback
+        self._open_breaker(breaker)
+        callback.assert_called_once()

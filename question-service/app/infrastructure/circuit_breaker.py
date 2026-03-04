@@ -222,18 +222,25 @@ class CircuitBreaker:
     """
 
     def __init__(
-        self, provider_name: str, config: Optional[CircuitBreakerConfig] = None
+        self,
+        provider_name: str,
+        config: Optional[CircuitBreakerConfig] = None,
+        on_open: Optional[Callable[[str, str], None]] = None,
     ):
         """Initialize circuit breaker.
 
         Args:
             provider_name: Name of the provider this circuit breaker protects
             config: Circuit breaker configuration (uses defaults if not provided)
+            on_open: Optional callback invoked when circuit transitions CLOSED→OPEN.
+                     Receives (provider_name, reason). Exceptions are caught and
+                     logged so failures never propagate to the breaker logic.
         """
         self.provider_name = provider_name
         self.config = config or CircuitBreakerConfig.from_settings()
         self._lock = threading.RLock()
         self._stats = CircuitBreakerStats(provider_name=provider_name)
+        self._on_open = on_open
 
         logger.debug(
             f"CircuitBreaker initialized for {provider_name} "
@@ -306,6 +313,16 @@ class CircuitBreaker:
             elif new_state == CircuitState.CLOSED:
                 self._stats.consecutive_failures = 0
                 self._stats.recent_calls.clear()
+
+            if old_state == CircuitState.CLOSED and new_state == CircuitState.OPEN:
+                if self._on_open is not None:
+                    try:
+                        self._on_open(self.provider_name, reason)
+                    except Exception:
+                        logger.warning(
+                            f"on_open callback failed for {self.provider_name}",
+                            exc_info=True,
+                        )
 
     def _should_open_circuit(self) -> bool:
         """Check if circuit should open based on failure metrics.
@@ -460,15 +477,36 @@ class CircuitBreakerRegistry:
     Thread-safe singleton that provides centralized access to circuit breakers.
     """
 
-    def __init__(self, config: Optional[CircuitBreakerConfig] = None):
+    def __init__(
+        self,
+        config: Optional[CircuitBreakerConfig] = None,
+        on_open: Optional[Callable[[str, str], None]] = None,
+    ):
         """Initialize the registry.
 
         Args:
             config: Default configuration for new circuit breakers
+            on_open: Optional callback for CLOSED→OPEN transitions, passed to
+                     each new CircuitBreaker (and applied to existing ones via
+                     set_on_open_callback).
         """
         self._breakers: Dict[str, CircuitBreaker] = {}
         self._lock = threading.Lock()
         self._config = config or CircuitBreakerConfig.from_settings()
+        self._on_open = on_open
+
+    def set_on_open_callback(
+        self, callback: Optional[Callable[[str, str], None]]
+    ) -> None:
+        """Set the CLOSED→OPEN callback on all existing and future circuit breakers.
+
+        Args:
+            callback: Callable receiving (provider_name, reason) or None to clear.
+        """
+        with self._lock:
+            self._on_open = callback
+            for cb in self._breakers.values():
+                cb._on_open = callback
 
     def get_or_create(self, provider_name: str) -> CircuitBreaker:
         """Get or create a circuit breaker for a provider.
@@ -484,6 +522,7 @@ class CircuitBreakerRegistry:
                 self._breakers[provider_name] = CircuitBreaker(
                     provider_name=provider_name,
                     config=self._config,
+                    on_open=self._on_open,
                 )
             return self._breakers[provider_name]
 
