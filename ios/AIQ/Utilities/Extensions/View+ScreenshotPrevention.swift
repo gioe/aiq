@@ -95,10 +95,10 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
 
     func sizeThatFits(
         _ proposal: ProposedViewSize,
-        uiView _: ScreenshotContainerView,
+        uiView: ScreenshotContainerView,
         coordinator: Coordinator
     ) -> CGSize? {
-        let width = proposal.width ?? UIScreen.main.bounds.width
+        let width = proposal.width ?? uiView.window?.bounds.width ?? uiView.bounds.width
         let targetSize = CGSize(width: width, height: UIView.layoutFittingCompressedSize.height)
         return coordinator.hostingController?.sizeThatFits(in: targetSize)
     }
@@ -119,15 +119,16 @@ private final class ScreenshotContainerView: UIView {
     var onEnterWindow: (() -> Void)?
 
     /// Closure set by the UIViewRepresentable to ask the UIHostingController for its
-    /// preferred size. Used by both intrinsicContentSize (iOS 15) and
-    /// sizeThatFits(_:) (all versions) so SwiftUI layout gets the correct height.
+    /// preferred size. Bridges the hosted SwiftUI content's preferred dimensions back
+    /// into UIKit so `intrinsicContentSize` and `sizeThatFits(_:)` return the correct
+    /// height rather than UITextField's fixed ~34pt intrinsic height.
     var preferredSizeProvider: ((CGSize) -> CGSize)?
 
     override var intrinsicContentSize: CGSize {
         guard let provider = preferredSizeProvider else {
             return super.intrinsicContentSize
         }
-        let width = bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width
+        let width = bounds.width > 0 ? bounds.width : window?.bounds.width ?? superview?.bounds.width ?? 0
         return provider(CGSize(width: width, height: UIView.layoutFittingCompressedSize.height))
     }
 
