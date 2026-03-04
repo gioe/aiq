@@ -75,6 +75,7 @@ struct MemoryQuestionView: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(stimulusAccessibilityLabel)
             .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.stimulusCard)
+            .screenshotPrevented()
 
             // Continue button
             PrimaryButton(
