@@ -353,3 +353,105 @@ class TestProviderRetryIntegration:
 
             assert result == "Generated text"
             mock_execute.assert_called_once()
+
+
+class TestOpenAIInsufficientQuotaClassification:
+    """Tests that OpenAI insufficient_quota errors are classified as BILLING_QUOTA."""
+
+    def _make_rate_limit_error(self, body: object = None) -> object:
+        """Create a mock OpenAIRateLimitError with an optional body attribute."""
+        from unittest.mock import MagicMock
+
+        try:
+            from openai import RateLimitError as OpenAIRateLimitError
+        except ImportError:
+            pytest.skip("openai SDK not installed")
+
+        err = MagicMock(spec=OpenAIRateLimitError)
+        err.status_code = 429
+        err.body = body
+        # Make isinstance checks work
+        err.__class__ = OpenAIRateLimitError
+        return err
+
+    def test_insufficient_quota_classified_as_billing_quota(self):
+        from app.infrastructure.error_classifier import ErrorClassifier, ErrorCategory
+
+        try:
+            from openai import RateLimitError as OpenAIRateLimitError
+        except ImportError:
+            pytest.skip("openai SDK not installed")
+
+        # Build a real RateLimitError with body containing insufficient_quota
+        error = MagicMock(spec=OpenAIRateLimitError)
+        error.__class__ = OpenAIRateLimitError
+        error.status_code = 429
+        error.body = {
+            "error": {
+                "code": "insufficient_quota",
+                "message": "You exceeded your current quota",
+            }
+        }
+
+        result = ErrorClassifier.classify_error(error, "openai")
+
+        assert result.category == ErrorCategory.BILLING_QUOTA
+        assert result.is_retryable is False
+        assert result.provider == "openai"
+
+    def test_regular_rate_limit_still_classified_as_rate_limit(self):
+        from app.infrastructure.error_classifier import ErrorClassifier, ErrorCategory
+
+        try:
+            from openai import RateLimitError as OpenAIRateLimitError
+        except ImportError:
+            pytest.skip("openai SDK not installed")
+
+        # Rate limit error without insufficient_quota body
+        error = MagicMock(spec=OpenAIRateLimitError)
+        error.__class__ = OpenAIRateLimitError
+        error.status_code = 429
+        error.body = {
+            "error": {"code": "rate_limit_exceeded", "message": "Too many requests"}
+        }
+
+        result = ErrorClassifier.classify_error(error, "openai")
+
+        assert result.category == ErrorCategory.RATE_LIMIT
+        assert result.is_retryable is True
+
+    def test_rate_limit_with_no_body_classified_as_rate_limit(self):
+        from app.infrastructure.error_classifier import ErrorClassifier, ErrorCategory
+
+        try:
+            from openai import RateLimitError as OpenAIRateLimitError
+        except ImportError:
+            pytest.skip("openai SDK not installed")
+
+        error = MagicMock(spec=OpenAIRateLimitError)
+        error.__class__ = OpenAIRateLimitError
+        error.status_code = 429
+        error.body = None
+
+        result = ErrorClassifier.classify_error(error, "openai")
+
+        assert result.category == ErrorCategory.RATE_LIMIT
+        assert result.is_retryable is True
+
+    def test_rate_limit_with_empty_body_classified_as_rate_limit(self):
+        from app.infrastructure.error_classifier import ErrorClassifier, ErrorCategory
+
+        try:
+            from openai import RateLimitError as OpenAIRateLimitError
+        except ImportError:
+            pytest.skip("openai SDK not installed")
+
+        error = MagicMock(spec=OpenAIRateLimitError)
+        error.__class__ = OpenAIRateLimitError
+        error.status_code = 429
+        error.body = {}
+
+        result = ErrorClassifier.classify_error(error, "openai")
+
+        assert result.category == ErrorCategory.RATE_LIMIT
+        assert result.is_retryable is True

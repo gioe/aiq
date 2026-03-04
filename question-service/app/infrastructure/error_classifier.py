@@ -365,6 +365,26 @@ class ErrorClassifier:
         # OpenAI SDK exceptions
         if OPENAI_AVAILABLE:
             if isinstance(error, OpenAIRateLimitError):
+                # Check error body for insufficient_quota before treating as rate limit.
+                # OpenAI returns HTTP 429 for both rate limits and quota exhaustion;
+                # the code field in the error body distinguishes them.
+                body = getattr(error, "body", None) or {}
+                if (
+                    isinstance(body, dict)
+                    and body.get("error", {}).get("code") == "insufficient_quota"
+                ):
+                    return ClassifiedError(
+                        category=ErrorCategory.BILLING_QUOTA,
+                        severity=ErrorSeverity.CRITICAL,
+                        provider=provider,
+                        original_error=error_type,
+                        message=(
+                            f"OpenAI quota exhausted for {provider}. "
+                            "Check your billing plan and usage limits."
+                        ),
+                        is_retryable=False,
+                        status_code=getattr(error, "status_code", 429),
+                    )
                 return ClassifiedError(
                     category=ErrorCategory.RATE_LIMIT,
                     severity=ErrorSeverity.HIGH,
