@@ -39,6 +39,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 MIN_ACTIVE_PER_BUCKET = 10
+MIN_ANSWER_LENGTH_FOR_LEAKAGE_CHECK = 5
 
 
 class AnswerLeakageAuditor:
@@ -75,7 +76,9 @@ class AnswerLeakageAuditor:
         leaking = [
             q
             for q in active_questions
-            if q.correct_answer and q.correct_answer.lower() in q.question_text.lower()
+            if q.correct_answer
+            and len(q.correct_answer) >= MIN_ANSWER_LENGTH_FOR_LEAKAGE_CHECK
+            and q.correct_answer.lower() in q.question_text.lower()
         ]
         return leaking
 
