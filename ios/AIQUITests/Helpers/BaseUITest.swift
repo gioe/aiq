@@ -183,6 +183,11 @@ class BaseUITest: XCTestCase {
         relaunchWithScenario("testInProgress")
     }
 
+    /// Relaunch the app with a memory question in progress
+    func relaunchWithMemoryInProgress() {
+        relaunchWithScenario("memoryInProgress")
+    }
+
     /// Relaunch the app in the default (logged-out, clean) state
     func relaunchWithDefaultScenario() {
         relaunchWithScenario("default")
