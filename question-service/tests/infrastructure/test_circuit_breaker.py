@@ -16,6 +16,7 @@ from app.infrastructure.circuit_breaker import (
     get_circuit_breaker_registry,
     reset_circuit_breaker_registry,
 )
+from app.observability.alerting import AlertManager
 
 
 class TestCircuitBreakerConfig:
@@ -775,3 +776,59 @@ class TestCircuitBreakerOnOpenCallback:
         assert breaker._on_open is callback
         self._open_breaker(breaker)
         callback.assert_called_once()
+
+
+class TestCircuitBreakerAlertManagerIntegration:
+    """Integration tests: CLOSED→OPEN transition triggers AlertManager.send_circuit_breaker_alert."""
+
+    def _config(self) -> CircuitBreakerConfig:
+        return CircuitBreakerConfig(
+            failure_threshold=3,
+            error_rate_threshold=1.0,
+            recovery_timeout=60.0,
+            success_threshold=1,
+            window_size=5,
+        )
+
+    def test_closed_to_open_calls_send_circuit_breaker_alert(self):
+        """CLOSED→OPEN drives AlertManager.send_circuit_breaker_alert with correct args."""
+        mock_alert_manager = MagicMock(spec=AlertManager)
+        registry = CircuitBreakerRegistry(
+            config=self._config(),
+            on_open=mock_alert_manager.send_circuit_breaker_alert,
+        )
+        breaker = registry.get_or_create("openai")
+
+        for _ in range(self._config().failure_threshold):
+            breaker.record_failure()
+
+        assert breaker.state == CircuitState.OPEN
+        # Allow the daemon thread to complete before asserting
+        time.sleep(0.1)
+
+        mock_alert_manager.send_circuit_breaker_alert.assert_called_once()
+        provider, reason = mock_alert_manager.send_circuit_breaker_alert.call_args[0]
+        assert provider == "openai"
+        assert isinstance(reason, str)
+
+    def test_daemon_thread_dispatch_does_not_lose_call(self):
+        """The daemon thread spawned by the circuit breaker completes the callback."""
+        dispatched = threading.Event()
+
+        def alert_callback(provider_name: str, reason: str) -> None:
+            dispatched.set()
+
+        registry = CircuitBreakerRegistry(
+            config=self._config(),
+            on_open=alert_callback,
+        )
+        breaker = registry.get_or_create("anthropic")
+
+        for _ in range(self._config().failure_threshold):
+            breaker.record_failure()
+
+        assert breaker.state == CircuitState.OPEN
+        completed = dispatched.wait(timeout=2.0)
+        assert (
+            completed
+        ), "on_open callback was not invoked by daemon thread within timeout"
