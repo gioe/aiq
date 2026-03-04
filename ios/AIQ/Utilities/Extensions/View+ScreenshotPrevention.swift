@@ -70,6 +70,13 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
 
         context.coordinator.hostingController = hostingController
 
+        // Provide content size back to the container so intrinsicContentSize and
+        // sizeThatFits(_:) return the hosted SwiftUI view's preferred dimensions
+        // rather than UITextField's fixed ~34pt intrinsic height.
+        container.preferredSizeProvider = { [weak hostingController] targetSize in
+            hostingController?.sizeThatFits(in: targetSize) ?? targetSize
+        }
+
         // Add the hosting controller as a child VC once the view enters the window
         // hierarchy. This ensures SwiftUI environment values (colorScheme,
         // dynamicTypeSize, accessibilityReduceMotion, etc.) flow correctly into
@@ -86,8 +93,19 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
         return container
     }
 
-    func updateUIView(_: ScreenshotContainerView, context: Context) {
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        uiView _: ScreenshotContainerView,
+        coordinator: Coordinator
+    ) -> CGSize? {
+        let width = proposal.width ?? UIScreen.main.bounds.width
+        let targetSize = CGSize(width: width, height: UIView.layoutFittingCompressedSize.height)
+        return coordinator.hostingController?.sizeThatFits(in: targetSize)
+    }
+
+    func updateUIView(_ uiView: ScreenshotContainerView, context: Context) {
         context.coordinator.hostingController?.rootView = content
+        uiView.invalidateIntrinsicContentSize()
     }
 
     final class Coordinator {
@@ -99,6 +117,26 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
 
 private final class ScreenshotContainerView: UIView {
     var onEnterWindow: (() -> Void)?
+
+    /// Closure set by the UIViewRepresentable to ask the UIHostingController for its
+    /// preferred size. Used by both intrinsicContentSize (iOS 15) and
+    /// sizeThatFits(_:) (all versions) so SwiftUI layout gets the correct height.
+    var preferredSizeProvider: ((CGSize) -> CGSize)?
+
+    override var intrinsicContentSize: CGSize {
+        guard let provider = preferredSizeProvider else {
+            return super.intrinsicContentSize
+        }
+        let width = bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width
+        return provider(CGSize(width: width, height: UIView.layoutFittingCompressedSize.height))
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        guard let provider = preferredSizeProvider else {
+            return super.sizeThatFits(size)
+        }
+        return provider(size)
+    }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
