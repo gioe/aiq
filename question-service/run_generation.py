@@ -1892,6 +1892,17 @@ def main() -> int:
             else:
                 logger.warning("Failed to report run to backend API")
 
+        # Post-run answer-leakage audit (runs after every generation, regardless of exit code)
+        if db is not None and not args.dry_run:
+            try:
+                from app.data.answer_leakage_auditor import run_answer_leakage_audit
+
+                run_answer_leakage_audit(db.SessionLocal)
+            except Exception as audit_err:
+                logger.warning(
+                    f"[answer-leakage-audit] Audit skipped due to error: {audit_err}"
+                )
+
         logger.info("=" * 80)
         logger.info(f"Script completed with exit code: {exit_code}")
         logger.info("=" * 80)
