@@ -134,7 +134,7 @@ Logical reasoning benchmarks assess the ability to evaluate deductive reasoning,
 
 **Selected for Logic Generation:** `claude-sonnet-4-5-20250929` (Anthropic)
 
-**Rationale:** Claude Sonnet 4.5 combines exceptional coding benchmark performance (HumanEval >95%) with strong GPQA Diamond scores (83.4%) and leading SWE-bench results (77-82%), making it ideal for evaluating logical reasoning in IQ questions.
+**Rationale:** Claude Sonnet 4.5 combines exceptional coding benchmark performance (HumanEval >95%) with strong GPQA Diamond scores (83.4%) and leading SWE-bench results (77-82%), making it ideal for generating questions that measure logical reasoning.
 
 ### Pattern Recognition
 

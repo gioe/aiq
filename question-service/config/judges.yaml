@@ -106,11 +106,14 @@ judges:
     fallback_model: "grok-4"
 
 # Default judge (fallback for unknown question types)
-# Uses anthropic since default_generator uses openai — cross-provider convention.
+# default_generator is openai/gpt-4-turbo with fallback anthropic — so judge must be
+# a third provider (google or xai). Using google/gemini-3-pro-preview; fallback xai/grok-4.
 default_judge:
-  model: "claude-sonnet-4-5-20250929"
-  provider: "anthropic"
-  rationale: "Cross-provider fallback judge: default generator is openai/gpt-4-turbo"
+  model: "gemini-3-pro-preview"
+  provider: "google"
+  rationale: "Cross-provider fallback judge: default generator is openai/gpt-4-turbo, gen_fallback is anthropic. Google is the third independent provider. Judge fallback: xai/grok-4."
+  fallback: "xai"
+  fallback_model: "grok-4"
   enabled: true
 
 # Evaluation criteria weights (0.0 to 1.0)

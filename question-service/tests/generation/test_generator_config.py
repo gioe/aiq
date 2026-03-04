@@ -1111,6 +1111,35 @@ class TestCrossProviderJudging:
                 f"scenario collapses to same-provider evaluation"
             )
 
+    def test_default_judge_differs_from_default_generator_fallback(
+        self, generators_config_path, judges_config_path
+    ):
+        """Test that the default judge provider differs from the default generator's fallback.
+
+        Unknown question types use the default generator (primary) then default generator
+        fallback. The default judge must be independent from both to preserve cross-provider
+        evaluation even when the primary default generator is unavailable.
+        """
+        gen_loader = GeneratorConfigLoader(generators_config_path)
+        gen_config = gen_loader.load()
+
+        judge_loader = JudgeConfigLoader(judges_config_path)
+        judge_config = judge_loader.load()
+
+        default_gen = gen_config.default_generator
+        default_judge = judge_config.default_judge
+
+        assert default_gen.provider != default_judge.provider, (
+            f"default generator provider '{default_gen.provider}' must differ from "
+            f"default judge provider '{default_judge.provider}'"
+        )
+        if default_gen.fallback is not None:
+            assert default_gen.fallback != default_judge.provider, (
+                f"default generator fallback '{default_gen.fallback}' must differ from "
+                f"default judge provider '{default_judge.provider}' — otherwise fallback "
+                f"scenario collapses to same-provider evaluation"
+            )
+
 
 class TestProviderTierSelection:
     """Tests for provider_tier parameter in get_provider_and_model_for_question_type."""
