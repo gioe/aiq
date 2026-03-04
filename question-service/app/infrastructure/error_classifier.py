@@ -369,9 +369,10 @@ class ErrorClassifier:
                 # OpenAI returns HTTP 429 for both rate limits and quota exhaustion;
                 # the code field in the error body distinguishes them.
                 body = getattr(error, "body", None) or {}
+                error_detail = body.get("error") if isinstance(body, dict) else None
                 if (
-                    isinstance(body, dict)
-                    and body.get("error", {}).get("code") == "insufficient_quota"
+                    isinstance(error_detail, dict)
+                    and error_detail.get("code") == "insufficient_quota"
                 ):
                     return ClassifiedError(
                         category=ErrorCategory.BILLING_QUOTA,

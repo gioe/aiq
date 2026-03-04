@@ -45,6 +45,9 @@ from app.observability.alerting import (  # noqa: E402
     InventoryAlertManager,
 )
 from app.config.config import settings  # noqa: E402
+from app.infrastructure.circuit_breaker import (  # noqa: E402
+    get_circuit_breaker_registry,
+)
 from app.infrastructure.logging_config import setup_logging  # noqa: E402
 from app.reporting.run_summary import RunSummary  # noqa: E402
 from app.data.models import DifficultyLevel, QuestionType  # noqa: E402
@@ -920,8 +923,6 @@ def main() -> int:
 
         # Register circuit breaker open callback so Discord alerts fire when
         # any provider's circuit transitions CLOSED → OPEN during this run.
-        from app.infrastructure.circuit_breaker import get_circuit_breaker_registry
-
         get_circuit_breaker_registry().set_on_open_callback(
             alert_manager.send_circuit_breaker_alert
         )

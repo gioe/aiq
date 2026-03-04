@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import smtplib
+import time
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -42,7 +43,6 @@ class AlertManager:
 
     # Discord color codes (decimal)
     DISCORD_COLOR_CRITICAL = 0xDC3545  # Red
-    DISCORD_COLOR_WARNING = 0xFFC107  # Amber
 
     # Cooldown between Discord alerts for the same provider (seconds)
     DISCORD_COOLDOWN_SECONDS = 600  # 10 minutes
@@ -134,8 +134,6 @@ class AlertManager:
 
     def _is_discord_cooldown_active(self, provider: str) -> bool:
         """Return True if a Discord alert was sent for this provider within the cooldown window."""
-        import time
-
         last_sent = self._discord_cooldowns.get(provider)
         return last_sent is not None and (
             time.time() - last_sent < self.DISCORD_COOLDOWN_SECONDS
@@ -199,8 +197,6 @@ class AlertManager:
         Returns:
             True if the alert was sent, False if suppressed or disabled
         """
-        import time
-
         if not self.discord_webhook_url:
             logger.debug(
                 f"Discord webhook not configured; skipping circuit breaker alert for {provider_name}"
@@ -257,8 +253,6 @@ class AlertManager:
         Returns:
             True if sent, False if suppressed or Discord not configured
         """
-        import time
-
         if not self.discord_webhook_url:
             return False
 

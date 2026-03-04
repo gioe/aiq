@@ -316,13 +316,23 @@ class CircuitBreaker:
 
             if old_state == CircuitState.CLOSED and new_state == CircuitState.OPEN:
                 if self._on_open is not None:
-                    try:
-                        self._on_open(self.provider_name, reason)
-                    except Exception:
-                        logger.warning(
-                            f"on_open callback failed for {self.provider_name}",
-                            exc_info=True,
-                        )
+                    callback = self._on_open
+                    provider = self.provider_name
+
+                    def _fire(
+                        cb: Callable[[str, str], None] = callback,
+                        prov: str = provider,
+                        rsn: str = reason,
+                    ) -> None:
+                        try:
+                            cb(prov, rsn)
+                        except Exception:
+                            logger.warning(
+                                f"on_open callback failed for {prov}",
+                                exc_info=True,
+                            )
+
+                    threading.Thread(target=_fire, daemon=True).start()
 
     def _should_open_circuit(self) -> bool:
         """Check if circuit should open based on failure metrics.
@@ -506,7 +516,8 @@ class CircuitBreakerRegistry:
         with self._lock:
             self._on_open = callback
             for cb in self._breakers.values():
-                cb._on_open = callback
+                with cb._lock:
+                    cb._on_open = callback
 
     def get_or_create(self, provider_name: str) -> CircuitBreaker:
         """Get or create a circuit breaker for a provider.
