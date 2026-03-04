@@ -140,9 +140,7 @@ import Foundation
             let questions = scenario == .memoryInProgress
                 ? UITestMockData.sampleMemoryQuestions
                 : UITestMockData.sampleQuestions
-            let session = scenario == .memoryInProgress
-                ? UITestMockData.recentInProgressSession
-                : UITestMockData.inProgressSession
+            let session = UITestMockData.recentInProgressSession
             return TestSessionStatusResponse(
                 questions: questions,
                 questionsCount: 0,
@@ -188,7 +186,7 @@ import Foundation
                 return TestSessionStatusResponse(
                     questions: UITestMockData.sampleQuestions,
                     questionsCount: 0,
-                    session: UITestMockData.inProgressSession
+                    session: UITestMockData.recentInProgressSession
                 )
             case .memoryInProgress:
                 return TestSessionStatusResponse(
@@ -404,15 +402,8 @@ import Foundation
             startedAt: Date()
         )
 
-        static let inProgressSession = MockDataFactory.makeTestSession(
-            id: 99,
-            userId: 1,
-            status: "in_progress",
-            startedAt: Date().addingTimeInterval(-3600)
-        )
-
-        /// Session started 5 minutes ago — used for `memoryInProgress` so the 30-minute
-        /// test timer does not expire immediately when `TestTakingView` loads.
+        /// Session started 5 minutes ago — used for `testInProgress` and `memoryInProgress`
+        /// so the 30-minute test timer does not expire immediately when `TestTakingView` loads.
         static let recentInProgressSession = MockDataFactory.makeTestSession(
             id: 99,
             userId: 1,
