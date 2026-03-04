@@ -74,8 +74,9 @@ struct MemoryQuestionView: View {
             .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(stimulusAccessibilityLabel)
-            .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.stimulusCard)
-            .screenshotPrevented()
+            .screenshotPrevented(
+                accessibilityIdentifier: AccessibilityIdentifiers.MemoryQuestionView.stimulusCard
+            )
 
             // Continue button
             PrimaryButton(

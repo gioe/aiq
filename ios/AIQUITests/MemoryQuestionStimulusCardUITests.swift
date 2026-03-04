@@ -59,6 +59,9 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
         )
         resumeButton.tap()
 
+        // Wait for TestTakingView navigation to complete before asserting stimulus card
+        _ = wait(for: app.buttons["testTakingView.exitButton"], timeout: extendedTimeout)
+
         // The stimulusCard identifier must survive the UIViewRepresentable bridge
         // applied by screenshotPrevented().
         XCTAssertTrue(
