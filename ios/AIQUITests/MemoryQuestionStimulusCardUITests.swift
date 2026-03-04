@@ -83,4 +83,33 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
         )
         takeScreenshot(named: "StimulusCard_Hittable")
     }
+
+    /// Regression guard for TASK-1370: verifies the stimulus card renders taller than
+    /// UITextField's default secure-canvas height (~34 pt).
+    ///
+    /// Without the `preferredSizeProvider` wiring added to `ScreenshotContainerView` in
+    /// TASK-1370, the `UIHostingController` would be constrained to UITextField's intrinsic
+    /// ~34 pt height.  This test fails if either the `preferredSizeProvider` closure or the
+    /// `invalidateIntrinsicContentSize()` call is accidentally removed.
+    func testStimulusCard_HeightExceedsUITextFieldDefault() {
+        XCTAssertTrue(
+            wait(for: resumeButton, timeout: networkTimeout),
+            "Resume button should appear before navigating to the test"
+        )
+        resumeButton.tap()
+
+        guard wait(for: stimulusCard, timeout: extendedTimeout) else {
+            XCTFail("Stimulus card did not appear after resuming the test")
+            return
+        }
+
+        let height = stimulusCard.frame.height
+        XCTAssertGreaterThan(
+            height,
+            34,
+            "Stimulus card height (\(height)pt) should exceed UITextField's default " +
+                "~34pt, confirming preferredSizeProvider is wired in ScreenshotContainerView"
+        )
+        takeScreenshot(named: "StimulusCard_Height")
+    }
 }
