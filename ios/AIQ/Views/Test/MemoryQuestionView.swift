@@ -50,20 +50,6 @@ struct MemoryQuestionView: View {
                         .foregroundColor(.secondary)
 
                     Spacer()
-
-                    // Memory type badge
-                    HStack(spacing: 4) {
-                        Image(systemName: "lightbulb.circle")
-                            .font(.caption)
-                        Text("memory.question.memorize".localized)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.indigo.opacity(0.15))
-                    .foregroundColor(.indigo)
-                    .cornerRadius(8)
                 }
 
                 // Instruction
@@ -80,9 +66,6 @@ struct MemoryQuestionView: View {
                         .foregroundColor(.primary)
                         .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.stimulusText)
                 }
-
-                // Difficulty indicator
-                DifficultyBadge(difficultyLevel: question.difficultyLevel)
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
