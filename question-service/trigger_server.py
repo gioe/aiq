@@ -18,7 +18,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncGenerator, Dict, List, Optional
+from typing import AsyncGenerator, Dict, List, Literal, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -363,7 +363,9 @@ class TriggerRequest(BaseModel):
         description="If true, enables detailed logging during generation.",
         json_schema_extra={"example": True},
     )
-    types: Optional[List[str]] = Field(
+    types: Optional[
+        List[Literal["math", "logic", "pattern", "spatial", "verbal", "memory"]]
+    ] = Field(
         default=None,
         description=(
             "Question types to generate. If omitted, all types are generated. "
@@ -462,7 +464,12 @@ def run_generation_job(
         with observability.start_span(
             "generation_job",
             kind="internal",
-            attributes={"count": count, "dry_run": dry_run, "verbose": verbose},
+            attributes={
+                "count": count,
+                "dry_run": dry_run,
+                "verbose": verbose,
+                "types": ",".join(types) if types else "all",
+            },
         ) as span:
             try:
                 start_time = time.monotonic()

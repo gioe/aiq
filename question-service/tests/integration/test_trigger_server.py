@@ -232,9 +232,8 @@ class TestRunGenerationJob:
             )
 
             cmd = mock_run.call_args[0][0]
-            assert "--types" in cmd
-            assert "logic" in cmd
-            assert "spatial" in cmd
+            idx = cmd.index("--types")
+            assert cmd[idx + 1 : idx + 3] == ["logic", "spatial"]
 
     def test_run_generation_job_no_types_omits_types_flag(self):
         """Test that --types is not added when types is None."""
@@ -242,6 +241,18 @@ class TestRunGenerationJob:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
             self.module.run_generation_job(count=10, dry_run=False, verbose=False)
+
+            cmd = mock_run.call_args[0][0]
+            assert "--types" not in cmd
+
+    def test_run_generation_job_empty_types_omits_types_flag(self):
+        """Test that an empty types list is treated as 'all types' (no --types flag)."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            self.module.run_generation_job(
+                count=10, dry_run=False, verbose=False, types=[]
+            )
 
             cmd = mock_run.call_args[0][0]
             assert "--types" not in cmd
