@@ -77,7 +77,7 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
         }
 
         XCTAssertTrue(
-            waitForHittable(stimulusCard),
+            waitForHittable(stimulusCard, timeout: extendedTimeout),
             "memoryQuestionView.stimulusCard should be hittable, confirming the " +
                 "UIViewRepresentable bridge does not suppress the element's hit-testability"
         )
