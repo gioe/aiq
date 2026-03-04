@@ -22,6 +22,11 @@ import XCTest
 /// `AccessibilityIdentifiers.MemoryQuestionView.stimulusCard`
 /// (`"memoryQuestionView.stimulusCard"`) is both present and hittable.
 final class MemoryQuestionStimulusCardUITests: BaseUITest {
+    // MARK: - Constants
+
+    /// UITextField's intrinsic secure-canvas height; the TASK-1370 fix must exceed this.
+    private let uiTextFieldDefaultHeight: CGFloat = 34
+
     // MARK: - Convenience References
 
     private var resumeButton: XCUIElement {
@@ -106,9 +111,9 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
         let height = stimulusCard.frame.height
         XCTAssertGreaterThan(
             height,
-            34,
+            uiTextFieldDefaultHeight,
             "Stimulus card height (\(height)pt) should exceed UITextField's default " +
-                "~34pt, confirming preferredSizeProvider is wired in ScreenshotContainerView"
+                "~\(uiTextFieldDefaultHeight)pt, confirming preferredSizeProvider is wired in ScreenshotContainerView"
         )
         takeScreenshot(named: "StimulusCard_Height")
     }
