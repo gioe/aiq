@@ -18,6 +18,7 @@ from app.config.generator_config import (
     initialize_generator_config,
     is_generator_config_initialized,
 )
+from app.config.judge_config import JudgeConfigLoader
 
 
 @pytest.fixture
@@ -941,13 +942,13 @@ class TestProductionGeneratorsYaml:
         assert config.generators["spatial"].provider == "openai"
         assert config.generators["spatial"].model == "gpt-5.2"
 
-    def test_generators_yaml_math_uses_xai(self, production_config_path):
-        """Test that math questions use xAI provider."""
+    def test_generators_yaml_math_uses_openai(self, production_config_path):
+        """Test that math questions use OpenAI provider (switched from xAI in Mar 2026; gpt-5.2 composite 81.79 vs grok-4 69.66)."""
         loader = GeneratorConfigLoader(production_config_path)
         config = loader.load()
 
-        assert config.generators["math"].provider == "xai"
-        assert config.generators["math"].model == "grok-4"
+        assert config.generators["math"].provider == "openai"
+        assert config.generators["math"].model == "gpt-5.2"
 
     def test_generators_yaml_logic_uses_anthropic(self, production_config_path):
         """Test that logic questions use Anthropic provider."""
@@ -1049,6 +1050,66 @@ class TestProductionGeneratorsYaml:
 
         assert config.version is not None
         assert config.version == "1.0"
+
+
+class TestCrossProviderJudging:
+    """Tests that enforce the cross-provider judging invariant across production configs.
+
+    The core correctness property: for every question type, the generator provider,
+    generator fallback provider, and judge provider must all be different. This
+    prevents self-evaluation bias even in fallback scenarios.
+    """
+
+    @pytest.fixture
+    def generators_config_path(self):
+        return Path(__file__).parent.parent.parent / "config" / "generators.yaml"
+
+    @pytest.fixture
+    def judges_config_path(self):
+        return Path(__file__).parent.parent.parent / "config" / "judges.yaml"
+
+    def test_judge_differs_from_generator_primary(
+        self, generators_config_path, judges_config_path
+    ):
+        """Test that judge provider != primary generator provider for all question types."""
+        gen_loader = GeneratorConfigLoader(generators_config_path)
+        gen_config = gen_loader.load()
+
+        judge_loader = JudgeConfigLoader(judges_config_path)
+        judge_config = judge_loader.load()
+
+        for qtype, gen_assignment in gen_config.generators.items():
+            judge_assignment = judge_config.judges.get(qtype)
+            if judge_assignment is None:
+                continue
+            assert gen_assignment.provider != judge_assignment.provider, (
+                f"{qtype}: generator provider '{gen_assignment.provider}' must differ from "
+                f"judge provider '{judge_assignment.provider}'"
+            )
+
+    def test_judge_differs_from_generator_fallback(
+        self, generators_config_path, judges_config_path
+    ):
+        """Test that judge provider != generator fallback provider for all question types.
+
+        This ensures cross-provider independence even when the primary generator
+        is unavailable and the system falls back to the generator fallback provider.
+        """
+        gen_loader = GeneratorConfigLoader(generators_config_path)
+        gen_config = gen_loader.load()
+
+        judge_loader = JudgeConfigLoader(judges_config_path)
+        judge_config = judge_loader.load()
+
+        for qtype, gen_assignment in gen_config.generators.items():
+            judge_assignment = judge_config.judges.get(qtype)
+            if judge_assignment is None or gen_assignment.fallback is None:
+                continue
+            assert gen_assignment.fallback != judge_assignment.provider, (
+                f"{qtype}: generator fallback provider '{gen_assignment.fallback}' must differ "
+                f"from judge provider '{judge_assignment.provider}' — otherwise the fallback "
+                f"scenario collapses to same-provider evaluation"
+            )
 
 
 class TestProviderTierSelection:

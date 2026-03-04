@@ -132,7 +132,7 @@ Logical reasoning benchmarks assess the ability to evaluate deductive reasoning,
 
 ★ newly verified score (Mar 2026)
 
-**Selected for Logic Evaluation:** `claude-sonnet-4-5-20250929` (Anthropic)
+**Selected for Logic Generation:** `claude-sonnet-4-5-20250929` (Anthropic)
 
 **Rationale:** Claude Sonnet 4.5 combines exceptional coding benchmark performance (HumanEval >95%) with strong GPQA Diamond scores (83.4%) and leading SWE-bench results (77-82%), making it ideal for evaluating logical reasoning in IQ questions.
 
@@ -153,7 +153,7 @@ Pattern recognition benchmarks measure abstract reasoning and the ability to ide
 
 *GPT-5.2 Pro and Gemini 3 Deep Think use extended reasoning modes not currently enabled in our pipeline.
 
-**Selected for Pattern Evaluation:** `gpt-5.2` (OpenAI)
+**Selected for Pattern Generation:** `gpt-5.2` (OpenAI)
 
 **Rationale:** GPT-5.2 achieves the highest ARC-AGI-2 score (52.9% Thinking, 54.2% Pro) among all models, the gold-standard benchmark for abstract pattern reasoning. This represents a 70% improvement over Gemini 3 Pro standard mode (31.1%) and surpasses Claude Opus 4.5 (37.6%). Fallback: Claude Opus 4.5 (ARC-AGI-2: 37.6%).
 
@@ -171,7 +171,7 @@ Spatial reasoning benchmarks evaluate the ability to mentally manipulate objects
 
 ★ newly verified score (Mar 2026)
 
-**Selected for Spatial Evaluation:** `gpt-5.2` (OpenAI)
+**Selected for Spatial Generation:** `gpt-5.2` (OpenAI)
 
 **Rationale:** GPT-5.2 leads across all spatial reasoning benchmarks: ARC-AGI-2 (52.9%), MMMU-Pro (86.5%), and Video-MMMU (90.5%). Composite score 75.9. Fallback: Gemini 3 Pro (composite 65.5, ARC-AGI-2: 31.1%, MMMU-Pro: 81.0%, Video-MMMU: 87.6%).
 
@@ -188,7 +188,7 @@ Verbal reasoning benchmarks measure language understanding, reading comprehensio
 | gpt-5.2 | 88.0% | 83.0% | - | - |
 | gpt-4-turbo | 86.4% | - | - | - |
 
-**Selected for Verbal Evaluation:** `claude-sonnet-4-5-20250929` (Anthropic)
+**Selected for Verbal Generation:** `claude-sonnet-4-5-20250929` (Anthropic)
 
 **Rationale:** Claude Sonnet 4.5 achieves strong MMLU performance (89%) and excellent HellaSwag scores (~95%), demonstrating superior language understanding and commonsense reasoning essential for evaluating verbal IQ questions.
 
@@ -205,7 +205,7 @@ Memory evaluation requires both broad knowledge and the ability to process long 
 | claude-opus-4-5 | 87.4% | 90.0% | 200,000 tokens | - |
 | gpt-4-turbo | 86.4% | - | 128,000 tokens | - |
 
-**Selected for Memory Evaluation:** `gemini-3-pro-preview` (Google)
+**Selected for Memory Generation:** `gemini-3-pro-preview` (Google)
 
 **Rationale:** Gemini 3 Pro leads with composite score 72.3, combining top MMLU (91.8%) and MMLU-Pro (90.1%) scores with the largest usable context window (1M tokens, norm 50.0). This provides the strongest combination of knowledge breadth and context retention for memory-intensive evaluation.
 
@@ -214,21 +214,24 @@ Memory evaluation requires both broad knowledge and the ability to process long 
 AIQ uses **cross-provider judging**: the judge for each question type uses a *different* provider than the generator. This prevents self-evaluation bias and improves question quality by having an independent model assess generated output.
 
 - **Generator** = specialist model for that cognitive domain
-- **Judge** = generator's configured fallback provider (independent verification)
+- **Judge** = a third provider independent from both the primary generator and generator fallback
+- **Judge fallback** = xAI/grok-4 (fourth provider — fully independent chain)
+
+This four-provider independence chain guarantees cross-provider evaluation even in failure scenarios: if the primary generator is unavailable and the system uses the generator fallback, the judge (third provider) still evaluates independently.
 
 | Question Type | Generator | Provider | Judge | Provider | Gen Fallback |
 |---------------|-----------|----------|-------|----------|--------------|
-| Math | gpt-5.2 | OpenAI | gemini-3-pro-preview | Google | Google |
-| Logic | claude-sonnet-4-5 | Anthropic | gpt-5.2 | OpenAI | OpenAI |
-| Pattern | gpt-5.2 | OpenAI | claude-opus-4-5 | Anthropic | Anthropic |
-| Spatial | gpt-5.2 | OpenAI | gemini-3-pro-preview | Google | Google |
-| Verbal | claude-sonnet-4-5 | Anthropic | gpt-5.2 | OpenAI | OpenAI |
-| Memory | gemini-3-pro | Google | gpt-5.2 | OpenAI | OpenAI |
+| Math | gpt-5.2 | OpenAI | claude-opus-4-5 | Anthropic | Google |
+| Logic | claude-sonnet-4-5 | Anthropic | gemini-3-pro-preview | Google | OpenAI |
+| Pattern | gpt-5.2 | OpenAI | gemini-3-pro-preview | Google | Anthropic |
+| Spatial | gpt-5.2 | OpenAI | claude-opus-4-5 | Anthropic | Google |
+| Verbal | claude-sonnet-4-5 | Anthropic | gemini-3-pro-preview | Google | OpenAI |
+| Memory | gemini-3-pro | Google | claude-opus-4-5 | Anthropic | OpenAI |
 | Default | gpt-4-turbo | OpenAI | claude-sonnet-4-5 | Anthropic | Anthropic |
 
 ## Benchmark Sources
 
-All benchmark data is sourced from official provider announcements, research papers, and third-party evaluations. Last verified: January 2026.
+All benchmark data is sourced from official provider announcements, research papers, and third-party evaluations. Last verified: March 2026.
 
 ### Anthropic (Claude)
 
