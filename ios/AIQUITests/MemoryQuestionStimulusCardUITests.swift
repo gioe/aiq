@@ -79,6 +79,9 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
         )
         resumeButton.tap()
 
+        // Wait for TestTakingView navigation to complete before asserting stimulus card
+        _ = wait(for: app.buttons["testTakingView.exitButton"], timeout: extendedTimeout)
+
         guard wait(for: stimulusCard, timeout: extendedTimeout) else {
             XCTFail("Stimulus card did not appear after resuming the test")
             return
@@ -105,6 +108,9 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
             "Resume button should appear before navigating to the test"
         )
         resumeButton.tap()
+
+        // Wait for TestTakingView navigation to complete before asserting stimulus card
+        _ = wait(for: app.buttons["testTakingView.exitButton"], timeout: extendedTimeout)
 
         guard wait(for: stimulusCard, timeout: extendedTimeout) else {
             XCTFail("Stimulus card did not appear after resuming the test")

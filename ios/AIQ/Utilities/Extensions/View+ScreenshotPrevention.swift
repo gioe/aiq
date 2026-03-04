@@ -13,8 +13,19 @@ extension View {
     ///   underlying `ScreenshotContainerView`.  SwiftUI's `.accessibilityIdentifier()`
     ///   modifier does not propagate through the UIViewRepresentable bridge, so the
     ///   identifier must be injected here and applied at the UIKit level.
-    func screenshotPrevented(accessibilityIdentifier: String? = nil) -> some View {
-        ScreenshotPreventedView(content: self, accessibilityIdentifier: accessibilityIdentifier)
+    /// - Parameter accessibilityLabel: VoiceOver label set directly on the underlying
+    ///   `ScreenshotContainerView`.  SwiftUI's `.accessibilityLabel()` modifier does not
+    ///   propagate through the UIViewRepresentable bridge, so the label must be injected
+    ///   here and applied at the UIKit level.
+    func screenshotPrevented(
+        accessibilityIdentifier: String? = nil,
+        accessibilityLabel: String? = nil
+    ) -> some View {
+        ScreenshotPreventedView(
+            content: self,
+            accessibilityIdentifier: accessibilityIdentifier,
+            accessibilityLabel: accessibilityLabel
+        )
     }
 }
 
@@ -23,6 +34,7 @@ extension View {
 private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
     let content: Content
     let accessibilityIdentifier: String?
+    let accessibilityLabel: String?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -96,11 +108,11 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
             hostingController.didMove(toParent: parentVC)
         }
 
-        // Set the XCUITest identifier directly at the UIKit level.
-        // SwiftUI's .accessibilityIdentifier() modifier does not propagate through
-        // the UIViewRepresentable bridge to UIView.accessibilityIdentifier, so the
-        // identifier must be applied here to be discoverable by XCUITest.
+        // Set XCUITest identifier and VoiceOver label directly at the UIKit level.
+        // SwiftUI's .accessibilityIdentifier()/.accessibilityLabel() modifiers do not
+        // propagate through the UIViewRepresentable bridge, so both must be applied here.
         container.accessibilityIdentifier = accessibilityIdentifier
+        container.accessibilityLabel = accessibilityLabel
 
         return container
     }
@@ -119,6 +131,7 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
         context.coordinator.hostingController?.rootView = content
         uiView.invalidateIntrinsicContentSize()
         uiView.accessibilityIdentifier = accessibilityIdentifier
+        uiView.accessibilityLabel = accessibilityLabel
     }
 
     final class Coordinator {
@@ -152,14 +165,14 @@ private final class ScreenshotContainerView: UIView {
         return provider(size)
     }
 
-    /// UIView's default `isAccessibilityElement` is `false`, which causes UIKit to
-    /// traverse into subviews.  The subviews here are a UITextField's private secure
-    /// canvas — opaque to the accessibility tree — so traversal finds nothing useful.
-    /// Returning `true` makes XCUITest and VoiceOver treat this container as a single
-    /// accessible element whose identifier is set directly via the `accessibilityIdentifier`
-    /// parameter on `.screenshotPrevented()`.
+    /// Returns `true` only when an `accessibilityIdentifier` is set, making XCUITest and
+    /// VoiceOver treat this container as a single leaf element.  When no identifier is
+    /// provided, UIKit falls back to its default traversal into subviews.  (The UITextField's
+    /// private secure canvas is opaque to the accessibility tree regardless, so traversal
+    /// finds nothing useful for unidentified containers — but callers that omit the identifier
+    /// do not suffer a spurious empty leaf node in the tree.)
     override var isAccessibilityElement: Bool {
-        get { true }
+        get { _lockedAccessibilityId != nil }
         set { _ = newValue }
     }
 
