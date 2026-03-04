@@ -5,8 +5,8 @@ Simple HTTP server for manually triggering question generation.
 This provides a web interface for triggering the question generation job
 on-demand via HTTP requests, instead of waiting for the cron schedule.
 
-Triggers the EXACT same command as the cron job:
-  python run_generation.py --count 50 --verbose
+Triggers question generation with async mode enabled for fast throughput:
+  python run_generation.py --count 50 --async --async-judge --verbose
 """
 import logging
 import os
@@ -18,7 +18,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncGenerator, Dict, Optional
+from typing import AsyncGenerator, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -363,6 +363,14 @@ class TriggerRequest(BaseModel):
         description="If true, enables detailed logging during generation.",
         json_schema_extra={"example": True},
     )
+    types: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Question types to generate. If omitted, all types are generated. "
+            "Valid values: math, logic, pattern, spatial, verbal, memory."
+        ),
+        json_schema_extra={"example": ["logic", "spatial"]},
+    )
 
 
 class TriggerResponse(BaseModel):
@@ -415,25 +423,38 @@ class RateLimitExceededResponse(BaseModel):
     )
 
 
-def run_generation_job(count: int, dry_run: bool, verbose: bool) -> None:
+def run_generation_job(
+    count: int,
+    dry_run: bool,
+    verbose: bool,
+    types: Optional[List[str]] = None,
+) -> None:
     """
     Run the generation job in a separate process.
-
-    This runs the EXACT same command as the Railway cron job.
 
     Args:
         count: Number of questions to generate
         dry_run: Whether to run in dry-run mode
         verbose: Whether to run in verbose mode
+        types: Optional list of question types to generate (e.g. ["logic", "spatial"])
     """
-    # Build the exact same command as the cron job
-    cmd = ["python", "run_generation.py", "--count", str(count)]
+    cmd = [
+        "python",
+        "run_generation.py",
+        "--count",
+        str(count),
+        "--async",
+        "--async-judge",
+    ]
 
     if verbose:
         cmd.append("--verbose")
 
     if dry_run:
         cmd.append("--dry-run")
+
+    if types:
+        cmd.extend(["--types"] + types)
 
     logger.info(f"Starting generation job: {' '.join(cmd)}")
 
@@ -570,7 +591,8 @@ async def trigger_generation(
 
     logger.info(
         f"Received generation trigger request: count={request.count}, "
-        f"dry_run={request.dry_run}, verbose={request.verbose}"
+        f"dry_run={request.dry_run}, verbose={request.verbose}, "
+        f"types={request.types or 'all'}"
     )
 
     observability.record_metric(
@@ -602,7 +624,7 @@ async def trigger_generation(
         # Create thread and set reference BEFORE starting to prevent race condition
         thread = threading.Thread(
             target=run_generation_job,
-            args=(request.count, request.dry_run, request.verbose),
+            args=(request.count, request.dry_run, request.verbose, request.types),
             daemon=True,
         )
         _running_job = thread
@@ -610,7 +632,7 @@ async def trigger_generation(
 
     logger.info(
         f"Started generation job in background thread: "
-        f"count={request.count}, dry_run={request.dry_run}"
+        f"count={request.count}, dry_run={request.dry_run}, types={request.types or 'all'}"
     )
 
     return TriggerResponse(

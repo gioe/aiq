@@ -217,8 +217,34 @@ class TestRunGenerationJob:
             assert cmd[1] == "run_generation.py"
             assert "--count" in cmd
             assert "25" in cmd
+            assert "--async" in cmd
+            assert "--async-judge" in cmd
             assert "--verbose" in cmd
             assert "--dry-run" not in cmd
+
+    def test_run_generation_job_supports_type_filtering(self):
+        """Test that types are passed as --types args."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            self.module.run_generation_job(
+                count=10, dry_run=False, verbose=False, types=["logic", "spatial"]
+            )
+
+            cmd = mock_run.call_args[0][0]
+            assert "--types" in cmd
+            assert "logic" in cmd
+            assert "spatial" in cmd
+
+    def test_run_generation_job_no_types_omits_types_flag(self):
+        """Test that --types is not added when types is None."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            self.module.run_generation_job(count=10, dry_run=False, verbose=False)
+
+            cmd = mock_run.call_args[0][0]
+            assert "--types" not in cmd
 
     def test_run_generation_job_includes_dry_run_flag(self):
         """Test that dry_run flag is included when set."""
