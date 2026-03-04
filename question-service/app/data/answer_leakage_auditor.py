@@ -18,6 +18,9 @@ from app.data.database import QuestionModel
 logger = logging.getLogger(__name__)
 
 MIN_ACTIVE_PER_BUCKET = 10
+# Answers shorter than this are too generic for substring matching to be reliable
+# (e.g. "A", "yes", "no", "4" appear in virtually any question text)
+MIN_ANSWER_LENGTH_FOR_LEAKAGE_CHECK = 5
 
 
 def _label(value: object) -> str:
@@ -48,7 +51,9 @@ def run_answer_leakage_audit(
         leaking = [
             q
             for q in active
-            if q.correct_answer and q.correct_answer.lower() in q.question_text.lower()
+            if q.correct_answer
+            and len(q.correct_answer) >= MIN_ANSWER_LENGTH_FOR_LEAKAGE_CHECK
+            and q.correct_answer.lower() in q.question_text.lower()
         ]
 
         result["leaking_count"] = len(leaking)
