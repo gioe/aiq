@@ -272,9 +272,23 @@ JS: str = """\
     return d.innerHTML;
   }
 
+  function toLocalDateStr(utcStr) {
+    if (!utcStr) return '';
+    // SQLite stores timestamps without 'Z'; append it so Date() treats them as UTC
+    var s = utcStr.replace(' ', 'T');
+    if (s.charAt(s.length - 1) !== 'Z') s += 'Z';
+    var ms = new Date(s).getTime();
+    if (isNaN(ms)) return utcStr.replace(/\\.\\d+$/, '');
+    var offset = (window.__tuskTzOffset || 0) * 60 * 1000;
+    var d = new Date(ms + offset);
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate())
+      + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+  }
+
   function fmtDate(s) {
     if (!s) return '';
-    return s.replace(/\.\d+$/, '');
+    return toLocalDateStr(s);
   }
 
   function fmtRelTime(ms) {
@@ -662,6 +676,8 @@ JS: str = """\
   // Chart.js initialization (graceful fallback if CDN unavailable)
   var costTrendChart = null;
   var costSkillTrendChart = null;
+  var hourlyCostTaskChart = null;
+  var hourlyCostSkillChart = null;
   var currentPeriod = 'weekly';
 
   function initCharts() {
@@ -846,9 +862,138 @@ JS: str = """\
         });
       }
     }
+
+    // --- Hourly cost charts ---
+    if (window.__tuskHourlyCost && window.__tuskHourlyCost.length === 24) {
+      var rawHourly = window.__tuskHourlyCost;
+      // Bucketing is done server-side (SQL applies utc_offset_minutes) so no JS shift needed.
+      var hourLabels = [];
+      var taskCosts = [];
+      var skillCosts = [];
+      for (var lh = 0; lh < 24; lh++) {
+        var label = lh === 0 ? '12am' : lh < 12 ? lh + 'am' : lh === 12 ? '12pm' : (lh - 12) + 'pm';
+        hourLabels.push(label);
+        taskCosts.push(rawHourly[lh].cost_tasks);
+        skillCosts.push(rawHourly[lh].cost_skills);
+      }
+      var hAccent = cssVar('--accent') || '#3b82f6';
+      var hSkillAccent = cssVar('--success') || '#22c55e';
+      var hourlyOpts = function() {
+        return {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: { callbacks: { label: function(ctx) { return '$' + ctx.parsed.y.toFixed(4); } } },
+            legend: { display: false }
+          },
+          scales: {
+            x: { ticks: { color: textMuted, font: { size: 10 } }, grid: { display: false } },
+            y: {
+              ticks: { color: textMuted, font: { size: 11 }, callback: function(v) { return '$' + v.toFixed(4); } },
+              grid: { color: border, borderDash: [3, 3] }
+            }
+          }
+        };
+      };
+      var hourlyTaskCanvas = document.getElementById('hourlyCostTaskChart');
+      if (hourlyTaskCanvas) {
+        if (hourlyCostTaskChart) { hourlyCostTaskChart.destroy(); hourlyCostTaskChart = null; }
+        hourlyCostTaskChart = new Chart(hourlyTaskCanvas, {
+          type: 'bar',
+          data: { labels: hourLabels, datasets: [{ label: 'Task Cost', data: taskCosts, backgroundColor: hAccent + 'B3', borderColor: hAccent, borderWidth: 1, borderRadius: 2 }] },
+          options: hourlyOpts()
+        });
+      }
+      var hourlySkillCanvas = document.getElementById('hourlyCostSkillChart');
+      if (hourlySkillCanvas) {
+        if (hourlyCostSkillChart) { hourlyCostSkillChart.destroy(); hourlyCostSkillChart = null; }
+        hourlyCostSkillChart = new Chart(hourlySkillCanvas, {
+          type: 'bar',
+          data: { labels: hourLabels, datasets: [{ label: 'Skill Cost', data: skillCosts, backgroundColor: hSkillAccent + 'B3', borderColor: hSkillAccent, borderWidth: 1, borderRadius: 2 }] },
+          options: hourlyOpts()
+        });
+      }
+    }
   }
 
   initCharts();
+
+  // --- Day-of-week / hour heatmap ---
+  (function() {
+    var container = document.getElementById('dowHourHeatmapContainer');
+    if (!container) return;
+    var raw = window.__tuskDowHourHeatmap;
+    if (!raw || !raw.length) {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem 0;">No activity data yet.</p>';
+      return;
+    }
+
+    var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    // Build 7x24 lookup: grid[dow][localHour] = {cost, session_count}
+    // Bucketing is done server-side (SQL applies utc_offset_minutes) so no JS shift needed.
+    var grid = [];
+    for (var d = 0; d < 7; d++) {
+      grid.push([]);
+      for (var h = 0; h < 24; h++) {
+        grid[d].push({ cost: 0, session_count: 0 });
+      }
+    }
+    var maxCost = 0;
+    raw.forEach(function(row) {
+      if (row.dow == null || row.hour == null) return;
+      grid[row.dow][row.hour] = { cost: row.cost, session_count: row.session_count };
+      if (row.cost > maxCost) maxCost = row.cost;
+    });
+
+    function heatClass(cost) {
+      if (maxCost <= 0 || cost <= 0) return '';
+      var ratio = cost / maxCost;
+      if (ratio < 0.10) return '';
+      if (ratio < 0.25) return 'cost-heat-1';
+      if (ratio < 0.45) return 'cost-heat-2';
+      if (ratio < 0.65) return 'cost-heat-3';
+      if (ratio < 0.85) return 'cost-heat-4';
+      return 'cost-heat-5';
+    }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'dow-heatmap';
+
+    // Header row: empty corner + 24 hour labels (local time)
+    var corner = document.createElement('div');
+    corner.className = 'dow-heatmap-row-label';
+    wrap.appendChild(corner);
+    for (var col = 0; col < 24; col++) {
+      var hdrCell = document.createElement('div');
+      hdrCell.className = 'dow-heatmap-col-header';
+      if (col % 3 === 0) {
+        hdrCell.textContent = col === 0 ? '12a' : col < 12 ? col + 'a' : col === 12 ? '12p' : (col - 12) + 'p';
+      }
+      wrap.appendChild(hdrCell);
+    }
+
+    // Data rows: iterate local hours directly (no UTC shift needed)
+    for (var d = 0; d < 7; d++) {
+      var rowLabel = document.createElement('div');
+      rowLabel.className = 'dow-heatmap-row-label';
+      rowLabel.textContent = days[d];
+      wrap.appendChild(rowLabel);
+
+      for (var lh = 0; lh < 24; lh++) {
+        var cellData = grid[d][lh];
+        var cell = document.createElement('div');
+        var cls = heatClass(cellData.cost);
+        cell.className = 'dow-heatmap-cell' + (cls ? ' ' + cls : '');
+        if (cellData.cost > 0) {
+          cell.title = '$' + cellData.cost.toFixed(4) + ' \u00b7 ' + cellData.session_count + ' session' + (cellData.session_count !== 1 ? 's' : '');
+        }
+        wrap.appendChild(cell);
+      }
+    }
+
+    container.appendChild(wrap);
+  })();
 
   var costTabs = document.querySelectorAll('#costTrendTabs .cost-tab');
   costTabs.forEach(function(tab) {

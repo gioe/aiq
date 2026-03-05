@@ -342,11 +342,78 @@ def fetch_tool_call_stats_global(conn: sqlite3.Connection) -> list[dict]:
     return result
 
 
-def fetch_cost_trend(conn: sqlite3.Connection) -> list[dict]:
-    """Fetch weekly cost aggregations from task_sessions."""
-    log.debug("Querying cost trend data")
+def fetch_hourly_cost(conn: sqlite3.Connection, offset_minutes: int = 0) -> list[dict]:
+    """Fetch total cost per local hour from task_sessions and skill_runs.
+
+    Returns a 24-element list [{hour, cost_tasks, cost_skills}] zero-filled for
+    missing hours. Bucketing is done in SQL after applying offset_minutes so JS
+    needs no column shift.
+    """
+    log.debug("Querying hourly cost data (offset_minutes=%d)", offset_minutes)
+    sign = "+" if offset_minutes >= 0 else ""
+    offset_mod = f"{sign}{offset_minutes} minutes"
+    hour_map = {h: {"hour": h, "cost_tasks": 0.0, "cost_skills": 0.0} for h in range(24)}
+
+    task_rows = conn.execute(
+        f"""SELECT CAST(strftime('%H', datetime(started_at, '{offset_mod}')) AS INTEGER) as hour,
+                  SUM(COALESCE(cost_dollars, 0)) as cost
+           FROM task_sessions
+           WHERE cost_dollars > 0
+           GROUP BY hour"""
+    ).fetchall()
+    for r in task_rows:
+        hour_map[r["hour"]]["cost_tasks"] = r["cost"]
+
+    try:
+        skill_rows = conn.execute(
+            f"""SELECT CAST(strftime('%H', datetime(started_at, '{offset_mod}')) AS INTEGER) as hour,
+                      SUM(COALESCE(cost_dollars, 0)) as cost
+               FROM skill_runs
+               WHERE cost_dollars > 0
+               GROUP BY hour"""
+        ).fetchall()
+        for r in skill_rows:
+            hour_map[r["hour"]]["cost_skills"] = r["cost"]
+    except sqlite3.OperationalError:
+        log.warning("skill_runs table not found — skipping skill costs in hourly breakdown")
+
+    result = [hour_map[h] for h in range(24)]
+    log.debug("Fetched hourly cost data (%d buckets)", len(result))
+    return result
+
+
+def fetch_dow_hour_heatmap(conn: sqlite3.Connection, offset_minutes: int = 0) -> list[dict]:
+    """Fetch day-of-week + hour cost heatmap from task_sessions (local-time buckets).
+
+    Returns a sparse list of {dow, hour, cost, session_count} for cells with
+    activity. dow follows strftime('%w'): 0=Sunday … 6=Saturday. Bucketing is
+    done in SQL after applying offset_minutes so JS needs no column shift.
+    """
+    log.debug("Querying dow/hour heatmap data (offset_minutes=%d)", offset_minutes)
+    sign = "+" if offset_minutes >= 0 else ""
+    offset_mod = f"{sign}{offset_minutes} minutes"
     rows = conn.execute(
-        """SELECT date(started_at, 'weekday 0', '-6 days') as week_start,
+        f"""SELECT CAST(strftime('%w', datetime(started_at, '{offset_mod}')) AS INTEGER) as dow,
+                  CAST(strftime('%H', datetime(started_at, '{offset_mod}')) AS INTEGER) as hour,
+                  SUM(COALESCE(cost_dollars, 0)) as cost,
+                  COUNT(*) as session_count
+           FROM task_sessions
+           WHERE cost_dollars > 0
+           GROUP BY dow, hour
+           ORDER BY dow, hour"""
+    ).fetchall()
+    result = [dict(r) for r in rows]
+    log.debug("Fetched %d dow/hour heatmap cells", len(result))
+    return result
+
+
+def fetch_cost_trend(conn: sqlite3.Connection, offset_minutes: int = 0) -> list[dict]:
+    """Fetch weekly cost aggregations from task_sessions, grouped by local date."""
+    log.debug("Querying cost trend data (offset_minutes=%d)", offset_minutes)
+    sign = "+" if offset_minutes >= 0 else ""
+    offset_mod = f"{sign}{offset_minutes} minutes"
+    rows = conn.execute(
+        f"""SELECT date(started_at, '{offset_mod}', 'weekday 0', '-6 days') as week_start,
                   SUM(COALESCE(cost_dollars, 0)) as weekly_cost
            FROM task_sessions
            WHERE cost_dollars > 0
@@ -358,11 +425,13 @@ def fetch_cost_trend(conn: sqlite3.Connection) -> list[dict]:
     return result
 
 
-def fetch_cost_trend_daily(conn: sqlite3.Connection) -> list[dict]:
-    """Fetch daily cost aggregations from task_sessions."""
-    log.debug("Querying daily cost trend data")
+def fetch_cost_trend_daily(conn: sqlite3.Connection, offset_minutes: int = 0) -> list[dict]:
+    """Fetch daily cost aggregations from task_sessions, grouped by local date."""
+    log.debug("Querying daily cost trend data (offset_minutes=%d)", offset_minutes)
+    sign = "+" if offset_minutes >= 0 else ""
+    offset_mod = f"{sign}{offset_minutes} minutes"
     rows = conn.execute(
-        """SELECT date(started_at) as day,
+        f"""SELECT date(started_at, '{offset_mod}') as day,
                   SUM(COALESCE(cost_dollars, 0)) as daily_cost
            FROM task_sessions
            WHERE cost_dollars > 0
@@ -374,11 +443,13 @@ def fetch_cost_trend_daily(conn: sqlite3.Connection) -> list[dict]:
     return result
 
 
-def fetch_cost_trend_monthly(conn: sqlite3.Connection) -> list[dict]:
-    """Fetch monthly cost aggregations from task_sessions."""
-    log.debug("Querying monthly cost trend data")
+def fetch_cost_trend_monthly(conn: sqlite3.Connection, offset_minutes: int = 0) -> list[dict]:
+    """Fetch monthly cost aggregations from task_sessions, grouped by local month."""
+    log.debug("Querying monthly cost trend data (offset_minutes=%d)", offset_minutes)
+    sign = "+" if offset_minutes >= 0 else ""
+    offset_mod = f"{sign}{offset_minutes} minutes"
     rows = conn.execute(
-        """SELECT strftime('%Y-%m', started_at) as month,
+        f"""SELECT strftime('%Y-%m', started_at, '{offset_mod}') as month,
                   SUM(COALESCE(cost_dollars, 0)) as monthly_cost
            FROM task_sessions
            WHERE cost_dollars > 0

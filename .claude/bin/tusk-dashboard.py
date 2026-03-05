@@ -83,6 +83,8 @@ fetch_tool_call_stats_global = _data.fetch_tool_call_stats_global
 fetch_cost_trend = _data.fetch_cost_trend
 fetch_cost_trend_daily = _data.fetch_cost_trend_daily
 fetch_cost_trend_monthly = _data.fetch_cost_trend_monthly
+fetch_hourly_cost = _data.fetch_hourly_cost
+fetch_dow_hour_heatmap = _data.fetch_dow_hour_heatmap
 # HTML generation layer
 generate_css = _html.generate_css
 generate_header = _html.generate_header
@@ -90,12 +92,23 @@ generate_footer = _html.generate_footer
 generate_skill_runs_section = _html.generate_skill_runs_section
 
 generate_cost_trend_section = _html.generate_cost_trend_section
+generate_hourly_cost_section = _html.generate_hourly_cost_section
+generate_dow_hour_heatmap_section = _html.generate_dow_hour_heatmap_section
 generate_filter_bar = _html.generate_filter_bar
 generate_table_header = _html.generate_table_header
 generate_pagination = _html.generate_pagination
 generate_dag_section = _html.generate_dag_section
 generate_js = _html.generate_js
 generate_task_row = _html.generate_task_row
+
+
+def _tz_label(offset_minutes: int) -> str:
+    """Return a UTC±H or UTC±H:MM label for the given offset in minutes."""
+    h, m = divmod(abs(offset_minutes), 60)
+    sign = "+" if offset_minutes >= 0 else "-"
+    if m:
+        return f"UTC{sign}{h}:{m:02d}"
+    return f"UTC{sign}{h}"
 
 
 def generate_html(task_metrics: list[dict],
@@ -109,9 +122,13 @@ def generate_html(task_metrics: list[dict],
                   tool_call_per_skill_run: list[dict] = None,
                   tool_call_per_criterion: list[dict] = None,
                   tool_call_global: list[dict] = None,
-                  tool_call_events_per_criterion: list[dict] = None) -> str:
+                  tool_call_events_per_criterion: list[dict] = None,
+                  utc_offset_minutes: int = 0,
+                  hourly_cost: list[dict] = None,
+                  dow_hour_heatmap: list[dict] = None) -> str:
     """Generate the full HTML dashboard by composing sub-functions."""
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    tz_label = _tz_label(utc_offset_minutes)
 
     if all_criteria is None:
         all_criteria = {}
@@ -188,6 +205,9 @@ def generate_html(task_metrics: list[dict],
     _criteria_json_str = json.dumps(criteria_json).replace("</", "<\\/")
     criteria_script = f'<script>window.CRITERIA_DATA = {_criteria_json_str};</script>'
 
+    hourly_cost_json = json.dumps(hourly_cost or []).replace("</", "<\\/")
+    dow_hour_heatmap_json = json.dumps(dow_hour_heatmap or []).replace("</", "<\\/")
+
     # All Runs table → Skills tab
     skill_runs_html = generate_skill_runs_section(skill_runs or [], tool_stats_by_run)
 
@@ -197,13 +217,19 @@ def generate_html(task_metrics: list[dict],
         skill_runs or []
     )
 
+    # Hour of day cost bar chart (→ Cost tab, after trend)
+    hourly_cost_html = generate_hourly_cost_section()
+
+    # Day-of-week × hour heatmap (→ Cost tab, after hourly chart)
+    dow_hour_heatmap_html = generate_dow_hour_heatmap_section()
+
     # DAG section
     dag_html = generate_dag_section(
         dag_tasks or [], dag_edges or [], dag_blockers or []
     )
 
     css = generate_css()
-    header = generate_header(now)
+    header = generate_header(now, tz_label)
     footer = generate_footer(now, version)
     filter_bar = generate_filter_bar()
     table_header = generate_table_header()
@@ -279,12 +305,17 @@ def generate_html(task_metrics: list[dict],
 <div id="tab-cost" class="tab-panel">
   <div class="container">
     {cost_trend_html}
+    {hourly_cost_html}
+    {dow_hour_heatmap_html}
   </div>
 </div>
 
 {footer}
 
 {criteria_script}
+<script>window.__tuskTzOffset = {utc_offset_minutes};</script>
+<script>window.__tuskHourlyCost = {hourly_cost_json};</script>
+<script>window.__tuskDowHourHeatmap = {dow_hour_heatmap_json};</script>
 {js}
 
 </body>
@@ -316,13 +347,17 @@ def main():
         print("Run 'tusk init' first.", file=sys.stderr)
         sys.exit(1)
 
+    # Local timezone offset (minutes east of UTC) for date bucketing
+    utc_offset_minutes = int(datetime.now().astimezone().utcoffset().total_seconds() / 60)
+    log.debug("UTC offset: %d minutes", utc_offset_minutes)
+
     # Fetch data
     conn = get_connection(db_path)
     try:
         task_metrics = fetch_task_metrics(conn)
-        cost_trend = fetch_cost_trend(conn)
-        cost_trend_daily = fetch_cost_trend_daily(conn)
-        cost_trend_monthly = fetch_cost_trend_monthly(conn)
+        cost_trend = fetch_cost_trend(conn, utc_offset_minutes)
+        cost_trend_daily = fetch_cost_trend_daily(conn, utc_offset_minutes)
+        cost_trend_monthly = fetch_cost_trend_monthly(conn, utc_offset_minutes)
         all_criteria = fetch_all_criteria(conn)
         task_deps = fetch_task_dependencies(conn)
         # DAG data
@@ -341,6 +376,9 @@ def main():
         tool_call_events_per_criterion = fetch_tool_call_events_per_criterion(conn)
         # Project-wide tool call stats (for Skills tab aggregate view)
         tool_call_global = fetch_tool_call_stats_global(conn)
+        # Hourly and day-of-week/hour cost aggregations
+        hourly_cost = fetch_hourly_cost(conn, utc_offset_minutes)
+        dow_hour_heatmap = fetch_dow_hour_heatmap(conn, utc_offset_minutes)
     finally:
         conn.close()
 
@@ -366,6 +404,9 @@ def main():
         tool_call_per_task, tool_call_per_skill_run,
         tool_call_per_criterion, tool_call_global,
         tool_call_events_per_criterion=tool_call_events_per_criterion,
+        utc_offset_minutes=utc_offset_minutes,
+        hourly_cost=hourly_cost,
+        dow_hour_heatmap=dow_hour_heatmap,
     )
     log.debug("Generated %d bytes of HTML", len(html_content))
 

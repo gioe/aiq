@@ -138,14 +138,6 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
 
     Repeat up to **3 times**. If tests still fail after 3 attempts, surface the full failure output and a summary of what was tried to the user, then **stop** — do not continue looping.
 
-    **If `tusk commit` fails because a pre-commit formatter reformatted a staged file** (e.g., `black` or `ruff` rewrote a Python file and the hook exited non-zero), the hook already wrote the reformatted file to disk but did NOT re-stage it. Fix:
-    1. Re-stage the file: `git add <file>`
-    2. Retry `tusk commit` with the same arguments, or fall back to:
-       ```bash
-       git add <file> && git commit -m "[TASK-<id>] <message>" --trailer "Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
-       ```
-       Then mark criteria done with `tusk criteria done <cid> --skip-verify`.
-
     3. Log a progress checkpoint:
       ```bash
       tusk progress <id> --next-steps "<what remains to be done>"

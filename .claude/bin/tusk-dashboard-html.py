@@ -359,13 +359,14 @@ def generate_css() -> str:
     return '<style>\n' + _load_dashboard_css_module().CSS + '\n</style>'
 
 
-def generate_header(now: str) -> str:
+def generate_header(now: str, tz_label: str = "") -> str:
     """Generate the page header bar with theme toggle and tab navigation."""
+    tz_suffix = f" ({esc(tz_label)})" if tz_label else ""
     return f"""\
 <div class="header">
   <h1>Tusk &mdash; Task Metrics</h1>
   <div style="display:flex;align-items:center;gap:var(--sp-3);">
-    <span class="timestamp">Generated {esc(now)}</span>
+    <span class="timestamp">Generated {esc(now)}{tz_suffix}</span>
     <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
       <span class="icon-sun">\u2600\uFE0F</span>
       <span class="icon-moon">\U0001F319</span>
@@ -756,6 +757,64 @@ window.__tuskSkillTrend = {skill_trend_data};
   }});
 }})();
 </script>"""
+
+
+def generate_hourly_cost_section() -> str:
+    """Generate Hour of Day Cost panel with Tasks vs Skills toggle."""
+    return """\
+<div class="panel" style="margin-bottom: var(--sp-6);">
+  <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Hour of Day Cost</span>
+    <div class="cost-trend-controls">
+      <span class="cost-toggle-label">Source</span>
+      <div class="cost-trend-tabs" id="hourlyTypeTabs">
+        <button class="cost-tab active" data-type="task">Tasks</button>
+        <button class="cost-tab" data-type="skill">Skills</button>
+      </div>
+    </div>
+  </div>
+  <div id="hourlyTaskView" style="padding:0 var(--sp-4) var(--sp-4);">
+    <canvas id="hourlyCostTaskChart" height="200" style="max-width:100%;width:100%;"></canvas>
+  </div>
+  <div id="hourlySkillView" style="display:none;padding:0 var(--sp-4) var(--sp-4);">
+    <canvas id="hourlyCostSkillChart" height="200" style="max-width:100%;width:100%;"></canvas>
+  </div>
+</div>
+<script>
+(function() {{
+  var typeBtns = document.querySelectorAll('#hourlyTypeTabs .cost-tab');
+  var taskView = document.getElementById('hourlyTaskView');
+  var skillView = document.getElementById('hourlySkillView');
+  typeBtns.forEach(function(btn) {{
+    btn.addEventListener('click', function() {{
+      var type = btn.getAttribute('data-type');
+      typeBtns.forEach(function(b) {{ b.classList.remove('active'); }});
+      btn.classList.add('active');
+      if (type === 'skill') {{
+        taskView.style.display = 'none';
+        skillView.style.display = '';
+      }} else {{
+        taskView.style.display = '';
+        skillView.style.display = 'none';
+      }}
+    }});
+  }});
+}})();
+</script>"""
+
+
+def generate_dow_hour_heatmap_section() -> str:
+    """Generate Day-of-Week × Hour heatmap panel (rendered by JS)."""
+    return """\
+<div class="panel" style="margin-bottom: var(--sp-6);">
+  <div class="section-header">
+    <span>Activity by Day &amp; Hour</span>
+  </div>
+  <div id="dowHourHeatmapContainer" style="padding:0 var(--sp-4) var(--sp-2);"></div>
+  <p style="padding:0 var(--sp-4) var(--sp-4);font-size:0.7rem;color:var(--text-muted);margin:0;">
+    Day and hour labels are local time.
+  </p>
+</div>"""
 
 
 def generate_filter_bar() -> str:
