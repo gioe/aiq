@@ -98,22 +98,28 @@ def main(argv: list[str]) -> int:
     # stashing. Untracked files (status "??") carry over to the new branch
     # automatically and do not need to be stashed; including them in the dirty
     # check causes a spurious stash-pop failure when there is nothing to pop.
+    # .claude/ paths are excluded: stashing those removes tusk binaries from
+    # PATH mid-workflow (see issue #314). They carry over to the new branch.
     status_result = run(["git", "status", "--porcelain"], check=False)
     dirty = any(
-        line and not line.startswith("??")
+        line and not line.startswith("??") and not line[3:].startswith(".claude/")
         for line in status_result.stdout.splitlines()
     )
     if dirty:
         stash = run(
-            ["git", "stash", "push", "-m", f"tusk-branch: auto-stash for TASK-{task_id}"],
+            [
+                "git", "stash", "push",
+                "-m", f"tusk-branch: auto-stash for TASK-{task_id}",
+                "--", ":(exclude).claude/",
+            ],
             check=False,
         )
         if stash.returncode != 0:
             print(f"Error: git stash failed:\n{stash.stderr.strip()}", file=sys.stderr)
             return 2
         print(
-            "Warning: uncommitted changes detected — stashed before creating branch.\n"
-            "Run 'git stash pop' when ready to restore your changes.",
+            "Warning: uncommitted changes detected — stashed before switching branches.\n"
+            "Run 'git stash pop' on the new branch to restore your changes.",
             file=sys.stderr,
         )
 

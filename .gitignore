@@ -109,3 +109,9 @@ ios/TestResults.xcresult/
 ios/AIQ.xcodeproj/project.xcworkspace/xcuserdata/
 
 tusk/aiq-dashboard.html
+
+# tusk install files
+.claude/settings.json
+.claude/tusk-manifest.json
+tusk/tasks.db
+tusk/tasks.db-*

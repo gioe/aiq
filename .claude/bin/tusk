@@ -415,6 +415,33 @@ cmd_validate() {
   echo "Config is valid ($(resolve_config))."
 }
 
+update_gitignore() {
+  local gitignore="$REPO_ROOT/.gitignore"
+  local -a tusk_ignores=(
+    ".claude/bin/"
+    ".claude/skills/"
+    ".claude/settings.json"
+    ".claude/tusk-manifest.json"
+    "tusk/tasks.db"
+    "tusk/tasks.db-*"
+  )
+  local added=0
+  for entry in "${tusk_ignores[@]}"; do
+    if ! grep -qxF "$entry" "$gitignore" 2>/dev/null; then
+      if [[ $added -eq 0 ]] && ! grep -qxF "# tusk install files" "$gitignore" 2>/dev/null; then
+        printf '\n# tusk install files\n' >> "$gitignore"
+      fi
+      printf '%s\n' "$entry" >> "$gitignore"
+      added=$((added + 1))
+    fi
+  done
+  if [[ $added -gt 0 ]]; then
+    echo "  Updated .gitignore with $added tusk install path(s)."
+  else
+    echo "  .gitignore already up to date."
+  fi
+}
+
 cmd_init() {
   mkdir -p "$DB_DIR"
 
@@ -431,6 +458,10 @@ cmd_init() {
     cp "$DEFAULT_CONFIG" "$PROJECT_CONFIG"
     echo "Created config at $PROJECT_CONFIG — edit to set your project's domains and agents."
   fi
+
+  # Ensure .gitignore covers tusk install paths so they are never accidentally
+  # stashed or committed. Appends only entries that are not already present.
+  update_gitignore
 
   # Validate config before proceeding
   validate_config
@@ -2233,10 +2264,31 @@ with open(target_settings_path, 'w') as f:
     echo "  Removed deprecated file: tusk/tusk.db"
   fi
 
+  # Ensure .gitignore covers tusk install paths (idempotent; adds only missing entries)
+  update_gitignore
+
   # Write updated manifest (copy from the new release's MANIFEST)
   if [[ -f "$new_manifest" ]]; then
     cp "$new_manifest" "$REPO_ROOT/.claude/tusk-manifest.json"
     echo "  Updated .claude/tusk-manifest.json"
+  fi
+
+  # Ensure all installed text files end with a trailing newline so pre-commit
+  # hooks (end-of-file-fixer, etc.) don't flag them in target projects.
+  local eof_fixed=0
+  for f in "$SCRIPT_DIR"/*.json "$SCRIPT_DIR"/*.py "$SCRIPT_DIR/tusk" \
+            "$REPO_ROOT"/.claude/skills/*/* \
+            "$REPO_ROOT"/scripts/*.py \
+            "$REPO_ROOT"/.claude/hooks/*; do
+    [[ -f "$f" ]] || continue
+    [[ -s "$f" ]] || continue
+    if [[ -n "$(tail -c1 "$f")" ]]; then
+      printf '\n' >> "$f"
+      eof_fixed=$((eof_fixed + 1))
+    fi
+  done
+  if [[ $eof_fixed -gt 0 ]]; then
+    echo "  Fixed missing trailing newline in $eof_fixed file(s)."
   fi
 
   # Stamp VERSION last — only after all files are successfully written.
@@ -2269,7 +2321,7 @@ with open(manifest_path) as f:
 
 to_stage = [p for p in files if __import__('os').path.isfile(__import__('os').path.join(repo_root, p))]
 if to_stage:
-    subprocess.run(['git', '-C', repo_root, 'add', '--'] + to_stage, check=True)
+    subprocess.run(['git', '-C', repo_root, 'add', '-f', '--'] + to_stage, check=True)
 "
       # Only commit if there are staged changes
       if ! git -C "$REPO_ROOT" diff --cached --quiet; then
