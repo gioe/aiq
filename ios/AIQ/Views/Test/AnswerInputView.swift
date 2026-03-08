@@ -13,7 +13,6 @@ struct AnswerInputView: View {
             Text("answer.input.your.answer".localized)
                 .font(.headline)
                 .foregroundColor(.primary)
-                .screenshotPrevented()
 
             if question.isMultipleChoice {
                 // Multiple choice options
@@ -73,6 +72,7 @@ struct AnswerInputView: View {
                 Text(inputHint)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .screenshotPrevented()
             }
         }
         .onAppear {
