@@ -50,14 +50,14 @@ struct AdaptiveTestView: View {
             // Loading overlay for initial test fetch
             if viewModel.isLoading && viewModel.navigationState.questions.isEmpty {
                 LoadingOverlay(message: "Preparing your adaptive test...")
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
+                    .loadingOverlayTransition(reduceMotion: reduceMotion)
                     .accessibilityIdentifier(AccessibilityIdentifiers.AdaptiveTestView.loadingOverlay)
             }
 
             // Loading overlay for test submission
             if viewModel.isSubmitting {
                 LoadingOverlay(message: "Submitting your test...")
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
+                    .loadingOverlayTransition(reduceMotion: reduceMotion)
             }
         }
         .navigationTitle("Adaptive IQ Test")
@@ -146,7 +146,7 @@ struct AdaptiveTestView: View {
                     }
                 )
                 .padding(.top, 8)
-                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                .bannerSlideTransition(reduceMotion: reduceMotion)
             }
 
             // Adaptive progress header

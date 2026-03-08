@@ -65,14 +65,14 @@ struct TestTakingView: View {
             // Loading overlay for initial test fetch
             if viewModel.isLoading && viewModel.navigationState.questions.isEmpty {
                 LoadingOverlay(message: "Preparing your test...")
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
+                    .loadingOverlayTransition(reduceMotion: reduceMotion)
                     .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.loadingOverlay)
             }
 
             // Loading overlay for test submission
             if viewModel.isSubmitting {
                 LoadingOverlay(message: "Submitting your test...")
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
+                    .loadingOverlayTransition(reduceMotion: reduceMotion)
                     .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.loadingOverlay)
             }
         }
@@ -327,7 +327,7 @@ struct TestTakingView: View {
                     }
                 )
                 .padding(.top, 8)
-                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                .bannerSlideTransition(reduceMotion: reduceMotion)
             }
 
             // Inline error banner for post-load failures (e.g. submission errors).
@@ -344,7 +344,7 @@ struct TestTakingView: View {
                 )
                 .padding(.horizontal)
                 .padding(.top, 8)
-                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                .bannerSlideTransition(reduceMotion: reduceMotion)
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.submitErrorBanner)
             }
 
@@ -365,7 +365,7 @@ struct TestTakingView: View {
                 )
                 .padding(.horizontal)
                 .padding(.bottom, 8)
-                .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                .bannerSlideTransition(reduceMotion: reduceMotion)
             }
 
             ScrollView {
