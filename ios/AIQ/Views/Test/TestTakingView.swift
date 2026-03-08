@@ -382,53 +382,19 @@ struct TestTakingView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     if let question = viewModel.currentQuestion {
-                        if question.isMemoryQuestion {
-                            // Memory questions use a two-phase view (stimulus then question)
-                            MemoryQuestionView(
-                                question: question,
-                                questionNumber: viewModel.navigationState.currentQuestionIndex + 1,
-                                totalQuestions: viewModel.navigationState.questions.count,
-                                userAnswer: Binding(
-                                    get: { viewModel.currentAnswer },
-                                    set: { viewModel.currentAnswer = $0 }
-                                ),
-                                showingStimulus: Binding(
-                                    get: { !viewModel.hasStimulusSeen(for: question.id) },
-                                    set: { newValue in
-                                        if !newValue {
-                                            viewModel.markStimulusSeen(for: question.id)
-                                        }
-                                    }
-                                ),
-                                isDisabled: viewModel.isLocked
-                            )
-                            .transition(
-                                reduceMotion ? .opacity : .asymmetric(
-                                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                                    removal: .move(edge: .leading).combined(with: .opacity)
-                                )
-                            )
-                        } else {
-                            // Standard questions: show question card and answer input separately
-                            QuestionCardView(question: question)
-                                .transition(
-                                    reduceMotion ? .opacity : .asymmetric(
-                                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                                        removal: .move(edge: .leading).combined(with: .opacity)
-                                    )
-                                )
-
-                            // Answer input
-                            AnswerInputView(
-                                question: question,
-                                userAnswer: Binding(
-                                    get: { viewModel.currentAnswer },
-                                    set: { viewModel.currentAnswer = $0 }
-                                ),
-                                isDisabled: viewModel.isLocked
-                            )
-                            .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.95)))
-                        }
+                        QuestionContentView(
+                            question: question,
+                            currentAnswer: Binding(
+                                get: { viewModel.currentAnswer },
+                                set: { viewModel.currentAnswer = $0 }
+                            ),
+                            isDisabled: viewModel.isLocked,
+                            reduceMotion: reduceMotion,
+                            questionNumber: viewModel.navigationState.currentQuestionIndex + 1,
+                            totalQuestions: viewModel.navigationState.questions.count,
+                            hasStimulusSeen: { viewModel.hasStimulusSeen(for: question.id) },
+                            markStimulusSeen: { viewModel.markStimulusSeen(for: question.id) }
+                        )
                     }
                 }
                 .padding()
