@@ -31,7 +31,18 @@ struct AdaptiveTestView: View {
     var body: some View {
         ZStack {
             if viewModel.isTestCompleted {
-                testCompletedView
+                TestCompletionView(
+                    answeredCount: viewModel.answeredCount,
+                    totalQuestions: Constants.Test.maxAdaptiveItems,
+                    onViewResults: {
+                        if let result = viewModel.testResult {
+                            router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
+                        }
+                    },
+                    onReturnToDashboard: {
+                        router.popToRoot()
+                    }
+                )
             } else {
                 testContentView
             }
@@ -293,72 +304,6 @@ struct AdaptiveTestView: View {
                 accessibilityId: AccessibilityIdentifiers.AdaptiveTestView.submitAndContinueButton
             )
         }
-    }
-
-    // MARK: - Test Completed
-
-    @State private var showCompletionAnimation = false
-
-    private var testCompletedView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            // Success icon with celebratory animation
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
-                .scaleEffect(reduceMotion ? 1.0 : (showCompletionAnimation ? 1.0 : 0.5))
-                .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                .rotationEffect(.degrees(reduceMotion ? 0 : (showCompletionAnimation ? 0 : -180)))
-
-            VStack(spacing: 12) {
-                Text("Test Completed!")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                    .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
-
-                Text("Your adaptive test has been submitted")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                    .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
-
-                Text("You answered \(viewModel.answeredCount) question\(viewModel.answeredCount == 1 ? "" : "s")")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .opacity(showCompletionAnimation ? 1.0 : 0.0)
-                    .offset(y: reduceMotion ? 0 : (showCompletionAnimation ? 0 : 20))
-            }
-            .onAppear {
-                // Staggered animations for text elements
-                withAnimation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.6)) {
-                    showCompletionAnimation = true
-                }
-            }
-
-            Spacer()
-
-            // Action buttons
-            VStack(spacing: 12) {
-                PrimaryButton(
-                    title: "View Results",
-                    action: {
-                        if let result = viewModel.testResult {
-                            router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
-                        }
-                    },
-                    isLoading: false
-                )
-
-                Button("Return to Dashboard") {
-                    router.popToRoot()
-                }
-                .buttonStyle(.bordered)
-            }
-            .padding(.horizontal)
-        }
-        .padding()
     }
 
     // MARK: - Private Methods
