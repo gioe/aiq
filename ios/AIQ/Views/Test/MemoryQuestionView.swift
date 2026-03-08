@@ -21,16 +21,10 @@ struct MemoryQuestionView: View {
         VStack(spacing: 24) {
             if showingStimulus {
                 stimulusPhase
-                    .transition(reduceMotion ? .opacity : .asymmetric(
-                        insertion: .move(edge: .leading).combined(with: .opacity),
-                        removal: .move(edge: .leading).combined(with: .opacity)
-                    ))
+                    .questionCardTransition(reduceMotion: reduceMotion)
             } else {
                 questionPhase
-                    .transition(reduceMotion ? .opacity : .asymmetric(
-                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                        removal: .move(edge: .trailing).combined(with: .opacity)
-                    ))
+                    .questionCardTransition(reduceMotion: reduceMotion)
             }
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.container)
