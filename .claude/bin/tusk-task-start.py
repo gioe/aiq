@@ -20,40 +20,40 @@ Performs all setup steps for beginning work on a task:
 --force: bypass the zero-criteria guard (emits a warning but proceeds)
 """
 
+import argparse
+import importlib.util
 import json
+import os
 import sqlite3
 import sys
 
 
-def get_connection(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+def _load_db_lib():
+    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk-db-lib.py")
+    _s = importlib.util.spec_from_file_location("tusk_db_lib", _p)
+    _m = importlib.util.module_from_spec(_s)
+    _s.loader.exec_module(_m)
+    return _m
+
+
+_db_lib = _load_db_lib()
+get_connection = _db_lib.get_connection
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 3:
-        print("Usage: tusk task-start <task_id> [--force]", file=sys.stderr)
-        return 1
-
     db_path = argv[0]
     # argv[1] is config_path (unused but kept for dispatch consistency)
-    try:
-        task_id = int(argv[2])
-    except ValueError:
-        print(f"Error: Invalid task ID: {argv[2]}", file=sys.stderr)
-        return 1
-
-    force = "--force" in argv[3:]
-
-    # Parse optional --agent <name>
-    agent_name = None
-    remaining = argv[3:]
-    if "--agent" in remaining:
-        idx = remaining.index("--agent")
-        if idx + 1 < len(remaining):
-            agent_name = remaining[idx + 1]
+    parser = argparse.ArgumentParser(
+        prog="tusk task-start",
+        description="Begin work on a task",
+    )
+    parser.add_argument("task_id", type=int, help="Task ID")
+    parser.add_argument("--force", action="store_true", help="Bypass zero-criteria guard")
+    parser.add_argument("--agent", dest="agent_name", metavar="NAME", help="Agent name")
+    args = parser.parse_args(argv[2:])
+    task_id = args.task_id
+    force = args.force
+    agent_name = args.agent_name
 
     conn = get_connection(db_path)
     try:
@@ -203,4 +203,8 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2 or not sys.argv[1].endswith(".db"):
+        print("Error: This script must be invoked via the tusk wrapper.", file=sys.stderr)
+        print("Use: tusk task-start <task_id> [--force]", file=sys.stderr)
+        sys.exit(1)
     sys.exit(main(sys.argv[1:]))

@@ -30,11 +30,25 @@ Default behavior (merge.mode = local):
   Requires --pr-number.
 """
 
+import importlib.util
 import json
 import os
 import sqlite3
 import subprocess
 import sys
+import time
+
+
+def _load_db_lib():
+    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk-db-lib.py")
+    _s = importlib.util.spec_from_file_location("tusk_db_lib", _p)
+    _m = importlib.util.module_from_spec(_s)
+    _s.loader.exec_module(_m)
+    return _m
+
+
+_db_lib = _load_db_lib()
+get_connection = _db_lib.get_connection
 
 
 def run(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -68,6 +82,103 @@ def load_merge_mode(config_path: str) -> str:
         return "local"
 
 
+def _checkpoint_wal(db_path: str, max_retries: int = 3) -> None:
+    """Checkpoint and truncate the WAL, retrying if busy readers block it.
+
+    Uses TRUNCATE mode (vs FULL) so the WAL file is zeroed out on success,
+    preventing stale WAL data from being rolled back during the file-move
+    sequence in git checkout.
+    """
+    print("Checkpointing WAL...", file=sys.stderr)
+    last_row = None
+    for attempt in range(max_retries):
+        try:
+            conn = get_connection(db_path)
+            try:
+                row = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+            finally:
+                conn.close()
+        except sqlite3.Error as e:
+            print(f"Warning: WAL checkpoint failed: {e} — continuing.", file=sys.stderr)
+            return
+        last_row = row
+        if row is None or (row[0] == 0 and row[1] == row[2]):
+            return  # all pages flushed and WAL truncated (busy=0 and log==checkpointed)
+        if attempt < max_retries - 1:
+            time.sleep(0.2)
+    print(
+        f"Warning: WAL checkpoint partially blocked after {max_retries} attempts "
+        f"(busy={last_row[0]}, log={last_row[1]}, checkpointed={last_row[2]}) — "
+        "session or task records may still be at risk.",
+        file=sys.stderr,
+    )
+
+
+def _recover_missing_task(db_path: str, task_id: int) -> bool:
+    """Re-insert a minimal Done task record when the task row was lost to a WAL revert.
+
+    Returns True on success, False on failure.
+    """
+    print(
+        f"Warning: Task {task_id} not found in DB after merge — likely lost to a WAL revert. "
+        "Re-inserting as Done to preserve merge integrity.",
+        file=sys.stderr,
+    )
+    try:
+        conn = get_connection(db_path)
+        try:
+            # task_type, priority, and complexity are intentionally omitted —
+            # they are nullable in the schema and unknown after a WAL revert.
+            conn.execute(
+                "INSERT INTO tasks (id, summary, status, closed_reason, priority_score)"
+                " VALUES (?, ?, 'Done', 'completed', 0)",
+                (task_id, f"[Recovered after WAL revert] TASK-{task_id}"),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        print(
+            f"Recovered: Task {task_id} re-inserted as Done with closed_reason=completed.",
+            file=sys.stderr,
+        )
+        return True
+    except sqlite3.Error as e:
+        print(
+            f"Warning: Could not re-insert task {task_id} after WAL revert: {e}",
+            file=sys.stderr,
+        )
+        return False
+
+
+def _detect_id_gaps(db_path: str, task_id: int) -> list[int]:
+    """Return task IDs missing in the range (max_id_below_task, task_id).
+
+    After a WAL revert, tasks created between the last committed DB snapshot and
+    task_id may be permanently lost. Queries the DB to find which IDs in that
+    range are absent so the user can investigate.
+
+    Returns an empty list if there are no gaps or if the DB cannot be queried.
+    """
+    try:
+        conn = get_connection(db_path)
+        try:
+            row = conn.execute(
+                "SELECT MAX(id) FROM tasks WHERE id < ?", (task_id,)
+            ).fetchone()
+            if row is None or row[0] is None:
+                return []
+            max_below = row[0]
+            if max_below >= task_id - 1:
+                return []  # no gap between max_below and task_id
+            # All IDs in (max_below, task_id) are provably absent — max_below is
+            # the largest existing ID below task_id, so no task can fill the gap.
+            return list(range(max_below + 1, task_id))
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return []
+
+
 def find_task_branch(task_id: int) -> tuple[str | None, str | None]:
     """Return (branch_name, error_message). branch_name is None on error."""
     result = run(["git", "branch", "--list", f"feature/TASK-{task_id}-*"], check=False)
@@ -93,6 +204,92 @@ def find_task_branch(task_id: int) -> tuple[str | None, str | None]:
     return branches[0], None
 
 
+def _autodetect_session(
+    db_path: str, task_id: int, tusk_bin: str
+) -> tuple[int | None, int | None]:
+    """Find the session to use for task_id when no explicit session was given.
+
+    Returns (session_id, exit_code). On success exit_code is None.
+    On error, session_id is None and exit_code is a non-zero int.
+    Prints warnings/errors to stderr.
+    """
+    try:
+        conn = get_connection(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT id, started_at FROM task_sessions WHERE task_id = ? AND ended_at IS NULL ORDER BY id",
+                (task_id,),
+            ).fetchall()
+            if len(rows) == 0:
+                closed_rows = conn.execute(
+                    "SELECT id FROM task_sessions WHERE task_id = ? AND ended_at IS NOT NULL ORDER BY id DESC LIMIT 1",
+                    (task_id,),
+                ).fetchall()
+            else:
+                closed_rows = []
+        finally:
+            conn.close()
+    except sqlite3.Error as e:
+        print(f"Error: Could not query sessions: {e}", file=sys.stderr)
+        return None, 1
+
+    if len(rows) == 0:
+        if len(closed_rows) == 0:
+            # No sessions at all. If a feature branch exists, tasks.db was likely reverted
+            # by a git stash or checkout — create a synthetic session so merge can proceed.
+            branch_check, _ = find_task_branch(task_id)
+            if branch_check:
+                print(
+                    f"Warning: No session found for task {task_id} — tasks.db may have been "
+                    "reverted by a git stash or checkout. Creating a synthetic session to "
+                    "allow merge to proceed.\n"
+                    "Tip: add the tusk database to your .gitignore (run `tusk path` to find "
+                    "the exact path) to prevent this in future.",
+                    file=sys.stderr,
+                )
+                result = run([tusk_bin, "task-start", str(task_id), "--force"], check=False)
+                if result.returncode != 0:
+                    print(
+                        f"Error: Could not create synthetic session:\n{result.stderr.strip()}\n\n"
+                        "Manual recovery:\n"
+                        f"  git checkout <default_branch>\n"
+                        f"  git merge --ff-only feature/TASK-{task_id}-*\n"
+                        f"  git push\n"
+                        f"  tusk task-done {task_id} --reason completed",
+                        file=sys.stderr,
+                    )
+                    return None, 1
+                try:
+                    start_data = json.loads(result.stdout)
+                    session_id = start_data["session_id"]
+                    print(f"Synthetic session {session_id} created.", file=sys.stderr)
+                except (json.JSONDecodeError, KeyError) as e:
+                    print(
+                        f"Error: Could not parse session from task-start output: {e}",
+                        file=sys.stderr,
+                    )
+                    return None, 1
+            else:
+                print(
+                    f"Error: No session found for task {task_id}. "
+                    "Start a session with `tusk task-start` or pass --session <id> explicitly.",
+                    file=sys.stderr,
+                )
+                return None, 1
+        else:
+            session_id = closed_rows[0][0]
+            print(
+                f"Warning: No open session found for task {task_id}; "
+                f"falling back to last closed session {session_id}.",
+                file=sys.stderr,
+            )
+    else:
+        session_id = rows[0][0]
+        print(f"Auto-detected session {session_id} for task {task_id}.", file=sys.stderr)
+
+    return session_id, None
+
+
 def main(argv: list[str]) -> int:
     if len(argv) < 3:
         print(
@@ -111,6 +308,10 @@ def main(argv: list[str]) -> int:
     except ValueError:
         print(f"Error: Invalid task ID: {argv[2]}", file=sys.stderr)
         return 1
+
+    # Locate the tusk binary (sibling of this script in the same bin/ directory)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    tusk_bin = os.path.join(script_dir, "tusk")
 
     # Parse remaining flags
     remaining = argv[3:]
@@ -147,50 +348,54 @@ def main(argv: list[str]) -> int:
             print(f"Error: Unknown argument: {remaining[i]}", file=sys.stderr)
             return 1
 
-    if session_id is None:
-        # Auto-detect the open session for this task
+    # Validate an explicitly-provided session ID. If the session is not found or
+    # does not belong to this task, emit a warning and fall back to auto-detection
+    # so that any other open session for the task can still be used.
+    if session_id is not None:
         try:
-            with sqlite3.connect(_db_path) as conn:
-                rows = conn.execute(
-                    "SELECT id, started_at FROM task_sessions WHERE task_id = ? AND ended_at IS NULL ORDER BY id",
-                    (task_id,),
-                ).fetchall()
-                if len(rows) == 0:
-                    closed_rows = conn.execute(
-                        "SELECT id FROM task_sessions WHERE task_id = ? AND ended_at IS NOT NULL ORDER BY id DESC LIMIT 1",
-                        (task_id,),
-                    ).fetchall()
-                else:
-                    closed_rows = []
+            _conn = get_connection(_db_path)
+            try:
+                _row = _conn.execute(
+                    "SELECT id FROM task_sessions WHERE id = ? AND task_id = ? AND ended_at IS NULL",
+                    (session_id, task_id),
+                ).fetchone()
+            finally:
+                _conn.close()
         except sqlite3.Error as e:
             print(f"Error: Could not query sessions: {e}", file=sys.stderr)
             return 1
 
-        if len(rows) == 0:
-            if len(closed_rows) == 0:
-                print(
-                    f"Error: No open session found for task {task_id}. "
-                    "Start a session with `tusk task-start` or pass --session <id> explicitly.",
-                    file=sys.stderr,
-                )
-                return 1
-            session_id = closed_rows[0][0]
+        if _row is None:
+            # Produce a specific warning: distinguish "not found", "closed", and "wrong task".
+            try:
+                _conn_detail = get_connection(_db_path)
+                try:
+                    _detail_row = _conn_detail.execute(
+                        "SELECT task_id, ended_at FROM task_sessions WHERE id = ?",
+                        (session_id,),
+                    ).fetchone()
+                finally:
+                    _conn_detail.close()
+            except sqlite3.Error:
+                _detail_row = None
+
+            if _detail_row is None:
+                _reason = f"Session {session_id} not found in database"
+            elif _detail_row[1] is not None:
+                _reason = f"Session {session_id} is already closed"
+            else:
+                _reason = f"Session {session_id} belongs to a different task"
             print(
-                f"Warning: No open session found for task {task_id}; "
-                f"falling back to last closed session {session_id}.",
+                f"Warning: {_reason}; "
+                "falling back to auto-detecting an open session for the task.",
                 file=sys.stderr,
             )
-        elif len(rows) > 1:
-            lines = "\n".join(f"  session {r[0]}  (started {r[1]})" for r in rows)
-            print(
-                f"Error: Multiple open sessions found for task {task_id}:\n{lines}\n"
-                "Close all but one, or pass --session <id> explicitly.",
-                file=sys.stderr,
-            )
-            return 1
-        else:
-            session_id = rows[0][0]
-            print(f"Auto-detected session {session_id} for task {task_id}.", file=sys.stderr)
+            session_id = None
+
+    if session_id is None:
+        session_id, err_code = _autodetect_session(_db_path, task_id, tusk_bin)
+        if err_code is not None:
+            return err_code
 
     # Resolve merge mode (config can force PR mode)
     merge_mode = load_merge_mode(config_path)
@@ -200,10 +405,6 @@ def main(argv: list[str]) -> int:
     if use_pr and pr_number is None:
         print("Error: --pr-number <N> is required when using PR mode", file=sys.stderr)
         return 1
-
-    # Locate the tusk binary (sibling of this script in the same bin/ directory)
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    tusk_bin = os.path.join(script_dir, "tusk")
 
     # Preflight checks — abort before touching session or task state
     # Step 1a: Detect feature branch
@@ -215,15 +416,22 @@ def main(argv: list[str]) -> int:
     # Step 1b (local mode only): Abort if working tree is dirty
     # Only check for staged/unstaged changes to tracked files; untracked files are not
     # uncommitted changes and should not block a merge.
+    # tasks.db (and its WAL/SHM siblings) are excluded from this check because
+    # they are always modified during an active tusk session and are committed
+    # as part of normal task workflow — not manually staged before merge.
     if not use_pr:
-        unstaged = run(["git", "diff", "--quiet"], check=False)
-        staged = run(["git", "diff", "--cached", "--quiet"], check=False)
-        if unstaged.returncode not in (0, 1) or staged.returncode not in (0, 1):
-            # returncode > 1 means git itself failed
+        unstaged = run(["git", "diff", "--name-only"], check=False)
+        staged = run(["git", "diff", "--cached", "--name-only"], check=False)
+        if unstaged.returncode != 0 or staged.returncode != 0:
             err = unstaged.stderr.strip() or staged.stderr.strip()
             print(f"Error: git diff failed:\n{err}", file=sys.stderr)
             return 1
-        if unstaged.returncode != 0 or staged.returncode != 0:
+        dirty_files = list(dict.fromkeys(
+            f
+            for f in unstaged.stdout.splitlines() + staged.stdout.splitlines()
+            if f and not f.startswith("tusk/tasks.db")
+        ))
+        if dirty_files:
             print(
                 "Error: Working tree has uncommitted changes — cannot proceed with merge.\n"
                 "Please stash or commit your changes first:\n"
@@ -237,12 +445,29 @@ def main(argv: list[str]) -> int:
     print(f"Found branch: {branch_name}", file=sys.stderr)
 
     # Step 2: Close the session (captures git diff stats while on feature branch)
+    #
+    # Checkpoint the WAL first so that any uncommitted writes (e.g. from tusk task-start)
+    # are flushed to the main db file before session-close reads the session row.
+    # Without this, a git stash or branch switch that reverts tasks.db to a pre-WAL
+    # snapshot can silently drop the session row, causing "No session found" below.
+    _checkpoint_wal(_db_path)
+
     print(f"Closing session {session_id}...", file=sys.stderr)
     result = run([tusk_bin, "session-close", str(session_id)], check=False)
     session_was_closed = result.returncode == 0
     if result.returncode != 0:
         if "already closed" in result.stderr:
             print(f"Warning: session {session_id} is already closed — continuing.", file=sys.stderr)
+        elif "No session found" in result.stderr:
+            # The session row is missing despite the WAL checkpoint above — likely lost
+            # due to a git stash/checkout that reverted tasks.db before the WAL was
+            # checkpointed. Skip session-close and continue so the merge itself is not
+            # blocked by this transient data-loss scenario.
+            print(
+                f"Warning: session {session_id} not found in DB (may have been lost to a "
+                "WAL revert) — skipping session-close and continuing with merge.",
+                file=sys.stderr,
+            )
         else:
             print(f"Error: session-close failed:\n{result.stderr.strip()}", file=sys.stderr)
             return 2
@@ -265,13 +490,30 @@ def main(argv: list[str]) -> int:
         print(f"Merging {branch_name} into {default_branch} (ff-only)...", file=sys.stderr)
 
         # Step 3: Checkout default branch
+        # tasks.db (and WAL/SHM siblings) are gitignored and untracked, so git
+        # refuses to overwrite them during checkout.  Move them aside first, then
+        # restore after the checkout succeeds.
+        db_siblings = [_db_path, _db_path + "-wal", _db_path + "-shm"]
+        db_tmp = [p + ".merge-tmp" for p in db_siblings]
+        moved = []
+        for src, dst in zip(db_siblings, db_tmp):
+            if os.path.exists(src):
+                os.rename(src, dst)
+                moved.append((src, dst))
+
         result = run(["git", "checkout", default_branch], check=False)
         if result.returncode != 0:
+            for src, dst in moved:
+                os.rename(dst, src)
             print(
                 f"Error: git checkout {default_branch} failed:\n{result.stderr.strip()}",
                 file=sys.stderr,
             )
             return 2
+
+        # Restore db files after successful checkout
+        for src, dst in moved:
+            os.rename(dst, src)
 
         # Step 4: Pull latest
         result = run(["git", "pull", "origin", default_branch], check=False)
@@ -332,6 +574,50 @@ def main(argv: list[str]) -> int:
             check=False,
         )
     if result.returncode != 0:
+        if result.returncode == 2 and f"task {task_id} not found" in result.stderr.lower():
+            # Task row missing — likely lost to a WAL revert that the checkpoint
+            # above could not prevent (e.g. busy readers blocked full flush).
+            # Re-insert as Done so the merge sequence can complete cleanly.
+            recovered = _recover_missing_task(_db_path, task_id)
+            gap_ids = _detect_id_gaps(_db_path, task_id)
+            synthetic = {
+                "task": {
+                    "id": task_id,
+                    "summary": f"[Recovered after WAL revert] TASK-{task_id}",
+                    "status": "Done",
+                    "closed_reason": "completed",
+                },
+                "sessions_closed": 1 if session_was_closed else 0,
+                "unblocked_tasks": [],
+                "wal_revert_recovery": recovered,
+                "gap_task_ids": gap_ids,
+            }
+            if not recovered:
+                print(
+                    f"Warning: Task {task_id} could not be recovered. The branch has been "
+                    "merged but the task record is permanently lost. Manually close it:\n"
+                    f"  tusk task-insert \"[Recovered] TASK-{task_id}\" \"\" --priority Medium\n"
+                    f"  tusk task-done <new_id> --reason completed --force",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"Hint: Task {task_id} was recovered with placeholder metadata. "
+                    "Update it with the correct values:\n"
+                    f"  tusk task-update {task_id} --summary '...' --priority Medium "
+                    f"--domain '...' --task-type '...' --complexity '...'",
+                    file=sys.stderr,
+                )
+            if gap_ids:
+                print(
+                    f"Warning: {len(gap_ids)} task(s) between the last committed snapshot "
+                    f"and TASK-{task_id} were lost in the WAL revert and cannot be "
+                    f"recovered (these are separate from the task being merged): {gap_ids}\n"
+                    "Investigate your git history or task notes to reconstruct them.",
+                    file=sys.stderr,
+                )
+            print(json.dumps(synthetic, indent=2))
+            return 0
         print(f"Error: task-done failed:\n{result.stderr.strip()}", file=sys.stderr)
         return 2
 
@@ -357,4 +643,8 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2 or not sys.argv[1].endswith(".db"):
+        print("Error: This script must be invoked via the tusk wrapper.", file=sys.stderr)
+        print("Use: tusk merge <task_id> [--session <session_id>] [--pr --pr-number <N>]", file=sys.stderr)
+        sys.exit(1)
     sys.exit(main(sys.argv[1:]))

@@ -9,17 +9,7 @@ Arguments received from tusk:
     sys.argv[2] — config path
     sys.argv[3:] — summary, description, and optional flags
 
-Flags:
-    --priority <p>        Priority (default: Medium)
-    --domain <d>          Domain (default: NULL)
-    --task-type <t>       Task type (default: feature)
-    --assignee <a>        Assignee (default: NULL)
-    --complexity <c>      Complexity (default: M)
-    --criteria <text>     Acceptance criterion (repeatable, type=manual) [at least one required]
-    --typed-criteria <json>  Typed criterion as JSON (repeatable) [at least one required]
-                             Format: {"text":"...","type":"...","spec":"..."}
-    --deferred            Set expires_at to +60 days and prefix summary with [Deferred]
-    --expires-in <days>   Set expires_at to +N days
+Run 'tusk task-insert --help' for the full flag reference.
 
 Internally validates all enum values against config, runs duplicate
 detection, and inserts the task + criteria in one transaction.
@@ -30,6 +20,8 @@ Exit codes:
     2 — validation or database error
 """
 
+import argparse
+import importlib.util
 import json
 import os
 import sqlite3
@@ -39,16 +31,17 @@ import sys
 TUSK_BIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk")
 
 
-def get_connection(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+def _load_db_lib():
+    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk-db-lib.py")
+    _s = importlib.util.spec_from_file_location("tusk_db_lib", _p)
+    _m = importlib.util.module_from_spec(_s)
+    _s.loader.exec_module(_m)
+    return _m
 
 
-def load_config(config_path: str) -> dict:
-    with open(config_path) as f:
-        return json.load(f)
+_db_lib = _load_db_lib()
+get_connection = _db_lib.get_connection
+load_config = _db_lib.load_config
 
 
 def validate_enum(value, valid_values: list, field_name: str) -> str | None:
@@ -59,6 +52,17 @@ def validate_enum(value, valid_values: list, field_name: str) -> str | None:
         joined = ", ".join(valid_values)
         return f"Invalid {field_name} '{value}'. Valid: {joined}"
     return None
+
+
+def _typed_criterion_type(value: str) -> dict:
+    """Parse a JSON string into a typed-criteria dict."""
+    try:
+        tc = json.loads(value)
+    except json.JSONDecodeError as e:
+        raise argparse.ArgumentTypeError(f"--typed-criteria must be valid JSON: {e}")
+    if not isinstance(tc, dict) or "text" not in tc:
+        raise argparse.ArgumentTypeError('--typed-criteria must have at least a "text" key')
+    return tc
 
 
 def run_dupe_check(summary: str, domain: str | None) -> dict | None:
@@ -81,124 +85,46 @@ def run_dupe_check(summary: str, domain: str | None) -> dict | None:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 4:
-        print(
-            "Usage: tusk task-insert \"<summary>\" \"<description>\" "
-            "--criteria \"...\" [--criteria \"...\"] "
-            "[--typed-criteria '{\"text\":\"...\"}'] "
-            "[--priority P] [--domain D] [--task-type T] [--assignee A] "
-            "[--complexity C] [--deferred] [--expires-in DAYS]\n"
-            "At least one --criteria or --typed-criteria is required.",
-            file=sys.stderr,
-        )
-        return 2
-
     db_path = argv[0]
     config_path = argv[1]
-    remaining = argv[2:]
+    parser = argparse.ArgumentParser(
+        prog="tusk task-insert",
+        description="Insert a new task with criteria in one atomic operation",
+    )
+    parser.add_argument("summary", help="Task summary")
+    parser.add_argument("description", help="Task description")
+    parser.add_argument("--priority", default="Medium", help="Priority (default: Medium)")
+    parser.add_argument("--domain", default=None, help="Domain")
+    parser.add_argument("--task-type", default="feature", dest="task_type", help="Task type (default: feature)")
+    parser.add_argument("--assignee", default=None, help="Assignee")
+    parser.add_argument("--complexity", default="M", help="Complexity (default: M)")
+    parser.add_argument("--criteria", action="append", default=[], metavar="TEXT",
+                        help="Acceptance criterion text (repeatable)")
+    parser.add_argument("--typed-criteria", action="append", default=[], type=_typed_criterion_type,
+                        dest="typed_criteria", metavar="JSON",
+                        help='Typed criterion as JSON, e.g. \'{"text":"...","type":"...","spec":"..."}\' (repeatable)')
+    parser.add_argument("--deferred", action="store_true", help="Mark task as deferred (+60d expiry)")
+    parser.add_argument("--expires-in", type=int, default=None, dest="expires_in_days", metavar="DAYS",
+                        help="Set expires_at to +N days")
+    args = parser.parse_args(argv[2:])
 
-    # Parse positional args and flags
-    summary = None
-    description = None
-    priority = "Medium"
-    domain = None
-    task_type = "feature"
-    assignee = None
-    complexity = "M"
-    criteria: list[str] = []
-    typed_criteria: list[dict] = []
-    deferred = False
-    expires_in_days = None
+    summary = args.summary
+    description = args.description
+    priority = args.priority
+    domain = args.domain
+    task_type = args.task_type
+    assignee = args.assignee
+    complexity = args.complexity
+    criteria: list[str] = args.criteria
+    typed_criteria: list[dict] = args.typed_criteria
+    deferred = args.deferred
+    expires_in_days = args.expires_in_days
 
-    i = 0
-    while i < len(remaining):
-        arg = remaining[i]
-        if arg == "--priority":
-            if i + 1 >= len(remaining):
-                print("Error: --priority requires a value", file=sys.stderr)
-                return 2
-            priority = remaining[i + 1]
-            i += 2
-        elif arg == "--domain":
-            if i + 1 >= len(remaining):
-                print("Error: --domain requires a value", file=sys.stderr)
-                return 2
-            domain = remaining[i + 1]
-            i += 2
-        elif arg == "--task-type":
-            if i + 1 >= len(remaining):
-                print("Error: --task-type requires a value", file=sys.stderr)
-                return 2
-            task_type = remaining[i + 1]
-            i += 2
-        elif arg == "--assignee":
-            if i + 1 >= len(remaining):
-                print("Error: --assignee requires a value", file=sys.stderr)
-                return 2
-            assignee = remaining[i + 1]
-            i += 2
-        elif arg == "--complexity":
-            if i + 1 >= len(remaining):
-                print("Error: --complexity requires a value", file=sys.stderr)
-                return 2
-            complexity = remaining[i + 1]
-            i += 2
-        elif arg == "--criteria":
-            if i + 1 >= len(remaining):
-                print("Error: --criteria requires a value", file=sys.stderr)
-                return 2
-            criteria.append(remaining[i + 1])
-            i += 2
-        elif arg == "--typed-criteria":
-            if i + 1 >= len(remaining):
-                print("Error: --typed-criteria requires a value", file=sys.stderr)
-                return 2
-            try:
-                tc = json.loads(remaining[i + 1])
-            except json.JSONDecodeError as e:
-                print(f"Error: --typed-criteria must be valid JSON: {e}", file=sys.stderr)
-                return 2
-            if not isinstance(tc, dict) or "text" not in tc:
-                print('Error: --typed-criteria must have at least a "text" key', file=sys.stderr)
-                return 2
-            typed_criteria.append(tc)
-            i += 2
-        elif arg == "--deferred":
-            deferred = True
-            i += 1
-        elif arg == "--expires-in":
-            if i + 1 >= len(remaining):
-                print("Error: --expires-in requires a value (days)", file=sys.stderr)
-                return 2
-            try:
-                expires_in_days = int(remaining[i + 1])
-            except ValueError:
-                print(f"Error: --expires-in must be an integer, got: {remaining[i + 1]}", file=sys.stderr)
-                return 2
-            i += 2
-        elif summary is None:
-            summary = arg
-            i += 1
-        elif description is None:
-            description = arg
-            i += 1
-        else:
-            print(f"Error: Unexpected argument: {arg}", file=sys.stderr)
-            return 2
-
-    if not summary:
-        print("Error: summary is required", file=sys.stderr)
-        return 2
-    if not description:
-        print("Error: description is required", file=sys.stderr)
-        return 2
     if not criteria and not typed_criteria:
-        print(
-            "Error: at least one acceptance criterion is required. "
-            "Use --criteria \"...\" or --typed-criteria '{\"text\":\"...\"}' to add one.",
-            file=sys.stderr,
+        parser.error(
+            "at least one acceptance criterion is required. "
+            "Use --criteria \"...\" or --typed-criteria '{\"text\":\"...\"}' to add one."
         )
-        return 2
 
     # Apply --deferred: prefix summary and set default expiry
     if deferred:
@@ -333,4 +259,8 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2 or not sys.argv[1].endswith(".db"):
+        print("Error: This script must be invoked via the tusk wrapper.", file=sys.stderr)
+        print("Use: tusk task-insert \"<summary>\" \"<description>\" [--priority P] [--domain D]", file=sys.stderr)
+        sys.exit(1)
     sys.exit(main(sys.argv[1:]))

@@ -11,19 +11,26 @@ Arguments received from tusk:
 """
 
 import argparse
+import importlib.util
+import json
 import logging
+import os
 import sqlite3
 import sys
 
 log = logging.getLogger(__name__)
 
 
-def get_connection(db_path: str) -> sqlite3.Connection:
-    """Get database connection with foreign keys enabled."""
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.row_factory = sqlite3.Row
-    return conn
+def _load_db_lib():
+    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk-db-lib.py")
+    _s = importlib.util.spec_from_file_location("tusk_db_lib", _p)
+    _m = importlib.util.module_from_spec(_s)
+    _s.loader.exec_module(_m)
+    return _m
+
+
+_db_lib = _load_db_lib()
+get_connection = _db_lib.get_connection
 
 
 def task_exists(conn: sqlite3.Connection, task_id: int) -> bool:
@@ -38,30 +45,30 @@ def get_task_summary(conn: sqlite3.Connection, task_id: int) -> str | None:
     return result["summary"] if result else None
 
 
-def add_dependency(conn: sqlite3.Connection, task_id: int, depends_on_id: int, relationship_type: str = "blocks"):
-    """Add a dependency: task_id depends on depends_on_id."""
+def add_dependency(conn: sqlite3.Connection, task_id: int, depends_on_id: int, relationship_type: str = "blocks") -> int:
+    """Add a dependency: task_id depends on depends_on_id. Returns 0 on success, 1 on error."""
     log.debug("add_dependency: %d -> %d (type=%s)", task_id, depends_on_id, relationship_type)
     if task_id == depends_on_id:
         print(f"Error: A task cannot depend on itself", file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     if not task_exists(conn, task_id):
         print(f"Error: Task {task_id} does not exist", file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     if not task_exists(conn, depends_on_id):
         print(f"Error: Task {depends_on_id} does not exist", file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     if relationship_type not in ("blocks", "contingent"):
         print(f"Error: Invalid relationship type '{relationship_type}'. Must be 'blocks' or 'contingent'", file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     # Check for circular dependency
     log.debug("Checking for circular dependency...")
     if would_create_cycle(conn, task_id, depends_on_id):
         print(f"Error: Adding this dependency would create a circular dependency", file=sys.stderr)
-        sys.exit(1)
+        return 1
     log.debug("No cycle detected, inserting dependency")
 
     try:
@@ -76,10 +83,11 @@ def add_dependency(conn: sqlite3.Connection, task_id: int, depends_on_id: int, r
         print(f"Added dependency: Task {task_id} ({task_summary}) now depends on Task {depends_on_id} ({dep_summary}){type_label}")
     except sqlite3.IntegrityError:
         print(f"Dependency already exists: Task {task_id} -> Task {depends_on_id}")
+    return 0
 
 
-def remove_dependency(conn: sqlite3.Connection, task_id: int, depends_on_id: int):
-    """Remove a dependency."""
+def remove_dependency(conn: sqlite3.Connection, task_id: int, depends_on_id: int) -> int:
+    """Remove a dependency. Returns 0 always."""
     cursor = conn.execute(
         "DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?",
         (task_id, depends_on_id)
@@ -90,17 +98,14 @@ def remove_dependency(conn: sqlite3.Connection, task_id: int, depends_on_id: int
         print(f"Removed dependency: Task {task_id} no longer depends on Task {depends_on_id}")
     else:
         print(f"No dependency found: Task {task_id} -> Task {depends_on_id}")
+    return 0
 
 
-def list_dependencies(conn: sqlite3.Connection, task_id: int):
-    """List all dependencies for a task."""
+def list_dependencies(conn: sqlite3.Connection, task_id: int, json_output: bool = False) -> int:
+    """List all dependencies for a task. Returns 0 on success, 1 on error."""
     if not task_exists(conn, task_id):
         print(f"Error: Task {task_id} does not exist", file=sys.stderr)
-        sys.exit(1)
-
-    task_summary = get_task_summary(conn, task_id)
-    print(f"\nDependencies for Task {task_id}: {task_summary}")
-    print("=" * 60)
+        return 1
 
     deps = conn.execute("""
         SELECT t.id, t.summary, t.status, t.priority, d.relationship_type
@@ -110,9 +115,23 @@ def list_dependencies(conn: sqlite3.Connection, task_id: int):
         ORDER BY t.id
     """, (task_id,)).fetchall()
 
+    if json_output:
+        print(json.dumps([{
+            "id": d["id"],
+            "summary": d["summary"],
+            "status": d["status"],
+            "priority": d["priority"],
+            "relationship_type": d["relationship_type"] or "blocks",
+        } for d in deps]))
+        return 0
+
+    task_summary = get_task_summary(conn, task_id)
+    print(f"\nDependencies for Task {task_id}: {task_summary}")
+    print("=" * 60)
+
     if not deps:
         print("No dependencies")
-        return
+        return 0
 
     print(f"{'ID':<6} {'Status':<12} {'Priority':<10} {'Type':<12} {'Summary'}")
     print("-" * 70)
@@ -130,17 +149,14 @@ def list_dependencies(conn: sqlite3.Connection, task_id: int):
         print("Status: Ready to start")
     else:
         print("Status: Blocked - waiting on dependencies")
+    return 0
 
 
-def list_dependents(conn: sqlite3.Connection, task_id: int):
-    """List all tasks that depend on this task."""
+def list_dependents(conn: sqlite3.Connection, task_id: int, json_output: bool = False) -> int:
+    """List all tasks that depend on this task. Returns 0 on success, 1 on error."""
     if not task_exists(conn, task_id):
         print(f"Error: Task {task_id} does not exist", file=sys.stderr)
-        sys.exit(1)
-
-    task_summary = get_task_summary(conn, task_id)
-    print(f"\nTasks that depend on Task {task_id}: {task_summary}")
-    print("=" * 60)
+        return 1
 
     dependents = conn.execute("""
         SELECT t.id, t.summary, t.status, t.priority, d.relationship_type
@@ -150,22 +166,34 @@ def list_dependents(conn: sqlite3.Connection, task_id: int):
         ORDER BY t.id
     """, (task_id,)).fetchall()
 
+    if json_output:
+        print(json.dumps([{
+            "id": d["id"],
+            "summary": d["summary"],
+            "status": d["status"],
+            "priority": d["priority"],
+            "relationship_type": d["relationship_type"] or "blocks",
+        } for d in dependents]))
+        return 0
+
+    task_summary = get_task_summary(conn, task_id)
+    print(f"\nTasks that depend on Task {task_id}: {task_summary}")
+    print("=" * 60)
+
     if not dependents:
         print("No tasks depend on this task")
-        return
+        return 0
 
     print(f"{'ID':<6} {'Status':<12} {'Priority':<10} {'Type':<12} {'Summary'}")
     print("-" * 70)
     for dep in dependents:
         rel_type = dep["relationship_type"] or "blocks"
         print(f"{dep['id']:<6} {dep['status']:<12} {dep['priority'] or 'N/A':<10} {rel_type:<12} {dep['summary']}")
+    return 0
 
 
-def show_blocked(conn: sqlite3.Connection):
-    """Show all tasks that are blocked by incomplete dependencies."""
-    print("\nBlocked Tasks (waiting on dependencies)")
-    print("=" * 70)
-
+def show_blocked(conn: sqlite3.Connection, json_output: bool = False) -> int:
+    """Show all tasks that are blocked by incomplete dependencies. Returns 0 always."""
     blocked = conn.execute("""
         SELECT DISTINCT t.id, t.summary, t.status, t.priority,
             (SELECT COUNT(*) FROM task_dependencies d2
@@ -179,22 +207,34 @@ def show_blocked(conn: sqlite3.Connection):
         ORDER BY t.priority DESC, t.id
     """).fetchall()
 
+    if json_output:
+        print(json.dumps([{
+            "id": t["id"],
+            "summary": t["summary"],
+            "status": t["status"],
+            "priority": t["priority"],
+            "blocking_count": t["blocking_count"],
+            "total_deps": t["total_deps"],
+        } for t in blocked]))
+        return 0
+
+    print("\nBlocked Tasks (waiting on dependencies)")
+    print("=" * 70)
+
     if not blocked:
         print("No blocked tasks")
-        return
+        return 0
 
     print(f"{'ID':<6} {'Status':<12} {'Blocked By':<12} {'Summary'}")
     print("-" * 70)
     for task in blocked:
         blocked_str = f"{task['blocking_count']}/{task['total_deps']} deps"
         print(f"{task['id']:<6} {task['status']:<12} {blocked_str:<12} {task['summary']}")
+    return 0
 
 
-def show_ready(conn: sqlite3.Connection):
-    """Show all tasks that are ready to start (all dependencies done or no dependencies)."""
-    print("\nReady Tasks (all dependencies complete)")
-    print("=" * 70)
-
+def show_ready(conn: sqlite3.Connection, json_output: bool = False) -> int:
+    """Show all tasks that are ready to start (all dependencies done or no dependencies). Returns 0 always."""
     ready = conn.execute("""
         SELECT id, summary, status, priority,
             (SELECT COUNT(*) FROM task_dependencies d WHERE d.task_id = v.id) as dep_count
@@ -202,15 +242,29 @@ def show_ready(conn: sqlite3.Connection):
         ORDER BY priority DESC, id
     """).fetchall()
 
+    if json_output:
+        print(json.dumps([{
+            "id": t["id"],
+            "summary": t["summary"],
+            "status": t["status"],
+            "priority": t["priority"],
+            "dep_count": t["dep_count"],
+        } for t in ready]))
+        return 0
+
+    print("\nReady Tasks (all dependencies complete)")
+    print("=" * 70)
+
     if not ready:
         print("No ready tasks")
-        return
+        return 0
 
     print(f"{'ID':<6} {'Status':<12} {'Priority':<10} {'Deps':<6} {'Summary'}")
     print("-" * 70)
     for task in ready:
         dep_str = str(task['dep_count']) if task['dep_count'] > 0 else "-"
         print(f"{task['id']:<6} {task['status']:<12} {task['priority'] or 'N/A':<10} {dep_str:<6} {task['summary']}")
+    return 0
 
 
 def would_create_cycle(conn: sqlite3.Connection, task_id: int, depends_on_id: int) -> bool:
@@ -242,11 +296,8 @@ def would_create_cycle(conn: sqlite3.Connection, task_id: int, depends_on_id: in
     return False
 
 
-def show_all(conn: sqlite3.Connection):
-    """Show all dependencies in the system."""
-    print("\nAll Task Dependencies")
-    print("=" * 80)
-
+def show_all(conn: sqlite3.Connection, json_output: bool = False) -> int:
+    """Show all dependencies in the system. Returns 0 always."""
     all_deps = conn.execute("""
         SELECT
             d.task_id,
@@ -262,9 +313,24 @@ def show_all(conn: sqlite3.Connection):
         ORDER BY d.task_id, d.depends_on_id
     """).fetchall()
 
+    if json_output:
+        print(json.dumps([{
+            "task_id": d["task_id"],
+            "task_summary": d["task_summary"],
+            "task_status": d["task_status"],
+            "depends_on_id": d["depends_on_id"],
+            "dep_summary": d["dep_summary"],
+            "dep_status": d["dep_status"],
+            "relationship_type": d["relationship_type"] or "blocks",
+        } for d in all_deps]))
+        return 0
+
+    print("\nAll Task Dependencies")
+    print("=" * 80)
+
     if not all_deps:
         print("No dependencies defined")
-        return
+        return 0
 
     print(f"{'Task':<30} {'Depends On':<30} {'Type':<12} {'Status'}")
     print("-" * 90)
@@ -274,6 +340,7 @@ def show_all(conn: sqlite3.Connection):
         status = "Done" if dep['dep_status'] == 'Done' else "Waiting"
         rel_type = dep['relationship_type'] or 'blocks'
         print(f"{task_str:<30} {dep_str:<30} {rel_type:<12} {status}")
+    return 0
 
 
 def main():
@@ -319,19 +386,24 @@ Examples:
     # list command
     list_parser = subparsers.add_parser("list", help="List dependencies for a task")
     list_parser.add_argument("task_id", type=int, help="Task to list dependencies for")
+    list_parser.add_argument("--json", action="store_true", help="Output JSON")
 
     # dependents command
     dependents_parser = subparsers.add_parser("dependents", help="List tasks that depend on a task")
     dependents_parser.add_argument("task_id", type=int, help="Task to find dependents for")
+    dependents_parser.add_argument("--json", action="store_true", help="Output JSON")
 
     # blocked command
-    subparsers.add_parser("blocked", help="Show all blocked tasks")
+    blocked_parser = subparsers.add_parser("blocked", help="Show all blocked tasks")
+    blocked_parser.add_argument("--json", action="store_true", help="Output JSON")
 
     # ready command
-    subparsers.add_parser("ready", help="Show tasks ready to start")
+    ready_parser = subparsers.add_parser("ready", help="Show tasks ready to start")
+    ready_parser.add_argument("--json", action="store_true", help="Output JSON")
 
     # all command
-    subparsers.add_parser("all", help="Show all dependencies")
+    all_parser = subparsers.add_parser("all", help="Show all dependencies")
+    all_parser.add_argument("--json", action="store_true", help="Output JSON")
 
     args = parser.parse_args(sys.argv[3:])
 
@@ -349,21 +421,24 @@ Examples:
     conn = get_connection(db_path)
     try:
         if args.command == "add":
-            add_dependency(conn, args.task_id, args.depends_on_id, args.relationship_type)
+            result = add_dependency(conn, args.task_id, args.depends_on_id, args.relationship_type)
         elif args.command == "remove":
-            remove_dependency(conn, args.task_id, args.depends_on_id)
+            result = remove_dependency(conn, args.task_id, args.depends_on_id)
         elif args.command == "list":
-            list_dependencies(conn, args.task_id)
+            result = list_dependencies(conn, args.task_id, args.json)
         elif args.command == "dependents":
-            list_dependents(conn, args.task_id)
+            result = list_dependents(conn, args.task_id, args.json)
         elif args.command == "blocked":
-            show_blocked(conn)
+            result = show_blocked(conn, args.json)
         elif args.command == "ready":
-            show_ready(conn)
+            result = show_ready(conn, args.json)
         elif args.command == "all":
-            show_all(conn)
+            result = show_all(conn, args.json)
+        else:
+            result = 0
     finally:
         conn.close()
+    sys.exit(result)
 
 
 if __name__ == "__main__":

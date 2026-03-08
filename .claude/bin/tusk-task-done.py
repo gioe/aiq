@@ -2,12 +2,12 @@
 """Consolidate task closure into a single CLI command.
 
 Called by the tusk wrapper:
-    tusk task-done <task_id> --reason <closed_reason> [--force]
+    tusk task-done <task_id> --reason <completed|expired|wont_do|duplicate> [--force]
 
 Arguments received from tusk:
     sys.argv[1] — DB path
     sys.argv[2] — config path
-    sys.argv[3:] — task_id --reason <reason> [--force]
+    sys.argv[3:] — task_id [--reason <reason>] [--force]
 
 Performs all closure steps for a task:
   1. Validate the task exists and is not already Done
@@ -19,16 +19,42 @@ Performs all closure steps for a task:
   6. Return a JSON blob with task details, sessions closed, and unblocked tasks
 """
 
+import argparse
+import importlib.util
 import json
+import os
 import sqlite3
+import subprocess
 import sys
 
 
-def get_connection(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+def _load_db_lib():
+    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk-db-lib.py")
+    _s = importlib.util.spec_from_file_location("tusk_db_lib", _p)
+    _m = importlib.util.module_from_spec(_s)
+    _s.loader.exec_module(_m)
+    return _m
+
+
+_db_lib = _load_db_lib()
+get_connection = _db_lib.get_connection
+
+
+def _find_task_commits(task_id: int) -> list[str]:
+    """Return commit hashes referencing [TASK-<task_id>] in git log."""
+    try:
+        pattern = f"\\[TASK-{task_id}\\]"
+        result = subprocess.run(
+            ["git", "log", "--format=%H", f"--grep={pattern}"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip().splitlines()
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+    return []
 
 
 def load_closed_reasons(config_path: str) -> list[str]:
@@ -42,40 +68,23 @@ def load_closed_reasons(config_path: str) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 3:
-        print("Usage: tusk task-done <task_id> --reason <closed_reason> [--force]", file=sys.stderr)
-        return 1
-
     db_path = argv[0]
     config_path = argv[1]
-    try:
-        task_id = int(argv[2])
-    except ValueError:
-        print(f"Error: Invalid task ID: {argv[2]}", file=sys.stderr)
-        return 1
-
-    # Parse --reason and --force flags from remaining args
-    remaining = argv[3:]
-    reason = None
-    force = False
-    i = 0
-    while i < len(remaining):
-        if remaining[i] == "--reason" and i + 1 < len(remaining):
-            reason = remaining[i + 1]
-            i += 2
-        elif remaining[i] == "--force":
-            force = True
-            i += 1
-        else:
-            print(f"Error: Unknown argument: {remaining[i]}", file=sys.stderr)
-            return 1
-
-    if not reason:
-        print("Error: --reason is required", file=sys.stderr)
-        return 1
+    valid_reasons = load_closed_reasons(config_path)
+    reason_metavar = "|".join(valid_reasons) if valid_reasons else "completed|expired|wont_do|duplicate"
+    parser = argparse.ArgumentParser(
+        prog="tusk task-done",
+        description="Close a task with a reason",
+    )
+    parser.add_argument("task_id", type=int, help="Task ID")
+    parser.add_argument("--reason", required=True, metavar=reason_metavar, help="Closed reason")
+    parser.add_argument("--force", action="store_true", help="Bypass uncompleted criteria check")
+    args = parser.parse_args(argv[2:])
+    task_id = args.task_id
+    reason = args.reason
+    force = args.force
 
     # Validate closed_reason against config
-    valid_reasons = load_closed_reasons(config_path)
     if valid_reasons and reason not in valid_reasons:
         print(f"Error: Invalid closed_reason '{reason}'. Valid: {', '.join(valid_reasons)}", file=sys.stderr)
         return 1
@@ -99,7 +108,31 @@ def main(argv: list[str]) -> int:
             (task_id,),
         ).fetchall()
 
-        if open_criteria and not force:
+        # Auto-mark only applies to 'completed' closures — wont_do/duplicate/expired
+        # tasks may have open criteria intentionally left incomplete.
+        if open_criteria and not force and reason == "completed":
+            task_commits = _find_task_commits(task_id)
+            if task_commits:
+                latest_hash = task_commits[0]
+                crit_ids = [row["id"] for row in open_criteria]
+                placeholders = ",".join("?" * len(crit_ids))
+                # Stage the UPDATE but do NOT commit yet — it must be part of the
+                # same transaction as the session close and task status update.
+                conn.execute(
+                    f"UPDATE acceptance_criteria "
+                    f"SET is_completed = 1, commit_hash = ?, committed_at = datetime('now'), "
+                    f"    updated_at = datetime('now') "
+                    f"WHERE id IN ({placeholders})",
+                    [latest_hash] + crit_ids,
+                )
+                open_criteria = []
+            else:
+                print(f"Error: Task {task_id} has {len(open_criteria)} uncompleted acceptance criteria:", file=sys.stderr)
+                for row in open_criteria:
+                    print(f"  [{row['id']}] {row['criterion']}", file=sys.stderr)
+                print("\nUse --force to close anyway.", file=sys.stderr)
+                return 3
+        elif open_criteria and not force:
             print(f"Error: Task {task_id} has {len(open_criteria)} uncompleted acceptance criteria:", file=sys.stderr)
             for row in open_criteria:
                 print(f"  [{row['id']}] {row['criterion']}", file=sys.stderr)
@@ -191,4 +224,8 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2 or not sys.argv[1].endswith(".db"):
+        print("Error: This script must be invoked via the tusk wrapper.", file=sys.stderr)
+        print("Use: tusk task-done <id> --reason <completed|expired|wont_do|duplicate>", file=sys.stderr)
+        sys.exit(1)
     sys.exit(main(sys.argv[1:]))

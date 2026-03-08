@@ -18,6 +18,7 @@ Steps:
     4. Print the branch name
 """
 
+import os
 import subprocess
 import sys
 
@@ -98,11 +99,15 @@ def main(argv: list[str]) -> int:
     # stashing. Untracked files (status "??") carry over to the new branch
     # automatically and do not need to be stashed; including them in the dirty
     # check causes a spurious stash-pop failure when there is nothing to pop.
-    # .claude/ paths are excluded: stashing those removes tusk binaries from
-    # PATH mid-workflow (see issue #314). They carry over to the new branch.
+    # .claude/ files (e.g. generated .pyc bytecode) are included: if they are
+    # tracked and modified, git pull (or git pull --rebase when pull.rebase is
+    # set) will refuse to run. Stashing them is safe here because this script
+    # runs entirely in-process — the stash is
+    # held only for the duration of the git operations below and is popped onto
+    # the new branch before the script exits.
     status_result = run(["git", "status", "--porcelain"], check=False)
     dirty = any(
-        line and not line.startswith("??") and not line[3:].startswith(".claude/")
+        line and not line.startswith("??")
         for line in status_result.stdout.splitlines()
     )
     if dirty:
@@ -110,7 +115,6 @@ def main(argv: list[str]) -> int:
             [
                 "git", "stash", "push",
                 "-m", f"tusk-branch: auto-stash for TASK-{task_id}",
-                "--", ":(exclude).claude/",
             ],
             check=False,
         )
@@ -118,8 +122,7 @@ def main(argv: list[str]) -> int:
             print(f"Error: git stash failed:\n{stash.stderr.strip()}", file=sys.stderr)
             return 2
         print(
-            "Warning: uncommitted changes detected — stashed before switching branches.\n"
-            "Run 'git stash pop' on the new branch to restore your changes.",
+            "Warning: uncommitted changes detected — stashed before switching branches.",
             file=sys.stderr,
         )
 
@@ -183,9 +186,19 @@ def main(argv: list[str]) -> int:
                 _try_pop_stash(current_branch=default_branch)
             return 2
 
+    # Restore stashed changes onto the new branch. Auto-popping here avoids
+    # requiring the user to manually run 'git stash pop' and ensures generated
+    # files (e.g. .pyc bytecode, tasks.db) are restored in the right place.
+    if dirty:
+        _try_pop_stash()
+
     print(branch_name)
     return 0
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2 or not os.path.isdir(sys.argv[1]):
+        print("Error: This script must be invoked via the tusk wrapper.", file=sys.stderr)
+        print("Use: tusk branch <task_id> <slug>", file=sys.stderr)
+        sys.exit(1)
     sys.exit(main(sys.argv[1:]))
