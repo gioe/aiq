@@ -349,7 +349,14 @@ struct TestTakingView: View {
             }
 
             // Compact header: timer, progress, and grid toggle
-            compactHeader
+            TestProgressHeader(
+                timerManager: timerManager,
+                currentQuestionIndex: viewModel.navigationState.currentQuestionIndex,
+                totalQuestions: viewModel.navigationState.questions.count,
+                answeredCount: viewModel.answeredCount,
+                reduceMotion: reduceMotion,
+                showQuestionGrid: $showQuestionGrid
+            )
 
             // Collapsible question navigation grid
             if showQuestionGrid {
@@ -395,50 +402,6 @@ struct TestTakingView: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 4, y: -2)
         }
         .background(Color(.systemGroupedBackground))
-    }
-
-    // MARK: - Compact Header
-
-    private var compactHeader: some View {
-        VStack(spacing: 6) {
-            HStack {
-                TestTimerView(timerManager: timerManager)
-                Spacer()
-                let nav = viewModel.navigationState
-                Text("\(nav.currentQuestionIndex + 1)/\(nav.questions.count)")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressLabel)
-                Text("·").foregroundColor(.secondary)
-                Text("\(viewModel.answeredCount) answered")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Button {
-                    withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
-                        showQuestionGrid.toggle()
-                    }
-                } label: {
-                    Image(systemName: showQuestionGrid ? "square.grid.3x3.fill" : "square.grid.3x3")
-                        .font(.body)
-                        .foregroundColor(.accentColor)
-                        .frame(minWidth: 44, minHeight: 44)
-                }
-                .accessibilityLabel(showQuestionGrid ? "Hide question grid" : "Show question grid")
-                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionNavigationGrid)
-            }
-
-            let questions = viewModel.navigationState.questions
-            let allAnswered = viewModel.answeredCount == questions.count && !questions.isEmpty
-            ProgressView(
-                value: Double(viewModel.answeredCount),
-                total: Double(max(viewModel.navigationState.questions.count, 1))
-            )
-            .tint(allAnswered ? .green : .accentColor)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(Color(.systemBackground))
-        .shadow(color: Color.black.opacity(0.05), radius: 2, y: 1)
     }
 
     // MARK: - Navigation Controls
