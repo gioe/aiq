@@ -108,18 +108,13 @@ struct TestTakingView: View {
                 handleTimerExpiration()
             }
         }
-        .onChange(of: timerManager.showWarning) { showWarning in
-            // Show warning banner when timer hits 5 minutes (unless already dismissed)
-            if showWarning && !warningBannerDismissed {
-                showTimeWarningBanner = true
-            }
-        }
-        .onChange(of: viewModel.isTestCompleted) { completed in
-            // Stop timer when test is completed
-            if completed {
-                timerManager.stop()
-            }
-        }
+        .modifier(TestTimerModifier(
+            timerManager: timerManager,
+            isTestCompleted: viewModel.isTestCompleted,
+            showTimeWarningBanner: $showTimeWarningBanner,
+            warningBannerDismissed: $warningBannerDismissed,
+            onExpire: handleTimerExpiration
+        ))
         .alert("Resume Test?", isPresented: Binding(
             get: { viewModel.resumeIntent == .showResumePrompt },
             set: { if !$0 { viewModel.dismissResumePrompt() } }
@@ -216,12 +211,6 @@ struct TestTakingView: View {
                 will be submitted automatically.
                 """
             )
-        }
-        .onChange(of: timerManager.hasExpired) { expired in
-            // Handle timer expiration during test-taking
-            if expired && !viewModel.isTestCompleted && !isAutoSubmitting {
-                handleTimerExpiration()
-            }
         }
     }
 

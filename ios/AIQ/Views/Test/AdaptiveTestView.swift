@@ -78,18 +78,13 @@ struct AdaptiveTestView: View {
         .task {
             await startAdaptiveTest()
         }
-        .onChange(of: timerManager.showWarning) { showWarning in
-            // Show warning banner when timer hits 5 minutes (unless already dismissed)
-            if showWarning && !warningBannerDismissed {
-                showTimeWarningBanner = true
-            }
-        }
-        .onChange(of: viewModel.isTestCompleted) { completed in
-            // Stop timer when test is completed
-            if completed {
-                timerManager.stop()
-            }
-        }
+        .modifier(TestTimerModifier(
+            timerManager: timerManager,
+            isTestCompleted: viewModel.isTestCompleted,
+            showTimeWarningBanner: $showTimeWarningBanner,
+            warningBannerDismissed: $warningBannerDismissed,
+            onExpire: handleTimerExpiration
+        ))
         .alert("Exit Test?", isPresented: $showExitConfirmation) {
             Button("Exit", role: .destructive) {
                 Task {
@@ -121,12 +116,6 @@ struct AdaptiveTestView: View {
                 will be submitted automatically.
                 """
             )
-        }
-        .onChange(of: timerManager.hasExpired) { expired in
-            // Handle timer expiration during test-taking
-            if expired && !viewModel.isTestCompleted && !isAutoSubmitting {
-                handleTimerExpiration()
-            }
         }
         .onChange(of: viewModel.navigationState.questions.count) { _ in
             // Incrementally add the latest question's domain to the cache.
