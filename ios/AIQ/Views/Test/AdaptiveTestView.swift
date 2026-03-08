@@ -182,7 +182,6 @@ struct AdaptiveTestView: View {
                                 set: { viewModel.currentAnswer = $0 }
                             ),
                             isDisabled: viewModel.isLocked,
-                            reduceMotion: reduceMotion,
                             questionNumber: viewModel.itemsAdministered,
                             totalQuestions: Constants.Test.maxAdaptiveItems,
                             hasStimulusSeen: { viewModel.hasStimulusSeen(for: question.id) },

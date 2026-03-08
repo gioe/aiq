@@ -9,13 +9,14 @@ struct QuestionContentView: View {
     let question: Question
     @Binding var currentAnswer: String
     let isDisabled: Bool
-    let reduceMotion: Bool
     let questionNumber: Int
     let totalQuestions: Int
     /// Returns whether the stimulus for the current question has already been seen.
     let hasStimulusSeen: () -> Bool
     /// Marks the stimulus for the current question as seen.
     let markStimulusSeen: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         if question.isMemoryQuestion {

@@ -389,7 +389,6 @@ struct TestTakingView: View {
                                 set: { viewModel.currentAnswer = $0 }
                             ),
                             isDisabled: viewModel.isLocked,
-                            reduceMotion: reduceMotion,
                             questionNumber: viewModel.navigationState.currentQuestionIndex + 1,
                             totalQuestions: viewModel.navigationState.questions.count,
                             hasStimulusSeen: { viewModel.hasStimulusSeen(for: question.id) },
