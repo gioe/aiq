@@ -13,6 +13,7 @@ struct AnswerInputView: View {
             Text("answer.input.your.answer".localized)
                 .font(.headline)
                 .foregroundColor(.primary)
+                .screenshotPrevented()
 
             if question.isMultipleChoice {
                 // Multiple choice options
@@ -178,6 +179,7 @@ private struct OptionButton: View {
                     .foregroundColor(foregroundColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .multilineTextAlignment(.leading)
+                    .screenshotPrevented()
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")

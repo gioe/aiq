@@ -19,7 +19,9 @@ struct QuestionCardView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionText)
+                .screenshotPrevented(
+                    accessibilityIdentifier: AccessibilityIdentifiers.TestTakingView.questionText
+                )
         }
         .padding(24)
         .background(Color(.systemBackground))
