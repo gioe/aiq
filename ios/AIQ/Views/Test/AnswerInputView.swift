@@ -72,7 +72,7 @@ struct AnswerInputView: View {
                 Text(inputHint)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .screenshotPrevented()
+                    .screenshotPrevented(accessibilityLabel: inputHint)
             }
         }
         .onAppear {
