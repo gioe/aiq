@@ -36,21 +36,11 @@ struct QuestionContentView: View {
                 ),
                 isDisabled: isDisabled
             )
-            .transition(
-                reduceMotion ? .opacity : .asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                )
-            )
+            .questionCardTransition(reduceMotion: reduceMotion)
         } else {
             // Standard questions: show question card and answer input separately
             QuestionCardView(question: question)
-                .transition(
-                    reduceMotion ? .opacity : .asymmetric(
-                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                        removal: .move(edge: .leading).combined(with: .opacity)
-                    )
-                )
+                .questionCardTransition(reduceMotion: reduceMotion)
 
             // Answer input
             AnswerInputView(
@@ -58,7 +48,7 @@ struct QuestionContentView: View {
                 userAnswer: $currentAnswer,
                 isDisabled: isDisabled
             )
-            .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.95)))
+            .answerInputTransition(reduceMotion: reduceMotion)
         }
     }
 }
