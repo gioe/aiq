@@ -144,6 +144,20 @@ enum DesignSystem {
     }
 }
 
+// MARK: - Button Styles
+
+/// Button style that scales down on press for tactile feedback
+struct ScaleButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(reduceMotion ? 1.0 : (configuration.isPressed ? 0.95 : 1.0))
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
 // MARK: - Shadow Style
 
 /// A custom shadow configuration
