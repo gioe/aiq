@@ -1004,3 +1004,217 @@ class TestDiscordAlerting:
         ):
             # Should not raise
             manager.send_circuit_breaker_alert("openai", "reason")
+
+
+class TestBuildCompletionTextNewFields:
+    """Tests for _build_completion_text covering new email fields."""
+
+    def _manager(self) -> AlertManager:
+        return AlertManager()
+
+    def test_new_stat_fields_appear_in_output(self):
+        """questions_requested, questions_rejected, duplicates_found appear in text."""
+        manager = self._manager()
+        stats = {
+            "questions_requested": 100,
+            "questions_rejected": 15,
+            "duplicates_found": 5,
+        }
+        text = manager._build_completion_text(0, stats)
+
+        assert "100" in text
+        assert "15" in text
+        assert "5" in text
+        assert "Questions Requested" in text
+        assert "Questions Rejected" in text
+        assert "Duplicates Found" in text
+
+    def test_new_stat_fields_none_falls_back_to_na(self):
+        """None values for new stat fields produce N/A in text output."""
+        manager = self._manager()
+        stats = {
+            "questions_requested": None,
+            "questions_rejected": None,
+            "duplicates_found": None,
+        }
+        text = manager._build_completion_text(0, stats)
+
+        # Count N/A occurrences — at least 3 for the three new fields
+        assert text.count("N/A") >= 3
+
+    def test_new_stat_fields_missing_falls_back_to_na(self):
+        """Missing new stat keys produce N/A in text output."""
+        manager = self._manager()
+        text = manager._build_completion_text(0, {})
+
+        assert "N/A" in text
+
+    def test_by_type_section_present_when_non_empty(self):
+        """by_type breakdown appears in text when dict is non-empty."""
+        manager = self._manager()
+        stats = {"by_type": {"math": 30, "logic": 20}}
+        text = manager._build_completion_text(0, stats)
+
+        assert "By Type" in text
+        assert "math" in text
+        assert "30" in text
+        assert "logic" in text
+        assert "20" in text
+
+    def test_by_difficulty_section_present_when_non_empty(self):
+        """by_difficulty breakdown appears in text when dict is non-empty."""
+        manager = self._manager()
+        stats = {"by_difficulty": {"easy": 40, "hard": 10}}
+        text = manager._build_completion_text(0, stats)
+
+        assert "By Difficulty" in text
+        assert "easy" in text
+        assert "40" in text
+        assert "hard" in text
+        assert "10" in text
+
+    def test_by_type_section_absent_when_empty(self):
+        """by_type section is omitted when dict is empty."""
+        manager = self._manager()
+        text = manager._build_completion_text(0, {"by_type": {}})
+
+        assert "By Type" not in text
+
+    def test_by_difficulty_section_absent_when_empty(self):
+        """by_difficulty section is omitted when dict is empty."""
+        manager = self._manager()
+        text = manager._build_completion_text(0, {"by_difficulty": {}})
+
+        assert "By Difficulty" not in text
+
+    def test_error_message_appears_in_text(self):
+        """error_message is included in text output when present."""
+        manager = self._manager()
+        stats = {"error_message": "Pipeline crashed at step 3"}
+        text = manager._build_completion_text(2, stats)
+
+        assert "Pipeline crashed at step 3" in text
+        assert "Error" in text
+
+    def test_error_message_absent_when_none(self):
+        """No error section when error_message is None."""
+        manager = self._manager()
+        text = manager._build_completion_text(0, {"error_message": None})
+
+        assert "Error:" not in text
+
+
+class TestBuildCompletionHtmlNewFields:
+    """Tests for _build_completion_html covering new email fields."""
+
+    def _manager(self) -> AlertManager:
+        return AlertManager()
+
+    def test_new_stat_fields_appear_in_html(self):
+        """questions_requested, questions_rejected, duplicates_found appear in HTML."""
+        manager = self._manager()
+        stats = {
+            "questions_requested": 200,
+            "questions_rejected": 25,
+            "duplicates_found": 8,
+        }
+        html = manager._build_completion_html(0, stats)
+
+        assert "200" in html
+        assert "25" in html
+        assert "8" in html
+        assert "Questions Requested" in html
+        assert "Questions Rejected" in html
+        assert "Duplicates Found" in html
+
+    def test_new_stat_fields_none_falls_back_to_na(self):
+        """None values for new stat fields produce N/A in HTML output."""
+        manager = self._manager()
+        stats = {
+            "questions_requested": None,
+            "questions_rejected": None,
+            "duplicates_found": None,
+        }
+        html = manager._build_completion_html(0, stats)
+
+        assert html.count("N/A") >= 3
+
+    def test_new_stat_fields_missing_falls_back_to_na(self):
+        """Missing new stat keys produce N/A in HTML output."""
+        manager = self._manager()
+        html = manager._build_completion_html(0, {})
+
+        assert "N/A" in html
+
+    def test_by_type_table_present_when_non_empty(self):
+        """by_type table is rendered when dict is non-empty."""
+        manager = self._manager()
+        stats = {"by_type": {"verbal": 50, "spatial": 15}}
+        html = manager._build_completion_html(0, stats)
+
+        assert "By Type" in html
+        assert "Verbal" in html  # _display_name applies title-case
+        assert "50" in html
+        assert "Spatial" in html
+        assert "15" in html
+
+    def test_by_difficulty_table_present_when_non_empty(self):
+        """by_difficulty table is rendered when dict is non-empty."""
+        manager = self._manager()
+        stats = {"by_difficulty": {"medium": 60, "hard": 20}}
+        html = manager._build_completion_html(0, stats)
+
+        assert "By Difficulty" in html
+        assert "Medium" in html  # _display_name applies title-case
+        assert "60" in html
+        assert "Hard" in html
+        assert "20" in html
+
+    def test_by_type_table_absent_when_empty(self):
+        """by_type table is omitted when dict is empty."""
+        manager = self._manager()
+        html = manager._build_completion_html(0, {"by_type": {}})
+
+        assert "By Type" not in html
+
+    def test_by_difficulty_table_absent_when_empty(self):
+        """by_difficulty table is omitted when dict is empty."""
+        manager = self._manager()
+        html = manager._build_completion_html(0, {"by_difficulty": {}})
+
+        assert "By Difficulty" not in html
+
+    def test_error_message_html_escaped_in_html_output(self):
+        """html.escape is applied to error_message to prevent XSS."""
+        manager = self._manager()
+        stats = {"error_message": "<script>alert('xss')</script>"}
+        html = manager._build_completion_html(2, stats)
+
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html
+
+    def test_error_message_with_ampersand_is_escaped(self):
+        """Ampersands in error_message are HTML-escaped."""
+        manager = self._manager()
+        stats = {"error_message": "error: foo & bar"}
+        html = manager._build_completion_html(2, stats)
+
+        assert "foo & bar" not in html
+        assert "foo &amp; bar" in html
+
+    def test_error_section_absent_when_error_message_none(self):
+        """No error section rendered when error_message is None."""
+        manager = self._manager()
+        html = manager._build_completion_html(0, {"error_message": None})
+
+        # The CSS class definition is always present; check no error-box div is rendered
+        assert '<div class="error-box">' not in html
+
+    def test_error_section_present_when_error_message_set(self):
+        """error-box div rendered when error_message is present."""
+        manager = self._manager()
+        stats = {"error_message": "Something went wrong"}
+        html = manager._build_completion_html(2, stats)
+
+        assert "error-box" in html
+        assert "Something went wrong" in html
