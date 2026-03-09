@@ -1039,8 +1039,11 @@ class TestBuildCompletionTextNewFields:
         }
         text = manager._build_completion_text(0, stats)
 
-        # Count N/A occurrences — at least 3 for the three new fields
-        assert text.count("N/A") >= 3
+        # Each new field should individually produce N/A
+        lines = text.splitlines()
+        assert any("Questions Requested" in line and "N/A" in line for line in lines)
+        assert any("Questions Rejected" in line and "N/A" in line for line in lines)
+        assert any("Duplicates Found" in line and "N/A" in line for line in lines)
 
     def test_new_stat_fields_missing_falls_back_to_na(self):
         """Missing new stat keys produce N/A in text output."""
@@ -1137,7 +1140,10 @@ class TestBuildCompletionHtmlNewFields:
         }
         html = manager._build_completion_html(0, stats)
 
-        assert html.count("N/A") >= 3
+        # Each new field row should contain N/A in its value cell
+        assert "<td>Questions Requested</td><td>N/A</td>" in html
+        assert "<td>Questions Rejected</td><td>N/A</td>" in html
+        assert "<td>Duplicates Found</td><td>N/A</td>" in html
 
     def test_new_stat_fields_missing_falls_back_to_na(self):
         """Missing new stat keys produce N/A in HTML output."""
@@ -1218,3 +1224,15 @@ class TestBuildCompletionHtmlNewFields:
 
         assert "error-box" in html
         assert "Something went wrong" in html
+
+    def test_by_type_display_name_converts_underscores_to_title_case(self):
+        """Underscore-separated type keys are rendered with title-case display names."""
+        manager = self._manager()
+        stats = {"by_type": {"verbal_reasoning": 12, "short_term_memory": 7}}
+        html = manager._build_completion_html(0, stats)
+
+        assert "Verbal Reasoning" in html
+        assert "Short Term Memory" in html
+        # Raw underscore keys must not appear in rendered table cells
+        assert "<td>verbal_reasoning</td>" not in html
+        assert "<td>short_term_memory</td>" not in html
