@@ -73,16 +73,16 @@ final class TestCompletionViewTests: XCTestCase {
     }
 
     func testView_AcceptsAdaptiveTestItemCount() {
-        // Given - Constants.Test.maxAdaptiveItems is used at the call site in AdaptiveTestView
+        // Given - Constants.Test.maxAdaptiveItems = 15, used at the AdaptiveTestView call site
         let view = TestCompletionView(
-            answeredCount: 30,
-            totalQuestions: 30,
+            answeredCount: Constants.Test.maxAdaptiveItems,
+            totalQuestions: Constants.Test.maxAdaptiveItems,
             onViewResults: {},
             onReturnToDashboard: {}
         )
 
         // Then
-        XCTAssertNotNil(view, "View should initialize for adaptive test item count")
+        XCTAssertNotNil(view, "View should initialize for adaptive test item count (\(Constants.Test.maxAdaptiveItems))")
     }
 
     // MARK: - Callback Tests
