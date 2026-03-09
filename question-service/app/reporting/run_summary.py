@@ -48,6 +48,7 @@ class RunSummary:
 
     # Database
     questions_inserted: int = 0
+    questions_inserted_by_type: Dict[str, int] = field(default_factory=dict)
     insertion_failures: int = 0
 
     # API usage
@@ -114,9 +115,15 @@ class RunSummary:
             elif duplicate_type == "semantic":
                 self.semantic_duplicates += 1
 
-    def record_insertion_success(self, count: int = 1) -> None:
+    def record_insertion_success(
+        self, count: int = 1, question_type: Optional[str] = None
+    ) -> None:
         """Record successful database insertion."""
         self.questions_inserted += count
+        if question_type:
+            self.questions_inserted_by_type[question_type] = (
+                self.questions_inserted_by_type.get(question_type, 0) + count
+            )
 
     def record_insertion_failure(self, count: int = 1) -> None:
         """Record failed database insertion."""
@@ -183,6 +190,7 @@ class RunSummary:
             },
             "database": {
                 "inserted": self.questions_inserted,
+                "inserted_by_type": dict(self.questions_inserted_by_type),
                 "failed": self.insertion_failures,
                 "success_rate": (
                     self.questions_inserted

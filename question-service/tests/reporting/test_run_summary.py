@@ -130,6 +130,18 @@ class TestRecordInsertion:
         summary.record_insertion_success(5)
         assert summary.questions_inserted == 5
 
+    def test_record_insertion_success_tracks_by_type(self):
+        summary = RunSummary()
+        summary.record_insertion_success(3, question_type="math")
+        summary.record_insertion_success(2, question_type="logic")
+        summary.record_insertion_success(1, question_type="math")
+        assert summary.questions_inserted_by_type == {"math": 4, "logic": 2}
+
+    def test_record_insertion_success_no_type_does_not_track(self):
+        summary = RunSummary()
+        summary.record_insertion_success(5)
+        assert summary.questions_inserted_by_type == {}
+
     def test_record_insertion_failure(self):
         summary = RunSummary()
         summary.record_insertion_failure(2)
@@ -212,6 +224,13 @@ class TestToSummaryDict:
         assert db["inserted"] == 30
         assert db["failed"] == 2
         assert db["success_rate"] == pytest.approx(30 / 32)
+
+    def test_database_section_inserted_by_type(self):
+        s = RunSummary()
+        s.record_insertion_success(10, question_type="math")
+        s.record_insertion_success(5, question_type="logic")
+        db = s.to_summary_dict()["database"]
+        assert db["inserted_by_type"] == {"math": 10, "logic": 5}
 
     def test_overall_section(self):
         d = self._populated_summary().to_summary_dict()
