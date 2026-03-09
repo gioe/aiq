@@ -144,12 +144,15 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
         uiView: ScreenshotContainerView,
         coordinator: Coordinator
     ) -> CGSize? {
-        // Prefer the proposed width, then the window width (accurate for iPad split-view),
-        // then the bounds. Fall back to UIScreen when the view is not yet in the hierarchy —
-        // a zero width causes UIHostingController to report a hugely tall size (text wrapping
-        // at 0pt wide = one word/char per line) which makes the enclosing card enormous.
-        let rawWidth = proposal.width ?? uiView.window?.bounds.width ?? uiView.bounds.width
-        let width = rawWidth > 0 ? rawWidth : UIScreen.main.bounds.width
+        // When proposal.width is non-nil, use it directly — never exceed the proposal.
+        // When nil (ideal-size query), use the current bounds width if the view is already
+        // laid out; otherwise use 1pt minimum. Never fall back to window/screen bounds:
+        // that inflates parent containers to full screen width on the ideal-size pass.
+        let width: CGFloat = if let proposed = proposal.width {
+            proposed
+        } else {
+            uiView.bounds.width > 0 ? uiView.bounds.width : 1
+        }
         let targetSize = CGSize(width: width, height: UIView.layoutFittingCompressedSize.height)
         return coordinator.hostingController?.sizeThatFits(in: targetSize)
     }
