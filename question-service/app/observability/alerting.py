@@ -358,7 +358,10 @@ class AlertManager:
         Args:
             exit_code: Run exit code (0=success, 1=partial failure, 2+=failure)
             stats: Optional run statistics with keys: questions_generated,
-                   questions_inserted, approval_rate, duration_seconds
+                   questions_inserted, approval_rate, duration_seconds,
+                   by_type (dict[str, int]), by_difficulty (dict[str, int]),
+                   questions_requested (int), questions_rejected (int),
+                   duplicates_found (int), error_message (str, failure paths only)
         """
         if not self.email_enabled:
             return
@@ -415,8 +418,14 @@ class AlertManager:
 
         questions_generated = stats.get("questions_generated", "N/A")
         questions_inserted = stats.get("questions_inserted", "N/A")
+        questions_requested = stats.get("questions_requested", None)
+        questions_rejected = stats.get("questions_rejected", None)
+        duplicates_found = stats.get("duplicates_found", None)
         approval_rate = stats.get("approval_rate", None)
         duration_seconds = stats.get("duration_seconds", None)
+        by_type: Dict[str, int] = stats.get("by_type", {})
+        by_difficulty: Dict[str, int] = stats.get("by_difficulty", {})
+        error_message: Optional[str] = stats.get("error_message")
 
         lines = [
             f"AIQ Question Generation Run \u2014 {status}",
@@ -424,11 +433,28 @@ class AlertManager:
             f"Exit Code: {exit_code}",
             "",
             "Run Statistics:",
+            f"  Questions Requested: {questions_requested if questions_requested is not None else 'N/A'}",
             f"  Questions Generated: {questions_generated}",
+            f"  Questions Rejected:  {questions_rejected if questions_rejected is not None else 'N/A'}",
+            f"  Duplicates Found:    {duplicates_found if duplicates_found is not None else 'N/A'}",
             f"  Questions Inserted:  {questions_inserted}",
             f"  Approval Rate:       {f'{approval_rate:.1f}%' if approval_rate is not None else 'N/A'}",
             f"  Duration:            {f'{duration_seconds:.1f}s' if duration_seconds is not None else 'N/A'}",
         ]
+
+        if by_type:
+            lines += ["", "By Type:"]
+            for qtype, count in sorted(by_type.items()):
+                lines.append(f"  {qtype:<20} {count}")
+
+        if by_difficulty:
+            lines += ["", "By Difficulty:"]
+            for diff, count in sorted(by_difficulty.items()):
+                lines.append(f"  {diff:<20} {count}")
+
+        if error_message:
+            lines += ["", f"Error: {error_message}"]
+
         return "\n".join(lines)
 
     def _build_completion_html(self, exit_code: int, stats: Dict[str, Any]) -> str:
@@ -445,14 +471,67 @@ class AlertManager:
 
         questions_generated = stats.get("questions_generated", "N/A")
         questions_inserted = stats.get("questions_inserted", "N/A")
+        questions_requested = stats.get("questions_requested", None)
+        questions_rejected = stats.get("questions_rejected", None)
+        duplicates_found = stats.get("duplicates_found", None)
         approval_rate = stats.get("approval_rate", None)
         duration_seconds = stats.get("duration_seconds", None)
+        by_type: Dict[str, int] = stats.get("by_type", {})
+        by_difficulty: Dict[str, int] = stats.get("by_difficulty", {})
+        error_message: Optional[str] = stats.get("error_message")
 
         approval_str = f"{approval_rate:.1f}%" if approval_rate is not None else "N/A"
         duration_str = (
             f"{duration_seconds:.1f}s" if duration_seconds is not None else "N/A"
         )
+        requested_str = (
+            str(questions_requested) if questions_requested is not None else "N/A"
+        )
+        rejected_str = (
+            str(questions_rejected) if questions_rejected is not None else "N/A"
+        )
+        duplicates_str = (
+            str(duplicates_found) if duplicates_found is not None else "N/A"
+        )
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        by_type_rows = "".join(
+            f"<tr><td>{qtype.capitalize()}</td><td>{count}</td></tr>"
+            for qtype, count in sorted(by_type.items())
+        )
+        by_difficulty_rows = "".join(
+            f"<tr><td>{diff.capitalize()}</td><td>{count}</td></tr>"
+            for diff, count in sorted(by_difficulty.items())
+        )
+        by_type_table = (
+            f"""
+            <h3>By Type</h3>
+            <table>
+                <tr><th>Type</th><th>Inserted</th></tr>
+                {by_type_rows}
+            </table>"""
+            if by_type
+            else ""
+        )
+        by_difficulty_table = (
+            f"""
+            <h3>By Difficulty</h3>
+            <table>
+                <tr><th>Difficulty</th><th>Inserted</th></tr>
+                {by_difficulty_rows}
+            </table>"""
+            if by_difficulty
+            else ""
+        )
+        error_section = (
+            f"""
+            <div class="error-box">
+                <strong>Error</strong>
+                <p>{error_message}</p>
+            </div>"""
+            if error_message
+            else ""
+        )
 
         html = f"""
         <html>
@@ -474,6 +553,13 @@ class AlertManager:
                     font-weight: bold;
                     font-size: 18px;
                 }}
+                .error-box {{
+                    border-left: 4px solid #dc3545;
+                    padding: 15px;
+                    background-color: #fff5f5;
+                    margin: 20px 0;
+                    color: #dc3545;
+                }}
                 table {{
                     border-collapse: collapse;
                     width: 100%;
@@ -489,6 +575,14 @@ class AlertManager:
                     background-color: #e9ecef;
                     font-weight: bold;
                 }}
+                h3 {{
+                    margin-top: 25px;
+                    margin-bottom: 5px;
+                    font-size: 14px;
+                    color: #495057;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }}
                 .footer {{
                     margin-top: 30px;
                     font-size: 12px;
@@ -502,13 +596,21 @@ class AlertManager:
                 <div>Time: {timestamp}</div>
             </div>
 
+            <h3>Run Statistics</h3>
             <table>
                 <tr><th>Metric</th><th>Value</th></tr>
+                <tr><td>Questions Requested</td><td>{requested_str}</td></tr>
                 <tr><td>Questions Generated</td><td>{questions_generated}</td></tr>
+                <tr><td>Questions Rejected</td><td>{rejected_str}</td></tr>
+                <tr><td>Duplicates Found</td><td>{duplicates_str}</td></tr>
                 <tr><td>Questions Inserted</td><td>{questions_inserted}</td></tr>
                 <tr><td>Approval Rate</td><td>{approval_str}</td></tr>
                 <tr><td>Duration</td><td>{duration_str}</td></tr>
             </table>
+
+            {by_type_table}
+            {by_difficulty_table}
+            {error_section}
 
             <div class="footer">
                 <p>This is an automated notification from the AIQ Question Generation Service.</p>
