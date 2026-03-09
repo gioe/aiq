@@ -59,7 +59,7 @@ Views are SwiftUI views that:
 - Are organized by feature (Auth, Dashboard, Test, etc.)
 
 **Common Components:**
-Reusable UI components are in `Views/Common/`:
+Reusable UI components are in `Views/Components/`:
 - `LoadingView`, `LoadingOverlay`: Loading indicators
 - `ErrorView`, `ErrorBanner`: Error display with retry
 - `EmptyStateView`: Empty state placeholders

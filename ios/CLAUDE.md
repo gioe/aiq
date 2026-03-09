@@ -28,7 +28,7 @@ Always use these skills instead of running commands directly:
 | `AIQ/Services/Auth/AuthManager.swift` | Authentication, token management |
 | `AIQ/Utilities/Design/` | Design system (ColorPalette, Typography, DesignSystem) |
 | `AIQ/Utilities/Extensions/` | Swift extensions (Date, String, View) |
-| `AIQ/Views/Common/` | Reusable UI components |
+| `AIQ/Views/Components/` | Reusable UI components |
 | `Packages/AIQAPIClient/` | OpenAPI-generated type-safe API client |
 | `Packages/AIQAPIClient/Sources/AIQAPIClient/Extensions/` | UI computed properties for generated types |
 

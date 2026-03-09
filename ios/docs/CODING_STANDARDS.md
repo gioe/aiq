@@ -85,7 +85,7 @@ AIQ/
 │   ├── Dashboard/      # Home/Dashboard views
 │   ├── History/        # Test history and charts
 │   ├── Settings/       # Settings and preferences
-│   └── Common/         # Reusable view components
+│   └── Components/     # Reusable view components
 ├── Services/            # Business logic and external dependencies
 │   ├── Analytics/      # Analytics tracking
 │   ├── API/            # Network layer
@@ -103,7 +103,7 @@ AIQ/
 **DO:**
 - Keep Models, ViewModels, and Views in their respective top-level directories
 - Organize Views by feature subdirectories (Auth/, Dashboard/, etc.)
-- Place reusable view components in `Views/Common/`
+- Place reusable view components in `Views/Components/`
 - Keep the design system in `Utilities/Design/`
 - Put cross-cutting extensions in `Utilities/Extensions/`
 - Name ViewModels to match their corresponding View feature (e.g., `DashboardViewModel` for `Dashboard/`)
@@ -111,7 +111,7 @@ AIQ/
 **DON'T:**
 - Create additional top-level directories (e.g., `Controllers/`, `Managers/`)
 - Mix business logic with view code
-- Place feature-specific components in `Common/`
+- Place feature-specific components in `Components/`
 - Put ViewModels inside View feature folders (keep them in top-level `ViewModels/`)
 
 ---
@@ -3616,7 +3616,7 @@ Button {
 | Grid cells | `.frame(minWidth: 44, height: 44)` with `.contentShape(Rectangle())` |
 
 **Component Reference:**
-- **IconButton** (`Views/Common/IconButton.swift`): Reusable component for icon-only buttons that guarantees 44x44pt minimum
+- **IconButton** (`Views/Components/IconButton.swift`): Reusable component for icon-only buttons that guarantees 44x44pt minimum
 
 ### RTL (Right-to-Left) Support
 
