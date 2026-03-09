@@ -18,11 +18,15 @@ struct TestProgressHeader: View {
                 Text("\(currentQuestionIndex + 1)/\(totalQuestions)")
                     .font(.subheadline)
                     .fontWeight(.medium)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressLabel)
                 Text("·").foregroundColor(.secondary)
                 Text("\(answeredCount) answered")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Button {
                     withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
                         showQuestionGrid.toggle()
