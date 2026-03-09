@@ -149,7 +149,7 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
         // laid out; otherwise use 1pt minimum. Never fall back to window/screen bounds:
         // that inflates parent containers to full screen width on the ideal-size pass.
         let width: CGFloat = if let proposed = proposal.width {
-            proposed
+            max(proposed, 1)
         } else {
             uiView.bounds.width > 0 ? uiView.bounds.width : 1
         }
@@ -184,10 +184,9 @@ private final class ScreenshotContainerView: UIView {
         guard let provider = preferredSizeProvider else {
             return super.intrinsicContentSize
         }
-        // Prefer actual bounds, then window/superview width. Fall back to UIScreen so we
-        // never pass width=0 to the provider, which would produce a hugely tall height.
-        let rawWidth = bounds.width > 0 ? bounds.width : window?.bounds.width ?? superview?.bounds.width ?? 0
-        let width = rawWidth > 0 ? rawWidth : UIScreen.main.bounds.width
+        // Use actual bounds if laid out, else 1pt minimum. Never fall back to window/screen
+        // bounds — that inflates containers to full screen width when bounds is unavailable.
+        let width = bounds.width > 0 ? bounds.width : 1
         return provider(CGSize(width: width, height: UIView.layoutFittingCompressedSize.height))
     }
 
