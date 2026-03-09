@@ -51,7 +51,6 @@ struct TimeWarningBanner: View {
                         .stroke(Color.orange.opacity(0.3), lineWidth: 1)
                 )
         )
-        .padding(.horizontal)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.timeWarningBanner)
         .opacity(isVisible ? 1 : 0)
         .offset(y: reduceMotion ? 0 : (isVisible ? 0 : -20))
