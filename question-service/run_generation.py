@@ -1775,7 +1775,10 @@ def main() -> int:
                             f"(ID: {question_id}, score: {evaluated_question.evaluation.overall_score:.2f})"
                         )
 
-                        metrics.record_insertion_success(count=1)
+                        metrics.record_insertion_success(
+                            count=1,
+                            question_type=evaluated_question.question.question_type.value,
+                        )
 
                     except Exception as e:
                         logger.error(f"✗ Failed to insert question {i}: {e}")
@@ -1927,7 +1930,7 @@ def main() -> int:
                 "questions_inserted": inserted_count,
                 "approval_rate": approval_rate,
                 "duration_seconds": stats.get("duration_seconds", 0),
-                "by_type": summary.get("generation", {}).get("by_type", {}),
+                "by_type": summary.get("database", {}).get("inserted_by_type", {}),
                 "by_difficulty": summary.get("generation", {}).get("by_difficulty", {}),
                 "questions_requested": summary.get("generation", {}).get(
                     "requested", 0

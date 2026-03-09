@@ -1164,6 +1164,15 @@ class TestBuildCompletionHtmlNewFields:
         assert "Spatial" in html
         assert "15" in html
 
+    def test_by_type_table_header_is_inserted(self):
+        """By Type table column header reads 'Inserted' (not 'Generated')."""
+        manager = self._manager()
+        stats = {"by_type": {"math": 12}}
+        html = manager._build_completion_html(0, stats)
+
+        assert "<th>Inserted</th>" in html
+        assert "<th>Generated</th>" not in html
+
     def test_by_difficulty_table_present_when_non_empty(self):
         """by_difficulty table is rendered when dict is non-empty."""
         manager = self._manager()

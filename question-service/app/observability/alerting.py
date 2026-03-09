@@ -511,7 +511,7 @@ class AlertManager:
             f"""
             <h3>By Type</h3>
             <table>
-                <tr><th>Type</th><th>Generated</th></tr>
+                <tr><th>Type</th><th>Inserted</th></tr>
                 {by_type_rows}
             </table>"""
             if by_type
