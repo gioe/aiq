@@ -5,6 +5,7 @@ when critical errors occur in the question generation pipeline, including
 low inventory alerts for question strata.
 """
 
+import html as html_module
 import json
 import logging
 import re
@@ -495,19 +496,22 @@ class AlertManager:
         )
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
+        def _display_name(s: str) -> str:
+            return s.replace("_", " ").title()
+
         by_type_rows = "".join(
-            f"<tr><td>{qtype.capitalize()}</td><td>{count}</td></tr>"
+            f"<tr><td>{_display_name(qtype)}</td><td>{count}</td></tr>"
             for qtype, count in sorted(by_type.items())
         )
         by_difficulty_rows = "".join(
-            f"<tr><td>{diff.capitalize()}</td><td>{count}</td></tr>"
+            f"<tr><td>{_display_name(diff)}</td><td>{count}</td></tr>"
             for diff, count in sorted(by_difficulty.items())
         )
         by_type_table = (
             f"""
             <h3>By Type</h3>
             <table>
-                <tr><th>Type</th><th>Inserted</th></tr>
+                <tr><th>Type</th><th>Generated</th></tr>
                 {by_type_rows}
             </table>"""
             if by_type
@@ -517,7 +521,7 @@ class AlertManager:
             f"""
             <h3>By Difficulty</h3>
             <table>
-                <tr><th>Difficulty</th><th>Inserted</th></tr>
+                <tr><th>Difficulty</th><th>Generated</th></tr>
                 {by_difficulty_rows}
             </table>"""
             if by_difficulty
@@ -527,7 +531,7 @@ class AlertManager:
             f"""
             <div class="error-box">
                 <strong>Error</strong>
-                <p>{error_message}</p>
+                <p>{html_module.escape(error_message)}</p>
             </div>"""
             if error_message
             else ""
