@@ -79,6 +79,7 @@ struct ErrorBanner: View {
                 .foregroundColor(.white)
                 .multilineTextAlignment(.leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
