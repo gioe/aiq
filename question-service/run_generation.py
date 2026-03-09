@@ -1927,6 +1927,15 @@ def main() -> int:
                 "questions_inserted": inserted_count,
                 "approval_rate": approval_rate,
                 "duration_seconds": stats.get("duration_seconds", 0),
+                "by_type": summary.get("generation", {}).get("by_type", {}),
+                "by_difficulty": summary.get("generation", {}).get("by_difficulty", {}),
+                "questions_requested": summary.get("generation", {}).get(
+                    "requested", 0
+                ),
+                "questions_rejected": summary.get("evaluation", {}).get("rejected", 0),
+                "duplicates_found": summary.get("deduplication", {}).get(
+                    "duplicates_found", 0
+                ),
             },
         )
 
@@ -1941,7 +1950,10 @@ def main() -> int:
             error_message="Script interrupted by user",
         )
         if "alert_manager" in locals():
-            alert_manager.send_run_completion(EXIT_PARTIAL_FAILURE, {})
+            alert_manager.send_run_completion(
+                EXIT_PARTIAL_FAILURE,
+                {"error_message": "Script interrupted by user"},
+            )
         return EXIT_PARTIAL_FAILURE
 
     except Exception as e:
@@ -1992,7 +2004,10 @@ def main() -> int:
             error_message=f"Unexpected error: {str(e)[:100]}",
         )
         if "alert_manager" in locals():
-            alert_manager.send_run_completion(EXIT_COMPLETE_FAILURE, {})
+            alert_manager.send_run_completion(
+                EXIT_COMPLETE_FAILURE,
+                {"error_message": f"Unexpected error: {str(e)[:200]}"},
+            )
         return EXIT_COMPLETE_FAILURE
 
     finally:
