@@ -26,8 +26,10 @@ struct InfoCard: View {
 
     // MARK: - Body
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
-        HStack(spacing: DesignSystem.Spacing.md) {
+        HStack(spacing: theme.spacing.md) {
             // Icon
             Image(systemName: icon)
                 .font(.system(size: DesignSystem.IconSize.lg))
@@ -36,27 +38,27 @@ struct InfoCard: View {
                 .accessibilityHidden(true)
 
             // Text Content
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+            VStack(alignment: .leading, spacing: theme.spacing.xs) {
                 Text(title)
-                    .font(Typography.bodyLarge)
+                    .font(theme.typography.bodyLarge)
                     .fontWeight(.semibold)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .foregroundColor(theme.colors.textPrimary)
 
                 Text(description)
-                    .font(Typography.bodySmall)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.bodySmall)
+                    .foregroundColor(theme.colors.textSecondary)
             }
 
             Spacer()
         }
-        .padding(DesignSystem.Spacing.md)
-        .background(ColorPalette.backgroundSecondary)
-        .cornerRadius(DesignSystem.CornerRadius.md)
+        .padding(theme.spacing.md)
+        .background(theme.colors.backgroundSecondary)
+        .cornerRadius(theme.cornerRadius.md)
         .shadow(
-            color: DesignSystem.Shadow.sm.color,
-            radius: DesignSystem.Shadow.sm.radius,
-            x: DesignSystem.Shadow.sm.x,
-            y: DesignSystem.Shadow.sm.y
+            color: theme.shadows.sm.color,
+            radius: theme.shadows.sm.radius,
+            x: theme.shadows.sm.x,
+            y: theme.shadows.sm.y
         )
         .accessibilityLabel("\(title). \(description)")
     }
