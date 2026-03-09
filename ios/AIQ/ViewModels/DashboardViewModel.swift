@@ -6,9 +6,7 @@ import Foundation
 class DashboardViewModel: BaseViewModel {
     // MARK: - Published Properties
 
-    @Published var latestTestResult: TestResult?
     @Published var testCount: Int = 0
-    @Published var averageScore: Int?
     @Published var isRefreshing: Bool = false
 
     // Active session tracking
@@ -35,18 +33,15 @@ class DashboardViewModel: BaseViewModel {
         setLoading(true)
         clearError()
 
-        // Fetch test history and active session in parallel
-        // Both functions return any errors they encounter
-        async let historyError: Error? = fetchTestHistory(forceRefresh: forceRefresh)
+        // Fetch count and active session in parallel
+        async let countError: Error? = fetchTestCount(forceRefresh: forceRefresh)
         async let activeSessionError: Error? = fetchActiveSession(forceRefresh: forceRefresh)
 
-        // Wait for both tasks to complete and collect errors
-        let historyResult = await historyError
+        let countResult = await countError
         _ = await activeSessionError // Active session errors are logged but non-blocking
 
-        // Handle errors - history is critical, without it we can't show the dashboard
-        if let historyError = historyResult {
-            handleError(historyError, context: .fetchDashboard) { [weak self] in
+        if let countError = countResult {
+            handleError(countError, context: .fetchDashboard) { [weak self] in
                 await self?.fetchDashboardData(forceRefresh: forceRefresh)
             }
             return
@@ -110,35 +105,27 @@ class DashboardViewModel: BaseViewModel {
         }
     }
 
-    /// Fetch test history from API with caching and update dashboard state
+    /// Fetch test count using a lightweight single-item request
     /// - Parameter forceRefresh: If true, bypass cache and fetch from API
     /// - Returns: The error if one occurred, nil on success
-    /// - Note: Dashboard only needs the first page of results for summary stats.
     @discardableResult
-    func fetchTestHistory(forceRefresh: Bool = false) async -> Error? {
-        // Check cache first if not forcing refresh
+    func fetchTestCount(forceRefresh: Bool = false) async -> Error? {
         if !forceRefresh {
             if let cached: [TestResult] = await DataCache.shared.get(forKey: DataCache.Key.testHistory) {
-                updateDashboardState(with: cached, totalCount: cached.count)
+                testCount = cached.count
                 return nil
             }
         }
 
         do {
-            let paginatedResponse = try await apiService.getTestHistory(limit: nil, offset: nil)
-
-            // Cache the results
-            await DataCache.shared.set(paginatedResponse.results, forKey: DataCache.Key.testHistory)
-
-            // Update dashboard state with results array
-            updateDashboardState(with: paginatedResponse.results, totalCount: paginatedResponse.totalCount)
+            let paginatedResponse = try await apiService.getTestHistory(limit: 1, offset: nil)
+            testCount = paginatedResponse.totalCount
             return nil
 
         } catch is CancellationError {
             return nil // view is gone; discard silently
         } catch {
-            // Set empty state on error; Crashlytics recording handled by fetchDashboardData via handleError
-            updateDashboardState(with: [], totalCount: 0)
+            testCount = 0
             return error
         }
     }
@@ -197,30 +184,6 @@ class DashboardViewModel: BaseViewModel {
         }
     }
 
-    /// Update dashboard state from test history
-    /// - Parameters:
-    ///   - history: Array of test results (may be partial if paginated)
-    ///   - totalCount: Total number of tests across all pages
-    private func updateDashboardState(with history: [TestResult], totalCount: Int) {
-        if !history.isEmpty {
-            // Sort by date (newest first)
-            let sortedHistory = history.sorted { $0.completedAt > $1.completedAt }
-            latestTestResult = sortedHistory.first
-
-            // Use server's totalCount instead of array count for accuracy
-            testCount = totalCount
-
-            // Calculate average score from available results
-            // Note: This may be approximate for users with >50 tests
-            let totalScore = history.reduce(0) { $0 + $1.iqScore }
-            averageScore = totalScore / history.count
-        } else {
-            latestTestResult = nil
-            testCount = 0
-            averageScore = nil
-        }
-    }
-
     /// Update active session state from response
     /// - Parameter response: The session status response, or nil if no active session
     private func updateActiveSessionState(_ response: TestSessionStatusResponse?) {
@@ -262,18 +225,6 @@ class DashboardViewModel: BaseViewModel {
     /// Whether user has an active (in-progress) test session
     var hasActiveTest: Bool {
         activeTestSession != nil
-    }
-
-    /// Formatted latest test date
-    var latestTestDateFormatted: String? {
-        guard let latest = latestTestResult else { return nil }
-        #if DEBUG
-            let mockScenario = ProcessInfo.processInfo.environment["MOCK_SCENARIO"]
-            if mockScenario == MockScenario.loggedInWithHistoryNilDate.rawValue {
-                return nil
-            }
-        #endif
-        return latest.completedAt.toShortString()
     }
 
     func setActiveTestSession(_ session: TestSession) {
