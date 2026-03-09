@@ -78,9 +78,6 @@ enum AccessibilityIdentifiers {
 
     enum DashboardView {
         static let scrollView = "dashboardView.scrollView"
-        static let testsTakenStat = "dashboardView.testsTakenStat"
-        static let averageIQStat = "dashboardView.averageIQStat"
-        static let latestTestCard = "dashboardView.latestTestCard"
         static let actionButton = "dashboardView.actionButton"
         static let resumeButton = "dashboardView.resumeButton"
         static let inProgressTestCard = "dashboardView.inProgressTestCard"

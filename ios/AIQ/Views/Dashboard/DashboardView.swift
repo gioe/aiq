@@ -96,26 +96,17 @@ struct DashboardView: View {
                     }
                 )
             } else if viewModel.hasTests && !viewModel.hasActiveTest {
-                // State 3: completed tests exist, no active test — stats + new test CTA
+                // State 3: completed tests exist, no active test — new test CTA only
                 DashboardScrollBody(
                     userName: authManager.userFullName,
                     onRefresh: { await viewModel.refreshDashboard() },
                     onboardingInfoCard: { onboardingInfoCardSection },
                     bottomContent: {
-                        statsGrid
-
-                        if let latest = viewModel.latestTestResult {
-                            DashboardLatestTestResultCard(
-                                result: latest,
-                                dateFormatted: viewModel.latestTestDateFormatted
-                            )
-                        }
-
                         DashboardActionButton(hasActiveTest: false, onTap: navigateToTest)
                     }
                 )
             } else {
-                // State 4: completed tests exist + active test in progress — stats + in-progress card
+                // State 4: completed tests exist + active test in progress — in-progress card only
                 // No "Take Another Test" CTA here by design: only one test session can be active at a time.
                 // InProgressTestCard's own Abandon action transitions back to State 3 where the CTA appears.
                 DashboardScrollBody(
@@ -123,15 +114,6 @@ struct DashboardView: View {
                     onRefresh: { await viewModel.refreshDashboard() },
                     onboardingInfoCard: { onboardingInfoCardSection },
                     bottomContent: {
-                        statsGrid
-
-                        if let latest = viewModel.latestTestResult {
-                            DashboardLatestTestResultCard(
-                                result: latest,
-                                dateFormatted: viewModel.latestTestDateFormatted
-                            )
-                        }
-
                         inProgressCardView
                     }
                 )
@@ -208,30 +190,6 @@ struct DashboardView: View {
                 onAbandon: { await viewModel.abandonActiveTest() }
             )
             .inProgressCardTransition(sessionId: activeSession.id)
-        }
-    }
-
-    // MARK: - Stats Grid
-
-    private var statsGrid: some View {
-        HStack(spacing: DesignSystem.Spacing.lg) {
-            StatCard(
-                label: "Tests Taken",
-                value: "\(viewModel.testCount)",
-                icon: "list.clipboard.fill",
-                color: ColorPalette.statBlue,
-                accessibilityId: AccessibilityIdentifiers.DashboardView.testsTakenStat
-            )
-
-            if let avgScore = viewModel.averageScore {
-                StatCard(
-                    label: "Average IQ",
-                    value: "\(avgScore)",
-                    icon: "chart.line.uptrend.xyaxis",
-                    color: ColorPalette.statGreen,
-                    accessibilityId: AccessibilityIdentifiers.DashboardView.averageIQStat
-                )
-            }
         }
     }
 

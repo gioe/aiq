@@ -89,30 +89,6 @@ final class AccessibilityIdentifierTests: BaseUITest {
 
     // MARK: - DashboardView Identifier Tests
 
-    func testDashboardView_TestsTakenStatIdentifierExists() throws {
-        throw XCTSkip("Requires backend connection and valid test account")
-
-        try loginAndNavigateToDashboard()
-
-        let testsTakenStat = app.otherElements["dashboardView.testsTakenStat"]
-        XCTAssertTrue(
-            wait(for: testsTakenStat, timeout: standardTimeout),
-            "dashboardView.testsTakenStat identifier should exist"
-        )
-    }
-
-    func testDashboardView_AverageIQStatIdentifierExists() throws {
-        throw XCTSkip("Requires backend connection and valid test account")
-
-        try loginAndNavigateToDashboard()
-
-        let averageIQStat = app.otherElements["dashboardView.averageIQStat"]
-        XCTAssertTrue(
-            wait(for: averageIQStat, timeout: standardTimeout),
-            "dashboardView.averageIQStat identifier should exist"
-        )
-    }
-
     func testDashboardView_ActionButtonIdentifierExists() throws {
         throw XCTSkip("Requires backend connection and valid test account")
 
