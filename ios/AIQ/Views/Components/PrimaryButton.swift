@@ -8,6 +8,8 @@ struct PrimaryButton: View {
     var isDisabled: Bool = false
     var accessibilityId: String?
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         Button(
             action: {
@@ -23,13 +25,13 @@ struct PrimaryButton: View {
                             .accessibilityHidden(true) // Hide visual loading indicator
                     }
                     Text(title)
-                        .font(Typography.button)
+                        .font(theme.typography.button)
                         .frame(maxWidth: .infinity)
                 }
-                .padding(DesignSystem.Spacing.lg)
-                .background(isDisabled ? ColorPalette.textSecondary : ColorPalette.primary)
+                .padding(theme.spacing.lg)
+                .background(isDisabled ? theme.colors.textSecondary : theme.colors.primary)
                 .foregroundColor(.white)
-                .cornerRadius(DesignSystem.CornerRadius.md)
+                .cornerRadius(theme.cornerRadius.md)
             }
         )
         .disabled(isDisabled || isLoading)
