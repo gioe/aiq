@@ -38,6 +38,7 @@ struct AIQApp: App {
             RootView()
                 .environmentObject(router)
                 .environment(\.serviceContainer, ServiceContainer.shared)
+                .environment(\.appTheme, DefaultTheme())
         }
         .onChange(of: scenePhase) { newPhase in
             // Schedule background refresh when app moves to background
