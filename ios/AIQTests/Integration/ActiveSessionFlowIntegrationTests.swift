@@ -653,8 +653,6 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertFalse(dashboardViewModel.hasActiveTest, "Should have no active test")
         XCTAssertNil(dashboardViewModel.activeTestSession, "Active session should be nil")
         XCTAssertEqual(dashboardViewModel.testCount, 1, "Should show 1 completed test")
-        XCTAssertNotNil(dashboardViewModel.latestTestResult, "Should have latest test result")
-        XCTAssertEqual(dashboardViewModel.latestTestResult?.iqScore, 125, "Should show correct score")
     }
 
     func testStateSynchronization_CacheBehavior_PreventsStaleness() async {
@@ -770,7 +768,6 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertFalse(dashboardViewModel.hasActiveTest, "Should have no active test")
         XCTAssertNil(dashboardViewModel.activeTestSession, "Active session should be nil")
         XCTAssertEqual(dashboardViewModel.testCount, 1, "Should have 1 completed test")
-        XCTAssertNotNil(dashboardViewModel.latestTestResult, "Should have latest result")
     }
 
     // MARK: - Helper Methods

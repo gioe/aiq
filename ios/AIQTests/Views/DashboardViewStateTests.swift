@@ -44,7 +44,6 @@ final class DashboardViewStateTests: XCTestCase {
         // Then
         XCTAssertFalse(sut.hasTests, "State 1: hasTests should be false")
         XCTAssertFalse(sut.hasActiveTest, "State 1: hasActiveTest should be false")
-        XCTAssertNil(sut.latestTestResult, "latestTestResult should be nil in State 1")
         XCTAssertNil(sut.activeTestSession, "activeTestSession should be nil in State 1")
     }
 
@@ -109,7 +108,6 @@ final class DashboardViewStateTests: XCTestCase {
         XCTAssertTrue(sut.hasTests, "State 3: hasTests should be true")
         XCTAssertFalse(sut.hasActiveTest, "State 3: hasActiveTest should be false")
         XCTAssertTrue(sut.testCount > 0, "testCount should be greater than 0 in State 3")
-        XCTAssertNotNil(sut.latestTestResult, "latestTestResult should not be nil in State 3")
     }
 
     func testState3_HasTestsNoActiveTest_InProgressCardNotVisible() {
@@ -139,7 +137,6 @@ final class DashboardViewStateTests: XCTestCase {
         XCTAssertTrue(sut.hasTests, "State 4: hasTests should be true")
         XCTAssertTrue(sut.hasActiveTest, "State 4: hasActiveTest should be true")
         XCTAssertTrue(sut.testCount > 0, "testCount should be greater than 0 in State 4")
-        XCTAssertNotNil(sut.latestTestResult, "latestTestResult should not be nil in State 4")
         XCTAssertNotNil(sut.activeTestSession, "activeTestSession should not be nil in State 4")
     }
 
@@ -216,28 +213,13 @@ final class DashboardViewStateTests: XCTestCase {
 
     // MARK: - Private Helpers
 
-    private func makeLatestResult() -> TestResult {
-        MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 100,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        )
-    }
-
     private func setUpState3() {
         sut.testCount = 3
-        sut.latestTestResult = makeLatestResult()
         sut.activeTestSession = nil
     }
 
     private func setUpState4() {
         sut.testCount = 2
-        sut.latestTestResult = makeLatestResult()
         sut.activeTestSession = MockDataFactory.makeInProgressSession()
         sut.activeSessionQuestionsAnswered = 5
     }

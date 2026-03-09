@@ -22,9 +22,7 @@ final class DashboardViewModelTests: XCTestCase {
 
     func testInitialState() {
         // Then
-        XCTAssertNil(sut.latestTestResult, "latestTestResult should be nil initially")
         XCTAssertEqual(sut.testCount, 0, "testCount should be 0 initially")
-        XCTAssertNil(sut.averageScore, "averageScore should be nil initially")
         XCTAssertFalse(sut.isRefreshing, "isRefreshing should be false initially")
         XCTAssertNil(sut.activeTestSession, "activeTestSession should be nil initially")
         XCTAssertNil(sut.activeSessionQuestionsAnswered, "activeSessionQuestionsAnswered should be nil initially")
@@ -108,9 +106,9 @@ final class DashboardViewModelTests: XCTestCase {
         // Error should not block dashboard - it's handled gracefully
     }
 
-    // MARK: - Test History Error Surfacing Tests
+    // MARK: - Test Count Error Surfacing Tests
 
-    func testFetchTestHistory_ErrorSurfacedToUser() async {
+    func testFetchTestCount_ErrorSurfacedToUser() async {
         // Given - Set up API to fail for test history
         let mockError = NSError(
             domain: "TestDomain",
@@ -120,15 +118,14 @@ final class DashboardViewModelTests: XCTestCase {
         let apiError = APIError.networkError(mockError)
         await mockService.getTestHistoryError = apiError
 
-        // When - Fetch dashboard data (which includes test history)
+        // When - Fetch dashboard data (which includes test count)
         await sut.fetchDashboardData()
 
         // Then - Error should be surfaced through handleError mechanism
-        XCTAssertNotNil(sut.error, "Error should be set when test history fetch fails")
+        XCTAssertNotNil(sut.error, "Error should be set when test count fetch fails")
         XCTAssertTrue(sut.canRetry, "Network errors should be retryable")
         XCTAssertFalse(sut.isLoading, "isLoading should be false after error")
         XCTAssertEqual(sut.testCount, 0, "testCount should be 0 on error")
-        XCTAssertNil(sut.latestTestResult, "latestTestResult should be nil on error")
     }
 
     func testFetchDashboardData_ActiveSessionErrorDoesNotBlockDashboard() async {
@@ -164,9 +161,8 @@ final class DashboardViewModelTests: XCTestCase {
         // When
         await sut.fetchDashboardData()
 
-        // Then - Dashboard should still show test history despite active session error
+        // Then - Dashboard should still show test count despite active session error
         XCTAssertEqual(sut.testCount, 1, "testCount should be set from successful history fetch")
-        XCTAssertNotNil(sut.latestTestResult, "latestTestResult should be set")
         XCTAssertNil(sut.activeTestSession, "activeTestSession should be nil on error")
         // Active session errors are logged but don't block the dashboard
     }
@@ -474,47 +470,27 @@ final class DashboardViewModelTests: XCTestCase {
         await sut.abandonActiveTest()
 
         // Then
-        // Verify dashboard was refreshed (test history was fetched)
+        // Verify dashboard was refreshed (test count was fetched)
         XCTAssertEqual(sut.testCount, 1, "Dashboard should be refreshed with updated test count")
-        XCTAssertNotNil(sut.latestTestResult, "Latest test result should be updated after refresh")
     }
 
     // MARK: - CancellationError Cleanup Tests
 
-    func testFetchTestHistory_CancellationError_ReturnsNilWithoutStateWipe() async {
+    func testFetchTestCount_CancellationError_ReturnsNilWithoutStateWipe() async {
         // Given - pre-populate dashboard state with a successful fetch
-        let mockTestResult = TestResult(
-            accuracyPercentage: 75.0,
-            completedAt: Date(),
-            completionTimeSeconds: 300,
-            confidenceInterval: nil,
-            correctAnswers: 15,
-            domainScores: nil,
-            id: 1,
-            iqScore: 120,
-            percentileRank: 84.0,
-            responseTimeFlags: nil,
-            strongestDomain: nil,
-            testSessionId: 100,
-            totalQuestions: 20,
-            userId: 1,
-            weakestDomain: nil
-        )
-        await mockService.setTestHistoryResponse([mockTestResult])
-        await sut.fetchTestHistory(forceRefresh: true)
-        XCTAssertEqual(sut.testCount, 1, "Pre-condition: testCount should be 1 after initial fetch")
-        XCTAssertNotNil(sut.latestTestResult, "Pre-condition: latestTestResult should be set after initial fetch")
+        await mockService.setTestHistoryResponse([], totalCount: 5)
+        await sut.fetchTestCount(forceRefresh: true)
+        XCTAssertEqual(sut.testCount, 5, "Pre-condition: testCount should be 5 after initial fetch")
 
         // Inject CancellationError for the next API call
         await mockService.getTestHistoryError = CancellationError()
 
-        // When - simulate task cancellation during fetchTestHistory
-        let result = await sut.fetchTestHistory(forceRefresh: true)
+        // When - simulate task cancellation during fetchTestCount
+        let result = await sut.fetchTestCount(forceRefresh: true)
 
         // Then - CancellationError returns nil without wiping existing state
         XCTAssertNil(result, "CancellationError should return nil, not propagate as an error")
-        XCTAssertEqual(sut.testCount, 1, "testCount should not be wiped to zero on cancellation")
-        XCTAssertNotNil(sut.latestTestResult, "latestTestResult should not be wiped on cancellation")
+        XCTAssertEqual(sut.testCount, 5, "testCount should not be wiped to zero on cancellation")
     }
 
     // MARK: - trackTestResumed Analytics Tests
