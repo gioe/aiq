@@ -194,6 +194,7 @@ private struct OptionButton: View {
                     .stroke(isSelected ? Color.clear : Color(.systemGray4), lineWidth: 1)
             )
             .opacity(isDisabled ? 0.6 : 1.0)
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)

@@ -34,6 +34,7 @@ struct QuestionCardView: View {
         // and app.staticTexts["questionText"] finds the inner Text.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionCard)
+        .frame(maxWidth: .infinity)
     }
 }
 
