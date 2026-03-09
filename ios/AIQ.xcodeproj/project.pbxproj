@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AFAB8E49A0B742DC8A15F7A0 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1199183D5840F39EBF928E /* Components.swift */; };
 		03410AB8BC73C0A0F418E03F /* AuthManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */; };
 		049E1ABDC2BEAD8912384151 /* OnboardingSkippedInfoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CB0EDB62E57E4DDA855DA95 /* OnboardingSkippedInfoCard.swift */; };
 		0572138AE58FDA34E510B63C /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F845907D460CC2DAB74F0F53 /* DashboardView.swift */; };
@@ -337,6 +338,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		CC1199183D5840F39EBF928E /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		002B0472F8CA6C9FD166F878 /* TestTakingViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTakingViewModelTests.swift; sourceTree = "<group>"; };
 		0051F7DB14979791E28BFE79 /* TestTakingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTakingViewModel.swift; sourceTree = "<group>"; };
 		0070719F614569E631EDE166 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
@@ -1012,17 +1014,6 @@
 			path = Helpers;
 			sourceTree = "<group>";
 		};
-		6C1B9D6373A30F1DEB90BF3E /* Components */ = {
-			isa = PBXGroup;
-			children = (
-				FDDC58CF1A4DA633CB2CD672 /* FeatureHighlightRow.swift */,
-				04B370490FA691593546BC5C /* ProcessStepRow.swift */,
-				2E180808A3B53FB7C540F1AC /* RationaleCard.swift */,
-				6692209AC679B3F2DE179326 /* PrivacyFeatureRow.swift */,
-			);
-			path = Components;
-			sourceTree = "<group>";
-		};
 		71EE536D8BF8CFEE6FC3B29D /* Navigation */ = {
 			isa = PBXGroup;
 			children = (
@@ -1071,7 +1062,7 @@
 			isa = PBXGroup;
 			children = (
 				542AA260D87940F62D9B407B /* Auth */,
-				D33DB53D36E221FB860D5D7A /* Common */,
+				D33DB53D36E221FB860D5D7A /* Components */,
 				AD538F75C2694ED0903F8EA7 /* Dashboard */,
 				1CC2B046DFA718A140E9D9AE /* History */,
 				ICG031005AAAA /* Onboarding */,
@@ -1218,33 +1209,38 @@
 			path = Analytics;
 			sourceTree = "<group>";
 		};
-		D33DB53D36E221FB860D5D7A /* Common */ = {
+		D33DB53D36E221FB860D5D7A /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				CC1199183D5840F39EBF928E /* Components.swift */,
 				4C4F23DD832678C6F11E29DF /* ContentView.swift */,
 				F6EDFA8047A81A44ABF74C9C /* CustomTextField.swift */,
 				7E493A4F4F186F1DC450D8A7 /* EmptyStateView.swift */,
 				4D0DF798C3B6252592D78702 /* ErrorBanner.swift */,
 				330A2EFE8EEF29B2E4D50CDD /* ErrorView.swift */,
+				FDDC58CF1A4DA633CB2CD672 /* FeatureHighlightRow.swift */,
+				2ACBB6507E5BA9BEF64ADEB4 /* IconButton.swift */,
+				BEAE7366A4160F33F8AEC311 /* InfoCard.swift */,
 				4389C42E9D81481C93FF4B74 /* LoadingOverlay.swift */,
 				BEE8B13BEAD376112B969FAA /* LoadingView.swift */,
 				D51623070CE8C611C11EC441 /* MainTabView.swift */,
 				307696DC927CB42BD2DCD191 /* NetworkStatusBanner.swift */,
-				81963765EA38F02A863FF0C9 /* PrimaryButton.swift */,
-				AA7782CE071C4128230BA182 /* RootView.swift */,
-				2ACBB6507E5BA9BEF64ADEB4 /* IconButton.swift */,
-				BEAE7366A4160F33F8AEC311 /* InfoCard.swift */,
-				58DDCD8AB4B174FB7181123B /* NotificationSoftPromptView.swift */,
 				371115D3822A172CFA005D0A /* NotificationPermissionBanner.swift */,
-				28562393136A696F5BEEDDA6 /* ScrollPositionModifier.swift */,
+				58DDCD8AB4B174FB7181123B /* NotificationSoftPromptView.swift */,
 				BB94772581EEB839D019AEF9 /* NotificationUpgradePromptView.swift */,
 				56ADD23199C60C798486D57F /* PageIndicator.swift */,
+				81963765EA38F02A863FF0C9 /* PrimaryButton.swift */,
+				6692209AC679B3F2DE179326 /* PrivacyFeatureRow.swift */,
+				04B370490FA691593546BC5C /* ProcessStepRow.swift */,
+				2E180808A3B53FB7C540F1AC /* RationaleCard.swift */,
+				AA7782CE071C4128230BA182 /* RootView.swift */,
+				28562393136A696F5BEEDDA6 /* ScrollPositionModifier.swift */,
+				75FEED4685139D5ACD27AC0A /* TestTransitions.swift */,
 				CDAE309B4D93E1B5ADB46318 /* ToastView.swift */,
 				1ED9E9E00C2A95B6B07A5E45 /* DifficultyBadge.swift */,
 				035AF14FBA22AA84E7DCA5C7 /* BiometricLockView.swift */,
-				75FEED4685139D5ACD27AC0A /* TestTransitions.swift */,
 			);
-			path = Common;
+			path = Components;
 			sourceTree = "<group>";
 		};
 		DB9C9FA5FCFA3B8AB8D5F4D4 /* API */ = {
@@ -1338,7 +1334,6 @@
 			children = (
 				ICG031004AAAA /* PrivacyConsentView.swift */,
 				C3C7E70A15D25C7D186F8235 /* OnboardingContainerView.swift */,
-				6C1B9D6373A30F1DEB90BF3E /* Components */,
 				FD7E178624A80F5FA4FFB2BA /* Pages */,
 			);
 			path = Onboarding;
@@ -1702,6 +1697,7 @@
 				B86CFCC15797CE1A4D9F86FB /* IconButton.swift in Sources */,
 				F72D5096AAE9AC2423EBDECA /* OnboardingViewModel.swift in Sources */,
 				C33EAFE750E37D752ED4776D /* OnboardingContainerView.swift in Sources */,
+				AFAB8E49A0B742DC8A15F7A0 /* Components.swift in Sources */,
 				A894D4F9E016DFA73DE8071F /* FeatureHighlightRow.swift in Sources */,
 				60DA731E188752ECDCEE5401 /* ProcessStepRow.swift in Sources */,
 				2408A59DEBFD3633CB167EE2 /* RationaleCard.swift in Sources */,
