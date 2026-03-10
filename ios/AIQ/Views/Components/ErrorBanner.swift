@@ -49,8 +49,8 @@ struct ErrorBanner: View {
         }
         .padding()
         .background(Color.red)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .cornerRadius(DesignSystem.CornerRadius.md)
+        .shadow(DesignSystem.Shadow.sm)
     }
 
     /// The icon and message area. Rendered as a tappable `Button` when `retryAction` is

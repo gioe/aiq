@@ -198,6 +198,11 @@ extension View {
         padding(DesignSystem.Spacing.md)
     }
 
+    /// Apply a named shadow style from the design system
+    func shadow(_ style: ShadowStyle) -> some View {
+        shadow(color: style.color, radius: style.radius, x: style.x, y: style.y)
+    }
+
     /// Apply adaptive content width constraint for optimal readability on iPad
     /// - On compact width (iPhone): no constraint, content uses full width
     /// - On regular width (iPad): constrains content to readable width and centers it

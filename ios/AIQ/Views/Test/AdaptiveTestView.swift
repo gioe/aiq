@@ -185,7 +185,12 @@ struct AdaptiveTestView: View {
             submitBar
                 .padding()
                 .background(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 4, y: -2)
+                .shadow(
+                    color: DesignSystem.Shadow.sm.color,
+                    radius: DesignSystem.Shadow.sm.radius,
+                    x: 0,
+                    y: -DesignSystem.Shadow.sm.y
+                )
         }
         .background(Color(.systemGroupedBackground))
     }

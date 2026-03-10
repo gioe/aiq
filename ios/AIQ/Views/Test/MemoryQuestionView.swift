@@ -64,11 +64,11 @@ struct MemoryQuestionView: View {
                         )
                 }
             }
-            .padding(24)
+            .padding(DesignSystem.Spacing.xxl)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.systemBackground))
-            .cornerRadius(16)
-            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+            .cornerRadius(DesignSystem.CornerRadius.lg)
+            .shadow(DesignSystem.Shadow.md)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.stimulusCard)
 

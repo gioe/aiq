@@ -87,7 +87,7 @@ struct TestDetailView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(scoreColor.opacity(0.1))
-                    .cornerRadius(8)
+                    .cornerRadius(DesignSystem.CornerRadius.sm)
             }
 
             // Test date
@@ -98,11 +98,11 @@ struct TestDetailView: View {
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestDetailView.dateLabel)
                 .accessibilityLabel("Test completed on \(formatFullDate(testResult.completedAt))")
         }
-        .padding(24)
+        .padding(DesignSystem.Spacing.xxl)
         .frame(maxWidth: .infinity)
         .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .cornerRadius(DesignSystem.CornerRadius.lg)
+        .shadow(DesignSystem.Shadow.md)
     }
 
     // MARK: - Confidence Interval Display
@@ -180,9 +180,9 @@ struct TestDetailView: View {
         }
         .padding()
         .background(comparisonColor.opacity(0.1))
-        .cornerRadius(12)
+        .cornerRadius(DesignSystem.CornerRadius.md)
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
                 .stroke(comparisonColor.opacity(0.3), lineWidth: 1)
         )
         .opacity(showAnimation ? 1.0 : 0.0)
@@ -246,8 +246,8 @@ struct TestDetailView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
+        .cornerRadius(DesignSystem.CornerRadius.md)
+        .shadow(DesignSystem.Shadow.sm)
     }
 
     // MARK: - Performance Interpretation
@@ -269,9 +269,9 @@ struct TestDetailView: View {
         .padding()
         .frame(maxWidth: .infinity)
         .background(performanceColor.opacity(0.1))
-        .cornerRadius(12)
+        .cornerRadius(DesignSystem.CornerRadius.md)
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
                 .stroke(performanceColor.opacity(0.3), lineWidth: 1)
         )
         .opacity(showAnimation ? 1.0 : 0.0)
@@ -315,8 +315,8 @@ struct TestDetailView: View {
                 }
             }
             .background(Color(.systemBackground))
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
+            .cornerRadius(DesignSystem.CornerRadius.md)
+            .shadow(DesignSystem.Shadow.sm)
         }
         .opacity(showAnimation ? 1.0 : 0.0)
     }

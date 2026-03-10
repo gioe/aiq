@@ -43,8 +43,8 @@ struct QuestionNavigationGrid: View {
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .cornerRadius(DesignSystem.CornerRadius.md)
+        .shadow(DesignSystem.Shadow.md)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionNavigationGrid)
     }
 
@@ -90,7 +90,7 @@ struct QuestionNavigationGrid: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.caption2)
                             .foregroundColor(.white)
-                            .padding(2)
+                            .padding(DesignSystem.Spacing.xxs)
                     }
                     Spacer()
                 }

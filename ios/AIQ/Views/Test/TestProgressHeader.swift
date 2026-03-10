@@ -51,6 +51,6 @@ struct TestProgressHeader: View {
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(Color(.systemBackground))
-        .shadow(color: Color.black.opacity(0.05), radius: 2, y: 1)
+        .shadow(color: DesignSystem.Shadow.sm.color, radius: 2, y: 1)
     }
 }

@@ -116,8 +116,8 @@ struct IQTrendChart: View {
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .cornerRadius(DesignSystem.CornerRadius.md)
+        .shadow(DesignSystem.Shadow.sm)
     }
 
     /// Sampled data for rendering (improves performance with large datasets)

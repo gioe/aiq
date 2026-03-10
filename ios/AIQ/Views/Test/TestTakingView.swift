@@ -308,12 +308,12 @@ struct TestTakingView: View {
                         ? " S:\(MockModeDetector.currentScenario.rawValue)" : ""
                     Text("Q:\(qCount) L:\(loadState) M:\(mockState)\(scenarioSuffix)")
                         .font(.caption)
-                        .padding(4)
+                        .padding(DesignSystem.Spacing.xs)
                         .background(
                             viewModel.navigationState.questions.isEmpty
                                 ? Color.red.opacity(0.3) : Color.green.opacity(0.3)
                         )
-                        .cornerRadius(4)
+                        .cornerRadius(DesignSystem.CornerRadius.xs)
                         .accessibilityIdentifier("testTakingView.debugState")
                 }
             #endif
@@ -399,7 +399,12 @@ struct TestTakingView: View {
             navigationControls
                 .padding()
                 .background(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.05), radius: 4, y: -2)
+                .shadow(
+                    color: DesignSystem.Shadow.sm.color,
+                    radius: DesignSystem.Shadow.sm.radius,
+                    x: 0,
+                    y: -DesignSystem.Shadow.sm.y
+                )
         }
         .background(Color(.systemGroupedBackground))
     }

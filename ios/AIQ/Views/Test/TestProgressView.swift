@@ -75,8 +75,8 @@ struct TestProgressView: View {
         }
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .cornerRadius(DesignSystem.CornerRadius.md)
+        .shadow(DesignSystem.Shadow.md)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressBar)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(

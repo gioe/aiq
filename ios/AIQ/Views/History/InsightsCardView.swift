@@ -35,8 +35,8 @@ struct InsightsCardView: View {
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .cornerRadius(DesignSystem.CornerRadius.lg)
+        .shadow(DesignSystem.Shadow.md)
     }
 
     // MARK: - Performance Overview
@@ -70,7 +70,7 @@ struct InsightsCardView: View {
             }
             .padding()
             .background(trendColor.opacity(0.1))
-            .cornerRadius(12)
+            .cornerRadius(DesignSystem.CornerRadius.md)
 
             // Recent Performance Description
             if insights.trendDirection != .insufficient {
@@ -191,7 +191,7 @@ struct InsightsCardView: View {
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
                 .background(Color.yellow.opacity(0.1))
-                .cornerRadius(8)
+                .cornerRadius(DesignSystem.CornerRadius.sm)
             }
         }
     }
@@ -227,11 +227,11 @@ struct InsightsCardView: View {
     private var trendColor: Color {
         switch insights.trendDirection {
         case .improving:
-            .green
+            ColorPalette.success
         case .declining:
-            .red
+            ColorPalette.error
         case .stable:
-            .blue
+            ColorPalette.info
         case .insufficient:
             .gray
         }
@@ -239,11 +239,11 @@ struct InsightsCardView: View {
 
     private var consistencyColor: Color {
         if insights.consistencyScore >= 80 {
-            .green
+            ColorPalette.success
         } else if insights.consistencyScore >= 60 {
-            .blue
+            ColorPalette.info
         } else {
-            .orange
+            ColorPalette.warning
         }
     }
 
@@ -271,11 +271,11 @@ struct InsightsCardView: View {
 
     private func improvementColor(_ improvement: Double) -> Color {
         if improvement > 5 {
-            .green
+            ColorPalette.success
         } else if improvement < -5 {
-            .red
+            ColorPalette.error
         } else {
-            .blue
+            ColorPalette.info
         }
     }
 
