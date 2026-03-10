@@ -6,6 +6,9 @@ enum DesignSystem {
     // MARK: - Spacing
 
     enum Spacing {
+        /// 2X extra small spacing (2pt)
+        static let xxs: CGFloat = 2
+
         /// Extra small spacing (4pt)
         static let xs: CGFloat = 4
 
@@ -37,6 +40,9 @@ enum DesignSystem {
     // MARK: - Corner Radius
 
     enum CornerRadius {
+        /// Extra small corner radius (4pt)
+        static let xs: CGFloat = 4
+
         /// Small corner radius (8pt)
         static let sm: CGFloat = 8
 
