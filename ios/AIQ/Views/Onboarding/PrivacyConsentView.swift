@@ -193,12 +193,7 @@ struct PrivacyConsentView: View {
         .padding(DesignSystem.Spacing.md)
         .background(ColorPalette.backgroundSecondary)
         .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(
-            color: DesignSystem.Shadow.sm.color,
-            radius: DesignSystem.Shadow.sm.radius,
-            x: DesignSystem.Shadow.sm.x,
-            y: DesignSystem.Shadow.sm.y
-        )
+        .shadowStyle(DesignSystem.Shadow.sm)
         .accessibilityLabel("\(title). \(description)")
     }
 
