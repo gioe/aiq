@@ -62,7 +62,7 @@ struct NotificationUpgradePromptView: View {
 
             // Icon - using filled bell to emphasize the upgrade
             Image(systemName: "bell.badge.fill")
-                .font(.system(size: DesignSystem.IconSize.huge))
+                .font(.system(size: theme.iconSizes.huge))
                 .foregroundColor(theme.colors.primary)
                 .accessibilityHidden(true) // Decorative - message conveyed by text
                 .padding(.bottom, theme.spacing.xxl)

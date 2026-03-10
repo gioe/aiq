@@ -65,6 +65,7 @@ struct RootView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.appTheme) private var theme
 
     private let privacyConsentStorage: PrivacyConsentStorageProtocol
     /// Resolved from the DI container during `init`. Optional because the app may run in
@@ -119,7 +120,7 @@ struct RootView: View {
                 if reduceMotion {
                     showSplash = false
                 } else {
-                    withAnimation(DesignSystem.Animation.smooth) {
+                    withAnimation(theme.animations.smooth) {
                         showSplash = false
                     }
                 }
@@ -168,7 +169,7 @@ struct RootView: View {
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(reduceMotion ? nil : DesignSystem.Animation.standard, value: toastObserver.currentToast)
+            .animation(reduceMotion ? nil : theme.animations.standard, value: toastObserver.currentToast)
             .opacity(showSplash ? 0.0 : 1.0)
 
             // Splash Screen
@@ -186,7 +187,7 @@ struct RootView: View {
                     biometricType: manager.biometricType,
                     biometricAuthManager: manager,
                     onAuthenticated: {
-                        withAnimation(reduceMotion ? nil : DesignSystem.Animation.smooth) {
+                        withAnimation(reduceMotion ? nil : theme.animations.smooth) {
                             isBiometricLocked = false
                         }
                     },
@@ -237,7 +238,7 @@ struct SplashView: View {
                 if reduceMotion {
                     isAnimating = true
                 } else {
-                    withAnimation(DesignSystem.Animation.smooth) {
+                    withAnimation(theme.animations.smooth) {
                         isAnimating = true
                     }
                 }

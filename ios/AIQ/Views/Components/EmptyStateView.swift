@@ -29,7 +29,7 @@ struct EmptyStateView: View {
             Spacer()
 
             Image(systemName: icon)
-                .font(.system(size: DesignSystem.IconSize.huge))
+                .font(.system(size: theme.iconSizes.huge))
                 .foregroundColor(theme.colors.primary.opacity(0.6))
                 .accessibilityHidden(true) // Decorative icon
 

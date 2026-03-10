@@ -32,7 +32,7 @@ struct IconContentCard: View {
             // Icon and Title
             HStack(spacing: theme.spacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: DesignSystem.IconSize.md))
+                    .font(.system(size: theme.iconSizes.md))
                     .foregroundColor(iconColor)
                     .accessibilityHidden(true)
 

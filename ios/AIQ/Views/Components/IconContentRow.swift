@@ -41,7 +41,7 @@ struct IconContentRow: View {
     var body: some View {
         HStack(spacing: theme.spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: DesignSystem.IconSize.md))
+                .font(.system(size: theme.iconSizes.md))
                 .foregroundColor(iconColor)
                 .frame(width: 32, height: 32)
                 .accessibilityHidden(true)

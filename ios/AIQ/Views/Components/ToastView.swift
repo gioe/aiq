@@ -48,7 +48,7 @@ struct ToastView: View {
         HStack(spacing: theme.spacing.md) {
             Image(systemName: type.icon)
                 .foregroundColor(.white)
-                .font(.system(size: DesignSystem.IconSize.sm))
+                .font(.system(size: theme.iconSizes.sm))
 
             Text(message)
                 .font(.subheadline)

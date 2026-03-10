@@ -54,7 +54,7 @@ struct LoadingOverlay: View {
             if reduceMotion {
                 isAnimating = true
             } else {
-                withAnimation(DesignSystem.Animation.smooth) {
+                withAnimation(theme.animations.smooth) {
                     isAnimating = true
                 }
             }
