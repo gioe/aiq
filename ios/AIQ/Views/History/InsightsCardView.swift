@@ -233,7 +233,7 @@ struct InsightsCardView: View {
         case .stable:
             ColorPalette.info
         case .insufficient:
-            .gray
+            ColorPalette.textTertiary
         }
     }
 
