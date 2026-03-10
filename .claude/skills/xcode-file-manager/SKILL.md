@@ -48,10 +48,14 @@ cd ios && ruby scripts/add_files_to_xcode.rb AIQTests/NewTests.swift
 
 ### Common Directories
 
+> **New feature modules** go under `AIQ/Features/<Module>/{Views,ViewModels}/` (e.g., `AIQ/Features/Dashboard/Views/`). Use `/xcode-group-manager` to create the group hierarchy first.
+
 | Directory | Purpose | Target |
 |-----------|---------|--------|
-| `AIQ/Views/` | SwiftUI views | AIQ |
-| `AIQ/ViewModels/` | View models | AIQ |
+| `AIQ/Features/<Module>/Views/` | SwiftUI views for a feature module | AIQ |
+| `AIQ/Features/<Module>/ViewModels/` | View models for a feature module | AIQ |
+| `AIQ/Views/` | Legacy/shared SwiftUI views (not under a feature module) | AIQ |
+| `AIQ/ViewModels/` | Legacy/shared view models (not under a feature module) | AIQ |
 | `AIQ/Models/` | Data models | AIQ |
 | `AIQ/Services/` | API and business services | AIQ |
 | `AIQ/Utilities/` | Helper utilities | AIQ |
