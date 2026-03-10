@@ -12,7 +12,7 @@ ascii_mode = ARGV.delete('--ascii') || ENV['CI'] || ENV['TERM'] == 'dumb'
 
 OK   = ascii_mode ? '[OK]'    : '✓'
 ERR  = ascii_mode ? '[ERROR]' : '✗'
-# WARN not needed: this script emits no warning-level messages
+WARN = ascii_mode ? '[WARN]'  : '⚠'
 
 if ARGV.empty?
   puts "Usage: ruby remove_files_from_xcode.rb [--keep-files] [--ascii] <file_path1> <file_path2> ..."
@@ -68,31 +68,36 @@ ARGV.each do |file_path|
     next
   end
 
-  # Find ALL file references with this filename across the entire project.
-  # Duplicate references can exist after migrations where the same file was added
-  # at a new path while the old reference was not cleaned up; build-phase entries
-  # may point to any of them, not just the one found in the expected group.
-  # Used only for build-phase cleanup — file reference removal stays scoped to
-  # file_ref to avoid accidentally deleting unrelated files that share the same basename.
-  refs_for_phase_cleanup = project.objects.values.select do |obj|
-    obj.is_a?(Xcodeproj::Project::Object::PBXFileReference) && obj.path == file_name
+  # Collect ALL refs with this filename in the same group.
+  # True duplicates (multiple PBXFileReference objects for the same path within one group)
+  # can arise after botched migrations; all of them need their build-phase entries removed.
+  # Scoping to the same group avoids false positives from unrelated files that share the
+  # same basename (e.g. Extensions.swift in different feature groups).
+  refs_in_group = group.files.select { |f| f.path == file_name }
+
+  # Warn if refs with the same filename exist in other groups — those may have stale
+  # build-phase entries that require a separate invocation of this script to clean up.
+  other_ref_count = project.objects.values.count do |obj|
+    obj.is_a?(Xcodeproj::Project::Object::PBXFileReference) &&
+      obj.path == file_name &&
+      !refs_in_group.include?(obj)
+  end
+  if other_ref_count > 0
+    puts "#{WARN} #{other_ref_count} other reference(s) named '#{file_name}' exist at different group paths — pass those paths to this script separately if their build-phase entries also need cleanup."
   end
 
-  # Remove from all build phases across all targets (for ALL refs with this filename).
-  # This ensures stale phase entries are cleaned up even when a duplicate ref exists
-  # at a different group path, which is the common failure mode after file migrations.
+  # Remove build-phase entries for all refs found in this group (covers same-group duplicates
+  # where the build phase may reference a different UUID than the first ref found).
   project.targets.each do |target|
     target.build_phases.each do |phase|
-      phase.files.select { |bf| refs_for_phase_cleanup.include?(bf.file_ref) }.each do |build_file|
+      phase.files.select { |bf| refs_in_group.include?(bf.file_ref) }.each do |build_file|
         build_file.remove_from_project
       end
     end
   end
 
-  # Remove only the specific file reference found in the expected group.
-  # Removing all refs with the same filename risks deleting unrelated files that
-  # happen to share the same basename (e.g. Extensions.swift in different features).
-  file_ref.remove_from_project
+  # Remove all file references in this group with the target filename.
+  refs_in_group.each { |ref| ref.remove_from_project }
   any_removed = true
 
   # Delete from disk unless --keep-files was passed
