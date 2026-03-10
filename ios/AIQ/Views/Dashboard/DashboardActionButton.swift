@@ -6,6 +6,8 @@ struct DashboardActionButton: View {
     let onTap: () -> Void
     let label: String?
 
+    @Environment(\.appTheme) private var theme
+
     init(hasActiveTest: Bool, onTap: @escaping () -> Void, label: String? = nil) {
         self.hasActiveTest = hasActiveTest
         self.onTap = onTap
@@ -15,8 +17,6 @@ struct DashboardActionButton: View {
     private var resolvedLabel: String {
         label ?? (hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
     }
-
-    @Environment(\.appTheme) private var theme
 
     private var resolvedHint: String {
         if hasActiveTest {

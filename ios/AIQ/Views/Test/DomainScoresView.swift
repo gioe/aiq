@@ -173,6 +173,8 @@ struct DomainScoresBreakdownView: View {
     /// Weakest domain name from API (when population stats available)
     let weakestDomainFromAPI: String?
 
+    @Environment(\.appTheme) private var theme
+
     init(
         domainScores: [String: DomainScore]?,
         showAnimation: Bool,
@@ -233,8 +235,6 @@ struct DomainScoresBreakdownView: View {
     private var hasPercentileData: Bool {
         sortedScores?.contains { $0.score.percentile != nil } ?? false
     }
-
-    @Environment(\.appTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
