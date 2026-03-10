@@ -74,7 +74,7 @@ struct AdaptiveProgressHeader: View {
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(Color(.systemBackground))
-        .shadow(color: DesignSystem.Shadow.sm.color, radius: 2, y: 1)
+        .shadowStyle(DesignSystem.Shadow.header)
         .accessibilityIdentifier(AccessibilityIdentifiers.AdaptiveTestView.progressHeader)
     }
 
