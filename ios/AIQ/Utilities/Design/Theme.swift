@@ -108,6 +108,22 @@ struct AnimationTokens {
     let bouncy: Animation
 }
 
+// MARK: - AnimationDelay — intentionally NOT tokenized
+
+//
+// DesignSystem.AnimationDelay (short/medium/mediumLong/long/extraLong) defines entrance-sequence
+// stagger timings used as: theme.animations.smooth.delay(DesignSystem.AnimationDelay.medium).
+//
+// These are NOT added to AppThemeProtocol as AnimationDelayTokens because:
+//   1. They are plain Double timing constants, not visual design tokens. Colors, typography,
+//      and Animation styles vary by theme (brand, accessibility, dark mode); delay magnitudes do not.
+//   2. The hybrid pattern is semantically correct — the animation style is theme-driven,
+//      but the delay is view-choreography logic that belongs with the view.
+//   3. A future high-contrast or seasonal theme would never need different stagger delays,
+//      so adding AnimationDelayTokens to the protocol would be dead surface area.
+//
+// Verdict: keep DesignSystem.AnimationDelay as a direct constant namespace; no token group needed.
+
 // MARK: - AppThemeProtocol
 
 /// Protocol for app-wide visual theming. Conforming types supply typed token groups
