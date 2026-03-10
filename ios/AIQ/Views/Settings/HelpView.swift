@@ -166,7 +166,7 @@ struct ScoreRangeHelpView: View {
                     }
                     .padding()
                     .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    .cornerRadius(DesignSystem.CornerRadius.md)
 
                     Divider()
 
@@ -231,7 +231,7 @@ struct IQScoreHelpView: View {
                     }
                     .padding()
                     .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    .cornerRadius(DesignSystem.CornerRadius.md)
 
                     Divider()
 
@@ -421,7 +421,7 @@ struct QuestionTypesHelpView: View {
         }
         .padding()
         .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .cornerRadius(DesignSystem.CornerRadius.md)
     }
 }
 

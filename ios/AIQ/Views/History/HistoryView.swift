@@ -158,7 +158,7 @@ struct HistoryView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 8)
                     .background(Color(.secondarySystemBackground))
-                    .cornerRadius(8)
+                    .cornerRadius(DesignSystem.CornerRadius.sm)
                     .padding(.horizontal)
                 }
 
@@ -243,7 +243,7 @@ private struct HistoryStatCard: View {
         .frame(maxWidth: .infinity)
         .padding()
         .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
+        .cornerRadius(DesignSystem.CornerRadius.md)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
     }
@@ -282,7 +282,7 @@ private struct LoadMoreButton: View {
             .padding()
             .frame(maxWidth: .infinity)
             .background(Color(.secondarySystemBackground))
-            .cornerRadius(12)
+            .cornerRadius(DesignSystem.CornerRadius.md)
         }
         .buttonStyle(.plain)
         .disabled(isLoading)

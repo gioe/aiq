@@ -108,7 +108,7 @@ struct DomainScoreBarView: View {
                             .padding(.horizontal, DesignSystem.Spacing.xs)
                             .padding(.vertical, 2)
                             .background(barColor)
-                            .cornerRadius(4)
+                            .cornerRadius(DesignSystem.CornerRadius.xs)
                     }
                 }
             }
@@ -350,7 +350,7 @@ struct DomainScoresBreakdownView: View {
                     .padding(.horizontal, DesignSystem.Spacing.xs)
                     .padding(.vertical, 2)
                     .background(config.performanceLevel?.color ?? ColorPalette.primary)
-                    .cornerRadius(4)
+                    .cornerRadius(DesignSystem.CornerRadius.xs)
             }
         }
         .accessibilityElement(children: .combine)

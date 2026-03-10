@@ -57,9 +57,9 @@ struct AnswerInputView: View {
                 .disabled(isDisabled)
                 .padding()
                 .background(isDisabled ? Color(.systemGray5) : Color(.systemGray6))
-                .cornerRadius(12)
+                .cornerRadius(DesignSystem.CornerRadius.md)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
                         .stroke(userAnswer.isEmpty ? Color.clear : Color.accentColor, lineWidth: 2)
                 )
                 .opacity(isDisabled ? 0.6 : 1.0)
@@ -188,9 +188,9 @@ private struct OptionButton: View {
             }
             .padding()
             .background(backgroundColor)
-            .cornerRadius(12)
+            .cornerRadius(DesignSystem.CornerRadius.md)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
                     .stroke(isSelected ? Color.clear : Color(.systemGray4), lineWidth: 1)
             )
             .opacity(isDisabled ? 0.6 : 1.0)

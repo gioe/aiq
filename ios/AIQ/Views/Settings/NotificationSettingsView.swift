@@ -87,7 +87,7 @@ struct NotificationSettingsView: View {
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
                     .background(Color.orange.opacity(0.1))
-                    .cornerRadius(8)
+                    .cornerRadius(DesignSystem.CornerRadius.sm)
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 8)

@@ -43,9 +43,9 @@ struct CustomTextField: View {
             }
             .padding()
             .background(Color(.systemGray6))
-            .cornerRadius(10)
+            .cornerRadius(DesignSystem.CornerRadius.sm)
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
                     .stroke(Color(.systemGray4), lineWidth: 1)
             )
         }
