@@ -1,0 +1,332 @@
+import SwiftUI
+
+/// Card view displaying performance insights and analytics
+struct InsightsCardView: View {
+    let insights: PerformanceInsights
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Header
+            HStack {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundColor(.yellow)
+                    .font(.title2)
+
+                Text("insights.performance.title".localized)
+                    .font(.headline)
+                    .fontWeight(.bold)
+
+                Spacer()
+            }
+            .padding(.bottom, 4)
+
+            // Performance Overview Section
+            performanceOverview
+
+            Divider()
+
+            // Detailed Metrics Section
+            detailedMetrics
+
+            Divider()
+
+            // Actionable Insights
+            actionableInsights
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(DesignSystem.CornerRadius.lg)
+        .shadowStyle(DesignSystem.Shadow.md)
+    }
+
+    // MARK: - Performance Overview
+
+    private var performanceOverview: some View {
+        VStack(spacing: 12) {
+            // Trend Direction
+            HStack(spacing: 16) {
+                Image(systemName: insights.trendDirection.icon)
+                    .font(.system(size: 32))
+                    .foregroundColor(trendColor)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("insights.trend".localized)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text(insights.trendDirection.description)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(trendColor)
+
+                    if let percentage = insights.trendPercentage {
+                        Text(formatPercentage(percentage))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
+            .background(trendColor.opacity(0.1))
+            .cornerRadius(DesignSystem.CornerRadius.md)
+
+            // Recent Performance Description
+            if insights.trendDirection != .insufficient {
+                HStack(spacing: 12) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.accentColor)
+                        .font(.body)
+
+                    Text(insights.recentPerformance)
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
+
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    // MARK: - Detailed Metrics
+
+    private var detailedMetrics: some View {
+        VStack(spacing: 16) {
+            // Consistency Score
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("insights.consistency".localized)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 8) {
+                        Text(String(format: "%.0f%%", insights.consistencyScore))
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(consistencyColor)
+
+                        Image(systemName: consistencyIcon)
+                            .foregroundColor(consistencyColor)
+                    }
+
+                    Text(consistencyDescription)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+            }
+
+            // Improvement Since First Test
+            if let improvement = insights.improvementSinceFirst {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("insights.overall.progress".localized)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        HStack(spacing: 8) {
+                            Text(formatPercentage(improvement))
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(improvementColor(improvement))
+
+                            Image(systemName: improvementIcon(improvement))
+                                .foregroundColor(improvementColor(improvement))
+                        }
+
+                        Text("insights.since.first.test".localized)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+                }
+            }
+
+            // Average Improvement Per Test
+            if let avgImprovement = insights.averageImprovement,
+               abs(avgImprovement) >= 0.5 {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("insights.average.change".localized)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        HStack(spacing: 8) {
+                            Text(formatPoints(avgImprovement))
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+
+                            Text("insights.per.test".localized)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Spacer()
+                }
+            }
+
+            // Best Period
+            if let bestPeriod = insights.bestPeriod {
+                HStack(spacing: 12) {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("insights.peak.performance".localized)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Text(bestPeriod)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+
+                    Spacer()
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(Color.yellow.opacity(0.1))
+                .cornerRadius(DesignSystem.CornerRadius.sm)
+            }
+        }
+    }
+
+    // MARK: - Actionable Insights
+
+    private var actionableInsights: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("insights.key.insights".localized)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(.secondary)
+
+            ForEach(Array(insights.insights.enumerated()), id: \.offset) { index, insight in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "\(index + 1).circle.fill")
+                        .foregroundColor(.accentColor)
+                        .font(.body)
+
+                    Text(insight)
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+
+    // MARK: - Helper Properties
+
+    private var trendColor: Color {
+        switch insights.trendDirection {
+        case .improving:
+            ColorPalette.success
+        case .declining:
+            ColorPalette.error
+        case .stable:
+            ColorPalette.info
+        case .insufficient:
+            ColorPalette.textTertiary
+        }
+    }
+
+    private var consistencyColor: Color {
+        if insights.consistencyScore >= 80 {
+            ColorPalette.success
+        } else if insights.consistencyScore >= 60 {
+            ColorPalette.info
+        } else {
+            ColorPalette.warning
+        }
+    }
+
+    private var consistencyIcon: String {
+        if insights.consistencyScore >= 80 {
+            "checkmark.circle.fill"
+        } else if insights.consistencyScore >= 60 {
+            "minus.circle.fill"
+        } else {
+            "exclamationmark.circle.fill"
+        }
+    }
+
+    private var consistencyDescription: String {
+        if insights.consistencyScore >= 80 {
+            "insights.consistency.high".localized
+        } else if insights.consistencyScore >= 60 {
+            "insights.consistency.moderate".localized
+        } else {
+            "insights.consistency.varies".localized
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    private func improvementColor(_ improvement: Double) -> Color {
+        if improvement > 5 {
+            ColorPalette.success
+        } else if improvement < -5 {
+            ColorPalette.error
+        } else {
+            ColorPalette.info
+        }
+    }
+
+    private func improvementIcon(_ improvement: Double) -> String {
+        if improvement > 5 {
+            "arrow.up.circle.fill"
+        } else if improvement < -5 {
+            "arrow.down.circle.fill"
+        } else {
+            "equal.circle.fill"
+        }
+    }
+
+    private func formatPercentage(_ value: Double) -> String {
+        let formatted = String(format: "%.1f%%", abs(value))
+        if value > 0 {
+            return "+\(formatted)"
+        } else if value < 0 {
+            return "-\(formatted)"
+        } else {
+            return formatted
+        }
+    }
+
+    private func formatPoints(_ value: Double) -> String {
+        let formatted = String(format: "%.1f", abs(value))
+        if value > 0 {
+            return "+\(formatted) pts"
+        } else if value < 0 {
+            return "-\(formatted) pts"
+        } else {
+            return "\(formatted) pts"
+        }
+    }
+}
+
+#if DEBUG
+
+    // MARK: - Preview
+
+    #Preview("Improving Trend") {
+        ScrollView {
+            InsightsCardView(insights: MockDataFactory.improvingPerformanceInsights)
+                .padding()
+        }
+    }
+
+    #Preview("Stable Performance") {
+        ScrollView {
+            InsightsCardView(insights: MockDataFactory.stablePerformanceInsights)
+                .padding()
+        }
+    }
+#endif
