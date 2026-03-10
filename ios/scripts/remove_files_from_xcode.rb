@@ -69,24 +69,30 @@ ARGV.each do |file_path|
   end
 
   # Find ALL file references with this filename across the entire project.
-  # Duplicate references can exist after migrations where the same file was
-  # added at a new path while the old reference was not cleaned up; build-phase
-  # entries may point to any of them, not just the one found in the expected group.
-  all_refs = project.objects.values.select do |obj|
+  # Duplicate references can exist after migrations where the same file was added
+  # at a new path while the old reference was not cleaned up; build-phase entries
+  # may point to any of them, not just the one found in the expected group.
+  # Used only for build-phase cleanup — file reference removal stays scoped to
+  # file_ref to avoid accidentally deleting unrelated files that share the same basename.
+  refs_for_phase_cleanup = project.objects.values.select do |obj|
     obj.is_a?(Xcodeproj::Project::Object::PBXFileReference) && obj.path == file_name
   end
 
-  # Remove from all build phases across all targets (for ALL matching refs)
+  # Remove from all build phases across all targets (for ALL refs with this filename).
+  # This ensures stale phase entries are cleaned up even when a duplicate ref exists
+  # at a different group path, which is the common failure mode after file migrations.
   project.targets.each do |target|
     target.build_phases.each do |phase|
-      phase.files.select { |bf| all_refs.include?(bf.file_ref) }.each do |build_file|
+      phase.files.select { |bf| refs_for_phase_cleanup.include?(bf.file_ref) }.each do |build_file|
         build_file.remove_from_project
       end
     end
   end
 
-  # Remove all duplicate file references from the project
-  all_refs.each { |ref| ref.remove_from_project }
+  # Remove only the specific file reference found in the expected group.
+  # Removing all refs with the same filename risks deleting unrelated files that
+  # happen to share the same basename (e.g. Extensions.swift in different features).
+  file_ref.remove_from_project
   any_removed = true
 
   # Delete from disk unless --keep-files was passed
