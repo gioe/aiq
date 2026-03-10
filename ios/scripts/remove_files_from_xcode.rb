@@ -68,17 +68,25 @@ ARGV.each do |file_path|
     next
   end
 
-  # Remove from all build phases across all targets
+  # Find ALL file references with this filename across the entire project.
+  # Duplicate references can exist after migrations where the same file was
+  # added at a new path while the old reference was not cleaned up; build-phase
+  # entries may point to any of them, not just the one found in the expected group.
+  all_refs = project.objects.values.select do |obj|
+    obj.is_a?(Xcodeproj::Project::Object::PBXFileReference) && obj.path == file_name
+  end
+
+  # Remove from all build phases across all targets (for ALL matching refs)
   project.targets.each do |target|
     target.build_phases.each do |phase|
-      phase.files.select { |bf| bf.file_ref == file_ref }.each do |build_file|
+      phase.files.select { |bf| all_refs.include?(bf.file_ref) }.each do |build_file|
         build_file.remove_from_project
       end
     end
   end
 
-  # Remove the file reference from the project
-  file_ref.remove_from_project
+  # Remove all duplicate file references from the project
+  all_refs.each { |ref| ref.remove_from_project }
   any_removed = true
 
   # Delete from disk unless --keep-files was passed
