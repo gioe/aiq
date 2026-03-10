@@ -157,3 +157,13 @@ repos:
         language: system
         files: ^ios/.*\.swift$
         types: [file, swift]
+
+  # Catch stale Views/Common references in iOS documentation
+  - repo: local
+    hooks:
+      - id: no-stale-views-common
+        name: no stale Views/Common references in iOS docs
+        entry: scripts/check_ios_views_common.sh
+        language: script
+        files: ^ios/(CLAUDE\.md|docs/ARCHITECTURE\.md|docs/CODING_STANDARDS\.md)$
+        pass_filenames: false
