@@ -37,19 +37,22 @@ struct OnboardingPage2View: View {
 
                 // Process Steps
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    ProcessStepRow(
-                        number: 1,
-                        text: String(localized: "onboarding.page2.step1")
+                    IconContentRow(
+                        icon: "1.circle.fill",
+                        iconColor: ColorPalette.primary,
+                        title: String(localized: "onboarding.page2.step1")
                     )
 
-                    ProcessStepRow(
-                        number: 2,
-                        text: String(localized: "onboarding.page2.step2")
+                    IconContentRow(
+                        icon: "2.circle.fill",
+                        iconColor: ColorPalette.primary,
+                        title: String(localized: "onboarding.page2.step2")
                     )
 
-                    ProcessStepRow(
-                        number: 3,
-                        text: String(localized: "onboarding.page2.step3")
+                    IconContentRow(
+                        icon: "3.circle.fill",
+                        iconColor: ColorPalette.primary,
+                        title: String(localized: "onboarding.page2.step3")
                     )
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)

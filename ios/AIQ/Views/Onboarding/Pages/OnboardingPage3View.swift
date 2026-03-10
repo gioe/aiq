@@ -37,18 +37,18 @@ struct OnboardingPage3View: View {
 
                 // Rationale Cards
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    RationaleCard(
+                    IconContentCard(
                         icon: "brain.head.profile",
+                        iconColor: ColorPalette.statPurple,
                         title: String(localized: "onboarding.page3.rationale.neuroplasticity.title"),
-                        description: String(localized: "onboarding.page3.rationale.neuroplasticity.description"),
-                        iconColor: ColorPalette.statPurple
+                        description: String(localized: "onboarding.page3.rationale.neuroplasticity.description")
                     )
 
-                    RationaleCard(
+                    IconContentCard(
                         icon: "chart.xyaxis.line",
+                        iconColor: ColorPalette.statBlue,
                         title: String(localized: "onboarding.page3.rationale.trends.title"),
-                        description: String(localized: "onboarding.page3.rationale.trends.description"),
-                        iconColor: ColorPalette.statBlue
+                        description: String(localized: "onboarding.page3.rationale.trends.description")
                     )
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)

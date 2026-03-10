@@ -37,10 +37,26 @@ struct OnboardingPage4View: View {
 
                 // Privacy Features
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    PrivacyFeatureRow(text: String(localized: "onboarding.page4.feature.encryption"))
-                    PrivacyFeatureRow(text: String(localized: "onboarding.page4.feature.no.sale"))
-                    PrivacyFeatureRow(text: String(localized: "onboarding.page4.feature.compliance"))
-                    PrivacyFeatureRow(text: String(localized: "onboarding.page4.feature.private.results"))
+                    IconContentRow(
+                        icon: "checkmark.circle.fill",
+                        iconColor: ColorPalette.successText,
+                        title: String(localized: "onboarding.page4.feature.encryption")
+                    )
+                    IconContentRow(
+                        icon: "checkmark.circle.fill",
+                        iconColor: ColorPalette.successText,
+                        title: String(localized: "onboarding.page4.feature.no.sale")
+                    )
+                    IconContentRow(
+                        icon: "checkmark.circle.fill",
+                        iconColor: ColorPalette.successText,
+                        title: String(localized: "onboarding.page4.feature.compliance")
+                    )
+                    IconContentRow(
+                        icon: "checkmark.circle.fill",
+                        iconColor: ColorPalette.successText,
+                        title: String(localized: "onboarding.page4.feature.private.results")
+                    )
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)
                 .opacity(isAnimating ? 1.0 : 0.0)

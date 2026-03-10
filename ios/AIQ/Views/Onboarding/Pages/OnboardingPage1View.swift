@@ -37,22 +37,22 @@ struct OnboardingPage1View: View {
 
                 // Feature Highlights
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    FeatureHighlightRow(
+                    IconContentRow(
                         icon: "chart.line.uptrend.xyaxis",
-                        text: String(localized: "onboarding.page1.feature.tracking"),
-                        iconColor: ColorPalette.statBlue
+                        iconColor: ColorPalette.statBlue,
+                        title: String(localized: "onboarding.page1.feature.tracking")
                     )
 
-                    FeatureHighlightRow(
+                    IconContentRow(
                         icon: "brain.head.profile",
-                        text: String(localized: "onboarding.page1.feature.ai"),
-                        iconColor: ColorPalette.statPurple
+                        iconColor: ColorPalette.statPurple,
+                        title: String(localized: "onboarding.page1.feature.ai")
                     )
 
-                    FeatureHighlightRow(
+                    IconContentRow(
                         icon: "lock.shield.fill",
-                        text: String(localized: "onboarding.page1.feature.privacy"),
-                        iconColor: ColorPalette.successText
+                        iconColor: ColorPalette.successText,
+                        title: String(localized: "onboarding.page1.feature.privacy")
                     )
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)
