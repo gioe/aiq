@@ -18,6 +18,8 @@ struct ErrorBanner: View {
     /// Pass a caller-specific string when the banner's presence blocks an action (e.g. submission).
     var dismissHint: String?
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         if retryAction != nil {
             // When a retry button is present, omit the container label so VoiceOver
@@ -31,8 +33,6 @@ struct ErrorBanner: View {
                 .accessibilityLabel("Error: \(message)")
         }
     }
-
-    @Environment(\.appTheme) private var theme
 
     private var containerStack: some View {
         HStack(spacing: 12) {

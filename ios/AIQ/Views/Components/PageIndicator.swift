@@ -14,8 +14,8 @@ import SwiftUI
 /// ```
 ///
 /// ## Design Notes
-/// - Active dot uses `ColorPalette.primary`
-/// - Inactive dots use `ColorPalette.textSecondary` (WCAG AA compliant with 4.5:1 contrast)
+/// - Active dot uses `theme.colors.primary`
+/// - Inactive dots use `theme.colors.textSecondary` (WCAG AA compliant with 4.5:1 contrast)
 /// - Dots are 8pt diameter with 8pt spacing (matching UIPageControl)
 /// - Includes smooth animation on page changes
 struct PageIndicator: View {
