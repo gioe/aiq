@@ -8,11 +8,17 @@ struct ColorTokens {
     let primary: Color
     let secondary: Color
 
-    // Semantic
+    // Semantic (icon use; low contrast in light mode — use accessible text variants for text)
     let success: Color
     let warning: Color
     let error: Color
     let info: Color
+
+    // Accessible text variants (WCAG AA compliant; use for text, not icons)
+    let successText: Color
+    let warningText: Color
+    let errorText: Color
+    let infoText: Color
 
     // Text
     let textPrimary: Color
@@ -106,6 +112,10 @@ struct DefaultTheme: AppThemeProtocol {
         warning: ColorPalette.warning,
         error: ColorPalette.error,
         info: ColorPalette.info,
+        successText: ColorPalette.successText,
+        warningText: ColorPalette.warningText,
+        errorText: ColorPalette.errorText,
+        infoText: ColorPalette.infoText,
         textPrimary: ColorPalette.textPrimary,
         textSecondary: ColorPalette.textSecondary,
         textTertiary: ColorPalette.textTertiary,
