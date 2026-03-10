@@ -5,11 +5,13 @@ struct PercentileCard: View {
     let percentileRank: Double?
     let showAnimation: Bool
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             // Medal icon
             Image(systemName: "medal.fill")
-                .font(.system(size: DesignSystem.IconSize.lg))
+                .font(.system(size: theme.iconSizes.lg))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.orange, .yellow],

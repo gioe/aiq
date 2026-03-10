@@ -22,6 +22,7 @@ struct OnboardingContainerView: View {
     @StateObject private var viewModel = OnboardingViewModel()
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         ZStack {
@@ -113,7 +114,7 @@ struct OnboardingContainerView: View {
         if reduceMotion {
             viewModel.nextPage()
         } else {
-            withAnimation(DesignSystem.Animation.smooth) {
+            withAnimation(theme.animations.smooth) {
                 viewModel.nextPage()
             }
         }
@@ -128,7 +129,7 @@ struct OnboardingContainerView: View {
         if reduceMotion {
             viewModel.skipOnboarding()
         } else {
-            withAnimation(DesignSystem.Animation.smooth) {
+            withAnimation(theme.animations.smooth) {
                 viewModel.skipOnboarding()
             }
         }
@@ -146,7 +147,7 @@ struct OnboardingContainerView: View {
         if reduceMotion {
             viewModel.completeOnboarding()
         } else {
-            withAnimation(DesignSystem.Animation.smooth) {
+            withAnimation(theme.animations.smooth) {
                 viewModel.completeOnboarding()
             }
         }

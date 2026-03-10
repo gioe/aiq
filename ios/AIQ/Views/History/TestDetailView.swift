@@ -9,6 +9,7 @@ struct TestDetailView: View {
     @State private var showAnimation = false
     @State private var showConfidenceIntervalInfo = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         ScrollView {
@@ -118,7 +119,7 @@ struct TestDetailView: View {
                     showConfidenceIntervalInfo = true
                 } label: {
                     Image(systemName: "info.circle")
-                        .font(.system(size: DesignSystem.IconSize.sm))
+                        .font(.system(size: theme.iconSizes.sm))
                         .foregroundColor(.accentColor)
                 }
                 .accessibilityLabel("Learn about score range")

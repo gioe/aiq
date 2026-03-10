@@ -16,6 +16,8 @@ struct DashboardActionButton: View {
         label ?? (hasActiveTest ? "Resume Test in Progress" : "Take Another Test")
     }
 
+    @Environment(\.appTheme) private var theme
+
     private var resolvedHint: String {
         if hasActiveTest {
             return "Continue your in-progress cognitive performance test"
@@ -31,7 +33,7 @@ struct DashboardActionButton: View {
         } label: {
             HStack(spacing: DesignSystem.Spacing.sm) {
                 Image(systemName: hasActiveTest ? "play.circle.fill" : "brain.head.profile")
-                    .font(.system(size: DesignSystem.IconSize.md, weight: .semibold))
+                    .font(.system(size: theme.iconSizes.md, weight: .semibold))
 
                 Text(resolvedLabel)
                     .font(Typography.button)
@@ -39,7 +41,7 @@ struct DashboardActionButton: View {
                 Spacer()
 
                 Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: DesignSystem.IconSize.md))
+                    .font(.system(size: theme.iconSizes.md))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)

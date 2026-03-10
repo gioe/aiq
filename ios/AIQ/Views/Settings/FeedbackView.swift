@@ -4,6 +4,7 @@ import SwiftUI
 struct FeedbackView: View {
     @StateObject private var viewModel: FeedbackViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     /// Creates a FeedbackView with the specified service container
     /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
@@ -245,7 +246,7 @@ struct FeedbackView: View {
 
             VStack(spacing: DesignSystem.Spacing.xl) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: DesignSystem.IconSize.huge))
+                    .font(.system(size: theme.iconSizes.huge))
                     .foregroundColor(ColorPalette.success)
                     .accessibilityHidden(true)
 

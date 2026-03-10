@@ -14,6 +14,7 @@ struct WelcomeView: View {
     }
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         NavigationStack {
@@ -67,7 +68,7 @@ struct WelcomeView: View {
                             if reduceMotion {
                                 isAnimating = true
                             } else {
-                                withAnimation(DesignSystem.Animation.bouncy) {
+                                withAnimation(theme.animations.bouncy) {
                                     isAnimating = true
                                 }
                             }
@@ -123,7 +124,7 @@ struct WelcomeView: View {
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                         .animation(
-                            reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.long),
+                            reduceMotion ? nil : theme.animations.smooth.delay(DesignSystem.AnimationDelay.long),
                             value: isAnimating
                         )
 
@@ -151,7 +152,7 @@ struct WelcomeView: View {
                         .animation(
                             reduceMotion
                                 ? nil
-                                : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.extraLong),
+                                : theme.animations.smooth.delay(DesignSystem.AnimationDelay.extraLong),
                             value: isAnimating
                         )
 

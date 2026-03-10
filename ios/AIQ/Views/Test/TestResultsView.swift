@@ -20,6 +20,7 @@ struct TestResultsView: View {
     }()
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         ScrollView {
@@ -76,7 +77,7 @@ struct TestResultsView: View {
             if reduceMotion {
                 showAnimation = true
             } else {
-                withAnimation(DesignSystem.Animation.smooth.delay(0.1)) {
+                withAnimation(theme.animations.smooth.delay(0.1)) {
                     showAnimation = true
                 }
             }
@@ -140,7 +141,7 @@ struct TestResultsView: View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             // Trophy icon
             Image(systemName: "trophy.fill")
-                .font(.system(size: DesignSystem.IconSize.xl))
+                .font(.system(size: theme.iconSizes.xl))
                 .foregroundStyle(ColorPalette.trophyGradient)
                 .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.5))
                 .opacity(showAnimation ? 1.0 : 0.0)
@@ -212,7 +213,7 @@ struct TestResultsView: View {
                     showConfidenceIntervalInfo = true
                 } label: {
                     Image(systemName: "info.circle")
-                        .font(.system(size: DesignSystem.IconSize.sm))
+                        .font(.system(size: theme.iconSizes.sm))
                         .foregroundColor(ColorPalette.primary)
                 }
                 .accessibilityLabel("Learn about score range")
@@ -289,7 +290,7 @@ struct TestResultsView: View {
     private func metricCard(icon: String, title: String, value: String, color: Color) -> some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: DesignSystem.IconSize.md))
+                .font(.system(size: theme.iconSizes.md))
                 .foregroundColor(color)
                 .accessibilityHidden(true) // Decorative icon
 

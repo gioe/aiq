@@ -18,6 +18,8 @@ struct DashboardView: View {
     /// Controls presentation of the onboarding flow
     @State private var showOnboarding: Bool = false
 
+    @Environment(\.appTheme) private var theme
+
     /// Creates a DashboardView with the specified service container
     /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
     ///   Parent views can inject this from `@Environment(\.serviceContainer)` for better testability.
@@ -168,7 +170,7 @@ struct DashboardView: View {
     private func dismissOnboardingInfoCard() {
         // Persist dismissal immediately to avoid race conditions with app backgrounding
         hasDismissedOnboardingInfoCard = true
-        withAnimation(DesignSystem.Animation.quick) {
+        withAnimation(theme.animations.quick) {
             showOnboardingInfoCard = false
         }
     }

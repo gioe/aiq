@@ -5,12 +5,14 @@ import SwiftUI
 struct DashboardWelcomeHeader: View {
     let userName: String?
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             // Greeting with time-based context
             HStack(spacing: DesignSystem.Spacing.xs) {
                 Image(systemName: greetingIcon)
-                    .font(.system(size: DesignSystem.IconSize.lg))
+                    .font(.system(size: theme.iconSizes.lg))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [ColorPalette.primary, ColorPalette.primary.opacity(0.7)],

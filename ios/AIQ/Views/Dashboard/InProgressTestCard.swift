@@ -10,6 +10,7 @@ struct InProgressTestCard: View {
     @State private var showAbandonConfirmation = false
     @State private var isAbandoning = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
@@ -95,7 +96,7 @@ struct InProgressTestCard: View {
                     .frame(width: 48, height: 48)
 
                 Image(systemName: "clock.fill")
-                    .font(.system(size: DesignSystem.IconSize.md))
+                    .font(.system(size: theme.iconSizes.md))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [ColorPalette.warning, ColorPalette.warning.opacity(0.7)],
@@ -167,7 +168,7 @@ struct InProgressTestCard: View {
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: DesignSystem.IconSize.md, weight: .semibold))
+                        .font(.system(size: theme.iconSizes.md, weight: .semibold))
 
                     Text("Resume Test")
                         .font(Typography.button)
@@ -175,7 +176,7 @@ struct InProgressTestCard: View {
                     Spacer()
 
                     Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: DesignSystem.IconSize.md))
+                        .font(.system(size: theme.iconSizes.md))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)

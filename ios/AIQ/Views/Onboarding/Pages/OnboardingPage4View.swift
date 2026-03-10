@@ -4,6 +4,7 @@ import SwiftUI
 /// Explains privacy features and provides link to privacy policy
 struct OnboardingPage4View: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
     @State private var isAnimating = false
 
     var body: some View {
@@ -15,7 +16,7 @@ struct OnboardingPage4View: View {
                     .foregroundColor(ColorPalette.successText)
                     .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
                     .animation(
-                        reduceMotion ? nil : DesignSystem.Animation.bouncy.repeatForever(autoreverses: true),
+                        reduceMotion ? nil : theme.animations.bouncy.repeatForever(autoreverses: true),
                         value: isAnimating
                     )
                     .accessibilityHidden(true)
@@ -62,7 +63,7 @@ struct OnboardingPage4View: View {
                 .opacity(isAnimating ? 1.0 : 0.0)
                 .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                 .animation(
-                    reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.short),
+                    reduceMotion ? nil : theme.animations.smooth.delay(DesignSystem.AnimationDelay.short),
                     value: isAnimating
                 )
 
@@ -82,7 +83,7 @@ struct OnboardingPage4View: View {
                 .padding(.horizontal, DesignSystem.Spacing.xl)
                 .opacity(isAnimating ? 1.0 : 0.0)
                 .animation(
-                    reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.medium),
+                    reduceMotion ? nil : theme.animations.smooth.delay(DesignSystem.AnimationDelay.medium),
                     value: isAnimating
                 )
 
@@ -96,7 +97,7 @@ struct OnboardingPage4View: View {
             if reduceMotion {
                 isAnimating = true
             } else {
-                withAnimation(DesignSystem.Animation.bouncy) {
+                withAnimation(theme.animations.bouncy) {
                     isAnimating = true
                 }
             }

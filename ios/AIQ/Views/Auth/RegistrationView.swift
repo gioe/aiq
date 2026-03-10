@@ -15,6 +15,7 @@ struct RegistrationView: View {
 
     @State private var isAnimating = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     // MARK: - Focus State for Keyboard Navigation
 
@@ -87,7 +88,7 @@ struct RegistrationView: View {
                         if reduceMotion {
                             isAnimating = true
                         } else {
-                            withAnimation(DesignSystem.Animation.bouncy) {
+                            withAnimation(theme.animations.bouncy) {
                                 isAnimating = true
                             }
                         }
@@ -216,7 +217,7 @@ struct RegistrationView: View {
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                     .animation(
-                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.medium),
+                        reduceMotion ? nil : theme.animations.smooth.delay(DesignSystem.AnimationDelay.medium),
                         value: isAnimating
                     )
 
@@ -278,7 +279,7 @@ struct RegistrationView: View {
                                     Spacer()
 
                                     Image(systemName: "chevron.down")
-                                        .font(.system(size: DesignSystem.IconSize.sm))
+                                        .font(.system(size: theme.iconSizes.sm))
                                         .foregroundColor(ColorPalette.textSecondary)
                                 }
                                 .padding(DesignSystem.Spacing.md)
@@ -322,7 +323,7 @@ struct RegistrationView: View {
                     .animation(
                         reduceMotion
                             ? nil
-                            : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.mediumLong),
+                            : theme.animations.smooth.delay(DesignSystem.AnimationDelay.mediumLong),
                         value: isAnimating
                     )
 
@@ -344,7 +345,7 @@ struct RegistrationView: View {
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
                     .animation(
-                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.long),
+                        reduceMotion ? nil : theme.animations.smooth.delay(DesignSystem.AnimationDelay.long),
                         value: isAnimating
                     )
 
@@ -370,7 +371,7 @@ struct RegistrationView: View {
                     .padding(.top, DesignSystem.Spacing.sm)
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .animation(
-                        reduceMotion ? nil : DesignSystem.Animation.smooth.delay(DesignSystem.AnimationDelay.extraLong),
+                        reduceMotion ? nil : theme.animations.smooth.delay(DesignSystem.AnimationDelay.extraLong),
                         value: isAnimating
                     )
 

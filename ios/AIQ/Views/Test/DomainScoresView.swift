@@ -11,6 +11,7 @@ struct DomainScoreBarView: View {
 
     @State private var animatedProgress: Double = 0
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     private var percentage: Double {
         score.pct ?? 0
@@ -153,7 +154,7 @@ struct DomainScoreBarView: View {
             if reduceMotion {
                 animatedProgress = progress
             } else {
-                withAnimation(DesignSystem.Animation.smooth.delay(0.1)) {
+                withAnimation(theme.animations.smooth.delay(0.1)) {
                     animatedProgress = progress
                 }
             }
@@ -233,12 +234,14 @@ struct DomainScoresBreakdownView: View {
         sortedScores?.contains { $0.score.percentile != nil } ?? false
     }
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
             // Section header
             HStack {
                 Image(systemName: "brain.head.profile")
-                    .font(.system(size: DesignSystem.IconSize.md))
+                    .font(.system(size: theme.iconSizes.md))
                     .foregroundColor(ColorPalette.primary)
                     .accessibilityHidden(true)
 
@@ -409,7 +412,7 @@ struct DomainScoresBreakdownView: View {
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.sm) {
             Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: DesignSystem.IconSize.lg))
+                .font(.system(size: theme.iconSizes.lg))
                 .foregroundColor(ColorPalette.textTertiary)
                 .accessibilityHidden(true)
 

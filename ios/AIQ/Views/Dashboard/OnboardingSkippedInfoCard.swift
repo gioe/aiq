@@ -14,13 +14,15 @@ struct OnboardingSkippedInfoCard: View {
     /// Called when user dismisses the card
     let onDismiss: () -> Void
 
+    @Environment(\.appTheme) private var theme
+
     // MARK: - Body
 
     var body: some View {
         HStack(alignment: .top, spacing: DesignSystem.Spacing.md) {
             // Icon
             Image(systemName: "lightbulb.fill")
-                .font(.system(size: DesignSystem.IconSize.lg))
+                .font(.system(size: theme.iconSizes.lg))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [ColorPalette.info, ColorPalette.info.opacity(0.7)],
