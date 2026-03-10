@@ -52,7 +52,7 @@ struct ErrorBanner: View {
         .padding()
         .background(Color.red)
         .cornerRadius(theme.cornerRadius.md)
-        .shadow(theme.shadows.sm)
+        .shadowStyle(theme.shadows.sm)
     }
 
     /// The icon and message area. Rendered as a tappable `Button` when `retryAction` is

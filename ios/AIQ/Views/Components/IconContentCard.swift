@@ -52,7 +52,7 @@ struct IconContentCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(theme.colors.backgroundSecondary)
         .cornerRadius(theme.cornerRadius.md)
-        .shadow(theme.shadows.sm)
+        .shadowStyle(theme.shadows.sm)
         .accessibilityElement(children: .combine)
     }
 }

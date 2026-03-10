@@ -69,7 +69,7 @@ struct ToastView: View {
         .padding(theme.spacing.lg)
         .background(type.backgroundColor)
         .cornerRadius(theme.cornerRadius.md)
-        .shadow(theme.shadows.lg)
+        .shadowStyle(theme.shadows.lg)
         .padding(.horizontal, theme.spacing.lg)
         .padding(.bottom, theme.spacing.lg)
         .accessibilityElement(children: .contain)

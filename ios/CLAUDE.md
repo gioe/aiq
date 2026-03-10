@@ -26,7 +26,7 @@ Always use these skills instead of running commands directly:
 | `AIQ/ViewModels/BaseViewModel.swift` | Base class all ViewModels inherit from (loading, errors) |
 | `AIQ/Services/API/` | Network client with retry and token refresh |
 | `AIQ/Services/Auth/AuthManager.swift` | Authentication, token management |
-| `AIQ/Utilities/Design/` | Design system (ColorPalette, Typography, DesignSystem) |
+| `AIQ/Utilities/Design/` | Design system (ColorPalette, Typography, DesignSystem) — includes `shadowStyle(_ style: ShadowStyle)` View extension; use `.shadowStyle(DesignSystem.Shadow.md)` instead of expanding properties inline (expanded form exceeds SwiftLint's 120-char limit) |
 | `AIQ/Utilities/Extensions/` | Swift extensions (Date, String, View) |
 | `AIQ/Views/Components/` | Reusable UI components |
 | `Packages/AIQAPIClient/` | OpenAPI-generated type-safe API client |

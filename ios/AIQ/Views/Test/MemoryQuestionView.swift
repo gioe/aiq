@@ -68,7 +68,7 @@ struct MemoryQuestionView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.systemBackground))
             .cornerRadius(DesignSystem.CornerRadius.lg)
-            .shadow(DesignSystem.Shadow.md)
+            .shadowStyle(DesignSystem.Shadow.md)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.stimulusCard)
 

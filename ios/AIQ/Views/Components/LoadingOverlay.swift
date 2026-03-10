@@ -41,7 +41,7 @@ struct LoadingOverlay: View {
             .background(
                 RoundedRectangle(cornerRadius: theme.cornerRadius.xl)
                     .fill(theme.colors.backgroundSecondary)
-                    .shadow(theme.shadows.lg)
+                    .shadowStyle(theme.shadows.lg)
             )
             .scaleEffect(isAnimating ? 1.0 : 0.85)
             .opacity(isAnimating ? 1.0 : 0.0)

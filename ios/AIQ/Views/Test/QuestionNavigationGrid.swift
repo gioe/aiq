@@ -44,7 +44,7 @@ struct QuestionNavigationGrid: View {
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(DesignSystem.Shadow.md)
+        .shadowStyle(DesignSystem.Shadow.md)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionNavigationGrid)
     }
 

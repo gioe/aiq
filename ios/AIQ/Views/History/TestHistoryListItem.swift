@@ -81,7 +81,7 @@ struct TestHistoryListItem: View {
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(DesignSystem.Shadow.sm)
+        .shadowStyle(DesignSystem.Shadow.sm)
     }
 
     private var scoreColor: Color {

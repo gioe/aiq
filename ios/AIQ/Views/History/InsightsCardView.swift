@@ -36,7 +36,7 @@ struct InsightsCardView: View {
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(DesignSystem.CornerRadius.lg)
-        .shadow(DesignSystem.Shadow.md)
+        .shadowStyle(DesignSystem.Shadow.md)
     }
 
     // MARK: - Performance Overview

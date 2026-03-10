@@ -26,7 +26,7 @@ struct QuestionCardView: View {
         .padding(DesignSystem.Spacing.xxl)
         .background(Color(.systemBackground))
         .cornerRadius(DesignSystem.CornerRadius.lg)
-        .shadow(DesignSystem.Shadow.md)
+        .shadowStyle(DesignSystem.Shadow.md)
         // .accessibilityElement(children: .contain) forces the VStack to be a real
         // otherElement container in XCTest rather than being transparent (accessibility-
         // transparent VStacks promote their identifier to the child, overriding the child's

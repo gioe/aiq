@@ -199,7 +199,7 @@ extension View {
     }
 
     /// Apply a named shadow style from the design system
-    func shadow(_ style: ShadowStyle) -> some View {
+    func shadowStyle(_ style: ShadowStyle) -> some View {
         shadow(color: style.color, radius: style.radius, x: style.x, y: style.y)
     }
 

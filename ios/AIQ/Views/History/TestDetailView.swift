@@ -102,7 +102,7 @@ struct TestDetailView: View {
         .frame(maxWidth: .infinity)
         .background(Color(.systemBackground))
         .cornerRadius(DesignSystem.CornerRadius.lg)
-        .shadow(DesignSystem.Shadow.md)
+        .shadowStyle(DesignSystem.Shadow.md)
     }
 
     // MARK: - Confidence Interval Display
@@ -247,7 +247,7 @@ struct TestDetailView: View {
         .padding(.vertical, 20)
         .background(Color(.systemBackground))
         .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(DesignSystem.Shadow.sm)
+        .shadowStyle(DesignSystem.Shadow.sm)
     }
 
     // MARK: - Performance Interpretation
@@ -316,7 +316,7 @@ struct TestDetailView: View {
             }
             .background(Color(.systemBackground))
             .cornerRadius(DesignSystem.CornerRadius.md)
-            .shadow(DesignSystem.Shadow.sm)
+            .shadowStyle(DesignSystem.Shadow.sm)
         }
         .opacity(showAnimation ? 1.0 : 0.0)
     }
