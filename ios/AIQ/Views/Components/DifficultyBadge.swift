@@ -32,10 +32,10 @@ struct DifficultyBadge: View {
 
     var colorForDifficulty: Color {
         switch difficultyLevel {
-        case "easy": .green
-        case "medium": .orange
-        case "hard": .red
-        default: .orange
+        case "easy": ColorPalette.success
+        case "medium": ColorPalette.warning
+        case "hard": ColorPalette.error
+        default: ColorPalette.warning
         }
     }
 }
