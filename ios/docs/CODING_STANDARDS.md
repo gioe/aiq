@@ -73,7 +73,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 
 ### Current Organization
 
-The project follows a **feature-module** structure. Each feature lives in `Features/<Module>/` with its views and view models co-located:
+The project follows a **feature-module** structure with an explicit `Shared/` boundary. Each feature lives in `Features/<Module>/` with its views and view models co-located. Code that is domain-agnostic and reusable across features lives under `Shared/`.
 
 ```
 AIQ/
@@ -90,40 +90,68 @@ AIQ/
 │   ├── Onboarding/
 │   │   ├── Views/      # Onboarding screens
 │   │   └── ViewModels/ # Onboarding view models
-│   └── Settings/
-│       ├── Views/      # Settings and preferences
-│       └── ViewModels/ # Settings view models
+│   ├── Settings/
+│   │   ├── Views/      # Settings and preferences
+│   │   └── ViewModels/ # Settings view models
+│   └── Test/
+│       ├── Views/      # Test-taking UI
+│       ├── ViewModels/ # Test view models
+│       └── IQScoreUtility.swift  # Score calculation (Test-specific)
 ├── Models/              # Data models and domain entities
-├── Views/               # Shared/legacy SwiftUI views
-│   ├── Test/           # Test-taking UI (not yet migrated)
-│   └── Components/     # Reusable view components
-├── Services/            # Business logic and external dependencies
+├── Shared/              # Domain-agnostic code reusable across features
+│   ├── Architecture/   # BaseViewModel, ViewModelProtocol
+│   ├── Components/     # Generic reusable SwiftUI components
+│   ├── Design/         # Design system (ColorPalette, DesignSystem, Theme, Typography)
+│   ├── Extensions/     # Generic Swift/SwiftUI extensions
+│   ├── Services/       # Shared services (HapticManager, ToastManager, NetworkMonitor,
+│   │                   #   KeychainStorage, BiometricAuthManager)
+│   └── Utilities/      # Shared utilities (Validators, TimeProvider)
+├── Views/               # AIQ-specific views not yet in a feature module
+│   └── Components/     # AIQ-specific UI components (RootView, MainTabView, etc.)
+├── Services/            # AIQ-specific business logic and external dependencies
 │   ├── Analytics/      # Analytics tracking
-│   ├── API/            # Network layer
-│   ├── Auth/           # Authentication and notifications
+│   ├── API/            # Network layer (OpenAPIService, TokenRefreshMiddleware, etc.)
+│   ├── Auth/           # Authentication and notifications (AuthManager, BiometricAuthManagerProtocol)
 │   ├── Navigation/     # Routing and deep linking
-│   └── Storage/        # Data persistence
-└── Utilities/           # Cross-cutting concerns
-    ├── Design/         # Design system (colors, typography, spacing)
-    ├── Extensions/     # Swift extensions
-    └── Helpers/        # Utility functions and configurations
+│   └── Storage/        # AIQ-specific data persistence
+└── Utilities/           # AIQ-specific cross-cutting concerns
+    ├── Extensions/     # AIQ-specific extensions (String+Localization)
+    └── Helpers/        # AIQ-specific utilities (AccessibilityIdentifiers, AppConfig, Constants,
+                        #   CrashlyticsErrorRecorder)
 ```
+
+### The Shared/ Boundary
+
+`Shared/` contains code that is **domain-agnostic** — it has no knowledge of AIQ-specific concepts (scores, tests, users, etc.) and could be extracted into a standalone library without modification.
+
+A file belongs in `Shared/` when it meets **all** of these criteria:
+1. It is used by two or more feature modules, or is a foundational building block.
+2. It contains no AIQ-specific business logic or domain types.
+3. It could be reused in a different app without changes.
+
+A file stays in `Features/`, `Services/`, `Utilities/`, or `Views/` when it:
+- Encodes AIQ-specific behaviour (e.g., `IQScoreUtility`, `String+Localization`)
+- Depends on AIQ domain types
+- Is only relevant to a single feature module
 
 ### Standards
 
 **DO:**
 - Place new feature views under `Features/<Module>/Views/`
 - Place new feature view models under `Features/<Module>/ViewModels/`
-- Place reusable view components in `Views/Components/`
-- Keep the design system in `Utilities/Design/`
-- Put cross-cutting extensions in `Utilities/Extensions/`
+- Place generic reusable view components in `Shared/Components/`
+- Place AIQ-specific view components in `Views/Components/`
+- Keep the design system in `Shared/Design/`
+- Put generic cross-cutting extensions in `Shared/Extensions/`
+- Put the base architecture types (`BaseViewModel`, `ViewModelProtocol`) in `Shared/Architecture/`
 - Name ViewModels to match their corresponding View feature (e.g., `DashboardViewModel` for `Dashboard/`)
 
 **DON'T:**
 - Create additional top-level directories (e.g., `Controllers/`, `Managers/`)
 - Mix business logic with view code
-- Place feature-specific components in `Components/`
+- Place feature-specific components in `Shared/Components/`
 - Add new views or view models outside `Features/` (use the feature module layout for all new code)
+- Add AIQ-specific code to any `Shared/` subdirectory
 
 ---
 

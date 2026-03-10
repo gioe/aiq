@@ -24,12 +24,14 @@ Always use these skills instead of running commands directly:
 
 | File | Contains |
 |------|----------|
-| `AIQ/ViewModels/BaseViewModel.swift` | Base class all ViewModels inherit from (loading, errors) |
+| `AIQ/Shared/Architecture/BaseViewModel.swift` | Base class all ViewModels inherit from (loading, errors) |
 | `AIQ/Services/API/` | Network client with retry and token refresh |
 | `AIQ/Services/Auth/AuthManager.swift` | Authentication, token management |
-| `AIQ/Utilities/Design/` | Design system (ColorPalette, Typography, DesignSystem) — includes `shadowStyle(_ style: ShadowStyle)` View extension; use `.shadowStyle(DesignSystem.Shadow.md)` instead of expanding properties inline (expanded form exceeds SwiftLint's 120-char limit). When auditing call sites, search for both `DesignSystem.Shadow.` and `theme.shadows.` patterns — views using `@Environment(\.appTheme)` use the latter. |
-| `AIQ/Utilities/Extensions/` | Swift extensions (Date, String, View) |
-| `AIQ/Views/Components/` | Reusable UI components |
+| `AIQ/Shared/Design/` | Design system (ColorPalette, Typography, DesignSystem) — includes `shadowStyle(_ style: ShadowStyle)` View extension; use `.shadowStyle(DesignSystem.Shadow.md)` instead of expanding properties inline (expanded form exceeds SwiftLint's 120-char limit). When auditing call sites, search for both `DesignSystem.Shadow.` and `theme.shadows.` patterns — views using `@Environment(\.appTheme)` use the latter. |
+| `AIQ/Shared/Extensions/` | Generic Swift/SwiftUI extensions (Date, String, View, Int, Number) |
+| `AIQ/Utilities/Extensions/` | AIQ-specific extensions (String+Localization) |
+| `AIQ/Shared/Components/` | Generic reusable UI components |
+| `AIQ/Views/Components/` | AIQ-specific UI components (RootView, MainTabView, BiometricLockView, etc.) |
 | `Packages/AIQAPIClient/` | OpenAPI-generated type-safe API client |
 | `Packages/AIQAPIClient/Sources/AIQAPIClient/Extensions/` | UI computed properties for generated types |
 

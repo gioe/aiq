@@ -77,7 +77,7 @@ ARGV.each do |file_path|
 
   # Warn if refs with the same filename exist in other groups — those may have stale
   # build-phase entries that require a separate invocation of this script to clean up.
-  other_ref_count = project.objects.values.count do |obj|
+  other_ref_count = project.objects.count do |obj|
     obj.is_a?(Xcodeproj::Project::Object::PBXFileReference) &&
       obj.path == file_name &&
       !refs_in_group.include?(obj)
