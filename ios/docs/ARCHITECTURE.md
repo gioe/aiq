@@ -66,12 +66,14 @@ Reusable UI components are in `Views/Components/`:
 - `PrimaryButton`: Styled action buttons
 - `CustomTextField`: Styled text inputs
 - `NetworkStatusBanner`: Network connectivity indicator
-- `MainTabView`, `RootView`, `ContentView`: App navigation structure
+- `RootView`: Auth gate (root of the view hierarchy)
+- `MainTabView`: Tab bar layout
+- `ContentView`: Main tab container shell
 
 **Example:**
 ```swift
-struct LoginView: View {
-    @StateObject private var viewModel = LoginViewModel(authManager: AuthManager.shared)
+struct RegistrationView: View {
+    @StateObject private var viewModel = RegistrationViewModel(authManager: AuthManager.shared)
 
     var body: some View {
         // UI implementation...
@@ -127,7 +129,7 @@ Services encapsulate external dependencies and business logic:
 Services should be injected into ViewModels via protocols:
 
 ```swift
-class LoginViewModel: BaseViewModel {
+class RegistrationViewModel: BaseViewModel {
     private let authManager: any AuthManagerProtocol
 
     init(authManager: any AuthManagerProtocol) {
@@ -309,7 +311,7 @@ AIQ/
 │       ├── NetworkStatusBanner.swift
 │       ├── BiometricLockView.swift
 │       ├── ToastView.swift
-│       └── ... (other shared components)
+│       └── ... (illustrative — see actual directory for full listing)
 ├── Models/                      # Codable data structures matching backend API
 │   └── Extensions/              # Model helper extensions
 ├── Services/                    # Business logic and external dependencies
