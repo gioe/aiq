@@ -798,13 +798,6 @@
 			path = AIQUITests;
 			sourceTree = "<group>";
 		};
-		1CC2B046DFA718A140E9D9AE /* History */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = History;
-			sourceTree = "<group>";
-		};
 		23D98703321E67A888F25F18 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
@@ -1107,7 +1100,6 @@
 			isa = PBXGroup;
 			children = (
 				D33DB53D36E221FB860D5D7A /* Components */,
-				1CC2B046DFA718A140E9D9AE /* History */,
 				534B2C7A8BBB919E3E5C5ACB /* Test */,
 			);
 			path = Views;

@@ -73,18 +73,29 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 
 ### Current Organization
 
-The project follows a **hybrid type-and-feature** structure. Top-level directories are organized by architectural layer (Models, ViewModels, Views, Services), with feature-based organization nested within Views:
+The project follows a **feature-module** structure. Each feature lives in `Features/<Module>/` with its views and view models co-located:
 
 ```
 AIQ/
+├── Features/            # Feature modules (views + view models co-located)
+│   ├── Auth/
+│   │   ├── Views/      # Authentication screens
+│   │   └── ViewModels/ # Auth view models
+│   ├── Dashboard/
+│   │   ├── Views/      # Home/Dashboard views
+│   │   └── ViewModels/ # Dashboard view models
+│   ├── History/
+│   │   ├── Views/      # Test history and charts
+│   │   └── ViewModels/ # History view models
+│   ├── Onboarding/
+│   │   ├── Views/      # Onboarding screens
+│   │   └── ViewModels/ # Onboarding view models
+│   └── Settings/
+│       ├── Views/      # Settings and preferences
+│       └── ViewModels/ # Settings view models
 ├── Models/              # Data models and domain entities
-├── ViewModels/          # MVVM ViewModels (all inherit from BaseViewModel)
-├── Views/               # SwiftUI views organized by feature
-│   ├── Auth/           # Authentication screens
-│   ├── Test/           # Test-taking UI
-│   ├── Dashboard/      # Home/Dashboard views
-│   ├── History/        # Test history and charts
-│   ├── Settings/       # Settings and preferences
+├── Views/               # Shared/legacy SwiftUI views
+│   ├── Test/           # Test-taking UI (not yet migrated)
 │   └── Components/     # Reusable view components
 ├── Services/            # Business logic and external dependencies
 │   ├── Analytics/      # Analytics tracking
@@ -101,8 +112,8 @@ AIQ/
 ### Standards
 
 **DO:**
-- Keep Models, ViewModels, and Views in their respective top-level directories
-- Organize Views by feature subdirectories (Auth/, Dashboard/, etc.)
+- Place new feature views under `Features/<Module>/Views/`
+- Place new feature view models under `Features/<Module>/ViewModels/`
 - Place reusable view components in `Views/Components/`
 - Keep the design system in `Utilities/Design/`
 - Put cross-cutting extensions in `Utilities/Extensions/`
@@ -112,7 +123,7 @@ AIQ/
 - Create additional top-level directories (e.g., `Controllers/`, `Managers/`)
 - Mix business logic with view code
 - Place feature-specific components in `Components/`
-- Put ViewModels inside View feature folders (keep them in top-level `ViewModels/`)
+- Add new views or view models outside `Features/` (use the feature module layout for all new code)
 
 ---
 
