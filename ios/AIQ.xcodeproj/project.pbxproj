@@ -1119,7 +1119,6 @@
 		7BE4500EA192E1E5F3238DC5 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				E685E3B3DB4D8196834EAFEF /* Design */,
 				BDA6A4468A1BFCDCCBC3F171 /* Extensions */,
 				699FC5E92E8AB1D5F02D4976 /* Helpers */,
 				565626843F5F25C6E5794673 /* ServiceContainer.swift */,
@@ -1408,13 +1407,6 @@
 				F27D5F7D5011005CA8EF6841 /* OnboardingViewModel.swift */,
 			);
 			name = ViewModels;
-			sourceTree = "<group>";
-		};
-		E685E3B3DB4D8196834EAFEF /* Design */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Design;
 			sourceTree = "<group>";
 		};
 		EFF2D963AA22E0C5A1C7B0C9 /* Auth */ = {
