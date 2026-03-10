@@ -87,6 +87,27 @@ struct ShadowTokens {
     let lg: ShadowStyle
 }
 
+// MARK: - Icon Size Tokens
+
+/// Icon size tokens mirroring DesignSystem.IconSize
+struct IconSizeTokens {
+    let sm: CGFloat
+    let md: CGFloat
+    let lg: CGFloat
+    let xl: CGFloat
+    let huge: CGFloat
+}
+
+// MARK: - Animation Tokens
+
+/// Animation tokens mirroring DesignSystem.Animation
+struct AnimationTokens {
+    let quick: Animation
+    let standard: Animation
+    let smooth: Animation
+    let bouncy: Animation
+}
+
 // MARK: - AppThemeProtocol
 
 /// Protocol for app-wide visual theming. Conforming types supply typed token groups
@@ -98,6 +119,8 @@ protocol AppThemeProtocol {
     var spacing: SpacingTokens { get }
     var cornerRadius: CornerRadiusTokens { get }
     var shadows: ShadowTokens { get }
+    var iconSizes: IconSizeTokens { get }
+    var animations: AnimationTokens { get }
 }
 
 // MARK: - DefaultTheme
@@ -166,5 +189,20 @@ struct DefaultTheme: AppThemeProtocol {
         sm: DesignSystem.Shadow.sm,
         md: DesignSystem.Shadow.md,
         lg: DesignSystem.Shadow.lg
+    )
+
+    let iconSizes = IconSizeTokens(
+        sm: DesignSystem.IconSize.sm,
+        md: DesignSystem.IconSize.md,
+        lg: DesignSystem.IconSize.lg,
+        xl: DesignSystem.IconSize.xl,
+        huge: DesignSystem.IconSize.huge
+    )
+
+    let animations = AnimationTokens(
+        quick: DesignSystem.Animation.quick,
+        standard: DesignSystem.Animation.standard,
+        smooth: DesignSystem.Animation.smooth,
+        bouncy: DesignSystem.Animation.bouncy
     )
 }
