@@ -34,26 +34,28 @@ struct IconContentRow: View {
         self.description = description
     }
 
+    @Environment(\.appTheme) private var theme
+
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: DesignSystem.Spacing.md) {
+        HStack(spacing: theme.spacing.md) {
             Image(systemName: icon)
                 .font(.system(size: DesignSystem.IconSize.md))
                 .foregroundColor(iconColor)
                 .frame(width: 32, height: 32)
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+            VStack(alignment: .leading, spacing: theme.spacing.xs) {
                 Text(title)
-                    .font(Typography.bodyMedium)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(theme.typography.bodyMedium)
+                    .foregroundColor(theme.colors.textPrimary)
                     .multilineTextAlignment(.leading)
 
                 if let description {
                     Text(description)
-                        .font(Typography.bodySmall)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.bodySmall)
+                        .foregroundColor(theme.colors.textSecondary)
                         .multilineTextAlignment(.leading)
                 }
             }

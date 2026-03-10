@@ -23,34 +23,36 @@ struct IconContentCard: View {
     /// Card description text
     let description: String
 
+    @Environment(\.appTheme) private var theme
+
     // MARK: - Body
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+        VStack(alignment: .leading, spacing: theme.spacing.md) {
             // Icon and Title
-            HStack(spacing: DesignSystem.Spacing.sm) {
+            HStack(spacing: theme.spacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: DesignSystem.IconSize.md))
                     .foregroundColor(iconColor)
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(Typography.bodyLarge)
+                    .font(theme.typography.bodyLarge)
                     .fontWeight(.semibold)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .foregroundColor(theme.colors.textPrimary)
             }
 
             // Description
             Text(description)
-                .font(Typography.bodyMedium)
-                .foregroundColor(ColorPalette.textSecondary)
+                .font(theme.typography.bodyMedium)
+                .foregroundColor(theme.colors.textSecondary)
                 .multilineTextAlignment(.leading)
         }
-        .padding(DesignSystem.Spacing.lg)
+        .padding(theme.spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(ColorPalette.backgroundSecondary)
-        .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(DesignSystem.Shadow.sm)
+        .background(theme.colors.backgroundSecondary)
+        .cornerRadius(theme.cornerRadius.md)
+        .shadow(theme.shadows.sm)
         .accessibilityElement(children: .combine)
     }
 }

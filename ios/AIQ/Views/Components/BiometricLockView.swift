@@ -44,6 +44,8 @@ struct BiometricLockView: View {
     @State private var isAuthenticating = false
     @State private var authError: BiometricAuthError?
 
+    @Environment(\.appTheme) private var theme
+
     // MARK: - Body
 
     var body: some View {
@@ -52,7 +54,7 @@ struct BiometricLockView: View {
             ColorPalette.scoreGradient
                 .ignoresSafeArea()
 
-            VStack(spacing: DesignSystem.Spacing.xxl) {
+            VStack(spacing: theme.spacing.xxl) {
                 Spacer()
 
                 brandingSection
@@ -69,8 +71,8 @@ struct BiometricLockView: View {
 
                 actionButtons
             }
-            .padding(.horizontal, DesignSystem.Spacing.xl)
-            .padding(.bottom, DesignSystem.Spacing.huge)
+            .padding(.horizontal, theme.spacing.xl)
+            .padding(.bottom, theme.spacing.huge)
         }
         .task {
             await triggerAuthentication()
@@ -81,7 +83,7 @@ struct BiometricLockView: View {
 
     /// Brain icon + "AIQ" title — mirrors SplashView branding
     private var brandingSection: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
+        VStack(spacing: theme.spacing.lg) {
             Image(systemName: "brain.head.profile")
                 .font(.system(size: 80))
                 .foregroundStyle(.white)
@@ -94,14 +96,14 @@ struct BiometricLockView: View {
 
     /// Lock icon + subtitle
     private var lockSection: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
+        VStack(spacing: theme.spacing.md) {
             Image(systemName: "lock.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.white)
                 .accessibilityIdentifier(AccessibilityIdentifiers.BiometricLockView.lockIcon)
 
             Text("Verify your identity to continue")
-                .font(Typography.bodyLarge)
+                .font(theme.typography.bodyLarge)
                 .foregroundColor(.white.opacity(0.9))
                 .multilineTextAlignment(.center)
         }
@@ -110,43 +112,43 @@ struct BiometricLockView: View {
     /// Semi-transparent error pill displayed when authentication fails
     private func errorPill(message: String) -> some View {
         Text(message)
-            .font(Typography.bodyMedium)
-            .foregroundColor(ColorPalette.textPrimary)
+            .font(theme.typography.bodyMedium)
+            .foregroundColor(theme.colors.textPrimary)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, DesignSystem.Spacing.lg)
-            .padding(.vertical, DesignSystem.Spacing.md)
+            .padding(.horizontal, theme.spacing.lg)
+            .padding(.vertical, theme.spacing.md)
             .background(.white.opacity(0.85))
-            .cornerRadius(DesignSystem.CornerRadius.full)
-            .padding(.horizontal, DesignSystem.Spacing.xl)
+            .cornerRadius(theme.cornerRadius.full)
+            .padding(.horizontal, theme.spacing.xl)
             .accessibilityIdentifier(AccessibilityIdentifiers.BiometricLockView.errorMessage)
     }
 
     /// Primary unlock button and secondary sign-out button
     private var actionButtons: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
+        VStack(spacing: theme.spacing.lg) {
             // Primary: Unlock button (white background, primary text color)
             Button {
                 Task {
                     await triggerAuthentication()
                 }
             } label: {
-                HStack(spacing: DesignSystem.Spacing.sm) {
+                HStack(spacing: theme.spacing.sm) {
                     if isAuthenticating {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: ColorPalette.textPrimary))
+                            .progressViewStyle(CircularProgressViewStyle(tint: theme.colors.textPrimary))
                             .scaleEffect(0.85)
                             .accessibilityHidden(true)
                     } else {
                         Image(systemName: unlockIconName)
                     }
                     Text(unlockButtonTitle)
-                        .font(Typography.button)
+                        .font(theme.typography.button)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(DesignSystem.Spacing.lg)
+                .padding(theme.spacing.lg)
                 .background(.white)
-                .foregroundColor(ColorPalette.textPrimary)
-                .cornerRadius(DesignSystem.CornerRadius.md)
+                .foregroundColor(theme.colors.textPrimary)
+                .cornerRadius(theme.cornerRadius.md)
             }
             .disabled(isAuthenticating)
             .accessibilityLabel(unlockButtonTitle)
@@ -158,7 +160,7 @@ struct BiometricLockView: View {
                 onSignOut()
             } label: {
                 Text("Sign Out")
-                    .font(Typography.bodyMedium)
+                    .font(theme.typography.bodyMedium)
                     .foregroundColor(.white)
                     .underline()
             }

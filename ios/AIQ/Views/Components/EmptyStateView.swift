@@ -8,6 +8,8 @@ struct EmptyStateView: View {
     let actionTitle: String?
     let action: (() -> Void)?
 
+    @Environment(\.appTheme) private var theme
+
     init(
         icon: String = "tray",
         title: String,
@@ -23,24 +25,24 @@ struct EmptyStateView: View {
     }
 
     var body: some View {
-        VStack(spacing: DesignSystem.Spacing.xxl) {
+        VStack(spacing: theme.spacing.xxl) {
             Spacer()
 
             Image(systemName: icon)
                 .font(.system(size: DesignSystem.IconSize.huge))
-                .foregroundColor(ColorPalette.primary.opacity(0.6))
+                .foregroundColor(theme.colors.primary.opacity(0.6))
                 .accessibilityHidden(true) // Decorative icon
 
-            VStack(spacing: DesignSystem.Spacing.md) {
+            VStack(spacing: theme.spacing.md) {
                 Text(title)
-                    .font(Typography.h2)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(theme.typography.h2)
+                    .foregroundColor(theme.colors.textPrimary)
 
                 Text(message)
-                    .font(Typography.bodyMedium)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.bodyMedium)
+                    .foregroundColor(theme.colors.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, DesignSystem.Spacing.huge)
+                    .padding(.horizontal, theme.spacing.huge)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(title). \(message)")
@@ -48,15 +50,15 @@ struct EmptyStateView: View {
             if let actionTitle, let action {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(Typography.button)
+                        .font(theme.typography.button)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(DesignSystem.Spacing.lg)
-                        .background(ColorPalette.primary)
-                        .cornerRadius(DesignSystem.CornerRadius.md)
+                        .padding(theme.spacing.lg)
+                        .background(theme.colors.primary)
+                        .cornerRadius(theme.cornerRadius.md)
                 }
-                .padding(.horizontal, DesignSystem.Spacing.huge)
-                .padding(.top, DesignSystem.Spacing.sm)
+                .padding(.horizontal, theme.spacing.huge)
+                .padding(.top, theme.spacing.sm)
                 .accessibilityIdentifier(AccessibilityIdentifiers.EmptyStateView.actionButton)
                 .accessibilityLabel(actionTitle)
                 .accessibilityHint("Activate to \(actionTitle.lowercased())")

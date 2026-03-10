@@ -5,42 +5,44 @@ import SwiftUI
 struct NotificationPermissionBanner: View {
     let onOpenSettings: () -> Void
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         Button {
             onOpenSettings()
         } label: {
-            HStack(spacing: DesignSystem.Spacing.md) {
+            HStack(spacing: theme.spacing.md) {
                 // Info icon
                 Image(systemName: "info.circle.fill")
-                    .foregroundColor(ColorPalette.info)
+                    .foregroundColor(theme.colors.info)
                     .font(.system(size: 20))
                     .accessibilityHidden(true)
 
                 // Message
                 Text("notification.permission.denied.message".localized)
-                    .font(Typography.bodySmall)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(theme.typography.bodySmall)
+                    .foregroundColor(theme.colors.textPrimary)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Action indicator
-                VStack(spacing: DesignSystem.Spacing.xs) {
+                VStack(spacing: theme.spacing.xs) {
                     Text("notification.permission.open.settings".localized)
-                        .font(Typography.labelSmall)
-                        .foregroundColor(ColorPalette.primary)
+                        .font(theme.typography.labelSmall)
+                        .foregroundColor(theme.colors.primary)
 
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(ColorPalette.primary)
+                        .foregroundColor(theme.colors.primary)
                 }
                 .accessibilityHidden(true)
             }
-            .padding(DesignSystem.Spacing.lg)
-            .background(ColorPalette.info.opacity(0.1))
-            .cornerRadius(DesignSystem.CornerRadius.md)
+            .padding(theme.spacing.lg)
+            .background(theme.colors.info.opacity(0.1))
+            .cornerRadius(theme.cornerRadius.md)
             .overlay(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                    .stroke(ColorPalette.info.opacity(0.2), lineWidth: 1)
+                RoundedRectangle(cornerRadius: theme.cornerRadius.md)
+                    .stroke(theme.colors.info.opacity(0.2), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

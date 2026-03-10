@@ -32,6 +32,8 @@ struct ErrorBanner: View {
         }
     }
 
+    @Environment(\.appTheme) private var theme
+
     private var containerStack: some View {
         HStack(spacing: 12) {
             bannerContent
@@ -49,8 +51,8 @@ struct ErrorBanner: View {
         }
         .padding()
         .background(Color.red)
-        .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(DesignSystem.Shadow.sm)
+        .cornerRadius(theme.cornerRadius.md)
+        .shadow(theme.shadows.sm)
     }
 
     /// The icon and message area. Rendered as a tappable `Button` when `retryAction` is

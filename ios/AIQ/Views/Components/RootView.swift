@@ -211,6 +211,7 @@ struct RootView: View {
 struct SplashView: View {
     @State private var isAnimating = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         ZStack {
@@ -218,7 +219,7 @@ struct SplashView: View {
             ColorPalette.scoreGradient
                 .ignoresSafeArea()
 
-            VStack(spacing: DesignSystem.Spacing.lg) {
+            VStack(spacing: theme.spacing.lg) {
                 // Animated Brain Icon
                 Image(systemName: "brain.head.profile")
                     .font(.system(size: 100))

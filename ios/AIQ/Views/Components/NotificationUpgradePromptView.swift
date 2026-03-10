@@ -38,6 +38,7 @@ struct NotificationUpgradePromptView: View {
     // MARK: - Environment
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     // MARK: - Body
 
@@ -51,41 +52,41 @@ struct NotificationUpgradePromptView: View {
                     icon: "xmark",
                     action: handleDismiss,
                     accessibilityLabel: "Close notification prompt",
-                    foregroundColor: ColorPalette.textSecondary
+                    foregroundColor: theme.colors.textSecondary
                 )
             }
-            .padding(.horizontal, DesignSystem.Spacing.lg)
-            .padding(.top, DesignSystem.Spacing.lg)
+            .padding(.horizontal, theme.spacing.lg)
+            .padding(.top, theme.spacing.lg)
 
             Spacer()
 
             // Icon - using filled bell to emphasize the upgrade
             Image(systemName: "bell.badge.fill")
                 .font(.system(size: DesignSystem.IconSize.huge))
-                .foregroundColor(ColorPalette.primary)
+                .foregroundColor(theme.colors.primary)
                 .accessibilityHidden(true) // Decorative - message conveyed by text
-                .padding(.bottom, DesignSystem.Spacing.xxl)
+                .padding(.bottom, theme.spacing.xxl)
 
             // Title
             Text("Stay in the Loop")
-                .font(Typography.h1)
-                .foregroundColor(ColorPalette.textPrimary)
+                .font(theme.typography.h1)
+                .foregroundColor(theme.colors.textPrimary)
                 .multilineTextAlignment(.center)
-                .padding(.bottom, DesignSystem.Spacing.md)
+                .padding(.bottom, theme.spacing.md)
                 .accessibilityAddTraits(.isHeader)
 
             // Body copy - acknowledges their engagement and explains benefit
             Text("You're tracking your cognitive trends. Enable full notifications so you never miss a test reminder.")
-                .font(Typography.bodyLarge)
-                .foregroundColor(ColorPalette.textSecondary)
+                .font(theme.typography.bodyLarge)
+                .foregroundColor(theme.colors.textSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, DesignSystem.Spacing.xxxl)
-                .padding(.bottom, DesignSystem.Spacing.xxxl)
+                .padding(.horizontal, theme.spacing.xxxl)
+                .padding(.bottom, theme.spacing.xxxl)
 
             Spacer()
 
             // Action buttons
-            VStack(spacing: DesignSystem.Spacing.md) {
+            VStack(spacing: theme.spacing.md) {
                 // Primary action
                 PrimaryButton(
                     title: "Enable Notifications",
@@ -96,8 +97,8 @@ struct NotificationUpgradePromptView: View {
                 // Secondary action
                 Button(action: handleDismiss) {
                     Text("Not Now")
-                        .font(Typography.button)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.button)
+                        .foregroundColor(theme.colors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44) // Ensure minimum touch target
                 }
@@ -105,10 +106,10 @@ struct NotificationUpgradePromptView: View {
                 .accessibilityHint("Double tap to dismiss without enabling notifications")
                 .accessibilityIdentifier(AccessibilityIdentifiers.NotificationSoftPrompt.notNowButton)
             }
-            .padding(.horizontal, DesignSystem.Spacing.xxl)
-            .padding(.bottom, DesignSystem.Spacing.xxxl)
+            .padding(.horizontal, theme.spacing.xxl)
+            .padding(.bottom, theme.spacing.xxxl)
         }
-        .background(ColorPalette.background)
+        .background(theme.colors.background)
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
     }

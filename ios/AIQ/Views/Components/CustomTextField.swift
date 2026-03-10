@@ -12,6 +12,8 @@ struct CustomTextField: View {
     var submitLabel: SubmitLabel = .return
     var onSubmit: (() -> Void)?
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
@@ -43,9 +45,9 @@ struct CustomTextField: View {
             }
             .padding()
             .background(Color(.systemGray6))
-            .cornerRadius(DesignSystem.CornerRadius.sm)
+            .cornerRadius(theme.cornerRadius.sm)
             .overlay(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                RoundedRectangle(cornerRadius: theme.cornerRadius.sm)
                     .stroke(Color(.systemGray4), lineWidth: 1)
             )
         }

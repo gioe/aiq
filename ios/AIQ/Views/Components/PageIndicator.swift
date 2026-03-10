@@ -41,11 +41,13 @@ struct PageIndicator: View {
         max(0, min(currentPage, validTotalPages - 1))
     }
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         HStack(spacing: dotSpacing) {
             ForEach(0 ..< validTotalPages, id: \.self) { index in
                 Circle()
-                    .fill(index == validCurrentPage ? ColorPalette.primary : ColorPalette.textSecondary)
+                    .fill(index == validCurrentPage ? theme.colors.primary : theme.colors.textSecondary)
                     .frame(width: dotSize, height: dotSize)
                     .animation(.easeInOut(duration: 0.2), value: validCurrentPage)
             }

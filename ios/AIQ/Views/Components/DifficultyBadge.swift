@@ -3,6 +3,8 @@ import SwiftUI
 struct DifficultyBadge: View {
     let difficultyLevel: String
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         HStack(spacing: 4) {
             ForEach(0 ..< 3) { index in
@@ -32,10 +34,10 @@ struct DifficultyBadge: View {
 
     var colorForDifficulty: Color {
         switch difficultyLevel {
-        case "easy": ColorPalette.success
-        case "medium": ColorPalette.warning
-        case "hard": ColorPalette.error
-        default: ColorPalette.warning
+        case "easy": theme.colors.success
+        case "medium": theme.colors.warning
+        case "hard": theme.colors.error
+        default: theme.colors.warning
         }
     }
 }

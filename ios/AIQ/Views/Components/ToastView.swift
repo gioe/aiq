@@ -42,9 +42,10 @@ struct ToastView: View {
     let onDismiss: () -> Void
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: DesignSystem.Spacing.md) {
+        HStack(spacing: theme.spacing.md) {
             Image(systemName: type.icon)
                 .foregroundColor(.white)
                 .font(.system(size: DesignSystem.IconSize.sm))
@@ -65,17 +66,12 @@ struct ToastView: View {
             )
             .accessibilityIdentifier(AccessibilityIdentifiers.ToastView.dismissButton)
         }
-        .padding(DesignSystem.Spacing.lg)
+        .padding(theme.spacing.lg)
         .background(type.backgroundColor)
-        .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(
-            color: DesignSystem.Shadow.lg.color,
-            radius: DesignSystem.Shadow.lg.radius,
-            x: DesignSystem.Shadow.lg.x,
-            y: DesignSystem.Shadow.lg.y
-        )
-        .padding(.horizontal, DesignSystem.Spacing.lg)
-        .padding(.bottom, DesignSystem.Spacing.lg)
+        .cornerRadius(theme.cornerRadius.md)
+        .shadow(theme.shadows.lg)
+        .padding(.horizontal, theme.spacing.lg)
+        .padding(.bottom, theme.spacing.lg)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(accessibilityTypeLabel): \(message)")
         .onTapGesture {

@@ -6,6 +6,7 @@ struct LoadingOverlay: View {
     @State private var isAnimating = false
     @State private var rotationAngle: Double = 0
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     init(message: String? = nil) {
         self.message = message
@@ -14,12 +15,12 @@ struct LoadingOverlay: View {
     var body: some View {
         ZStack {
             // Semi-transparent backdrop
-            ColorPalette.background
+            theme.colors.background
                 .opacity(0.8)
                 .ignoresSafeArea()
 
             // Loading card
-            VStack(spacing: DesignSystem.Spacing.xl) {
+            VStack(spacing: theme.spacing.xl) {
                 // Animated brain icon
                 Image(systemName: "brain.head.profile")
                     .font(.system(size: 48))
@@ -30,22 +31,17 @@ struct LoadingOverlay: View {
 
                 if let message {
                     Text(message)
-                        .font(Typography.bodyLarge)
-                        .foregroundColor(ColorPalette.textPrimary)
+                        .font(theme.typography.bodyLarge)
+                        .foregroundColor(theme.colors.textPrimary)
                         .multilineTextAlignment(.center)
                         .opacity(isAnimating ? 1.0 : 0.0)
                 }
             }
-            .padding(DesignSystem.Spacing.xxxl)
+            .padding(theme.spacing.xxxl)
             .background(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
-                    .fill(ColorPalette.backgroundSecondary)
-                    .shadow(
-                        color: DesignSystem.Shadow.lg.color,
-                        radius: DesignSystem.Shadow.lg.radius,
-                        x: DesignSystem.Shadow.lg.x,
-                        y: DesignSystem.Shadow.lg.y
-                    )
+                RoundedRectangle(cornerRadius: theme.cornerRadius.xl)
+                    .fill(theme.colors.backgroundSecondary)
+                    .shadow(theme.shadows.lg)
             )
             .scaleEffect(isAnimating ? 1.0 : 0.85)
             .opacity(isAnimating ? 1.0 : 0.0)
