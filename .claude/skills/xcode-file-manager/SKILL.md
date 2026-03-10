@@ -71,6 +71,18 @@ cd ios && ruby scripts/add_files_to_xcode.rb AIQ/Features/Auth/Views/LoginView.s
 
 > **Why:** If the group is missing, `add_files_to_xcode.rb` silently places the file under the root AIQ group with an incorrect path, which causes "Build input files cannot be found" build failures. Always create the group first.
 
+### Migrating existing files to a new location
+
+When files are **already registered** in the Xcode project and you're moving them (e.g., from `AIQ/Views/X.swift` to `AIQ/Features/Y/Views/X.swift`), `add_files_to_xcode.rb` detects the existing file reference by filename and moves it into the new group — but does **not** update its `path` attribute. This results in the file resolving to the wrong filesystem location and a "Build input files cannot be found" failure.
+
+After running the add + remove scripts for a migration, verify the updated file references use the full relative path pattern:
+
+```
+name = Filename.swift; path = Features/Module/Views/Filename.swift; sourceTree = "<group>";
+```
+
+Compare against a known-good reference (e.g., `WelcomeView.swift` under `Features/Auth/Views/`) to confirm the format. If `path` attributes are wrong or missing the subdirectory, update them manually in `ios/AIQ.xcodeproj/project.pbxproj` before building.
+
 ## How to Remove Files
 
 There is a reusable Ruby script at `ios/scripts/remove_files_from_xcode.rb`. Use it like this:
