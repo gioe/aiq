@@ -56,7 +56,7 @@ Views are SwiftUI views that:
 - Display UI based on ViewModel state
 - Handle user interactions
 - Forward user actions to ViewModels
-- Are organized by feature (Auth, Dashboard, Test, etc.)
+- Are organized by feature module under `Features/<Module>/Views/`
 
 **Common Components:**
 Reusable UI components are in `Views/Components/`:
@@ -66,7 +66,7 @@ Reusable UI components are in `Views/Components/`:
 - `PrimaryButton`: Styled action buttons
 - `CustomTextField`: Styled text inputs
 - `NetworkStatusBanner`: Network connectivity indicator
-- `MainTabView`, `RootView`: App navigation structure
+- `MainTabView`, `RootView`, `ContentView`: App navigation structure
 
 **Example:**
 ```swift
@@ -209,9 +209,127 @@ if !emailValidation.isValid {
 - Models: `User`, `TestResult`
 
 ### File Organization
+
+The project uses a **feature-module** layout. Views and ViewModels are co-located inside each feature rather than separated into global `Views/` and `ViewModels/` top-level directories.
+
+```
+AIQ/
+├── Features/                    # Feature modules — views + view models co-located
+│   ├── Auth/
+│   │   ├── Views/
+│   │   │   ├── WelcomeView.swift
+│   │   │   └── RegistrationView.swift
+│   │   └── ViewModels/
+│   │       ├── LoginViewModel.swift
+│   │       └── RegistrationViewModel.swift
+│   ├── Dashboard/
+│   │   ├── Views/
+│   │   │   ├── DashboardView.swift
+│   │   │   ├── DashboardActionButton.swift
+│   │   │   ├── DashboardWelcomeHeader.swift
+│   │   │   ├── InProgressTestCard.swift
+│   │   │   └── OnboardingSkippedInfoCard.swift
+│   │   └── ViewModels/
+│   │       └── DashboardViewModel.swift
+│   ├── History/
+│   │   ├── Views/
+│   │   │   ├── HistoryView.swift
+│   │   │   ├── TestDetailView.swift
+│   │   │   ├── TestDetailView+Helpers.swift
+│   │   │   ├── TestHistoryListItem.swift
+│   │   │   ├── IQTrendChart.swift
+│   │   │   ├── ChartDomainCalculator.swift
+│   │   │   └── InsightsCardView.swift
+│   │   └── ViewModels/
+│   │       └── HistoryViewModel.swift
+│   ├── Onboarding/
+│   │   ├── Views/
+│   │   │   ├── OnboardingContainerView.swift
+│   │   │   ├── PrivacyConsentView.swift
+│   │   │   └── Pages/
+│   │   │       ├── OnboardingPage1View.swift
+│   │   │       ├── OnboardingPage2View.swift
+│   │   │       ├── OnboardingPage3View.swift
+│   │   │       └── OnboardingPage4View.swift
+│   │   └── ViewModels/
+│   │       └── OnboardingViewModel.swift
+│   ├── Settings/
+│   │   ├── Views/
+│   │   │   ├── SettingsView.swift
+│   │   │   ├── FeedbackView.swift
+│   │   │   ├── HelpView.swift
+│   │   │   └── NotificationSettingsView.swift
+│   │   └── ViewModels/
+│   │       ├── SettingsViewModel.swift
+│   │       ├── FeedbackViewModel.swift
+│   │       └── NotificationSettingsViewModel.swift
+│   └── Test/
+│       ├── Views/
+│       │   ├── AdaptiveTestView.swift
+│       │   ├── AdaptiveProgressHeader.swift
+│       │   ├── AnswerInputView.swift
+│       │   ├── DomainScoresView.swift
+│       │   ├── MemoryQuestionView.swift
+│       │   ├── PercentileCard.swift
+│       │   ├── QuestionCardView.swift
+│       │   ├── QuestionContentView.swift
+│       │   ├── QuestionNavigationGrid.swift
+│       │   ├── TestCompletionView.swift
+│       │   ├── TestProgressHeader.swift
+│       │   ├── TestProgressView.swift
+│       │   ├── TestResultsView.swift
+│       │   ├── TestTakingView.swift
+│       │   ├── TestTimerModifier.swift
+│       │   ├── TestTimerView.swift
+│       │   └── TimeWarningBanner.swift
+│       └── ViewModels/
+│           ├── TestTakingViewModel.swift
+│           ├── AdaptiveTestCoordinator.swift
+│           ├── QuestionTimeTracker.swift
+│           ├── TestNavigationState.swift
+│           └── TestTimerManager.swift
+├── ViewModels/                  # Shared/cross-cutting ViewModels (app-wide concerns)
+│   ├── BaseViewModel.swift          # Base class all ViewModels inherit from
+│   ├── ViewModelProtocol.swift      # Common ViewModel protocol
+│   ├── AuthStateObserver.swift      # Observes auth state changes across the app
+│   ├── NetworkMonitorObserver.swift # Observes network connectivity app-wide
+│   └── ToastManagerObserver.swift   # Manages toast notifications app-wide
+├── Views/
+│   └── Components/              # Shared reusable UI components (cross-feature)
+│       ├── RootView.swift           # App root / auth gate
+│       ├── ContentView.swift        # Main tab container
+│       ├── MainTabView.swift        # Tab bar layout
+│       ├── LoadingView.swift
+│       ├── LoadingOverlay.swift
+│       ├── ErrorView.swift
+│       ├── ErrorBanner.swift
+│       ├── EmptyStateView.swift
+│       ├── PrimaryButton.swift
+│       ├── CustomTextField.swift
+│       ├── NetworkStatusBanner.swift
+│       ├── BiometricLockView.swift
+│       ├── ToastView.swift
+│       └── ... (other shared components)
+├── Models/                      # Codable data structures matching backend API
+│   └── Extensions/              # Model helper extensions
+├── Services/                    # Business logic and external dependencies
+│   ├── API/                     # Network client, token refresh
+│   ├── Auth/                    # Authentication, token storage
+│   ├── Analytics/               # Analytics tracking
+│   ├── Navigation/              # Routing and deep linking
+│   ├── Storage/                 # Keychain / UserDefaults
+│   └── Background/              # Background task scheduling
+└── Utilities/                   # Pure helpers with no feature coupling
+    ├── Design/                  # ColorPalette, Typography, DesignSystem
+    ├── Extensions/              # Swift / SwiftUI extensions
+    ├── Helpers/                 # AppConfig, Validators, etc.
+    └── DI/                      # Dependency injection setup
+```
+
+**Rule:** New feature views go in `Features/<Module>/Views/`, new feature view models go in `Features/<Module>/ViewModels/`. Components reused across two or more features belong in `Views/Components/`. Cross-cutting ViewModels (not tied to any single feature) go in `ViewModels/`.
+
 - One class/struct per file
 - File name matches the type name
-- Group related files in directories
 
 ### Code Style
 - Use SwiftLint and SwiftFormat (configured in project root)
