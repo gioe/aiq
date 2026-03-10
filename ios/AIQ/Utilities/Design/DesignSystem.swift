@@ -85,6 +85,14 @@ enum DesignSystem {
             x: 0,
             y: 4
         )
+
+        /// Subtle header bottom shadow for navigation/progress headers
+        static let header = ShadowStyle(
+            color: Shadow.sm.color,
+            radius: 2,
+            x: 0,
+            y: 1
+        )
     }
 
     // MARK: - Animation
