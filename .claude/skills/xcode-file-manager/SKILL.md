@@ -59,7 +59,17 @@ cd ios && ruby scripts/add_files_to_xcode.rb AIQTests/NewTests.swift
 
 ### Creating New Groups
 
-If you need to add a file to a group that doesn't exist in the Xcode project, you must first create the group in Xcode or modify the script to create groups dynamically.
+If you need to add a file to a group that **does not yet exist** in the Xcode project, use the `/xcode-group-manager` skill first to create the group hierarchy, then run this skill to add the files.
+
+```bash
+# Step 1: Create the missing group
+cd ios && ruby scripts/manage_xcode_groups.rb --create-group AIQ/Features/Auth/Views
+
+# Step 2: Then add the file normally
+cd ios && ruby scripts/add_files_to_xcode.rb AIQ/Features/Auth/Views/LoginView.swift
+```
+
+> **Why:** If the group is missing, `add_files_to_xcode.rb` silently places the file under the root AIQ group with an incorrect path, which causes "Build input files cannot be found" build failures. Always create the group first.
 
 ## How to Remove Files
 
