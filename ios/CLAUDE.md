@@ -18,6 +18,7 @@ Always use these skills instead of running commands directly:
 | Build the project | `/build-ios-project` |
 | Run tests | `/run-ios-test` |
 | Add new Swift files to Xcode | `/xcode-file-manager` |
+| Create Xcode group hierarchies | `/xcode-group-manager` |
 
 ### Key source files
 

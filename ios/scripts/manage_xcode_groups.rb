@@ -81,6 +81,7 @@ end
 
 if action == :create
   # Walk the group hierarchy, creating missing groups along the way
+  changed = false
   current_group = project.main_group
   path_parts.each do |part|
     existing = current_group[part]
@@ -89,12 +90,16 @@ if action == :create
     else
       current_group = current_group.new_group(part)
       puts "#{OK} Created group: #{part}"
+      changed = true
     end
   end
   puts "#{OK} Group path ready: #{group_path}"
 
 elsif action == :remove
-  # Navigate to the parent group
+  # Navigate to the parent group.
+  # For a single-segment path (e.g. "AIQ"), path_parts[0..-2] is empty so the
+  # loop does not execute and parent_group stays as project.main_group — this
+  # correctly handles top-level group removal.
   parent_group = project.main_group
   path_parts[0..-2].each do |part|
     parent_group = parent_group[part]
@@ -122,7 +127,10 @@ elsif action == :remove
 
   target_group.remove_from_project
   puts "#{OK} Removed group: #{group_path}"
+  changed = true
 end
 
-project.save
-puts "#{OK} Project saved successfully"
+if changed
+  project.save
+  puts "#{OK} Project saved successfully"
+end
