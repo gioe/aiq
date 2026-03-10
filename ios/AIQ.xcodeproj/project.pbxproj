@@ -22,9 +22,9 @@
 		0903B2807E2182609AA89A06 /* OpenAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33A255B2058E02AFED0D8ED /* OpenAPIService.swift */; };
 		0B1DFFBC6483B80060D68B4A /* TestTimerManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 425CBCEA4F6F27755060AEB5 /* TestTimerManagerTests.swift */; };
 		0BD185F1CC90B888D953B1A3 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E576AE3894BDE712C0916ACB /* NotificationSettingsView.swift */; };
-		A1B2C3D4E5F6A1B2 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FD63B88EF24591E02630005 /* FeedbackView.swift */; };
-		A1B2C3D4E5F6A1B3 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E55F3D32241173E09031391 /* FeedbackViewModel.swift */; };
-		A1B2C3D4E5F6A1B4 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17463CD530EA2943B204F8B3 /* SettingsViewModel.swift */; };
+		C830C00806C64BC3B2E9A17F /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FD63B88EF24591E02630005 /* FeedbackView.swift */; };
+		B286E2B3970A47498A260FFD /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E55F3D32241173E09031391 /* FeedbackViewModel.swift */; };
+		8586BAF5D2DD4FB49EDD240E /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17463CD530EA2943B204F8B3 /* SettingsViewModel.swift */; };
 		0D357E4514EB93FA68F545F8 /* ToastManagerObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B38852F28AADEDF8F22A77FE /* ToastManagerObserver.swift */; };
 		0F9C3C76B098A08148738016 /* IQTrendChartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300F0EB6567454426087E83B /* IQTrendChartTests.swift */; };
 		0FF5EACBB7065F93E3431AA3 /* QuestionContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DADD809823A4A7DD2F9CCB41 /* QuestionContentView.swift */; };
@@ -1828,9 +1828,9 @@
 				0BD185F1CC90B888D953B1A3 /* NotificationSettingsView.swift in Sources */,
 				248003712C3A515D545EAA46 /* SettingsView.swift in Sources */,
 				F9F7F18D1083F9210320606F /* NotificationSettingsViewModel.swift in Sources */,
-				A1B2C3D4E5F6A1B2 /* FeedbackView.swift in Sources */,
-				A1B2C3D4E5F6A1B3 /* FeedbackViewModel.swift in Sources */,
-				A1B2C3D4E5F6A1B4 /* SettingsViewModel.swift in Sources */,
+				C830C00806C64BC3B2E9A17F /* FeedbackView.swift in Sources */,
+				B286E2B3970A47498A260FFD /* FeedbackViewModel.swift in Sources */,
+				8586BAF5D2DD4FB49EDD240E /* SettingsViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
