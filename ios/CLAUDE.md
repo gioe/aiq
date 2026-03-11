@@ -24,13 +24,17 @@ Always use these skills instead of running commands directly:
 
 | File | Contains |
 |------|----------|
-| `AIQ/Shared/Architecture/BaseViewModel.swift` | Base class all ViewModels inherit from (loading, errors) |
+| `Packages/SharedKit/Sources/SharedKit/Architecture/BaseViewModel.swift` | Base class all ViewModels inherit from (loading, errors) — lives in SharedKit; `AIQ/Shared/Architecture/BaseViewModel.swift` re-exports it as a typealias |
+| `Packages/SharedKit/Sources/SharedKit/Design/` | Design system (ColorPalette, Typography, DesignSystem) — includes `shadowStyle(_ style: ShadowStyle)` View extension; use `.shadowStyle(DesignSystem.Shadow.md)` instead of expanding properties inline (expanded form exceeds SwiftLint's 120-char limit). When auditing call sites, search for both `DesignSystem.Shadow.` and `theme.shadows.` patterns — views using `@Environment(\.appTheme)` use the latter. |
+| `Packages/SharedKit/Sources/SharedKit/Extensions/` | Generic Swift/SwiftUI extensions (Date, String, View, Int, Number) |
+| `Packages/SharedKit/Sources/SharedKit/Components/` | Generic reusable UI components |
+| `Packages/SharedKit/Sources/SharedKit/Services/` | App-independent services (BiometricAuthManager, HapticManager, KeychainStorage, NetworkMonitor, ToastManager) |
+| `Packages/SharedKit/Sources/SharedKit/Protocols/` | `ErrorRecorder` and `RetryableError` — protocols implemented by AIQ app-layer adapters |
 | `AIQ/Services/API/` | Network client with retry and token refresh |
 | `AIQ/Services/Auth/AuthManager.swift` | Authentication, token management |
-| `AIQ/Shared/Design/` | Design system (ColorPalette, Typography, DesignSystem) — includes `shadowStyle(_ style: ShadowStyle)` View extension; use `.shadowStyle(DesignSystem.Shadow.md)` instead of expanding properties inline (expanded form exceeds SwiftLint's 120-char limit). When auditing call sites, search for both `DesignSystem.Shadow.` and `theme.shadows.` patterns — views using `@Environment(\.appTheme)` use the latter. |
-| `AIQ/Shared/Extensions/` | Generic Swift/SwiftUI extensions (Date, String, View, Int, Number) |
 | `AIQ/Utilities/Extensions/` | AIQ-specific extensions (String+Localization) |
-| `AIQ/Shared/Components/` | Generic reusable UI components |
+| `AIQ/Utilities/Helpers/CrashlyticsRecorderAdapter.swift` | Bridges SharedKit's `ErrorRecorder` to Firebase Crashlytics |
+| `AIQ/Models/RetryableErrorConformances.swift` | Declares `APIError: RetryableError` and `ContextualError: RetryableError` |
 | `AIQ/Views/Components/` | AIQ-specific UI components (RootView, MainTabView, BiometricLockView, etc.) |
 | `Packages/AIQAPIClient/` | OpenAPI-generated type-safe API client |
 | `Packages/AIQAPIClient/Sources/AIQAPIClient/Extensions/` | UI computed properties for generated types |
