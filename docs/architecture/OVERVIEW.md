@@ -138,6 +138,32 @@ The **OpenAPI specification is the single source of truth** for all API contract
 - Push notification opt-in and management
 - Active session detection and resumption
 
+#### SharedKit Package
+
+The AIQ iOS app extracts all domain-agnostic code into a local Swift Package at `ios/Packages/SharedKit/`. This package has no knowledge of AIQ-specific concepts and can be used in any app without modification.
+
+**Package location:** `ios/Packages/SharedKit/`
+
+**Contents by category:**
+
+| Category | Path | What lives here |
+|----------|------|-----------------|
+| Architecture | `Sources/SharedKit/Architecture/` | `BaseViewModel`, `ViewModelProtocol` — the MVVM base layer all ViewModels inherit from |
+| Components | `Sources/SharedKit/Components/` | Generic reusable SwiftUI views (`PrimaryButton`, `LoadingView`, `ErrorView`, `ToastView`, etc.) |
+| Design | `Sources/SharedKit/Design/` | Design system tokens: `ColorPalette`, `DesignSystem`, `Theme`, `Typography`, `EnvironmentValues+Theme` |
+| Extensions | `Sources/SharedKit/Extensions/` | Generic Swift/SwiftUI extensions (`Date`, `String`, `Int`, `Number`, `View`) |
+| Protocols | `Sources/SharedKit/Protocols/` | `ErrorRecorder` and `RetryableError` — abstractions that the AIQ app layer implements |
+| Services | `Sources/SharedKit/Services/` | App-independent services (`BiometricAuthManager`, `HapticManager`, `KeychainStorage`, `NetworkMonitor`, `ToastManager`) |
+| Utilities | `Sources/SharedKit/Utilities/` | Testable utilities (`TimeProvider`, `Validators`) |
+
+**Boundary rule:** A file belongs in SharedKit if and only if it can be used in _any_ iOS app without modification. It must have no AIQ-specific imports, types, or business logic. If it refers to a concept like "test", "score", or "user" in the AIQ sense, it stays in the AIQ app target.
+
+**Protocol conformances in the app layer:** SharedKit defines protocols (`ErrorRecorder`, `RetryableError`) but cannot know about AIQ error types. The AIQ app provides conformances in its own files:
+- `AIQ/Utilities/Helpers/CrashlyticsRecorderAdapter.swift` — bridges `ErrorRecorder` to Firebase Crashlytics
+- `AIQ/Models/RetryableErrorConformances.swift` — declares `APIError: RetryableError` and `ContextualError: RetryableError`
+
+**Consuming SharedKit from the AIQ app:** The `AIQ/Shared/` directory contains thin re-exports (`typealias BaseViewModel = SharedKit.BaseViewModel`) so existing call sites continue to compile without modification. New code imports `SharedKit` directly.
+
 ---
 
 ### 2.2 Backend API
