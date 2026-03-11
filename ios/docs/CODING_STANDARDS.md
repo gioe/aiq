@@ -134,6 +134,60 @@ A file stays in `Features/`, `Services/`, `Utilities/`, or `Views/` when it:
 - Depends on AIQ domain types
 - Is only relevant to a single feature module
 
+### SharedKit Package
+
+The canonical home for all `Shared/`-eligible code is the **SharedKit Swift Package** at `ios/Packages/SharedKit/`. The `AIQ/Shared/` directory now contains thin re-exports (typealiases, `@_exported import`) so existing call sites compile without change. The source of truth for these types is in the package, not in `AIQ/Shared/`.
+
+#### SharedKit vs. app layer — decision rule
+
+Ask: **"Can this code be dropped into a completely different app and work without any modification?"**
+
+- **Yes** → Put it in `Packages/SharedKit/Sources/SharedKit/<Category>/` with `public` access. No AIQ-specific imports, types, or domain concepts allowed.
+- **No** → Keep it in the AIQ app target (`AIQ/`).
+
+Examples:
+
+| Code | Where it lives | Why |
+|------|---------------|-----|
+| `BaseViewModel`, `PrimaryButton`, `HapticManager` | SharedKit | No AIQ concepts; works in any app |
+| `IQScoreUtility`, `String+Localization` | AIQ app | AIQ-domain logic |
+| `CrashlyticsRecorderAdapter` | AIQ app | Wraps Firebase; AIQ-specific dependency |
+| `APIError`, `ContextualError` | AIQ app | AIQ networking types |
+
+#### Adding a new component or service to SharedKit
+
+1. Create the file under `Packages/SharedKit/Sources/SharedKit/<Category>/`.
+2. Mark all public API `public`. Types and members are internal by default in Swift packages.
+3. Do not import any AIQ app modules or AIQ-specific frameworks (Firebase, TrustKit, etc.).
+4. Update `Package.swift` only if you add a new target or external dependency (typically not needed for source files).
+5. Add a re-export stub in `AIQ/Shared/<Category>/` if existing call sites use that path (optional but reduces migration churn).
+
+#### Protocol conformances — app-layer injection pattern
+
+SharedKit defines protocols that abstract platform capabilities (`ErrorRecorder`, `RetryableError`) but cannot import AIQ app types to implement them. The AIQ app provides conformances in its own files and injects them at startup:
+
+```swift
+// AIQ/Utilities/Helpers/CrashlyticsRecorderAdapter.swift
+struct CrashlyticsRecorderAdapter: ErrorRecorder {
+    func recordError(_ error: Error, context: String) {
+        let ctx = CrashlyticsErrorRecorder.ErrorContext(rawValue: context) ?? .unknown
+        CrashlyticsErrorRecorder.recordError(error, context: ctx)
+    }
+}
+
+// AIQ/Models/RetryableErrorConformances.swift
+extension APIError: RetryableError {}
+extension ContextualError: RetryableError {}
+```
+
+**Do not** add AIQ error types or framework imports to SharedKit. Declare a new protocol in SharedKit if you need to abstract a capability, then conform in the AIQ app layer.
+
+#### Consuming SharedKit from a new app
+
+1. Add a local package dependency in the new app's Xcode project: `File → Add Package Dependencies → Add Local…` → point to `ios/Packages/SharedKit`.
+2. Import the module: `import SharedKit`.
+3. Inject conformances for any SharedKit protocols at app startup (see adapter pattern above).
+
 ### Standards
 
 **DO:**
