@@ -538,7 +538,7 @@
 		A2E8A655A6CBBBDA18E42285 /* AnswerInputView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AnswerInputView.swift; path = Features/Test/Views/AnswerInputView.swift; sourceTree = "<group>"; };
 		A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockUserNotificationCenter.swift; sourceTree = "<group>"; };
 		A4822133E0084FC6B5E58520 /* UserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTests.swift; sourceTree = "<group>"; };
-		A4D17E0E29FD1AF529E1F5C1 /* IQScoreUtility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IQScoreUtility.swift; path = Features/Test/IQScoreUtility.swift; sourceTree = "<group>"; };
+		A4D17E0E29FD1AF529E1F5C1 /* IQScoreUtility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IQScoreUtility.swift; path = Features/Test/Utilities/IQScoreUtility.swift; sourceTree = "<group>"; };
 		A5B06BA013E990ABEEDA78DD /* DifficultyBadgeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DifficultyBadgeTests.swift; sourceTree = "<group>"; };
 		A63E1D2E9D46FD7E15F12418 /* String+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "String+Extensions.swift"; path = "Shared/Extensions/String+Extensions.swift"; sourceTree = "<group>"; };
 		A6C113F55160505AB65C0AA7 /* RegistrationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelTests.swift; sourceTree = "<group>"; };
@@ -721,7 +721,7 @@
 			children = (
 				ADA90533F080FBDB65ADD13D /* Views */,
 				CB70DB6E2ADFD798249BC1D4 /* ViewModels */,
-				A4D17E0E29FD1AF529E1F5C1 /* IQScoreUtility.swift */,
+				6FD5159F788C0A6817788117 /* Utilities */,
 			);
 			name = Test;
 			sourceTree = "<group>";
@@ -1096,6 +1096,14 @@
 				4A348F0F85E46188763C5FA7 /* ViewModels */,
 			);
 			name = Settings;
+			sourceTree = "<group>";
+		};
+		6FD5159F788C0A6817788117 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				A4D17E0E29FD1AF529E1F5C1 /* IQScoreUtility.swift */,
+			);
+			name = Utilities;
 			sourceTree = "<group>";
 		};
 		71EE536D8BF8CFEE6FC3B29D /* Navigation */ = {
