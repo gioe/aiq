@@ -117,7 +117,8 @@ class HistoryViewModel: BaseViewModel {
                 error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .fetchHistory
             )
-            handleError(contextualError, context: .fetchHistory) { [weak self] in
+            let historyCtx = CrashlyticsErrorRecorder.ErrorContext.fetchHistory.rawValue
+            handleError(contextualError, context: historyCtx) { [weak self] in
                 await self?.fetchHistory(forceRefresh: forceRefresh)
             }
         }
@@ -208,7 +209,8 @@ class HistoryViewModel: BaseViewModel {
                 error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .fetchHistory
             )
-            handleError(contextualError, context: .fetchHistory) { [weak self] in
+            let historyCtx = CrashlyticsErrorRecorder.ErrorContext.fetchHistory.rawValue
+            handleError(contextualError, context: historyCtx) { [weak self] in
                 await self?.loadMore()
             }
         }

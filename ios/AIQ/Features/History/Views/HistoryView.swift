@@ -202,7 +202,8 @@ struct HistoryView: View {
         .scrollPositionPersistence(
             viewId: "historyView",
             items: viewModel.testHistory,
-            shouldClear: viewModel.dateFilter != .all || viewModel.sortOrder != .newestFirst
+            shouldClear: viewModel.dateFilter != .all || viewModel.sortOrder != .newestFirst,
+            storage: ScrollPositionStorage.shared
         )
     }
 

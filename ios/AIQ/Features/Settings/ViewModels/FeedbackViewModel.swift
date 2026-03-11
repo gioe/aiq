@@ -60,7 +60,7 @@ class FeedbackViewModel: BaseViewModel {
 
     /// Validate the description field
     var descriptionValidation: ValidationResult {
-        Validators.validateFeedbackDescription(description)
+        Validators.validateMinLength(description, fieldName: "Description", min: 10)
     }
 
     /// Check if the entire form is valid
@@ -123,7 +123,8 @@ class FeedbackViewModel: BaseViewModel {
             }
         } catch let apiError {
             setLoading(false)
-            handleError(apiError, context: .submitFeedback) { [weak self] in
+            let feedbackCtx = CrashlyticsErrorRecorder.ErrorContext.submitFeedback.rawValue
+            handleError(apiError, context: feedbackCtx) { [weak self] in
                 await self?.submitFeedback()
             }
         }

@@ -303,7 +303,7 @@ class TestTakingViewModel: BaseViewModel {
             error: error,
             operation: .fetchQuestions
         )
-        handleError(contextualError, context: .startTest) { [weak self] in
+        handleError(contextualError, context: CrashlyticsErrorRecorder.ErrorContext.startTest.rawValue) { [weak self] in
             await self?.startTest(questionCount: questionCount)
         }
     }
@@ -313,7 +313,7 @@ class TestTakingViewModel: BaseViewModel {
             error: .unknown(message: error.localizedDescription),
             operation: .fetchQuestions
         )
-        handleError(contextualError, context: .startTest) { [weak self] in
+        handleError(contextualError, context: CrashlyticsErrorRecorder.ErrorContext.startTest.rawValue) { [weak self] in
             await self?.startTest(questionCount: questionCount)
         }
     }
@@ -434,7 +434,7 @@ class TestTakingViewModel: BaseViewModel {
             code: -1,
             userInfo: [NSLocalizedDescriptionKey: "viewmodel.test.no.questions".localized]
         )
-        handleError(error, context: .fetchQuestions)
+        handleError(error, context: CrashlyticsErrorRecorder.ErrorContext.fetchQuestions.rawValue)
     }
 
     private func handleResumeSessionError(_ error: Error, sessionId: Int) {
@@ -443,7 +443,7 @@ class TestTakingViewModel: BaseViewModel {
             error: error as? APIError ?? .unknown(message: error.localizedDescription),
             operation: .fetchQuestions
         )
-        handleError(contextualError, context: .resumeTest)
+        handleError(contextualError, context: CrashlyticsErrorRecorder.ErrorContext.resumeTest.rawValue)
 
         #if DEBUG
             print("[ERROR] Failed to resume session \(sessionId): \(error)")
@@ -479,7 +479,7 @@ class TestTakingViewModel: BaseViewModel {
                 error: error as? APIError ?? .unknown(message: error.localizedDescription),
                 operation: .submitTest
             )
-            handleError(contextualError, context: .abandonTest)
+            handleError(contextualError, context: CrashlyticsErrorRecorder.ErrorContext.abandonTest.rawValue)
 
             #if DEBUG
                 print("[ERROR] Failed to abandon session \(sessionId): \(error)")
@@ -503,7 +503,7 @@ class TestTakingViewModel: BaseViewModel {
                 code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "viewmodel.test.no.session".localized]
             )
-            handleError(error, context: .submitTest)
+            handleError(error, context: CrashlyticsErrorRecorder.ErrorContext.submitTest.rawValue)
             return
         }
 
@@ -518,7 +518,7 @@ class TestTakingViewModel: BaseViewModel {
                     )
                 ]
             )
-            handleError(error, context: .submitTest)
+            handleError(error, context: CrashlyticsErrorRecorder.ErrorContext.submitTest.rawValue)
             return
         }
 
@@ -552,7 +552,7 @@ class TestTakingViewModel: BaseViewModel {
                 domain: "TestTakingViewModel",
                 code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "viewmodel.test.no.active.session".localized]
-            ), context: .submitTest)
+            ), context: CrashlyticsErrorRecorder.ErrorContext.submitTest.rawValue)
             return
         }
         #if DEBUG
@@ -627,7 +627,8 @@ class TestTakingViewModel: BaseViewModel {
             operation: .submitTest
         )
 
-        handleError(contextualError, context: .submitTest) { [weak self] in
+        let submitCtx = CrashlyticsErrorRecorder.ErrorContext.submitTest.rawValue
+        handleError(contextualError, context: submitCtx) { [weak self] in
             await self?.submitTest()
         }
 
@@ -675,7 +676,8 @@ class TestTakingViewModel: BaseViewModel {
                 operation: .submitTest // Reusing submitTest operation for consistency
             )
 
-            handleError(contextualError, context: .abandonTest) { [weak self] in
+            let abandonCtx = CrashlyticsErrorRecorder.ErrorContext.abandonTest.rawValue
+            handleError(contextualError, context: abandonCtx) { [weak self] in
                 await self?.abandonTest()
             }
 

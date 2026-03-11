@@ -60,7 +60,8 @@ class NotificationSettingsViewModel: BaseViewModel {
             setLoading(false)
 
         } catch {
-            handleError(error, context: .notificationPreferences) { [weak self] in
+            let notifCtx = CrashlyticsErrorRecorder.ErrorContext.notificationPreferences.rawValue
+            handleError(error, context: notifCtx) { [weak self] in
                 await self?.loadNotificationPreferences()
             }
         }
@@ -89,7 +90,8 @@ class NotificationSettingsViewModel: BaseViewModel {
             setLoading(false)
 
         } catch {
-            handleError(error, context: .notificationPreferences) { [weak self] in
+            let notifCtx = CrashlyticsErrorRecorder.ErrorContext.notificationPreferences.rawValue
+            handleError(error, context: notifCtx) { [weak self] in
                 await self?.toggleNotifications()
             }
         }

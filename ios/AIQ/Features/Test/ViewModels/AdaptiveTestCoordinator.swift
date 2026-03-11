@@ -34,7 +34,7 @@ protocol AdaptiveTestCoordinatorDelegate: AnyObject {
 
     func handleError(
         _ error: Error,
-        context: CrashlyticsErrorRecorder.ErrorContext,
+        context: String,
         retryOperation: (() async -> Void)?
     )
 }
@@ -175,7 +175,8 @@ class AdaptiveTestCoordinator {
             operation: .submitTest
         )
 
-        delegate?.handleError(contextualError, context: .submitTest) { [weak self] in
+        let submitCtx = CrashlyticsErrorRecorder.ErrorContext.submitTest.rawValue
+        delegate?.handleError(contextualError, context: submitCtx) { [weak self] in
             guard let self, isAdaptiveTest, !(self.delegate?.isTestCompleted ?? true) else { return }
             await submitAnswerAndGetNext()
         }

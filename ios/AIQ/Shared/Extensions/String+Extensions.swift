@@ -1,13 +1,5 @@
 import Foundation
+import SharedKit
 
-extension String {
-    /// Check if string is not empty (ignoring whitespace)
-    var isNotEmpty: Bool {
-        !trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    /// Trim whitespace and newlines
-    var trimmed: String {
-        trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-}
+// String extensions (isNotEmpty, trimmed) are now defined in SharedKit.
+// This file is kept as a placeholder for any AIQ-specific String extensions.

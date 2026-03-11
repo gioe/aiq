@@ -59,7 +59,7 @@ final class MockAnalyticsService: AnalyticsService {
             userDefaults: .standard,
             networkMonitor: NetworkMonitor.shared,
             urlSession: .shared,
-            secureStorage: KeychainStorage.shared,
+            secureStorage: KeychainStorage(),
             batchInterval: 60.0,
             startTimer: false,
             autoSubmitWhenFull: false

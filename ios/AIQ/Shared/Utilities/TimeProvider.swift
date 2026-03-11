@@ -1,13 +1,6 @@
 import Foundation
+import SharedKit
 
-/// Abstraction over wall-clock time, enabling deterministic testing.
-protocol TimeProvider {
-    var now: Date { get }
-}
-
-/// Production time provider backed by the system clock.
-struct SystemTimeProvider: TimeProvider {
-    var now: Date {
-        Date()
-    }
-}
+// Re-export SharedKit's TimeProvider types for the AIQ app.
+typealias TimeProvider = SharedKit.TimeProvider
+typealias SystemTimeProvider = SharedKit.SystemTimeProvider

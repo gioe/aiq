@@ -15,6 +15,7 @@ excluded:
   - DerivedData
   - AIQ.xcodeproj
   - AIQTests
+  - Packages/SharedKit
 
 line_length:
   warning: 120

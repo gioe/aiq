@@ -41,7 +41,8 @@ class DashboardViewModel: BaseViewModel {
         _ = await activeSessionError // Active session errors are logged but non-blocking
 
         if let countError = countResult {
-            handleError(countError, context: .fetchDashboard) { [weak self] in
+            let dashCtx = CrashlyticsErrorRecorder.ErrorContext.fetchDashboard.rawValue
+            handleError(countError, context: dashCtx) { [weak self] in
                 await self?.fetchDashboardData(forceRefresh: forceRefresh)
             }
             return
@@ -99,7 +100,7 @@ class DashboardViewModel: BaseViewModel {
             setLoading(false)
 
         } catch {
-            handleError(error, context: .abandonTest) { [weak self] in
+            handleError(error, context: CrashlyticsErrorRecorder.ErrorContext.abandonTest.rawValue) { [weak self] in
                 await self?.abandonActiveTest()
             }
         }

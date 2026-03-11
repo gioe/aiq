@@ -252,7 +252,7 @@ final class SettingsViewModelTests: XCTestCase {
         var recordedError: Error?
         var recordedContext: CrashlyticsErrorRecorder.ErrorContext?
 
-        let mockErrorRecorder: SettingsViewModel.ErrorRecorder = { error, context in
+        let mockErrorRecorder: SettingsViewModel.CrashlyticsErrorRecorderClosure = { error, context in
             recordedError = error
             recordedContext = context
         }
@@ -282,7 +282,7 @@ final class SettingsViewModelTests: XCTestCase {
         // Given - Set up to capture error recording calls
         var errorRecorded = false
 
-        let mockErrorRecorder: SettingsViewModel.ErrorRecorder = { _, _ in
+        let mockErrorRecorder: SettingsViewModel.CrashlyticsErrorRecorderClosure = { _, _ in
             errorRecorded = true
         }
 
@@ -306,7 +306,7 @@ final class SettingsViewModelTests: XCTestCase {
         // Given - Set up to capture the actual error recorded
         var recordedError: Error?
 
-        let mockErrorRecorder: SettingsViewModel.ErrorRecorder = { error, _ in
+        let mockErrorRecorder: SettingsViewModel.CrashlyticsErrorRecorderClosure = { error, _ in
             recordedError = error
         }
 

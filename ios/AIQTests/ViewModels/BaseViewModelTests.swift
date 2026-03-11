@@ -32,7 +32,7 @@ final class BaseViewModelTests: XCTestCase {
         sut.isLoading = true
 
         // When
-        sut.handleError(testError, context: .unknown)
+        sut.handleError(testError, context: "unknown")
 
         // Then
         XCTAssertFalse(sut.isLoading, "isLoading should be set to false")
@@ -50,7 +50,7 @@ final class BaseViewModelTests: XCTestCase {
         sut.canRetry = true
 
         // When
-        sut.handleError(CancellationError(), context: .unknown)
+        sut.handleError(CancellationError(), context: "unknown")
 
         // Then
         XCTAssertFalse(sut.isLoading, "isLoading should be reset to false for CancellationError")
@@ -163,7 +163,7 @@ final class BaseViewModelTests: XCTestCase {
             code: -1,
             userInfo: [NSLocalizedDescriptionKey: "Test error"]
         )
-        sut.handleError(testError, context: .unknown, retryOperation: retryOperation)
+        sut.handleError(testError, context: "unknown", retryOperation: retryOperation)
 
         // Observe $error — capture isLoading the moment error is cleared.
         // @Published fires in willSet, so when the error transitions to nil,

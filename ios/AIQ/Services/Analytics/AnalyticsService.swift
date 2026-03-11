@@ -240,7 +240,7 @@ class AnalyticsService {
             userDefaults: .standard,
             networkMonitor: NetworkMonitor.shared,
             urlSession: .shared,
-            secureStorage: KeychainStorage.shared,
+            secureStorage: KeychainStorage(),
             batchInterval: Constants.Analytics.batchInterval,
             startTimer: true
         )

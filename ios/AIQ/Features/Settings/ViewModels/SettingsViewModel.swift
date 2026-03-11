@@ -45,7 +45,8 @@ class SettingsViewModel: BaseViewModel {
     // MARK: - Type Aliases
 
     /// Closure type for error recording. Used for dependency injection to enable testing.
-    typealias ErrorRecorder = (Error, CrashlyticsErrorRecorder.ErrorContext) -> Void
+    /// Named CrashlyticsErrorRecorderClosure to avoid conflict with SharedKit.ErrorRecorder protocol.
+    typealias CrashlyticsErrorRecorderClosure = (Error, CrashlyticsErrorRecorder.ErrorContext) -> Void
 
     // MARK: - Biometric State (reactive — updated via publisher subscriptions in init)
 
@@ -57,7 +58,7 @@ class SettingsViewModel: BaseViewModel {
     private let authManager: AuthManagerProtocol
     private let biometricAuthManager: BiometricAuthManagerProtocol
     private let biometricPreferenceStorage: BiometricPreferenceStorageProtocol
-    private let errorRecorder: ErrorRecorder
+    private let errorRecorder: CrashlyticsErrorRecorderClosure
 
     // MARK: - Initialization
 
@@ -71,7 +72,8 @@ class SettingsViewModel: BaseViewModel {
         authManager: AuthManagerProtocol,
         biometricAuthManager: BiometricAuthManagerProtocol,
         biometricPreferenceStorage: BiometricPreferenceStorageProtocol,
-        errorRecorder: @escaping ErrorRecorder = { CrashlyticsErrorRecorder.recordError($0, context: $1) }
+        errorRecorder: @escaping CrashlyticsErrorRecorderClosure =
+            { CrashlyticsErrorRecorder.recordError($0, context: $1) }
     ) {
         self.authManager = authManager
         self.biometricAuthManager = biometricAuthManager
