@@ -7,7 +7,7 @@ final class ToastManagerTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        sut = ToastManager.shared
+        sut = ToastManager()
         // Ensure clean state
         sut.dismiss()
     }
@@ -18,15 +18,6 @@ final class ToastManagerTests: XCTestCase {
     }
 
     // MARK: - Initialization Tests
-
-    func testSharedInstance_ReturnsSameInstance() {
-        // Given
-        let instance1 = ToastManager.shared
-        let instance2 = ToastManager.shared
-
-        // Then
-        XCTAssertTrue(instance1 === instance2, "Shared instance should return the same instance")
-    }
 
     func testInitialState_NoToastDisplayed() {
         // Then

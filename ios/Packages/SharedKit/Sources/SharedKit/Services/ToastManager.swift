@@ -37,6 +37,7 @@ public protocol ToastManagerProtocol: ObservableObject {
 ///
 /// ToastManager provides a centralized way to show brief, non-intrusive messages
 /// to users from anywhere in the app. Toasts auto-dismiss after 4 seconds.
+/// Resolve via ServiceContainer rather than using a shared singleton.
 ///
 /// Usage:
 /// ```swift
@@ -51,9 +52,6 @@ public protocol ToastManagerProtocol: ObservableObject {
 /// ```
 @MainActor
 public class ToastManager: ObservableObject, ToastManagerProtocol {
-    /// Shared singleton instance
-    public static let shared = ToastManager()
-
     /// Currently displayed toast, if any
     @Published public private(set) var currentToast: ToastData?
 

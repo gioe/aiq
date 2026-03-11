@@ -14,6 +14,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         return manager
     }()
 
+    private let toastManager: any ToastManagerProtocol = {
+        guard let manager = ServiceContainer.shared.resolve(ToastManagerProtocol.self) else {
+            fatalError("ToastManagerProtocol not registered in ServiceContainer")
+        }
+        return manager
+    }()
+
     private let deepLinkHandler = DeepLinkHandler()
     private let analyticsService = AnalyticsService.shared
     private let backgroundRefreshManager = BackgroundRefreshManager.shared
@@ -294,7 +301,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             // Show user-friendly error toast
             // The detailed error has already been logged and sent to Crashlytics by DeepLinkHandler
             Task { @MainActor in
-                ToastManager.shared.show("toast.deeplink.invalid".localized, type: .error)
+                toastManager.show("toast.deeplink.invalid".localized, type: .error)
             }
             return false
         }

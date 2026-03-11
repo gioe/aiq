@@ -77,6 +77,9 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
     /// Callback to update the selected tab in MainTabView
     private let tabSelectionHandler: TabSelectionHandler
 
+    /// Toast manager for showing error notifications
+    private let toastManager: any ToastManagerProtocol
+
     /// Tracks whether a deep link is currently being processed to prevent concurrent handling
     ///
     /// Thread-safety: This service is @MainActor, ensuring all access happens on the main thread.
@@ -92,14 +95,17 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
     ///   - router: The app router for managing navigation stacks
     ///   - deepLinkHandler: The deep link handler for async navigation
     ///   - tabSelectionHandler: Callback to update the selected tab in MainTabView
+    ///   - toastManager: Toast manager for showing error notifications
     init(
         router: AppRouter,
         deepLinkHandler: DeepLinkHandlerProtocol,
-        tabSelectionHandler: @escaping TabSelectionHandler
+        tabSelectionHandler: @escaping TabSelectionHandler,
+        toastManager: any ToastManagerProtocol
     ) {
         self.router = router
         self.deepLinkHandler = deepLinkHandler
         self.tabSelectionHandler = tabSelectionHandler
+        self.toastManager = toastManager
     }
 
     // MARK: - Public API
@@ -227,6 +233,6 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
             "toast.deeplink.navigation.failed".localized
         }
 
-        ToastManager.shared.show(message, type: .error)
+        toastManager.show(message, type: .error)
     }
 }

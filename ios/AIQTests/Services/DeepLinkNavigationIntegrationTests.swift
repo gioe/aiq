@@ -45,7 +45,8 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
             deepLinkHandler: handlerWrapper,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
-            }
+            },
+            toastManager: ToastManager()
         )
     }
 
@@ -431,7 +432,8 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
             deepLinkHandler: slowHandler,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
-            }
+            },
+            toastManager: ToastManager()
         )
 
         // When - Start first navigation via unstructured Task (simulating SwiftUI onReceive)

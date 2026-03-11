@@ -22,6 +22,8 @@ struct MainTabView: View {
     private let notificationManager: NotificationManagerProtocol
     /// Analytics service for tracking engagement
     private let analyticsService: AnalyticsService
+    /// Toast manager for showing error notifications from deep link navigation
+    private let toastManager: any ToastManagerProtocol
 
     // MARK: - Initialization
 
@@ -33,6 +35,12 @@ struct MainTabView: View {
         }
         notificationManager = manager
         analyticsService = AnalyticsService.shared
+        guard let toast = ServiceContainer.shared.resolve(ToastManagerProtocol.self) else {
+            preconditionFailure(
+                "ToastManagerProtocol must be registered in ServiceContainer before MainTabView initialization"
+            )
+        }
+        toastManager = toast
     }
 
     var body: some View {
@@ -219,7 +227,8 @@ struct MainTabView: View {
             deepLinkHandler: deepLinkHandler,
             tabSelectionHandler: { newTab in
                 selectedTab = newTab
-            }
+            },
+            toastManager: toastManager
         )
         navigationService = service
         return service

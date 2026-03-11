@@ -48,7 +48,8 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
             deepLinkHandler: mockDeepLinkHandler,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
-            }
+            },
+            toastManager: ToastManager()
         )
     }
 
@@ -578,7 +579,8 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
             deepLinkHandler: mockDeepLinkHandler,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
-            }
+            },
+            toastManager: ToastManager()
         )
         sut = newService
 
@@ -607,7 +609,8 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
             deepLinkHandler: mockDeepLinkHandler,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
-            }
+            },
+            toastManager: ToastManager()
         )
 
         // Then - multiple sequential deep links should all process (no stuck processing flag)
@@ -641,7 +644,8 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
             deepLinkHandler: mockDeepLinkHandler,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
-            }
+            },
+            toastManager: ToastManager()
         )
 
         // Then - new service should navigate correctly with the current router state

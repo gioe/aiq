@@ -648,7 +648,8 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             deepLinkHandler: deepLinkHandler,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
-            }
+            },
+            toastManager: ToastManager()
         )
     }
 
@@ -1068,7 +1069,8 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
             deepLinkHandler: deepLinkHandler,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
-            }
+            },
+            toastManager: ToastManager()
         )
     }
 
