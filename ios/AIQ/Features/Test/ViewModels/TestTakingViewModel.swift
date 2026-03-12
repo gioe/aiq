@@ -612,6 +612,8 @@ class TestTakingViewModel: BaseViewModel {
             accuracy: response.result.accuracyPercentage
         )
 
+        NotificationCenter.default.post(name: .refreshCurrentView, object: nil)
+
         #if DEBUG
             if isTimeoutSubmission {
                 print("[TIMEOUT] Test auto-submitted due to timeout! IQ Score: \(response.result.iqScore)")
