@@ -63,9 +63,10 @@ final class UserTests: XCTestCase {
 
     // MARK: - User Decoding Tests
 
-    // Note: User is now a typealias for Components.Schemas.UserResponse from the OpenAPI generated types.
-    // The generated type only includes required fields: id, email, firstName, lastName, createdAt, notificationEnabled.
-    // Optional demographic fields (birthYear, educationLevel, country, region, lastLoginAt) are NOT in the generated type.
+    // Note: User is a typealias for Components.Schemas.UserResponse from the OpenAPI generated types.
+    // Required fields: id (Int), email (String), createdAt (Date), notificationEnabled (Bool).
+    // Optional fields: firstName (String?), lastName (String?), birthYear (Int?), educationLevel,
+    //   country (String?), region (String?), lastLoginAt (Date?).
 
     func testUserDecodingWithRequiredFields() throws {
         let json = """
@@ -472,6 +473,8 @@ final class UserTests: XCTestCase {
     }
 
     func testUserDecodingFailsWithMissingRequiredFields() throws {
+        // Only id, email, createdAt, and notificationEnabled are required in the generated type.
+        // firstName and lastName are optional (String?) so missing them does not throw.
         let invalidJsons = [
             // Missing id
             """
@@ -489,26 +492,6 @@ final class UserTests: XCTestCase {
                 "id": 1,
                 "first_name": "Test",
                 "last_name": "User",
-                "created_at": "2025-01-01T10:00:00Z",
-                "notification_enabled": true
-            }
-            """,
-            // Missing firstName
-            """
-            {
-                "id": 1,
-                "email": "test@example.com",
-                "last_name": "User",
-                "created_at": "2025-01-01T10:00:00Z",
-                "notification_enabled": true
-            }
-            """,
-            // Missing lastName
-            """
-            {
-                "id": 1,
-                "email": "test@example.com",
-                "first_name": "Test",
                 "created_at": "2025-01-01T10:00:00Z",
                 "notification_enabled": true
             }
@@ -544,6 +527,39 @@ final class UserTests: XCTestCase {
                 XCTAssertTrue(error is DecodingError, "Should throw DecodingError for missing required field")
             }
         }
+    }
+
+    func testUserDecodingSucceedsWithMissingOptionalFields() throws {
+        // firstName and lastName are optional in the generated type — missing them should succeed.
+        let jsonMissingFirstName = """
+        {
+            "id": 1,
+            "email": "test@example.com",
+            "last_name": "User",
+            "created_at": "2025-01-01T10:00:00Z",
+            "notification_enabled": true
+        }
+        """
+        let jsonMissingLastName = """
+        {
+            "id": 1,
+            "email": "test@example.com",
+            "first_name": "Test",
+            "created_at": "2025-01-01T10:00:00Z",
+            "notification_enabled": true
+        }
+        """
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let user1 = try decoder.decode(User.self, from: XCTUnwrap(jsonMissingFirstName.data(using: .utf8)))
+        XCTAssertNil(user1.firstName)
+        XCTAssertEqual(user1.lastName, "User")
+
+        let user2 = try decoder.decode(User.self, from: XCTUnwrap(jsonMissingLastName.data(using: .utf8)))
+        XCTAssertEqual(user2.firstName, "Test")
+        XCTAssertNil(user2.lastName)
     }
 
     func testUserDecodingFailsWithInvalidDateFormat() throws {
@@ -631,31 +647,12 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(user.accessibilityDescription, "John Smith, email test@example.com, Notifications enabled")
     }
 
-    // MARK: - OpenAPI Generator Limitation Tests
+    // MARK: - Demographic Fields Tests
 
-    /// Documents the known limitation of the Swift OpenAPI generator (v1.10.4)
-    /// regarding optional fields using anyOf/null patterns.
-    ///
-    /// This test explicitly verifies that demographic fields are NOT available
-    /// on the generated UserResponse type. When the generator is updated to support
-    /// these patterns, this test will fail - alerting us that we can now use these fields.
-    func testDemographicFieldsNotAvailable_GeneratorLimitation() throws {
-        // This test documents TASK-368 limitation:
-        // The Swift OpenAPI generator does not generate optional fields defined with anyOf/null patterns.
-        //
-        // The OpenAPI spec defines these optional fields:
-        // - birth_year: anyOf[integer, null]
-        // - education_level: anyOf[string, null]
-        // - country: anyOf[string, null]
-        // - region: anyOf[string, null]
-        // - last_login_at: anyOf[date-time, null]
-        //
-        // These fields are silently ignored by the generator and are NOT available
-        // on the Components.Schemas.UserResponse type.
-
-        // Verify the generated type only has the expected 6 required properties
-        // by attempting to decode JSON with additional demographic fields
-        let jsonWithDemographicFields = """
+    /// Verifies that demographic fields defined in the OpenAPI spec as anyOf/null patterns
+    /// are available on the generated UserResponse type and decode correctly.
+    func testDemographicFieldsAreAvailable() throws {
+        let json = """
         {
             "id": 1,
             "email": "test@example.com",
@@ -671,31 +668,45 @@ final class UserTests: XCTestCase {
         }
         """
 
-        let data = try XCTUnwrap(jsonWithDemographicFields.data(using: .utf8))
+        let data = try XCTUnwrap(json.data(using: .utf8))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        // The JSON decodes successfully, but demographic fields are ignored
         let user = try decoder.decode(User.self, from: data)
 
-        // Verify core fields are decoded
         XCTAssertEqual(user.id, 1)
         XCTAssertEqual(user.email, "test@example.com")
         XCTAssertEqual(user.firstName, "Test")
         XCTAssertEqual(user.lastName, "User")
         XCTAssertTrue(user.notificationEnabled)
+        XCTAssertEqual(user.birthYear, 1990)
+        XCTAssertEqual(user.country, "US")
+        XCTAssertEqual(user.region, "California")
+        XCTAssertNotNil(user.lastLoginAt)
+    }
 
-        // The type does NOT have birthYear, educationLevel, country, region, lastLoginAt properties
-        // If this test starts failing to compile, it means the generator now supports these fields!
-        // Uncomment the following lines to verify the limitation:
-        //
-        // XCTAssertEqual(user.birthYear, 1990)        // Won't compile - property doesn't exist
-        // XCTAssertEqual(user.educationLevel, ...)    // Won't compile - property doesn't exist
-        // XCTAssertEqual(user.country, "US")          // Won't compile - property doesn't exist
-        // XCTAssertEqual(user.region, "California")   // Won't compile - property doesn't exist
-        // XCTAssertNotNil(user.lastLoginAt)           // Won't compile - property doesn't exist
+    func testDemographicFieldsAreNilWhenAbsent() throws {
+        let json = """
+        {
+            "id": 1,
+            "email": "test@example.com",
+            "created_at": "2025-01-01T10:00:00Z",
+            "notification_enabled": true
+        }
+        """
 
-        // This assertion documents the current behavior - the type has exactly 6 properties
-        // via the generated init parameters: createdAt, email, firstName, id, lastName, notificationEnabled
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let user = try decoder.decode(User.self, from: data)
+
+        XCTAssertNil(user.firstName)
+        XCTAssertNil(user.lastName)
+        XCTAssertNil(user.birthYear)
+        XCTAssertNil(user.educationLevel)
+        XCTAssertNil(user.country)
+        XCTAssertNil(user.region)
+        XCTAssertNil(user.lastLoginAt)
     }
 }
