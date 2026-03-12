@@ -359,9 +359,9 @@ class TriggerRequest(BaseModel):
         json_schema_extra={"example": False},
     )
     verbose: bool = Field(
-        default=True,
+        default=False,
         description="If true, enables detailed logging during generation.",
-        json_schema_extra={"example": True},
+        json_schema_extra={"example": False},
     )
     types: Optional[
         List[Literal["math", "logic", "pattern", "spatial", "verbal", "memory"]]

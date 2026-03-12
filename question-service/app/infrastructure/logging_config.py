@@ -165,6 +165,17 @@ def setup_logging(
 
         root_logger.info(f"File logging enabled: {log_file}")
 
+    # Suppress noisy third-party loggers regardless of overall log level
+    for noisy_logger in (
+        "httpcore",
+        "httpx",
+        "anthropic",
+        "openai",
+        "opentelemetry",
+        "urllib3",
+    ):
+        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+
     root_logger.info(
         f"Logging configured: level={log_level}, "
         f"file_logging={enable_file_logging}, "
