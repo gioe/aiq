@@ -1942,6 +1942,16 @@ def main() -> int:
             },
         )
 
+        logger.info(
+            "RUN_COMPLETE exit_code=%d questions_generated=%d questions_inserted=%d "
+            "approval_rate=%.1f duration_seconds=%.1f",
+            exit_code,
+            stats.get("questions_generated", 0),
+            inserted_count,
+            approval_rate,
+            stats.get("duration_seconds", 0.0),
+        )
+
         return exit_code
 
     except KeyboardInterrupt:
@@ -1957,6 +1967,16 @@ def main() -> int:
                 EXIT_PARTIAL_FAILURE,
                 {"error_message": "Script interrupted by user"},
             )
+        _s = locals().get("stats") or {}
+        logger.info(
+            "RUN_COMPLETE exit_code=%d questions_generated=%d questions_inserted=%d "
+            "approval_rate=%.1f duration_seconds=%.1f",
+            EXIT_PARTIAL_FAILURE,
+            _s.get("questions_generated", 0),
+            locals().get("inserted_count", 0),
+            locals().get("approval_rate", 0.0),
+            _s.get("duration_seconds", 0.0),
+        )
         return EXIT_PARTIAL_FAILURE
 
     except Exception as e:
@@ -2011,6 +2031,16 @@ def main() -> int:
                 EXIT_COMPLETE_FAILURE,
                 {"error_message": f"Unexpected error: {str(e)[:200]}"},
             )
+        _s = locals().get("stats") or {}
+        logger.info(
+            "RUN_COMPLETE exit_code=%d questions_generated=%d questions_inserted=%d "
+            "approval_rate=%.1f duration_seconds=%.1f",
+            EXIT_COMPLETE_FAILURE,
+            _s.get("questions_generated", 0),
+            locals().get("inserted_count", 0),
+            locals().get("approval_rate", 0.0),
+            _s.get("duration_seconds", 0.0),
+        )
         return EXIT_COMPLETE_FAILURE
 
     finally:
