@@ -96,12 +96,12 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         notificationService: NotificationServiceProtocol = ServiceContainer.shared.resolve(NotificationServiceProtocol.self)!,
         authManager: AuthManagerProtocol = ServiceContainer.shared.resolve(AuthManagerProtocol.self)!,
         notificationCenter: UserNotificationCenterProtocol = UNUserNotificationCenter.current(),
-        application: ApplicationProtocol = UIApplication.shared
+        application: (any ApplicationProtocol)? = nil
     ) {
         self.notificationService = notificationService
         self.authManager = authManager
         self.notificationCenter = notificationCenter
-        self.application = application
+        self.application = application ?? UIApplication.shared
 
         // Load cached device token synchronously (UserDefaults is fast)
         loadCachedDeviceToken()
