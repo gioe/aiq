@@ -124,9 +124,19 @@ class TestColoredFormatter:
 class TestSetupLogging:
     """Tests for setup_logging function."""
 
+    THIRD_PARTY_LOGGERS = [
+        "httpcore",
+        "httpx",
+        "anthropic",
+        "openai",
+        "opentelemetry",
+        "urllib3",
+    ]
+
     def teardown_method(self, method):
-        """Reset third-party logger levels to avoid cross-test pollution."""
-        logging.getLogger("httpx").setLevel(logging.NOTSET)
+        """Reset all third-party logger levels to avoid cross-test pollution."""
+        for name in self.THIRD_PARTY_LOGGERS:
+            logging.getLogger(name).setLevel(logging.NOTSET)
 
     def test_setup_logging_default(self):
         """Test setting up logging with default parameters."""
@@ -185,21 +195,43 @@ class TestSetupLogging:
         console_handler = root_logger.handlers[0]
         assert isinstance(console_handler.formatter, JSONFormatter)
 
-    def test_setup_logging_debug_propagates_to_third_party(self):
-        """When log_level is DEBUG, third-party loggers (e.g. httpx) must also be DEBUG."""
+    @pytest.mark.parametrize(
+        "logger_name",
+        [
+            "httpcore",
+            "httpx",
+            "anthropic",
+            "openai",
+            "opentelemetry",
+            "urllib3",
+        ],
+    )
+    def test_setup_logging_debug_propagates_to_third_party(self, logger_name):
+        """When log_level is DEBUG, all third-party loggers must also be DEBUG."""
         logging.getLogger().handlers.clear()
 
         setup_logging(log_level="DEBUG", enable_file_logging=False)
 
-        assert logging.getLogger("httpx").level == logging.DEBUG
+        assert logging.getLogger(logger_name).level == logging.DEBUG
 
-    def test_setup_logging_info_clamps_third_party_to_warning(self):
-        """When log_level is INFO, third-party loggers must be clamped to WARNING."""
+    @pytest.mark.parametrize(
+        "logger_name",
+        [
+            "httpcore",
+            "httpx",
+            "anthropic",
+            "openai",
+            "opentelemetry",
+            "urllib3",
+        ],
+    )
+    def test_setup_logging_info_clamps_third_party_to_warning(self, logger_name):
+        """When log_level is INFO, all third-party loggers must be clamped to WARNING."""
         logging.getLogger().handlers.clear()
 
         setup_logging(log_level="INFO", enable_file_logging=False)
 
-        assert logging.getLogger("httpx").level == logging.WARNING
+        assert logging.getLogger(logger_name).level == logging.WARNING
 
     def test_setup_logging_invalid_level(self):
         """Test setup with invalid log level."""
