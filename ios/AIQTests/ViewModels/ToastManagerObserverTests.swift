@@ -37,7 +37,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testInit_WithContainer_ResolvesToastManager() {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
 
         // When
         let sut = ToastManagerObserver(container: container)
@@ -49,7 +49,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testInit_SetsInitialStateAsNil() {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
 
         // When
         let sut = ToastManagerObserver(container: container)
@@ -62,7 +62,7 @@ final class ToastManagerObserverTests: XCTestCase {
         // Given
         let toastManager = ToastManager()
         toastManager.show("Test message", type: .info)
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
 
         // When
         let sut = ToastManagerObserver(container: container)
@@ -78,7 +78,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testStateUpdates_WhenToastShown_ObserverUpdates() async {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         let expectation = expectation(description: "Observer receives toast update")
@@ -106,7 +106,7 @@ final class ToastManagerObserverTests: XCTestCase {
         // Given
         let toastManager = ToastManager()
         toastManager.show("Initial toast", type: .info)
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         let expectation = expectation(description: "Observer receives dismiss update")
@@ -134,7 +134,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testShow_DelegatesToManager() {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         // When
@@ -150,7 +150,7 @@ final class ToastManagerObserverTests: XCTestCase {
         // Given
         let toastManager = ToastManager()
         toastManager.show("Toast to dismiss", type: .error)
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         // When
@@ -165,7 +165,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testPublishedCurrentToast_EmitsInitialValue() async {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         let expectation = expectation(description: "currentToast publishes")
@@ -190,7 +190,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testObserver_UsesWeakSelf_InSubscriptions() {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
 
         // When - Create observer in autoreleasepool to allow deallocation
         weak var weakObserver: ToastManagerObserver?
@@ -217,7 +217,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testUpdatesOccurOnMainThread() async {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         let expectation = expectation(description: "Updates occur on main thread")
@@ -240,7 +240,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testShow_ErrorToast_PropagatesCorrectly() async {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         let expectation = expectation(description: "Error toast shown")
@@ -266,7 +266,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testShow_WarningToast_PropagatesCorrectly() async {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         let expectation = expectation(description: "Warning toast shown")
@@ -292,7 +292,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testShow_InfoToast_PropagatesCorrectly() async {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         let expectation = expectation(description: "Info toast shown")
@@ -320,7 +320,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testMultipleObservers_AllReceiveUpdates() async {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         let expectation1 = expectation(description: "First observer receives updates")
@@ -363,7 +363,7 @@ final class ToastManagerObserverTests: XCTestCase {
         // Given
         let toastManager = ToastManager()
         toastManager.show("Shared toast", type: .info)
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
 
         // When - Create multiple observers
         let sut1 = ToastManagerObserver(container: container)
@@ -378,7 +378,7 @@ final class ToastManagerObserverTests: XCTestCase {
     func testShow_ReplacesToast_ObserverReceivesNewToast() async {
         // Given
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
         let sut = ToastManagerObserver(container: container)
 
         sut.show("First toast", type: .info)

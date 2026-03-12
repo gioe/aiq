@@ -60,7 +60,7 @@ import Foundation
             container.register(NetworkMonitorProtocol.self, instance: mockNetworkMonitor)
 
             let mockToastManager = UITestMockToastManager()
-            container.register(ToastManagerProtocol.self, instance: mockToastManager)
+            container.register((any ToastManagerProtocol).self, instance: mockToastManager)
 
             let mockOpenAPIService = UITestMockOpenAPIService()
             mockOpenAPIService.configureForScenario(scenario)

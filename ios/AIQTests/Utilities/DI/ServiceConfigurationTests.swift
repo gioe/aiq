@@ -75,7 +75,7 @@ final class ServiceConfigurationTests: XCTestCase {
 
     func testToastManagerProtocolIsRegistered() {
         // Given & When
-        let toastManager = container.resolve(ToastManagerProtocol.self)
+        let toastManager = container.resolve((any ToastManagerProtocol).self)
 
         // Then
         XCTAssertNotNil(toastManager, "ToastManagerProtocol should be registered")

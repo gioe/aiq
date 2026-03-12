@@ -34,7 +34,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     private let notificationService: NotificationServiceProtocol
     private let authManager: AuthManagerProtocol
     private let notificationCenter: UserNotificationCenterProtocol
-    private let application: ApplicationProtocol
+    private let application: any ApplicationProtocol
     private var cancellables = Set<AnyCancellable>()
     private let logger = Logger(subsystem: "com.aiq.app", category: "NotificationManager")
 
