@@ -225,7 +225,7 @@ class DashboardViewModel: BaseViewModel {
 
     /// Whether user has an active (in-progress) test session
     var hasActiveTest: Bool {
-        activeTestSession != nil
+        activeTestSession?.isInProgress == true
     }
 
     func setActiveTestSession(_ session: TestSession) {
