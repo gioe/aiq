@@ -203,6 +203,36 @@ class TestSecretsIntegration:
                 Settings()
             assert "SMTP_PASSWORD" in str(exc_info.value)
 
+    def test_email_alerts_disabled_warning_in_production(self):
+        """Test that disabling email alerts in production emits a WARNING log."""
+        env_vars = {
+            "OPENAI_API_KEY": "sk-test",
+            "ENABLE_EMAIL_ALERTS": "false",
+            "ENV": "production",
+            "BACKEND_SERVICE_KEY": "svc-key",  # pragma: allowlist secret
+            "BACKEND_API_URL": "https://api.example.com",
+        }
+        with patch.dict("os.environ", env_vars, clear=False):
+            with patch("app.config.config.logger") as mock_logger:
+                Settings()
+                mock_logger.warning.assert_called_once()
+                args = mock_logger.warning.call_args[0]
+                assert "DISABLED" in args[0]
+                assert args[1] == "production"
+
+    def test_email_alerts_disabled_no_warning_in_development(self):
+        """Test that disabling email alerts in development does NOT emit a WARNING."""
+        env_vars = {
+            "OPENAI_API_KEY": "sk-test",
+            "ENABLE_EMAIL_ALERTS": "false",
+            "ENV": "development",
+        }
+        with patch.dict("os.environ", env_vars, clear=False):
+            with patch("app.config.config.logger") as mock_logger:
+                Settings()
+                for call in mock_logger.warning.call_args_list:
+                    assert "DISABLED" not in call[0][0]
+
     def test_run_reporting_validation_skipped_in_development(self):
         """Test that run reporting validation is skipped in development."""
         env_vars = {
