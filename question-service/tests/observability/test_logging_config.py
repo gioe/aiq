@@ -181,6 +181,22 @@ class TestSetupLogging:
         console_handler = root_logger.handlers[0]
         assert isinstance(console_handler.formatter, JSONFormatter)
 
+    def test_setup_logging_debug_propagates_to_third_party(self):
+        """When log_level is DEBUG, third-party loggers (e.g. httpx) must also be DEBUG."""
+        logging.getLogger().handlers.clear()
+
+        setup_logging(log_level="DEBUG", enable_file_logging=False)
+
+        assert logging.getLogger("httpx").level == logging.DEBUG
+
+    def test_setup_logging_info_clamps_third_party_to_warning(self):
+        """When log_level is INFO, third-party loggers must be clamped to WARNING."""
+        logging.getLogger().handlers.clear()
+
+        setup_logging(log_level="INFO", enable_file_logging=False)
+
+        assert logging.getLogger("httpx").level == logging.WARNING
+
     def test_setup_logging_invalid_level(self):
         """Test setup with invalid log level."""
         with pytest.raises(ValueError, match="Invalid log level"):
