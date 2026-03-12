@@ -227,6 +227,12 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "ALERT_TO_EMAILS must be configured when ENABLE_EMAIL_ALERTS=true"
                 )
+        elif self.env not in ("development", "test"):
+            logger.warning(
+                "Email alerts are DISABLED (ENABLE_EMAIL_ALERTS=false) in env=%s. "
+                "Run completion notifications will not be sent.",
+                self.env,
+            )
 
         # Validate run reporting configuration
         # Only enforce in non-development environments to allow testing
