@@ -146,6 +146,19 @@ def setup_logging() -> None:
 
     logging.config.dictConfig(logging_config)
 
+    # Clamp third-party loggers to WARNING; relax only when the root level is
+    # DEBUG so low-level networking traces are surfaced without INFO noise.
+    third_party_level = log_level if log_level <= logging.DEBUG else logging.WARNING
+    for noisy_logger in (
+        "httpcore",
+        "httpx",
+        "anthropic",
+        "openai",
+        "opentelemetry",
+        "urllib3",
+    ):
+        logging.getLogger(noisy_logger).setLevel(third_party_level)
+
 
 def get_logger(name: str) -> logging.Logger:
     """

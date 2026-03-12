@@ -208,6 +208,20 @@ class TestJSONFormatter:
 class TestSetupLogging:
     """Tests for the setup_logging function."""
 
+    THIRD_PARTY_LOGGERS = [
+        "httpcore",
+        "httpx",
+        "anthropic",
+        "openai",
+        "opentelemetry",
+        "urllib3",
+    ]
+
+    def teardown_method(self, method):
+        """Reset all third-party logger levels to avoid cross-test pollution."""
+        for name in self.THIRD_PARTY_LOGGERS:
+            logging.getLogger(name).setLevel(logging.NOTSET)
+
     @patch("app.core.logging_config.settings")
     def test_production_uses_json_formatter(self, mock_settings):
         """Test that production environment uses JSON formatter."""
@@ -233,6 +247,36 @@ class TestSetupLogging:
 
             call_args = mock_dictconfig.call_args[0][0]
             assert call_args["handlers"]["console"]["formatter"] == "default"
+
+    @pytest.mark.parametrize(
+        "logger_name",
+        ["httpcore", "httpx", "anthropic", "openai", "opentelemetry", "urllib3"],
+    )
+    @patch("app.core.logging_config.settings")
+    def test_info_level_clamps_third_party_to_warning(self, mock_settings, logger_name):
+        """When LOG_LEVEL is INFO, all third-party loggers must be clamped to WARNING."""
+        mock_settings.ENV = "development"
+        mock_settings.DEBUG = True
+        mock_settings.LOG_LEVEL = "INFO"
+
+        setup_logging()
+
+        assert logging.getLogger(logger_name).level == logging.WARNING
+
+    @pytest.mark.parametrize(
+        "logger_name",
+        ["httpcore", "httpx", "anthropic", "openai", "opentelemetry", "urllib3"],
+    )
+    @patch("app.core.logging_config.settings")
+    def test_debug_level_propagates_to_third_party(self, mock_settings, logger_name):
+        """When LOG_LEVEL is DEBUG, all third-party loggers must also be DEBUG."""
+        mock_settings.ENV = "development"
+        mock_settings.DEBUG = True
+        mock_settings.LOG_LEVEL = "DEBUG"
+
+        setup_logging()
+
+        assert logging.getLogger(logger_name).level == logging.DEBUG
 
 
 class TestGetLogger:
