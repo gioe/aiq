@@ -19,7 +19,7 @@ class TestTimerManager: ObservableObject {
     // MARK: - Constants
 
     /// Total time limit in seconds (30 minutes)
-    static let totalTimeSeconds: Int = Constants.Timing.totalTestTimeSeconds
+    nonisolated static let totalTimeSeconds: Int = Constants.Timing.totalTestTimeSeconds
 
     /// Warning threshold in seconds (5 minutes)
     static let warningThresholdSeconds: Int = Constants.Timing.warningThresholdSeconds
