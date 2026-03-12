@@ -124,6 +124,10 @@ class TestColoredFormatter:
 class TestSetupLogging:
     """Tests for setup_logging function."""
 
+    def teardown_method(self, method):
+        """Reset third-party logger levels to avoid cross-test pollution."""
+        logging.getLogger("httpx").setLevel(logging.NOTSET)
+
     def test_setup_logging_default(self):
         """Test setting up logging with default parameters."""
         # Clear existing handlers
