@@ -225,7 +225,9 @@ class DashboardViewModel: BaseViewModel {
 
     /// Whether user has an active (in-progress) test session
     var hasActiveTest: Bool {
-        activeTestSession?.isInProgress == true
+        guard let session = activeTestSession, session.isInProgress else { return false }
+        let elapsed = Date().timeIntervalSince(session.startedAt)
+        return elapsed < Double(TestTimerManager.totalTimeSeconds)
     }
 
     func setActiveTestSession(_ session: TestSession) {
