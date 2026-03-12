@@ -15,7 +15,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }()
 
     private let toastManager: any ToastManagerProtocol = {
-        guard let manager = ServiceContainer.shared.resolve(ToastManagerProtocol.self) else {
+        guard let manager = ServiceContainer.shared.resolve((any ToastManagerProtocol).self) else {
             fatalError("ToastManagerProtocol not registered in ServiceContainer")
         }
         return manager

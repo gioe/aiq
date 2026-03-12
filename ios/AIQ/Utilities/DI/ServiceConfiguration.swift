@@ -61,7 +61,7 @@ enum ServiceConfiguration {
         container.register(NetworkMonitorProtocol.self, instance: networkMonitor)
 
         let toastManager = ToastManager()
-        container.register(ToastManagerProtocol.self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, instance: toastManager)
 
         let hapticManager = HapticManager()
         container.register(HapticManagerProtocol.self, instance: hapticManager)
