@@ -20,6 +20,23 @@ final class DashboardActionButtonUITests: BaseUITest {
         app.buttons["dashboardView.actionButton"]
     }
 
+    // MARK: - Setup
+
+    /// Validates simulator preconditions before each test.
+    ///
+    /// Skips with a clear diagnostic message when mock mode is not active
+    /// (`-UITestMockMode` not present in launch arguments). Without this guard,
+    /// a missing mock flag causes the dashboard to hit the real backend and fail
+    /// in ways indistinguishable from a real regression.
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try XCTSkipUnless(
+            app.launchArguments.contains("-UITestMockMode"),
+            "Skipping DashboardActionButtonUITests: mock mode is not active. "
+                + "Run via the standard AIQUITests scheme which injects -UITestMockMode."
+        )
+    }
+
     // MARK: - Launch Configuration
 
     /// Sets the mock scenario to `loggedInWithHistory` so the dashboard launches with

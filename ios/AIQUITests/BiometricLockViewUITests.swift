@@ -37,6 +37,28 @@ final class BiometricLockViewUITests: BaseUITest {
 
     // MARK: - Setup
 
+    /// Validates simulator preconditions before each test.
+    ///
+    /// Skips with a clear diagnostic message when:
+    /// - Mock mode is not active (app not launched with `-UITestMockMode`)
+    /// - Biometric lock is not enabled (`BIOMETRIC_LOCK_ENABLED` not set to `"true"`)
+    ///
+    /// Without this guard a missing precondition produces a timeout failure on
+    /// `lockIcon` that is indistinguishable from a real regression.
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try XCTSkipUnless(
+            app.launchArguments.contains("-UITestMockMode"),
+            "Skipping BiometricLockViewUITests: mock mode is not active. "
+                + "Run via the standard AIQUITests scheme which injects -UITestMockMode."
+        )
+        try XCTSkipUnless(
+            app.launchEnvironment["BIOMETRIC_LOCK_ENABLED"] == "true",
+            "Skipping BiometricLockViewUITests: BIOMETRIC_LOCK_ENABLED is not set to 'true'. "
+                + "Ensure setupLaunchConfiguration() sets this environment variable before launch."
+        )
+    }
+
     /// Base launch configuration — authenticated user with biometric lock enabled.
     /// Subclasses can call relaunchWithBiometricScenario(_:) to override the auth behavior.
     override func setupLaunchConfiguration() {
