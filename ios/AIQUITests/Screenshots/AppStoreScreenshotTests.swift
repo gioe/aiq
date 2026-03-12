@@ -206,8 +206,8 @@ final class AppStoreScreenshotTests: BaseUITest {
 
     /// Start a test and navigate to the question screen
     private func captureTestQuestionScreenshot() {
-        // Look for Start Test button
-        let startTestButton = app.buttons["dashboardView.startTestButton"]
+        // Look for Start Test button (identifier matches DashboardView.actionButton)
+        let startTestButton = app.buttons["dashboardView.actionButton"]
         guard startTestButton.waitForExistence(timeout: standardTimeout) else {
             XCTFail("Start Test button not found")
             return
@@ -229,7 +229,7 @@ final class AppStoreScreenshotTests: BaseUITest {
 
     /// Start test and answer some questions for results screen
     private func startTestAndAnswerQuestions() {
-        let startTestButton = app.buttons["dashboardView.startTestButton"]
+        let startTestButton = app.buttons["dashboardView.actionButton"]
         guard startTestButton.waitForExistence(timeout: standardTimeout) else {
             XCTFail("Start Test button not found")
             return
