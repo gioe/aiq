@@ -304,6 +304,34 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertTrue(sut.hasActiveTest, "hasActiveTest should return true when session is still within the time window")
     }
 
+    func testHasActiveTest_ReturnsFalseForCompletedSession() {
+        // Given
+        let completedSession = MockDataFactory.makeTestSession(
+            id: 1,
+            userId: 1,
+            status: "completed",
+            startedAt: Date()
+        )
+        sut.activeTestSession = completedSession
+
+        // Then
+        XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should return false when session status is 'completed'")
+    }
+
+    func testHasActiveTest_ReturnsFalseForAbandonedSession() {
+        // Given
+        let abandonedSession = MockDataFactory.makeTestSession(
+            id: 1,
+            userId: 1,
+            status: "abandoned",
+            startedAt: Date()
+        )
+        sut.activeTestSession = abandonedSession
+
+        // Then
+        XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should return false when session status is 'abandoned'")
+    }
+
     // MARK: - Abandon Active Test Tests
 
     func testAbandonActiveTest_Success() async {
