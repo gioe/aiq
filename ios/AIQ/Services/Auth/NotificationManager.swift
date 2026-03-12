@@ -31,9 +31,9 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
     // MARK: - Private Properties
 
-    private let notificationService: NotificationServiceProtocol
-    private let authManager: AuthManagerProtocol
-    private let notificationCenter: UserNotificationCenterProtocol
+    private let notificationService: any NotificationServiceProtocol
+    private let authManager: any AuthManagerProtocol
+    private let notificationCenter: any UserNotificationCenterProtocol
     private let application: any ApplicationProtocol
     private var cancellables = Set<AnyCancellable>()
     private let logger = Logger(subsystem: "com.aiq.app", category: "NotificationManager")
@@ -93,9 +93,9 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
     init(
         // swiftlint:disable:next line_length
-        notificationService: NotificationServiceProtocol = ServiceContainer.shared.resolve(NotificationServiceProtocol.self)!,
-        authManager: AuthManagerProtocol = ServiceContainer.shared.resolve(AuthManagerProtocol.self)!,
-        notificationCenter: UserNotificationCenterProtocol = UNUserNotificationCenter.current(),
+        notificationService: any NotificationServiceProtocol = ServiceContainer.shared.resolve(NotificationServiceProtocol.self)!,
+        authManager: any AuthManagerProtocol = ServiceContainer.shared.resolve(AuthManagerProtocol.self)!,
+        notificationCenter: any UserNotificationCenterProtocol = UNUserNotificationCenter.current(),
         application: (any ApplicationProtocol)? = nil
     ) {
         self.notificationService = notificationService
