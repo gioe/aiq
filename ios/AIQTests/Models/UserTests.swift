@@ -680,6 +680,7 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(user.lastName, "User")
         XCTAssertTrue(user.notificationEnabled)
         XCTAssertEqual(user.birthYear, 1990)
+        XCTAssertEqual(user.educationLevel?.value1, .bachelors)
         XCTAssertEqual(user.country, "US")
         XCTAssertEqual(user.region, "California")
         XCTAssertNotNil(user.lastLoginAt)
