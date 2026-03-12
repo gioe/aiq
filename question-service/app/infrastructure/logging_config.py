@@ -165,10 +165,12 @@ def setup_logging(
 
         root_logger.info(f"File logging enabled: {log_file}")
 
-    # Clamp third-party loggers to WARNING, but allow them to follow the root
-    # level down when it is below WARNING (e.g. DEBUG via --verbose) so that
-    # low-level networking traces are surfaced when explicitly requested.
-    third_party_level = min(logging.WARNING, numeric_level)
+    # Clamp third-party loggers to WARNING; relax only when the root level is
+    # explicitly DEBUG (e.g. via --verbose) so low-level networking traces are
+    # surfaced without introducing INFO noise in normal runs.
+    third_party_level = (
+        numeric_level if numeric_level <= logging.DEBUG else logging.WARNING
+    )
     for noisy_logger in (
         "httpcore",
         "httpx",
