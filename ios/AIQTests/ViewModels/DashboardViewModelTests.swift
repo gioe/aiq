@@ -274,6 +274,36 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should return false when no session")
     }
 
+    func testHasActiveTest_ReturnsFalseWhenSessionTimeExpired() {
+        // Given
+        let expiredStart = Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds))
+        let expiredSession = MockDataFactory.makeTestSession(
+            id: 1,
+            userId: 1,
+            status: "in_progress",
+            startedAt: expiredStart
+        )
+        sut.activeTestSession = expiredSession
+
+        // Then
+        XCTAssertFalse(sut.hasActiveTest, "hasActiveTest should return false when session time has expired")
+    }
+
+    func testHasActiveTest_ReturnsTrueWhenSessionJustInsideBoundary() {
+        // Given — one second before expiry
+        let nearExpiryStart = Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds) + 1)
+        let nearExpirySession = MockDataFactory.makeTestSession(
+            id: 1,
+            userId: 1,
+            status: "in_progress",
+            startedAt: nearExpiryStart
+        )
+        sut.activeTestSession = nearExpirySession
+
+        // Then
+        XCTAssertTrue(sut.hasActiveTest, "hasActiveTest should return true when session is still within the time window")
+    }
+
     // MARK: - Abandon Active Test Tests
 
     func testAbandonActiveTest_Success() async {
