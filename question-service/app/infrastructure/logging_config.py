@@ -165,7 +165,10 @@ def setup_logging(
 
         root_logger.info(f"File logging enabled: {log_file}")
 
-    # Suppress noisy third-party loggers regardless of overall log level
+    # Clamp third-party loggers to WARNING unless the effective level is below
+    # WARNING (e.g. DEBUG via --verbose), in which case allow them to follow the
+    # root level so low-level networking traces are surfaced when requested.
+    third_party_level = max(logging.WARNING, numeric_level)
     for noisy_logger in (
         "httpcore",
         "httpx",
@@ -174,7 +177,7 @@ def setup_logging(
         "opentelemetry",
         "urllib3",
     ):
-        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+        logging.getLogger(noisy_logger).setLevel(third_party_level)
 
     root_logger.info(
         f"Logging configured: level={log_level}, "
