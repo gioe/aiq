@@ -181,12 +181,20 @@ def setup_logging(
     ):
         logging.getLogger(noisy_logger).setLevel(third_party_level)
 
-    # Hard-clamp HTTP internals to WARNING regardless of root level.
+    # Hard-clamp HTTP internals to WARNING unless the root level is DEBUG.
     # These sub-loggers emit full exc_info stack traces at DEBUG for every 429
-    # retry; the information is already captured by embedding_utils.py.
-    always_warning = ("openai._base_client", "httpcore.http11", "httpcore.connection")
-    for noisy_sub_logger in always_warning:
-        logging.getLogger(noisy_sub_logger).setLevel(logging.WARNING)
+    # retry; the information is already captured by our own loggers. When the
+    # root level is DEBUG (e.g. --verbose), the clamp is skipped so low-level
+    # HTTP traces remain available for diagnosing retries across all call sites
+    # (embeddings, generation, judge LLM calls, etc.).
+    if numeric_level > logging.DEBUG:
+        always_warning = (
+            "openai._base_client",
+            "httpcore.http11",
+            "httpcore.connection",
+        )
+        for noisy_sub_logger in always_warning:
+            logging.getLogger(noisy_sub_logger).setLevel(logging.WARNING)
 
     root_logger.info(
         f"Logging configured: level={log_level}, "
