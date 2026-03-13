@@ -1661,3 +1661,237 @@ class TestDifficultyPlacement:
 
         assert level == DifficultyLevel.EASY
         assert reason is None
+
+
+# ---------------------------------------------------------------------------
+# Runtime fallback tests (TASK-24)
+# These tests verify that evaluate_question / evaluate_question_async retry
+# with the configured fallback provider when the primary API call raises.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def logic_question():
+    """Logic question whose answer options are not substrings of the question."""
+    return GeneratedQuestion(
+        question_text="If all circles are shapes and all shapes are figures, which conclusion is necessarily true?",
+        question_type=QuestionType.LOGIC,
+        difficulty_level=DifficultyLevel.MEDIUM,
+        correct_answer="All circles are figures",
+        answer_options=[
+            "All circles are figures",
+            "All figures are circles",
+            "Some shapes are circles",
+            "No figures are shapes",
+        ],
+        explanation="Syllogistic inference: circles → shapes → figures.",
+        source_llm="anthropic",
+        source_model="claude-sonnet-4-5",
+    )
+
+
+@pytest.fixture
+def google_xai_judge_config():
+    """Judge config with google as logic primary and xai as fallback (mirrors real judges.yaml)."""
+    config = JudgeConfig(
+        version="1.0.0",
+        judges={
+            "math": JudgeModel(
+                model="claude-opus-4-5-20251101",
+                provider="anthropic",
+                rationale="Math judge",
+                enabled=True,
+                fallback="xai",
+                fallback_model="grok-4",
+            ),
+            "logic": JudgeModel(
+                model="gemini-2.5-pro",
+                provider="google",
+                rationale="Logic judge",
+                enabled=True,
+                fallback="xai",
+                fallback_model="grok-4",
+            ),
+            "pattern": JudgeModel(
+                model="gemini-2.5-pro",
+                provider="google",
+                rationale="Pattern judge",
+                enabled=True,
+                fallback="xai",
+                fallback_model="grok-4",
+            ),
+            "spatial": JudgeModel(
+                model="claude-opus-4-5-20251101",
+                provider="anthropic",
+                rationale="Spatial judge",
+                enabled=True,
+                fallback="xai",
+                fallback_model="grok-4",
+            ),
+            "verbal": JudgeModel(
+                model="gemini-2.5-pro",
+                provider="google",
+                rationale="Verbal judge",
+                enabled=True,
+                fallback="xai",
+                fallback_model="grok-4",
+            ),
+            "memory": JudgeModel(
+                model="claude-opus-4-5-20251101",
+                provider="anthropic",
+                rationale="Memory judge",
+                enabled=True,
+                fallback="xai",
+                fallback_model="grok-4",
+            ),
+        },
+        default_judge=JudgeModel(
+            model="gemini-2.5-pro",
+            provider="google",
+            rationale="Default judge",
+            enabled=True,
+            fallback="xai",
+            fallback_model="grok-4",
+        ),
+        evaluation_criteria=EvaluationCriteria(
+            clarity=0.30,
+            validity=0.40,
+            formatting=0.20,
+            creativity=0.10,
+        ),
+        min_judge_score=0.7,
+        difficulty_placement=DifficultyPlacement(
+            downgrade_threshold=0.4,
+            upgrade_threshold=0.8,
+        ),
+    )
+
+    def _resolve(qt, available_providers):
+        judge = config.judges.get(qt, config.default_judge)
+        if judge.provider in available_providers:
+            return (judge.provider, judge.model)
+        if judge.fallback and judge.fallback in available_providers:
+            return (judge.fallback, judge.fallback_model)
+        if available_providers:
+            return (available_providers[0], None)
+        raise ValueError(f"No providers available for '{qt}'")
+
+    loader = Mock(spec=JudgeConfigLoader)
+    loader.config = config
+    loader.get_judge_for_question_type.side_effect = lambda qt: config.judges.get(
+        qt, config.default_judge
+    )
+    loader.resolve_judge_provider.side_effect = _resolve
+    loader.get_evaluation_criteria.return_value = config.evaluation_criteria
+    loader.get_min_judge_score.return_value = config.min_judge_score
+    loader.get_difficulty_placement.return_value = config.difficulty_placement
+    return loader
+
+
+class TestRuntimeFallback:
+    """Tests for runtime API error fallback in evaluate_question and evaluate_question_async."""
+
+    @patch("app.evaluation.judge.GoogleProvider")
+    @patch("app.evaluation.judge.XAIProvider")
+    def test_evaluate_question_retries_with_fallback_on_api_error(
+        self,
+        mock_xai_class,
+        mock_google_class,
+        google_xai_judge_config,
+        logic_question,
+        sample_evaluation_response,
+    ):
+        """Primary provider raises → fallback (xai) is tried and succeeds."""
+        mock_google = Mock()
+        mock_google.model = "gemini-2.5-pro"
+        mock_google.generate_structured_completion_with_usage.side_effect = Exception(
+            "HTTP 400 Bad Request"
+        )
+        mock_google_class.return_value = mock_google
+
+        mock_xai = Mock()
+        mock_xai.model = "grok-4"
+        mock_xai.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(sample_evaluation_response)
+        )
+        mock_xai_class.return_value = mock_xai
+
+        judge = QuestionJudge(
+            judge_config=google_xai_judge_config,
+            google_api_key="test-google-key",
+            xai_api_key="test-xai-key",  # pragma: allowlist secret
+        )
+        judge.providers["google"] = mock_google
+        judge.providers["xai"] = mock_xai
+
+        evaluated = judge.evaluate_question(logic_question)
+
+        assert isinstance(evaluated, EvaluatedQuestion)
+        assert evaluated.approved is True
+        mock_google.generate_structured_completion_with_usage.assert_called_once()
+        mock_xai.generate_structured_completion_with_usage.assert_called_once()
+
+    @patch("app.evaluation.judge.GoogleProvider")
+    def test_evaluate_question_raises_when_fallback_not_available(
+        self,
+        mock_google_class,
+        google_xai_judge_config,
+        logic_question,
+    ):
+        """Primary raises and fallback provider not initialized → re-raises original error."""
+        mock_google = Mock()
+        mock_google.model = "gemini-2.5-pro"
+        api_error = Exception("HTTP 400 Bad Request")
+        mock_google.generate_structured_completion_with_usage.side_effect = api_error
+        mock_google_class.return_value = mock_google
+
+        judge = QuestionJudge(
+            judge_config=google_xai_judge_config,
+            google_api_key="test-google-key",
+        )
+        judge.providers["google"] = mock_google
+        # xai provider NOT initialized → fallback not in self.providers
+
+        with pytest.raises(Exception, match="HTTP 400 Bad Request"):
+            judge.evaluate_question(logic_question)
+
+    @pytest.mark.asyncio
+    @patch("app.evaluation.judge.GoogleProvider")
+    @patch("app.evaluation.judge.XAIProvider")
+    async def test_evaluate_question_async_retries_with_fallback_on_api_error(
+        self,
+        mock_xai_class,
+        mock_google_class,
+        google_xai_judge_config,
+        logic_question,
+        sample_evaluation_response,
+    ):
+        """Async: primary raises → fallback (xai) is tried and succeeds."""
+        mock_google = Mock()
+        mock_google.model = "gemini-2.5-pro"
+        mock_google.generate_structured_completion_with_usage_async = AsyncMock(
+            side_effect=Exception("HTTP 400 Bad Request")
+        )
+        mock_google_class.return_value = mock_google
+
+        mock_xai = Mock()
+        mock_xai.model = "grok-4"
+        mock_xai.generate_structured_completion_with_usage_async = AsyncMock(
+            return_value=make_completion_result(sample_evaluation_response)
+        )
+        mock_xai_class.return_value = mock_xai
+
+        judge = QuestionJudge(
+            judge_config=google_xai_judge_config,
+            google_api_key="test-google-key",
+            xai_api_key="test-xai-key",  # pragma: allowlist secret
+        )
+        judge.providers["google"] = mock_google
+        judge.providers["xai"] = mock_xai
+
+        evaluated = await judge.evaluate_question_async(logic_question)
+
+        assert isinstance(evaluated, EvaluatedQuestion)
+        assert evaluated.approved is True
+        mock_google.generate_structured_completion_with_usage_async.assert_called_once()
+        mock_xai.generate_structured_completion_with_usage_async.assert_called_once()

@@ -252,15 +252,49 @@ class QuestionJudge:
                     f"Using judge model: {effective_model} ({resolved_provider})"
                 )
 
-                # Get evaluation from LLM with cost tracking
-                # Using model_override to avoid mutating provider state
-                result = provider.generate_structured_completion_with_usage(
-                    prompt=prompt,
-                    response_format={},  # Provider will handle JSON mode
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    model_override=resolved_model,
-                )
+                # Get evaluation from LLM with cost tracking.
+                # Using model_override to avoid mutating provider state.
+                # On runtime API errors, retry with the configured fallback provider.
+                try:
+                    result = provider.generate_structured_completion_with_usage(
+                        prompt=prompt,
+                        response_format={},  # Provider will handle JSON mode
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        model_override=resolved_model,
+                    )
+                except Exception as primary_error:
+                    judge_cfg = self.judge_config.get_judge_for_question_type(
+                        question_type
+                    )
+                    fallback_name = judge_cfg.fallback
+                    fallback_model_name = judge_cfg.fallback_model
+                    if (
+                        fallback_name
+                        and fallback_name != resolved_provider
+                        and fallback_name in self.providers
+                    ):
+                        logger.warning(
+                            f"Judge {resolved_provider}/{effective_model} failed "
+                            f"({type(primary_error).__name__}): {primary_error}. "
+                            f"Retrying with fallback {fallback_name}/{fallback_model_name}"
+                        )
+                        fallback_provider = self.providers[fallback_name]
+                        result = (
+                            fallback_provider.generate_structured_completion_with_usage(
+                                prompt=prompt,
+                                response_format={},
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                                model_override=fallback_model_name,
+                            )
+                        )
+                        resolved_provider = fallback_name
+                        effective_model = fallback_model_name or fallback_provider.model
+                        span.set_attribute("provider", resolved_provider)
+                        span.set_attribute("model", effective_model)
+                    else:
+                        raise
 
                 # Parse evaluation scores
                 evaluation = self._parse_evaluation_response(result.content)
@@ -408,8 +442,57 @@ class QuestionJudge:
                         )
                         return result.content
 
-                # Execute with circuit breaker protection
-                response = await circuit_breaker.execute_async(_do_async_evaluation)
+                # Execute with circuit breaker protection.
+                # On runtime API errors (non-timeout, non-circuit-breaker), retry with
+                # the configured fallback provider (e.g. xai/grok-4).
+                try:
+                    response = await circuit_breaker.execute_async(_do_async_evaluation)
+                except (CircuitBreakerOpen, asyncio.TimeoutError):
+                    raise
+                except Exception as primary_error:
+                    judge_cfg = self.judge_config.get_judge_for_question_type(
+                        question_type
+                    )
+                    fallback_name = judge_cfg.fallback
+                    fallback_model_name = judge_cfg.fallback_model
+                    if (
+                        fallback_name
+                        and fallback_name != resolved_provider
+                        and fallback_name in self.providers
+                    ):
+                        logger.warning(
+                            f"Judge {resolved_provider}/{effective_model} failed "
+                            f"({type(primary_error).__name__}): {primary_error}. "
+                            f"Retrying with fallback {fallback_name}/{fallback_model_name}"
+                        )
+                        fallback_provider = self.providers[fallback_name]
+                        fallback_cb = self._circuit_breaker_registry.get_or_create(
+                            f"judge-{fallback_name}"
+                        )
+
+                        async def _do_fallback_evaluation() -> Dict[str, Any]:
+                            async with self._rate_limiter:
+                                fb_result = await asyncio.wait_for(
+                                    fallback_provider.generate_structured_completion_with_usage_async(
+                                        prompt=prompt,
+                                        response_format={},
+                                        temperature=temperature,
+                                        max_tokens=max_tokens,
+                                        model_override=fallback_model_name,
+                                    ),
+                                    timeout=effective_timeout,
+                                )
+                                return fb_result.content
+
+                        response = await fallback_cb.execute_async(
+                            _do_fallback_evaluation
+                        )
+                        resolved_provider = fallback_name
+                        effective_model = fallback_model_name or fallback_provider.model
+                        span.set_attribute("provider", resolved_provider)
+                        span.set_attribute("model", effective_model)
+                    else:
+                        raise
 
                 # Parse evaluation scores
                 evaluation = self._parse_evaluation_response(response)
