@@ -908,7 +908,12 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
 
 
 def rule22_provider_model_validation(root):
-    """Warn when model identifiers in judges.yaml or generators.yaml are not in provider's known list.
+    """Warn when model identifiers in config YAML files are not in provider's known list.
+
+    Scans all *.yaml files under question-service/config/ and applies a structural
+    filter: only files containing judges, generators, default_judge, or default_generator
+    top-level keys are validated. New config files with model+provider mappings are
+    automatically covered without requiring changes to this rule.
 
     Cross-references each configured model name against the static list maintained in
     _PROVIDER_MODELS (which mirrors each provider's get_available_models()). Stale model
@@ -919,10 +924,12 @@ def rule22_provider_model_validation(root):
     except ImportError:
         return ["  PyYAML not available — install with: pip install pyyaml to enable model validation"]
 
-    config_files = [
-        os.path.join(root, "question-service", "config", "judges.yaml"),
-        os.path.join(root, "question-service", "config", "generators.yaml"),
-    ]
+    import glob as _glob
+
+    _MODEL_SECTION_KEYS = {"judges", "generators", "default_judge", "default_generator"}
+
+    config_dir = os.path.join(root, "question-service", "config")
+    config_files = sorted(_glob.glob(os.path.join(config_dir, "*.yaml")))
 
     warnings = []
 
@@ -939,6 +946,10 @@ def rule22_provider_model_validation(root):
             continue
 
         if not isinstance(data, dict):
+            continue
+
+        # Structural filter: skip files that don't contain model-mapping sections.
+        if not _MODEL_SECTION_KEYS.intersection(data.keys()):
             continue
 
         # Collect (label, model, provider) tuples from primary and fallback fields.

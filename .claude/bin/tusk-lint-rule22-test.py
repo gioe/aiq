@@ -27,10 +27,11 @@ _lint = _load_lint_module()
 rule22 = _lint.rule22_provider_model_validation
 
 
-def _make_config_tree(test_case, judges_yaml=None, generators_yaml=None):
+def _make_config_tree(test_case, judges_yaml=None, generators_yaml=None, extra_files=None):
     """Create a temporary directory tree with question-service/config/ files.
 
     Registers cleanup on test_case so the directory is removed after the test.
+    extra_files: dict of {filename: content} for additional files in config/.
     """
     tmpdir = tempfile.mkdtemp()
     test_case.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
@@ -42,6 +43,9 @@ def _make_config_tree(test_case, judges_yaml=None, generators_yaml=None):
     if generators_yaml is not None:
         with open(os.path.join(config_dir, "generators.yaml"), "w") as f:
             f.write(generators_yaml)
+    for fname, content in (extra_files or {}).items():
+        with open(os.path.join(config_dir, fname), "w") as f:
+            f.write(content)
     return tmpdir
 
 
@@ -220,6 +224,73 @@ class TestRule22MalformedYaml(unittest.TestCase):
         root = _make_config_tree(self, judges_yaml=yaml)
         result = rule22(root)
         self.assertEqual(result, [])
+
+
+class TestRule22StructuralFilter(unittest.TestCase):
+    """Structural filter: only YAML files with model-mapping section keys are validated."""
+
+    def test_non_model_yaml_is_skipped(self):
+        # A config file with no judges/generators/default_judge/default_generator keys
+        # should be silently skipped even if it contains 'model' fields.
+        alerting_yaml = textwrap.dedent("""\
+            inventory:
+              thresholds:
+                healthy_min: 50
+                warning_min: 20
+              model: some-value
+              provider: some-provider
+        """)
+        root = _make_config_tree(self, extra_files={"alerting.yaml": alerting_yaml})
+        result = rule22(root)
+        self.assertEqual(result, [], f"Non-model config should be skipped, got: {result}")
+
+    def test_new_model_yaml_is_caught(self):
+        # A new config file (not judges.yaml or generators.yaml) that has a judges
+        # top-level key should be validated automatically.
+        new_config_yaml = textwrap.dedent("""\
+            judges:
+              logic:
+                model: claude-stale-model
+                provider: anthropic
+        """)
+        root = _make_config_tree(self, extra_files={"new-model-config.yaml": new_config_yaml})
+        result = rule22(root)
+        self.assertEqual(len(result), 1)
+        self.assertIn("claude-stale-model", result[0])
+        self.assertIn("new-model-config.yaml", result[0])
+
+    def test_new_model_yaml_valid_model_passes(self):
+        # A new config file with a valid model+provider should produce no warnings.
+        new_config_yaml = textwrap.dedent("""\
+            generators:
+              custom:
+                model: gpt-4o
+                provider: openai
+        """)
+        root = _make_config_tree(self, extra_files={"custom-generators.yaml": new_config_yaml})
+        result = rule22(root)
+        self.assertEqual(result, [], f"Valid model in new config file should pass, got: {result}")
+
+    def test_non_model_yaml_alongside_model_yaml(self):
+        # Non-model files should be skipped while model files are still validated.
+        valid_yaml = textwrap.dedent("""\
+            judges:
+              math:
+                model: claude-sonnet-4-5-20250929
+                provider: anthropic
+        """)
+        non_model_yaml = textwrap.dedent("""\
+            sentry:
+              enabled: true
+              dsn: https://example.sentry.io
+        """)
+        root = _make_config_tree(
+            self,
+            judges_yaml=valid_yaml,
+            extra_files={"observability.yaml": non_model_yaml},
+        )
+        result = rule22(root)
+        self.assertEqual(result, [], f"Only model files should be validated, got: {result}")
 
 
 if __name__ == "__main__":
