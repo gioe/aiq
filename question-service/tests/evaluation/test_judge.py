@@ -123,12 +123,12 @@ def mock_judge_config():
 def sample_question():
     """Create a sample generated question for testing."""
     return GeneratedQuestion(
-        question_text="What is 2 + 2?",
+        question_text="Which of the following is the product of seven and eight?",
         question_type=QuestionType.MATH,
         difficulty_level=DifficultyLevel.EASY,
-        correct_answer="4",
-        answer_options=["2", "3", "4", "5"],
-        explanation="2 + 2 equals 4 by basic addition",
+        correct_answer="fifty-six",
+        answer_options=["forty-two", "forty-eight", "fifty-four", "fifty-six"],
+        explanation="Seven multiplied by eight equals fifty-six.",
         metadata={},
         source_llm="openai",
         source_model="gpt-4",
@@ -726,12 +726,12 @@ class TestJudgeIntegration:
         """Create sample questions for each type."""
         return {
             QuestionType.MATH: GeneratedQuestion(
-                question_text="If x + 5 = 12, what is x?",
+                question_text="Which of the following is the product of seven and eight?",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
-                correct_answer="7",
-                answer_options=["5", "6", "7", "8"],
-                explanation="12 - 5 = 7",
+                correct_answer="fifty-six",
+                answer_options=["forty-two", "forty-eight", "fifty-four", "fifty-six"],
+                explanation="Seven multiplied by eight equals fifty-six.",
                 source_llm="openai",
                 source_model="gpt-4",
             ),

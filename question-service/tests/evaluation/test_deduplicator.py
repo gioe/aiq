@@ -16,12 +16,12 @@ from app.data.models import DifficultyLevel, GeneratedQuestion, QuestionType
 def sample_question():
     """Create a sample generated question for testing."""
     return GeneratedQuestion(
-        question_text="What is 2 + 2?",
+        question_text="Which of the following is the product of seven and eight?",
         question_type=QuestionType.MATH,
         difficulty_level=DifficultyLevel.EASY,
-        correct_answer="4",
-        answer_options=["2", "3", "4", "5"],
-        explanation="2 + 2 equals 4 by basic addition",
+        correct_answer="fifty-six",
+        answer_options=["forty-two", "forty-eight", "fifty-four", "fifty-six"],
+        explanation="Seven multiplied by eight equals fifty-six.",
         metadata={},
         source_llm="openai",
         source_model="gpt-4",
@@ -144,7 +144,10 @@ class TestQuestionDeduplicator:
         """Test exact duplicate detection."""
         # Add exact match to existing questions
         existing_with_duplicate = sample_existing_questions + [
-            {"id": 4, "question_text": "What is 2 + 2?"}
+            {
+                "id": 4,
+                "question_text": "Which of the following is the product of seven and eight?",
+            }
         ]
 
         deduplicator = QuestionDeduplicator(openai_api_key="test-key")
@@ -162,7 +165,10 @@ class TestQuestionDeduplicator:
         """Test exact match is case-insensitive."""
         # Add case-variant to existing questions
         existing_with_duplicate = sample_existing_questions + [
-            {"id": 4, "question_text": "WHAT IS 2 + 2?"}
+            {
+                "id": 4,
+                "question_text": "WHICH OF THE FOLLOWING IS THE PRODUCT OF SEVEN AND EIGHT?",
+            }
         ]
 
         deduplicator = QuestionDeduplicator(openai_api_key="test-key")
@@ -430,18 +436,21 @@ class TestDeduplicatorIntegration:
     def test_whitespace_normalization(self, mock_openai):
         """Test that whitespace differences don't affect exact matching."""
         question = GeneratedQuestion(
-            question_text="  What is 2 + 2?  ",
+            question_text="  Which of the following is the product of seven and eight?  ",
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
-            correct_answer="4",
-            answer_options=["2", "3", "4", "5"],
-            explanation="Explanation",
+            correct_answer="fifty-six",
+            answer_options=["forty-two", "forty-eight", "fifty-four", "fifty-six"],
+            explanation="Seven multiplied by eight equals fifty-six.",
             source_llm="openai",
             source_model="gpt-4",
         )
 
         existing = [
-            {"id": 1, "question_text": "What is 2 + 2?"},  # No extra whitespace
+            {
+                "id": 1,
+                "question_text": "Which of the following is the product of seven and eight?",
+            },  # No extra whitespace
         ]
 
         deduplicator = QuestionDeduplicator(openai_api_key="test-key")
