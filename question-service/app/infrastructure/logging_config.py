@@ -181,6 +181,13 @@ def setup_logging(
     ):
         logging.getLogger(noisy_logger).setLevel(third_party_level)
 
+    # Hard-clamp HTTP internals to WARNING regardless of root level.
+    # These sub-loggers emit full exc_info stack traces at DEBUG for every 429
+    # retry; the information is already captured by embedding_utils.py.
+    always_warning = ("openai._base_client", "httpcore.http11", "httpcore.connection")
+    for noisy_sub_logger in always_warning:
+        logging.getLogger(noisy_sub_logger).setLevel(logging.WARNING)
+
     root_logger.info(
         f"Logging configured: level={log_level}, "
         f"file_logging={enable_file_logging}, "
