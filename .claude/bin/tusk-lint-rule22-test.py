@@ -8,7 +8,7 @@ Usage: python3 tusk-lint-rule22-test.py
 
 import importlib.util
 import os
-import sys
+import shutil
 import tempfile
 import textwrap
 import unittest
@@ -27,9 +27,13 @@ _lint = _load_lint_module()
 rule22 = _lint.rule22_provider_model_validation
 
 
-def _make_config_tree(judges_yaml=None, generators_yaml=None):
-    """Create a temporary directory tree with question-service/config/ files."""
+def _make_config_tree(test_case, judges_yaml=None, generators_yaml=None):
+    """Create a temporary directory tree with question-service/config/ files.
+
+    Registers cleanup on test_case so the directory is removed after the test.
+    """
     tmpdir = tempfile.mkdtemp()
+    test_case.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
     config_dir = os.path.join(tmpdir, "question-service", "config")
     os.makedirs(config_dir)
     if judges_yaml is not None:
@@ -51,7 +55,7 @@ class TestRule22ValidModel(unittest.TestCase):
                 model: claude-sonnet-4-5-20250929
                 provider: anthropic
         """)
-        root = _make_config_tree(judges_yaml=yaml)
+        root = _make_config_tree(self, judges_yaml=yaml)
         result = rule22(root)
         self.assertEqual(result, [], f"Expected no warnings, got: {result}")
 
@@ -62,7 +66,7 @@ class TestRule22ValidModel(unittest.TestCase):
                 model: gpt-4o
                 provider: openai
         """)
-        root = _make_config_tree(generators_yaml=yaml)
+        root = _make_config_tree(self, generators_yaml=yaml)
         result = rule22(root)
         self.assertEqual(result, [], f"Expected no warnings, got: {result}")
 
@@ -72,7 +76,7 @@ class TestRule22ValidModel(unittest.TestCase):
               model: grok-4
               provider: xai
         """)
-        root = _make_config_tree(judges_yaml=yaml)
+        root = _make_config_tree(self, judges_yaml=yaml)
         result = rule22(root)
         self.assertEqual(result, [], f"Expected no warnings, got: {result}")
 
@@ -85,7 +89,7 @@ class TestRule22ValidModel(unittest.TestCase):
                 fallback_model: grok-4
                 fallback: xai
         """)
-        root = _make_config_tree(judges_yaml=yaml)
+        root = _make_config_tree(self, judges_yaml=yaml)
         result = rule22(root)
         self.assertEqual(result, [], f"Expected no warnings, got: {result}")
 
@@ -100,7 +104,7 @@ class TestRule22UnknownModel(unittest.TestCase):
                 model: claude-3-opus-stale-preview
                 provider: anthropic
         """)
-        root = _make_config_tree(judges_yaml=yaml)
+        root = _make_config_tree(self, judges_yaml=yaml)
         result = rule22(root)
         self.assertEqual(len(result), 1)
         self.assertIn("claude-3-opus-stale-preview", result[0])
@@ -113,7 +117,7 @@ class TestRule22UnknownModel(unittest.TestCase):
                 model: gemini-3-pro-preview-old
                 provider: google
         """)
-        root = _make_config_tree(generators_yaml=yaml)
+        root = _make_config_tree(self, generators_yaml=yaml)
         result = rule22(root)
         self.assertEqual(len(result), 1)
         self.assertIn("gemini-3-pro-preview-old", result[0])
@@ -127,7 +131,7 @@ class TestRule22UnknownModel(unittest.TestCase):
                 fallback_model: gpt-99-nonexistent
                 fallback: openai
         """)
-        root = _make_config_tree(generators_yaml=yaml)
+        root = _make_config_tree(self, generators_yaml=yaml)
         result = rule22(root)
         self.assertEqual(len(result), 1)
         self.assertIn("gpt-99-nonexistent", result[0])
@@ -144,7 +148,7 @@ class TestRule22UnknownProvider(unittest.TestCase):
                 model: cohere-command-r
                 provider: cohere
         """)
-        root = _make_config_tree(judges_yaml=yaml)
+        root = _make_config_tree(self, judges_yaml=yaml)
         result = rule22(root)
         self.assertEqual(len(result), 1)
         self.assertIn("unknown provider 'cohere'", result[0])
@@ -155,7 +159,7 @@ class TestRule22UnknownProvider(unittest.TestCase):
               model: some-model
               provider: mystery_provider
         """)
-        root = _make_config_tree(generators_yaml=yaml)
+        root = _make_config_tree(self, generators_yaml=yaml)
         result = rule22(root)
         self.assertEqual(len(result), 1)
         self.assertIn("unknown provider 'mystery_provider'", result[0])
@@ -164,18 +168,31 @@ class TestRule22UnknownProvider(unittest.TestCase):
 class TestRule22MissingFile(unittest.TestCase):
     """Missing YAML files are silently skipped (no warnings, no errors)."""
 
-    def test_missing_judges_yaml(self):
-        root = _make_config_tree(generators_yaml=None)  # neither file written
+    def test_only_generators_present_judges_missing(self):
+        valid_yaml = textwrap.dedent("""\
+            generators:
+              math:
+                model: gpt-4o
+                provider: openai
+        """)
+        root = _make_config_tree(self, generators_yaml=valid_yaml)
         result = rule22(root)
         self.assertEqual(result, [])
 
-    def test_missing_generators_yaml(self):
-        root = _make_config_tree(judges_yaml=None)
+    def test_only_judges_present_generators_missing(self):
+        valid_yaml = textwrap.dedent("""\
+            judges:
+              math:
+                model: claude-sonnet-4-5-20250929
+                provider: anthropic
+        """)
+        root = _make_config_tree(self, judges_yaml=valid_yaml)
         result = rule22(root)
         self.assertEqual(result, [])
 
     def test_both_files_missing(self):
-        tmpdir = tempfile.mkdtemp()  # no config dir at all
+        tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
         result = rule22(tmpdir)
         self.assertEqual(result, [])
 
@@ -185,14 +202,14 @@ class TestRule22MalformedYaml(unittest.TestCase):
 
     def test_malformed_yaml_judges(self):
         bad_yaml = "judges:\n  math:\n    - invalid: [unclosed\n"
-        root = _make_config_tree(judges_yaml=bad_yaml)
+        root = _make_config_tree(self, judges_yaml=bad_yaml)
         result = rule22(root)
         self.assertEqual(len(result), 1)
         self.assertIn("could not parse YAML", result[0])
 
     def test_malformed_yaml_generators(self):
         bad_yaml = ": :\n  bad: yaml: content:"
-        root = _make_config_tree(generators_yaml=bad_yaml)
+        root = _make_config_tree(self, generators_yaml=bad_yaml)
         result = rule22(root)
         self.assertEqual(len(result), 1)
         self.assertIn("could not parse YAML", result[0])
@@ -200,7 +217,7 @@ class TestRule22MalformedYaml(unittest.TestCase):
     def test_non_dict_root(self):
         # YAML that parses to a non-dict (e.g., a list) should be silently skipped.
         yaml = "- item1\n- item2\n"
-        root = _make_config_tree(judges_yaml=yaml)
+        root = _make_config_tree(self, judges_yaml=yaml)
         result = rule22(root)
         self.assertEqual(result, [])
 
