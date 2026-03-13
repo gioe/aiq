@@ -133,9 +133,17 @@ class TestSetupLogging:
         "urllib3",
     ]
 
+    SUB_LOGGERS = [
+        "openai._base_client",
+        "httpcore.http11",
+        "httpcore.connection",
+    ]
+
     def teardown_method(self, method):
         """Reset all third-party logger levels to avoid cross-test pollution."""
         for name in self.THIRD_PARTY_LOGGERS:
+            logging.getLogger(name).setLevel(logging.NOTSET)
+        for name in self.SUB_LOGGERS:
             logging.getLogger(name).setLevel(logging.NOTSET)
 
     def test_setup_logging_default(self):
