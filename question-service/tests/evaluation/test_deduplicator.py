@@ -463,12 +463,12 @@ class TestDeduplicatorIntegration:
     def test_similarity_threshold_boundary(self, mock_openai):
         """Test behavior at similarity threshold boundary."""
         question = GeneratedQuestion(
-            question_text="Test question",
+            question_text="Which of the following is the sum of nine and six?",
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
-            correct_answer="4",
-            answer_options=["2", "3", "4", "5"],
-            explanation="Explanation",
+            correct_answer="fifteen",
+            answer_options=["eleven", "thirteen", "fifteen", "seventeen"],
+            explanation="Nine plus six equals fifteen.",
             source_llm="openai",
             source_model="gpt-4",
         )
