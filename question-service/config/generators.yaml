@@ -37,7 +37,7 @@ generators:
     max_batch_size: 10
     rationale: "Leads all models with full benchmark coverage: AIME 2025 (100%), FrontierMath (40.3%), GSM8K (99.0%). Composite 81.79 — best among models with complete math data. Grok-4 was strong on AIME alone but scored 13% on FrontierMath, dragging its composite to 69.66. Updated Mar 2026."
     fallback: "google"
-    fallback_model: "gemini-3-pro-preview"
+    fallback_model: "gemini-2.5-pro"
 
   logic:
     provider: "anthropic"
@@ -61,7 +61,7 @@ generators:
     max_batch_size: 10
     rationale: "ARC-AGI-2: 52.9%, MMMU-Pro: 86.5%, Video-MMMU: 90.5%. Composite 75.9 leads all models. Updated Jan 2026."
     fallback: "google"
-    fallback_model: "gemini-3-pro-preview"
+    fallback_model: "gemini-2.5-pro"
 
   verbal:
     provider: "anthropic"
