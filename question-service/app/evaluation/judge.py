@@ -143,13 +143,18 @@ class QuestionJudge:
             circuit_breaker_registry: Circuit breaker registry (uses global if not provided)
             max_concurrent_evaluations: Maximum concurrent judge API calls (default: 10)
             async_timeout_seconds: Timeout for individual async calls in seconds (default: 60)
-            fallback_timeout_seconds: Independent timeout for fallback provider calls (default: 30).
-                Using a dedicated value ensures the fallback gets a fresh deadline regardless
-                of how long the primary attempt ran.
+            fallback_timeout_seconds: Independent timeout for fallback provider calls
+                (default: 30, async path only — sync path is not timeout-limited).
+                Using a dedicated value ensures the fallback gets a fresh deadline
+                regardless of how long the primary attempt ran.
 
         Raises:
             ValueError: If no API keys are provided
         """
+        if fallback_timeout_seconds <= 0:
+            raise ValueError(
+                f"fallback_timeout_seconds must be positive, got {fallback_timeout_seconds}"
+            )
         self.judge_config = judge_config
         self.providers: Dict[str, BaseLLMProvider] = {}
         self._circuit_breaker_registry = (
@@ -390,6 +395,10 @@ class QuestionJudge:
         resolved_provider: Optional[str] = None
         effective_model: Optional[str] = None
         effective_timeout: Optional[float] = None
+        # Tracks the timeout that applies to the currently-executing call (primary or
+        # fallback). Updated to self._fallback_timeout before the fallback is invoked so
+        # that the asyncio.TimeoutError handler can log the correct value.
+        active_timeout: Optional[float] = None
 
         with observability.start_span(
             "judge.evaluate_question_async",
@@ -440,6 +449,7 @@ class QuestionJudge:
                 effective_timeout = (
                     timeout if timeout is not None else self._async_timeout
                 )
+                active_timeout = effective_timeout
 
                 # Define the async API call with rate limiting, timeout, and cost tracking
                 async def _do_async_evaluation() -> Dict[str, Any]:
@@ -500,10 +510,14 @@ class QuestionJudge:
                                 )
                                 return fb_result.content
 
+                        # Update resolved_provider and active_timeout before the call
+                        # so the TimeoutError handler logs the correct values if the
+                        # fallback itself times out.
+                        resolved_provider = fallback_name
+                        active_timeout = self._fallback_timeout
                         response = await fallback_cb.execute_async(
                             _do_fallback_evaluation
                         )
-                        resolved_provider = fallback_name
                         effective_model = fallback_model_name or fallback_provider.model
                         span.set_attribute("provider", resolved_provider)
                         span.set_attribute("model", effective_model)
@@ -553,7 +567,7 @@ class QuestionJudge:
                 raise
             except asyncio.TimeoutError:
                 span.set_attribute("success", False)
-                timeout_info = effective_timeout or self._async_timeout
+                timeout_info = active_timeout or self._async_timeout
                 span.set_status("error", f"Timeout after {timeout_info}s")
                 provider_info = resolved_provider or "unknown"
                 logger.error(

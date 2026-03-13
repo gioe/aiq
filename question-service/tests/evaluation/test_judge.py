@@ -1791,7 +1791,9 @@ def google_xai_judge_config():
 class TestRuntimeFallback:
     """Tests for runtime API error fallback in evaluate_question and evaluate_question_async."""
 
-    def _make_judge(self, config, mock_google, mock_xai=None):
+    def _make_judge(
+        self, config, mock_google, mock_xai=None, fallback_timeout_seconds=30.0
+    ):
         """Build a QuestionJudge with pre-wired provider mocks, bypassing real __init__."""
         with patch("app.evaluation.judge.GoogleProvider", return_value=mock_google):
             if mock_xai is not None:
@@ -1800,11 +1802,13 @@ class TestRuntimeFallback:
                         judge_config=config,
                         google_api_key="test-google-key",
                         xai_api_key="test-xai-key",  # pragma: allowlist secret
+                        fallback_timeout_seconds=fallback_timeout_seconds,
                     )
             else:
                 judge = QuestionJudge(
                     judge_config=config,
                     google_api_key="test-google-key",
+                    fallback_timeout_seconds=fallback_timeout_seconds,
                 )
         # Replace providers with explicit mocks so assertions are unambiguous
         judge.providers["google"] = mock_google
@@ -1936,10 +1940,12 @@ class TestRuntimeFallback:
             side_effect=_hang
         )
 
-        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai)
-        # Give the primary a long timeout but the fallback a very short one
-        judge._async_timeout = 60.0
-        judge._fallback_timeout = 0.05
+        judge = self._make_judge(
+            google_xai_judge_config,
+            mock_google,
+            mock_xai,
+            fallback_timeout_seconds=0.05,
+        )
 
         with pytest.raises(asyncio.TimeoutError):
             await judge.evaluate_question_async(logic_question)
