@@ -292,6 +292,14 @@ class TestRule22StructuralFilter(unittest.TestCase):
         result = rule22(root)
         self.assertEqual(result, [], f"Only model files should be validated, got: {result}")
 
+    def test_structural_key_present_but_null_section(self):
+        # A glob-discovered file with a structural key (e.g. judges) that maps to null
+        # should be handled gracefully — no crash, no spurious warnings.
+        yaml = "judges:\n"  # key exists but value is null
+        root = _make_config_tree(self, extra_files={"null-section.yaml": yaml})
+        result = rule22(root)
+        self.assertEqual(result, [], f"Null section value should produce no warnings, got: {result}")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -8,6 +8,7 @@ Checks the tusk codebase against Key Conventions from CLAUDE.md.
 Prints results grouped by rule and exits with status 1 if any violations found.
 """
 
+import glob as _glob
 import importlib.util
 import json
 import os
@@ -906,6 +907,9 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
     "xai": ["grok-4", "grok-3"],
 }
 
+# Top-level keys that identify a YAML file as containing model+provider mappings.
+_MODEL_SECTION_KEYS = {"judges", "generators", "default_judge", "default_generator"}
+
 
 def rule22_provider_model_validation(root):
     """Warn when model identifiers in config YAML files are not in provider's known list.
@@ -924,18 +928,12 @@ def rule22_provider_model_validation(root):
     except ImportError:
         return ["  PyYAML not available — install with: pip install pyyaml to enable model validation"]
 
-    import glob as _glob
-
-    _MODEL_SECTION_KEYS = {"judges", "generators", "default_judge", "default_generator"}
-
     config_dir = os.path.join(root, "question-service", "config")
     config_files = sorted(_glob.glob(os.path.join(config_dir, "*.yaml")))
 
     warnings = []
 
     for config_path in config_files:
-        if not os.path.isfile(config_path):
-            continue
         rel_path = os.path.relpath(config_path, root)
 
         try:
