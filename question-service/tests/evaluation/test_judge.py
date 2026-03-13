@@ -1911,3 +1911,35 @@ class TestRuntimeFallback:
         assert evaluated.approved is True
         mock_google.generate_structured_completion_with_usage_async.assert_called_once()
         mock_xai.generate_structured_completion_with_usage_async.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_evaluate_question_async_fallback_uses_independent_timeout(
+        self,
+        google_xai_judge_config,
+        logic_question,
+        sample_evaluation_response,
+    ):
+        """Fallback call uses _fallback_timeout, not the primary's effective_timeout."""
+        mock_google = Mock()
+        mock_google.model = "gemini-2.5-pro"
+        mock_google.generate_structured_completion_with_usage_async = AsyncMock(
+            side_effect=Exception("primary error")
+        )
+
+        # Fallback hangs indefinitely (accepts any args forwarded by AsyncMock)
+        async def _hang(*args, **kwargs):
+            await asyncio.sleep(10)
+
+        mock_xai = Mock()
+        mock_xai.model = "grok-4"
+        mock_xai.generate_structured_completion_with_usage_async = AsyncMock(
+            side_effect=_hang
+        )
+
+        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai)
+        # Give the primary a long timeout but the fallback a very short one
+        judge._async_timeout = 60.0
+        judge._fallback_timeout = 0.05
+
+        with pytest.raises(asyncio.TimeoutError):
+            await judge.evaluate_question_async(logic_question)

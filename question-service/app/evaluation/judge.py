@@ -45,6 +45,9 @@ logger = logging.getLogger(__name__)
 # Default rate limiting settings for async operations
 DEFAULT_MAX_CONCURRENT_EVALUATIONS = 10  # Max concurrent judge API calls
 DEFAULT_ASYNC_TIMEOUT_SECONDS = 60.0  # Timeout for individual async evaluation calls
+DEFAULT_FALLBACK_TIMEOUT_SECONDS = (
+    30.0  # Independent timeout for fallback provider calls
+)
 
 
 def _safe_capture_evaluation_error(
@@ -127,6 +130,7 @@ class QuestionJudge:
         circuit_breaker_registry: Optional[CircuitBreakerRegistry] = None,
         max_concurrent_evaluations: int = DEFAULT_MAX_CONCURRENT_EVALUATIONS,
         async_timeout_seconds: float = DEFAULT_ASYNC_TIMEOUT_SECONDS,
+        fallback_timeout_seconds: float = DEFAULT_FALLBACK_TIMEOUT_SECONDS,
     ):
         """Initialize the question judge.
 
@@ -139,6 +143,9 @@ class QuestionJudge:
             circuit_breaker_registry: Circuit breaker registry (uses global if not provided)
             max_concurrent_evaluations: Maximum concurrent judge API calls (default: 10)
             async_timeout_seconds: Timeout for individual async calls in seconds (default: 60)
+            fallback_timeout_seconds: Independent timeout for fallback provider calls (default: 30).
+                Using a dedicated value ensures the fallback gets a fresh deadline regardless
+                of how long the primary attempt ran.
 
         Raises:
             ValueError: If no API keys are provided
@@ -150,6 +157,7 @@ class QuestionJudge:
         )
         self._rate_limiter = asyncio.Semaphore(max_concurrent_evaluations)
         self._async_timeout = async_timeout_seconds
+        self._fallback_timeout = fallback_timeout_seconds
 
         # Initialize providers for all available API keys
         if openai_api_key:
@@ -488,7 +496,7 @@ class QuestionJudge:
                                         max_tokens=max_tokens,
                                         model_override=fallback_model_name,
                                     ),
-                                    timeout=effective_timeout,
+                                    timeout=self._fallback_timeout,
                                 )
                                 return fb_result.content
 
