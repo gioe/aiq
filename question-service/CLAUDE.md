@@ -24,6 +24,8 @@ When working on question generation, prompts, or the pipeline, read these docs f
 | `config/generators.yaml` | Primary/fallback provider routing per question type |
 | `config/judges.yaml` | Judge model assignment per question type |
 
+> **Before editing model identifiers in `config/judges.yaml` or `config/generators.yaml`**, run `/refresh-providers` to validate current model names against provider documentation. Model identifiers go stale (e.g., `gemini-3-pro-preview` returning HTTP 400) and `/refresh-providers` will surface the correct names before you edit.
+
 ### Testing & Environment
 
 Always activate the question-service virtualenv (`source venv/bin/activate`) and ensure `PYTHONPATH` includes `libs/` before running tests. Never assume import paths — verify them first.
