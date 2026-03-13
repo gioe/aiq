@@ -175,9 +175,31 @@ Follow its instructions from **Step 1**, using the Proposed Remediation section 
 - Metadata assignment (priority, domain, task_type, complexity, assignee)
 - Dependency proposals
 
+## Step 7.5: Offer Deferred Tasks for Out of Scope Items *(conditional)*
+
+**Skip this step if the report's Out of Scope section is empty or absent.**
+
+If Out of Scope items were identified, ask the user:
+
+> The investigation also surfaced these out-of-scope findings. Should I capture any as deferred tasks so they're not lost?
+>
+> [list the Out of Scope items]
+
+Wait for the user's response. If they decline or don't select any items, proceed to Step 8 with `<D>` = 0.
+
+If the user approves any items, pass them to the `/create-task` workflow in deferred mode. Read the skill:
+
+```
+Read file: <base_directory>/../create-task/SKILL.md
+```
+
+Follow its instructions, passing the approved Out of Scope items as the input text with a `--deferred` flag (or an inline "add as deferred" intent phrase). `/create-task` handles decomposition review, acceptance criteria generation, duplicate detection, metadata assignment, and deferred insertion (`is_deferred=1`, `[Deferred]` prefix, `expires_at = now + 60 days`).
+
+Track the number of deferred tasks actually inserted (`<D>`) from the `/create-task` results — you will need it in Step 8.
+
 ## Step 8: Finish Cost Tracking
 
-Record cost for this investigation run. Replace `<run_id>` with the value captured in Step 0, `<N>` with the number of tasks proposed in your Investigation Report (Step 5), and `<M>` with the number of tasks actually created by `/create-task` (Step 7). If the user declined to create tasks, set `<M>` to 0.
+Record cost for this investigation run. Replace `<run_id>` with the value captured in Step 0, `<N>` with the number of tasks proposed in your Investigation Report (Step 5), and `<M>` with the total number of tasks created — include both tasks created by `/create-task` (Step 7) and deferred tasks inserted in Step 7.5. If neither step created any tasks, set `<M>` to 0.
 
 ```bash
 tusk skill-run finish <run_id> --metadata '{"tasks_proposed":<N>,"tasks_created":<M>}'

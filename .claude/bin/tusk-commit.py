@@ -136,21 +136,95 @@ def main(argv: list[str]) -> int:
 
     # ── Step 3: Stage files ──────────────────────────────────────────
     # git add handles deletions of tracked files natively since Git 2.x — no git rm needed.
-    # cwd=repo_root ensures file paths are always interpreted relative to the repo root,
-    # regardless of which directory tusk was invoked from.
-    result = run(["git", "add"] + files, check=False, cwd=repo_root)
+    # Resolve relative paths against the caller's CWD before making them relative to
+    # repo_root.  This lets users in a monorepo subdirectory pass paths that are relative
+    # to their working directory (e.g. `tests/foo.py` from inside `apps/scraper/`) rather
+    # than requiring repo-root-relative paths.  Absolute paths are passed through unchanged.
+    caller_cwd = os.getcwd()
+    resolved_files: list[str] = []
+    escape_errors: list[tuple[str, str]] = []
+    for f in files:
+        if os.path.isabs(f):
+            abs_path = os.path.normpath(f)
+            rel = os.path.relpath(abs_path, repo_root)
+            if rel.startswith(".."):
+                escape_errors.append((f, abs_path))
+            resolved_files.append(abs_path)
+        else:
+            abs_path = os.path.normpath(os.path.join(caller_cwd, f))
+            rel = os.path.relpath(abs_path, repo_root)
+            if rel.startswith(".."):
+                escape_errors.append((f, abs_path))
+            resolved_files.append(rel)
+
+    if escape_errors:
+        for orig, abs_path in escape_errors:
+            print(
+                f"Error: path escapes the repo root: '{orig}'\n"
+                f"  Resolved to: '{abs_path}'\n"
+                f"  Repo root is: {repo_root}\n"
+                f"  Hint: paths must be inside the repo root",
+                file=sys.stderr,
+            )
+        return 3
+
+    # Pre-flight: verify each resolved path exists so we can emit a useful diagnostic
+    # before git produces a cryptic "pathspec did not match" error.
+    missing = [
+        (orig, resolved)
+        for orig, resolved in zip(files, resolved_files)
+        if not os.path.exists(resolved if os.path.isabs(resolved) else os.path.join(repo_root, resolved))
+    ]
+    if missing:
+        for orig, resolved in missing:
+            was_remapped = orig != resolved
+            if not was_remapped:
+                print(
+                    f"Error: path not found: '{orig}'\n"
+                    f"  Hint: paths must exist relative to the repo root ({repo_root})",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"Error: path not found: '{orig}'\n"
+                    f"  Resolved to (repo-root-relative): '{resolved}'\n"
+                    f"  Hint: the file was not found at {os.path.join(repo_root, resolved)}",
+                    file=sys.stderr,
+                )
+        return 3
+
+    result = run(["git", "add"] + resolved_files, check=False, cwd=repo_root)
     if result.returncode != 0:
         print(f"Error: git add failed:\n{result.stderr.strip()}", file=sys.stderr)
         return 3
 
     # ── Step 4: Commit ───────────────────────────────────────────────
     full_message = f"[TASK-{task_id}] {message}\n\n{TRAILER}"
-    result = run(["git", "commit", "-m", full_message], check=False, cwd=repo_root)
-    if result.returncode != 0:
-        print(f"Error: git commit failed:\n{result.stderr.strip()}", file=sys.stderr)
-        return 3
+    # Capture HEAD before committing so we can verify whether the commit
+    # landed even when a hook (e.g. husky + lint-staged) exits non-zero.
+    pre = run(["git", "rev-parse", "HEAD"], check=False, cwd=repo_root)
+    pre_sha = pre.stdout.strip() if pre.returncode == 0 else None
 
-    print(result.stdout.strip())
+    result = run(["git", "commit", "-m", full_message], check=False, cwd=repo_root)
+
+    if result.returncode != 0:
+        # Check whether the commit actually landed despite the non-zero exit.
+        post = run(["git", "rev-parse", "HEAD"], check=False, cwd=repo_root)
+        post_sha = post.stdout.strip() if post.returncode == 0 else None
+        commit_landed = post_sha and post_sha != pre_sha
+
+        if not commit_landed:
+            print(f"Error: git commit failed:\n{result.stderr.strip()}", file=sys.stderr)
+            return 3
+
+        # Commit landed but a hook emitted a non-zero exit (e.g. lint-staged
+        # "no staged files" warning). Surface it as a note, not a fatal error.
+        warning = result.stderr.strip()
+        if warning:
+            print(f"Note: git hook warning (commit landed successfully):\n{warning}")
+
+    if result.stdout.strip():
+        print(result.stdout.strip())
 
     # ── Step 5: Mark criteria done (captures new HEAD automatically) ─
     # When multiple criteria are batched in one commit call, suppress the
