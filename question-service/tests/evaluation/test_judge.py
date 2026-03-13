@@ -1791,12 +1791,29 @@ def google_xai_judge_config():
 class TestRuntimeFallback:
     """Tests for runtime API error fallback in evaluate_question and evaluate_question_async."""
 
-    @patch("app.evaluation.judge.GoogleProvider")
-    @patch("app.evaluation.judge.XAIProvider")
+    def _make_judge(self, config, mock_google, mock_xai=None):
+        """Build a QuestionJudge with pre-wired provider mocks, bypassing real __init__."""
+        with patch("app.evaluation.judge.GoogleProvider", return_value=mock_google):
+            if mock_xai is not None:
+                with patch("app.evaluation.judge.XAIProvider", return_value=mock_xai):
+                    judge = QuestionJudge(
+                        judge_config=config,
+                        google_api_key="test-google-key",
+                        xai_api_key="test-xai-key",  # pragma: allowlist secret
+                    )
+            else:
+                judge = QuestionJudge(
+                    judge_config=config,
+                    google_api_key="test-google-key",
+                )
+        # Replace providers with explicit mocks so assertions are unambiguous
+        judge.providers["google"] = mock_google
+        if mock_xai is not None:
+            judge.providers["xai"] = mock_xai
+        return judge
+
     def test_evaluate_question_retries_with_fallback_on_api_error(
         self,
-        mock_xai_class,
-        mock_google_class,
         google_xai_judge_config,
         logic_question,
         sample_evaluation_response,
@@ -1807,23 +1824,14 @@ class TestRuntimeFallback:
         mock_google.generate_structured_completion_with_usage.side_effect = Exception(
             "HTTP 400 Bad Request"
         )
-        mock_google_class.return_value = mock_google
 
         mock_xai = Mock()
         mock_xai.model = "grok-4"
         mock_xai.generate_structured_completion_with_usage.return_value = (
             make_completion_result(sample_evaluation_response)
         )
-        mock_xai_class.return_value = mock_xai
 
-        judge = QuestionJudge(
-            judge_config=google_xai_judge_config,
-            google_api_key="test-google-key",
-            xai_api_key="test-xai-key",  # pragma: allowlist secret
-        )
-        judge.providers["google"] = mock_google
-        judge.providers["xai"] = mock_xai
-
+        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai)
         evaluated = judge.evaluate_question(logic_question)
 
         assert isinstance(evaluated, EvaluatedQuestion)
@@ -1831,37 +1839,53 @@ class TestRuntimeFallback:
         mock_google.generate_structured_completion_with_usage.assert_called_once()
         mock_xai.generate_structured_completion_with_usage.assert_called_once()
 
-    @patch("app.evaluation.judge.GoogleProvider")
     def test_evaluate_question_raises_when_fallback_not_available(
         self,
-        mock_google_class,
         google_xai_judge_config,
         logic_question,
     ):
         """Primary raises and fallback provider not initialized → re-raises original error."""
         mock_google = Mock()
         mock_google.model = "gemini-2.5-pro"
-        api_error = Exception("HTTP 400 Bad Request")
-        mock_google.generate_structured_completion_with_usage.side_effect = api_error
-        mock_google_class.return_value = mock_google
-
-        judge = QuestionJudge(
-            judge_config=google_xai_judge_config,
-            google_api_key="test-google-key",
+        mock_google.generate_structured_completion_with_usage.side_effect = Exception(
+            "HTTP 400 Bad Request"
         )
-        judge.providers["google"] = mock_google
-        # xai provider NOT initialized → fallback not in self.providers
+
+        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai=None)
+        # xai NOT in providers → no fallback available
 
         with pytest.raises(Exception, match="HTTP 400 Bad Request"):
             judge.evaluate_question(logic_question)
 
+    def test_evaluate_question_raises_when_both_primary_and_fallback_fail(
+        self,
+        google_xai_judge_config,
+        logic_question,
+    ):
+        """Both primary and fallback raise → fallback error is propagated."""
+        mock_google = Mock()
+        mock_google.model = "gemini-2.5-pro"
+        mock_google.generate_structured_completion_with_usage.side_effect = Exception(
+            "HTTP 400 Bad Request"
+        )
+
+        mock_xai = Mock()
+        mock_xai.model = "grok-4"
+        mock_xai.generate_structured_completion_with_usage.side_effect = Exception(
+            "xai fallback error"
+        )
+
+        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai)
+
+        with pytest.raises(Exception, match="xai fallback error"):
+            judge.evaluate_question(logic_question)
+
+        mock_google.generate_structured_completion_with_usage.assert_called_once()
+        mock_xai.generate_structured_completion_with_usage.assert_called_once()
+
     @pytest.mark.asyncio
-    @patch("app.evaluation.judge.GoogleProvider")
-    @patch("app.evaluation.judge.XAIProvider")
     async def test_evaluate_question_async_retries_with_fallback_on_api_error(
         self,
-        mock_xai_class,
-        mock_google_class,
         google_xai_judge_config,
         logic_question,
         sample_evaluation_response,
@@ -1872,22 +1896,14 @@ class TestRuntimeFallback:
         mock_google.generate_structured_completion_with_usage_async = AsyncMock(
             side_effect=Exception("HTTP 400 Bad Request")
         )
-        mock_google_class.return_value = mock_google
 
         mock_xai = Mock()
         mock_xai.model = "grok-4"
         mock_xai.generate_structured_completion_with_usage_async = AsyncMock(
             return_value=make_completion_result(sample_evaluation_response)
         )
-        mock_xai_class.return_value = mock_xai
 
-        judge = QuestionJudge(
-            judge_config=google_xai_judge_config,
-            google_api_key="test-google-key",
-            xai_api_key="test-xai-key",  # pragma: allowlist secret
-        )
-        judge.providers["google"] = mock_google
-        judge.providers["xai"] = mock_xai
+        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai)
 
         evaluated = await judge.evaluate_question_async(logic_question)
 

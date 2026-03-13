@@ -64,7 +64,7 @@ judges:
   pattern:
     model: "gemini-2.5-pro"
     provider: "google"
-    rationale: "Cross-provider judge: generator is openai/gpt-5.2, gen_fallback is anthropic. Google is the third independent provider — ARC-AGI-2 (31.1%), MMMU-Pro (81%), composite 51.06. gemini-3-pro-preview returned HTTP 400; downgraded to stable gemini-2.5-pro. Judge fallback: xai/grok-4 (4th provider). Updated Mar 2026."
+    rationale: "Cross-provider judge: generator is openai/gpt-5.2, gen_fallback is anthropic. Google is the third independent provider — ARC-AGI-2 (31.1%), MMMU-Pro (81%), composite 51.06 (figures from gemini-3-pro-preview; gemini-2.5-pro may vary). gemini-3-pro-preview returned HTTP 400; downgraded to stable gemini-2.5-pro. Judge fallback: xai/grok-4 (4th provider). Updated Mar 2026."
     benchmark_data:
       ARC_AGI_2: "31.1%"
       MMMU_Pro: "81.0%"

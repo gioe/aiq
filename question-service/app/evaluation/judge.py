@@ -264,6 +264,12 @@ class QuestionJudge:
                         model_override=resolved_model,
                     )
                 except Exception as primary_error:
+                    # Use get_judge_for_question_type (not resolve_judge_provider) because
+                    # resolve_judge_provider already selected the provider based on
+                    # availability; we need the raw JudgeModel.fallback field to determine
+                    # the intended fallback for runtime errors. The != resolved_provider
+                    # guard prevents an infinite retry if the primary was already selected
+                    # as the fallback at startup.
                     judge_cfg = self.judge_config.get_judge_for_question_type(
                         question_type
                     )
@@ -450,6 +456,8 @@ class QuestionJudge:
                 except (CircuitBreakerOpen, asyncio.TimeoutError):
                     raise
                 except Exception as primary_error:
+                    # See sync path comment: get_judge_for_question_type gives us the raw
+                    # JudgeModel.fallback; != resolved_provider guards against infinite retry.
                     judge_cfg = self.judge_config.get_judge_for_question_type(
                         question_type
                     )
