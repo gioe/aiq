@@ -1080,6 +1080,62 @@ def migrate_35(db_path: str, config_path: str, script_dir: str) -> None:
     print("  Migration 35: added note column to code_reviews")
 
 
+def migrate_36(db_path: str, config_path: str, script_dir: str) -> None:
+    if get_version(db_path) < 36:
+        run_script(db_path, """
+            ALTER TABLE tasks ADD COLUMN started_at TEXT;
+
+            UPDATE tasks
+            SET started_at = (
+                SELECT MIN(s.started_at)
+                FROM task_sessions s
+                WHERE s.task_id = tasks.id
+            )
+            WHERE status IN ('In Progress', 'Done')
+              AND (
+                SELECT MIN(s.started_at)
+                FROM task_sessions s
+                WHERE s.task_id = tasks.id
+              ) IS NOT NULL;
+
+            PRAGMA user_version = 36;
+        """)
+    else:
+        set_version(db_path, 36)
+    print("  Migration 36: added started_at column to tasks, backfilled from task_sessions")
+
+
+def migrate_37(db_path: str, config_path: str, script_dir: str) -> None:
+    if get_version(db_path) < 37:
+        run_script(db_path, """
+            ALTER TABLE tasks ADD COLUMN closed_at TEXT;
+
+            -- Backfill closed_at from updated_at for tasks already closed
+            -- (closed_reason is preserved; this migration only adds the timestamp)
+            UPDATE tasks
+            SET closed_at = updated_at
+            WHERE status = 'Done';
+
+            DROP VIEW IF EXISTS v_velocity;
+
+            CREATE VIEW v_velocity AS
+            SELECT
+                strftime('%Y-W%W', COALESCE(closed_at, updated_at)) AS week,
+                COUNT(id) AS task_count,
+                AVG(total_cost) AS avg_cost,
+                AVG(total_tokens_in) AS avg_tokens_in,
+                AVG(total_tokens_out) AS avg_tokens_out
+            FROM task_metrics
+            WHERE status = 'Done' AND closed_reason = 'completed'
+            GROUP BY strftime('%Y-W%W', COALESCE(closed_at, updated_at));
+
+            PRAGMA user_version = 37;
+        """)
+    else:
+        set_version(db_path, 37)
+    print("  Migration 37: added closed_at column to tasks, backfilled from updated_at for Done tasks, updated v_velocity")
+
+
 # ── Migration registry ────────────────────────────────────────────────────────
 
 MIGRATIONS = [
@@ -1118,6 +1174,8 @@ MIGRATIONS = [
     (33, migrate_33),
     (34, migrate_34),
     (35, migrate_35),
+    (36, migrate_36),
+    (37, migrate_37),
 ]
 
 
