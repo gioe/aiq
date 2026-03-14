@@ -215,19 +215,21 @@ class Settings(BaseSettings):
 
         # Validate email alert configuration
         if self.enable_email_alerts:
+            missing = []
             if not self.smtp_password:
-                raise ValueError(
-                    "SMTP_PASSWORD must be configured when ENABLE_EMAIL_ALERTS=true"
-                )
+                missing.append("SMTP_PASSWORD")
             if not self.smtp_username:
-                raise ValueError(
-                    "SMTP_USERNAME must be configured when ENABLE_EMAIL_ALERTS=true"
-                )
+                missing.append("SMTP_USERNAME")
             if not self.alert_to_emails:
-                raise ValueError(
-                    "ALERT_TO_EMAILS must be configured when ENABLE_EMAIL_ALERTS=true"
+                missing.append("ALERT_TO_EMAILS")
+            if missing:
+                logger.warning(
+                    "ENABLE_EMAIL_ALERTS=true but required variable(s) not set: %s. "
+                    "Auto-disabling email alerts to prevent startup crash.",
+                    ", ".join(missing),
                 )
-        elif self.env not in ("development", "test"):
+                self.enable_email_alerts = False
+        if not self.enable_email_alerts and self.env not in ("development", "test"):
             logger.warning(
                 "Email alerts are DISABLED (ENABLE_EMAIL_ALERTS=false) in env=%s. "
                 "Run completion notifications will not be sent.",

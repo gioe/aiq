@@ -188,20 +188,43 @@ class TestSecretsIntegration:
             settings = Settings()
             assert settings.backend_service_key == "secret-service-key"
 
-    def test_email_alerts_validation_with_missing_smtp_password(self):
-        """Test that enabling email alerts without SMTP password fails."""
+    def test_email_alerts_auto_disabled_with_missing_smtp_password(self):
+        """Test that enabling email alerts without SMTP password auto-disables alerts."""
         env_vars = {
             "OPENAI_API_KEY": "sk-test",
             "ENABLE_EMAIL_ALERTS": "true",
             "SMTP_USERNAME": "user@example.com",
             "ALERT_TO_EMAILS": "admin@example.com",
-            "ENV": "production",  # Validation only in non-dev
+            "ENV": "production",
+            "BACKEND_SERVICE_KEY": "svc-key",  # pragma: allowlist secret
+            "BACKEND_API_URL": "https://api.example.com",
         }
         with patch.dict("os.environ", env_vars, clear=False):
             os.environ.pop("SMTP_PASSWORD", None)
-            with pytest.raises(ValueError) as exc_info:
-                Settings()
-            assert "SMTP_PASSWORD" in str(exc_info.value)
+            with patch("app.config.config.logger") as mock_logger:
+                settings = Settings()
+            assert settings.enable_email_alerts is False
+            warning_calls = [str(c) for c in mock_logger.warning.call_args_list]
+            assert any("SMTP_PASSWORD" in c for c in warning_calls)
+
+    def test_email_alerts_auto_disabled_with_missing_alert_to_emails(self):
+        """Test that ENABLE_EMAIL_ALERTS=true with missing ALERT_TO_EMAILS auto-disables."""
+        env_vars = {
+            "OPENAI_API_KEY": "sk-test",
+            "ENABLE_EMAIL_ALERTS": "true",
+            "SMTP_USERNAME": "user@example.com",
+            "SMTP_PASSWORD": "secret",  # pragma: allowlist secret
+            "ENV": "production",
+            "BACKEND_SERVICE_KEY": "svc-key",  # pragma: allowlist secret
+            "BACKEND_API_URL": "https://api.example.com",
+        }
+        with patch.dict("os.environ", env_vars, clear=False):
+            os.environ.pop("ALERT_TO_EMAILS", None)
+            with patch("app.config.config.logger") as mock_logger:
+                settings = Settings()
+            assert settings.enable_email_alerts is False
+            warning_calls = [str(c) for c in mock_logger.warning.call_args_list]
+            assert any("ALERT_TO_EMAILS" in c for c in warning_calls)
 
     def test_email_alerts_disabled_warning_in_production(self):
         """Test that disabling email alerts in production emits a WARNING log."""
