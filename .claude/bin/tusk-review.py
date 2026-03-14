@@ -266,17 +266,25 @@ def cmd_approve(args: argparse.Namespace, db_path: str) -> int:
             print(f"Error: Review {args.review_id} not found", file=sys.stderr)
             return 2
 
-        conn.execute(
-            "UPDATE code_reviews SET status = 'approved', review_pass = 1,"
-            " updated_at = datetime('now') WHERE id = ?",
-            (args.review_id,),
-        )
+        if args.note:
+            conn.execute(
+                "UPDATE code_reviews SET status = 'approved', review_pass = 1,"
+                " note = ?, updated_at = datetime('now') WHERE id = ?",
+                (args.note, args.review_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE code_reviews SET status = 'approved', review_pass = 1,"
+                " updated_at = datetime('now') WHERE id = ?",
+                (args.review_id,),
+            )
         conn.commit()
     finally:
         conn.close()
 
     reviewer_str = f" by {review['reviewer']}" if review["reviewer"] else ""
-    print(f"Review #{args.review_id} approved{reviewer_str} for task #{review['task_id']}")
+    note_str = f" ({args.note})" if args.note else ""
+    print(f"Review #{args.review_id} approved{reviewer_str} for task #{review['task_id']}{note_str}")
     return 0
 
 
@@ -320,10 +328,10 @@ def cmd_status(args: argparse.Namespace, db_path: str) -> int:
         reviews = conn.execute(
             "SELECT r.id, r.reviewer, r.status, r.review_pass, r.created_at, r.updated_at,"
             "  COUNT(c.id) as total_comments,"
-            "  SUM(CASE WHEN c.resolution IS NULL THEN 1 ELSE 0 END) as open_comments,"
-            "  SUM(CASE WHEN c.resolution = 'fixed' THEN 1 ELSE 0 END) as fixed_comments,"
-            "  SUM(CASE WHEN c.resolution = 'deferred' THEN 1 ELSE 0 END) as deferred_comments,"
-            "  SUM(CASE WHEN c.resolution = 'dismissed' THEN 1 ELSE 0 END) as dismissed_comments"
+            "  SUM(CASE WHEN c.id IS NOT NULL AND c.resolution IS NULL THEN 1 ELSE 0 END) as open_comments,"
+            "  SUM(CASE WHEN c.id IS NOT NULL AND c.resolution = 'fixed' THEN 1 ELSE 0 END) as fixed_comments,"
+            "  SUM(CASE WHEN c.id IS NOT NULL AND c.resolution = 'deferred' THEN 1 ELSE 0 END) as deferred_comments,"
+            "  SUM(CASE WHEN c.id IS NOT NULL AND c.resolution = 'dismissed' THEN 1 ELSE 0 END) as dismissed_comments"
             " FROM code_reviews r"
             " LEFT JOIN review_comments c ON c.review_id = r.id"
             " WHERE r.task_id = ?"
@@ -484,6 +492,7 @@ def main():
     # approve
     approve_p = subparsers.add_parser("approve", help="Approve a review")
     approve_p.add_argument("review_id", type=int, help="Review ID")
+    approve_p.add_argument("--note", help="Optional reason or note to store with the approval")
 
     # request-changes
     req_changes_p = subparsers.add_parser("request-changes", help="Request changes on a review")

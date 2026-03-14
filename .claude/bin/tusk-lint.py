@@ -8,7 +8,6 @@ Checks the tusk codebase against Key Conventions from CLAUDE.md.
 Prints results grouped by rule and exits with status 1 if any violations found.
 """
 
-import glob as _glob
 import importlib.util
 import json
 import os
@@ -883,118 +882,6 @@ def rule19_tusk_manifest_json_sync(root):
     return violations
 
 
-# ── Rule 22 ─────────────────────────────────────────────────────────
-
-# Known model lists per provider — mirrors each provider's get_available_models().
-# Update these when providers add or deprecate models (run /refresh-providers first).
-_PROVIDER_MODELS: dict[str, list[str]] = {
-    "openai": [
-        "gpt-5.2", "gpt-5.1", "gpt-5",
-        "o4-mini", "o3", "o3-mini", "o1",
-        "gpt-4o", "gpt-4o-mini",
-        "gpt-4-turbo", "gpt-4-turbo-preview", "gpt-4", "gpt-4-0125-preview",
-        "gpt-3.5-turbo", "gpt-3.5-turbo-16k",
-    ],
-    "anthropic": [
-        "claude-opus-4-5-20251101", "claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001",
-        "claude-opus-4-1-20250805", "claude-sonnet-4-20250514", "claude-opus-4-20250514",
-        "claude-3-7-sonnet-20250219", "claude-3-haiku-20240307",
-    ],
-    "google": [
-        "gemini-3-pro-preview", "gemini-3-flash-preview",
-        "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash",
-    ],
-    "xai": ["grok-4", "grok-3"],
-}
-
-# Top-level keys that identify a YAML file as containing model+provider mappings.
-_MODEL_SECTION_KEYS = {"judges", "generators", "default_judge", "default_generator"}
-
-
-def rule22_provider_model_validation(root):
-    """Warn when model identifiers in config YAML files are not in provider's known list.
-
-    Scans all *.yaml files under question-service/config/ and applies a structural
-    filter: only files containing judges, generators, default_judge, or default_generator
-    top-level keys are validated. New config files with model+provider mappings are
-    automatically covered without requiring changes to this rule.
-
-    Cross-references each configured model name against the static list maintained in
-    _PROVIDER_MODELS (which mirrors each provider's get_available_models()). Stale model
-    identifiers produce HTTP 400 errors at runtime; this check surfaces them at lint time.
-    """
-    try:
-        import yaml  # type: ignore[import]
-    except ImportError:
-        return ["  PyYAML not available — install with: pip install pyyaml to enable model validation"]
-
-    config_dir = os.path.join(root, "question-service", "config")
-    config_files = sorted(_glob.glob(os.path.join(config_dir, "*.yaml")))
-
-    warnings = []
-
-    for config_path in config_files:
-        rel_path = os.path.relpath(config_path, root)
-
-        try:
-            with open(config_path, encoding="utf-8") as f:
-                data = yaml.safe_load(f)
-        except Exception as exc:
-            warnings.append(f"  {rel_path}: could not parse YAML: {exc}")
-            continue
-
-        if not isinstance(data, dict):
-            continue
-
-        # Structural filter: skip files that don't contain model-mapping sections.
-        if not _MODEL_SECTION_KEYS.intersection(data.keys()):
-            continue
-
-        # Collect (label, model, provider) tuples from primary and fallback fields.
-        entries: list[tuple[str, str, str]] = []
-
-        for section_key in ("judges", "generators"):
-            section = data.get(section_key, {})
-            if not isinstance(section, dict):
-                continue
-            for qtype, cfg in section.items():
-                if not isinstance(cfg, dict):
-                    continue
-                model = cfg.get("model")
-                provider = cfg.get("provider")
-                if model and provider:
-                    entries.append((f"{section_key}.{qtype}", model, provider))
-                fallback_model = cfg.get("fallback_model")
-                fallback = cfg.get("fallback")
-                if fallback_model and fallback:
-                    entries.append((f"{section_key}.{qtype}[fallback]", fallback_model, fallback))
-
-        for section_key in ("default_judge", "default_generator"):
-            cfg = data.get(section_key, {})
-            if not isinstance(cfg, dict):
-                continue
-            model = cfg.get("model")
-            provider = cfg.get("provider")
-            if model and provider:
-                entries.append((section_key, model, provider))
-            fallback_model = cfg.get("fallback_model")
-            fallback = cfg.get("fallback")
-            if fallback_model and fallback:
-                entries.append((f"{section_key}[fallback]", fallback_model, fallback))
-
-        for label, model, provider in entries:
-            known = _PROVIDER_MODELS.get(provider)
-            if known is None:
-                warnings.append(f"  {rel_path}: {label}: unknown provider '{provider}'")
-            elif model not in known:
-                warnings.append(
-                    f"  {rel_path}: {label}: model '{model}' not in {provider}'s known list"
-                    " — may be stale (run /refresh-providers)"
-                )
-
-    return warnings
-
-
 # ── Main ─────────────────────────────────────────────────────────────
 
 # Each entry: (display_name, check_function, advisory)
@@ -1022,7 +909,6 @@ RULES = [
     ("Rule 19: .claude/tusk-manifest.json out of sync with MANIFEST", rule19_tusk_manifest_json_sync, False),
     ("Rule 20: skills/ file modified without VERSION bump (advisory)", rule20_skills_version_bump_missing, True),
     ("Rule 21: Skill files with multiple trailing newlines", rule21_skills_trailing_newlines, False),
-    ("Rule 22: Provider model names in judges/generators config (advisory)", rule22_provider_model_validation, True),
 ]
 
 

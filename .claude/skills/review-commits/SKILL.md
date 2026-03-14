@@ -39,13 +39,15 @@ git branch --show-current
 
 Parse the branch name for the pattern `TASK-<id>` (e.g., `feature/TASK-123-my-feature` → task ID 123). If no task ID can be found, ask the user to provide one.
 
-Verify the task exists:
+Verify the task exists and capture its domain:
 
 ```bash
-tusk -header -column "SELECT id, summary, status FROM tasks WHERE id = <task_id>"
+tusk -header -column "SELECT id, summary, status, domain FROM tasks WHERE id = <task_id>"
 ```
 
 If no row is returned, abort: "Task `<task_id>` not found."
+
+Store the task's `domain` value (may be NULL/empty — this is used to filter reviewers in Step 5).
 
 ## Step 3: Get the Git Diff
 
@@ -82,13 +84,46 @@ Store the mapping: reviewer name → review_id.
 
 ## Step 5: Spawn Parallel Reviewer Agents
 
-Only when the diff is non-empty and reviews have been started in Step 4, read the reviewer prompt template:
+Only when the diff is non-empty and reviews have been started in Step 4, proceed with the steps below.
+
+### Step 5.1: Pre-flight Bash permission check
+
+**Before reading the reviewer prompt or making any Task tool calls**, warn the user:
+
+> **Bash tool required for reviewer agents.**
+> Reviewer agents run `git diff` and `tusk review` commands via Bash. If Bash is **not** auto-approved in this session, agents will spawn, stall waiting for permission, and then be treated as approved after the 30-second wait in Step 6 (with a logged warning) — producing no real review findings.
+>
+> Confirm that Bash is auto-approved in your session settings before continuing, or type **abort** to stop here.
+
+Wait for the user's response:
+- If the user says **abort** (or any clear refusal): stop the skill immediately. Do not proceed to spawn agents.
+- If the user confirms (or gives any non-abort response): continue to Step 5.2.
+
+### Step 5.2: Read reviewer prompt and spawn agents
+
+Read the reviewer prompt template:
 
 ```
 Read file: <base_directory>/REVIEWER-PROMPT.md
 ```
 
 Where `<base_directory>` is the skill base directory shown at the top of this file.
+
+**Filter reviewers by task domain before spawning:**
+
+Using the `reviewer name → review_id` mapping from Step 4 and the task domain from Step 2, determine which reviewers to spawn:
+
+- A reviewer with an **empty or absent `domains` array** → always spawn (general reviewer).
+- A reviewer with a **non-empty `domains` array** → spawn only if the task's domain appears in that array.
+- If the task has **no domain (NULL/empty)** → spawn only reviewers with an empty or absent `domains` array.
+
+For each review_id whose reviewer was filtered out by this logic, immediately auto-approve it without spawning an agent, recording the reason with `--note`:
+
+```bash
+tusk review approve <review_id> --note "Skipped: reviewer domains [<reviewer_domains>] does not match task domain [<task_domain>]"
+```
+
+Proceed to spawn agents **only for the remaining (non-filtered) review_ids**.
 
 For each review_id, spawn a **background agent** using the Task tool. Issue **all Task tool calls in a single message** to run them in parallel:
 
@@ -131,7 +166,11 @@ Wait for all reviewer agents to finish:
 
 3. For each pending review, check whether its agent has finished using `TaskOutput` with `block: false` and the agent task ID:
    - If **any agent is still running**, go back to step 1.
-   - If **all agents have completed** but some reviews are still `"pending"`, those agents finished without calling `tusk review approve` or `tusk review request-changes`. Log a warning for each stuck review and continue as if those reviews returned no findings (treat as approved).
+   - If **all agents have completed** but some reviews are still `"pending"`, those agents finished without calling `tusk review approve` or `tusk review request-changes`. For each stuck review, log a warning and auto-approve it with a note:
+     ```bash
+     tusk review approve <review_id> --note "Auto-approved: reviewer agent completed without posting a decision (likely Bash tool not permitted in agent sandbox)"
+     ```
+     The most common cause is missing Bash tool permissions (the agent could not run `git diff` or `tusk review`). Continue as if those reviews returned no findings.
 
 ## Step 7: Process Findings
 
@@ -223,7 +262,7 @@ Track current pass number (starts at 1). If `current_pass < max_passes`:
    tusk review start <task_id> --pass-num <current_pass + 1> --diff-summary "Re-review pass <n>"
    ```
 
-2. Spawn reviewer agents again (Step 5) with the new review IDs. Reviewer agents fetch the diff themselves — no diff is passed inline.
+2. Spawn reviewer agents again (Step 5) with the new review IDs. Reviewer agents fetch the diff themselves — no diff is passed inline. Re-review agents require the same Bash tool permissions as first-pass agents — if Bash is not auto-approved, they will stall and be treated as stuck (see Step 6).
 
 4. Monitor completion (Step 6) and process findings (Step 7).
 
