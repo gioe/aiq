@@ -220,6 +220,8 @@ class Settings(BaseSettings):
                 missing.append("SMTP_PASSWORD")
             if not self.smtp_username:
                 missing.append("SMTP_USERNAME")
+            if not self.alert_from_email:
+                missing.append("ALERT_FROM_EMAIL")
             if not self.alert_to_emails:
                 missing.append("ALERT_TO_EMAILS")
             if missing:

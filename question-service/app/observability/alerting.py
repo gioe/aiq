@@ -93,10 +93,20 @@ class AlertManager:
         self.alerts_sent: List[dict] = []
 
         if self.email_enabled:
-            if not all([smtp_host, smtp_username, smtp_password, from_email]):
+            _missing = []
+            if not smtp_host:
+                _missing.append("SMTP_HOST")
+            if not smtp_username:
+                _missing.append("SMTP_USERNAME")
+            if not smtp_password:
+                _missing.append("SMTP_PASSWORD")
+            if not from_email:
+                _missing.append("ALERT_FROM_EMAIL")
+            if _missing:
                 logger.warning(
-                    "Email alerts enabled but configuration incomplete. "
-                    "Email alerts will not be sent."
+                    "Email alerts enabled but required variable(s) not set: %s. "
+                    "Email alerts will not be sent.",
+                    ", ".join(_missing),
                 )
                 self.email_enabled = False
             elif not self.to_emails:
