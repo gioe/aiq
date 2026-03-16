@@ -163,4 +163,5 @@ class TestCreateHtmlAlert:
         assert "<script>" not in html_body
         assert "&lt;script&gt;" in html_body
         assert "<evil>" not in html_body
+        assert "&lt;evil&gt;" in html_body
         assert "&lt;img" in html_body

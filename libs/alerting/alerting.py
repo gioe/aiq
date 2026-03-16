@@ -457,6 +457,8 @@ class AlertManager:
             if hasattr(classified_error.category, "value")
             else str(classified_error.category)
         )
+        # Safe to compare raw string to ErrorCategory member: ErrorCategory inherits from
+        # str, so its members equal their .value strings (e.g. "billing_quota").
         if category_val == ErrorCategory.BILLING_QUOTA:
             self._send_billing_quota_discord_alert(classified_error, context)
 
@@ -650,11 +652,11 @@ class AlertManager:
             return s.replace("_", " ").title()
 
         by_type_rows = "".join(
-            f"<tr><td>{_display_name(qtype)}</td><td>{count}</td></tr>"
+            f"<tr><td>{html_module.escape(_display_name(qtype))}</td><td>{count}</td></tr>"
             for qtype, count in sorted(by_type.items())
         )
         by_difficulty_rows = "".join(
-            f"<tr><td>{_display_name(diff)}</td><td>{count}</td></tr>"
+            f"<tr><td>{html_module.escape(_display_name(diff))}</td><td>{count}</td></tr>"
             for diff, count in sorted(by_difficulty.items())
         )
         by_type_table = (
@@ -1196,6 +1198,8 @@ class StratumAlert:
 class InventoryAlertResult:
     """Result of an inventory alert check."""
 
+    # Number of strata that triggered alerts (not number of emails sent —
+    # all alertable strata are consolidated into one email per check).
     alerts_sent: int = 0
     alerts_suppressed: int = 0
     strata_checked: int = 0

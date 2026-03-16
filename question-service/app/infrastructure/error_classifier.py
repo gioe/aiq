@@ -13,7 +13,10 @@ Classification Strategy (in priority order):
 import re
 from typing import Any, Dict, Optional
 
-from libs.alerting.alerting import ErrorCategory, ErrorSeverity  # noqa: F401
+from libs.alerting.alerting import (
+    ErrorCategory,
+    ErrorSeverity,
+)  # noqa: F401  # re-exported for callers that import from error_classifier
 
 # HTTP Status Code Constants
 HTTP_STATUS_BAD_REQUEST = 400

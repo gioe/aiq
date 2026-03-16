@@ -28,6 +28,6 @@ def to_run_summary(stats: Dict[str, Any]) -> RunSummary:
         "generated": stats.get("questions_generated", 0),
         "inserted": stats.get("questions_inserted", 0),
         "errors": stats.get("questions_rejected", 0),
-        "duration_seconds": float(stats.get("duration_seconds", 0.0)),
+        "duration_seconds": float(stats.get("duration_seconds") or 0.0),
         "details": stats,
     }

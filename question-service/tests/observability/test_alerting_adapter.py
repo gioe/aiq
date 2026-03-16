@@ -57,3 +57,8 @@ class TestToRunSummary:
         stats = {"questions_generated": 5}
         result = to_run_summary(stats)
         assert result["details"] is stats
+
+    def test_duration_none_does_not_crash(self):
+        """Explicit None for duration_seconds should default to 0.0, not raise TypeError."""
+        result = to_run_summary({"duration_seconds": None})
+        assert result["duration_seconds"] == pytest.approx(0.0)
