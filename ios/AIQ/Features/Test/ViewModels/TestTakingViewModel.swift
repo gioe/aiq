@@ -213,7 +213,7 @@ class TestTakingViewModel: BaseViewModel {
 
     // MARK: - Test Management
 
-    func startTest(questionCount: Int = Constants.Test.defaultQuestionCount) async {
+    func startTest(questionCount: Int = Constants.Test.defaultQuestionCount, isRetry: Bool = false) async {
         #if DEBUG
             print("[TestTakingViewModel] startTest called with questionCount: \(questionCount)")
         #endif
@@ -233,7 +233,7 @@ class TestTakingViewModel: BaseViewModel {
             #if DEBUG
                 print("[TestTakingViewModel] APIError in startTest: \(error)")
             #endif
-            handleTestStartError(error, questionCount: questionCount)
+            await handleTestStartError(error, questionCount: questionCount, isRetry: isRetry)
         } catch {
             #if DEBUG
                 print("[TestTakingViewModel] Generic error in startTest: \(error)")
@@ -275,11 +275,28 @@ class TestTakingViewModel: BaseViewModel {
         #endif
     }
 
-    func handleTestStartError(_ error: APIError, questionCount: Int) {
+    func handleTestStartError(_ error: APIError, questionCount: Int, isRetry: Bool = false) async {
         // Check if this is an active session conflict
         if case let .activeSessionConflict(sessionId, _) = error {
             // Track analytics for this edge case
             AnalyticsService.shared.trackActiveSessionConflict(sessionId: sessionId)
+
+            // On first attempt, check whether the conflicting session has expired
+            if !isRetry {
+                do {
+                    let response = try await apiService.getActiveTest()
+                    if let session = response?.session {
+                        let elapsed = Date().timeIntervalSince(session.startedAt)
+                        if elapsed >= Double(TestTimerManager.totalTimeSeconds) {
+                            // Session is expired — silently abandon and restart
+                            await startTest(questionCount: questionCount, isRetry: true)
+                            return
+                        }
+                    }
+                } catch {
+                    // getActiveTest() failed — fall back to showing conflict alert
+                }
+            }
 
             // Set the error so UI can react appropriately
             let contextualError = ContextualError(
@@ -908,7 +925,7 @@ extension TestTakingViewModel: AdaptiveTestCoordinatorDelegate {
 
     func handleStartError(_ error: Error) {
         if let apiError = error as? APIError {
-            handleTestStartError(apiError, questionCount: Constants.Test.defaultQuestionCount)
+            Task { await handleTestStartError(apiError, questionCount: Constants.Test.defaultQuestionCount) }
         } else {
             handleGenericTestStartError(error, questionCount: Constants.Test.defaultQuestionCount)
         }

@@ -64,6 +64,7 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     private(set) var getTestHistoryCallCount = 0
     private(set) var abandonTestCallCount = 0
+    private(set) var startTestCallCount = 0
 
     // MARK: - Response Stubs
 
@@ -186,7 +187,11 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     func startTest() async throws -> StartTestResponse {
         startTestCalled = true
-        if let error = startTestError { throw error }
+        startTestCallCount += 1
+        if let error = startTestError {
+            startTestError = nil // consume so retry calls can succeed
+            throw error
+        }
         guard let response = startTestResponse else {
             throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
                 NSLocalizedDescriptionKey: "startTestResponse not configured"
@@ -431,6 +436,7 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
         getTestHistoryCallCount = 0
         abandonTestCallCount = 0
+        startTestCallCount = 0
 
         loginResponse = nil
         loginError = nil

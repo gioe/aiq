@@ -42,14 +42,14 @@ final class TestTakingViewModelCooldownTests: XCTestCase {
 
     // MARK: - testCooldownInfo population
 
-    func testHandleTestStartError_Cooldown_SetsCooldownInfo() {
+    func testHandleTestStartError_Cooldown_SetsCooldownInfo() async {
         // Given
         let nextDate = makeCooldownDate(daysFromNow: 7)
         let daysRemaining = 7
         let error = APIError.testCooldown(nextEligibleDate: nextDate, daysRemaining: daysRemaining)
 
         // When
-        sut.handleTestStartError(error, questionCount: 20)
+        await sut.handleTestStartError(error, questionCount: 20)
 
         // Then
         XCTAssertNotNil(sut.testCooldownInfo, "testCooldownInfo should be set after a cooldown error")
@@ -65,7 +65,7 @@ final class TestTakingViewModelCooldownTests: XCTestCase {
         )
     }
 
-    func testHandleTestStartError_Cooldown_PreservesExactDate() throws {
+    func testHandleTestStartError_Cooldown_PreservesExactDate() async throws {
         // Given — use a fixed reference date to assert the exact value stored
         var components = DateComponents()
         components.year = 2026
@@ -74,7 +74,7 @@ final class TestTakingViewModelCooldownTests: XCTestCase {
         let nextDate = try XCTUnwrap(Calendar(identifier: .gregorian).date(from: components))
 
         // When
-        sut.handleTestStartError(.testCooldown(nextEligibleDate: nextDate, daysRemaining: 10), questionCount: 20)
+        await sut.handleTestStartError(.testCooldown(nextEligibleDate: nextDate, daysRemaining: 10), questionCount: 20)
 
         // Then
         let stored = sut.testCooldownInfo?.nextDate
@@ -83,13 +83,13 @@ final class TestTakingViewModelCooldownTests: XCTestCase {
 
     // MARK: - isLoading / error invariants
 
-    func testHandleTestStartError_Cooldown_SetsIsLoadingFalse() {
+    func testHandleTestStartError_Cooldown_SetsIsLoadingFalse() async {
         // Given — force isLoading to true to verify it is cleared
         sut.setLoading(true)
         XCTAssertTrue(sut.isLoading, "Precondition: isLoading should be true before the call")
 
         // When
-        sut.handleTestStartError(
+        await sut.handleTestStartError(
             .testCooldown(nextEligibleDate: makeCooldownDate(), daysRemaining: 5),
             questionCount: 20
         )
@@ -98,12 +98,12 @@ final class TestTakingViewModelCooldownTests: XCTestCase {
         XCTAssertFalse(sut.isLoading, "isLoading should be false after a cooldown error is handled")
     }
 
-    func testHandleTestStartError_Cooldown_DoesNotSetError() {
+    func testHandleTestStartError_Cooldown_DoesNotSetError() async {
         // Given
         XCTAssertNil(sut.error, "Precondition: error should be nil")
 
         // When
-        sut.handleTestStartError(
+        await sut.handleTestStartError(
             .testCooldown(nextEligibleDate: makeCooldownDate(), daysRemaining: 5),
             questionCount: 20
         )
@@ -121,14 +121,14 @@ final class TestTakingViewModelCooldownTests: XCTestCase {
     ///
     /// This test verifies that after a cooldown error the ViewModel satisfies every
     /// condition in that expression — even though error is nil.
-    func testCooldownState_SatisfiesLoadFailureConditions() {
+    func testCooldownState_SatisfiesLoadFailureConditions() async {
         // Given — default state: not loading, no questions, no error
         XCTAssertFalse(sut.isLoading, "Precondition: not loading")
         XCTAssertTrue(sut.navigationState.questions.isEmpty, "Precondition: no questions loaded")
         XCTAssertNil(sut.error, "Precondition: no error")
 
         // When
-        sut.handleTestStartError(
+        await sut.handleTestStartError(
             .testCooldown(nextEligibleDate: makeCooldownDate(), daysRemaining: 3),
             questionCount: 20
         )

@@ -87,6 +87,99 @@ final class TestTakingViewModelTests: XCTestCase {
         }
     }
 
+    // MARK: - Active Session Expiry Tests
+
+    func testHandleTestStartError_ExpiredSession_AbandonAndRestartWithoutAlert() async {
+        // Given - first startTest call returns conflict, second succeeds
+        let sessionId = 321
+        let conflictError = APIError.activeSessionConflict(
+            sessionId: sessionId,
+            message: "User already has an active test session (ID: \(sessionId))."
+        )
+        mockService.startTestError = conflictError // consumed after first call
+
+        // Active session started 36 minutes ago (expired)
+        let expiredSession = makeSessionStatusResponse(
+            sessionId: sessionId,
+            questions: [],
+            questionsCount: 0,
+            startedAt: Date().addingTimeInterval(-36 * 60)
+        )
+        mockService.getActiveTestResponse = expiredSession
+
+        // Second startTest call returns success
+        let newQuestions = makeQuestions(count: 1)
+        mockService.startTestResponse = makeStartTestResponse(sessionId: 999, questions: newQuestions)
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertTrue(mockService.getActiveTestCalled, "Should fetch active test to check expiry")
+        XCTAssertEqual(mockService.startTestCallCount, 2, "startTest should be called twice (initial + retry)")
+        XCTAssertNil(sut.error, "No conflict alert should be shown for expired session")
+    }
+
+    func testHandleTestStartError_RecentSession_ShowsConflictAlert() async {
+        // Given - first startTest call returns conflict
+        let sessionId = 654
+        let conflictError = APIError.activeSessionConflict(
+            sessionId: sessionId,
+            message: "User already has an active test session (ID: \(sessionId))."
+        )
+        mockService.startTestError = conflictError
+
+        // Active session started 10 minutes ago (not expired)
+        let recentSession = makeSessionStatusResponse(
+            sessionId: sessionId,
+            questions: [],
+            questionsCount: 0,
+            startedAt: Date().addingTimeInterval(-10 * 60)
+        )
+        mockService.getActiveTestResponse = recentSession
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertTrue(mockService.getActiveTestCalled, "Should fetch active test to check expiry")
+        XCTAssertEqual(mockService.startTestCallCount, 1, "startTest should only be called once")
+        XCTAssertNotNil(sut.error, "Conflict alert should be shown for recent session")
+        if let contextualError = sut.error as? ContextualError,
+           case .activeSessionConflict = contextualError.underlyingError {
+            // Correct error type
+        } else {
+            XCTFail("Error should be activeSessionConflict")
+        }
+    }
+
+    func testHandleTestStartError_GetActiveTestFails_ShowsConflictAlertAsFallback() async {
+        // Given - first startTest call returns conflict
+        let sessionId = 987
+        let conflictError = APIError.activeSessionConflict(
+            sessionId: sessionId,
+            message: "User already has an active test session (ID: \(sessionId))."
+        )
+        mockService.startTestError = conflictError
+
+        // getActiveTest() throws a network error
+        mockService.getActiveTestError = APIError.networkError(URLError(.notConnectedToInternet))
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertTrue(mockService.getActiveTestCalled, "Should attempt to fetch active test")
+        XCTAssertEqual(mockService.startTestCallCount, 1, "startTest should only be called once (no retry on fetch failure)")
+        XCTAssertNotNil(sut.error, "Conflict alert should be shown as safe fallback when fetch fails")
+        if let contextualError = sut.error as? ContextualError,
+           case .activeSessionConflict = contextualError.underlyingError {
+            // Correct error type
+        } else {
+            XCTFail("Error should be activeSessionConflict as fallback")
+        }
+    }
+
     // MARK: - Resume Flow Tests
 
     func testResumeActiveSession_SuccessfullyLoadsSession() async {
@@ -474,12 +567,13 @@ final class TestTakingViewModelTests: XCTestCase {
     private func makeSessionStatusResponse(
         sessionId: Int,
         questions: [Question],
-        questionsCount: Int? = nil
+        questionsCount: Int? = nil,
+        startedAt: Date = Date()
     ) -> TestSessionStatusResponse {
         TestSessionStatusResponse(
             questions: questions,
             questionsCount: questionsCount ?? questions.count,
-            session: makeTestSession(id: sessionId)
+            session: makeTestSession(id: sessionId, startedAt: startedAt)
         )
     }
 
