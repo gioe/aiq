@@ -7,7 +7,7 @@
 #
 # Usage (after configuring):
 #   Add to crontab:
-#   0 2 * * 0 /path/to/your-service/scripts/run_cron.sh >> /path/to/logs/cron.log 2>&1
+#   0 2 * * * /path/to/your-service/scripts/run_cron.sh >> /path/to/logs/cron.log 2>&1
 #
 # ---------------------------------------------------------------------------
 # PLACEHOLDER VARIABLES — replace before use
