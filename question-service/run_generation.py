@@ -842,6 +842,20 @@ def main() -> int:
         alert_manager.send_circuit_breaker_alert
     )
 
+    # NOTE: _work() is a closure that captures alert_manager (and other variables
+    # such as args, settings, observability) from the enclosing main() scope.
+    # This is intentional for the single-invocation run_once() use case: one
+    # AlertManager instance is created, registered with the circuit breaker
+    # registry, and used throughout the single run.
+    #
+    # If run_loop() were ever used instead of run_once(), every iteration would
+    # share the same alert_manager instance (and the same circuit-breaker
+    # callback registration).  That is benign today because AlertManager is
+    # stateless between calls, but if it ever accumulates per-run state (e.g.
+    # rate-limiting counters or per-run context) the shared instance would
+    # bleed state across iterations.  Should run_loop() ever be adopted,
+    # reconstruct alert_manager (and re-register the circuit-breaker callback)
+    # inside _work() rather than capturing it from the outer scope.
     def _work() -> dict:
         """Run the generation pipeline once; called by CronJob.run_once()."""
         # Re-configure logging with CLI args (overrides CronJob's default setup)
