@@ -614,7 +614,7 @@ class TestSendRunCompletion:
         """send_run_completion() is a no-op when email_enabled=False."""
         manager = AlertManager(email_enabled=False)
         # Should return without raising and without sending anything
-        manager.send_run_completion(exit_code=0, stats={"questions_generated": 10})
+        manager.send_run_completion(exit_code=0, run_summary={"generated": 10})
 
     def test_noop_when_email_disabled_no_smtp_call(self):
         """No SMTP connection is attempted when email is disabled."""
@@ -623,7 +623,7 @@ class TestSendRunCompletion:
 
         manager = AlertManager(email_enabled=False)
         with patch.object(smtplib, "SMTP") as mock_smtp:
-            manager.send_run_completion(exit_code=0, stats={})
+            manager.send_run_completion(exit_code=0, run_summary={})
             mock_smtp.assert_not_called()
 
     def test_smtp_error_caught_and_logged(self, caplog):
@@ -648,7 +648,7 @@ class TestSendRunCompletion:
             )
             with caplog.at_level(logging.ERROR):
                 # Must not raise
-                manager.send_run_completion(exit_code=0, stats={})
+                manager.send_run_completion(exit_code=0, run_summary={})
 
         assert any(
             "Failed to send run completion email" in r.message for r in caplog.records
@@ -676,13 +676,13 @@ class TestSendRunCompletion:
     def test_completion_text_includes_stats(self):
         """Plain-text body includes all required statistics."""
         manager = AlertManager()
-        stats = {
-            "questions_generated": 50,
-            "questions_inserted": 42,
-            "approval_rate": 84.0,
+        run_summary = {
+            "generated": 50,
+            "inserted": 42,
             "duration_seconds": 123.5,
+            "details": {"approval_rate": 84.0},
         }
-        text = manager._build_completion_text(0, stats)
+        text = manager._build_completion_text(0, run_summary)
 
         assert "50" in text
         assert "42" in text
@@ -698,13 +698,13 @@ class TestSendRunCompletion:
     def test_completion_html_includes_stats(self):
         """HTML body includes all required statistics."""
         manager = AlertManager()
-        stats = {
-            "questions_generated": 30,
-            "questions_inserted": 28,
-            "approval_rate": 93.3,
+        run_summary = {
+            "generated": 30,
+            "inserted": 28,
             "duration_seconds": 60.0,
+            "details": {"approval_rate": 93.3},
         }
-        html = manager._build_completion_html(0, stats)
+        html = manager._build_completion_html(0, run_summary)
 
         assert "30" in html
         assert "28" in html
@@ -749,11 +749,11 @@ class TestSendRunCompletion:
 
             manager.send_run_completion(
                 exit_code=0,
-                stats={
-                    "questions_generated": 10,
-                    "questions_inserted": 8,
-                    "approval_rate": 80.0,
+                run_summary={
+                    "generated": 10,
+                    "inserted": 8,
                     "duration_seconds": 30.0,
+                    "details": {"approval_rate": 80.0},
                 },
             )
 
@@ -1015,12 +1015,14 @@ class TestBuildCompletionTextNewFields:
     def test_new_stat_fields_appear_in_output(self):
         """questions_requested, questions_rejected, duplicates_found appear in text."""
         manager = self._manager()
-        stats = {
-            "questions_requested": 100,
-            "questions_rejected": 15,
-            "duplicates_found": 5,
+        run_summary = {
+            "details": {
+                "questions_requested": 100,
+                "questions_rejected": 15,
+                "duplicates_found": 5,
+            }
         }
-        text = manager._build_completion_text(0, stats)
+        text = manager._build_completion_text(0, run_summary)
 
         assert "100" in text
         assert "15" in text
@@ -1032,12 +1034,14 @@ class TestBuildCompletionTextNewFields:
     def test_new_stat_fields_none_falls_back_to_na(self):
         """None values for new stat fields produce N/A in text output."""
         manager = self._manager()
-        stats = {
-            "questions_requested": None,
-            "questions_rejected": None,
-            "duplicates_found": None,
+        run_summary = {
+            "details": {
+                "questions_requested": None,
+                "questions_rejected": None,
+                "duplicates_found": None,
+            }
         }
-        text = manager._build_completion_text(0, stats)
+        text = manager._build_completion_text(0, run_summary)
 
         # Each new field should individually produce N/A
         lines = text.splitlines()
@@ -1055,8 +1059,8 @@ class TestBuildCompletionTextNewFields:
     def test_by_type_section_present_when_non_empty(self):
         """by_type breakdown appears in text when dict is non-empty."""
         manager = self._manager()
-        stats = {"by_type": {"math": 30, "logic": 20}}
-        text = manager._build_completion_text(0, stats)
+        run_summary = {"details": {"by_type": {"math": 30, "logic": 20}}}
+        text = manager._build_completion_text(0, run_summary)
 
         assert "By Type" in text
         assert "math" in text
@@ -1067,8 +1071,8 @@ class TestBuildCompletionTextNewFields:
     def test_by_difficulty_section_present_when_non_empty(self):
         """by_difficulty breakdown appears in text when dict is non-empty."""
         manager = self._manager()
-        stats = {"by_difficulty": {"easy": 40, "hard": 10}}
-        text = manager._build_completion_text(0, stats)
+        run_summary = {"details": {"by_difficulty": {"easy": 40, "hard": 10}}}
+        text = manager._build_completion_text(0, run_summary)
 
         assert "By Difficulty" in text
         assert "easy" in text
@@ -1079,22 +1083,22 @@ class TestBuildCompletionTextNewFields:
     def test_by_type_section_absent_when_empty(self):
         """by_type section is omitted when dict is empty."""
         manager = self._manager()
-        text = manager._build_completion_text(0, {"by_type": {}})
+        text = manager._build_completion_text(0, {"details": {"by_type": {}}})
 
         assert "By Type" not in text
 
     def test_by_difficulty_section_absent_when_empty(self):
         """by_difficulty section is omitted when dict is empty."""
         manager = self._manager()
-        text = manager._build_completion_text(0, {"by_difficulty": {}})
+        text = manager._build_completion_text(0, {"details": {"by_difficulty": {}}})
 
         assert "By Difficulty" not in text
 
     def test_error_message_appears_in_text(self):
         """error_message is included in text output when present."""
         manager = self._manager()
-        stats = {"error_message": "Pipeline crashed at step 3"}
-        text = manager._build_completion_text(2, stats)
+        run_summary = {"details": {"error_message": "Pipeline crashed at step 3"}}
+        text = manager._build_completion_text(2, run_summary)
 
         assert "Pipeline crashed at step 3" in text
         assert "Error" in text
@@ -1102,7 +1106,7 @@ class TestBuildCompletionTextNewFields:
     def test_error_message_absent_when_none(self):
         """No error section when error_message is None."""
         manager = self._manager()
-        text = manager._build_completion_text(0, {"error_message": None})
+        text = manager._build_completion_text(0, {"details": {"error_message": None}})
 
         assert "Error:" not in text
 
@@ -1116,12 +1120,14 @@ class TestBuildCompletionHtmlNewFields:
     def test_new_stat_fields_appear_in_html(self):
         """questions_requested, questions_rejected, duplicates_found appear in HTML."""
         manager = self._manager()
-        stats = {
-            "questions_requested": 200,
-            "questions_rejected": 25,
-            "duplicates_found": 8,
+        run_summary = {
+            "details": {
+                "questions_requested": 200,
+                "questions_rejected": 25,
+                "duplicates_found": 8,
+            }
         }
-        html = manager._build_completion_html(0, stats)
+        html = manager._build_completion_html(0, run_summary)
 
         assert "200" in html
         assert "25" in html
@@ -1133,12 +1139,14 @@ class TestBuildCompletionHtmlNewFields:
     def test_new_stat_fields_none_falls_back_to_na(self):
         """None values for new stat fields produce N/A in HTML output."""
         manager = self._manager()
-        stats = {
-            "questions_requested": None,
-            "questions_rejected": None,
-            "duplicates_found": None,
+        run_summary = {
+            "details": {
+                "questions_requested": None,
+                "questions_rejected": None,
+                "duplicates_found": None,
+            }
         }
-        html = manager._build_completion_html(0, stats)
+        html = manager._build_completion_html(0, run_summary)
 
         # Each new field row should contain N/A in its value cell
         assert "<td>Questions Requested</td><td>N/A</td>" in html
@@ -1155,8 +1163,8 @@ class TestBuildCompletionHtmlNewFields:
     def test_by_type_table_present_when_non_empty(self):
         """by_type table is rendered when dict is non-empty."""
         manager = self._manager()
-        stats = {"by_type": {"verbal": 50, "spatial": 15}}
-        html = manager._build_completion_html(0, stats)
+        run_summary = {"details": {"by_type": {"verbal": 50, "spatial": 15}}}
+        html = manager._build_completion_html(0, run_summary)
 
         assert "By Type" in html
         assert "Verbal" in html  # _display_name applies title-case
@@ -1167,8 +1175,8 @@ class TestBuildCompletionHtmlNewFields:
     def test_by_type_table_header_is_inserted(self):
         """By Type table column header reads 'Inserted' (not 'Generated')."""
         manager = self._manager()
-        stats = {"by_type": {"math": 12}}
-        html = manager._build_completion_html(0, stats)
+        run_summary = {"details": {"by_type": {"math": 12}}}
+        html = manager._build_completion_html(0, run_summary)
 
         assert "<th>Inserted</th>" in html
         assert "<th>Generated</th>" not in html
@@ -1176,8 +1184,8 @@ class TestBuildCompletionHtmlNewFields:
     def test_by_difficulty_table_present_when_non_empty(self):
         """by_difficulty table is rendered when dict is non-empty."""
         manager = self._manager()
-        stats = {"by_difficulty": {"medium": 60, "hard": 20}}
-        html = manager._build_completion_html(0, stats)
+        run_summary = {"details": {"by_difficulty": {"medium": 60, "hard": 20}}}
+        html = manager._build_completion_html(0, run_summary)
 
         assert "By Difficulty" in html
         assert "Medium" in html  # _display_name applies title-case
@@ -1188,22 +1196,22 @@ class TestBuildCompletionHtmlNewFields:
     def test_by_type_table_absent_when_empty(self):
         """by_type table is omitted when dict is empty."""
         manager = self._manager()
-        html = manager._build_completion_html(0, {"by_type": {}})
+        html = manager._build_completion_html(0, {"details": {"by_type": {}}})
 
         assert "By Type" not in html
 
     def test_by_difficulty_table_absent_when_empty(self):
         """by_difficulty table is omitted when dict is empty."""
         manager = self._manager()
-        html = manager._build_completion_html(0, {"by_difficulty": {}})
+        html = manager._build_completion_html(0, {"details": {"by_difficulty": {}}})
 
         assert "By Difficulty" not in html
 
     def test_error_message_html_escaped_in_html_output(self):
         """html.escape is applied to error_message to prevent XSS."""
         manager = self._manager()
-        stats = {"error_message": "<script>alert('xss')</script>"}
-        html = manager._build_completion_html(2, stats)
+        run_summary = {"details": {"error_message": "<script>alert('xss')</script>"}}
+        html = manager._build_completion_html(2, run_summary)
 
         assert "<script>" not in html
         assert "&lt;script&gt;" in html
@@ -1211,8 +1219,8 @@ class TestBuildCompletionHtmlNewFields:
     def test_error_message_with_ampersand_is_escaped(self):
         """Ampersands in error_message are HTML-escaped."""
         manager = self._manager()
-        stats = {"error_message": "error: foo & bar"}
-        html = manager._build_completion_html(2, stats)
+        run_summary = {"details": {"error_message": "error: foo & bar"}}
+        html = manager._build_completion_html(2, run_summary)
 
         assert "foo & bar" not in html
         assert "foo &amp; bar" in html
@@ -1220,7 +1228,7 @@ class TestBuildCompletionHtmlNewFields:
     def test_error_section_absent_when_error_message_none(self):
         """No error section rendered when error_message is None."""
         manager = self._manager()
-        html = manager._build_completion_html(0, {"error_message": None})
+        html = manager._build_completion_html(0, {"details": {"error_message": None}})
 
         # The CSS class definition is always present; check no error-box div is rendered
         assert '<div class="error-box">' not in html
@@ -1228,8 +1236,8 @@ class TestBuildCompletionHtmlNewFields:
     def test_error_section_present_when_error_message_set(self):
         """error-box div rendered when error_message is present."""
         manager = self._manager()
-        stats = {"error_message": "Something went wrong"}
-        html = manager._build_completion_html(2, stats)
+        run_summary = {"details": {"error_message": "Something went wrong"}}
+        html = manager._build_completion_html(2, run_summary)
 
         assert "error-box" in html
         assert "Something went wrong" in html
@@ -1237,8 +1245,10 @@ class TestBuildCompletionHtmlNewFields:
     def test_by_type_display_name_converts_underscores_to_title_case(self):
         """Underscore-separated type keys are rendered with title-case display names."""
         manager = self._manager()
-        stats = {"by_type": {"verbal_reasoning": 12, "short_term_memory": 7}}
-        html = manager._build_completion_html(0, stats)
+        run_summary = {
+            "details": {"by_type": {"verbal_reasoning": 12, "short_term_memory": 7}}
+        }
+        html = manager._build_completion_html(0, run_summary)
 
         assert "Verbal Reasoning" in html
         assert "Short Term Memory" in html
