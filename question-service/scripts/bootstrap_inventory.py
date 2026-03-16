@@ -69,7 +69,7 @@ from app.data.models import (  # noqa: E402
     QuestionType,
 )
 from app.generation.pipeline import QuestionGenerationPipeline  # noqa: E402
-from libs.logging import setup_logging  # noqa: E402
+from libs.aiq_logging import setup_logging  # noqa: E402
 from app.generation.prompts import build_generation_prompt  # noqa: E402
 from app.providers.google_provider import GoogleProvider  # noqa: E402
 
