@@ -79,6 +79,8 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     var getProfileError: Error?
     var deleteAccountError: Error?
     var startTestResponse: StartTestResponse?
+    /// Consumed (set to nil) after the first throw, allowing a subsequent call to succeed.
+    /// Use `startTestCallCount` to verify how many times `startTest()` was invoked.
     var startTestError: Error?
     var submitTestResponse: TestSubmitResponse?
     var submitTestError: Error?

@@ -278,9 +278,6 @@ class TestTakingViewModel: BaseViewModel {
     func handleTestStartError(_ error: APIError, questionCount: Int, isRetry: Bool = false) async {
         // Check if this is an active session conflict
         if case let .activeSessionConflict(sessionId, _) = error {
-            // Track analytics for this edge case
-            AnalyticsService.shared.trackActiveSessionConflict(sessionId: sessionId)
-
             // On first attempt, check whether the conflicting session has expired
             if !isRetry {
                 do {
@@ -288,15 +285,23 @@ class TestTakingViewModel: BaseViewModel {
                     if let session = response?.session {
                         let elapsed = Date().timeIntervalSince(session.startedAt)
                         if elapsed >= Double(TestTimerManager.totalTimeSeconds) {
-                            // Session is expired — silently abandon and restart
+                            // Session is expired — abandon it, then restart silently
+                            _ = try? await apiService.abandonTest(sessionId: sessionId)
                             await startTest(questionCount: questionCount, isRetry: true)
                             return
                         }
+                    } else {
+                        // No active session found (may have just auto-expired) — restart silently
+                        await startTest(questionCount: questionCount, isRetry: true)
+                        return
                     }
                 } catch {
                     // getActiveTest() failed — fall back to showing conflict alert
                 }
             }
+
+            // Track analytics only when the conflict alert is actually shown
+            AnalyticsService.shared.trackActiveSessionConflict(sessionId: sessionId)
 
             // Set the error so UI can react appropriately
             let contextualError = ContextualError(

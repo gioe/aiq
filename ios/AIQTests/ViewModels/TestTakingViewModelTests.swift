@@ -29,6 +29,14 @@ final class TestTakingViewModelTests: XCTestCase {
         )
         mockService.startTestError = conflictError
 
+        // Supply a recent active session so the expiry check falls through to the alert
+        mockService.getActiveTestResponse = makeSessionStatusResponse(
+            sessionId: sessionId,
+            questions: [],
+            questionsCount: 0,
+            startedAt: Date().addingTimeInterval(-10 * 60)
+        )
+
         // When
         await sut.startTest(questionCount: 20)
 
@@ -55,6 +63,14 @@ final class TestTakingViewModelTests: XCTestCase {
             message: "User already has an active test session (ID: \(sessionId))."
         )
         mockService.startTestError = conflictError
+
+        // Supply a recent active session so the expiry check falls through to the alert
+        mockService.getActiveTestResponse = makeSessionStatusResponse(
+            sessionId: sessionId,
+            questions: [],
+            questionsCount: 0,
+            startedAt: Date().addingTimeInterval(-10 * 60)
+        )
 
         // When
         await sut.startTest(questionCount: 20)
@@ -98,12 +114,12 @@ final class TestTakingViewModelTests: XCTestCase {
         )
         mockService.startTestError = conflictError // consumed after first call
 
-        // Active session started 36 minutes ago (expired)
+        // Active session started just past the expiry threshold
         let expiredSession = makeSessionStatusResponse(
             sessionId: sessionId,
             questions: [],
             questionsCount: 0,
-            startedAt: Date().addingTimeInterval(-36 * 60)
+            startedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds) - 60)
         )
         mockService.getActiveTestResponse = expiredSession
 
@@ -178,6 +194,31 @@ final class TestTakingViewModelTests: XCTestCase {
         } else {
             XCTFail("Error should be activeSessionConflict as fallback")
         }
+    }
+
+    func testHandleTestStartError_GetActiveTestReturnsNil_RetriesWithoutAlert() async {
+        // Given - first startTest call returns conflict
+        let sessionId = 111
+        let conflictError = APIError.activeSessionConflict(
+            sessionId: sessionId,
+            message: "User already has an active test session (ID: \(sessionId))."
+        )
+        mockService.startTestError = conflictError // consumed after first call
+
+        // getActiveTest() returns nil (no active session found — session may have auto-expired)
+        mockService.getActiveTestResponse = nil
+
+        // Second startTest call returns success
+        let newQuestions = makeQuestions(count: 1)
+        mockService.startTestResponse = makeStartTestResponse(sessionId: 222, questions: newQuestions)
+
+        // When
+        await sut.startTest(questionCount: 20)
+
+        // Then
+        XCTAssertTrue(mockService.getActiveTestCalled, "Should fetch active test to check expiry")
+        XCTAssertEqual(mockService.startTestCallCount, 2, "Should retry when no active session found")
+        XCTAssertNil(sut.error, "No conflict alert should be shown when session is gone")
     }
 
     // MARK: - Resume Flow Tests
@@ -1351,6 +1392,14 @@ final class TestTakingViewModelTests: XCTestCase {
         )
         mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
         mockService.startTestError = conflictError
+
+        // Supply a recent active session so the expiry check falls through to the alert
+        mockService.getActiveTestResponse = makeSessionStatusResponse(
+            sessionId: 9999,
+            questions: [],
+            questionsCount: 0,
+            startedAt: Date().addingTimeInterval(-10 * 60)
+        )
 
         // When
         await sut.startTest(questionCount: 20)
