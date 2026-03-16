@@ -275,7 +275,7 @@
 "help.score.range.width.text" = "Narrower ranges indicate more precise measurements. The width of your score range depends on the test's reliability - how consistently it measures cognitive ability.\n\nAs more users take tests and we gather more data, our measurements become more precise, leading to narrower ranges.";
 
 // MARK: - Help Content - IQ Scores
-"help.iq.scale.title" = "The IQ Scale";
+"help.iq.scale.title" = "The AIQ Scale";
 "help.iq.scale.text" = "IQ scores are standardized so that the average score is 100, with a standard deviation of 15. This means about 68% of people score between 85 and 115.";
 "help.iq.notes.title" = "Important Notes";
 "help.iq.notes.text" = "This app provides a cognitive performance assessment for personal insight. It is not a clinical assessment and should not be used for diagnostic purposes.\n\nYour score may vary between tests due to factors like fatigue, stress, or practice effects. Focus on your overall trend rather than any single score.";

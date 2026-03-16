@@ -1155,7 +1155,7 @@ final class TestSessionTests: XCTestCase {
 
         XCTAssertEqual(
             result.scoreAccessibilityDescription,
-            "IQ score 120, range 115 to 125"
+            "AIQ score 120, range 115 to 125"
         )
     }
 
@@ -1178,7 +1178,7 @@ final class TestSessionTests: XCTestCase {
             weakestDomain: nil
         )
 
-        XCTAssertEqual(result.scoreAccessibilityDescription, "IQ score 120")
+        XCTAssertEqual(result.scoreAccessibilityDescription, "AIQ score 120")
     }
 
     // MARK: - SubmittedTestResult Equatable Tests

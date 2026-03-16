@@ -123,7 +123,7 @@ struct ScoreRangeHelpView: View {
                         .font(.headline)
 
                     Text("""
-                    When you receive your IQ score, you may also see a range \
+                    When you receive your AIQ score, you may also see a range \
                     (for example, "Range: 101-115"). This range is called a \
                     confidence interval, and it's an important part of \
                     understanding your results.
@@ -210,7 +210,7 @@ struct IQScoreHelpView: View {
                 .padding(.bottom, 8)
 
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("The IQ Scale")
+                    Text("The AIQ Scale")
                         .font(.headline)
 
                     Text("""

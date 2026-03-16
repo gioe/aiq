@@ -102,9 +102,9 @@ extension Components.Schemas.TestResultResponse {
     /// Accessibility description for the score with confidence interval
     var scoreAccessibilityDescription: String {
         if let ci = confidenceIntervalConverted {
-            return "IQ score \(iqScore), range \(ci.lower) to \(ci.upper)"
+            return "AIQ score \(iqScore), range \(ci.lower) to \(ci.upper)"
         }
-        return "IQ score \(iqScore)"
+        return "AIQ score \(iqScore)"
     }
 }
 

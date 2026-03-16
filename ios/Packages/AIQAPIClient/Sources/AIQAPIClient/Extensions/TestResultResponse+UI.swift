@@ -42,7 +42,7 @@ public extension Components.Schemas.TestResultResponse {
     /// Accessibility description for the test result
     var accessibilityDescription: String {
         let answeredText = "You answered \(correctAnswers) of \(totalQuestions) correctly"
-        return "IQ score \(iqScore). \(answeredText), with \(accuracyFormatted) accuracy."
+        return "AIQ score \(iqScore). \(answeredText), with \(accuracyFormatted) accuracy."
     }
 }
 
