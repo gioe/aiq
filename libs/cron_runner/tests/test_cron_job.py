@@ -140,6 +140,22 @@ def test_run_once_captures_run_summary_in_alert(tmp_path: Path) -> None:
     assert "duration_seconds" in sent_summary
 
 
+def test_run_once_heartbeat_stats_excludes_duration_seconds(tmp_path: Path) -> None:
+    """Heartbeat stats must not include duration_seconds injected for alert_manager."""
+    alert_manager = MagicMock()
+    with patch("libs.cron_runner.cron_job.setup_logging"):
+        job = _make_job(
+            tmp_path,
+            work_fn=lambda: {"generated": 5},
+            alert_manager=alert_manager,
+        )
+        job.run_once()
+
+    data = json.loads(Path(job.heartbeat_path).read_text())
+    assert "stats" in data
+    assert "duration_seconds" not in data["stats"]
+
+
 # ---------------------------------------------------------------------------
 # Failure path
 # ---------------------------------------------------------------------------

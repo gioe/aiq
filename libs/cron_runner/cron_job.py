@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
 from ..alerting.alerting import AlertManager, RunSummary
-from ..logging.logging_config import setup_logging
+from ..aiq_logging.logging_config import setup_logging
 from ..observability.facade import ObservabilityFacade
 
 logger = logging.getLogger(__name__)
@@ -182,8 +182,8 @@ class CronJob:
             )
 
             if self.alert_manager is not None:
-                run_summary.setdefault("duration_seconds", duration)
-                self.alert_manager.send_run_completion(exit_code, run_summary)
+                alert_summary = {**run_summary, "duration_seconds": duration}
+                self.alert_manager.send_run_completion(exit_code, alert_summary)
 
             heartbeat_status = "completed" if exit_code == 0 else "failed"
             self._write_heartbeat(
