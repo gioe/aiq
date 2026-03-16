@@ -132,6 +132,8 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Then
         XCTAssertTrue(mockService.getActiveTestCalled, "Should fetch active test to check expiry")
+        XCTAssertTrue(mockService.abandonTestCalled, "Should abandon the expired session before retrying")
+        XCTAssertEqual(mockService.lastAbandonTestSessionId, sessionId, "Should abandon the correct session")
         XCTAssertEqual(mockService.startTestCallCount, 2, "startTest should be called twice (initial + retry)")
         XCTAssertNil(sut.error, "No conflict alert should be shown for expired session")
     }
