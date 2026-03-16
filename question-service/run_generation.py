@@ -22,7 +22,6 @@ import argparse
 import asyncio
 import json
 import logging
-import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -50,7 +49,8 @@ from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
 )
 from libs.logging import setup_logging  # noqa: E402
-from app.reporting.run_summary import RunSummary  # noqa: E402
+from libs.cron_runner import CronJob  # noqa: E402
+from app.reporting.run_summary import RunSummary as PipelineRunSummary  # noqa: E402
 from app.data.models import DifficultyLevel, QuestionType  # noqa: E402
 from app.reporting.reporter import RunReporter  # noqa: E402
 
@@ -66,52 +66,6 @@ EXIT_CONFIG_ERROR = 3
 EXIT_DATABASE_ERROR = 4
 EXIT_BILLING_ERROR = 5  # New: Critical billing/quota issue
 EXIT_AUTH_ERROR = 6  # New: Authentication failure
-
-
-def write_heartbeat(
-    status: str,
-    exit_code: Optional[int] = None,
-    error_message: Optional[str] = None,
-    stats: Optional[dict] = None,
-) -> None:
-    """Write heartbeat to track cron execution and health.
-
-    This creates a simple file that monitoring systems can check to verify
-    the cron is running on schedule. Also logs to stdout for Railway visibility.
-
-    Args:
-        status: Current status ("started", "completed", "failed")
-        exit_code: Script exit code (if completed)
-        error_message: Error message (if failed)
-        stats: Run statistics (if completed successfully)
-    """
-    heartbeat_file = Path("./logs/heartbeat.json")
-    heartbeat_file.parent.mkdir(parents=True, exist_ok=True)
-
-    from typing import Any, Dict
-
-    data: Dict[str, Any] = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "status": status,
-        "hostname": os.uname().nodename if hasattr(os, "uname") else "unknown",
-    }
-
-    if exit_code is not None:
-        data["exit_code"] = exit_code
-
-    if error_message:
-        data["error_message"] = error_message
-
-    if stats:
-        data["stats"] = stats
-
-    # Write to file for filesystem monitoring
-    with open(heartbeat_file, "w") as f:
-        json.dump(data, f, indent=2)
-
-    # IMPORTANT: Also log to stdout for Railway/cloud platform visibility
-    # This ensures the heartbeat is captured in Railway logs
-    print(f"HEARTBEAT: {json.dumps(data)}", flush=True)
 
 
 def log_rejection_details(
@@ -855,9 +809,7 @@ def main() -> int:
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
-    # Write initial heartbeat BEFORE anything else
-    # This proves the cron triggered, even if it fails immediately
-    write_heartbeat(status="started")
+    args = parse_arguments()
 
     # Initialize observability (Sentry + OTEL via unified facade)
     # Must happen before any code that could raise exceptions we want to capture
@@ -867,69 +819,70 @@ def main() -> int:
         environment=settings.env,
     )
 
-    args = parse_arguments()
+    # Build alert manager (needed by CronJob and circuit breaker callback)
+    to_emails = []
+    if settings.alert_to_emails:
+        to_emails = [email.strip() for email in settings.alert_to_emails.split(",")]
 
-    # Setup logging
-    log_level = "DEBUG" if args.verbose else settings.log_level
-    log_file = args.log_file or settings.log_file
-
-    setup_logging(
-        log_level=log_level,
-        log_file=log_file,
-        enable_file_logging=not args.no_console,
+    alert_manager = AlertManager(
+        email_enabled=settings.enable_email_alerts,
+        smtp_host=settings.smtp_host,
+        smtp_port=settings.smtp_port,
+        smtp_username=settings.smtp_username,
+        smtp_password=settings.smtp_password,
+        from_email=settings.alert_from_email,
+        to_emails=to_emails,
+        alert_file_path=settings.alert_file_path,
+        discord_webhook_url=settings.discord_webhook_url,
     )
 
-    # Get logger after setup
-    logger = logging.getLogger(__name__)
-
-    logger.info("=" * 80)
-    logger.info("Question Generation Script Starting")
-    logger.info(
-        f"Observability initialized: service=aiq-question-service, env={settings.env}"
+    # Register circuit breaker open callback so Discord alerts fire when
+    # any provider's circuit transitions CLOSED → OPEN during this run.
+    get_circuit_breaker_registry().set_on_open_callback(
+        alert_manager.send_circuit_breaker_alert
     )
-    logger.info(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
-    logger.info(
-        f"Configuration: count={args.count or settings.questions_per_run}, "
-        f"types={args.types or 'all'}, difficulties={args.difficulties or 'all'}"
-    )
-    logger.info(f"Provider tier: {args.provider_tier}")
-    logger.info(f"Dry run: {args.dry_run}")
-    logger.info("=" * 80)
 
-    try:
+    def _work() -> dict:
+        """Run the generation pipeline once; called by CronJob.run_once()."""
+        # Re-configure logging with CLI args (overrides CronJob's default setup)
+        log_level = "DEBUG" if args.verbose else settings.log_level
+        log_file = args.log_file or settings.log_file
+
+        setup_logging(
+            log_level=log_level,
+            log_file=log_file,
+            enable_file_logging=not args.no_console,
+        )
+
+        # Get logger after setup
+        logger = logging.getLogger(__name__)
+
+        logger.info("=" * 80)
+        logger.info("Question Generation Script Starting")
+        logger.info(
+            f"Observability initialized: service=aiq-question-service, env={settings.env}"
+        )
+        logger.info(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
+        logger.info(
+            f"Configuration: count={args.count or settings.questions_per_run}, "
+            f"types={args.types or 'all'}, difficulties={args.difficulties or 'all'}"
+        )
+        logger.info(f"Provider tier: {args.provider_tier}")
+        logger.info(f"Dry run: {args.dry_run}")
+        logger.info("=" * 80)
+
         inserted_count = 0
         approval_rate = 0.0
         stats: dict = {}
+        db = None
 
         # Initialize run summary
-        metrics = RunSummary()
+        metrics = PipelineRunSummary()
         metrics.start_run()
 
-        # Initialize alert manager
-        to_emails = []
-        if settings.alert_to_emails:
-            to_emails = [email.strip() for email in settings.alert_to_emails.split(",")]
-
-        alert_manager = AlertManager(
-            email_enabled=settings.enable_email_alerts,
-            smtp_host=settings.smtp_host,
-            smtp_port=settings.smtp_port,
-            smtp_username=settings.smtp_username,
-            smtp_password=settings.smtp_password,
-            from_email=settings.alert_from_email,
-            to_emails=to_emails,
-            alert_file_path=settings.alert_file_path,
-            discord_webhook_url=settings.discord_webhook_url,
-        )
         logger.info(
             f"Alert manager initialized (email={'enabled' if settings.enable_email_alerts else 'disabled'}, "
             f"discord={'enabled' if settings.discord_webhook_url else 'disabled'})"
-        )
-
-        # Register circuit breaker open callback so Discord alerts fire when
-        # any provider's circuit transitions CLOSED → OPEN during this run.
-        get_circuit_breaker_registry().set_on_open_callback(
-            alert_manager.send_circuit_breaker_alert
         )
 
         # Initialize run reporter
@@ -990,12 +943,7 @@ def main() -> int:
                 "Check environment variables: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, XAI_API_KEY",
             )
 
-            write_heartbeat(
-                status="failed",
-                exit_code=EXIT_CONFIG_ERROR,
-                error_message="No LLM API keys configured",
-            )
-            return EXIT_CONFIG_ERROR
+            raise RuntimeError("No LLM API keys configured")
 
         # Initialize pipeline
         pipeline = QuestionGenerationPipeline(
@@ -1040,7 +988,6 @@ def main() -> int:
         logger.info("✓ Judge initialized")
 
         # Initialize database and deduplicator
-        db = None
         deduplicator = None
 
         if not args.dry_run:
@@ -1054,7 +1001,7 @@ def main() -> int:
 
                 if not settings.openai_api_key:
                     logger.error("OpenAI API key required for deduplication")
-                    return EXIT_CONFIG_ERROR
+                    raise RuntimeError("OpenAI API key required for deduplication")
 
                 deduplicator = QuestionDeduplicator(
                     openai_api_key=settings.openai_api_key,
@@ -1092,12 +1039,7 @@ def main() -> int:
                     f"Check DATABASE_URL and database availability. Error: {str(e)}",
                 )
 
-                write_heartbeat(
-                    status="failed",
-                    exit_code=EXIT_DATABASE_ERROR,
-                    error_message=f"Database connection failed: {str(e)}",
-                )
-                return EXIT_DATABASE_ERROR
+                raise RuntimeError(f"Database connection failed: {str(e)}") from e
 
         # Auto-balance inventory analysis (if enabled)
         generation_plan = None
@@ -1110,12 +1052,7 @@ def main() -> int:
                 logger.error(
                     "Auto-balance requires database connection (cannot use --dry-run)"
                 )
-                write_heartbeat(
-                    status="failed",
-                    exit_code=EXIT_CONFIG_ERROR,
-                    error_message="Auto-balance requires database connection",
-                )
-                return EXIT_CONFIG_ERROR
+                raise RuntimeError("Auto-balance requires database connection")
 
             # Initialize inventory analyzer
             analyzer = InventoryAnalyzer(
@@ -1182,12 +1119,9 @@ def main() -> int:
                     f"  Below target: {len(analysis.strata_below_target)}, "
                     f"Critical: {len(analysis.critical_strata)}"
                 )
-                write_heartbeat(
-                    status="completed",
-                    exit_code=EXIT_SUCCESS,
-                    stats={"questions_generated": 0, "reason": "inventory_balanced"},
+                return to_run_summary(
+                    {"questions_generated": 0, "reason": "inventory_balanced"}
                 )
-                return EXIT_SUCCESS
 
         # Run generation job
         logger.info("\n" + "=" * 80)
@@ -1337,13 +1271,7 @@ def main() -> int:
                 f"Target: {stats['target_questions']}, Generated: 0. Check logs for LLM API errors.",
             )
 
-            write_heartbeat(
-                status="failed",
-                exit_code=EXIT_COMPLETE_FAILURE,
-                error_message="No questions generated",
-                stats=stats,
-            )
-            return EXIT_COMPLETE_FAILURE
+            raise RuntimeError("No questions generated")
 
         # Evaluate with judge
         logger.info("\n" + "=" * 80)
@@ -1620,13 +1548,7 @@ def main() -> int:
                 f"Consider reviewing judge configuration or lowering MIN_JUDGE_SCORE.",
             )
 
-            write_heartbeat(
-                status="failed",
-                exit_code=EXIT_COMPLETE_FAILURE,
-                error_message="No questions passed judge evaluation",
-                stats=stats,
-            )
-            return EXIT_COMPLETE_FAILURE
+            raise RuntimeError("No questions passed judge evaluation")
 
         # Deduplication
         unique_questions = approved_questions
@@ -1838,43 +1760,45 @@ def main() -> int:
         if args.dry_run:
             logger.info("\n[DRY RUN] No questions were inserted to database")
 
-        # Determine exit code
-        if args.dry_run:
-            exit_code = EXIT_SUCCESS
-        elif inserted_count == 0:
-            logger.error("No questions were inserted to database!")
+        # Determine outcome and raise on failure so CronJob records exit_code=1
+        if not args.dry_run:
+            if inserted_count == 0:
+                logger.error("No questions were inserted to database!")
 
-            # Send alert for insertion failure
-            from app.infrastructure.error_classifier import (
-                ClassifiedError,
-                ErrorCategory,
-                ErrorSeverity,
-            )
+                # Send alert for insertion failure
+                from app.infrastructure.error_classifier import (
+                    ClassifiedError,
+                    ErrorCategory,
+                    ErrorSeverity,
+                )
 
-            insertion_error = ClassifiedError(
-                category=ErrorCategory.SERVER_ERROR,
-                severity=ErrorSeverity.CRITICAL,
-                provider="database",
-                original_error="InsertionFailure",
-                message=f"Database insertion failed for all {len(unique_questions)} unique questions.",
-                is_retryable=True,
-            )
-            alert_manager.send_alert(
-                insertion_error,
-                context=f"Question generation completed successfully through judge evaluation, "
-                f"but all {len(unique_questions)} questions failed to insert to database. Check database connection and logs.",
-            )
+                insertion_error = ClassifiedError(
+                    category=ErrorCategory.SERVER_ERROR,
+                    severity=ErrorSeverity.CRITICAL,
+                    provider="database",
+                    original_error="InsertionFailure",
+                    message=f"Database insertion failed for all {len(unique_questions)} unique questions.",
+                    is_retryable=True,
+                )
+                alert_manager.send_alert(
+                    insertion_error,
+                    context=f"Question generation completed successfully through judge evaluation, "
+                    f"but all {len(unique_questions)} questions failed to insert to database. Check database connection and logs.",
+                )
 
-            exit_code = EXIT_COMPLETE_FAILURE
-        elif inserted_count < len(unique_questions):
-            logger.warning("Some questions failed to insert")
-            exit_code = EXIT_PARTIAL_FAILURE
-        else:
-            logger.info("✓ All unique questions inserted successfully")
-            exit_code = EXIT_SUCCESS
+                raise RuntimeError(
+                    f"Database insertion failed: 0 of {len(unique_questions)} questions inserted"
+                )
+            elif inserted_count < len(unique_questions):
+                logger.warning("Some questions failed to insert")
+                raise RuntimeError(
+                    f"Partial insertion failure: {inserted_count} of {len(unique_questions)} questions inserted"
+                )
+            else:
+                logger.info("✓ All unique questions inserted successfully")
 
         # Write success metrics for successful runs
-        if exit_code == EXIT_SUCCESS and inserted_count > 0:
+        if inserted_count > 0:
             log_success_run(
                 stats=stats,
                 inserted_count=inserted_count,
@@ -1882,24 +1806,12 @@ def main() -> int:
             )
             logger.info("Success metrics logged to logs/success_runs.jsonl")
 
-        # Write final heartbeat with completion status
-        write_heartbeat(
-            status="completed" if exit_code == EXIT_SUCCESS else "failed",
-            exit_code=exit_code,
-            stats={
-                "questions_generated": stats["questions_generated"],
-                "questions_inserted": inserted_count,
-                "approval_rate": approval_rate,
-                "duration_seconds": stats["duration_seconds"],
-            },
-        )
-
         # Report run to backend API
         if run_reporter:
             min_score = args.min_score or settings.min_judge_score
             run_id = run_reporter.report_run(
                 summary=summary,
-                exit_code=exit_code,
+                exit_code=EXIT_SUCCESS,
                 environment=settings.env,
                 triggered_by=args.triggered_by,
                 prompt_version=settings.prompt_version,
@@ -1925,142 +1837,58 @@ def main() -> int:
                 )
 
         logger.info("=" * 80)
-        logger.info(f"Script completed with exit code: {exit_code}")
+        logger.info("Script completed successfully")
         logger.info("=" * 80)
 
-        alert_manager.send_run_completion(
-            exit_code,
-            to_run_summary(
-                {
-                    "questions_generated": stats.get("questions_generated", 0),
-                    "questions_inserted": inserted_count,
-                    "approval_rate": approval_rate,
-                    "duration_seconds": stats.get("duration_seconds", 0),
-                    "by_type": summary.get("database", {}).get("inserted_by_type", {}),
-                    "by_difficulty": summary.get("generation", {}).get(
-                        "by_difficulty", {}
-                    ),
-                    "questions_requested": summary.get("generation", {}).get(
-                        "requested", 0
-                    ),
-                    "questions_rejected": summary.get("evaluation", {}).get(
-                        "rejected", 0
-                    ),
-                    "duplicates_found": summary.get("deduplication", {}).get(
-                        "duplicates_found", 0
-                    ),
-                }
-            ),
+        run_summary = to_run_summary(
+            {
+                "questions_generated": stats.get("questions_generated", 0),
+                "questions_inserted": inserted_count,
+                "approval_rate": approval_rate,
+                "duration_seconds": stats.get("duration_seconds", 0),
+                "by_type": summary.get("database", {}).get("inserted_by_type", {}),
+                "by_difficulty": summary.get("generation", {}).get("by_difficulty", {}),
+                "questions_requested": summary.get("generation", {}).get(
+                    "requested", 0
+                ),
+                "questions_rejected": summary.get("evaluation", {}).get("rejected", 0),
+                "duplicates_found": summary.get("deduplication", {}).get(
+                    "duplicates_found", 0
+                ),
+            }
         )
 
         logger.info(
-            "RUN_COMPLETE exit_code=%d questions_generated=%d questions_inserted=%d "
+            "RUN_COMPLETE exit_code=0 questions_generated=%d questions_inserted=%d "
             "approval_rate=%.1f duration_seconds=%.1f",
-            exit_code,
             stats.get("questions_generated", 0),
             inserted_count,
             approval_rate,
             stats.get("duration_seconds", 0.0),
         )
 
-        return exit_code
-
-    except KeyboardInterrupt:
-        logger.warning("\nScript interrupted by user")
-
-        write_heartbeat(
-            status="failed",
-            exit_code=EXIT_PARTIAL_FAILURE,
-            error_message="Script interrupted by user",
-        )
-        if "alert_manager" in locals():
-            alert_manager.send_run_completion(
-                EXIT_PARTIAL_FAILURE,
-                to_run_summary({"error_message": "Script interrupted by user"}),
-            )
-        logger.info(
-            "RUN_COMPLETE exit_code=%d questions_generated=%d questions_inserted=%d "
-            "approval_rate=%.1f duration_seconds=%.1f",
-            EXIT_PARTIAL_FAILURE,
-            stats.get("questions_generated", 0),
-            inserted_count,
-            approval_rate,
-            stats.get("duration_seconds", 0.0),
-        )
-        return EXIT_PARTIAL_FAILURE
-
-    except Exception as e:
-        logger.exception(f"Unexpected error: {e}")
-        observability.capture_error(
-            e,
-            context={"phase": "main", "step": "unexpected"},
-            level="fatal",
-        )
-
-        # Try to send alert for unexpected errors
-        try:
-            from app.infrastructure.error_classifier import ErrorClassifier
-
-            classified_error = ErrorClassifier.classify_error(e, "system")
-
-            # Initialize alert manager if not already done
-            if "alert_manager" not in locals():
-                to_emails = []
-                if settings.alert_to_emails:
-                    to_emails = [
-                        email.strip() for email in settings.alert_to_emails.split(",")
-                    ]
-
-                alert_manager = AlertManager(
-                    email_enabled=settings.enable_email_alerts,
-                    smtp_host=settings.smtp_host,
-                    smtp_port=settings.smtp_port,
-                    smtp_username=settings.smtp_username,
-                    smtp_password=settings.smtp_password,
-                    from_email=settings.alert_from_email,
-                    to_emails=to_emails,
-                    alert_file_path=settings.alert_file_path,
-                )
-
-            alert_manager.send_alert(
-                classified_error,
-                context=f"Question generation script encountered an unexpected error and crashed. "
-                f"Error: {str(e)[:200]}. Check logs for full details.",
-            )
-        except Exception as alert_error:
-            # Don't let alert failures prevent cleanup
-            logger.error(f"Failed to send alert for unexpected error: {alert_error}")
-
-        write_heartbeat(
-            status="failed",
-            exit_code=EXIT_COMPLETE_FAILURE,
-            error_message=f"Unexpected error: {str(e)[:100]}",
-        )
-        if "alert_manager" in locals():
-            alert_manager.send_run_completion(
-                EXIT_COMPLETE_FAILURE,
-                to_run_summary({"error_message": f"Unexpected error: {str(e)[:200]}"}),
-            )
-        logger.info(
-            "RUN_COMPLETE exit_code=%d questions_generated=%d questions_inserted=%d "
-            "approval_rate=%.1f duration_seconds=%.1f",
-            EXIT_COMPLETE_FAILURE,
-            stats.get("questions_generated", 0),
-            inserted_count,
-            approval_rate,
-            stats.get("duration_seconds", 0.0),
-        )
-        return EXIT_COMPLETE_FAILURE
-
-    finally:
         # Clean up database connection
-        if "db" in locals() and db:
+        if db is not None:
             try:
                 db.close()
                 logger.info("Database connection closed")
             except Exception:
                 pass
 
+        return run_summary
+
+    job = CronJob(
+        name="question-generation",
+        schedule="0 * * * *",
+        work_fn=_work,
+        observability=observability,
+        alert_manager=alert_manager,
+        heartbeat_path="./logs/heartbeat.json",
+    )
+
+    try:
+        return job.run_once()
+    finally:
         # Shutdown observability backends
         # Skip flush — metrics export on the periodic cycle to avoid
         # Grafana Cloud free tier rate limits (err-mimir-tenant-max-request-rate)
