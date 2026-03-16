@@ -5,33 +5,33 @@ struct QuestionCardView: View {
     let question: Question
 
     var body: some View {
-        // ScrollView with .accessibilityElement(children: .contain) is intentional:
+        // VStack with .accessibilityElement(children: .contain) is intentional:
         // it forces an `otherElement` container in XCTest so that
         // `app.otherElements["testTakingView.questionCard"]` finds the card AND
         // `app.staticTexts["testTakingView.questionText"]` finds the inner Text.
-        // Without .accessibilityElement(children: .contain), the container is transparent
+        // Without .accessibilityElement(children: .contain), the VStack is transparent
         // and iOS promotes the outer identifier down to the child Text, overriding
         // the inner identifier and making both queries fail.
-        // The ScrollView also allows long question text to scroll within the height cap
-        // so AnswerInputView remains visible on small devices.
-        ScrollView {
-            VStack(alignment: .leading) {
-                Text(question.questionText)
-                    .font(.title3)
-                    .fontWeight(.medium)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .foregroundColor(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .screenshotPrevented(
-                        accessibilityIdentifier: AccessibilityIdentifiers.TestTakingView.questionText
-                    )
-            }
-            .padding(DesignSystem.Spacing.lg)
+        VStack(alignment: .leading) {
+            Text(question.questionText)
+                .font(.title3)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .screenshotPrevented(
+                    accessibilityIdentifier: AccessibilityIdentifiers.TestTakingView.questionText
+                )
         }
+        .padding(DesignSystem.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: 240)
         .background(Color(.systemBackground))
         .cornerRadius(DesignSystem.CornerRadius.lg)
         .shadowStyle(DesignSystem.Shadow.md)
+        // .accessibilityElement(children: .contain) forces the VStack to be a real
+        // otherElement container in XCTest rather than being transparent (accessibility-
+        // transparent VStacks promote their identifier to the child, overriding the child's
+        // own identifier). With .contain, app.otherElements["questionCard"] finds the card
+        // and app.staticTexts["questionText"] finds the inner Text.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionCard)
     }
