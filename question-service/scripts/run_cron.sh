@@ -1,6 +1,10 @@
 #!/bin/bash
 # Cron wrapper script for AIQ question generation
 #
+# This script is the canonical example derived from libs/templates/run_cron.sh.template.
+# If you need a similar wrapper for a new service, copy that template and follow the
+# 5-step workflow in libs/templates/README.md.
+#
 # This script should be called from crontab to run scheduled question generation.
 # It handles environment setup, logging, and optional error notifications.
 #
