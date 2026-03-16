@@ -201,7 +201,7 @@ struct DashboardView: View {
     /// - Returns: Resume always routes to fixed-form test; new tests respect adaptive testing flag
     private func navigateToTest() {
         if viewModel.hasActiveTest {
-            router.push(.testTaking())
+            router.push(.testTaking(sessionId: viewModel.activeTestSession?.id))
         } else if Constants.Features.adaptiveTesting {
             router.push(.adaptiveTestTaking)
         } else {
