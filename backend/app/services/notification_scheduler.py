@@ -399,7 +399,7 @@ class NotificationScheduler:
             if not user.apns_device_token:
                 continue
 
-            title = "Time for Your IQ Test!"
+            title = "Ready for Your Next AIQ Test?"
             body = f"Hi {user.first_name}, it's been 3 months! Ready to track your cognitive progress?"
 
             # Generate deep link to user's last test result

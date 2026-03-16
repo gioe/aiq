@@ -365,7 +365,7 @@ class TestNotificationPayloadFormatting:
 
         # Build notification manually like send_notifications_to_users does
         user = users[0]
-        title = "Time for Your IQ Test!"
+        title = "Ready for Your Next AIQ Test?"
         body = f"Hi {user.first_name}, it's been 6 months! Ready to track your cognitive progress?"
 
         # Generate deep link with the test result ID
@@ -385,7 +385,7 @@ class TestNotificationPayloadFormatting:
 
         # Verify structure
         assert notification["device_token"] == "test-device-token"
-        assert notification["title"] == "Time for Your IQ Test!"
+        assert notification["title"] == "Ready for Your Next AIQ Test?"
         assert "John" in notification["body"]
         assert notification["badge"] == 1
         assert notification["data"]["type"] == "test_reminder"
