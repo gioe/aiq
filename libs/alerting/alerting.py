@@ -1001,7 +1001,7 @@ class AlertManager:
                     <span class="label">Category:</span> {category_val.title()}
                 </div>
                 <div class="detail">
-                    <span class="label">Provider:</span> {classified_error.provider}
+                    <span class="label">Provider:</span> {html_module.escape(str(classified_error.provider))}
                 </div>
                 <div class="detail">
                     <span class="label">Time:</span> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
@@ -1010,7 +1010,7 @@ class AlertManager:
 
             <div class="detail">
                 <span class="label">Message:</span><br>
-                {classified_error.message}
+                {html_module.escape(str(classified_error.message))}
             </div>
 
             <div class="actions">
@@ -1020,7 +1020,7 @@ class AlertManager:
 
             <div class="footer">
                 <p>This is an automated alert from the IQ Tracker Question Generation Service.</p>
-                <p>Original error: {original_error}</p>
+                <p>Original error: {html_module.escape(str(original_error))}</p>
             </div>
         </body>
         </html>
@@ -1486,7 +1486,7 @@ class InventoryAlertManager:
             }
 
             with open(log_path, "a") as f:
-                f.write(f"{entry}\n")
+                f.write(json.dumps(entry) + "\n")
         except (IOError, OSError) as e:
             logger.error(f"Failed to log inventory check: {e}")
 
