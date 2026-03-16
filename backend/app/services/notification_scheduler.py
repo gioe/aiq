@@ -14,6 +14,7 @@ from app.models import User, TestResult
 from app.core.config import settings
 from app.core.datetime_utils import ensure_timezone_aware, utc_now
 from app.models.models import NotificationType
+from app.services.constants import NOTIFICATION_INTERVAL_MONTHS
 
 logger = logging.getLogger(__name__)
 
@@ -400,7 +401,7 @@ class NotificationScheduler:
                 continue
 
             title = "Ready for Your Next AIQ Test?"
-            body = f"Hi {user.first_name}, it's been 3 months! Ready to track your cognitive progress?"
+            body = f"Hi {user.first_name}, it's been {NOTIFICATION_INTERVAL_MONTHS} months! Ready to track your cognitive progress?"
 
             # Generate deep link to user's last test result
             latest_result_id = user_to_latest_result.get(user.id)

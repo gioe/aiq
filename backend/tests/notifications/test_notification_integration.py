@@ -22,6 +22,7 @@ from app.services.notification_scheduler import (
     get_users_due_for_test,
     get_users_never_tested,
 )
+from app.services.constants import NOTIFICATION_INTERVAL_MONTHS
 from app.core.config import settings
 
 
@@ -366,7 +367,7 @@ class TestNotificationPayloadFormatting:
         # Build notification manually like send_notifications_to_users does
         user = users[0]
         title = "Ready for Your Next AIQ Test?"
-        body = f"Hi {user.first_name}, it's been 3 months! Ready to track your cognitive progress?"
+        body = f"Hi {user.first_name}, it's been {NOTIFICATION_INTERVAL_MONTHS} months! Ready to track your cognitive progress?"
 
         # Generate deep link with the test result ID
         deep_link = generate_deep_link("test_reminder", test_result.id)

@@ -2,6 +2,7 @@
 Services package for business logic.
 """
 
+from .constants import NOTIFICATION_INTERVAL_MONTHS
 from .apns_service import APNsService, send_test_reminder_notification
 from .notification_scheduler import (
     NotificationScheduler,
@@ -10,6 +11,7 @@ from .notification_scheduler import (
 )
 
 __all__ = [
+    "NOTIFICATION_INTERVAL_MONTHS",
     "APNsService",
     "send_test_reminder_notification",
     "NotificationScheduler",

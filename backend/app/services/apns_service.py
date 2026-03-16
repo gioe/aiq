@@ -13,6 +13,7 @@ from app.core.analytics import AnalyticsTracker
 from app.core.config import settings
 from app.models.models import NotificationType
 from app.observability import metrics
+from app.services.constants import NOTIFICATION_INTERVAL_MONTHS
 
 logger = logging.getLogger(__name__)
 
@@ -303,9 +304,9 @@ async def send_test_reminder_notification(
 
         title = "Ready for Your Next AIQ Test?"
         if user_name:
-            body = f"Hi {user_name}, it's been 3 months! Ready to track your cognitive progress?"
+            body = f"Hi {user_name}, it's been {NOTIFICATION_INTERVAL_MONTHS} months! Ready to track your cognitive progress?"
         else:
-            body = "It's been 3 months! Ready to track your cognitive progress?"
+            body = f"It's been {NOTIFICATION_INTERVAL_MONTHS} months! Ready to track your cognitive progress?"
 
         result = await service.send_notification(
             device_token=device_token,
