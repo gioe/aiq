@@ -12,8 +12,7 @@ import sys
 from typing import Any, Dict
 
 from app.core.config import settings
-from libs.logging import JSONFormatter, get_logger  # noqa: F401
-from libs.logging.logging_config import request_id_context  # noqa: F401
+from libs.logging import JSONFormatter, get_logger, request_id_context  # noqa: F401
 
 
 def setup_logging() -> None:
