@@ -65,6 +65,7 @@ class TestTakingViewModel: BaseViewModel {
     private let answerStorage: LocalAnswerStorageProtocol
     let coordinator: AdaptiveTestCoordinator
     private var saveWorkItem: DispatchWorkItem?
+    private var startErrorTask: Task<Void, Never>?
 
     /// Test count before starting this test (used to determine if this is the first test)
     /// Defaults to 1 (not first test) as a safe fallback until actual count is fetched
@@ -87,6 +88,10 @@ class TestTakingViewModel: BaseViewModel {
         self.coordinator.delegate = self
         setupCoordinatorBindings()
         setupAutoSave()
+    }
+
+    deinit {
+        startErrorTask?.cancel()
     }
 
     // MARK: - Computed Properties
@@ -930,7 +935,10 @@ extension TestTakingViewModel: AdaptiveTestCoordinatorDelegate {
 
     func handleStartError(_ error: Error) {
         if let apiError = error as? APIError {
-            Task { await handleTestStartError(apiError, questionCount: Constants.Test.defaultQuestionCount) }
+            startErrorTask?.cancel()
+            startErrorTask = Task {
+                await handleTestStartError(apiError, questionCount: Constants.Test.defaultQuestionCount)
+            }
         } else {
             handleGenericTestStartError(error, questionCount: Constants.Test.defaultQuestionCount)
         }
