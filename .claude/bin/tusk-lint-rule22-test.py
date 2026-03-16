@@ -325,5 +325,48 @@ class TestRule22MultiFileAggregation(unittest.TestCase):
         self.assertIn("gemini-3-pro-preview-old", combined)
 
 
+    def test_one_clean_file_one_bad_file_produces_one_warning(self):
+        # judges.yaml has a valid model; generators.yaml has an invalid model.
+        # Only one warning should be emitted, from generators.yaml.
+        judges_yaml = textwrap.dedent("""\
+            judges:
+              math:
+                model: claude-sonnet-4-5-20250929
+                provider: anthropic
+        """)
+        generators_yaml = textwrap.dedent("""\
+            generators:
+              verbal:
+                model: gemini-3-pro-preview-old
+                provider: google
+        """)
+        root = _make_config_tree(self, judges_yaml=judges_yaml, generators_yaml=generators_yaml)
+        result = rule22(root)
+        self.assertEqual(len(result), 1, f"Expected 1 warning (bad file only), got: {result}")
+        self.assertIn("gemini-3-pro-preview-old", result[0])
+        self.assertNotIn("claude-sonnet-4-5-20250929", result[0])
+
+    def test_bad_judges_clean_generators_produces_one_warning(self):
+        # generators.yaml has a valid model; judges.yaml has an invalid model.
+        # Only one warning should be emitted, from judges.yaml.
+        judges_yaml = textwrap.dedent("""\
+            judges:
+              math:
+                model: claude-3-opus-stale-preview
+                provider: anthropic
+        """)
+        generators_yaml = textwrap.dedent("""\
+            generators:
+              spatial:
+                model: gpt-4o
+                provider: openai
+        """)
+        root = _make_config_tree(self, judges_yaml=judges_yaml, generators_yaml=generators_yaml)
+        result = rule22(root)
+        self.assertEqual(len(result), 1, f"Expected 1 warning (bad file only), got: {result}")
+        self.assertIn("claude-3-opus-stale-preview", result[0])
+        self.assertNotIn("gpt-4o", result[0])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
