@@ -44,6 +44,7 @@ from app.observability.alerting import (  # noqa: E402
     AlertingConfig,
     InventoryAlertManager,
 )
+from app.observability.alerting_adapter import to_run_summary  # noqa: E402
 from app.config.config import settings  # noqa: E402
 from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
@@ -1929,21 +1930,27 @@ def main() -> int:
 
         alert_manager.send_run_completion(
             exit_code,
-            {
-                "questions_generated": stats.get("questions_generated", 0),
-                "questions_inserted": inserted_count,
-                "approval_rate": approval_rate,
-                "duration_seconds": stats.get("duration_seconds", 0),
-                "by_type": summary.get("database", {}).get("inserted_by_type", {}),
-                "by_difficulty": summary.get("generation", {}).get("by_difficulty", {}),
-                "questions_requested": summary.get("generation", {}).get(
-                    "requested", 0
-                ),
-                "questions_rejected": summary.get("evaluation", {}).get("rejected", 0),
-                "duplicates_found": summary.get("deduplication", {}).get(
-                    "duplicates_found", 0
-                ),
-            },
+            to_run_summary(
+                {
+                    "questions_generated": stats.get("questions_generated", 0),
+                    "questions_inserted": inserted_count,
+                    "approval_rate": approval_rate,
+                    "duration_seconds": stats.get("duration_seconds", 0),
+                    "by_type": summary.get("database", {}).get("inserted_by_type", {}),
+                    "by_difficulty": summary.get("generation", {}).get(
+                        "by_difficulty", {}
+                    ),
+                    "questions_requested": summary.get("generation", {}).get(
+                        "requested", 0
+                    ),
+                    "questions_rejected": summary.get("evaluation", {}).get(
+                        "rejected", 0
+                    ),
+                    "duplicates_found": summary.get("deduplication", {}).get(
+                        "duplicates_found", 0
+                    ),
+                }
+            ),
         )
 
         logger.info(
@@ -1969,7 +1976,7 @@ def main() -> int:
         if "alert_manager" in locals():
             alert_manager.send_run_completion(
                 EXIT_PARTIAL_FAILURE,
-                {"error_message": "Script interrupted by user"},
+                to_run_summary({"error_message": "Script interrupted by user"}),
             )
         logger.info(
             "RUN_COMPLETE exit_code=%d questions_generated=%d questions_inserted=%d "
@@ -2032,7 +2039,7 @@ def main() -> int:
         if "alert_manager" in locals():
             alert_manager.send_run_completion(
                 EXIT_COMPLETE_FAILURE,
-                {"error_message": f"Unexpected error: {str(e)[:200]}"},
+                to_run_summary({"error_message": f"Unexpected error: {str(e)[:200]}"}),
             )
         logger.info(
             "RUN_COMPLETE exit_code=%d questions_generated=%d questions_inserted=%d "
