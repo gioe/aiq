@@ -11,8 +11,9 @@ Classification Strategy (in priority order):
 """
 
 import re
-from enum import Enum
 from typing import Any, Dict, Optional
+
+from libs.alerting.alerting import ErrorCategory, ErrorSeverity  # noqa: F401
 
 # HTTP Status Code Constants
 HTTP_STATUS_BAD_REQUEST = 400
@@ -59,30 +60,6 @@ try:
     GOOGLE_AVAILABLE = True
 except ImportError:
     GOOGLE_AVAILABLE = False
-
-
-class ErrorCategory(Enum):
-    """Categories of API errors."""
-
-    BILLING_QUOTA = "billing_quota"  # Insufficient funds, quota exceeded
-    RATE_LIMIT = "rate_limit"  # Rate limit/throttling errors
-    AUTHENTICATION = "authentication"  # API key invalid or expired
-    INVALID_REQUEST = "invalid_request"  # Malformed request or invalid parameters
-    SERVER_ERROR = "server_error"  # Provider server errors (5xx)
-    NETWORK_ERROR = "network_error"  # Connection/timeout errors
-    MODEL_ERROR = "model_error"  # Model not found or unavailable
-    INVENTORY_LOW = "inventory_low"  # Question inventory below threshold
-    SCRIPT_FAILURE = "script_failure"  # Multiple question types failed in bootstrap
-    UNKNOWN = "unknown"  # Unclassified errors
-
-
-class ErrorSeverity(Enum):
-    """Severity levels for errors."""
-
-    CRITICAL = "critical"  # Requires immediate attention (e.g., billing)
-    HIGH = "high"  # Important but not blocking (e.g., rate limits)
-    MEDIUM = "medium"  # Should be addressed (e.g., invalid requests)
-    LOW = "low"  # Informational (e.g., temporary network issues)
 
 
 class ClassifiedError:
