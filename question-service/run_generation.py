@@ -48,7 +48,7 @@ from app.config.config import settings  # noqa: E402
 from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
 )
-from app.infrastructure.logging_config import setup_logging  # noqa: E402
+from libs.logging import setup_logging  # noqa: E402
 from app.reporting.run_summary import RunSummary  # noqa: E402
 from app.data.models import DifficultyLevel, QuestionType  # noqa: E402
 from app.reporting.reporter import RunReporter  # noqa: E402

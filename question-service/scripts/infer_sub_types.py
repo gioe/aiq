@@ -40,7 +40,7 @@ from openai import AsyncOpenAI  # noqa: E402
 
 from app.config.config import settings  # noqa: E402
 from app.data.database import DatabaseService, QuestionModel  # noqa: E402
-from app.infrastructure.logging_config import setup_logging  # noqa: E402
+from libs.logging import setup_logging  # noqa: E402
 from app.data.models import QuestionType  # noqa: E402
 from app.generation.prompts import QUESTION_SUBTYPES  # noqa: E402
 
