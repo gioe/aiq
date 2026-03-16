@@ -301,5 +301,29 @@ class TestRule22StructuralFilter(unittest.TestCase):
         self.assertEqual(result, [], f"Null section value should produce no warnings, got: {result}")
 
 
+class TestRule22MultiFileAggregation(unittest.TestCase):
+    """Warnings from judges.yaml and generators.yaml are concatenated into one result list."""
+
+    def test_bad_models_in_both_files_produces_two_warnings(self):
+        judges_yaml = textwrap.dedent("""\
+            judges:
+              math:
+                model: claude-3-opus-stale-preview
+                provider: anthropic
+        """)
+        generators_yaml = textwrap.dedent("""\
+            generators:
+              verbal:
+                model: gemini-3-pro-preview-old
+                provider: google
+        """)
+        root = _make_config_tree(self, judges_yaml=judges_yaml, generators_yaml=generators_yaml)
+        result = rule22(root)
+        self.assertEqual(len(result), 2, f"Expected 2 warnings (one per file), got: {result}")
+        combined = "\n".join(result)
+        self.assertIn("claude-3-opus-stale-preview", combined)
+        self.assertIn("gemini-3-pro-preview-old", combined)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
