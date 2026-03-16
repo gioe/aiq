@@ -102,10 +102,10 @@ import logging
 from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Any, Iterator, Literal
 
-from libs.observability.validation import validate_json_serializable, validate_tag
+from .validation import validate_json_serializable, validate_tag
 
 if TYPE_CHECKING:
-    from libs.observability.config import ObservabilityConfig
+    from .config import ObservabilityConfig
 
 logger = logging.getLogger(__name__)
 
@@ -545,7 +545,7 @@ class ObservabilityFacade:
             return True
 
         try:
-            from libs.observability.config import ConfigurationError, load_config
+            from .config import ConfigurationError, load_config
 
             self._config = load_config(
                 config_path=config_path,
@@ -567,7 +567,7 @@ class ObservabilityFacade:
         # Initialize Sentry backend if enabled
         if self._config.sentry.enabled:
             try:
-                from libs.observability.sentry_backend import SentryBackend
+                from .sentry_backend import SentryBackend
 
                 self._sentry_backend = SentryBackend(self._config.sentry)
                 sentry_initialized = self._sentry_backend.init()
@@ -578,7 +578,7 @@ class ObservabilityFacade:
         # Initialize OTEL backend if enabled
         if self._config.otel.enabled:
             try:
-                from libs.observability.otel_backend import OTELBackend
+                from .otel_backend import OTELBackend
 
                 self._otel_backend = OTELBackend(self._config.otel)
                 otel_initialized = self._otel_backend.init()

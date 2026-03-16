@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from opentelemetry.sdk._logs import LoggerProvider
     from opentelemetry.trace import Span
 
-    from libs.observability.config import OTELConfig
+    from .config import OTELConfig
 
 logger = logging.getLogger(__name__)
 

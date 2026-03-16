@@ -70,7 +70,7 @@ Security:
     4. Audit observability calls during code review
 """
 
-from libs.observability.facade import ObservabilityFacade, SpanContext
+from .facade import ObservabilityFacade, SpanContext
 
 # Singleton instance for application use
 observability = ObservabilityFacade()

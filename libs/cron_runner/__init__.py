@@ -24,6 +24,6 @@ Example::
     exit_code = job.run_once()
 """
 
-from libs.cron_runner.cron_job import CronJob
+from .cron_job import CronJob
 
 __all__ = ["CronJob"]

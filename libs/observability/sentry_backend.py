@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Iterator
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from libs.observability.config import SentryConfig
+    from .config import SentryConfig
 
 logger = logging.getLogger(__name__)
 
