@@ -196,7 +196,7 @@ final class PushNotificationDeepLinkTests: XCTestCase {
     func testCreateNotificationContent_WithDeepLink() {
         // Given - notification content with deep link in userInfo
         let content = UNMutableNotificationContent()
-        content.title = "Time for Your IQ Test!"
+        content.title = "Ready for Your Next AIQ Test?"
         content.body = "Ready to track your cognitive progress?"
         content.badge = 1
         content.userInfo = [
@@ -323,7 +323,7 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         // Based on notification_scheduler.py lines 278-284
         let backendPayload: [String: Any] = [
             "device_token": "mock_device_token_123",
-            "title": "Time for Your IQ Test!",
+            "title": "Ready for Your Next AIQ Test?",
             "body": "Hi John, it's been 3 months! Ready to track your cognitive progress?",
             "badge": 1,
             "data": [
@@ -351,7 +351,7 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         // This documents what the backend SHOULD send for deep link navigation
         let expectedPayload: [String: Any] = [
             "device_token": "mock_device_token_123",
-            "title": "Time for Your IQ Test!",
+            "title": "Ready for Your Next AIQ Test?",
             "body": "Hi John, it's been 3 months! Ready to track your cognitive progress?",
             "badge": 1,
             "data": [
