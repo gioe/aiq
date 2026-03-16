@@ -60,7 +60,7 @@ struct AdaptiveTestView: View {
                     .loadingOverlayTransition(reduceMotion: reduceMotion)
             }
         }
-        .navigationTitle("Adaptive IQ Test")
+        .navigationTitle("Adaptive AIQ Test")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .navigationBarBackButtonHidden(true)

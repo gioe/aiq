@@ -77,7 +77,7 @@ struct RegistrationView: View {
                             .multilineTextAlignment(.center)
 
                         // Disclaimer
-                        Text("For personal insight. Not a clinical IQ test.")
+                        Text("For personal insight. Not a clinical assessment.")
                             .font(Typography.captionMedium)
                             .foregroundColor(ColorPalette.textSecondary)
                             .multilineTextAlignment(.center)

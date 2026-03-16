@@ -149,7 +149,7 @@ struct TestResultsView: View {
 
             // IQ Score
             VStack(spacing: DesignSystem.Spacing.xs) {
-                Text("Your IQ Score")
+                Text("Your AIQ Score")
                     .font(Typography.h3)
                     .foregroundColor(ColorPalette.textSecondary)
                     .accessibilityHidden(true) // Redundant with full label below
@@ -178,7 +178,7 @@ struct TestResultsView: View {
                 .accessibilityHidden(true) // Already included in hint above
 
             // Disclaimer
-            Text("This is a cognitive performance assessment for personal insight, not a clinical IQ test.")
+            Text("This is a cognitive performance assessment for personal insight, not a clinical assessment.")
                 .font(Typography.captionMedium)
                 .foregroundColor(ColorPalette.textTertiary)
                 .multilineTextAlignment(.center)

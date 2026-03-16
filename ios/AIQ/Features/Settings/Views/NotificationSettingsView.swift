@@ -39,7 +39,7 @@ struct NotificationSettingsView: View {
                     Text("Push Notifications")
                         .font(.body)
 
-                    Text("Get reminders when it's time for your next IQ test")
+                    Text("Get reminders when it's time for your next AIQ test")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

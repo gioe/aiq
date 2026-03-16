@@ -21,7 +21,7 @@ struct HelpView: View {
                 } label: {
                     HelpRowView(
                         icon: "brain.head.profile",
-                        title: "How IQ Scores Work",
+                        title: "How AIQ Scores Work",
                         description: "What your score represents"
                     )
                 }
@@ -203,7 +203,7 @@ struct IQScoreHelpView: View {
                         .font(.system(size: 40))
                         .foregroundColor(.accentColor)
 
-                    Text("How IQ Scores Work")
+                    Text("How AIQ Scores Work")
                         .font(.title2)
                         .fontWeight(.bold)
                 }
@@ -240,7 +240,7 @@ struct IQScoreHelpView: View {
 
                     Text("""
                     This app provides a cognitive performance assessment for \
-                    personal insight. It is not a clinical IQ test and should \
+                    personal insight. It is not a clinical assessment and should \
                     not be used for diagnostic purposes.
 
                     Your score may vary between tests due to factors like fatigue, \
@@ -252,7 +252,7 @@ struct IQScoreHelpView: View {
             }
             .padding()
         }
-        .navigationTitle("IQ Scores")
+        .navigationTitle("AIQ Scores")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -508,7 +508,7 @@ struct DataPrivacyHelpView: View {
     }
 }
 
-#Preview("IQ Score Help") {
+#Preview("AIQ Score Help") {
     NavigationStack {
         IQScoreHelpView()
     }

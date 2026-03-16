@@ -76,7 +76,7 @@ struct TestTakingView: View {
                     .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.loadingOverlay)
             }
         }
-        .navigationTitle("IQ Test")
+        .navigationTitle("AIQ Test")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .navigationBarBackButtonHidden(true)

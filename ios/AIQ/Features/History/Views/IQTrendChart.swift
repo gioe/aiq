@@ -16,7 +16,7 @@ struct IQTrendChart: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("IQ Score Trend")
+                Text("AIQ Score Trend")
                     .font(.headline)
                     .foregroundColor(.primary)
 
@@ -58,14 +58,14 @@ struct IQTrendChart: View {
                     ForEach(sampledData) { result in
                         LineMark(
                             x: .value("Date", result.completedAt),
-                            y: .value("IQ Score", result.iqScore)
+                            y: .value("AIQ Score", result.iqScore)
                         )
                         .foregroundStyle(Color.accentColor)
                         .lineStyle(StrokeStyle(lineWidth: 2))
 
                         PointMark(
                             x: .value("Date", result.completedAt),
-                            y: .value("IQ Score", result.iqScore)
+                            y: .value("AIQ Score", result.iqScore)
                         )
                         .foregroundStyle(Color.accentColor)
                         .symbolSize(60)
@@ -138,7 +138,7 @@ struct IQTrendChart: View {
     /// Accessibility label describing the chart content
     private var chartAccessibilityLabel: String {
         guard !testHistory.isEmpty else {
-            return "IQ score trend chart with no data"
+            return "AIQ score trend chart with no data"
         }
 
         let scores = testHistory.map(\.iqScore)
@@ -147,7 +147,7 @@ struct IQTrendChart: View {
         let avgScore = scores.reduce(0, +) / scores.count
         let trend = calculateTrend(scores)
 
-        var label = "IQ score trend chart showing \(testHistory.count) test results. "
+        var label = "AIQ score trend chart showing \(testHistory.count) test results. "
         label += "Your scores \(trend) from \(scores.first!) to \(scores.last!), "
         label += "with scores ranging from \(minScore) to \(maxScore) and an average of \(avgScore). "
 

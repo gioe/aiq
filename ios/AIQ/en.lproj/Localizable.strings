@@ -23,13 +23,13 @@
 "feature.fresh.challenges.title" = "Fresh AI Challenges";
 "feature.fresh.challenges.description" = "New questions every test";
 "feature.track.progress.title" = "Track Your Progress";
-"feature.track.progress.description" = "Watch your IQ improve over time";
+"feature.track.progress.description" = "Watch your AIQ score improve over time";
 
 // MARK: - Registration View
 "registration.title" = "Register";
 "registration.hero.title" = "Begin Your Journey";
 "registration.hero.subtitle" = "Track your cognitive performance over time";
-"registration.disclaimer" = "For personal insight. Not a clinical IQ test.";
+"registration.disclaimer" = "For personal insight. Not a clinical assessment.";
 "registration.firstname.title" = "First Name";
 "registration.firstname.placeholder" = "John";
 "registration.lastname.title" = "Last Name";
@@ -74,7 +74,7 @@
 "dashboard.greeting.evening" = "Good evening";
 "dashboard.subtitle" = "Track your cognitive performance over time";
 "dashboard.stat.tests.taken" = "Tests Taken";
-"dashboard.stat.average.iq" = "Average IQ";
+"dashboard.stat.average.iq" = "Average AIQ";
 "dashboard.action.take.test" = "Take Another Test";
 "dashboard.action.resume.test" = "Resume Test in Progress";
 "dashboard.test.in.progress" = "Test in Progress";
@@ -89,7 +89,7 @@
 "dashboard.empty.action.start" = "Start Your First Test";
 
 // MARK: - Test Taking View
-"test.title" = "IQ Test";
+"test.title" = "AIQ Test";
 "test.loading" = "Submitting your test...";
 "test.exit.button" = "Exit";
 "test.previous.button" = "Previous";
@@ -145,8 +145,8 @@
 // MARK: - Test Results View
 "results.title" = "Test Results";
 "results.done.button" = "Done";
-"results.your.score" = "Your IQ Score";
-"results.disclaimer" = "This is a cognitive performance assessment for personal insight, not a clinical IQ test.";
+"results.your.score" = "Your AIQ Score";
+"results.disclaimer" = "This is a cognitive performance assessment for personal insight, not a clinical assessment.";
 "results.confidence.range" = "Range: %@";
 "results.confidence.info.title" = "Understanding Your Score Range";
 "results.confidence.info.button" = "Learn about score range";
@@ -183,7 +183,7 @@
 "history.title" = "History";
 "history.loading" = "Loading history...";
 "history.stat.tests.taken" = "Tests Taken";
-"history.stat.average.iq" = "Average IQ";
+"history.stat.average.iq" = "Average AIQ";
 "history.stat.best.score" = "Best Score";
 "history.filter.label" = "Filter";
 "history.sort.label" = "Sort";
@@ -193,13 +193,13 @@
 "history.load.more" = "Load More";
 "history.load.more.count" = "Showing %d of %d tests";
 "history.empty.title" = "No Test History Yet";
-"history.empty.message" = "Take your first IQ test to start tracking your cognitive performance over time. Your scores and progress will appear here.";
+"history.empty.message" = "Take your first AIQ test to start tracking your cognitive performance over time. Your scores and progress will appear here.";
 
 // MARK: - Settings View
 "settings.title" = "Settings";
 "settings.account.header" = "Account";
 "settings.notifications.header" = "Notifications";
-"settings.notifications.footer" = "Receive reminders when it's time to take your next IQ test (every 3 months)";
+"settings.notifications.footer" = "Receive reminders when it's time to take your next AIQ test (every 3 months)";
 "settings.support.header" = "Support";
 "settings.help.button" = "Help & FAQ";
 "settings.app.header" = "App";
@@ -223,7 +223,7 @@
 
 // MARK: - Notification Settings
 "notifications.title" = "Push Notifications";
-"notifications.description" = "Get reminders when it's time for your next IQ test";
+"notifications.description" = "Get reminders when it's time for your next AIQ test";
 
 // MARK: - Tab Bar
 "tab.dashboard" = "Dashboard";
@@ -255,7 +255,7 @@
 // MARK: - Help Topics
 "help.score.ranges.title" = "Understanding Score Ranges";
 "help.score.ranges.description" = "Learn what the score range means";
-"help.iq.score.title" = "How IQ Scores Work";
+"help.iq.score.title" = "How AIQ Scores Work";
 "help.iq.score.description" = "What your score represents";
 "help.test.frequency.title" = "Test Frequency";
 "help.test.frequency.description" = "How often you can test";
@@ -266,7 +266,7 @@
 
 // MARK: - Help Content - Score Ranges
 "help.score.range.what.title" = "What is a Score Range?";
-"help.score.range.what.text" = "When you receive your IQ score, you may also see a range (for example, \"Range: 101-115\"). This range is called a confidence interval, and it's an important part of understanding your results.";
+"help.score.range.what.text" = "When you receive your AIQ score, you may also see a range (for example, \"Range: 101-115\"). This range is called a confidence interval, and it's an important part of understanding your results.";
 "help.score.range.why.title" = "Why Scores Have Ranges";
 "help.score.range.why.text" = "Your displayed score represents our best estimate of your cognitive ability. However, due to the nature of measurement, no single test can capture your exact ability with perfect precision.\n\nThe score range shows the interval within which your true ability likely falls. When we report a 95% confidence interval, it means there's a 95% probability that your true score is somewhere within that range.";
 "help.score.range.example.title" = "Example";
@@ -278,7 +278,7 @@
 "help.iq.scale.title" = "The IQ Scale";
 "help.iq.scale.text" = "IQ scores are standardized so that the average score is 100, with a standard deviation of 15. This means about 68% of people score between 85 and 115.";
 "help.iq.notes.title" = "Important Notes";
-"help.iq.notes.text" = "This app provides a cognitive performance assessment for personal insight. It is not a clinical IQ test and should not be used for diagnostic purposes.\n\nYour score may vary between tests due to factors like fatigue, stress, or practice effects. Focus on your overall trend rather than any single score.";
+"help.iq.notes.text" = "This app provides a cognitive performance assessment for personal insight. It is not a clinical assessment and should not be used for diagnostic purposes.\n\nYour score may vary between tests due to factors like fatigue, stress, or practice effects. Focus on your overall trend rather than any single score.";
 
 // MARK: - Help Content - Test Frequency
 "help.frequency.why.title" = "Why 3 Months Between Tests?";
@@ -363,7 +363,7 @@
 "accessibility.done.hint" = "Return to dashboard";
 "accessibility.error.view" = "Error: %@";
 "accessibility.empty.state" = "%@. %@";
-"accessibility.score.description" = "Your IQ score is %d";
+"accessibility.score.description" = "Your AIQ score is %d";
 "accessibility.confidence.range" = "95%% confidence: your true score likely falls between %d and %d";
 "accessibility.learn.score.range" = "Learn about score range";
 "accessibility.learn.score.range.hint" = "Shows explanation of confidence interval";
@@ -443,7 +443,7 @@
 
 // MARK: - Test Detail View
 "test.detail.title" = "Test Details";
-"test.detail.iq.score" = "IQ Score";
+"test.detail.iq.score" = "AIQ Score";
 "test.detail.range.format" = "Range: %@";
 "test.detail.learn.score.range" = "Learn about score range";
 "test.detail.understanding.score.range" = "Understanding Your Score Range";
@@ -488,7 +488,7 @@
 "test.progress.remaining" = "Remaining";
 
 // MARK: - Test Taking View
-"test.taking.title" = "IQ Test";
+"test.taking.title" = "AIQ Test";
 "test.taking.exit" = "Exit";
 "test.taking.previous" = "Previous";
 "test.taking.next" = "Next";
@@ -534,7 +534,7 @@
 // MARK: - Test Results
 "results.test.results" = "Test Results";
 "results.done" = "Done";
-"results.your.iq.score" = "Your IQ Score";
+"results.your.iq.score" = "Your AIQ Score";
 "results.range.format" = "Range: %@";
 "results.learn.score.range" = "Learn about score range";
 "results.explanation.title" = "Understanding Your Score Range";
@@ -549,7 +549,7 @@
 "dashboard.greeting.plain" = "%@!";
 "dashboard.track.performance" = "Track your cognitive performance over time";
 "dashboard.tests.taken" = "Tests Taken";
-"dashboard.average.iq" = "Average IQ";
+"dashboard.average.iq" = "Average AIQ";
 "dashboard.test.in.progress.badge" = "Test in Progress";
 "dashboard.questions.answered.format" = "%d questions answered";
 "dashboard.resume.test.in.progress" = "Resume Test in Progress";
@@ -567,7 +567,7 @@
 "history.filter" = "Filter";
 "history.sort" = "Sort";
 "history.tests.taken" = "Tests Taken";
-"history.average.iq" = "Average IQ";
+"history.average.iq" = "Average AIQ";
 "history.best.score" = "Best Score";
 "history.showing.filtered.format" = "Showing %d of %d tests";
 "history.clear.filters" = "Clear Filters";
@@ -575,7 +575,7 @@
 "history.load.more" = "Load More";
 "history.showing.format" = "Showing %d of %d tests";
 "history.no.history.title" = "No Test History Yet";
-"history.no.history.message" = "Take your first IQ test to start tracking your cognitive performance over time. Your scores and progress will appear here.";
+"history.no.history.message" = "Take your first AIQ test to start tracking your cognitive performance over time. Your scores and progress will appear here.";
 "history.load.more.accessibility.label" = "Load more results";
 "history.load.more.accessibility.hint" = "Showing %d of %d tests. Double tap to load more.";
 "history.loading.more.accessibility" = "Loading more results";
@@ -583,7 +583,7 @@
 // MARK: - Settings
 "settings.account" = "Account";
 "settings.notifications" = "Notifications";
-"settings.notifications.footer" = "Receive reminders when it's time to take your next IQ test (every 3 months)";
+"settings.notifications.footer" = "Receive reminders when it's time to take your next AIQ test (every 3 months)";
 "settings.support" = "Support";
 "settings.help.faq" = "Help & FAQ";
 "settings.app" = "App";
@@ -682,7 +682,7 @@
 "onboarding.page2.subtitle" = "Each test is designed to comprehensively assess your cognitive abilities across multiple domains.";
 "onboarding.page2.step1" = "Answer 25 unique questions across different cognitive domains";
 "onboarding.page2.step2" = "Complete the test in one sitting (approximately 20-25 minutes)";
-"onboarding.page2.step3" = "Receive your IQ score and detailed performance breakdown";
+"onboarding.page2.step3" = "Receive your AIQ score and detailed performance breakdown";
 "onboarding.page2.info.note" = "Questions are refreshed daily, so every test is unique.";
 
 // MARK: - Onboarding Page 3 - Testing Frequency

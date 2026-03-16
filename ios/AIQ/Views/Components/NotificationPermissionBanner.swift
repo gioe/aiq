@@ -81,7 +81,7 @@ struct NotificationPermissionBanner: View {
                         Text("Push Notifications")
                             .font(.body)
 
-                        Text("Get reminders when it's time for your next IQ test")
+                        Text("Get reminders when it's time for your next AIQ test")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -97,7 +97,7 @@ struct NotificationPermissionBanner: View {
         } header: {
             Text("Notifications")
         } footer: {
-            Text("Receive reminders when it's time to take your next IQ test (every 3 months)")
+            Text("Receive reminders when it's time to take your next AIQ test (every 3 months)")
                 .font(.caption)
         }
     }

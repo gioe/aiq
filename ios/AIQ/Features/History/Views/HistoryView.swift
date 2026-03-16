@@ -98,7 +98,7 @@ struct HistoryView: View {
                             .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.testsTakenStat)
 
                             HistoryStatCard(
-                                label: "Average IQ",
+                                label: "Average AIQ",
                                 value: "\(avgScore)",
                                 icon: "chart.line.uptrend.xyaxis"
                             )

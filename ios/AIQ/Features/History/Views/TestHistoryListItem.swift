@@ -9,7 +9,7 @@ struct TestHistoryListItem: View {
             // Header with IQ Score and Date
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("IQ Score")
+                    Text("AIQ Score")
                         .font(.caption)
                         .foregroundColor(.secondary)
 

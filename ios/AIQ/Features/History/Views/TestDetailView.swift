@@ -62,7 +62,7 @@ struct TestDetailView: View {
 
             // IQ Score
             VStack(spacing: 8) {
-                Text("IQ Score")
+                Text("AIQ Score")
                     .font(.headline)
                     .foregroundColor(.secondary)
                     .accessibilityHidden(true)
