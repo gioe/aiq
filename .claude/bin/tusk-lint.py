@@ -882,25 +882,25 @@ def rule19_tusk_manifest_json_sync(root):
 
 # Known model lists per provider — mirrors each provider's get_available_models().
 # Update these when providers add or deprecate models (run /refresh-providers first).
-_PROVIDER_MODELS: dict[str, list[str]] = {
-    "openai": [
+_PROVIDER_MODELS: dict[str, set[str]] = {
+    "openai": {
         "gpt-5.2", "gpt-5.1", "gpt-5",
         "o4-mini", "o3", "o3-mini", "o1",
         "gpt-4o", "gpt-4o-mini",
         "gpt-4-turbo", "gpt-4-turbo-preview", "gpt-4", "gpt-4-0125-preview",
         "gpt-3.5-turbo", "gpt-3.5-turbo-16k",
-    ],
-    "anthropic": [
+    },
+    "anthropic": {
         "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001",
         "claude-opus-4-5-20251101", "claude-sonnet-4-5-20250929",
         "claude-opus-4-1-20250805", "claude-sonnet-4-20250514", "claude-opus-4-20250514",
         "claude-3-7-sonnet-20250219", "claude-3-haiku-20240307",
-    ],
-    "google": [
+    },
+    "google": {
         "gemini-3-pro-preview", "gemini-3-flash-preview",
         "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash",
-    ],
-    "xai": ["grok-4", "grok-3"],
+    },
+    "xai": {"grok-4", "grok-3"},
 }
 
 # Top-level keys that identify a YAML file as containing model+provider mappings.
