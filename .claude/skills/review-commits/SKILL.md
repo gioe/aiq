@@ -8,7 +8,7 @@ allowed-tools: Bash, Read, Task
 
 Orchestrates parallel code review against the task's git diff (commits on the current branch vs the base branch). Spawns one background reviewer agent per enabled reviewer in config, monitors completion, fixes must_fix findings, handles suggest findings interactively, and creates deferred tasks for defer findings.
 
-> **Prefer `/create-task` for all task creation.** It handles decomposition, deduplication, acceptance criteria generation, and dependency proposals in one workflow. Use `bin/tusk task-insert` directly only when scripting bulk inserts or in automated contexts where the interactive review step is not applicable.
+> Use `/create-task` for task creation — handles decomposition, deduplication, criteria, and deps. Use `tusk task-insert` only for bulk/automated inserts.
 
 ## Arguments
 
@@ -35,10 +35,10 @@ Parse the returned JSON. Extract:
 If a task ID was passed as an argument, use it. Otherwise, infer from the current branch:
 
 ```bash
-git branch --show-current
+tusk branch-parse
 ```
 
-Parse the branch name for the pattern `TASK-<id>` (e.g., `feature/TASK-123-my-feature` → task ID 123). If no task ID can be found, ask the user to provide one.
+Returns `{"task_id": N}` on success. If the command exits 1 (branch doesn't match pattern), ask the user to provide a task ID.
 
 Verify the task exists and capture its domain:
 
@@ -55,8 +55,7 @@ Store the task's `domain` value (may be NULL/empty — this is used to filter re
 Determine the base branch and compute the diff:
 
 ```bash
-git remote set-head origin --auto 2>/dev/null
-DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+DEFAULT_BRANCH=$(tusk git-default-branch)
 CURRENT_BRANCH=$(git branch --show-current)
 git diff "${DEFAULT_BRANCH}...HEAD"
 ```
@@ -125,13 +124,15 @@ Where `<base_directory>` is the skill base directory shown at the top of this fi
 
 **Filter reviewers by task domain before spawning:**
 
-Using the `reviewer name → review_id` mapping from Step 4 and the task domain from Step 2, determine which reviewers to spawn:
+Run:
 
-- A reviewer with an **empty or absent `domains` array** → always spawn (general reviewer).
-- A reviewer with a **non-empty `domains` array** → spawn only if the task's domain appears in that array.
-- If the task has **no domain (NULL/empty)** → spawn only reviewers with an empty or absent `domains` array.
+```bash
+tusk filter-reviewers --task-id <task_id>
+```
 
-For each review_id whose reviewer was filtered out by this logic, immediately auto-approve it without spawning an agent, recording the reason with `--note`:
+This returns a JSON array of reviewer names that match the task's domain (e.g. `["general", "security"]`). Use it together with the `reviewer name → review_id` mapping from Step 4 to determine which review_ids to spawn agents for.
+
+For each review_id whose reviewer name is **not** in the returned array, immediately auto-approve it without spawning an agent, recording the reason with `--note`:
 
 ```bash
 tusk review approve <review_id> --note "Skipped: reviewer domains [<reviewer_domains>] does not match task domain [<task_domain>]"
@@ -268,37 +269,54 @@ These are valid issues but out of scope for the current work. For each `defer` c
    tusk review resolve <comment_id> deferred
    ```
 
+After processing all findings, check the current verdict:
+
+```bash
+tusk review-verdict <task_id>
+```
+
+This returns `{"verdict": "APPROVED|CHANGES_REMAINING", "open_must_fix": N}`. If `verdict` is `APPROVED` and no `must_fix` changes were made, skip Step 8 and proceed directly to Step 9.
+
 ## Step 8: Re-review Loop (if there were must_fix changes)
 
-If any `must_fix` comments were fixed in Step 7, re-run the review to verify the fixes are correct. Cap the number of passes at `max_passes` from config.
+If any `must_fix` comments were fixed in Step 7, re-run the review to verify the fixes are correct. Check pass status before starting:
 
-Track current pass number (starts at 1). If `current_pass < max_passes`:
+```bash
+tusk review-pass-status <task_id>
+```
+
+This returns `{"current_pass": N, "max_passes": N, "can_retry": bool, "open_must_fix": N}`.
+
+If `can_retry` is false (either no open `must_fix` items, or `current_pass >= max_passes`), do not enter the loop. If `open_must_fix > 0` and `can_retry` is false, **escalate to the user**:
+> Max review passes (`max_passes`) reached. The following must_fix items remain unresolved:
+> <list each open must_fix comment>
+>
+> Please resolve these manually before continuing.
+
+Otherwise, loop while `can_retry` is true:
 
 1. Start a new review pass:
    ```bash
    tusk review start <task_id> --pass-num <current_pass + 1> --diff-summary "Re-review pass <n>"
    ```
 
-2. **Verify Bash access before spawning re-review agents.** Run:
+2. **Check diff size before deciding review strategy.** Measure the current diff:
    ```bash
-   tusk version
+   DEFAULT_BRANCH=$(tusk git-default-branch); git diff $(git merge-base HEAD origin/${DEFAULT_BRANCH})..HEAD --stat | tail -1
    ```
-   If this command fails with a permissions error (Bash not permitted), stop and surface:
-   > Re-review aborted: Bash tool is not accessible in this session. Reviewer agents require these `permissions.allow` entries in `.claude/settings.json`: `Bash(git diff:*)`, `Bash(git remote:*)`, `Bash(git symbolic-ref:*)`, `Bash(git branch:*)`, `Bash(tusk review:*)`. Run `tusk upgrade` to apply them, then restart the session.
 
-   Spawn reviewer agents only if the command succeeds. Re-review agents fetch the diff themselves — no diff is passed inline.
+   Apply the same inline-review and permissions-check logic as Step 5.1 — small/docs-only diffs skip agent spawning and are reviewed inline; larger diffs verify Bash access via `tusk version` before spawning agents. Re-review agents fetch the diff themselves — no diff is passed inline.
 
 3. Monitor completion (Step 6) and process findings (Step 7).
 
-4. Increment pass counter. If `current_pass >= max_passes` and there are still open `must_fix` items, **escalate to the user**:
-   > Max review passes (<max_passes>) reached. The following must_fix items remain unresolved:
-   > <list each open must_fix comment>
-   >
-   > Please resolve these manually before continuing.
+4. Re-check pass status to determine whether to continue:
+   ```bash
+   tusk review-pass-status <task_id>
+   ```
+   If `can_retry` is still true and `open_must_fix > 0`, repeat from step 1.
+   If `can_retry` is false and `open_must_fix > 0`, **escalate to the user** (same message as above).
 
-   Stop the re-review loop.
-
-If all `must_fix` items are resolved and no new blocking findings were raised, proceed to Step 9.
+If `tusk review-verdict <task_id>` returns `"verdict": "APPROVED"` and no new blocking findings were raised, proceed to Step 9.
 
 ## Step 9: Commit Review Fixes
 
@@ -327,7 +345,18 @@ For each review ID, print the summary:
 tusk review summary <review_id>
 ```
 
-Then print an overall summary:
+Then print an overall summary. Retrieve the verdict:
+
+```bash
+tusk review-verdict <task_id>
+```
+
+Use the returned `verdict` and `open_must_fix` values in the summary. Map the machine-readable verdict to a human-readable label before printing:
+
+| `verdict` value     | Display label      |
+|---------------------|--------------------|
+| `APPROVED`          | `APPROVED`         |
+| `CHANGES_REMAINING` | `CHANGES REMAINING`|
 
 ```
 Review complete for Task <task_id>: <task_summary>
@@ -339,7 +368,5 @@ must_fix:  <total_count> found, <fixed_count> fixed
 suggest:   <total_count> found, <fixed_count> fixed, <dismissed_count> dismissed
 defer:     <total_count> found, <created_count> tasks created, <skipped_count> skipped (duplicate)
 
-Verdict: APPROVED / CHANGES REMAINING
+Verdict: <display label>
 ```
-
-The verdict is **APPROVED** if all must_fix comments are resolved (fixed). Otherwise, **CHANGES REMAINING**.

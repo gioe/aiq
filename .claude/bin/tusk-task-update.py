@@ -30,7 +30,6 @@ Exit codes:
 """
 
 import argparse
-import importlib.util
 import json
 import os
 import sqlite3
@@ -39,30 +38,15 @@ import sys
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tusk_loader
+
 TUSK_BIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk")
 
-
-def _load_db_lib():
-    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk-db-lib.py")
-    _s = importlib.util.spec_from_file_location("tusk_db_lib", _p)
-    _m = importlib.util.module_from_spec(_s)
-    _s.loader.exec_module(_m)
-    return _m
-
-
-_db_lib = _load_db_lib()
+_db_lib = tusk_loader.load("tusk-db-lib")
 get_connection = _db_lib.get_connection
 load_config = _db_lib.load_config
-
-
-def validate_enum(value, valid_values: list, field_name: str) -> str | None:
-    """Validate a value against a config list. Returns error message or None."""
-    if not valid_values:
-        return None  # empty list = no validation
-    if value not in valid_values:
-        joined = ", ".join(valid_values)
-        return f"Invalid {field_name} '{value}'. Valid: {joined}"
-    return None
+validate_enum = _db_lib.validate_enum
 
 
 def main(argv: list[str]) -> int:

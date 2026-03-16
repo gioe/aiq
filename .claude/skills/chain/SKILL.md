@@ -8,7 +8,7 @@ allowed-tools: Bash, Task, Read, Glob, Grep
 
 Orchestrates parallel execution of a dependency sub-DAG. Validates the head task(s), displays the scope tree, executes the head task(s) first, then spawns parallel background agents wave-by-wave for each frontier of ready tasks until the entire chain is complete.
 
-> **Prefer `/create-task` for all task creation.** It handles decomposition, deduplication, acceptance criteria generation, and dependency proposals in one workflow. Use `bin/tusk task-insert` directly only when scripting bulk inserts or in automated contexts where the interactive review step is not applicable.
+> Use `/create-task` for task creation — handles decomposition, deduplication, criteria, and deps. Use `tusk task-insert` only for bulk/automated inserts.
 
 ## Arguments
 
@@ -73,10 +73,18 @@ Depth 2:
 Progress: <completed>/<total> tasks completed (<percent>%)
 ```
 
-**Early exits:**
-- If `total_tasks` equals the number of head tasks (heads only, no shared dependents): inform the user there is no chain downstream — suggest `/tusk <id>` for each head instead. Stop here.
-- If all tasks are already Done: inform the user the chain is already complete. Stop here.
-- If all head tasks are already Done but dependents remain: skip Step 3 and go directly to Step 4 (wave loop).
+**Scope validation:**
+
+```bash
+tusk chain validate-scope <head_task_id1> [<head_task_id2> ...]
+```
+
+Parse the returned JSON. It has two fields: `scope_type` and `skip_head_execution`:
+
+- **`no-downstream`**: inform the user there is no chain downstream — suggest `/tusk <id>` for each head instead. Stop here.
+- **`all-done`**: inform the user the chain is already complete. Stop here.
+- **`heads-done-only`** (`skip_head_execution: true`): all head tasks are already Done — skip Step 3 and go directly to Step 4 (wave loop).
+- **`active-chain`**: proceed normally to Step 3.
 
 ## Step 3: Execute the Head Task(s)
 
@@ -89,8 +97,19 @@ The head task(s) must complete before any dependents can be spawned.
 For each head task, fetch its full details:
 
 ```bash
-tusk -header -column "SELECT id, summary, description, domain, assignee, complexity FROM tasks WHERE id IN (<head_ids>)"
+tusk task-get-multi <head_id1> [<head_id2> ...]
 ```
+
+This returns a JSON array of full task objects (same fields as `tusk task-get`). Use the returned `task`, `acceptance_criteria`, and `task_progress` fields to populate the agent prompt.
+
+**Serialization format for placeholders:**
+- `{acceptance_criteria}` — format as a numbered list, one criterion per line, with its ID in brackets:
+  ```
+  1. [#<id>] <criterion text>
+  2. [#<id>] <criterion text>
+  ```
+  If the array is empty, write `None`.
+- `{task_progress}` — use the `next_steps` string from the most recent progress entry (index 0 of the `task_progress` array). If the array is empty or `next_steps` is blank, write `None`.
 
 Spawn **parallel background agents** (one per head task):
 
@@ -173,8 +192,12 @@ Parse the returned JSON. It has two fields:
 For each frontier task, fetch its full details:
 
 ```bash
-tusk -header -column "SELECT id, summary, description, domain, assignee, complexity FROM tasks WHERE id IN (<frontier IDs>)"
+tusk task-get-multi <frontier_id1> [<frontier_id2> ...]
 ```
+
+This returns a JSON array of full task objects (same fields as `tusk task-get`). Use the returned `task`, `acceptance_criteria`, and `task_progress` fields to populate the agent prompt.
+
+Use the same serialization format as Step 3.
 
 Spawn **parallel background agents** — one per frontier task. Issue all Task tool calls in a single message:
 
@@ -189,47 +212,13 @@ Task tool call (for EACH frontier task):
 
 ### 4d. Monitor Wave Completion
 
-Build a map of **tusk task ID → agent task ID → output file path** for every agent spawned in this wave. Add each output file path to your running list for the post-chain retro (Step 6). Monitor until all wave tasks reach Done or all agents have finished:
+Build a map of **tusk task ID → agent task ID → output file path** for every agent spawned in this wave. Add each output file path to your running list for the post-chain retro (Step 6).
 
-**Monitoring loop:**
-
-1. Wait 30 seconds:
-   ```bash
-   sleep 30
-   ```
-
-2. Check which wave tasks are still not Done:
-   ```bash
-   tusk "SELECT id, summary, status FROM tasks WHERE id IN (<id1>, <id2>, ...) AND status <> 'Done'"
-   ```
-   If the query returns no rows, all wave tasks are Done — go back to **4a**.
-
-3. For each not-Done task, check whether its agent has finished using `TaskOutput` with `block: false` and the agent task ID:
-   - If **any agent is still running**, go back to step 1. (Other agents may still be making progress that unblocks work.)
-   - If **all agents have completed** but some tasks are still not Done, those agents exhausted their turn limits or hit errors. **Break out of the loop** and proceed to recovery below.
-
-**Recovery (all agents completed, some tasks not Done):**
-
-For each stuck task, read the agent's output file to capture any final messages.
-
-**If `on_failure_strategy` is set**, apply it automatically without prompting:
-- **skip**: Log a warning for each stuck task — "Warning: Task `<id>` (`<summary>`) did not complete (status: `<status>`). Skipping due to `--on-failure skip`." — then proceed to **4a** for the next frontier. Note: downstream tasks that depend on skipped tasks will never become ready — if the chain gets stuck later, report this to the user.
-- **abort**: Stop immediately. Report that the chain was aborted due to `--on-failure abort` and list which tasks completed vs. which did not.
-
-**Otherwise (interactive)**, report to the user:
-
-> The following tasks' agents have finished without completing:
-> - Task `<id>`: `<summary>` (status: `<status>`, agent output: `<output_file_path>`)
-> - ...
->
-> How would you like to proceed?
-> 1. **Resume** — spawn new agents for the stuck tasks and continue the wave
-> 2. **Skip** — mark these tasks as skipped and continue to the next wave
-> 3. **Abort** — stop the entire chain
-
-- **Resume**: spawn new background agents for each stuck task using the same Agent Prompt Template (agents will pick up prior progress via `tusk task-start`) and restart the monitoring loop for this wave.
-- **Skip**: log a warning for each skipped task and proceed to **4a** for the next frontier. Note: downstream tasks that depend on skipped tasks will never become ready — if the chain gets stuck later, report this to the user.
-- **Abort**: stop entirely. Report that the chain was aborted and list which tasks completed vs. which did not.
+Follow the same **Monitoring loop** and **Recovery** procedure as Step 3, with these substitutions:
+- Replace head task IDs with wave task IDs throughout.
+- The DB status query checks wave task IDs; if all are Done, go back to **4a** instead of proceeding to Step 4.
+- For **skip** (both `--on-failure skip` and interactive): proceed to **4a** for the next frontier, and note that downstream tasks depending on skipped tasks will never become ready — if the chain gets stuck later, report this to the user.
+- In the interactive recovery prompt, list each stuck task with its summary, status, and agent output path.
 
 ## Step 5: VERSION & CHANGELOG Consolidation
 
@@ -267,12 +256,9 @@ After all waves are complete, do a single VERSION bump and CHANGELOG update cove
 
 5. Mark deferred-to-chain criteria as done for all completed chain tasks. Individual chain agents skip VERSION/CHANGELOG criteria using `tusk criteria skip <id> --reason chain`; the orchestrator completes them here:
    ```bash
-   tusk "SELECT ac.id, ac.task_id, ac.criterion FROM acceptance_criteria ac WHERE ac.is_deferred = 1 AND ac.deferred_reason = 'chain' AND ac.is_completed = 0"
+   tusk criteria finish-deferred --reason chain <task_id1> [<task_id2> ...]
    ```
-   For each criterion returned, mark it done:
-   ```bash
-   tusk criteria done <criterion_id>
-   ```
+   This marks all `is_deferred=1, deferred_reason=chain, is_completed=0` criteria for the given tasks and prints `{"marked": N}`.
 
 ## Step 6: Post-Chain Retro Aggregation
 

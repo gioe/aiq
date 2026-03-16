@@ -34,6 +34,30 @@ import sys
 TRAILER = "Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 
 
+def _make_relative(abs_path: str, repo_root: str) -> str:
+    """Return abs_path relative to repo_root.
+
+    Both arguments should be symlink-resolved (os.path.realpath) so that
+    symlink divergence between the user's CWD and the stored repo_root cannot
+    produce '..' components.  On macOS (case-insensitive APFS/HFS+), abs_path
+    and repo_root may share the same filesystem location but differ in case
+    (e.g. /Users/foo/Desktop vs /Users/foo/desktop).  os.path.relpath is a
+    byte-exact string comparison and would produce an incorrect
+    '../../Desktop/...' path in that situation, which git add then rejects with
+    a pathspec error (GitHub Issue #363).
+
+    We detect this by comparing lower-cased forms of the paths.  If abs_path's
+    lower-case form starts with repo_root's lower-case prefix, we strip the
+    prefix directly rather than using relpath, preserving the user-supplied case
+    in the file-specific suffix — which is what git add actually needs.
+    """
+    if sys.platform == "darwin":
+        prefix = repo_root if repo_root.endswith(os.sep) else repo_root + os.sep
+        if abs_path.lower().startswith(prefix.lower()):
+            return abs_path[len(prefix):]
+    return os.path.relpath(abs_path, repo_root)
+
+
 def _escapes_root(real_abs: str, real_repo_root: str) -> bool:
     """Return True if real_abs is not inside real_repo_root.
 
@@ -180,7 +204,13 @@ def main(argv: list[str]) -> int:
             real_abs = os.path.realpath(abs_path)
             if _escapes_root(real_abs, real_repo_root):
                 escape_errors.append((f, abs_path))
-            resolved_files.append(os.path.relpath(abs_path, repo_root))
+            # Use real paths for _make_relative so symlink divergence between
+            # abs_path/repo_root cannot produce '..' components.  _escapes_root
+            # has already confirmed real_abs is inside real_repo_root, so
+            # _make_relative is guaranteed to return a clean relative path.
+            # On macOS, _make_relative handles case-insensitive prefix matching.
+            resolved = _make_relative(real_abs, real_repo_root)
+            resolved_files.append(resolved)
 
     if escape_errors:
         for orig, abs_path in escape_errors:
@@ -189,6 +219,26 @@ def main(argv: list[str]) -> int:
                 f"  Resolved to: '{abs_path}'\n"
                 f"  Repo root is: {repo_root}\n"
                 f"  Hint: paths must be inside the repo root",
+                file=sys.stderr,
+            )
+        return 3
+
+    # Belt-and-suspenders: reject any resolved path that still contains '..' components.
+    # _make_relative() should never produce such paths, but if a future code path does,
+    # os.path.exists() would silently resolve through '..' and the error would surface
+    # later as a confusing 'git add failed' message.
+    dotdot_errors = [
+        (orig, resolved)
+        for orig, resolved in zip(files, resolved_files)
+        if not os.path.isabs(resolved)
+        and ".." in resolved.replace(os.sep, "/").split("/")
+    ]
+    if dotdot_errors:
+        for orig, resolved in dotdot_errors:
+            print(
+                f"Error: resolved path contains '..' components: '{orig}'\n"
+                f"  Resolved to: '{resolved}'\n"
+                f"  Hint: paths must not traverse outside the repo root",
                 file=sys.stderr,
             )
         return 3

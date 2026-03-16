@@ -11,33 +11,16 @@ Arguments received from tusk:
 """
 
 import argparse
-import importlib.util
-import json
 import os
 import sqlite3
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tusk_loader
 
-def _load_db_lib():
-    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk-db-lib.py")
-    _s = importlib.util.spec_from_file_location("tusk_db_lib", _p)
-    _m = importlib.util.module_from_spec(_s)
-    _s.loader.exec_module(_m)
-    return _m
-
-
-_db_lib = _load_db_lib()
+_db_lib = tusk_loader.load("tusk-db-lib")
 get_connection = _db_lib.get_connection
-
-
-def load_blocker_types(config_path: str) -> list[str]:
-    """Load valid blocker_type values from config."""
-    try:
-        with open(config_path) as f:
-            config = json.load(f)
-        return config.get("blocker_types", [])
-    except (OSError, json.JSONDecodeError):
-        return []
+load_config = _db_lib.load_config
 
 
 def cmd_add(args: argparse.Namespace, db_path: str, config_path: str) -> int:
@@ -49,7 +32,7 @@ def cmd_add(args: argparse.Namespace, db_path: str, config_path: str) -> int:
             return 2
 
         if args.type:
-            valid_types = load_blocker_types(config_path)
+            valid_types = load_config(config_path).get("blocker_types", [])
             if valid_types and args.type not in valid_types:
                 print(f"Error: Invalid blocker_type '{args.type}'. Valid: {', '.join(valid_types)}", file=sys.stderr)
                 return 2

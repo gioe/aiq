@@ -14,34 +14,17 @@ Arguments received from tusk:
     sys.argv[3:] — session_id + optional transcript path
 """
 
-import importlib.util
 import logging
 import os
 import sys
-from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tusk_loader
 
 log = logging.getLogger(__name__)
 
-
-def _load_lib():
-    """Import tusk-pricing-lib.py (hyphenated filename requires importlib)."""
-    lib_path = Path(__file__).resolve().parent / "tusk-pricing-lib.py"
-    spec = importlib.util.spec_from_file_location("tusk_pricing_lib", lib_path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def _load_db_lib():
-    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk-db-lib.py")
-    _s = importlib.util.spec_from_file_location("tusk_db_lib", _p)
-    _m = importlib.util.module_from_spec(_s)
-    _s.loader.exec_module(_m)
-    return _m
-
-
-lib = _load_lib()
-_db_lib = _load_db_lib()
+lib = tusk_loader.load("tusk-pricing-lib")
+_db_lib = tusk_loader.load("tusk-db-lib")
 get_connection = _db_lib.get_connection
 
 
@@ -132,20 +115,8 @@ def main():
         cost = lib.compute_cost(totals)
         model = totals["model"]
 
-        peak_context = totals.get("peak_context_tokens")
-        first_context = totals.get("first_context_tokens")
-        last_context = totals.get("last_context_tokens")
-        context_window = lib.get_context_window(model) if model else None
-
         # Update DB
-        conn.execute(
-            """UPDATE task_sessions
-               SET tokens_in = ?, tokens_out = ?, cost_dollars = ?, model = ?,
-                   peak_context_tokens = ?, first_context_tokens = ?, last_context_tokens = ?,
-                   context_window = ?
-               WHERE id = ?""",
-            (tokens_in, tokens_out, cost, model, peak_context, first_context, last_context, context_window, session_id),
-        )
+        lib.update_session_stats(conn, session_id, totals)
         conn.commit()
 
         # Print summary
