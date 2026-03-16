@@ -77,6 +77,7 @@ class CronJob:
         self.observability = observability
         self.alert_manager = alert_manager
         self.heartbeat_path = heartbeat_path or "./logs/heartbeat.json"
+        self._logging_configured = False
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -142,8 +143,14 @@ class CronJob:
         Returns:
             0 on success, 1 if work_fn raised an exception.
         """
-        setup_logging()
-        self._write_heartbeat(status="started")
+        if not self._logging_configured:
+            setup_logging()
+            self._logging_configured = True
+
+        try:
+            self._write_heartbeat(status="started")
+        except Exception as exc:
+            logger.warning("Failed to write started heartbeat: %s", exc)
 
         start_time = time.monotonic()
         run_summary: RunSummary = {}
@@ -219,11 +226,15 @@ class CronJob:
             ) from exc
 
         interval_seconds = self.job_schedule.total_seconds()
-        schedule_lib.every(interval_seconds).seconds.do(self.run_once)
+
+        # Use an isolated Scheduler instance (not the global default) so that
+        # multiple CronJob instances in the same process do not share state.
+        scheduler = schedule_lib.Scheduler()
+        scheduler.every(interval_seconds).seconds.do(self.run_once)
 
         logger.info(
             "Job '%s' starting loop — interval %.0fs", self.name, interval_seconds
         )
         while True:
-            schedule_lib.run_pending()
+            scheduler.run_pending()
             time.sleep(1)

@@ -50,13 +50,33 @@ def test_run_once_happy_path_returns_zero(tmp_path: Path) -> None:
         assert job.run_once() == 0
 
 
-def test_run_once_happy_path_heartbeat_completed(tmp_path: Path) -> None:
-    """Heartbeat file records 'completed' status on success."""
+def test_run_once_heartbeat_started_then_completed(tmp_path: Path) -> None:
+    """Heartbeat file records 'started' before work_fn and 'completed' after."""
+    heartbeat_path = tmp_path / "heartbeat.json"
+    started_statuses = []
+
+    original_work = lambda: {"generated": 1, "inserted": 1, "errors": 0}
+
+    def capturing_work():
+        # Read heartbeat inside work_fn — it should be 'started' at this point
+        data = json.loads(heartbeat_path.read_text())
+        started_statuses.append(data["status"])
+        return original_work()
+
     with patch("libs.cron_runner.cron_job.setup_logging"):
-        job = _make_job(tmp_path)
+        obs = MagicMock()
+        job = CronJob(
+            name="test-job",
+            schedule=timedelta(minutes=5),
+            work_fn=capturing_work,
+            observability=obs,
+            heartbeat_path=str(heartbeat_path),
+        )
         job.run_once()
 
-    data = json.loads(Path(job.heartbeat_path).read_text())
+    assert started_statuses == ["started"], "Heartbeat should be 'started' before work_fn runs"
+
+    data = json.loads(heartbeat_path.read_text())
     assert data["status"] == "completed"
     assert data["exit_code"] == 0
     assert data["job"] == "test-job"
@@ -261,49 +281,46 @@ def test_run_loop_raises_import_error_without_schedule_lib(tmp_path: Path) -> No
 
 
 def test_run_loop_schedules_and_runs(tmp_path: Path) -> None:
-    """run_loop() uses the schedule library and calls work_fn."""
-    called = []
-
-    def work_fn():
-        called.append(1)
-        return {}
-
+    """run_loop() uses an isolated Scheduler, registers run_once as the callback."""
     obs = MagicMock()
     job = CronJob(
         name="test-job",
         schedule=timedelta(seconds=1),
-        work_fn=work_fn,
+        work_fn=lambda: {},
         observability=obs,
         heartbeat_path=str(tmp_path / "heartbeat.json"),
     )
 
-    mock_schedule = MagicMock()
+    # Build a mock scheduler returned by schedule_lib.Scheduler()
+    mock_scheduler = MagicMock()
     mock_every = MagicMock()
-    mock_schedule.every.return_value = mock_every
+    mock_scheduler.every.return_value = mock_every
     mock_every.seconds = mock_every
-    mock_every.do = MagicMock()
 
-    # Simulate run_pending calling run_once once, then break the loop
+    # Break the infinite loop after one run_pending call
     call_count = 0
 
     def fake_run_pending():
         nonlocal call_count
-        if call_count == 0:
-            with patch("libs.cron_runner.cron_job.setup_logging"):
-                job.run_once()
         call_count += 1
         if call_count >= 2:
             raise StopIteration
 
-    mock_schedule.run_pending = fake_run_pending
+    mock_scheduler.run_pending = fake_run_pending
+
+    mock_schedule_lib = MagicMock()
+    mock_schedule_lib.Scheduler.return_value = mock_scheduler
 
     with patch("libs.cron_runner.cron_job.setup_logging"):
-        with patch.dict("sys.modules", {"schedule": mock_schedule}):
+        with patch.dict("sys.modules", {"schedule": mock_schedule_lib}):
             with pytest.raises(StopIteration):
                 job.run_loop()
 
-    mock_schedule.every.assert_called_once_with(1.0)
-    assert len(called) == 1
+    # Isolated scheduler was created (not the global default)
+    mock_schedule_lib.Scheduler.assert_called_once()
+    # run_once registered as the callback with the correct interval
+    mock_scheduler.every.assert_called_once_with(1.0)
+    mock_every.do.assert_called_once_with(job.run_once)
 
 
 # ---------------------------------------------------------------------------
