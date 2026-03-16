@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from libs.observability import observability  # noqa: E402
 
 # Use the shared logging config — same as run_generation.py and other entry points
-setup_logging()
+setup_logging(log_level=settings.log_level, log_file=settings.log_file)
 logger = logging.getLogger(__name__)
 
 # Rate limiting constants

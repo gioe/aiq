@@ -29,7 +29,7 @@ class JSONFormatter(logging.Formatter):
             JSON-formatted log string
         """
         log_data: Dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
