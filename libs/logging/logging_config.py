@@ -11,23 +11,36 @@ import json
 import logging
 import logging.handlers
 import sys
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Dict, Optional
+
+# Context variable for request ID correlation across async tasks.
+# Set by request-logging middleware; propagates to all log entries within
+# an async request context, enabling log correlation across services.
+request_id_context: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+
+# Cache OpenTelemetry trace module at import time to avoid per-log-line overhead.
+# Set to None if the package is not installed, so we skip the OTel path entirely.
+_otel_trace: Optional[ModuleType]
+try:
+    from opentelemetry import trace as _otel_trace
+except ImportError:
+    _otel_trace = None
 
 
 class JSONFormatter(logging.Formatter):
-    """Custom formatter that outputs log records as JSON."""
+    """Custom formatter that outputs log records as JSON.
+
+    Produces structured log entries with consistent fields for log aggregation.
+    Includes optional request_id correlation, OpenTelemetry trace context,
+    and HTTP-specific fields set by request-logging middleware.
+    """
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON string.
-
-        Args:
-            record: Log record to format
-
-        Returns:
-            JSON-formatted log string
-        """
+        """Format log record as JSON string."""
         log_data: Dict[str, Any] = {
             "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "level": record.levelname,
@@ -38,15 +51,37 @@ class JSONFormatter(logging.Formatter):
             "line": record.lineno,
         }
 
+        # Add request_id from context if available
+        request_id = request_id_context.get()
+        if request_id:
+            log_data["request_id"] = request_id
+
+        # Add OpenTelemetry trace_id and span_id if available
+        if _otel_trace is not None:
+            span = _otel_trace.get_current_span()
+            span_context = span.get_span_context()
+            if span_context.is_valid:
+                log_data["trace_id"] = format(span_context.trace_id, "032x")
+                log_data["span_id"] = format(span_context.span_id, "016x")
+
+        # Add HTTP-specific fields set by request-logging middleware
+        for field in ("method", "path", "status_code", "duration_ms", "client_host", "user_identifier"):
+            if hasattr(record, field):
+                log_data[field] = getattr(record, field)
+
+        # Add source location for error-level logs
+        if record.levelno >= logging.ERROR:
+            log_data["source"] = f"{record.pathname}:{record.lineno}"
+
         # Add exception info if present
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
 
-        # Add extra fields if present
+        # Add extra fields if present (legacy LogContext support)
         if hasattr(record, "extra"):
             log_data["extra"] = record.extra
 
-        return json.dumps(log_data)
+        return json.dumps(log_data, default=str)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -63,20 +98,11 @@ class ColoredFormatter(logging.Formatter):
     RESET = "\033[0m"
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record with colors.
-
-        Args:
-            record: Log record to format
-
-        Returns:
-            Colored log string
-        """
-        # Add color to levelname
+        """Format log record with colors."""
         levelname = record.levelname
         if levelname in self.COLORS:
             record.levelname = f"{self.COLORS[levelname]}{levelname}{self.RESET}"
 
-        # Format the message
         formatted = super().format(record)
 
         # Reset levelname for subsequent formatters
@@ -125,10 +151,8 @@ def setup_logging(
 
     console_formatter: logging.Formatter
     if json_format:
-        # Use JSON formatter for console
         console_formatter = JSONFormatter()
     else:
-        # Use colored formatter for console
         console_format = (
             "%(asctime)s - %(name)s - %(levelname)s - "
             "%(module)s:%(funcName)s:%(lineno)d - %(message)s"
@@ -220,17 +244,10 @@ class LogContext:
     """
 
     def __init__(self, **kwargs: Any):
-        """Initialize log context with extra fields.
-
-        Args:
-            **kwargs: Extra fields to add to log records
-        """
         self.extra = kwargs
         self.old_factory = logging.getLogRecordFactory()
 
     def __enter__(self) -> "LogContext":
-        """Enter context and modify log record factory."""
-
         def record_factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
             record = self.old_factory(*args, **kwargs)
             record.extra = self.extra
@@ -240,5 +257,4 @@ class LogContext:
         return self
 
     def __exit__(self, *args: Any) -> None:
-        """Exit context and restore original log record factory."""
         logging.setLogRecordFactory(self.old_factory)

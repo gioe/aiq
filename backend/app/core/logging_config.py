@@ -1,99 +1,23 @@
-"""
-Centralized logging configuration with structured logging support.
+"""Backend logging configuration — thin shim over libs/logging.
+
+JSONFormatter, get_logger, and request_id_context come from libs/logging so
+both services share identical structured-log output.  setup_logging() here is
+backend-specific: it reads from app.core.config.settings and applies the
+backend's named-logger configuration via dictConfig.
 """
 
-import json
 import logging
 import logging.config
 import sys
-from contextvars import ContextVar
-from datetime import datetime, timezone
-from types import ModuleType
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from app.core.config import settings
-
-# Context variable for request ID correlation across async tasks.
-# Used by RequestLoggingMiddleware to propagate request_id to all log entries
-# within an async request context, enabling log correlation across services.
-request_id_context: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
-
-# Cache OpenTelemetry trace module at import time to avoid per-log-line overhead.
-# Set to None if the package is not installed, so we skip the OTel path entirely.
-_otel_trace: Optional[ModuleType]
-try:
-    from opentelemetry import trace as _otel_trace
-except ImportError:
-    _otel_trace = None
-
-
-class JSONFormatter(logging.Formatter):
-    """
-    JSON formatter for production logging.
-
-    Produces structured log entries with consistent fields for log aggregation.
-    """
-
-    def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON."""
-        # Use record.created for accurate timing (epoch timestamp when record was created)
-        timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc)
-        log_entry: Dict[str, Any] = {
-            "timestamp": timestamp.isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-        }
-
-        # Add request_id from context if available
-        request_id = request_id_context.get()
-        if request_id:
-            log_entry["request_id"] = request_id
-
-        # Add OpenTelemetry trace_id and span_id if available
-        if _otel_trace is not None:
-            span = _otel_trace.get_current_span()
-            span_context = span.get_span_context()
-            if span_context.is_valid:
-                log_entry["trace_id"] = format(span_context.trace_id, "032x")
-                log_entry["span_id"] = format(span_context.span_id, "016x")
-
-        # Add extra structured fields from record
-        if hasattr(record, "method"):
-            log_entry["method"] = record.method
-        if hasattr(record, "path"):
-            log_entry["path"] = record.path
-        if hasattr(record, "status_code"):
-            log_entry["status_code"] = record.status_code
-        if hasattr(record, "duration_ms"):
-            log_entry["duration_ms"] = record.duration_ms
-        if hasattr(record, "client_host"):
-            log_entry["client_host"] = record.client_host
-        if hasattr(record, "user_identifier"):
-            log_entry["user_identifier"] = record.user_identifier
-
-        # Add source location for error-level logs
-        if record.levelno >= logging.ERROR:
-            log_entry["source"] = f"{record.pathname}:{record.lineno}"
-
-        # Add exception info if present
-        if record.exc_info:
-            log_entry["exception"] = self.formatException(record.exc_info)
-
-        return json.dumps(log_entry, default=str)
+from libs.logging import JSONFormatter, get_logger  # noqa: F401
+from libs.logging.logging_config import request_id_context  # noqa: F401
 
 
 def setup_logging() -> None:
-    """
-    Configure application-wide logging with structured output.
-
-    Configures:
-    - Log levels based on environment
-    - JSON formatting for production (structured for log aggregators)
-    - Human-readable format for development
-    - Request ID correlation via context variables
-    """
-    # Get log level from settings if defined, otherwise default to INFO
+    """Configure application-wide logging for the backend."""
     log_level_name = getattr(settings, "LOG_LEVEL", "INFO")
     log_level = getattr(logging, log_level_name.upper(), logging.INFO)
 
@@ -158,16 +82,3 @@ def setup_logging() -> None:
         "urllib3",
     ):
         logging.getLogger(noisy_logger).setLevel(third_party_level)
-
-
-def get_logger(name: str) -> logging.Logger:
-    """
-    Get a logger instance with the given name.
-
-    Args:
-        name: Logger name (typically __name__)
-
-    Returns:
-        Configured logger instance
-    """
-    return logging.getLogger(name)
