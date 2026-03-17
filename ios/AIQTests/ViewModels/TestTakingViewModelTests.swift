@@ -1497,28 +1497,34 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.testSession, "testSession should be set after startTest")
     }
 
-    func testCheckResume_noSessionId_savedProgressExpired_setsExpiredIntent() async {
+    func testCheckResume_noSessionId_savedProgressExpired_resumesSessionAndClearsProgress() async {
         // Given - progress with session started 31+ minutes ago (expired)
+        let expiredSessionId = 42
         let expiredProgress = SavedTestProgress(
-            sessionId: 42,
+            sessionId: expiredSessionId,
             userId: 1,
             questionIds: [1, 2],
             userAnswers: [1: "A"],
             currentQuestionIndex: 1,
             savedAt: Date(),
-            sessionStartedAt: Date().addingTimeInterval(-TimeInterval(Constants.Timing.totalTestTimeSeconds + 100)), // > totalTestTimeSeconds
+            sessionStartedAt: Date().addingTimeInterval(-TimeInterval(Constants.Timing.totalTestTimeSeconds + 100)),
             stimulusSeen: []
         )
         mockAnswerStorage.mockProgress = expiredProgress
+        mockService.getTestSessionResponse = makeSessionStatusResponse(
+            sessionId: expiredSessionId,
+            questions: makeQuestions(count: 2)
+        )
 
         // When
         await sut.checkResume(sessionId: nil)
 
         // Then
-        XCTAssertEqual(sut.resumeIntent, .expiredProgress, "Should signal expired progress")
-        XCTAssertEqual(sut.navigationState.userAnswers[1], "A", "Should have restored saved answers")
-        let startTestCalled = mockService.startTestCalled
-        XCTAssertFalse(startTestCalled, "Should not call startTest for expired progress")
+        XCTAssertTrue(mockAnswerStorage.clearProgressCalled, "Should clear saved progress to break loop")
+        XCTAssertTrue(mockService.getTestSessionCalled, "Should resume the session via API")
+        XCTAssertEqual(sut.resumeIntent, .none, "resumeIntent should be .none — View handles expiry via timer")
+        XCTAssertNotNil(sut.testSession, "testSession should be populated after resumeActiveSession")
+        XCTAssertFalse(mockService.startTestCalled, "Should not call startTest for expired progress")
     }
 
     func testCheckResume_noSessionId_savedProgressValid_setsShowResumePromptIntent() async {

@@ -825,8 +825,13 @@ class TestTakingViewModel: BaseViewModel {
         #endif
         if let progress = loadSavedProgress() {
             if progress.isTimeExpired {
-                restoreProgress(progress)
-                resumeIntent = .expiredProgress
+                // Clear saved progress immediately to prevent an infinite loop on subsequent visits,
+                // then resume the session so testSession is populated before the View triggers
+                // submitTestForTimeout() via the .none timer-start path.
+                clearSavedProgress()
+                await resumeActiveSession(sessionId: progress.sessionId)
+                // resumeIntent stays .none — the View's .task checks testSession.startedAt
+                // and calls handleTimerExpiration() when the timer can't start (elapsed > limit).
             } else {
                 pendingResumeProgress = progress
                 resumeIntent = .showResumePrompt
