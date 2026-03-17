@@ -601,7 +601,14 @@ class TestTakingViewModel: BaseViewModel {
     /// Sets `wasAbandonedSilently` so the View can navigate to the dashboard.
     private func abandonTestSilently() async {
         guard let session = testSession else { return }
-        _ = try? await apiService.abandonTest(sessionId: session.id)
+        do {
+            try await apiService.abandonTest(sessionId: session.id)
+        } catch {
+            #if DEBUG
+                print("[WARN] abandonTestSilently: backend call failed for session \(session.id): \(error)")
+            #endif
+        }
+        testSession = nil
         clearSavedProgress()
         wasAbandonedSilently = true
     }
