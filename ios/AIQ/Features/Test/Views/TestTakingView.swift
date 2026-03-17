@@ -223,8 +223,10 @@ struct TestTakingView: View {
         // Immediately lock answers to prevent race conditions
         viewModel.lockAnswers()
 
-        // Show the "Time's Up" alert
-        viewModel.presentTimeExpiredAlert()
+        // Show the "Time's Up" alert only if there are answers to submit
+        if viewModel.answeredCount > 0 {
+            viewModel.presentTimeExpiredAlert()
+        }
 
         // Auto-submit the test
         Task {
