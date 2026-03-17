@@ -53,10 +53,11 @@ import Foundation
                     stimulusSeen: []
                 )
             case .timerExpiredWithAnswers:
-                // Near-expired session (2 sec remaining) with 1 pre-seeded answer.
+                // Near-expired session (20 sec remaining) with 1 pre-seeded answer.
                 // sessionId = 97 matches nearExpiredSession in UITestMockData.
-                // mergeSavedProgress in resumeActiveSession merges these answers before the
-                // timer fires, so answeredCount > 0 when handleTimerExpiration is called.
+                // 20-second buffer ensures hasActiveTest passes on the dashboard even on slow
+                // CI runners. mergeSavedProgress in resumeActiveSession merges these answers
+                // before the timer fires, so answeredCount > 0 when handleTimerExpiration is called.
                 savedProgress = SavedTestProgress(
                     sessionId: 97,
                     userId: 1,
@@ -64,7 +65,7 @@ import Foundation
                     userAnswers: [1: "Carrot"],
                     currentQuestionIndex: 1,
                     savedAt: Date(),
-                    sessionStartedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds - 2)),
+                    sessionStartedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds - 20)),
                     stimulusSeen: []
                 )
             default:

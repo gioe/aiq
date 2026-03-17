@@ -442,14 +442,15 @@ import Foundation
             startedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds + 60))
         )
 
-        /// Session with ~2 seconds remaining — passes hasActiveTest on dashboard but fires
-        /// the timer almost immediately when TestTakingView starts it.
-        /// Used for `timerExpiredWithAnswers` scenario (partial answers → Time's Up alert).
+        /// Session with ~20 seconds remaining — passes hasActiveTest on dashboard and fires
+        /// the timer within 20 seconds when TestTakingView starts it.
+        /// 20-second buffer ensures the Resume button appears even on slow CI runners before
+        /// the timer fires. Used for `timerExpiredWithAnswers` (partial answers → Time's Up alert).
         static let nearExpiredSession = MockDataFactory.makeTestSession(
             id: 97,
             userId: 1,
             status: "in_progress",
-            startedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds - 2))
+            startedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds - 20))
         )
 
         static let completedSession = MockDataFactory.makeTestSession(
