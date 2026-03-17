@@ -238,6 +238,8 @@ struct TestTakingView: View {
             } else if viewModel.wasAbandonedSilently {
                 // Stale expired session with 0 answers — start a fresh test instead of bouncing back
                 isAutoSubmitting = false
+                showTimeWarningBanner = false
+                warningBannerDismissed = false
                 await viewModel.startTest()
                 if let session = viewModel.testSession {
                     let timerStarted = timerManager.startWithSessionTime(session.startedAt)
