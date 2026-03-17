@@ -131,7 +131,7 @@ private struct ScreenshotPreventedView<Content: View>: UIViewRepresentable {
         } else {
             uiView.bounds.width > 0 ? uiView.bounds.width : 1
         }
-        let targetSize = CGSize(width: width, height: UIView.layoutFittingExpandedSize.height)
+        let targetSize = CGSize(width: width, height: 10000)
         return coordinator.hostingController?.sizeThatFits(in: targetSize)
     }
 
@@ -159,7 +159,7 @@ private final class ScreenshotContainerView: UIView {
             return super.intrinsicContentSize
         }
         let width = bounds.width > 0 ? bounds.width : 1
-        return provider(CGSize(width: width, height: UIView.layoutFittingExpandedSize.height))
+        return provider(CGSize(width: width, height: 10000))
     }
 
     override func sizeThatFits(_ size: CGSize) -> CGSize {
