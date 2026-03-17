@@ -23,7 +23,7 @@ struct QuestionCardView: View {
                 )
         }
         .padding(DesignSystem.Spacing.lg)
-        .frame(maxWidth: .infinity, maxHeight: 240)
+        .frame(maxWidth: .infinity)
         .background(Color(.systemBackground))
         .cornerRadius(DesignSystem.CornerRadius.lg)
         .shadowStyle(DesignSystem.Shadow.md)
