@@ -446,6 +446,9 @@ import Foundation
         /// the timer within 20 seconds when TestTakingView starts it.
         /// 20-second buffer ensures the Resume button appears even on slow CI runners before
         /// the timer fires. Used for `timerExpiredWithAnswers` (partial answers → Time's Up alert).
+        ///
+        /// Must satisfy DashboardViewModel.hasActiveTest: elapsed < totalTimeSeconds.
+        /// Keep this buffer >= 10s to avoid CI race conditions on slow runners.
         static let nearExpiredSession = MockDataFactory.makeTestSession(
             id: 97,
             userId: 1,
