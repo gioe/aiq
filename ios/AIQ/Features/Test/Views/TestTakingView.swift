@@ -236,7 +236,15 @@ struct TestTakingView: View {
             if let result = viewModel.testResult {
                 router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
             } else if viewModel.wasAbandonedSilently {
-                router.pop()
+                // Stale expired session with 0 answers — start a fresh test instead of bouncing back
+                isAutoSubmitting = false
+                await viewModel.startTest()
+                if let session = viewModel.testSession {
+                    let timerStarted = timerManager.startWithSessionTime(session.startedAt)
+                    if !timerStarted {
+                        handleTimerExpiration()
+                    }
+                }
             }
         }
     }

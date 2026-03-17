@@ -225,6 +225,7 @@ class TestTakingViewModel: BaseViewModel {
         #if DEBUG
             print("[TestTakingViewModel] startTest called with questionCount: \(questionCount)")
         #endif
+        wasAbandonedSilently = false
         setLoading(true)
         clearError()
 
