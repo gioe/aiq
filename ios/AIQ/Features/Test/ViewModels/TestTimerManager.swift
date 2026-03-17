@@ -86,6 +86,7 @@ class TestTimerManager: ObservableObject {
     @discardableResult
     func startWithSessionTime(_ sessionStartedAt: Date) -> Bool {
         // Store the session start time as our reference point
+        showWarning = false
         sessionStartTime = sessionStartedAt
         accumulatedElapsedSeconds = 0
 
