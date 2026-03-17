@@ -216,6 +216,14 @@ import Foundation
                     questionsCount: 1,
                     session: UITestMockData.nearExpiredSession
                 )
+            case .timerExpiredZeroAnswers:
+                // Returns nil intentionally: this scenario exercises the silent abandonment path
+                // where the timer fires before any answers are submitted. In production the server
+                // would still have an in-progress session record, but the UI test only needs the
+                // dashboard to show "Start Test" (no Resume button) — which happens when the server
+                // returns no active session. LocalAnswerStorage drives the abandonment cleanup,
+                // so no server-side session is needed for this test path.
+                return nil
             default:
                 return nil
             }
