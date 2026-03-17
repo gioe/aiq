@@ -230,9 +230,11 @@ struct TestTakingView: View {
         Task {
             await viewModel.submitTestForTimeout()
 
-            // Navigate to results after submission
+            // Navigate to results after submission, or back to dashboard if session was abandoned
             if let result = viewModel.testResult {
                 router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
+            } else if viewModel.wasAbandonedSilently {
+                router.pop()
             }
         }
     }

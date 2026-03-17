@@ -36,6 +36,9 @@ class TestTakingViewModel: BaseViewModel {
     /// True when the "Time's Up!" alert should be shown.
     @Published private(set) var showTimeExpiredAlert: Bool = false
 
+    /// True when a 0-answer expired session was silently abandoned (no result to show).
+    @Published private(set) var wasAbandonedSilently: Bool = false
+
     // MARK: - Cooldown State
 
     /// When non-nil, a test-cooldown error has been received and the user must wait before testing again.
@@ -572,6 +575,7 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     /// Submits the test when time limit is exceeded.
+    /// If 0 questions were answered, silently abandons instead of submitting (backend rejects empty responses).
     /// Submits all answered questions without requiring all questions to be answered.
     func submitTestForTimeout() async {
         guard testSession != nil else {
@@ -586,7 +590,20 @@ class TestTakingViewModel: BaseViewModel {
             let qCount = navigationState.questions.count
             print("[TIMEOUT] Auto-submitting test due to timeout: \(answeredCount)/\(qCount) answered")
         #endif
-        await performSubmission(timeLimitExceeded: true)
+        if answeredCount == 0 {
+            await abandonTestSilently()
+        } else {
+            await performSubmission(timeLimitExceeded: true)
+        }
+    }
+
+    /// Silently abandons a 0-answer session on timeout without surfacing errors to the user.
+    /// Sets `wasAbandonedSilently` so the View can navigate to the dashboard.
+    private func abandonTestSilently() async {
+        guard let session = testSession else { return }
+        _ = try? await apiService.abandonTest(sessionId: session.id)
+        clearSavedProgress()
+        wasAbandonedSilently = true
     }
 
     private func buildTestSubmission(for session: TestSession, timeLimitExceeded: Bool) -> TestSubmission {
