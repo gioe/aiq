@@ -1600,14 +1600,21 @@ final class TestTakingViewModelTests: XCTestCase {
 
     // MARK: - Zero-Answer Timeout Abandonment Tests
 
-    func testSubmitTestForTimeout_ZeroAnswers_CallsAbandonNotSubmit() async {
-        // Given - test started with 0 answers
-        let sessionId = 3001
-        let mockQuestions = makeQuestions(count: 3)
+    /// Sets up a test session with no answers given, for use in 0-answer timeout tests.
+    @discardableResult
+    private func startTestSessionWithZeroAnswers(sessionId: Int, questionCount: Int = 3) async -> Int {
+        let mockQuestions = makeQuestions(count: questionCount)
         let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
         mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
         mockService.startTestResponse = startResponse
         await sut.startTest(questionCount: 20)
+        return sessionId
+    }
+
+    func testSubmitTestForTimeout_ZeroAnswers_CallsAbandonNotSubmit() async {
+        // Given - test started with 0 answers
+        let sessionId = 3001
+        await startTestSessionWithZeroAnswers(sessionId: sessionId)
         XCTAssertEqual(sut.answeredCount, 0, "No answers given")
 
         mockService.abandonTestResponse = makeAbandonResponse(sessionId: sessionId)
@@ -1623,11 +1630,8 @@ final class TestTakingViewModelTests: XCTestCase {
     func testSubmitTestForTimeout_ZeroAnswers_SetsWasAbandonedSilentlyAndClearsProgress() async {
         // Given - test started with 0 answers
         let sessionId = 3002
-        let mockQuestions = makeQuestions(count: 3)
-        let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
-        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
-        mockService.startTestResponse = startResponse
-        await sut.startTest(questionCount: 20)
+        await startTestSessionWithZeroAnswers(sessionId: sessionId)
+        XCTAssertEqual(sut.answeredCount, 0, "No answers given")
 
         mockService.abandonTestResponse = makeAbandonResponse(sessionId: sessionId)
 
@@ -1670,11 +1674,7 @@ final class TestTakingViewModelTests: XCTestCase {
     func testSubmitTestForTimeout_ZeroAnswers_APIFailureDoesNotCrashAndSetsAbandonedSilently() async {
         // Given - test started with 0 answers, abandon API will fail
         let sessionId = 3004
-        let mockQuestions = makeQuestions(count: 3)
-        let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
-        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
-        mockService.startTestResponse = startResponse
-        await sut.startTest(questionCount: 20)
+        await startTestSessionWithZeroAnswers(sessionId: sessionId)
         XCTAssertEqual(sut.answeredCount, 0, "No answers given")
 
         mockService.abandonTestError = APIError.serverError(statusCode: 500, message: "Internal server error")
@@ -1686,6 +1686,7 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertTrue(sut.wasAbandonedSilently, "wasAbandonedSilently should be true even when API fails")
         XCTAssertNil(sut.testSession, "testSession should be cleared even when API fails")
         XCTAssertNil(sut.error, "No error should be surfaced to the user on silent abandonment failure")
+        XCTAssertTrue(mockAnswerStorage.clearProgressCalled, "clearSavedProgress should be called even when API fails")
     }
 
     func testDismissResumePrompt_clearsPendingProgressAndIntent() async {
