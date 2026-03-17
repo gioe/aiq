@@ -259,6 +259,7 @@ class TestTakingViewModel: BaseViewModel {
         #if DEBUG
             print("[TestTakingViewModel] handleTestStartSuccess: received \(response.questions.count) questions")
         #endif
+        isLocked = false
         testSession = response.session
         navigationState.questions = response.questions
         navigationState.currentQuestionIndex = 0
