@@ -201,6 +201,12 @@ final class TestTakingAbandonmentFlowTests: BaseUITest {
         // Dismiss and verify we're NOT in the fresh-start auto-path
         timesUpAlertDuringNonSilent.buttons["OK"].tap()
 
+        // Assert: view must navigate to results/completion screen (not back to a fresh test start)
+        XCTAssertTrue(
+            testHelper.waitForResults(timeout: extendedTimeout),
+            "Non-silent path: must navigate to results/completion screen after Time's Up alert dismissal"
+        )
+
         // The test was submitted (not silently abandoned), so no auto-start of fresh test happens immediately
         // The view should navigate to results (or stay on submission) — not to the Start Test state
         let warningBanner = app.otherElements["testTakingView.timeWarningBanner"]
