@@ -1598,6 +1598,96 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertEqual(sut.navigationState.currentQuestionIndex, 1, "Should have restored question index")
     }
 
+    // MARK: - Zero-Answer Timeout Abandonment Tests
+
+    func testSubmitTestForTimeout_ZeroAnswers_CallsAbandonNotSubmit() async {
+        // Given - test started with 0 answers
+        let sessionId = 3001
+        let mockQuestions = makeQuestions(count: 3)
+        let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startTestResponse = startResponse
+        await sut.startTest(questionCount: 20)
+        XCTAssertEqual(sut.answeredCount, 0, "No answers given")
+
+        mockService.abandonTestResponse = makeAbandonResponse(sessionId: sessionId)
+
+        // When
+        await sut.submitTestForTimeout()
+
+        // Then - abandon called, not submit
+        XCTAssertTrue(mockService.abandonTestCalled, "Should call abandon API when 0 answers")
+        XCTAssertFalse(mockService.submitTestCalled, "Should NOT call submit API when 0 answers")
+    }
+
+    func testSubmitTestForTimeout_ZeroAnswers_SetsWasAbandonedSilentlyAndClearsProgress() async {
+        // Given - test started with 0 answers
+        let sessionId = 3002
+        let mockQuestions = makeQuestions(count: 3)
+        let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startTestResponse = startResponse
+        await sut.startTest(questionCount: 20)
+
+        mockService.abandonTestResponse = makeAbandonResponse(sessionId: sessionId)
+
+        // When
+        await sut.submitTestForTimeout()
+
+        // Then
+        XCTAssertTrue(sut.wasAbandonedSilently, "wasAbandonedSilently should be true after 0-answer timeout")
+        XCTAssertTrue(mockAnswerStorage.clearProgressCalled, "clearSavedProgress should be called")
+        XCTAssertNil(sut.testSession, "testSession should be cleared after silent abandonment")
+    }
+
+    func testSubmitTestForTimeout_OneOrMoreAnswers_CallsSubmitNotAbandon() async {
+        // Given - test started with 1 answer
+        let sessionId = 3003
+        let mockQuestions = makeQuestions(count: 3)
+        let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startTestResponse = startResponse
+        await sut.startTest(questionCount: 20)
+        sut.currentAnswer = "A"
+        XCTAssertEqual(sut.answeredCount, 1, "One answer given")
+
+        mockService.submitTestResponse = TestSubmitResponse(
+            message: "submitted",
+            responsesCount: 1,
+            result: makeSubmittedTestResult(id: 1, sessionId: sessionId, totalQuestions: 3, correctAnswers: 1),
+            session: makeTestSession(id: sessionId, status: "completed")
+        )
+
+        // When
+        await sut.submitTestForTimeout()
+
+        // Then - submit called, not abandon
+        XCTAssertTrue(mockService.submitTestCalled, "Should call submit API when answers exist")
+        XCTAssertFalse(mockService.abandonTestCalled, "Should NOT call abandon API when answers exist")
+        XCTAssertFalse(sut.wasAbandonedSilently, "wasAbandonedSilently should remain false")
+    }
+
+    func testSubmitTestForTimeout_ZeroAnswers_APIFailureDoesNotCrashAndSetsAbandonedSilently() async {
+        // Given - test started with 0 answers, abandon API will fail
+        let sessionId = 3004
+        let mockQuestions = makeQuestions(count: 3)
+        let startResponse = makeStartTestResponse(sessionId: sessionId, questions: mockQuestions)
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startTestResponse = startResponse
+        await sut.startTest(questionCount: 20)
+        XCTAssertEqual(sut.answeredCount, 0, "No answers given")
+
+        mockService.abandonTestError = APIError.serverError(statusCode: 500, message: "Internal server error")
+
+        // When - should not crash
+        await sut.submitTestForTimeout()
+
+        // Then - silently abandoned regardless of API failure
+        XCTAssertTrue(sut.wasAbandonedSilently, "wasAbandonedSilently should be true even when API fails")
+        XCTAssertNil(sut.testSession, "testSession should be cleared even when API fails")
+        XCTAssertNil(sut.error, "No error should be surfaced to the user on silent abandonment failure")
+    }
+
     func testDismissResumePrompt_clearsPendingProgressAndIntent() async {
         // Given - put ViewModel into showResumePrompt state
         let validProgress = SavedTestProgress(
