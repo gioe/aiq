@@ -565,6 +565,48 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertNil(sut.navigationState.userAnswers[3], "Should not restore answer for question 3")
     }
 
+    // MARK: - State Reset After Silent Abandonment Tests
+
+    func testStartTest_afterLockAnswers_resetsIsLockedToFalse() async {
+        // Given — simulate timer expiry locking the test
+        sut.lockAnswers()
+        XCTAssertTrue(sut.isLocked, "Precondition: isLocked should be true after lockAnswers()")
+
+        let newSessionId = 500
+        let newQuestions = makeQuestions(count: 1)
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startTestResponse = makeStartTestResponse(sessionId: newSessionId, questions: newQuestions)
+
+        // When — user restarts after the silent-abandon flow
+        await sut.startTest(questionCount: 20)
+
+        // Then — the lock must be cleared so the user can interact with the new session
+        XCTAssertFalse(sut.isLocked, "isLocked should be reset to false after a successful startTest")
+        XCTAssertNil(sut.error, "No error should be set on successful start")
+        XCTAssertEqual(sut.testSession?.id, newSessionId, "New session should be active")
+    }
+
+    func testHandleTestStartSuccess_withLockedState_unlocksAnswers() async {
+        // Given — VM is in a locked, post-expiry state (handleTestStartSuccess called internally)
+        sut.lockAnswers()
+        XCTAssertTrue(sut.isLocked, "Precondition: isLocked should be true")
+
+        let newSessionId = 501
+        let newQuestions = makeQuestions(count: 2)
+        mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
+        mockService.startTestResponse = makeStartTestResponse(sessionId: newSessionId, questions: newQuestions)
+
+        // When — startTest succeeds and handleTestStartSuccess is invoked
+        await sut.startTest(questionCount: 20)
+
+        // Then — handleTestStartSuccess must reset isLocked
+        XCTAssertFalse(sut.isLocked, "handleTestStartSuccess must set isLocked = false")
+        // Verify the full success path ran (not just lock reset)
+        XCTAssertNotNil(sut.testSession, "Test session should be populated")
+        XCTAssertEqual(sut.navigationState.questions.count, 2, "Questions should be loaded")
+        XCTAssertEqual(sut.navigationState.currentQuestionIndex, 0, "Question index should be reset to 0")
+    }
+
     // MARK: - Test Factory Methods
 
     private func makeTestSession(

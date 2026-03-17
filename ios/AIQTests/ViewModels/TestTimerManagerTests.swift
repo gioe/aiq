@@ -235,6 +235,23 @@ final class TestTimerManagerTests: XCTestCase {
         XCTAssertEqual(sut.remainingSeconds, 0, "Remaining seconds should be 0")
     }
 
+    // MARK: - State Reset After Silent Abandonment Tests
+
+    func testStartWithSessionTime_whenPreviousSessionHadShowWarningTrue_resetsShowWarning() {
+        // Given — previous session triggered the warning banner
+        let expiredStart = Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds) - 60)
+        sut.startWithSessionTime(expiredStart)
+        XCTAssertTrue(sut.showWarning, "Precondition: showWarning should be true after an expired session")
+
+        // When — user restarts with a fresh session that has plenty of time remaining (>5 min)
+        let freshStart = Date().addingTimeInterval(-60) // Only 60 seconds elapsed
+        let started = sut.startWithSessionTime(freshStart)
+
+        // Then — showWarning must be cleared so the warning banner does not appear on the new session
+        XCTAssertTrue(started, "Fresh session should start successfully")
+        XCTAssertFalse(sut.showWarning, "showWarning must be reset to false at the start of a new session")
+    }
+
     // MARK: - Reset Tests
 
     func testReset_RestoresInitialState() {
