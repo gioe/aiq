@@ -137,15 +137,30 @@ import Foundation
 
         func getTestSession(sessionId _: Int) async throws -> TestSessionStatusResponse {
             try throwIfNetworkError()
-            let questions = scenario == .memoryInProgress
-                ? UITestMockData.sampleMemoryQuestions
-                : UITestMockData.sampleQuestions
-            let session = UITestMockData.recentInProgressSession
-            return TestSessionStatusResponse(
-                questions: questions,
-                questionsCount: 0,
-                session: session
-            )
+            switch scenario {
+            case .timerExpiredZeroAnswers:
+                return TestSessionStatusResponse(
+                    questions: UITestMockData.sampleQuestions,
+                    questionsCount: 0,
+                    session: UITestMockData.expiredSession
+                )
+            case .timerExpiredWithAnswers:
+                return TestSessionStatusResponse(
+                    questions: UITestMockData.sampleQuestions,
+                    questionsCount: 1,
+                    session: UITestMockData.nearExpiredSession
+                )
+            default:
+                let questions = scenario == .memoryInProgress
+                    ? UITestMockData.sampleMemoryQuestions
+                    : UITestMockData.sampleQuestions
+                let session = UITestMockData.recentInProgressSession
+                return TestSessionStatusResponse(
+                    questions: questions,
+                    questionsCount: 0,
+                    session: session
+                )
+            }
         }
 
         func getTestResults(resultId _: Int) async throws -> TestResult {
@@ -158,7 +173,8 @@ import Foundation
 
             switch scenario {
             case .loggedInNoHistory, .loggedOut, .default, .registrationTimeout, .registrationServerError,
-                 .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure:
+                 .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure,
+                 .timerExpiredZeroAnswers, .timerExpiredWithAnswers:
                 return PaginatedTestHistoryResponse(
                     hasMore: false,
                     limit: 50,
@@ -193,6 +209,12 @@ import Foundation
                     questions: UITestMockData.sampleMemoryQuestions,
                     questionsCount: 0,
                     session: UITestMockData.recentInProgressSession
+                )
+            case .timerExpiredWithAnswers:
+                return TestSessionStatusResponse(
+                    questions: UITestMockData.sampleQuestions,
+                    questionsCount: 1,
+                    session: UITestMockData.nearExpiredSession
                 )
             default:
                 return nil
@@ -409,6 +431,25 @@ import Foundation
             userId: 1,
             status: "in_progress",
             startedAt: Date().addingTimeInterval(-300)
+        )
+
+        /// Session started 36 minutes ago — timer expires immediately when startWithSessionTime is called.
+        /// Used for `timerExpiredZeroAnswers` scenario (0 answers → silent abandonment).
+        static let expiredSession = MockDataFactory.makeTestSession(
+            id: 98,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds + 60))
+        )
+
+        /// Session with ~2 seconds remaining — passes hasActiveTest on dashboard but fires
+        /// the timer almost immediately when TestTakingView starts it.
+        /// Used for `timerExpiredWithAnswers` scenario (partial answers → Time's Up alert).
+        static let nearExpiredSession = MockDataFactory.makeTestSession(
+            id: 97,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds - 2))
         )
 
         static let completedSession = MockDataFactory.makeTestSession(

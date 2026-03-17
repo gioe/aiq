@@ -148,4 +148,10 @@ enum MockScenario: String, CaseIterable {
 
     /// User has an active test session whose first question is a memory type (stimulus phase)
     case memoryInProgress
+
+    /// Active test session expired with 0 answers — silent abandonment then fresh test start
+    case timerExpiredZeroAnswers
+
+    /// Active test session expired with partial answers — Time's Up alert shown (non-silent path)
+    case timerExpiredWithAnswers
 }

@@ -68,7 +68,7 @@ import Foundation
 
             case .loggedInNoHistory, .loggedInWithHistory, .loggedInWithHistoryNilDate, .testInProgress,
                  .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure,
-                 .memoryInProgress:
+                 .memoryInProgress, .timerExpiredZeroAnswers, .timerExpiredWithAnswers:
                 isAuthenticated = true
                 currentUser = Self.mockUser
                 shouldSucceedLogin = true

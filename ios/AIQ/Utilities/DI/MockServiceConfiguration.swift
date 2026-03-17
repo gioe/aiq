@@ -40,7 +40,7 @@ import Foundation
             switch scenario {
             case .loggedInWithHistory, .loggedInNoHistory, .testInProgress, .memoryInProgress,
                  .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure,
-                 .loggedInWithHistoryNilDate:
+                 .loggedInWithHistoryNilDate, .timerExpiredZeroAnswers, .timerExpiredWithAnswers:
                 true
             default:
                 false
@@ -49,10 +49,8 @@ import Foundation
 
         @MainActor
         static func configureServices(container: ServiceContainer) {
-            print("=== MOCK SERVICE CONFIGURATION CALLED ===")
             MockModeDetector.logStatus()
             let scenario = MockModeDetector.currentScenario
-            print("Configuring mocks for scenario: \(scenario.rawValue)")
 
             // MARK: - Layer 1: Services with no dependencies
 
@@ -67,6 +65,7 @@ import Foundation
             container.register(OpenAPIServiceProtocol.self, instance: mockOpenAPIService)
 
             let mockLocalAnswerStorage = UITestMockLocalAnswerStorage()
+            mockLocalAnswerStorage.configureForScenario(scenario)
             container.register(LocalAnswerStorageProtocol.self, instance: mockLocalAnswerStorage)
 
             let mockHapticManager = UITestMockHapticManager()

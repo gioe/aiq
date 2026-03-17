@@ -112,6 +112,7 @@
 		4B98D6EB42A4C4721B5CF3EE /* Question.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8BC8C3CF37AE7A0F9831FE /* Question.swift */; };
 		4BE7D7E69E7343C24A7572DF /* TestTransitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FEED4685139D5ACD27AC0A /* TestTransitions.swift */; };
 		4C5CD642D86749FB7D644FDD /* TestNavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A92C060373617CDE405730 /* TestNavigationStateTests.swift */; };
+		4C6CD5465C854C02F63922A6 /* TestTakingAbandonmentFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A52C6D6CC7071D806BC4AD2 /* TestTakingAbandonmentFlowTests.swift */; };
 		4D2A02A6A9617E42FEEDFD3F /* TestResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC087F3F6BB90B603CBB081 /* TestResultsView.swift */; };
 		5104FFD5832AC289262B48B3 /* QuestionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF171ACA7A175FF12505678A /* QuestionCardView.swift */; };
 		51595BB873676DE691DBE7D2 /* NotificationUpgradePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB94772581EEB839D019AEF9 /* NotificationUpgradePromptView.swift */; };
@@ -525,6 +526,7 @@
 		944A8C01B8052CD1D316D0BA /* BaseViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BaseViewModel.swift; path = Shared/Architecture/BaseViewModel.swift; sourceTree = "<group>"; };
 		945134461CB72E20E086213F /* MockNotificationManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockNotificationManager.swift; sourceTree = "<group>"; };
 		972EDF14D846639206E3F31D /* MockModeDetectorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockModeDetectorTests.swift; sourceTree = "<group>"; };
+		9A52C6D6CC7071D806BC4AD2 /* TestTakingAbandonmentFlowTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestTakingAbandonmentFlowTests.swift; sourceTree = "<group>"; };
 		9B7DA3D24FA5595BDFEC7213 /* AccessibilityIdentifiers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilityIdentifiers.swift; sourceTree = "<group>"; };
 		9C650FA38A2950F137366BC2 /* AdaptiveTestCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdaptiveTestCoordinator.swift; path = Features/Test/ViewModels/AdaptiveTestCoordinator.swift; sourceTree = "<group>"; };
 		9EDCAD695C094EB03F39B9B8 /* TimeWarningBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TimeWarningBanner.swift; path = Features/Test/Views/TimeWarningBanner.swift; sourceTree = "<group>"; };
@@ -812,6 +814,7 @@
 				A07785B263B8F092AF23CCB0 /* DashboardInProgressCardUITests.swift */,
 				111DCF2C1A921BECE4BF182E /* DashboardActionButtonUITests.swift */,
 				79737965E793EB94A872DBE8 /* MemoryQuestionStimulusCardUITests.swift */,
+				9A52C6D6CC7071D806BC4AD2 /* TestTakingAbandonmentFlowTests.swift */,
 			);
 			path = AIQUITests;
 			sourceTree = "<group>";
@@ -1665,6 +1668,7 @@
 				928FBD282B9F3178C0A26A0A /* DashboardInProgressCardUITests.swift in Sources */,
 				670B6A3ABFD0E5F4242BD17E /* DashboardActionButtonUITests.swift in Sources */,
 				B646490B9D131BD47857A82F /* MemoryQuestionStimulusCardUITests.swift in Sources */,
+				4C6CD5465C854C02F63922A6 /* TestTakingAbandonmentFlowTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -233,6 +233,16 @@ class BaseUITest: XCTestCase {
         relaunchWithScenario("loggedInWithHistoryNilDate")
     }
 
+    /// Relaunch with timer-expired zero-answer scenario (silent abandonment → fresh test)
+    func relaunchWithTimerExpiredZeroAnswers() {
+        relaunchWithScenario("timerExpiredZeroAnswers")
+    }
+
+    /// Relaunch with timer-expired partial-answer scenario (Time's Up alert)
+    func relaunchWithTimerExpiredWithAnswers() {
+        relaunchWithScenario("timerExpiredWithAnswers")
+    }
+
     // MARK: - Helper Methods
 
     /// Wait for an element to exist with a custom timeout
