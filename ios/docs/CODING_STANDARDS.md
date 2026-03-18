@@ -5152,9 +5152,8 @@ swiftformat --config .swiftformat AIQ/
 #### OpenAPI Spec Out of Sync
 
 ```bash
-# Sync the spec from source
-cd ios
-scripts/sync_openapi_spec.sh
+# Publish updated spec to ios-libs and release a new version
+./ios/scripts/publish_api_client.sh ~/code/ios-libs
 ```
 
 #### Test Failures

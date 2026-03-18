@@ -298,11 +298,11 @@ To configure: Repository Settings > Secrets and variables > Actions > New reposi
 
 ### iOS: OpenAPI Spec Out of Sync
 
-**Cause:** Backend OpenAPI spec was updated but iOS copy wasn't synced.
+**Cause:** Backend OpenAPI spec was updated but ios-libs wasn't republished.
 
 **Solution:**
-1. Run: `cd ios && scripts/sync_openapi_spec.sh`
-2. Commit the updated spec
+1. Run: `./ios/scripts/publish_api_client.sh <path-to-ios-libs>`
+2. Tag and push a new ios-libs release, then update the version in the Xcode project
 
 ### iOS: Simulator Boot Timeout
 

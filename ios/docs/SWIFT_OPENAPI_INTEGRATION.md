@@ -110,11 +110,11 @@ The Swift OpenAPI Generator runs as a build plugin during Xcode builds. To compl
    - Add the "OpenAPIGenerator Plugin"
    - Xcode will display a security dialog on first build (approve it)
 
-3. **Sync the OpenAPI spec** before building:
+3. **Publish an updated spec** to ios-libs when the API changes:
    ```bash
-   ./ios/scripts/sync_openapi_spec.sh
+   ./ios/scripts/publish_api_client.sh ~/code/ios-libs
    ```
-   Note: `openapi.json` is gitignored and copied from `docs/api/openapi.json` at build time.
+   The script copies `docs/api/openapi.json` to the local ios-libs checkout and prompts you to tag a new release.
 
 4. **Generated code location**:
    - The plugin generates Swift code automatically in the derived data directory
