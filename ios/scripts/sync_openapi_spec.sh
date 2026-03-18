@@ -8,8 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 SOURCE="$PROJECT_ROOT/docs/api/openapi.json"
-DEST_LEGACY="$PROJECT_ROOT/ios/AIQ/openapi.json"
-DEST_PACKAGE="$PROJECT_ROOT/ios/Packages/AIQAPIClient/Sources/AIQAPIClient/openapi.json"
+DEST="$PROJECT_ROOT/ios/AIQ/openapi.json"
 
 if [ ! -f "$SOURCE" ]; then
     echo "warning: OpenAPI spec not found at $SOURCE"
@@ -18,19 +17,9 @@ if [ ! -f "$SOURCE" ]; then
     exit 0  # Exit successfully to not break fresh checkouts
 fi
 
-# Sync to package location (primary location for code generation)
-if [ ! -f "$DEST_PACKAGE" ] || [ "$SOURCE" -nt "$DEST_PACKAGE" ]; then
-    cp "$SOURCE" "$DEST_PACKAGE"
-    echo "Synced OpenAPI spec to $DEST_PACKAGE"
+if [ ! -f "$DEST" ] || [ "$SOURCE" -nt "$DEST" ]; then
+    cp "$SOURCE" "$DEST"
+    echo "Synced OpenAPI spec to $DEST"
 else
-    echo "OpenAPI spec in package is up to date"
-fi
-
-# Sync to legacy location (referenced by Xcode project build plugin)
-# TODO: Remove once Xcode project is updated to only use the package location
-if [ ! -f "$DEST_LEGACY" ] || [ "$SOURCE" -nt "$DEST_LEGACY" ]; then
-    cp "$SOURCE" "$DEST_LEGACY"
-    echo "Synced OpenAPI spec to $DEST_LEGACY (legacy)"
-else
-    echo "OpenAPI spec in legacy location is up to date"
+    echo "OpenAPI spec is up to date"
 fi
