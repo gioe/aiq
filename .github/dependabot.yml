@@ -49,30 +49,6 @@ updates:
           - "minor"
           - "patch"
 
-  # Swift Package Manager dependencies for iOS (API Client package)
-  - package-ecosystem: "swift"
-    directory: "/ios/Packages/AIQAPIClient"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "America/New_York"
-    open-pull-requests-limit: 3
-    labels:
-      - "dependencies"
-      - "swift"
-      - "ios"
-      - "api-client"
-    commit-message:
-      prefix: "[deps]"
-    reviewers:
-      - "gioe"
-    groups:
-      swift-all:
-        update-types:
-          - "minor"
-          - "patch"
-
   # Swift Package Manager dependencies for iOS (Main Xcode project)
   - package-ecosystem: "swift"
     directory: "/ios"

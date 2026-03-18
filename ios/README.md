@@ -10,7 +10,6 @@ ios/
 ├── AIQTests/             # Unit tests
 ├── AIQUITests/           # UI tests and screenshot generation
 ├── AIQ.xcodeproj/        # Xcode project file
-├── Packages/             # Local Swift packages (AIQAPIClient)
 ├── scripts/              # iOS tooling (OpenAPI sync, screenshots, validation)
 ├── docs/                 # iOS-specific documentation
 ├── app-store/            # App Store metadata and screenshots

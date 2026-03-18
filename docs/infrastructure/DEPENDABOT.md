@@ -15,7 +15,6 @@ Configured in `.github/dependabot.yml` for:
 |-----------|-----------|----------|
 | pip (Python) | `/backend` | Weekly (Monday 9am ET) |
 | pip (Python) | `/question-service` | Weekly (Monday 9am ET) |
-| swift | `/ios/Packages/AIQAPIClient` | Weekly (Monday 9am ET) |
 | swift | `/ios` | Weekly (Monday 9am ET) |
 | github-actions | `/` | Weekly (Monday 9am ET) |
 
@@ -175,7 +174,7 @@ Related dependency updates are grouped into fewer PRs to reduce review overhead:
 
 This means instead of receiving individual PRs for each dependency, related updates are batched:
 - Python minor/patch updates for each service come in a single PR
-- Swift dependency updates for each package location come in a single PR (up to 2 Swift PRs: one for the API Client package, one for the main Xcode project)
+- Swift dependency updates for the main Xcode project come in a single PR
 - All GitHub Actions updates come in a single PR
 
 Major version updates are excluded from groups and arrive as individual PRs, since they are more likely to require careful review and code changes.
