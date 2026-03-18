@@ -49,10 +49,10 @@ class TestQuestionGenerator:
             provider.generate_structured_completion_with_usage.return_value = (
                 make_completion_result(
                     {
-                        "question_text": "What is 2 + 2?",
-                        "correct_answer": "4",
-                        "answer_options": ["2", "3", "4", "5"],
-                        "explanation": "2 + 2 equals 4 by basic addition.",
+                        "question_text": "How many sides does a hexagon have?",
+                        "correct_answer": "6",
+                        "answer_options": ["4", "5", "6", "7"],
+                        "explanation": "A hexagon has six sides.",
                     }
                 )
             )
@@ -101,8 +101,8 @@ class TestQuestionGenerator:
             difficulty=DifficultyLevel.EASY,
         )
 
-        assert question.question_text == "What is 2 + 2?"
-        assert question.correct_answer == "4"
+        assert question.question_text == "How many sides does a hexagon have?"
+        assert question.correct_answer == "6"
         assert question.question_type == QuestionType.MATH
         assert question.difficulty_level == DifficultyLevel.EASY
         assert question.source_llm == "openai"
@@ -568,13 +568,13 @@ class TestGeneratorConfigModelOverride:
         loader = GeneratorConfigLoader("config/generators.yaml")
         loader.load()
 
-        # Math has xai with grok-4 model explicitly specified in the config
+        # Math has openai with gpt-5.2 model explicitly specified in the config
         provider, model = loader.get_provider_and_model_for_question_type(
-            "math", ["xai", "anthropic", "openai"]
+            "math", ["openai", "anthropic", "xai"]
         )
 
-        assert provider == "xai"
-        assert model == "grok-4"
+        assert provider == "openai"
+        assert model == "gpt-5.2"
 
     def test_fallback_uses_fallback_model_not_primary_model(self):
         """Test that fallback provider uses fallback_model, not the primary model."""
@@ -610,10 +610,10 @@ class TestQuestionGeneratorIntegration:
             openai_provider.generate_structured_completion_with_usage.return_value = (
                 make_completion_result(
                     {
-                        "question_text": "OpenAI question?",
-                        "correct_answer": "A",
-                        "answer_options": ["A", "B", "C", "D"],
-                        "explanation": "OpenAI explanation",
+                        "question_text": "First supplier result?",
+                        "correct_answer": "X",
+                        "answer_options": ["X", "Y", "Z", "W"],
+                        "explanation": "First supplier result explanation",
                     }
                 )
             )
@@ -624,10 +624,10 @@ class TestQuestionGeneratorIntegration:
             anthropic_provider.model = "claude-3-5-sonnet"
             anthropic_provider.generate_structured_completion_with_usage.return_value = make_completion_result(
                 {
-                    "question_text": "Anthropic question?",
-                    "correct_answer": "B",
-                    "answer_options": ["A", "B", "C", "D"],
-                    "explanation": "Anthropic explanation",
+                    "question_text": "Other supplier result?",
+                    "correct_answer": "Y",
+                    "answer_options": ["X", "Y", "Z", "W"],
+                    "explanation": "Other supplier result explanation",
                 }
             )
             mock_anthropic.return_value = anthropic_provider
@@ -671,10 +671,10 @@ class TestAsyncQuestionGenerator:
             provider.generate_structured_completion_with_usage.return_value = (
                 make_completion_result(
                     {
-                        "question_text": "What is 2 + 2?",
-                        "correct_answer": "4",
-                        "answer_options": ["2", "3", "4", "5"],
-                        "explanation": "2 + 2 equals 4 by basic addition.",
+                        "question_text": "How many sides does a hexagon have?",
+                        "correct_answer": "6",
+                        "answer_options": ["4", "5", "6", "7"],
+                        "explanation": "A hexagon has six sides.",
                     }
                 )
             )
@@ -682,10 +682,10 @@ class TestAsyncQuestionGenerator:
             provider.generate_structured_completion_with_usage_async = AsyncMock(
                 return_value=make_completion_result(
                     {
-                        "question_text": "What is 2 + 2? (async)",
-                        "correct_answer": "4",
-                        "answer_options": ["2", "3", "4", "5"],
-                        "explanation": "2 + 2 equals 4 by basic addition.",
+                        "question_text": "How many sides does a hexagon have? (async)",
+                        "correct_answer": "6",
+                        "answer_options": ["4", "5", "6", "7"],
+                        "explanation": "A hexagon has six sides.",
                     }
                 )
             )
@@ -705,8 +705,8 @@ class TestAsyncQuestionGenerator:
             difficulty=DifficultyLevel.EASY,
         )
 
-        assert question.question_text == "What is 2 + 2? (async)"
-        assert question.correct_answer == "4"
+        assert question.question_text == "How many sides does a hexagon have? (async)"
+        assert question.correct_answer == "6"
         assert question.question_type == QuestionType.MATH
         assert question.difficulty_level == DifficultyLevel.EASY
         assert question.source_llm == "openai"
@@ -742,10 +742,10 @@ class TestAsyncQuestionGenerator:
         # Override mock to return batch-shaped response for single-call batch path
         provider = async_generator.providers["openai"]
         question_obj = {
-            "question_text": "What is 2 + 2? (async)",
-            "correct_answer": "4",
-            "answer_options": ["2", "3", "4", "5"],
-            "explanation": "2 + 2 equals 4 by basic addition.",
+            "question_text": "How many sides does a hexagon have? (async)",
+            "correct_answer": "6",
+            "answer_options": ["4", "5", "6", "7"],
+            "explanation": "A hexagon has six sides.",
         }
         provider.generate_structured_completion_with_usage_async = AsyncMock(
             return_value=make_completion_result(
@@ -821,10 +821,10 @@ class TestAsyncMultiProviderGenerator:
             openai_provider.generate_structured_completion_with_usage_async = AsyncMock(
                 return_value=make_completion_result(
                     {
-                        "question_text": "OpenAI async question?",
-                        "correct_answer": "A",
-                        "answer_options": ["A", "B", "C", "D"],
-                        "explanation": "OpenAI async explanation",
+                        "question_text": "First supplier result?",
+                        "correct_answer": "X",
+                        "answer_options": ["X", "Y", "Z", "W"],
+                        "explanation": "First supplier result explanation",
                     }
                 )
             )
@@ -837,10 +837,10 @@ class TestAsyncMultiProviderGenerator:
                 AsyncMock(
                     return_value=make_completion_result(
                         {
-                            "question_text": "Anthropic async question?",
-                            "correct_answer": "B",
-                            "answer_options": ["A", "B", "C", "D"],
-                            "explanation": "Anthropic async explanation",
+                            "question_text": "Other supplier result?",
+                            "correct_answer": "Y",
+                            "answer_options": ["X", "Y", "Z", "W"],
+                            "explanation": "Other supplier result explanation",
                         }
                     )
                 )
@@ -889,10 +889,10 @@ class TestAsyncMultiProviderGenerator:
             call_times.append(("openai_end", time.time()))
             return make_completion_result(
                 {
-                    "question_text": "OpenAI question?",
-                    "correct_answer": "A",
-                    "answer_options": ["A", "B", "C", "D"],
-                    "explanation": "OpenAI explanation",
+                    "question_text": "First supplier result?",
+                    "correct_answer": "X",
+                    "answer_options": ["X", "Y", "Z", "W"],
+                    "explanation": "First supplier result explanation",
                 }
             )
 
@@ -902,10 +902,10 @@ class TestAsyncMultiProviderGenerator:
             call_times.append(("anthropic_end", time.time()))
             return make_completion_result(
                 {
-                    "question_text": "Anthropic question?",
-                    "correct_answer": "B",
-                    "answer_options": ["A", "B", "C", "D"],
-                    "explanation": "Anthropic explanation",
+                    "question_text": "Other supplier result?",
+                    "correct_answer": "Y",
+                    "answer_options": ["X", "Y", "Z", "W"],
+                    "explanation": "Other supplier result explanation",
                 }
             )
 
@@ -1220,10 +1220,10 @@ class TestRegeneratePreservesSubType:
             provider.generate_structured_completion_with_usage_async = AsyncMock(
                 return_value=make_completion_result(
                     {
-                        "question_text": "Regenerated question?",
-                        "correct_answer": "B",
-                        "answer_options": ["A", "B", "C", "D"],
-                        "explanation": "Regenerated explanation",
+                        "question_text": "Which option is correct?",
+                        "correct_answer": "six",
+                        "answer_options": ["five", "six", "seven", "eight"],
+                        "explanation": "Six is the right option.",
                     }
                 )
             )
@@ -1238,11 +1238,11 @@ class TestRegeneratePreservesSubType:
         from app.data.models import GeneratedQuestion
 
         original = GeneratedQuestion(
-            question_text="Original question text here",
+            question_text="Select the right option here",
             question_type=QuestionType.PATTERN,
             difficulty_level=DifficultyLevel.MEDIUM,
-            correct_answer="A",
-            answer_options=["A", "B", "C", "D"],
+            correct_answer="six",
+            answer_options=["five", "six", "seven", "eight"],
             explanation="Original explanation",
             sub_type="number sequences with arithmetic progressions",
             metadata={},

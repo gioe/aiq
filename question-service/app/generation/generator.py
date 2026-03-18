@@ -12,7 +12,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from app.infrastructure.circuit_breaker import (
     CircuitBreakerOpen,
@@ -134,7 +134,7 @@ def _safe_record_metric(
     name: str,
     value: float,
     labels: Dict[str, str],
-    metric_type: str = "counter",
+    metric_type: Literal["counter", "histogram", "gauge", "updown_counter"] = "counter",
     unit: Optional[str] = None,
 ) -> None:
     """Record a metric to the observability facade with error handling.

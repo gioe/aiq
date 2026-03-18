@@ -3177,7 +3177,7 @@ class TestInsertQuestionsBatch:
         return [
             EvaluatedQuestion(
                 question=GeneratedQuestion(
-                    question_text=f"Question {i}?",
+                    question_text=f"Sample item {chr(65+i)}?",
                     question_type=QuestionType.MATH,
                     difficulty_level=DifficultyLevel.EASY,
                     correct_answer=str(i + 1),
@@ -3222,15 +3222,15 @@ class TestInsertQuestionsBatch:
         assert len(bootstrap.existing_questions) == 3
         assert bootstrap.existing_questions[0] == {
             "id": 10,
-            "question_text": "Question 0?",
+            "question_text": "Sample item A?",
         }
         assert bootstrap.existing_questions[1] == {
             "id": 11,
-            "question_text": "Question 1?",
+            "question_text": "Sample item B?",
         }
         assert bootstrap.existing_questions[2] == {
             "id": 12,
-            "question_text": "Question 2?",
+            "question_text": "Sample item C?",
         }
 
     def test_batch_insertion_handles_failure(self, bootstrap):
@@ -3844,7 +3844,7 @@ class TestFullPipelineIntegration:
 
         return [
             GeneratedQuestion(
-                question_text=f"Question {i}?",
+                question_text=f"Sample item {chr(65+i)}?",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer=str(i % 4),
@@ -3869,7 +3869,7 @@ class TestFullPipelineIntegration:
         return [
             EvaluatedQuestion(
                 question=GeneratedQuestion(
-                    question_text=f"Question {i}?",
+                    question_text=f"Sample item {chr(65+i)}?",
                     question_type=QuestionType.MATH,
                     difficulty_level=DifficultyLevel.EASY,
                     correct_answer=str(i % 4),
@@ -4052,7 +4052,7 @@ class TestFullPipelineIntegration:
                 evaluated.append(
                     EvaluatedQuestion(
                         question=GeneratedQuestion(
-                            question_text=f"Question {i}?",
+                            question_text=f"Sample item {chr(65+i)}?",
                             question_type=QuestionType.MATH,
                             difficulty_level=DifficultyLevel.EASY,
                             correct_answer=str(i % 4),

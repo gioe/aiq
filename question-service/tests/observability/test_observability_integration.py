@@ -153,7 +153,12 @@ class TestTriggerServerObservabilityInstrumentation:
             mock_obs.start_span.assert_called_once_with(
                 "generation_job",
                 kind="internal",
-                attributes={"count": 10, "dry_run": False, "verbose": True},
+                attributes={
+                    "count": 10,
+                    "dry_run": False,
+                    "verbose": True,
+                    "types": "all",
+                },
             )
             mock_span.set_attribute.assert_any_call("exit_code", 0)
             mock_span.set_status.assert_called_once_with("ok")

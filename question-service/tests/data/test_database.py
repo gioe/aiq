@@ -18,12 +18,12 @@ from app.data.models import (
 def sample_question():
     """Create a sample generated question for testing."""
     return GeneratedQuestion(
-        question_text="What is 2 + 2?",
+        question_text="How many sides does a hexagon have?",
         question_type=QuestionType.MATH,
         difficulty_level=DifficultyLevel.EASY,
-        correct_answer="4",
-        answer_options=["2", "3", "4", "5"],
-        explanation="2 + 2 equals 4 by basic addition",
+        correct_answer="6",
+        answer_options=["4", "5", "6", "7"],
+        explanation="A hexagon has six sides by definition",
         stimulus=None,
         metadata={"category": "arithmetic"},
         source_llm="openai",
@@ -336,7 +336,7 @@ class TestDatabaseService:
         """Test batch question insertion."""
         questions = [
             GeneratedQuestion(
-                question_text=f"Question {i}",
+                question_text=f"Sample item {chr(65+i)}",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer=str(i + 1),
@@ -367,7 +367,7 @@ class TestDatabaseService:
         """Test batch insertion with judge scores."""
         questions = [
             GeneratedQuestion(
-                question_text=f"Question {i}",
+                question_text=f"Sample item {chr(65+i)}",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer=str(i + 1),
@@ -458,7 +458,7 @@ class TestDatabaseService:
         """Test batch insertion fails with mismatched score length."""
         questions = [
             GeneratedQuestion(
-                question_text="Question 1",
+                question_text="Sample item alpha",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
                 correct_answer="1",
@@ -478,7 +478,7 @@ class TestDatabaseService:
         evaluated_questions = [
             EvaluatedQuestion(
                 question=GeneratedQuestion(
-                    question_text=f"Question {i}",
+                    question_text=f"Sample item {chr(65+i)}",
                     question_type=QuestionType.MATH,
                     difficulty_level=DifficultyLevel.EASY,
                     correct_answer=str(i + 1),
