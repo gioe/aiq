@@ -36,13 +36,14 @@ Always use these skills instead of running commands directly:
 | `AIQ/Utilities/Helpers/CrashlyticsRecorderAdapter.swift` | Bridges SharedKit's `ErrorRecorder` to Firebase Crashlytics |
 | `AIQ/Models/RetryableErrorConformances.swift` | Declares `APIError: RetryableError` and `ContextualError: RetryableError` |
 | `AIQ/Views/Components/` | AIQ-specific UI components (RootView, MainTabView, BiometricLockView, etc.) |
-| `Packages/AIQAPIClient/` | OpenAPI-generated type-safe API client |
-| `Packages/AIQAPIClient/Sources/AIQAPIClient/Extensions/` | UI computed properties for generated types |
+| `APIClient` (remote: gioe/ios-libs) | OpenAPI-generated type-safe API client — remote Swift package dependency, not a local path |
+| `APIClient` extensions (in gioe/ios-libs) | UI computed properties for generated types |
 
 ### Key patterns
 
 - **MVVM**: All ViewModels inherit from `BaseViewModel`. Views observe `@Published` properties. ViewModels should not import SwiftUI (except for `ObservableObject`).
-- **OpenAPI code-gen**: The backend Pydantic schemas generate `openapi.json`, which Swift OpenAPI Generator turns into type-safe client code in `Packages/AIQAPIClient`. Run `./scripts/sync_openapi_spec.sh` after pulling backend changes.
-- **Model extensions**: UI computed properties for generated types go in `Packages/AIQAPIClient/Sources/AIQAPIClient/Extensions/` as `<TypeName>+UI.swift`. Date formatting stays in the main app's `Date+Extensions.swift`.
+- **OpenAPI code-gen**: The backend Pydantic schemas generate `openapi.json`, which Swift OpenAPI Generator turns into type-safe client code. The generated `APIClient` is published as a remote Swift package in `gioe/ios-libs` — spec changes require updating and publishing a new release there.
+- **Model extensions**: UI computed properties for generated types go in the `APIClient` extensions in `gioe/ios-libs` as `<TypeName>+UI.swift`. Date formatting stays in the main app's `Date+Extensions.swift`.
 - **Accessibility**: Full VoiceOver support, Dynamic Type, semantic colors, RTL layout support required.
+- **Branding string sweeps**: When replacing a user-visible term (e.g., "IQ" → "AIQ"), use `grep -rn '\bIQ\b' ios/` (no quote anchors) rather than `grep '"[^"]*IQ[^"]*"'`. The quote-anchored pattern misses Swift string interpolations like `"IQ score \(iqScore)"` in model/extension files. Also check `Packages/AIQAPIClient/Sources/AIQAPIClient/Extensions/` and `AIQ/Models/` for accessibility computed properties.
 - **Certificate pinning**: TrustKit enabled in RELEASE builds only. DEBUG builds use `http://localhost:8000`.
