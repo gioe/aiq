@@ -768,7 +768,7 @@ final class DataCacheTests: XCTestCase {
         // Then
         let retrieved: String?? = await sut.get(forKey: key)
         XCTAssertNotNil(retrieved, "Should store nil optional value")
-        XCTAssertNil(retrieved, "Inner value should be nil")
+        XCTAssertNil(retrieved ?? "unexpected_cache_miss", "Inner value should be nil")
     }
 
     func testEdgeCase_NegativeExpiration() async {

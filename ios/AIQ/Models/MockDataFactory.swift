@@ -69,7 +69,7 @@ import Foundation
         static func makeInProgressSession(
             id: Int = 123,
             userId: Int = 1,
-            startedAt: Date = Date().addingTimeInterval(-3600)
+            startedAt: Date = Date().addingTimeInterval(-300)
         ) -> TestSession {
             makeTestSession(
                 id: id,

@@ -119,7 +119,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             id: sessionId,
             userId: 1,
             status: "in_progress",
-            startedAt: Date().addingTimeInterval(-3600) // Started 1 hour ago
+            startedAt: Date().addingTimeInterval(-300) // Started 5 minutes ago
         )
         let activeSessionResponse = TestSessionStatusResponse(
             questions: nil,
@@ -235,7 +235,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             id: sessionId,
             userId: 1,
             status: "in_progress",
-            startedAt: Date().addingTimeInterval(-7200) // Started 2 hours ago
+            startedAt: Date().addingTimeInterval(-300) // Started 5 minutes ago
         )
         let activeSessionResponse = TestSessionStatusResponse(
             questions: nil,
@@ -355,6 +355,18 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             message: "User already has an active test session (ID: \(existingSessionId)). Please complete or abandon the existing session."
         )
         await mockService.startTestError = conflictError
+        // Return a non-expired active session so handleTestStartError shows the conflict alert
+        // rather than silently retrying (session must be within totalTimeSeconds)
+        let activeSession = MockDataFactory.makeTestSession(
+            id: existingSessionId,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date()
+        )
+        await mockService.getActiveTestResponse = TestSessionStatusResponse(
+            questionsCount: 0,
+            session: activeSession
+        )
 
         // When - User attempts to start new test
         await testTakingViewModel.startTest(questionCount: 20)
