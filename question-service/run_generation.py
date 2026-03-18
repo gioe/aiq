@@ -48,15 +48,15 @@ from app.config.config import settings  # noqa: E402
 from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
 )
-from libs.aiq_logging import setup_logging  # noqa: E402
-from libs.cron_runner import CronJob  # noqa: E402
+from gioe_libs.aiq_logging import setup_logging  # noqa: E402
+from gioe_libs.cron_runner import CronJob  # noqa: E402
 from app.reporting.run_summary import RunSummary as PipelineRunSummary  # noqa: E402
 from app.data.models import DifficultyLevel, QuestionType  # noqa: E402
 from app.reporting.reporter import RunReporter  # noqa: E402
 
 # Add repo root to path for libs.observability import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from libs.observability import observability  # noqa: E402
+from gioe_libs.observability import observability  # noqa: E402
 
 # Exit codes
 EXIT_SUCCESS = 0

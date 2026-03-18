@@ -1,9 +1,6 @@
 # Dockerfile for Question Generation Trigger Service
 # This runs a web server that allows manual triggering of question generation
 #
-# IMPORTANT: This Dockerfile must be built from the REPO ROOT directory
-# to access the shared libs/ folder.
-#
 # Build context: /
 # Dockerfile path: /question-service/Dockerfile.trigger
 #
@@ -29,19 +26,14 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Switch to application directory
 WORKDIR /app
 
-# Copy shared libraries (required for observability facade)
-COPY libs/ /app/libs/
-
 # Copy question-service application code
 COPY question-service/ /app/question-service/
 
 # Set working directory to question-service for runtime
 WORKDIR /app/question-service
 
-# Set PYTHONPATH to include repo root (for libs) and question-service (for app)
-# - /app enables: from libs.observability import observability
-# - /app/question-service enables: from app import QuestionJudge, etc.
-ENV PYTHONPATH=/app:/app/question-service
+# Set PYTHONPATH to include question-service (for app imports); gioe-libs is installed as a package
+ENV PYTHONPATH=/app/question-service
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && \

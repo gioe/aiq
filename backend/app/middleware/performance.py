@@ -9,7 +9,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from typing import Callable
 from app.core.analytics import AnalyticsTracker
-from libs.observability import observability
+from gioe_libs.observability import observability
 
 logger = logging.getLogger(__name__)
 

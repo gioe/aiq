@@ -1,6 +1,6 @@
-"""Backend logging configuration — thin shim over libs/logging.
+"""Backend logging configuration — thin shim over gioe_libs.aiq_logging.
 
-JSONFormatter, get_logger, and request_id_context come from libs/logging so
+JSONFormatter, get_logger, and request_id_context come from gioe_libs so
 both services share identical structured-log output.  setup_logging() here is
 backend-specific: it reads from app.core.config.settings and applies the
 backend's named-logger configuration via dictConfig.
@@ -12,7 +12,9 @@ import sys
 from typing import Any, Dict
 
 from app.core.config import settings
-from libs.aiq_logging import JSONFormatter, get_logger, request_id_context  # noqa: F401
+from gioe_libs.aiq_logging import JSONFormatter  # noqa: F401
+from gioe_libs.aiq_logging import get_logger  # noqa: F401
+from gioe_libs.aiq_logging import request_id_context  # noqa: F401
 
 
 def setup_logging() -> None:

@@ -34,7 +34,7 @@ from .generation_runs import (
     QuestionGenerationRunListResponse,
     QuestionGenerationRunStats,
 )
-from libs.domain_types import DifficultyLevel
+from gioe_libs.domain_types import DifficultyLevel
 from .calibration import (
     SeverityLevel,
     CalibrationSummary,

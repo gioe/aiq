@@ -26,7 +26,7 @@ from typing import Optional
 from app.core.config import settings
 from app.core.scoring.engine import IQ_CI_LOWER_BOUND, IQ_CI_UPPER_BOUND
 from app.models.models import DifficultyLevel, NotificationType, QuestionType
-from libs.observability import observability
+from gioe_libs.observability import observability
 
 logger = logging.getLogger(__name__)
 

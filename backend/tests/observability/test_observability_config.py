@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from libs.observability.config import load_config
+from gioe_libs.observability.config import load_config
 
 
 class TestBackendObservabilityConfig:

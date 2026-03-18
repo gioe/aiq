@@ -29,7 +29,10 @@ uvicorn[standard]==0.32.1
 # Observability (Prometheus metrics)
 prometheus-client>=0.21.0
 
-# Observability (Sentry and OpenTelemetry via libs/observability)
+# Shared libraries
+gioe-libs @ git+https://github.com/gioe/python-libs.git
+
+# Observability (Sentry and OpenTelemetry via gioe_libs.observability)
 sentry-sdk[opentelemetry]>=2.0.0
 opentelemetry-api==1.30.0
 opentelemetry-sdk==1.30.0

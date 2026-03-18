@@ -62,7 +62,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 if TYPE_CHECKING:
-    from libs.observability.facade import ObservabilityFacade
+    from gioe_libs.observability.facade import ObservabilityFacade
 
 # Test configuration constants
 FIXTURE_FLUSH_TIMEOUT_SECONDS = 5.0  # Timeout for fixture teardown flush
@@ -163,7 +163,7 @@ routing:
 @pytest.fixture(scope="module")
 def observability_facade(e2e_config_file: Path, test_run_id: str):
     """Initialize the observability facade with real backends using config file."""
-    from libs.observability import observability
+    from gioe_libs.observability import observability
 
     # Reset facade state if previously initialized (use public property)
     if observability.is_initialized:

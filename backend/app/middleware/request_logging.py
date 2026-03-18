@@ -11,7 +11,7 @@ from starlette.responses import Response
 from typing import Callable
 
 from app.core.logging_config import request_id_context
-from libs.observability import observability
+from gioe_libs.observability import observability
 
 logger = logging.getLogger(__name__)
 

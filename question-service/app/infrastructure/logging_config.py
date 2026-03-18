@@ -1,9 +1,9 @@
-"""Backward-compatibility shim — imports from libs.aiq_logging.
+"""Backward-compatibility shim — imports from gioe_libs.aiq_logging.
 
 The canonical implementation now lives in libs/aiq_logging/logging_config.py.
 """
 
-from libs.aiq_logging.logging_config import (  # noqa: F401
+from gioe_libs.aiq_logging.logging_config import (  # noqa: F401
     ColoredFormatter,
     JSONFormatter,
     LogContext,

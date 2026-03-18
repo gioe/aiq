@@ -40,11 +40,11 @@ from app.providers.xai_provider import XAIProvider
 # Import observability facade for metrics and Sentry error capture
 # TODO: Remove sys.path manipulation once libs.observability is a proper package
 try:
-    from libs.observability import observability
+    from gioe_libs.observability import observability
 except ImportError:
     # Fallback for environments where libs.observability isn't installed as a package
     sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-    from libs.observability import observability  # noqa: E402
+    from gioe_libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

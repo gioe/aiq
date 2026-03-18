@@ -36,7 +36,7 @@ from app.config.config import settings  # noqa: E402
 from app.data.database import DatabaseService, QuestionModel  # noqa: E402
 from app.evaluation.judge import QuestionJudge  # noqa: E402
 from app.config.judge_config import JudgeConfigLoader  # noqa: E402
-from libs.aiq_logging import setup_logging  # noqa: E402
+from gioe_libs.aiq_logging import setup_logging  # noqa: E402
 from app.data.models import (  # noqa: E402
     DifficultyLevel,
     GeneratedQuestion,

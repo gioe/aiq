@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Domain enums — single source of truth in libs/domain_types
-from libs.domain_types import QuestionType, DifficultyLevel  # noqa: F401
+from gioe_libs.domain_types import QuestionType, DifficultyLevel  # noqa: F401
 
 
 class GeneratedQuestion(BaseModel):

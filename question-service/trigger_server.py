@@ -26,11 +26,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response as StarletteResponse
 
 from app.config.config import settings
-from libs.aiq_logging import setup_logging  # noqa: E402
+from gioe_libs.aiq_logging import setup_logging  # noqa: E402
 
 # Add repo root to path for libs.observability import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from libs.observability import observability  # noqa: E402
+from gioe_libs.observability import observability  # noqa: E402
 
 # Use the shared logging config — same as run_generation.py and other entry points
 setup_logging(log_level=settings.log_level, log_file=settings.log_file)

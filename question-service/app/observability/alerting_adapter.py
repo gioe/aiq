@@ -8,7 +8,7 @@ stats/summary dicts into that format.
 
 from typing import Any, Dict
 
-from libs.alerting.alerting import RunSummary
+from gioe_libs.alerting.alerting import RunSummary
 
 
 def to_run_summary(stats: Dict[str, Any]) -> RunSummary:

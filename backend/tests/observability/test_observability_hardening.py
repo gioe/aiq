@@ -26,8 +26,8 @@ class TestSentryInitialization:
 
     def test_sentry_init_with_config(self):
         """Test that observability facade initializes Sentry with correct params."""
-        from libs.observability.config import SentryConfig
-        from libs.observability.sentry_backend import SentryBackend
+        from gioe_libs.observability.config import SentryConfig
+        from gioe_libs.observability.sentry_backend import SentryBackend
 
         # Patch sentry_sdk.init at the point where it's imported (inside the init method)
         with patch("sentry_sdk.init") as mock_init:
@@ -60,8 +60,8 @@ class TestSentryInitializationEdgeCases:
 
     def test_sentry_init_missing_dsn(self):
         """Test Sentry init with missing DSN is a no-op."""
-        from libs.observability.config import SentryConfig
-        from libs.observability.sentry_backend import SentryBackend
+        from gioe_libs.observability.config import SentryConfig
+        from gioe_libs.observability.sentry_backend import SentryBackend
 
         with patch("sentry_sdk.init") as mock_init:
             config = SentryConfig(
@@ -78,8 +78,8 @@ class TestSentryInitializationEdgeCases:
 
     def test_sentry_init_empty_dsn_string(self):
         """Test Sentry init with empty DSN string is a no-op."""
-        from libs.observability.config import SentryConfig
-        from libs.observability.sentry_backend import SentryBackend
+        from gioe_libs.observability.config import SentryConfig
+        from gioe_libs.observability.sentry_backend import SentryBackend
 
         with patch("sentry_sdk.init") as mock_init:
             config = SentryConfig(
@@ -95,8 +95,8 @@ class TestSentryInitializationEdgeCases:
 
     def test_sentry_init_zero_sample_rate(self):
         """Test Sentry init with zero sample rate."""
-        from libs.observability.config import SentryConfig
-        from libs.observability.sentry_backend import SentryBackend
+        from gioe_libs.observability.config import SentryConfig
+        from gioe_libs.observability.sentry_backend import SentryBackend
 
         with patch("sentry_sdk.init") as mock_init:
             with patch("sentry_sdk.integrations.logging.LoggingIntegration"):
@@ -967,8 +967,8 @@ class TestGaugeCallbackErrorHandling:
 
     def test_gauge_callback_with_missing_label_key_returns_empty_observations(self):
         """Test that gauge callback handles missing label key gracefully."""
-        from libs.observability.otel_backend import OTELBackend
-        from libs.observability.config import OTELConfig
+        from gioe_libs.observability.otel_backend import OTELBackend
+        from gioe_libs.observability.config import OTELConfig
 
         config = OTELConfig(
             enabled=True,
@@ -1001,56 +1001,56 @@ class TestOTLPHeaderSecurity:
     def test_parse_otlp_headers_normal_key_value(self):
         """Test normal key=value parsing."""
         # Use the libs version which takes a parameter
-        from libs.observability.otel_backend import _parse_otlp_headers
+        from gioe_libs.observability.otel_backend import _parse_otlp_headers
 
         result = _parse_otlp_headers("key=value")
         assert result == {"key": "value"}
 
     def test_parse_otlp_headers_multiple_pairs(self):
         """Test multiple key=value pairs."""
-        from libs.observability.otel_backend import _parse_otlp_headers
+        from gioe_libs.observability.otel_backend import _parse_otlp_headers
 
         result = _parse_otlp_headers("k1=v1,k2=v2")
         assert result == {"k1": "v1", "k2": "v2"}
 
     def test_parse_otlp_headers_empty_string(self):
         """Test empty string returns empty dict."""
-        from libs.observability.otel_backend import _parse_otlp_headers
+        from gioe_libs.observability.otel_backend import _parse_otlp_headers
 
         result = _parse_otlp_headers("")
         assert result == {}
 
     def test_parse_otlp_headers_value_with_equals(self):
         """Test value containing equals sign (split on first =)."""
-        from libs.observability.otel_backend import _parse_otlp_headers
+        from gioe_libs.observability.otel_backend import _parse_otlp_headers
 
         result = _parse_otlp_headers("key=val=ue")
         assert result == {"key": "val=ue"}
 
     def test_parse_otlp_headers_whitespace_stripped(self):
         """Test whitespace is stripped from keys and values."""
-        from libs.observability.otel_backend import _parse_otlp_headers
+        from gioe_libs.observability.otel_backend import _parse_otlp_headers
 
         result = _parse_otlp_headers(" key = value ")
         assert result == {"key": "value"}
 
     def test_parse_otlp_headers_empty_key_skipped(self):
         """Test empty key is skipped."""
-        from libs.observability.otel_backend import _parse_otlp_headers
+        from gioe_libs.observability.otel_backend import _parse_otlp_headers
 
         result = _parse_otlp_headers("=value")
         assert result == {}
 
     def test_parse_otlp_headers_empty_value_skipped(self):
         """Test empty value is skipped."""
-        from libs.observability.otel_backend import _parse_otlp_headers
+        from gioe_libs.observability.otel_backend import _parse_otlp_headers
 
         result = _parse_otlp_headers("key=")
         assert result == {}
 
     def test_parse_otlp_headers_no_equals_sign_skipped(self):
         """Test pair without equals sign is skipped."""
-        from libs.observability.otel_backend import _parse_otlp_headers
+        from gioe_libs.observability.otel_backend import _parse_otlp_headers
 
         result = _parse_otlp_headers("keyvalue")
         assert result == {}
@@ -1078,7 +1078,7 @@ class TestObservabilityConfigNegativeCases:
         ):
             os.environ.pop("SENTRY_DSN", None)
 
-            from libs.observability.config import load_config, ConfigurationError
+            from gioe_libs.observability.config import load_config, ConfigurationError
 
             # Should raise ConfigurationError because sentry.enabled=True but DSN missing
             with pytest.raises(ConfigurationError, match="Sentry DSN is required"):
@@ -1098,7 +1098,7 @@ class TestObservabilityConfigNegativeCases:
         ):
             os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
 
-            from libs.observability.config import load_config
+            from gioe_libs.observability.config import load_config
 
             # Should not raise, should use default
             config = load_config(config_path=config_path)
@@ -1363,28 +1363,28 @@ class TestObservabilityConfigRouting:
 
     def test_config_routing_errors_to_sentry(self, backend_config_path):
         """Test that config routes errors to sentry."""
-        from libs.observability.config import load_config
+        from gioe_libs.observability.config import load_config
 
         config = load_config(backend_config_path)
         assert config.routing.errors == "sentry"
 
     def test_config_routing_metrics_to_otel(self, backend_config_path):
         """Test that config routes metrics to otel."""
-        from libs.observability.config import load_config
+        from gioe_libs.observability.config import load_config
 
         config = load_config(backend_config_path)
         assert config.routing.metrics == "otel"
 
     def test_config_routing_traces_to_both(self, backend_config_path):
         """Test that config routes traces to both."""
-        from libs.observability.config import load_config
+        from gioe_libs.observability.config import load_config
 
         config = load_config(backend_config_path)
         assert config.routing.traces == "both"
 
     def test_config_sample_rate_applied(self, backend_config_path):
         """Test that sample rate is applied correctly."""
-        from libs.observability.config import load_config
+        from gioe_libs.observability.config import load_config
 
         config = load_config(backend_config_path)
         assert config.sentry.traces_sample_rate == pytest.approx(0.1)
@@ -1392,7 +1392,7 @@ class TestObservabilityConfigRouting:
     def test_config_loads_with_different_sample_rates(self, backend_config_path):
         """Test that config loads with different sample rates."""
         with patch.dict("os.environ", {"ENV": "production"}):
-            from libs.observability.config import load_config
+            from gioe_libs.observability.config import load_config
 
             # Load config (may have different sample rates in different envs)
             config = load_config(backend_config_path)

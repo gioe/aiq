@@ -18,7 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.tracing import setup_tracing, shutdown_tracing
-from libs.observability import observability
+from gioe_libs.observability import observability
 
 from app.core.analytics import AnalyticsTracker
 from app.core.logging_config import setup_logging
