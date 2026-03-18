@@ -89,6 +89,13 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             message: "User already has an active test session"
         )
         mockService.startAdaptiveTestError = conflictError
+        // Return a non-expired active session so handleTestStartError shows the conflict alert
+        // rather than silently retrying
+        let activeSession = makeTestSession(id: sessionId, startedAt: Date())
+        mockService.getActiveTestResponse = Components.Schemas.TestSessionStatusResponse(
+            questionsCount: 0,
+            session: activeSession
+        )
 
         // When
         await sut.startAdaptiveTest()

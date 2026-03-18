@@ -377,6 +377,7 @@ class TestTakingViewModel: BaseViewModel {
         }
         await fetchTestCountAtStart()
         await coordinator.start()
+        await startErrorTask?.value
     }
 
     func submitAnswerAndGetNext() async {
