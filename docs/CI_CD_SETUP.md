@@ -6,7 +6,7 @@ This document describes the CI/CD pipeline configuration for the AIQ project. Al
 
 | Workflow | File | Trigger Paths | Runner |
 |----------|------|---------------|--------|
-| **Backend CI** | `backend-ci.yml` | `backend/**`, `libs/**` | ubuntu-latest |
+| **Backend CI** | `backend-ci.yml` | `backend/**` | ubuntu-latest |
 | **Question Service CI** | `question-service-ci.yml` | `question-service/**` | ubuntu-latest |
 | **iOS CI** | `ios-ci.yml` | `ios/**`, `backend/**`, `docs/api/**` | macos-15 |
 | **Pre-commit Checks** | `pre-commit.yml` | All files | ubuntu-latest |
@@ -288,7 +288,7 @@ To configure: Repository Settings > Secrets and variables > Actions > New reposi
 
 **Solution:**
 1. Run locally: `cd backend && mypy app/`
-2. Ensure `PYTHONPATH` includes the repo root (for `libs/` imports)
+2. Ensure the backend virtualenv is active (`source backend/venv/bin/activate`)
 
 ### Question Service: Integration Tests Skipped
 

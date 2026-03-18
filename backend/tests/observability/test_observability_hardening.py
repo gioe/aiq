@@ -877,7 +877,7 @@ class TestDatabaseInstrumentation:
 @pytest.fixture
 def mock_observability():
     """Shared fixture for mocking observability facade."""
-    with patch("libs.observability.observability") as mock:
+    with patch("gioe_libs.observability.observability") as mock:
         mock.is_initialized = True
         yield mock
 
