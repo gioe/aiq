@@ -34,4 +34,12 @@ protocol AuthServiceProtocol: AnyObject {
 
     /// Get the current user
     var currentUser: User? { get }
+
+    /// Awaits completion of any async initialization work (e.g. token restoration).
+    /// Call this before making API requests to guarantee middleware is ready.
+    func awaitInitialization() async
+}
+
+extension AuthServiceProtocol {
+    func awaitInitialization() async {}
 }
