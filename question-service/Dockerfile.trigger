@@ -11,6 +11,7 @@ FROM python:3.11-slim
 # Install system dependencies first (this layer changes rarely)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    git \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
