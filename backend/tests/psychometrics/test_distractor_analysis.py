@@ -1600,7 +1600,7 @@ class TestDistractorStatsIntegration:
         self, client, auth_headers, test_questions, db_session, monkeypatch
     ):
         """Test that test submission succeeds even if distractor stats update fails."""
-        from app.core import distractor_analysis
+        from app.core.psychometrics import distractor_analysis
 
         # Patch update_distractor_stats to raise an exception
         def mock_update_distractor_stats(*args, **kwargs):
