@@ -1,4 +1,4 @@
-import AIQAPIClient
+import APIClient
 import Foundation
 
 // MARK: - TestSession Extensions

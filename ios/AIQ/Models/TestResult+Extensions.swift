@@ -1,4 +1,4 @@
-import AIQAPIClient
+import APIClient
 import Foundation
 import SwiftUI
 
@@ -7,7 +7,7 @@ import SwiftUI
 // Extensions for the TestResult type (Components.Schemas.TestResultResponse)
 //
 // This file provides UI-specific computed properties beyond what's available in the
-// AIQAPIClient package. The core formatting properties (accuracy, accuracyFormatted,
+// APIClient package. The core formatting properties (accuracy, accuracyFormatted,
 // scoreRatio, accessibilityDescription) are in TestResultResponse+UI.swift in the package.
 //
 // Pattern: Following TASK-368 and TASK-365, we extend generated types rather than duplicating them.

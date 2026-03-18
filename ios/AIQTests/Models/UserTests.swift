@@ -1,5 +1,5 @@
 @testable import AIQ
-import AIQAPIClient
+import APIClient
 import XCTest
 
 final class UserTests: XCTestCase {

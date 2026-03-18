@@ -1,5 +1,5 @@
 // swiftlint:disable file_length
-import AIQAPIClient
+import APIClient
 import Foundation
 import HTTPTypes
 import OpenAPIRuntime
@@ -78,7 +78,7 @@ protocol OpenAPIServiceProtocol: Sendable {
 /// OpenAPI service implementation that wraps the generated client.
 ///
 /// This class is marked `@unchecked Sendable` because:
-/// - `AIQAPIClientFactory` is thread-safe: it only holds the server URL and middleware actors
+/// - `APIClientFactory` is thread-safe: it only holds the server URL and middleware actors
 /// - `Client` (from swift-openapi-runtime) is designed to be thread-safe for concurrent requests
 /// - `AuthenticationMiddleware` uses an actor for token storage, ensuring thread-safe access
 /// - All properties are `let` constants, initialized once in `init`
@@ -86,12 +86,12 @@ protocol OpenAPIServiceProtocol: Sendable {
 /// The generated Client from swift-openapi-generator uses URLSession internally,
 /// which is thread-safe for concurrent requests.
 final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
-    private let factory: AIQAPIClientFactory
+    private let factory: APIClientFactory
     private let client: Client
 
     /// Initialize with a server URL
     init(serverURL: URL) {
-        let factory = AIQAPIClientFactory(serverURL: serverURL)
+        let factory = APIClientFactory(serverURL: serverURL)
         self.factory = factory
 
         // Bare client used exclusively for the refresh call — no TokenRefreshMiddleware to
@@ -117,7 +117,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     }
 
     /// Initialize with an existing factory (for testing)
-    init(factory: AIQAPIClientFactory) {
+    init(factory: APIClientFactory) {
         self.factory = factory
         client = factory.makeClient()
     }

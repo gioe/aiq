@@ -1,4 +1,4 @@
-import AIQAPIClient
+import APIClient
 import Foundation
 import SwiftUI
 

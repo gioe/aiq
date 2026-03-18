@@ -1,13 +1,13 @@
-import AIQAPIClient
+import APIClient
 import Foundation
 
 // MARK: - User Extensions
 
 // Extensions for the User type (Components.Schemas.UserResponse)
 //
-// This file provides additional extensions beyond what's available in the AIQAPIClient package.
+// This file provides additional extensions beyond what's available in the APIClient package.
 // The core UI properties (fullName, initials, notificationStatus, accessibilityDescription)
-// are provided in UserResponse+UI.swift in the AIQAPIClient package.
+// are provided in UserResponse+UI.swift in the APIClient package.
 //
 // Pattern: Following TASK-365, we extend generated types rather than duplicating them.
 // The generated UserResponse only includes required fields.

@@ -1,4 +1,4 @@
-import AIQAPIClient
+import APIClient
 import Combine
 import Foundation
 import UIKit

@@ -1,5 +1,5 @@
 @testable import AIQ
-import AIQAPIClient
+import APIClient
 import OpenAPIRuntime
 import XCTest
 
@@ -10,7 +10,7 @@ final class OpenAPIServiceMapToAPIErrorTests: XCTestCase {
     override func setUp() {
         super.setUp()
         service = OpenAPIService(
-            factory: AIQAPIClientFactory(serverURL: URL(string: "https://example.com")!)
+            factory: APIClientFactory(serverURL: URL(string: "https://example.com")!)
         )
     }
 

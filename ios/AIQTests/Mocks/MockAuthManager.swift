@@ -1,5 +1,5 @@
 @testable import AIQ
-import AIQAPIClient
+import APIClient
 import Combine
 import Foundation
 

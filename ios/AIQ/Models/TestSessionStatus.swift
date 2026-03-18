@@ -1,4 +1,4 @@
-import AIQAPIClient
+import APIClient
 import Foundation
 
 /// Response schema for checking active test session status re-exported from OpenAPI generated types

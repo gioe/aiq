@@ -1,13 +1,13 @@
-import AIQAPIClient
+import APIClient
 import Foundation
 
 // MARK: - Question Extensions
 
 // Extensions for the Question type (Components.Schemas.QuestionResponse)
 //
-// This file provides additional extensions beyond what's available in the AIQAPIClient package.
+// This file provides additional extensions beyond what's available in the APIClient package.
 // The core UI properties (questionTypeDisplay, difficultyColorName, etc.) are provided in
-// QuestionResponse+UI.swift in the AIQAPIClient package.
+// QuestionResponse+UI.swift in the APIClient package.
 //
 // Pattern: Following TASK-368 and TASK-365, we extend generated types rather than duplicating them.
 
