@@ -116,7 +116,34 @@ The Swift OpenAPI Generator runs as a build plugin during Xcode builds. To compl
    ```
    The script copies `docs/api/openapi.json` to the local ios-libs checkout and prompts you to tag a new release.
 
-4. **Generated code location**:
+4. **Update the ios-libs version pin** in this project after pushing the new tag in ios-libs:
+
+   **Via Xcode UI (recommended for interactive sessions):**
+   - Open `ios/AIQ.xcodeproj` in Xcode.
+   - Select the top-level `AIQ` project in the Project Navigator.
+   - Go to **Package Dependencies** tab.
+   - Select `ios-libs` and click the version field.
+   - Enter the new tag (e.g. `1.1.0`) and click **Update Package**.
+   - Xcode automatically updates `Package.resolved`.
+
+   **Via Package.resolved (faster for scripted workflows):**
+   - Edit `ios/AIQ.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+   - Find the `ios-libs` entry and update its `"version"` field to the new tag:
+     ```json
+     {
+       "identity" : "ios-libs",
+       "kind" : "remoteSourceControl",
+       "location" : "https://github.com/gioe/ios-libs",
+       "state" : {
+         "revision" : "<new-commit-sha>",
+         "version" : "<vX.Y.Z>"
+       }
+     }
+     ```
+   - Run `xcodebuild -resolvePackageDependencies -project ios/AIQ.xcodeproj` to resolve and verify.
+   - Commit the updated `Package.resolved` so the new pin is tracked in source control.
+
+5. **Generated code location**:
    - The plugin generates Swift code automatically in the derived data directory
    - Generated code is NOT committed to source control
    - Code regenerates on each build when the OpenAPI spec changes

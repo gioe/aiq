@@ -56,6 +56,11 @@ echo "  3. Commit:           git commit -m 'chore: update openapi spec'"
 echo "  4. Tag a new version (semver): git tag <vX.Y.Z>"
 echo "  5. Push:             git push && git push --tags"
 echo ""
+echo "Then back in the AIQ repo, update the ios-libs version pin:"
+echo "  6. Edit Package.resolved and set the 'version' field to the new tag, OR"
+echo "     open Xcode → project → Package Dependencies → update ios-libs to the new tag"
+echo "  7. Commit Package.resolved: git add ios/AIQ.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved && git commit -m 'chore: bump ios-libs to <vX.Y.Z>'"
+echo ""
 read -r -p "Open a shell in '$IOS_LIBS_PATH' to do this now? [y/N] " answer
 if [[ "$answer" =~ ^[Yy]$ ]]; then
     cd "$IOS_LIBS_PATH"

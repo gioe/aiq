@@ -46,7 +46,10 @@ The spec is exported by the backend CI and stored in `docs/api/openapi.json`. Th
 1. Backend changes Pydantic schemas → CI exports updated OpenAPI spec
 2. Pull latest to get the new spec
 3. Run `./scripts/publish_api_client.sh <path-to-ios-libs>` to copy the spec and publish a new release
-4. Update `ios/AIQ.xcodeproj` to reference the new ios-libs version
+4. Update `ios/AIQ.xcodeproj` to reference the new ios-libs version tag:
+   - **Via Xcode UI**: Open `AIQ.xcodeproj` → top-level project → Package Dependencies tab → select `ios-libs` → click the version field → enter the new tag (e.g. `1.1.0`) → click Update Package.
+   - **Via Package.resolved** (faster): Edit `ios/AIQ.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` and update the `"version"` field under the `ios-libs` entry to the new tag. Then open the project in Xcode (or run `xcodebuild -resolvePackageDependencies`) to pull the updated package.
+   - Commit the updated `Package.resolved` so the new pin is checked in.
 5. Build the project - compilation errors indicate breaking changes
 6. Update call sites to match the new contract
 
