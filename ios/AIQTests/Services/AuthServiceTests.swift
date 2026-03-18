@@ -26,9 +26,7 @@ final class AuthServiceTests: XCTestCase {
 
         // When
         let newSut = AuthService(apiService: mockService, secureStorage: mockSecureStorage)
-        // Yield to allow the unstructured Task spawned in AuthService.init to run
-        await Task.yield()
-        await Task.yield()
+        await newSut.awaitInitialization()
 
         // Then
         let token = await newSut.getAccessToken()

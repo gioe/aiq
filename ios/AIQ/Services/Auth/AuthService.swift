@@ -15,6 +15,7 @@ class AuthService: AuthServiceProtocol {
     private let secureStorage: SecureStorageProtocol
     private var _currentUser: User?
     private let logger = Logger(subsystem: "com.aiq.app", category: "AuthService")
+    private let initializationTask: Task<Void, Never>?
 
     var isAuthenticated: Bool {
         getAccessToken() != nil
@@ -35,11 +36,14 @@ class AuthService: AuthServiceProtocol {
         do {
             if let accessToken = try secureStorage.retrieve(forKey: SecureStorageKey.accessToken.rawValue),
                let refreshToken = try secureStorage.retrieve(forKey: SecureStorageKey.refreshToken.rawValue) {
-                Task {
+                initializationTask = Task {
                     await apiService.setTokens(accessToken: accessToken, refreshToken: refreshToken)
                 }
+            } else {
+                initializationTask = nil
             }
         } catch {
+            initializationTask = nil
             // Log storage error but don't crash - this is graceful degradation
             logger.error("Failed to retrieve tokens during init: \(error.localizedDescription, privacy: .public)")
             CrashlyticsErrorRecorder.recordError(
@@ -51,6 +55,12 @@ class AuthService: AuthServiceProtocol {
                 print("[WARN] [AuthService] Storage error during init: \(error)")
             #endif
         }
+    }
+
+    /// Awaits completion of the token restoration task started during init.
+    /// Call this before making any API requests if you need to guarantee middleware is ready.
+    func awaitInitialization() async {
+        await initializationTask?.value
     }
 
     func register(
