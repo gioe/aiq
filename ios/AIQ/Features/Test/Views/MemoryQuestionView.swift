@@ -27,6 +27,9 @@ struct MemoryQuestionView: View {
                     .questionCardTransition(reduceMotion: reduceMotion)
             }
         }
+        // .contain prevents iOS from promoting the "container" identifier down to a child
+        // and overriding that child's own identifier (the same pattern used in QuestionCardView).
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.container)
     }
 
@@ -58,9 +61,14 @@ struct MemoryQuestionView: View {
                         .fontWeight(.medium)
                         .fixedSize(horizontal: false, vertical: true)
                         .foregroundColor(.primary)
+                        // Supply an identifier so ScreenshotContainerView.isAccessibilityElement
+                        // returns true — making it a leaf in the UIKit accessibility tree.
+                        // Without an identifier (isAccessibilityElement = false), UIKit traverses
+                        // into the secure canvas and the inner UIHostingController, creating a
+                        // second SwiftUI accessibility context that breaks the parent VStack's
+                        // .contain modifier. This matches the QuestionCardView pattern.
                         .screenshotPrevented(
-                            accessibilityIdentifier: AccessibilityIdentifiers.MemoryQuestionView.stimulusText,
-                            accessibilityLabel: stimulusAccessibilityLabel
+                            accessibilityIdentifier: AccessibilityIdentifiers.MemoryQuestionView.stimulusText
                         )
                 }
             }
@@ -69,6 +77,9 @@ struct MemoryQuestionView: View {
             .background(Color(.systemBackground))
             .cornerRadius(DesignSystem.CornerRadius.lg)
             .shadowStyle(DesignSystem.Shadow.md)
+            // .contain makes the VStack a real otherElement container in XCUITest.
+            // The screenshotPrevented child has an identifier so isAccessibilityElement = true,
+            // making it a proper leaf — identical to the QuestionCardView pattern.
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.stimulusCard)
 
