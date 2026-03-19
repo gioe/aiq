@@ -115,6 +115,9 @@ struct MemoryQuestionView: View {
                 isDisabled: isDisabled
             )
         }
+        // .contain prevents iOS from promoting the "questionPhase" identifier down to QuestionCardView,
+        // which would override QuestionCardView's own "questionCard" identifier (same pattern as stimulusCard).
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.questionPhase)
     }
 
