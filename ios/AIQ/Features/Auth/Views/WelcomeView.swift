@@ -51,6 +51,7 @@ struct WelcomeView: View {
                                         : Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
                                     value: isAnimating
                                 )
+                                .accessibilityLabel("AIQ brain icon")
                                 .accessibilityIdentifier(AccessibilityIdentifiers.WelcomeView.brainIcon)
 
                             Text("AIQ")
