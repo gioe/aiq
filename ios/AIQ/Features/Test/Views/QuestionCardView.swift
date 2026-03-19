@@ -5,13 +5,17 @@ struct QuestionCardView: View {
     let question: Question
 
     var body: some View {
-        // VStack with .accessibilityElement(children: .contain) is intentional:
-        // it forces an `otherElement` container in XCTest so that
-        // `app.otherElements["testTakingView.questionCard"]` finds the card AND
-        // `app.staticTexts["testTakingView.questionText"]` finds the inner Text.
-        // Without .accessibilityElement(children: .contain), the VStack is transparent
-        // and iOS promotes the outer identifier down to the child Text, overriding
-        // the inner identifier and making both queries fail.
+        // The question text uses screenshotPrevented (UIViewRepresentable) to prevent
+        // it from appearing in screen captures.  A VStack whose ONLY child is a
+        // UIViewRepresentable cannot form a real accessibility container even with
+        // .accessibilityElement(children: .contain) — iOS silently bypasses the
+        // modifier, making the identifier invisible to XCUITest.
+        //
+        // Fix: attach questionCard as an overlay element instead of as a .contain
+        // container.  Color.clear with .accessibilityElement(children: .ignore)
+        // creates a pure-SwiftUI otherElement at the card's position that XCUITest
+        // can query.  The inner screenshotPrevented Text retains its own
+        // "questionText" identifier and is not affected by the overlay.
         VStack(alignment: .leading) {
             Text(question.questionText)
                 .font(.title3)
@@ -27,13 +31,11 @@ struct QuestionCardView: View {
         .background(Color(.systemBackground))
         .cornerRadius(DesignSystem.CornerRadius.lg)
         .shadowStyle(DesignSystem.Shadow.md)
-        // .accessibilityElement(children: .contain) forces the VStack to be a real
-        // otherElement container in XCTest rather than being transparent (accessibility-
-        // transparent VStacks promote their identifier to the child, overriding the child's
-        // own identifier). With .contain, app.otherElements["questionCard"] finds the card
-        // and app.staticTexts["questionText"] finds the inner Text.
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionCard)
+        .overlay(
+            Color.clear
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionCard)
+        )
     }
 }
 

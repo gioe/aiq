@@ -76,13 +76,24 @@ class TestTakingHelper {
     }
 
     /// Question card
+    ///
+    /// Uses `descendants(matching: .any)` so the element is found regardless of how
+    /// SwiftUI maps `.accessibilityElement(children: .contain)` onto an XCUIElementType
+    /// at runtime (may be `.other`, `.group`, or another container type depending on iOS
+    /// version and UIViewRepresentable children). This matches the pattern used in
+    /// MemoryQuestionStimulusCardUITests for `stimulusCard`.
     var questionCard: XCUIElement {
-        app.otherElements["testTakingView.questionCard"]
+        app.descendants(matching: .any)["testTakingView.questionCard"]
     }
 
     /// Current question text
+    ///
+    /// Uses `descendants(matching: .any)` because `ScreenshotContainerView` (a `UIView`
+    /// subclass with `isAccessibilityElement = true` but no `accessibilityTraits`) maps
+    /// to `XCUIElementType.other` in XCTest, not `.staticText`. Type-agnostic query
+    /// matches regardless of how the UIViewRepresentable is classified at runtime.
     var questionText: XCUIElement {
-        app.staticTexts["testTakingView.questionText"]
+        app.descendants(matching: .any)["testTakingView.questionText"]
     }
 
     /// Progress bar
@@ -372,9 +383,13 @@ class TestTakingHelper {
     func waitForQuestion(timeout customTimeout: TimeInterval? = nil) -> Bool {
         let waitTimeout = customTimeout ?? timeout
 
-        // Wait for question card to appear
-        let questionAppeared = questionCard.waitForExistence(timeout: waitTimeout) ||
-            questionText.waitForExistence(timeout: waitTimeout)
+        // questionText (UIKit ScreenshotContainerView, .any descendants query) is the
+        // reliable sentinel — ScreenshotContainerView is a UIView with no accessibilityTraits
+        // so it maps to .other, not .staticText; using descendants(matching: .any) finds it
+        // regardless of element type. questionCard (Color.clear overlay, also .any descendants
+        // query) is checked as a secondary signal in case questionText is not yet visible.
+        let questionAppeared = questionText.waitForExistence(timeout: waitTimeout) ||
+            questionCard.waitForExistence(timeout: waitTimeout)
 
         if !questionAppeared {
             // Capture debugging information
@@ -431,7 +446,7 @@ class TestTakingHelper {
 
     /// Check if currently on a test-taking screen
     var isOnTestScreen: Bool {
-        questionCard.exists || questionText.exists
+        questionText.exists || questionCard.exists
     }
 
     /// Check if currently on the completion screen or the results screen.
