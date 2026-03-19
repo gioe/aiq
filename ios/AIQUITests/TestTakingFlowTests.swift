@@ -284,7 +284,7 @@ final class TestTakingFlowTests: BaseUITest {
         if nextButton.exists {
             // Assert expected UI state before screenshot
             XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
-            assertExists(testHelper.questionText, "Question card should be visible")
+            assertExists(testHelper.questionText, "Question text should be visible")
             XCTAssertFalse(nextButton.isEnabled, "Next button should be disabled when question is unanswered")
             takeScreenshot(named: "NextButtonStateUnanswered")
         }
@@ -301,7 +301,7 @@ final class TestTakingFlowTests: BaseUITest {
 
         // Assert test screen is properly displayed before screenshot
         XCTAssertTrue(testHelper.isOnTestScreen, "Should be on test-taking screen")
-        assertExists(testHelper.questionText, "Question card should be visible")
+        assertExists(testHelper.questionText, "Question text should be visible")
         assertExists(testHelper.progressLabel, "Progress indicator should be visible")
         takeScreenshot(named: "TestFlow_Start")
 

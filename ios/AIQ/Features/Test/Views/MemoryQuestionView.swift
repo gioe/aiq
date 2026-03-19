@@ -66,7 +66,7 @@ struct MemoryQuestionView: View {
                         // Without an identifier (isAccessibilityElement = false), UIKit traverses
                         // into the secure canvas and the inner UIHostingController, creating a
                         // second SwiftUI accessibility context that breaks the parent VStack's
-                        // .contain modifier. This matches the QuestionCardView pattern.
+                        // .contain modifier.
                         .screenshotPrevented(
                             accessibilityIdentifier: AccessibilityIdentifiers.MemoryQuestionView.stimulusText
                         )
@@ -78,8 +78,9 @@ struct MemoryQuestionView: View {
             .cornerRadius(DesignSystem.CornerRadius.lg)
             .shadowStyle(DesignSystem.Shadow.md)
             // .contain makes the VStack a real otherElement container in XCUITest.
-            // The screenshotPrevented child has an identifier so isAccessibilityElement = true,
-            // making it a proper leaf — identical to the QuestionCardView pattern.
+            // This works here because the VStack has native SwiftUI children (HStack, Text)
+            // alongside the UIViewRepresentable — .contain requires at least one native
+            // SwiftUI accessible child to form a real container.
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(AccessibilityIdentifiers.MemoryQuestionView.stimulusCard)
 
