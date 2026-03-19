@@ -85,9 +85,10 @@ final class AppStoreScreenshotTests: BaseUITest {
         app.launchArguments.append("-hasCompletedOnboarding")
         app.launchArguments.append(enableOnboardingFlow ? "0" : "1")
 
-        // Conditionally skip/enable privacy consent
+        // Privacy consent is always accepted: onboarding appears after consent in the RootView flow,
+        // so disabling consent would show PrivacyConsentView instead of OnboardingContainerView.
         app.launchArguments.append("-com.aiq.privacyConsentAccepted")
-        app.launchArguments.append(enableOnboardingFlow ? "0" : "1")
+        app.launchArguments.append("1")
     }
 
     override func tearDownWithError() throws {
@@ -309,11 +310,12 @@ final class AppStoreScreenshotTests: BaseUITest {
         }
         historyTab.tap()
 
-        // Wait for history content to load
-        let historyList = app.tables.firstMatch
+        // Wait for history scroll view to load (HistoryView uses ScrollView, not UITableView)
+        // Use descendants(matching: .any) because SwiftUI ScrollView can appear as .other in XCTest
+        let historyList = app.descendants(matching: .any)["historyView.scrollView"]
         XCTAssertTrue(
             historyList.waitForExistence(timeout: networkTimeout),
-            "History list should appear"
+            "History scroll view should appear"
         )
 
         // Wait for chart animations to complete
@@ -385,17 +387,19 @@ final class AppStoreScreenshotTests: BaseUITest {
 extension AppStoreScreenshotTests {
     /// Capture onboarding/welcome screens
     ///
-    /// This test requires a fresh install state (not logged in).
-    /// Uses loggedOut mock scenario with onboarding not completed.
+    /// This test requires an authenticated user who has not completed onboarding.
+    /// Uses loggedInNoHistory mock scenario with onboarding not completed, so that
+    /// RootView routes to OnboardingContainerView (auth ✓, onboarding ✗).
     /// Note: This test is not part of testGenerateAllScreenshots because it requires
     /// a different app configuration (onboarding enabled).
     func testCaptureOnboarding() {
-        // Enable onboarding flow and relaunch with logged out scenario
+        // Enable onboarding flow and relaunch as authenticated (no history).
+        // OnboardingContainerView only appears for authenticated users with hasCompletedOnboarding=false.
         enableOnboardingFlow = true
-        relaunchAsLoggedOut()
+        relaunchWithScenario("loggedInNoHistory")
 
-        // Wait for onboarding to appear
-        let onboardingContainer = app.otherElements["onboardingContainer"]
+        // Wait for onboarding to appear (identifier: "onboardingView.containerView")
+        let onboardingContainer = app.otherElements["onboardingView.containerView"]
         if onboardingContainer.waitForExistence(timeout: standardTimeout) {
             // Capture first onboarding page
             XCTAssertTrue(onboardingContainer.exists, "Onboarding container should be visible")
@@ -410,13 +414,13 @@ extension AppStoreScreenshotTests {
                 captureOnboardingScreenshot(named: "Onboarding_0\(pageNum)", waitElement: onboardingContainer)
             }
         } else {
-            // Capture welcome/login screen
-            let welcomeIcon = app.images["welcomeView.brainIcon"]
+            // Capture welcome/login screen (email field is the reliable sentinel)
+            let emailTextField = app.textFields["welcomeView.emailTextField"]
             XCTAssertTrue(
-                welcomeIcon.waitForExistence(timeout: standardTimeout),
-                "Welcome screen should appear"
+                emailTextField.waitForExistence(timeout: standardTimeout),
+                "Welcome/login screen should appear"
             )
-            captureOnboardingScreenshot(named: "Welcome_Login", waitElement: welcomeIcon)
+            captureOnboardingScreenshot(named: "Welcome_Login", waitElement: emailTextField)
         }
 
         // Reset flag for subsequent tests
