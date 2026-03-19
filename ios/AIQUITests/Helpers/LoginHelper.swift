@@ -131,6 +131,7 @@ class LoginHelper {
             return false
         }
         emailTextField.tap()
+        waitForKeyboardFocus(emailTextField)
         emailTextField.typeText(email)
 
         // Enter password
@@ -139,6 +140,7 @@ class LoginHelper {
             return false
         }
         passwordTextField.tap()
+        waitForKeyboardFocus(passwordTextField)
         passwordTextField.typeText(password)
 
         // Tap sign in button
@@ -248,6 +250,17 @@ class LoginHelper {
     }
 
     // MARK: - Private Helpers
+
+    /// Wait for an element to receive keyboard focus before typing.
+    ///
+    /// Uses `XCTNSPredicateExpectation` to poll `hasKeyboardFocus` without sleeping.
+    /// Falls through silently on timeout — `typeText` will produce a clear failure message
+    /// if the field still lacks focus, avoiding a silent pass on a broken state.
+    private func waitForKeyboardFocus(_ element: XCUIElement, timeout focusTimeout: TimeInterval = 2.0) {
+        let focused = NSPredicate(format: "hasKeyboardFocus == true")
+        let expectation = XCTNSPredicateExpectation(predicate: focused, object: element)
+        XCTWaiter().wait(for: [expectation], timeout: focusTimeout)
+    }
 
     /// Find the logout button using cascading search strategies.
     ///
