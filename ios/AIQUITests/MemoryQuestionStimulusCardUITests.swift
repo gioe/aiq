@@ -9,10 +9,11 @@ import XCTest
 
 /// UI tests that verify the `stimulusCard` accessibility identifier is reachable from XCUITest.
 ///
-/// The stimulus card shell is a pure SwiftUI `VStack` with `.accessibilityElement(children: .contain)`
-/// and `.accessibilityIdentifier("memoryQuestionView.stimulusCard")`.  Only the inner `Text(stimulus)`
-/// is wrapped in `.screenshotPrevented()`, so the card itself appears in the accessibility tree as a
-/// native SwiftUI `otherElement` — identical to `QuestionCardView`.
+/// The stimulus card contains an inner `Text(stimulus)` wrapped in `.screenshotPrevented()`, which
+/// backs the view with a `UIViewRepresentable` (`ScreenshotContainerView`).  Because the element type
+/// is determined at runtime by that UIKit bridge, the tests use `.descendants(matching: .any)` rather
+/// than a type-specific query — this surfaces the identifier regardless of how XCTest classifies the
+/// element.
 ///
 /// These tests launch the app with the `memoryInProgress` mock scenario so the
 /// dashboard immediately shows an in-progress session whose first question is a
@@ -74,7 +75,8 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
 
         assertStimulusPhaseReady()
 
-        // The stimulusCard is a pure SwiftUI VStack — it should be directly reachable.
+        // Use descendants(matching: .any) because the UIViewRepresentable backing
+        // screenshotPrevented may change the element type XCTest assigns to the card.
         XCTAssertTrue(
             wait(for: stimulusCard, timeout: extendedTimeout),
             "memoryQuestionView.stimulusCard should be reachable via XCUITest as a native SwiftUI element"
@@ -106,9 +108,9 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
 
     /// Verifies the stimulus card renders taller than UITextField's default height (~34 pt).
     ///
-    /// The card shell is now a pure SwiftUI VStack, so its height is determined by SwiftUI
-    /// layout (not UITextField's intrinsic size).  This test guards against any regression
-    /// that re-introduces UIKit size constraints on the card.
+    /// The card shell contains a `.screenshotPrevented()` element backed by a `UIViewRepresentable`,
+    /// so its height is determined by SwiftUI layout plus the `preferredSizeProvider` wired into
+    /// `ScreenshotContainerView`.  This test guards against any regression where that sizing is lost.
     func testStimulusCard_HeightExceedsUITextFieldDefault() {
         XCTAssertTrue(
             wait(for: resumeButton, timeout: networkTimeout),
