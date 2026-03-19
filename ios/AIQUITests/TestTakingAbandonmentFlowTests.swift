@@ -7,16 +7,18 @@ import XCTest
 
 /// UI tests for the test-taking abandonment flow end-to-end.
 ///
-/// These tests cover timer expiry scenarios without real wall-clock waits by
-/// pre-configuring mock sessions with `startedAt` timestamps older than the
-/// 35-minute time limit. `TestTimerManager.startWithSessionTime(_:)` then
-/// returns `false` immediately, triggering `handleTimerExpiration()` without
-/// waiting for the real countdown.
-///
 /// Scenarios covered:
-/// 1. 0-answer timer expiry → silent abandonment → fresh test start:
-///    no "Time Running Low" banner, all answer buttons tappable
-/// 2. Partial-answer timer expiry → "Time's Up!" alert shown (non-silent path)
+///
+/// 1. **0-answer timer expiry → silent abandonment → fresh test start**
+///    `expiredSession` is already past the 35-minute limit, so
+///    `startWithSessionTime(_:)` returns `false` immediately and
+///    `handleTimerExpiration()` fires without any real wall-clock wait.
+///
+/// 2. **Partial-answer timer expiry → "Time's Up!" alert shown**
+///    `nearExpiredSession` has ~20 seconds remaining, so the test waits
+///    for the real countdown to fire. A 30-second assertion timeout is used
+///    to accommodate navigation overhead and slow CI runners.
+///
 /// 3. Silent vs. non-silent paths are exercised as distinct test cases
 final class TestTakingAbandonmentFlowTests: BaseUITest {
     private var testHelper: TestTakingHelper!
@@ -107,28 +109,28 @@ final class TestTakingAbandonmentFlowTests: BaseUITest {
     /// - The "Time's Up!" alert is shown (non-silent path)
     /// - The test is NOT silently abandoned
     ///
-    /// The mock uses an expired session (started 36 min ago) with 1 pre-seeded answer
-    /// in LocalAnswerStorage. When the session is resumed from the dashboard,
-    /// mergeSavedProgress populates answeredCount > 0 before the timer fires instantly.
+    /// The mock uses `nearExpiredSession` (~20 s remaining) with 1 pre-seeded answer.
+    /// `mergeSavedProgress` populates `answeredCount > 0` when the session is resumed,
+    /// so the non-silent alert path fires once the countdown reaches zero.
     func testPartialAnswerTimerExpiry_nonSilentPath_timesUpAlertShown() {
         relaunchWithTimerExpiredWithAnswers()
 
-        // Dashboard should show "Resume Test" since there's an active (expired) session
+        // Dashboard should show "Resume Test" since there's an active near-expired session
         let resumeButton = testHelper.resumeTestButton
         XCTAssertTrue(
             resumeButton.waitForExistence(timeout: standardTimeout),
-            "Resume Test button should be visible on dashboard (active expired session with answers)"
+            "Resume Test button should be visible on dashboard (active near-expired session with answers)"
         )
         XCTAssertTrue(resumeButton.isEnabled, "Resume Test button should be enabled")
 
         takeScreenshot(named: "DashboardWithResumeButton")
         resumeButton.tap()
 
-        // Timer expires immediately (session is 36+ min old) with answeredCount > 0
-        // The Time's Up alert should appear
+        // Timer fires when the ~20-second remaining window elapses after navigation.
+        // Use a 30-second timeout to exceed the session's remaining time plus overhead.
         let timesUpAlert = app.alerts["Time's Up!"]
         XCTAssertTrue(
-            timesUpAlert.waitForExistence(timeout: extendedTimeout),
+            timesUpAlert.waitForExistence(timeout: 30),
             "Time's Up! alert must appear when timer expires with partial answers (non-silent path)"
         )
         takeScreenshot(named: "TimesUpAlertShown")
@@ -189,10 +191,11 @@ final class TestTakingAbandonmentFlowTests: BaseUITest {
         XCTAssertTrue(resumeButton.waitForExistence(timeout: standardTimeout))
         resumeButton.tap()
 
-        // Non-silent path MUST show Time's Up alert
+        // Non-silent path MUST show Time's Up alert.
+        // Use a 30-second timeout to exceed the session's ~20-second remaining window.
         let timesUpAlertDuringNonSilent = app.alerts["Time's Up!"]
         XCTAssertTrue(
-            timesUpAlertDuringNonSilent.waitForExistence(timeout: extendedTimeout),
+            timesUpAlertDuringNonSilent.waitForExistence(timeout: 30),
             "Non-silent path: Time's Up alert must appear with partial answers"
         )
 
