@@ -60,13 +60,26 @@ CURRENT_BRANCH=$(git branch --show-current)
 git diff "${DEFAULT_BRANCH}...HEAD"
 ```
 
-If the diff is empty **and** `CURRENT_BRANCH == DEFAULT_BRANCH` (i.e., working directly on the default branch), fall back to the last commit:
+If the diff is empty — whether on the default branch or on a feature branch whose commits have already been merged (fast-forward or otherwise) — attempt to recover the correct range by scanning git log for `[TASK-<id>]` commits (where `<id>` is `TASK_ID` from Step 2):
 
 ```bash
-git diff HEAD~1..HEAD
+TASK_COMMITS=$(git log --format="%H" --grep="\[TASK-${TASK_ID}\]" -n 50)
 ```
 
-If the diff is still empty after the fallback (or if on a feature branch with no changes), report "No changes found compared to the base branch." and stop.
+If `TASK_COMMITS` is non-empty, construct the range from the oldest to the newest matching commit:
+
+```bash
+NEWEST_COMMIT=$(echo "$TASK_COMMITS" | head -1)
+OLDEST_COMMIT=$(echo "$TASK_COMMITS" | tail -1)
+git diff "${OLDEST_COMMIT}^..${NEWEST_COMMIT}"
+```
+
+Use this diff (and this range) going forward — including for the `--diff-summary` passed to `tusk review start` and for any re-review diff stat checks in Step 8.
+
+If `TASK_COMMITS` is empty (no `[TASK-<id>]` commits found in recent history), stop with:
+> No changes found — `[TASK-<task_id>]` commits not detected in recent git log. The diff range cannot be determined automatically. Confirm the correct commit range manually and re-run.
+
+If the diff is still empty after the TASK-commit recovery, report "No changes found compared to the base branch." and stop.
 
 Capture the diff only to check for emptiness and to generate the `--diff-summary` for `tusk review start`. **Do not pass the diff to reviewer agents** — they will fetch it themselves via `git diff` to avoid transcription errors.
 
@@ -78,9 +91,16 @@ Start a review record for the task. This creates one `code_reviews` row per conf
 tusk review start <task_id> --diff-summary "<first 120 chars of diff summary>"
 ```
 
-The command prints one line per created review, each showing the review ID. Parse the output to collect all review IDs (e.g., `Started review #<id> for task #<task_id> ...`).
+The command prints **one line per created review**. Example output for 3 configured reviewers:
 
-Store the mapping: reviewer name → review_id.
+```
+Started review #12 for task #42 (reviewer: general): Fix login bug
+Started review #13 for task #42 (reviewer: backend): Fix login bug
+Started review #14 for task #42 (reviewer: security): Fix login bug
+```
+
+Parse **every line** to collect all review IDs. Do not stop after the first line.
+Store the mapping: reviewer name → review_id (e.g., `{"general": 12, "backend": 13, "security": 14}`).
 
 ## Step 5: Spawn Parallel Reviewer Agents
 
@@ -300,10 +320,15 @@ Otherwise, loop while `can_retry` is true:
    tusk review start <task_id> --pass-num <current_pass + 1> --diff-summary "Re-review pass <n>"
    ```
 
-2. **Check diff size before deciding review strategy.** Measure the current diff:
-   ```bash
-   DEFAULT_BRANCH=$(tusk git-default-branch); git diff $(git merge-base HEAD origin/${DEFAULT_BRANCH})..HEAD --stat | tail -1
-   ```
+2. **Check diff size before deciding review strategy.** Measure the current diff using the same range established in Step 3:
+   - If `CURRENT_BRANCH == DEFAULT_BRANCH` (on default branch), use the TASK-commit range from Step 3:
+     ```bash
+     git diff "${OLDEST_COMMIT}^..${NEWEST_COMMIT}" --stat | tail -1
+     ```
+   - Otherwise (feature branch), use the merge-base range:
+     ```bash
+     DEFAULT_BRANCH=$(tusk git-default-branch); git diff $(git merge-base HEAD origin/${DEFAULT_BRANCH})..HEAD --stat | tail -1
+     ```
 
    **For small or documentation-only diffs (fewer than ~200 lines changed, or only non-code files):** skip agent spawning and perform an inline review. Read the diff yourself, evaluate it against reviewer focus areas, and record the result directly (approve or request-changes + add-comment). After recording the inline decision, skip to step 3.
 

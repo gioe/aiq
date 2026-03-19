@@ -353,14 +353,14 @@ def rule7_config_keys_match_known_keys(root):
     except (OSError, json.JSONDecodeError):
         return []
 
-    # Extract KNOWN_KEYS from bin/tusk
-    tusk_path = os.path.join(root, "bin", "tusk")
-    if not os.path.isfile(tusk_path):
+    # Extract KNOWN_KEYS from bin/tusk-config-tools.py
+    config_tools_path = os.path.join(root, "bin", "tusk-config-tools.py")
+    if not os.path.isfile(config_tools_path):
         return []
     known_keys = set()
     known_keys_re = re.compile(r"KNOWN_KEYS\s*=\s*\{([^}]+)\}")
     try:
-        with open(tusk_path, encoding="utf-8") as f:
+        with open(config_tools_path, encoding="utf-8") as f:
             content = f.read()
         m = known_keys_re.search(content)
         if m:
@@ -373,17 +373,14 @@ def rule7_config_keys_match_known_keys(root):
     if not known_keys:
         return []
 
-    # Check both directions
+    # Check one direction only: config.default.json keys must all be in KNOWN_KEYS.
+    # The reverse is not enforced — some KNOWN_KEYS (e.g. domain_test_commands) are
+    # optional and intentionally absent from config.default.json.
     in_config_not_known = config_keys - known_keys
-    in_known_not_config = known_keys - config_keys
 
     for k in sorted(in_config_not_known):
         violations.append(
-            f"  config.default.json has key \"{k}\" not in KNOWN_KEYS (bin/tusk cmd_validate)"
-        )
-    for k in sorted(in_known_not_config):
-        violations.append(
-            f"  KNOWN_KEYS (bin/tusk cmd_validate) has \"{k}\" not in config.default.json"
+            f"  config.default.json has key \"{k}\" not in KNOWN_KEYS (bin/tusk-config-tools.py)"
         )
 
     return violations
@@ -688,6 +685,44 @@ def rule21_skills_trailing_newlines(root):
     return violations
 
 
+def rule22_issue_tasks_missing_test_criterion(root):
+    """Issue-type tasks must have at least one criterion_type='test' criterion.
+
+    Source-repo only (guarded by bin/tusk).  Advisory — warns but does not block commit.
+    """
+    if not os.path.isfile(os.path.join(root, "bin", "tusk")):
+        return []
+
+    db_path = _db_path_from_root(root)
+    if not db_path:
+        return []
+
+    try:
+        conn = tusk_loader.load("tusk-db-lib").get_connection(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT t.id, t.summary FROM tasks t"
+                " WHERE t.task_type = 'issue'"
+                "   AND t.status <> 'Done'"
+                "   AND NOT EXISTS ("
+                "       SELECT 1 FROM acceptance_criteria ac"
+                "       WHERE ac.task_id = t.id AND ac.criterion_type = 'test'"
+                "   )"
+                " ORDER BY t.id"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        finally:
+            conn.close()
+    except Exception:
+        return []
+
+    return [
+        f"  TASK-{row[0]}: issue task has no test-type criterion — {row[1]}"
+        for row in rows
+    ]
+
+
 # ── DB-backed rules ──────────────────────────────────────────────────
 
 def _db_path_from_root(root):
@@ -907,6 +942,7 @@ RULES = [
     ("Rule 19: .claude/tusk-manifest.json out of sync with MANIFEST", rule19_tusk_manifest_json_sync, False),
     ("Rule 20: skills/ file modified without VERSION bump (advisory)", rule20_skills_version_bump_missing, True),
     ("Rule 21: Skill files with multiple trailing newlines", rule21_skills_trailing_newlines, False),
+    ("Rule 22: Issue tasks missing a test-type criterion (advisory)", rule22_issue_tasks_missing_test_criterion, True),
 ]
 
 # Load project-specific rules from tusk-lint-extra.py if it exists alongside this script.

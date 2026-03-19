@@ -79,13 +79,23 @@ CURRENT_BRANCH=$(git branch --show-current)
 git diff "${DEFAULT_BRANCH}...HEAD"
 ```
 
-If the result is empty and `CURRENT_BRANCH == DEFAULT_BRANCH`, fall back to:
+If the result is empty and `CURRENT_BRANCH == DEFAULT_BRANCH`, attempt to recover the correct range by scanning git log for `[TASK-{task_id}]` commits:
 
 ```bash
-git diff HEAD~1..HEAD
+TASK_COMMITS=$(git log --format="%H" --grep="\[TASK-{task_id}\]" -n 50)
 ```
 
-If the diff is still empty after the fallback, report "No changes found to review." and stop.
+If `TASK_COMMITS` is non-empty, construct the range from the oldest to the newest matching commit:
+
+```bash
+NEWEST_COMMIT=$(echo "$TASK_COMMITS" | head -1)
+OLDEST_COMMIT=$(echo "$TASK_COMMITS" | tail -1)
+git diff "${OLDEST_COMMIT}^..${NEWEST_COMMIT}"
+```
+
+If `TASK_COMMITS` is empty (no `[TASK-{task_id}]` commits found in recent history), report "No changes found to review — `[TASK-{task_id}]` commits not detected in recent git log." and stop.
+
+If the diff is still empty after the recovery attempt, report "No changes found to review." and stop.
 
 Read the entire diff carefully to understand what changed, which files were modified, and what task #{task_id} is trying to accomplish.
 
@@ -118,6 +128,38 @@ Before flagging a wrapper as dead/unused, you must perform an exhaustive search:
 **Example (Python middleware):** A reviewer sees `AuthMiddleware` wrapping a view and finds no direct calls to `request.user` in the top-level handler, concluding the middleware is unused. The actual usage is in a utility called three frames deeper: `handler → process_request → validate_permissions → request.user`. Same mistake, different stack.
 
 **Rule:** Inability to fully trace a subtree or call chain is *not* sufficient evidence to flag a wrapper as unused at `must_fix`. When in doubt, use `defer`.
+
+### Step 2.5: Verify Final State Before Flagging must_fix
+
+**Before recording any `must_fix` finding**, confirm the problematic pattern actually exists in the final state of the codebase — not just in a removed (`-`) diff line.
+
+For each candidate `must_fix` issue, run:
+
+```bash
+git show HEAD:<file_path> | grep -n "<pattern>"
+```
+
+- If the pattern **is present** in `HEAD:<file_path>` — the issue exists in the final state of the same file. Proceed to flag it as `must_fix`.
+- If the pattern **is absent** from `HEAD:<file_path>` — the pattern is no longer in this file. Before discarding, check whether the code was **moved to a different file** rather than deleted. Search the diff's added lines:
+
+  ```bash
+  DEFAULT_BRANCH=$(tusk git-default-branch)
+  git diff "${DEFAULT_BRANCH}...HEAD" | grep "^+" | grep -F "<pattern>"
+  ```
+
+  - If the pattern **appears in `+` lines of another file** — the code was moved or reorganized. Identify the destination file from the `+++ b/<file>` header above those lines, then confirm the pattern is present there:
+    ```bash
+    git show HEAD:<destination_file> | grep -n "<pattern>"
+    ```
+    If the must_fix finding still applies in the destination file's context, **update the finding to reference the destination file and line number** rather than discarding it. If the issue no longer applies in the new context (e.g., the moved code was also fixed during the move), discard.
+
+  - If the pattern **does not appear in any `+` lines** — it was truly removed from the codebase. It is a false positive. **Do not flag it.** Discard the finding entirely.
+
+This step is required for `must_fix` only. `suggest` and `defer` findings do not require final-state verification.
+
+**Example (single-file removal):** The diff shows a `-` line removing `ORDER BY RANDOM()` and a `+` line adding `ORDER BY show_count DESC`. A reviewer might notice the `RANDOM()` pattern and consider flagging it as a performance issue. Running `git show HEAD:path/to/file.py | grep "RANDOM()"` returns no output, and the `git diff | grep "^+" | grep "RANDOM()"` search also returns nothing — the pattern is gone from the codebase. This is a false positive; do not flag it.
+
+**Example (moved code):** The diff removes `def validate_user(...)` from `auth/utils.py` and adds it to `auth/validators.py`. A reviewer considers flagging a security issue in `validate_user`. Step 2.5 runs `git show HEAD:auth/utils.py | grep "validate_user"` — absent. The cross-file search `git diff ... | grep "^+" | grep "validate_user"` returns hits under `+++ b/auth/validators.py`. The reviewer confirms the pattern is present in `auth/validators.py` and updates the finding to reference that file, rather than discarding it.
 
 ### Step 3: Record Your Findings
 

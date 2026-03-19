@@ -47,6 +47,21 @@ def cmd_start(args: argparse.Namespace, db_path: str, config_path: str) -> int:
             print(f"Error: Task {args.task_id} not found", file=sys.stderr)
             return 2
 
+        # Supersede any existing pending reviews from prior passes before creating new ones
+        prior_pending = conn.execute(
+            "SELECT id FROM code_reviews WHERE task_id = ? AND status = 'pending'",
+            (args.task_id,),
+        ).fetchall()
+        if prior_pending:
+            conn.execute(
+                "UPDATE code_reviews SET status = 'superseded', updated_at = datetime('now')"
+                " WHERE task_id = ? AND status = 'pending'",
+                (args.task_id,),
+            )
+            conn.commit()
+            superseded_ids = ", ".join(f"#{r['id']}" for r in prior_pending)
+            print(f"Superseded {len(prior_pending)} prior pending review(s): {superseded_ids}")
+
         cfg = load_review_config(config_path)
         reviewers = cfg["reviewers"]
 
@@ -54,8 +69,17 @@ def cmd_start(args: argparse.Namespace, db_path: str, config_path: str) -> int:
         if args.reviewer:
             reviewers = [args.reviewer]
 
-        # If no reviewers configured and none specified, create one unassigned review
+        # If no reviewers configured and none specified, create one unassigned review.
+        # Emit a warning so misconfigured setups (e.g. reviewers added to config.default.json
+        # instead of tusk/config.json) are immediately visible rather than silently creating
+        # only one unassigned row. Root cause of issue #390.
         if not reviewers:
+            print(
+                f"Warning: no reviewers found in {config_path} — creating one unassigned review."
+                " If you expected multiple reviewers, verify that tusk/config.json contains"
+                " 'review.reviewers' entries.",
+                file=sys.stderr,
+            )
             reviewers = [None]
 
         created_ids = []
@@ -161,7 +185,7 @@ def cmd_list(args: argparse.Namespace, db_path: str) -> int:
 
         reviews = conn.execute(
             "SELECT id, reviewer, status, review_pass, created_at"
-            " FROM code_reviews WHERE task_id = ? ORDER BY id",
+            " FROM code_reviews WHERE task_id = ? AND status <> 'superseded' ORDER BY id",
             (args.task_id,),
         ).fetchall()
 
@@ -328,7 +352,7 @@ def cmd_status(args: argparse.Namespace, db_path: str) -> int:
             "  SUM(CASE WHEN c.id IS NOT NULL AND c.resolution = 'dismissed' THEN 1 ELSE 0 END) as dismissed_comments"
             " FROM code_reviews r"
             " LEFT JOIN review_comments c ON c.review_id = r.id"
-            " WHERE r.task_id = ?"
+            " WHERE r.task_id = ? AND r.status <> 'superseded'"
             " GROUP BY r.id ORDER BY r.id",
             (args.task_id,),
         ).fetchall()
@@ -377,7 +401,8 @@ def cmd_verdict(args: argparse.Namespace, db_path: str) -> int:
             "SELECT COUNT(*) as cnt"
             " FROM review_comments rc"
             " JOIN code_reviews cr ON cr.id = rc.review_id"
-            " WHERE cr.task_id = ? AND rc.category = 'must_fix' AND rc.resolution IS NULL",
+            " WHERE cr.task_id = ? AND cr.status <> 'superseded'"
+            " AND rc.category = 'must_fix' AND rc.resolution IS NULL",
             (args.task_id,),
         ).fetchone()
     finally:
@@ -399,7 +424,8 @@ def cmd_pass_status(args: argparse.Namespace, db_path: str, config_path: str) ->
             return 2
 
         pass_row = conn.execute(
-            "SELECT review_pass FROM code_reviews WHERE task_id = ? ORDER BY id DESC LIMIT 1",
+            "SELECT review_pass FROM code_reviews"
+            " WHERE task_id = ? AND status <> 'superseded' ORDER BY id DESC LIMIT 1",
             (args.task_id,),
         ).fetchone()
         current_pass = pass_row["review_pass"] if pass_row and pass_row["review_pass"] is not None else 0
@@ -408,7 +434,8 @@ def cmd_pass_status(args: argparse.Namespace, db_path: str, config_path: str) ->
             "SELECT COUNT(*) as cnt"
             " FROM review_comments rc"
             " JOIN code_reviews cr ON cr.id = rc.review_id"
-            " WHERE cr.task_id = ? AND rc.category = 'must_fix' AND rc.resolution IS NULL",
+            " WHERE cr.task_id = ? AND cr.status <> 'superseded'"
+            " AND rc.category = 'must_fix' AND rc.resolution IS NULL",
             (args.task_id,),
         ).fetchone()
     finally:
