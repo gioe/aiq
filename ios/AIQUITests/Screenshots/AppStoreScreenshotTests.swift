@@ -405,10 +405,14 @@ extension AppStoreScreenshotTests {
             XCTAssertTrue(onboardingContainer.exists, "Onboarding container should be visible")
             captureOnboardingScreenshot(named: "Onboarding_01_Welcome", waitElement: onboardingContainer)
 
-            // Advance through pages
-            let nextButton = app.buttons["onboarding.nextButton"]
-            for pageNum in 2 ... 4 where nextButton.waitForExistence(timeout: quickTimeout) {
-                nextButton.tap()
+            // Advance through pages using correct button identifiers
+            for pageNum in 2 ... 4 {
+                let buttonId = pageNum == 4
+                    ? "onboardingView.getStartedButton"
+                    : "onboardingView.continueButton"
+                let advanceButton = app.buttons[buttonId]
+                guard advanceButton.waitForExistence(timeout: quickTimeout) else { break }
+                advanceButton.tap()
                 // Wait for page transition
                 _ = onboardingContainer.waitForExistence(timeout: quickTimeout)
                 captureOnboardingScreenshot(named: "Onboarding_0\(pageNum)", waitElement: onboardingContainer)
