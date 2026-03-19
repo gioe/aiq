@@ -149,8 +149,8 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
         let answerInput = app.descendants(matching: .any)["answerInput.container"]
 
         let hasLoadFailure = loadFailureOverlay.exists
-        let hasDebugState = debugState.waitForExistence(timeout: 5)
-        let hasMemoryContainer = memoryContainer.waitForExistence(timeout: 5)
+        let hasDebugState = debugState.waitForExistence(timeout: standardTimeout)
+        let hasMemoryContainer = memoryContainer.waitForExistence(timeout: standardTimeout)
         let hasQuestionCard = questionCardAny.exists
         let hasAnswerInput = answerInput.exists
         let debugLabel = hasDebugState ? debugState.label : "(not found)"
