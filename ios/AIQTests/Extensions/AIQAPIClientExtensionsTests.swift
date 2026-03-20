@@ -3,8 +3,9 @@ import APIClient
 import XCTest
 
 /// Tests for the UI extension computed properties on OpenAPI-generated types.
-/// These extensions live in the APIClient package and provide formatting,
-/// display helpers, and accessibility properties for the generated models.
+/// These extensions live in the app's Models directory (migrated from the APIClient
+/// package in TASK-711) and provide formatting, display helpers, and accessibility
+/// properties for the generated models.
 final class APIClientExtensionsTests: XCTestCase {
     // MARK: - TestResultResponse Extension Tests
 

@@ -39,6 +39,80 @@ extension Components.Schemas.TestResultResponse: Equatable {
     }
 }
 
+// MARK: - Formatting Properties (migrated from APIClient package, TASK-711)
+
+extension Components.Schemas.TestResultResponse {
+    /// Accuracy as a decimal value (0.0-1.0), useful for progress views and charts
+    var accuracy: Double {
+        accuracyPercentage / 100.0
+    }
+
+    /// Formatted accuracy percentage string (e.g., "75%")
+    var accuracyFormatted: String {
+        "\(Int(round(accuracyPercentage)))%"
+    }
+
+    /// IQ score formatted as a string
+    var iqScoreFormatted: String {
+        "\(iqScore)"
+    }
+
+    /// Score ratio formatted as "X/Y" (e.g., "18/20")
+    var scoreRatio: String {
+        "\(correctAnswers)/\(totalQuestions)"
+    }
+
+    /// Accessibility description for the test result
+    var accessibilityDescription: String {
+        let answeredText = "You answered \(correctAnswers) of \(totalQuestions) correctly"
+        return "AIQ score \(iqScore). \(answeredText), with \(accuracyFormatted) accuracy."
+    }
+}
+
+// MARK: - Optional Property Extensions (migrated from APIClient package, TASK-711)
+
+extension Components.Schemas.TestResultResponse {
+    /// Formatted percentile rank string (e.g., "85th percentile")
+    /// Returns nil if percentileRank is not available
+    var percentileRankFormatted: String? {
+        guard let rank = percentileRank else { return nil }
+        let roundedRank = Int(round(rank))
+        let suffix = switch roundedRank % 100 {
+        case 11, 12, 13:
+            "th"
+        default:
+            switch roundedRank % 10 {
+            case 1: "st"
+            case 2: "nd"
+            case 3: "rd"
+            default: "th"
+            }
+        }
+        return "\(roundedRank)\(suffix) percentile"
+    }
+
+    /// Formatted completion time in M:SS format (e.g., "5:30")
+    /// Returns nil if completionTimeSeconds is not available
+    var completionTimeFormatted: String? {
+        guard let seconds = completionTimeSeconds else { return nil }
+        let minutes = seconds / 60
+        let remainingSeconds = seconds % 60
+        return String(format: "%d:%02d", minutes, remainingSeconds)
+    }
+
+    /// Display text for the strongest cognitive domain
+    /// Returns nil if strongestDomain is not available
+    var strongestDomainDisplay: String? {
+        strongestDomain
+    }
+
+    /// Display text for the weakest cognitive domain
+    /// Returns nil if weakestDomain is not available
+    var weakestDomainDisplay: String? {
+        weakestDomain
+    }
+}
+
 // MARK: - Additional UI Helpers
 
 extension Components.Schemas.TestResultResponse {
@@ -54,14 +128,6 @@ extension Components.Schemas.TestResultResponse {
             standardError: payload.standardError,
             upper: payload.upper
         )
-    }
-
-    /// Formatted completion time (e.g., "5:23")
-    var completionTimeFormatted: String {
-        guard let seconds = completionTimeSeconds else { return "N/A" }
-        let minutes = seconds / 60
-        let remainingSeconds = seconds % 60
-        return String(format: "%d:%02d", minutes, remainingSeconds)
     }
 
     /// Formatted percentile string (e.g., "Top 16%")

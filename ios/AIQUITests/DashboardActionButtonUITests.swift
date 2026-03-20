@@ -93,23 +93,25 @@ final class DashboardActionButtonUITests: BaseUITest {
     func testActionButton_ActiveSession_ShowsResumeTestInProgress() {
         relaunchWithTestInProgress()
 
+        // State 4 (has tests + active test) shows InProgressTestCard, not DashboardActionButton.
+        // The in-progress card has a resume button with label "Resume Test".
+        let inProgressCard = app.otherElements["dashboardView.inProgressTestCard"]
         XCTAssertTrue(
-            wait(for: actionButton, timeout: networkTimeout),
-            "Action button should appear when an active test session exists"
+            wait(for: inProgressCard, timeout: networkTimeout),
+            "In-progress test card should appear when an active test session exists"
         )
 
-        app.scrollViews.firstMatch.swipeUp()
-
+        let resumeButton = app.buttons["dashboardView.resumeButton"]
         XCTAssertTrue(
-            waitForHittable(actionButton),
-            "Action button should be hittable after scrolling"
+            waitForHittable(resumeButton),
+            "Resume button should be hittable inside the in-progress card"
         )
         takeScreenshot(named: "ActionButton_ActiveTest_InView")
 
         XCTAssertEqual(
-            actionButton.label,
-            "Resume Test in Progress",
-            "Action button label should read 'Resume Test in Progress' when a session is active"
+            resumeButton.label,
+            "Resume Test",
+            "Resume button label should read 'Resume Test' when a session is active"
         )
         takeScreenshot(named: "ActionButton_ActiveTest_LabelVerified")
     }

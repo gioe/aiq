@@ -184,3 +184,37 @@ The complete dependency graph is tracked in:
 - **Task**: TASK-362
 - **Implementation Date**: 2026-01-17
 - **Implemented By**: Claude Code
+
+## 'Bring Your Own Extensions' Pattern (TASK-711)
+
+The `ios-libs` package follows a "bring your own extensions" pattern for UI-specific computed
+properties on generated OpenAPI types. This was formalized in TASK-710/711.
+
+### How it works
+
+1. **`APIClient` target** (in `ios-libs`): Contains only the generated Swift types and client
+   from OpenAPI, plus generic middleware (auth, logging). No product-specific symbols.
+
+2. **`AIQAPIClient` target** (in `ios-libs`): A product-specific target that adds AIQ-specific
+   UI extensions on top of `APIClient` types. Provided as a reference implementation.
+
+3. **App target** (this project): The AIQ app defines its own UI extensions in `Models/`:
+   - `TestResult+Extensions.swift` — formatting, accessibility, domain helpers
+   - `Question+Extensions.swift` — display helpers, accessibility
+   - `Models/Extensions/User+Extensions.swift` — profile formatting, demographics
+   - `ConfidenceInterval+Extensions.swift` — range formatting, accessibility
+
+### Why app-side extensions?
+
+App-side extensions allow AIQ-specific formatting decisions (e.g., "5:30" vs "5m 30s" for
+completion time) without coupling the shared library to one product's UX choices. When the
+backend API changes or a new product adopts `ios-libs`, they define their own extension files.
+
+### Migration from APIClient-bundled extensions
+
+Prior to TASK-710, these extension properties lived in the `APIClient` package. After TASK-710
+extracted them to `AIQAPIClient`, TASK-711 migrated the AIQ app to own them directly:
+- Extensions moved to `AIQ/Models/` (files listed above)
+- `completionTimeFormatted` changed from `String` (non-optional) to `String?`
+- View callsites updated to use `?? "N/A"` fallback
+- `Package.resolved` updated to `ios-libs` v1.1.0 (revision 596b2bd)

@@ -103,9 +103,11 @@ final class DashboardInProgressCardUITests: BaseUITest {
     }
 
     func testNoSeparateStatusBadge_AboveActionButton() {
+        // State 4 (testInProgress) shows InProgressTestCard instead of actionButton.
+        // Use inProgressTestCard as the loading sentinel.
         XCTAssertTrue(
-            wait(for: actionButton, timeout: networkTimeout),
-            "Action button should appear to confirm the dashboard has loaded"
+            wait(for: inProgressTestCard, timeout: networkTimeout),
+            "In-progress test card should appear to confirm the dashboard has loaded"
         )
         takeScreenshot(named: "NoStatusBadge_DashboardLoaded")
 
@@ -120,24 +122,23 @@ final class DashboardInProgressCardUITests: BaseUITest {
     }
 
     func testActionButton_LabelIsResumeTestInProgress() {
+        // State 4 (testInProgress) shows InProgressTestCard, not DashboardActionButton.
+        // The resume button inside InProgressTestCard has label "Resume Test".
         XCTAssertTrue(
-            wait(for: actionButton, timeout: networkTimeout),
-            "Action button should appear when an active test session exists"
+            wait(for: inProgressTestCard, timeout: networkTimeout),
+            "In-progress test card should appear when an active test session exists"
         )
 
-        // Scroll to bring the action button into view if it is off-screen
-        app.scrollViews.firstMatch.swipeUp()
-
         XCTAssertTrue(
-            waitForHittable(actionButton),
-            "Action button should be hittable after scrolling"
+            waitForHittable(resumeButton),
+            "Resume button should be hittable inside the in-progress card"
         )
         takeScreenshot(named: "ActionButton_InView")
 
         XCTAssertEqual(
-            actionButton.label,
-            "Resume Test in Progress",
-            "Action button accessibility label should read 'Resume Test in Progress' when a session is active"
+            resumeButton.label,
+            "Resume Test",
+            "Resume button accessibility label should read 'Resume Test' when a session is active"
         )
         takeScreenshot(named: "ActionButton_LabelVerified")
     }

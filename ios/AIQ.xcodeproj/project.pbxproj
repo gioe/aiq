@@ -11,6 +11,7 @@
 		03410AB8BC73C0A0F418E03F /* AuthManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */; };
 		059902F264BEAA5E3A8218B2 /* NotificationEngagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C92DFD433134807D93604B68 /* NotificationEngagementTests.swift */; };
 		05E1A06BAD57398B16C03F79 /* TestResult+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48FCBD9EA44E9A3B5CB1544 /* TestResult+Extensions.swift */; };
+		97C235CEF0AC1F53326254DD /* ConfidenceInterval+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC417ED2AD7F083619A164BA /* ConfidenceInterval+Extensions.swift */; };
 		06D0B80EA19118F877CE5B54 /* MockDeepLinkHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */; };
 		071051FE0B55D6E6FFF9386C /* BiometricLockViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E76CB8FC47B1D9F5FE6FB50 /* BiometricLockViewTests.swift */; };
 		07FC12F439A01176E5EEE4C0 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3156B81FE7350FE04530E5C /* NetworkMonitorTests.swift */; };
@@ -584,6 +585,7 @@
 		C27A3BC7BC5A7E9215CA1112 /* DomainScoresView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DomainScoresView.swift; path = Features/Test/Views/DomainScoresView.swift; sourceTree = "<group>"; };
 		C33A255B2058E02AFED0D8ED /* OpenAPIService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenAPIService.swift; sourceTree = "<group>"; };
 		C48FCBD9EA44E9A3B5CB1544 /* TestResult+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "TestResult+Extensions.swift"; sourceTree = "<group>"; };
+		AC417ED2AD7F083619A164BA /* ConfidenceInterval+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ConfidenceInterval+Extensions.swift"; sourceTree = "<group>"; };
 		C4D440CD2F851D3AB2C60A6F /* Validators.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Validators.swift; path = Shared/Utilities/Validators.swift; sourceTree = "<group>"; };
 		C60195BDAE48679057583973 /* AIQAPIClientExtensionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AIQAPIClientExtensionsTests.swift; sourceTree = "<group>"; };
 		C6D9EBBF441277102B0B5376 /* Date+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "Date+Extensions.swift"; path = "Shared/Extensions/Date+Extensions.swift"; sourceTree = "<group>"; };
@@ -1052,6 +1054,7 @@
 				73E416F892038706B0664DFE /* OpenAPITypeAliases.swift */,
 				FF19826FA656E86E01346326 /* Question+Extensions.swift */,
 				C48FCBD9EA44E9A3B5CB1544 /* TestResult+Extensions.swift */,
+				AC417ED2AD7F083619A164BA /* ConfidenceInterval+Extensions.swift */,
 				72841079C61044E3141B3EC5 /* TestSession+Extensions.swift */,
 				DCFA7D7EF7135D6DBD819DDD /* RetryableErrorConformances.swift */,
 			);
@@ -1844,6 +1847,7 @@
 				9A7CB4B775EC180C7D4DC1A3 /* OpenAPITypeAliases.swift in Sources */,
 				5FA2D656FA69D2D5A3872CB0 /* Question+Extensions.swift in Sources */,
 				05E1A06BAD57398B16C03F79 /* TestResult+Extensions.swift in Sources */,
+				97C235CEF0AC1F53326254DD /* ConfidenceInterval+Extensions.swift in Sources */,
 				618CFE3571F977F1759CFBCD /* TestSession+Extensions.swift in Sources */,
 				D870D771D0E2FD17231E9EFF /* UITestMockHapticManager.swift in Sources */,
 				9E2B105F93AE96D0FF297C97 /* BiometricAuthManagerProtocol.swift in Sources */,
