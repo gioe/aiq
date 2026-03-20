@@ -30,7 +30,7 @@ uvicorn[standard]==0.32.1
 prometheus-client>=0.21.0
 
 # Shared libraries
-gioe-libs @ git+https://github.com/gioe/python-libs.git
+gioe-libs[domain-types] @ git+https://github.com/gioe/python-libs.git
 
 # Observability (Sentry and OpenTelemetry via gioe_libs.observability)
 sentry-sdk[opentelemetry]>=2.0.0
