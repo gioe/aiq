@@ -985,7 +985,7 @@ final class TestSessionTests: XCTestCase {
             weakestDomain: nil
         )
 
-        XCTAssertEqual(result.completionTimeFormatted, "N/A")
+        XCTAssertNil(result.completionTimeFormatted)
     }
 
     func testSubmittedTestResultPercentileFormattedWithPercentile() {
