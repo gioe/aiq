@@ -68,7 +68,7 @@ extension Components.Schemas.QuestionResponse {
 
 // MARK: - Protocol Conformance
 
-extension Components.Schemas.QuestionResponse: Identifiable {
+extension Components.Schemas.QuestionResponse: @retroactive Identifiable {
     // id property already exists on the generated type
 }
 

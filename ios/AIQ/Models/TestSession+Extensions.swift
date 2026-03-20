@@ -13,7 +13,7 @@ import Foundation
 
 // MARK: - Protocol Conformance
 
-extension Components.Schemas.TestSessionResponse: Identifiable {
+extension Components.Schemas.TestSessionResponse: @retroactive Identifiable {
     // id property already exists on the generated type
 }
 

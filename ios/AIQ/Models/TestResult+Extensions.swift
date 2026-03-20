@@ -19,7 +19,7 @@ import SwiftUI
 
 // MARK: - Protocol Conformance
 
-extension Components.Schemas.TestResultResponse: Identifiable {
+extension Components.Schemas.TestResultResponse: @retroactive Identifiable {
     // id property already exists on the generated type
 }
 
