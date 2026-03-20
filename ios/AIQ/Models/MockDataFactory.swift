@@ -65,11 +65,15 @@ import Foundation
             )
         }
 
-        /// Creates an in-progress test session for previews.
+        /// Creates an in-progress test session for previews and tests.
+        ///
+        /// - Important: The default `startedAt` must satisfy `elapsed < TestTimerManager.totalTimeSeconds`
+        ///   (currently 2100 s / 35 min) or `DashboardViewModel.hasActiveTest` will return false.
+        ///   Pass an explicit `startedAt` only if testing expired-session behavior.
         static func makeInProgressSession(
             id: Int = 123,
             userId: Int = 1,
-            startedAt: Date = Date().addingTimeInterval(-300)
+            startedAt: Date = Date().addingTimeInterval(-300) // 5 min ago — well within 35-min limit
         ) -> TestSession {
             makeTestSession(
                 id: id,
