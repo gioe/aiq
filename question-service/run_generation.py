@@ -44,6 +44,7 @@ from app.observability.alerting import (  # noqa: E402
     InventoryAlertManager,
 )
 from app.observability.alerting_adapter import to_run_summary  # noqa: E402
+from gioe_libs.alerting.alerting import RunSummary  # noqa: E402
 from app.config.config import settings  # noqa: E402
 from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
@@ -66,6 +67,19 @@ EXIT_CONFIG_ERROR = 3
 EXIT_DATABASE_ERROR = 4
 EXIT_BILLING_ERROR = 5  # New: Critical billing/quota issue
 EXIT_AUTH_ERROR = 6  # New: Authentication failure
+
+
+class InsertionError(RuntimeError):
+    """Raised when database insertion fails after a successful generation run.
+
+    Carries a typed run_summary so callers (e.g. gioe_libs CronJob) can
+    report partial metrics without resorting to duck-typing.
+    """
+
+    def __init__(self, message: str, run_summary: "RunSummary") -> None:
+        """Initialize with a message and the run summary captured at failure time."""
+        super().__init__(message)
+        self.run_summary: "RunSummary" = run_summary
 
 
 def log_rejection_details(
@@ -1848,18 +1862,16 @@ def main() -> int:
                         f"but all {len(unique_questions)} questions failed to insert to database. Check database connection and logs.",
                     )
 
-                    _err = RuntimeError(
-                        f"Database insertion failed: 0 of {len(unique_questions)} questions inserted"
+                    raise InsertionError(
+                        f"Database insertion failed: 0 of {len(unique_questions)} questions inserted",
+                        run_summary=to_run_summary(_build_run_stats()),
                     )
-                    _err.run_summary = to_run_summary(_build_run_stats())  # type: ignore[attr-defined]
-                    raise _err
                 elif inserted_count < len(unique_questions):
                     logger.warning("Some questions failed to insert")
-                    _err = RuntimeError(
-                        f"Partial insertion failure: {inserted_count} of {len(unique_questions)} questions inserted"
+                    raise InsertionError(
+                        f"Partial insertion failure: {inserted_count} of {len(unique_questions)} questions inserted",
+                        run_summary=to_run_summary(_build_run_stats()),
                     )
-                    _err.run_summary = to_run_summary(_build_run_stats())  # type: ignore[attr-defined]
-                    raise _err
                 else:
                     logger.info("✓ All unique questions inserted successfully")
 
