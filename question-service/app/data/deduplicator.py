@@ -17,7 +17,7 @@ import numpy as np
 from openai import OpenAI
 
 from app.infrastructure.embedding_cache import HybridEmbeddingCache
-from app.utils.embedding_utils import generate_embedding
+from app.utils.embedding_utils import generate_embedding_with_fallback
 from app.data.models import GeneratedQuestion
 
 # Import observability facade for distributed tracing
@@ -197,18 +197,20 @@ class QuestionDeduplicator:
         embedding_cache: Optional[Union[EmbeddingCache, HybridEmbeddingCache]] = None,
         redis_url: Optional[str] = None,
         embedding_cache_ttl: Optional[int] = None,
+        google_api_key: Optional[str] = None,
     ):
         """Initialize the question deduplicator.
 
         Args:
-            openai_api_key: OpenAI API key for embeddings
-            similarity_threshold: Threshold for semantic similarity (0.0-1.0)
-            embedding_model: OpenAI embedding model to use
+            openai_api_key: OpenAI API key for embeddings.
+            similarity_threshold: Threshold for semantic similarity (0.0-1.0).
+            embedding_model: OpenAI embedding model to use.
             embedding_cache: Optional pre-configured embedding cache. If provided,
                             redis_url and embedding_cache_ttl are ignored.
             redis_url: Redis connection URL for distributed caching. If None and
                       embedding_cache is None, uses in-memory cache.
-            embedding_cache_ttl: TTL for cached embeddings in seconds (None = no expiration)
+            embedding_cache_ttl: TTL for cached embeddings in seconds (None = no expiration).
+            google_api_key: Google API key used as fallback when OpenAI quota is exhausted.
 
         Raises:
             ValueError: If similarity_threshold is not between 0 and 1
@@ -219,6 +221,7 @@ class QuestionDeduplicator:
             )
 
         self.openai_client = OpenAI(api_key=openai_api_key)
+        self.google_api_key = google_api_key
         self.similarity_threshold = similarity_threshold
         self.embedding_model = embedding_model
 
@@ -396,6 +399,17 @@ class QuestionDeduplicator:
                         "(missing pre-computed embedding)"
                     )
 
+                # Skip cross-provider comparison: embeddings from different models have
+                # different dimensionalities (e.g. OpenAI=1536, Google=768) and cannot
+                # be compared meaningfully with cosine similarity.
+                if len(new_embedding) != len(existing_embedding):
+                    logger.debug(
+                        f"Skipping semantic comparison for question "
+                        f"{existing.get('id', 'unknown')}: dimension mismatch "
+                        f"(new={len(new_embedding)}, existing={len(existing_embedding)})"
+                    )
+                    continue
+
                 # Calculate cosine similarity
                 similarity = self._cosine_similarity(new_embedding, existing_embedding)
 
@@ -439,8 +453,11 @@ class QuestionDeduplicator:
             return cached
 
         try:
-            embedding_array = generate_embedding(
-                self.openai_client, text, self.embedding_model
+            embedding_array = generate_embedding_with_fallback(
+                self.openai_client,
+                text,
+                self.embedding_model,
+                google_api_key=self.google_api_key,
             )
             self._embedding_cache.set(text, self.embedding_model, embedding_array)
             return embedding_array
