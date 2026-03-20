@@ -115,6 +115,7 @@ class GoogleProvider(BaseLLMProvider):
                 config = types.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
                     **kwargs,
                 )
 
@@ -184,6 +185,7 @@ class GoogleProvider(BaseLLMProvider):
                 config = types.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=effective_max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
                     **kwargs,
                 )
 
@@ -252,6 +254,7 @@ class GoogleProvider(BaseLLMProvider):
                 config = types.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
                     **kwargs,
                 )
 
@@ -317,6 +320,7 @@ class GoogleProvider(BaseLLMProvider):
                 config = types.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=effective_max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
                     **kwargs,
                 )
 
@@ -369,6 +373,7 @@ class GoogleProvider(BaseLLMProvider):
                 config = types.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
                     **kwargs,
                 )
 
@@ -448,6 +453,7 @@ class GoogleProvider(BaseLLMProvider):
                 config = types.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=effective_max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
                     **kwargs,
                 )
 
@@ -516,6 +522,7 @@ class GoogleProvider(BaseLLMProvider):
                 config = types.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
                     **kwargs,
                 )
 
@@ -595,6 +602,7 @@ class GoogleProvider(BaseLLMProvider):
                 config = types.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=effective_max_tokens,
+                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
                     **kwargs,
                 )
 
@@ -1012,11 +1020,12 @@ class GoogleProvider(BaseLLMProvider):
             Run integration tests to verify model availability:
             pytest tests/providers/test_provider_model_availability_integration.py --run-integration
         """
-        # Last reviewed: 2026-02-10
+        # Last reviewed: 2026-03-19
         # Docs: https://ai.google.dev/gemini-api/docs/models/gemini
+        # NOTE: gemini-3-pro-preview was shut down 2026-03-09; migrate to gemini-3.1-pro-preview
         return [
-            "gemini-3-pro-preview",
-            "gemini-3-flash-preview",
+            "gemini-3.1-pro-preview",
+            "gemini-3-flash",
             "gemini-2.5-pro",
             "gemini-2.5-flash",
             "gemini-2.0-flash",

@@ -972,7 +972,7 @@ class TestProductionGeneratorsYaml:
         config = loader.load()
 
         assert config.generators["memory"].provider == "google"
-        assert config.generators["memory"].model == "gemini-3-pro-preview"
+        assert config.generators["memory"].model == "gemini-3.1-pro-preview"
 
     def test_generators_yaml_has_default_generator(self, production_config_path):
         """Test that default generator is configured."""

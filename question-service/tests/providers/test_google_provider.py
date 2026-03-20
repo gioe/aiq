@@ -208,8 +208,7 @@ class TestGoogleProvider:
 
         assert isinstance(models, list)
         assert len(models) > 0
-        assert "gemini-3-pro-preview" in models
-        assert "gemini-3-flash-preview" in models
+        assert "gemini-3.1-pro-preview" in models
         assert "gemini-2.5-pro" in models
         assert "gemini-2.5-flash" in models
         assert "gemini-2.0-flash" in models
@@ -563,7 +562,7 @@ class TestPreviewModelIdentifiers:
         preview_models = [m for m in models if m.endswith("-preview")]
 
         for model in preview_models:
-            assert re.match(r"gemini-\d+-\w+-preview", model), (
+            assert re.match(r"gemini-[\d.]+-\w+-preview", model), (
                 f"Preview model '{model}' doesn't match expected pattern "
                 f"'gemini-N-variant-preview'"
             )

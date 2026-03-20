@@ -73,9 +73,9 @@ generators:
 
   memory:
     provider: "google"
-    model: "gemini-3-pro-preview"
+    model: "gemini-3.1-pro-preview"
     max_batch_size: 10
-    rationale: "Composite 72.3 leads all models. MMLU 91.8% with 1M token context window (norm 50.0). Strong knowledge + largest context for memory tasks. Updated Jan 2026."
+    rationale: "Composite 72.3 leads all models. MMLU 91.8% with 1M token context window (norm 50.0). Strong knowledge + largest context for memory tasks. gemini-3-pro-preview shut down 2026-03-09; migrated to gemini-3.1-pro-preview (direct replacement). Updated Mar 2026."
     fallback: "openai"
     fallback_model: "gpt-5.2"
 
