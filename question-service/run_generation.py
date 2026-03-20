@@ -1827,14 +1827,62 @@ def main() -> int:
                         f"but all {len(unique_questions)} questions failed to insert to database. Check database connection and logs.",
                     )
 
-                    raise RuntimeError(
+                    _err = RuntimeError(
                         f"Database insertion failed: 0 of {len(unique_questions)} questions inserted"
                     )
+                    _err.run_summary = to_run_summary(  # type: ignore[attr-defined]
+                        {
+                            "questions_generated": stats.get("questions_generated", 0),
+                            "questions_inserted": inserted_count,
+                            "approval_rate": approval_rate,
+                            "duration_seconds": stats.get("duration_seconds", 0),
+                            "by_type": summary.get("database", {}).get(
+                                "inserted_by_type", {}
+                            ),
+                            "by_difficulty": summary.get("generation", {}).get(
+                                "by_difficulty", {}
+                            ),
+                            "questions_requested": summary.get("generation", {}).get(
+                                "requested", 0
+                            ),
+                            "questions_rejected": summary.get("evaluation", {}).get(
+                                "rejected", 0
+                            ),
+                            "duplicates_found": summary.get("deduplication", {}).get(
+                                "duplicates_found", 0
+                            ),
+                        }
+                    )
+                    raise _err
                 elif inserted_count < len(unique_questions):
                     logger.warning("Some questions failed to insert")
-                    raise RuntimeError(
+                    _err = RuntimeError(
                         f"Partial insertion failure: {inserted_count} of {len(unique_questions)} questions inserted"
                     )
+                    _err.run_summary = to_run_summary(  # type: ignore[attr-defined]
+                        {
+                            "questions_generated": stats.get("questions_generated", 0),
+                            "questions_inserted": inserted_count,
+                            "approval_rate": approval_rate,
+                            "duration_seconds": stats.get("duration_seconds", 0),
+                            "by_type": summary.get("database", {}).get(
+                                "inserted_by_type", {}
+                            ),
+                            "by_difficulty": summary.get("generation", {}).get(
+                                "by_difficulty", {}
+                            ),
+                            "questions_requested": summary.get("generation", {}).get(
+                                "requested", 0
+                            ),
+                            "questions_rejected": summary.get("evaluation", {}).get(
+                                "rejected", 0
+                            ),
+                            "duplicates_found": summary.get("deduplication", {}).get(
+                                "duplicates_found", 0
+                            ),
+                        }
+                    )
+                    raise _err
                 else:
                     logger.info("✓ All unique questions inserted successfully")
 
