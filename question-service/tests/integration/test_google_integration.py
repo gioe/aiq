@@ -7,10 +7,38 @@ Run with: pytest tests/integration/test_google_integration.py -m integration --r
 """
 
 import os
+from pathlib import Path
 
 import pytest
+import yaml
 
 from app.providers.google_provider import GoogleProvider
+
+
+def _get_configured_google_models() -> tuple[str | None, str | None]:
+    """Return (primary_model, fallback_model) for the Google provider from generators.yaml.
+
+    Scans all question-type entries and returns the first Google primary model
+    and the first Google fallback model found.
+    """
+    config_path = Path(__file__).parents[2] / "config" / "generators.yaml"
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+
+    generators = config.get("generators", {})
+    primary: str | None = None
+    fallback: str | None = None
+    for entry in generators.values():
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("provider") == "google" and primary is None:
+            primary = entry.get("model")
+        if entry.get("fallback") == "google" and fallback is None:
+            fallback = entry.get("fallback_model")
+        if primary and fallback:
+            break
+    return primary, fallback
+
 
 # Token limits for different test scenarios
 # Using generous limits to handle model output variations (e.g., "The answer is 4")
@@ -384,3 +412,67 @@ class TestGemini3ModelComparison:
         assert (
             extracted == "2"
         ), f"Flash Preview: Expected '2' but got '{extracted}' from: {result}"
+
+
+class TestGoogleProviderSmoke:
+    """Smoke tests targeting the models configured in config/generators.yaml.
+
+    These tests catch SDK/model API compatibility regressions (e.g., the
+    gemini-2.5-pro HTTP 400 caused by missing thinking_budget support in SDK
+    1.2.0) before they reach production. They run only when GOOGLE_API_KEY is
+    set in the environment.
+
+    Run with:
+        GOOGLE_API_KEY=<key> pytest tests/integration/test_google_integration.py \
+            -k smoke -m integration --run-integration
+    """
+
+    def test_configured_primary_google_model(self, google_api_key: str) -> None:
+        """Smoke-test the primary Google model currently in config/generators.yaml.
+
+        Verifies that generate_completion succeeds without an HTTP 400 or other
+        API error, catching SDK/model compatibility issues pre-deployment.
+        """
+        primary_model, _ = _get_configured_google_models()
+        assert primary_model, "No primary Google model found in config/generators.yaml"
+
+        provider = GoogleProvider(api_key=google_api_key, model=primary_model)
+        result = provider.generate_completion(
+            prompt="What is 2 + 2? Reply with just the number.",
+            temperature=0.0,
+            max_tokens=MAX_TOKENS_SIMPLE_ANSWER,
+        )
+
+        assert result is not None
+        assert len(result) > 0
+        extracted = _extract_number(result)
+        assert extracted == "4", (
+            f"Primary model '{primary_model}': expected '4' but got "
+            f"'{extracted}' from: {result}"
+        )
+
+    def test_configured_fallback_google_model(self, google_api_key: str) -> None:
+        """Smoke-test the fallback Google model currently in config/generators.yaml.
+
+        Verifies that the fallback (typically gemini-2.5-pro) also works so the
+        circuit-breaker fallback path is validated alongside the primary.
+        """
+        _, fallback_model = _get_configured_google_models()
+        assert (
+            fallback_model
+        ), "No fallback Google model found in config/generators.yaml"
+
+        provider = GoogleProvider(api_key=google_api_key, model=fallback_model)
+        result = provider.generate_completion(
+            prompt="What is 3 + 3? Reply with just the number.",
+            temperature=0.0,
+            max_tokens=MAX_TOKENS_SIMPLE_ANSWER,
+        )
+
+        assert result is not None
+        assert len(result) > 0
+        extracted = _extract_number(result)
+        assert extracted == "6", (
+            f"Fallback model '{fallback_model}': expected '6' but got "
+            f"'{extracted}' from: {result}"
+        )
