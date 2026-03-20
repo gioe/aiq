@@ -115,13 +115,20 @@ class QuestionModel(Base):
 class DatabaseService:
     """Service for database operations related to question storage."""
 
-    def __init__(self, database_url: str, openai_api_key: Optional[str] = None):
+    def __init__(
+        self,
+        database_url: str,
+        openai_api_key: Optional[str] = None,
+        google_api_key: Optional[str] = None,
+    ):
         """Initialize database service.
 
         Args:
             database_url: PostgreSQL connection URL
             openai_api_key: Optional OpenAI API key for embedding generation.
                            If not provided, embeddings will not be computed.
+            google_api_key: Optional Google API key used as fallback when
+                           OpenAI quota is exhausted.
 
         Raises:
             Exception: If database connection fails
@@ -131,6 +138,7 @@ class DatabaseService:
         self.SessionLocal = sessionmaker(
             autocommit=False, autoflush=False, bind=self.engine
         )
+        self.google_api_key = google_api_key
 
         # Initialize OpenAI client for embedding generation (TASK-433)
         self.openai_client = None
@@ -171,18 +179,24 @@ class DatabaseService:
             logger.error(f"Error closing session: {str(e)}")
 
     def _generate_embedding(self, text: str) -> Optional[List[float]]:
-        """Generate embedding vector for text using OpenAI API.
+        """Generate embedding vector for text using OpenAI API with Google fallback.
 
-        Delegates to the shared ``generate_embedding_safe`` utility.
+        Delegates to the shared ``generate_embedding_safe`` utility. When OpenAI
+        returns a quota error, automatically retries via Google text-embedding-004.
 
         Args:
             text: Text to generate embedding for (typically question_text)
 
         Returns:
-            List of 1536 floats representing the embedding, or None if
-            OpenAI client is not configured or API call fails.
+            List of floats representing the embedding, or None if
+            OpenAI client is not configured or all providers fail.
         """
-        return generate_embedding_safe(self.openai_client, text, EMBEDDING_MODEL)
+        return generate_embedding_safe(
+            self.openai_client,
+            text,
+            EMBEDDING_MODEL,
+            google_api_key=self.google_api_key,
+        )
 
     def insert_question(
         self,

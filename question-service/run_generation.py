@@ -1009,10 +1009,10 @@ def main() -> int:
 
             if not args.dry_run:
                 try:
-                    # TASK-433: Pass OpenAI API key to database service for embedding generation
                     db = QuestionDatabase(
                         database_url=settings.database_url,
                         openai_api_key=settings.openai_api_key,
+                        google_api_key=settings.google_api_key,
                     )
                     logger.info("✓ Database connected")
 
@@ -1026,6 +1026,7 @@ def main() -> int:
                         embedding_model=settings.dedup_embedding_model,
                         redis_url=settings.redis_url,
                         embedding_cache_ttl=settings.embedding_cache_ttl,
+                        google_api_key=settings.google_api_key,
                     )
                     cache_type = (
                         "Redis" if deduplicator.using_redis_cache else "in-memory"
