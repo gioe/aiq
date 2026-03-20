@@ -247,3 +247,12 @@ class TestToSummaryDict:
         assert d["deduplication"]["duplicate_rate"] == pytest.approx(0.0)
         assert d["database"]["success_rate"] == pytest.approx(0.0)
         assert d["overall"]["overall_success_rate"] == pytest.approx(0.0)
+
+    def test_by_difficulty_populated_from_stats_dict(self):
+        """Assigning questions_by_difficulty from a stats dict populates by_difficulty in summary."""
+        stats = {"questions_by_difficulty": {"easy": 10, "medium": 20, "hard": 5}}
+        metrics = RunSummary()
+        metrics.questions_by_difficulty = dict(stats.get("questions_by_difficulty", {}))
+        d = metrics.to_summary_dict()
+        assert d["generation"]["by_difficulty"] == {"easy": 10, "medium": 20, "hard": 5}
+        assert d["generation"]["by_difficulty"]  # non-empty
