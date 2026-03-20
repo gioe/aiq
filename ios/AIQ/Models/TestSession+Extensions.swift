@@ -17,18 +17,6 @@ extension Components.Schemas.TestSessionResponse: Identifiable {
     // id property already exists on the generated type
 }
 
-extension Components.Schemas.TestSessionResponse: Equatable {
-    // swiftlint:disable:next line_length
-    public static func == (lhs: Components.Schemas.TestSessionResponse, rhs: Components.Schemas.TestSessionResponse) -> Bool {
-        lhs.id == rhs.id &&
-            lhs.userId == rhs.userId &&
-            lhs.status == rhs.status &&
-            lhs.startedAt == rhs.startedAt &&
-            lhs.completedAt == rhs.completedAt &&
-            lhs.timeLimitExceeded == rhs.timeLimitExceeded
-    }
-}
-
 // MARK: - Status Helpers
 
 extension Components.Schemas.TestSessionResponse {

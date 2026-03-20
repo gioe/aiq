@@ -6,9 +6,8 @@ import SwiftUI
 
 // Extensions for the TestResult type (Components.Schemas.TestResultResponse)
 //
-// This file provides UI-specific computed properties beyond what's available in the
-// APIClient package. The core formatting properties (accuracy, accuracyFormatted,
-// scoreRatio, accessibilityDescription) are in TestResultResponse+UI.swift in the package.
+// This file provides UI-specific computed properties for TestResultResponse.
+// All formatting properties live here following the bring-your-own-extensions pattern (TASK-113).
 //
 // Pattern: Following TASK-368 and TASK-365, we extend generated types rather than duplicating them.
 //
@@ -22,21 +21,6 @@ import SwiftUI
 
 extension Components.Schemas.TestResultResponse: Identifiable {
     // id property already exists on the generated type
-}
-
-extension Components.Schemas.TestResultResponse: Equatable {
-    // swiftlint:disable:next line_length
-    public static func == (lhs: Components.Schemas.TestResultResponse, rhs: Components.Schemas.TestResultResponse) -> Bool {
-        lhs.id == rhs.id &&
-            lhs.testSessionId == rhs.testSessionId &&
-            lhs.userId == rhs.userId &&
-            lhs.iqScore == rhs.iqScore &&
-            lhs.totalQuestions == rhs.totalQuestions &&
-            lhs.correctAnswers == rhs.correctAnswers &&
-            lhs.accuracyPercentage == rhs.accuracyPercentage &&
-            lhs.completedAt == rhs.completedAt
-        // Note: Optional properties not included due to generator limitations
-    }
 }
 
 // MARK: - Formatting Properties (migrated from APIClient package, TASK-711)

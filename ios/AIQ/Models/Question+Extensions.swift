@@ -72,19 +72,6 @@ extension Components.Schemas.QuestionResponse: Identifiable {
     // id property already exists on the generated type
 }
 
-extension Components.Schemas.QuestionResponse: Equatable {
-    /// Equality comparison for Question
-    public static func == (lhs: Components.Schemas.QuestionResponse, rhs: Components.Schemas.QuestionResponse) -> Bool {
-        lhs.id == rhs.id &&
-            lhs.questionText == rhs.questionText &&
-            lhs.questionType == rhs.questionType &&
-            lhs.difficultyLevel == rhs.difficultyLevel &&
-            lhs.answerOptions == rhs.answerOptions &&
-            lhs.explanation == rhs.explanation &&
-            lhs.stimulus == rhs.stimulus
-    }
-}
-
 // MARK: - Additional UI Helpers
 
 extension Components.Schemas.QuestionResponse {
