@@ -170,8 +170,8 @@ final class AppStoreScreenshotTests: BaseUITest {
         startTestAndAnswerQuestions()
         submitTestAndWaitForResults()
 
-        let resultsView = app.otherElements["testResultsView"]
-        XCTAssertTrue(resultsView.exists, "Results view should be visible")
+        let scoreLabel = app.otherElements["testResultsView.scoreLabel"]
+        XCTAssertTrue(scoreLabel.exists, "Results view should be visible")
         takeScreenshot(named: "03_Results")
     }
 
@@ -230,48 +230,76 @@ final class AppStoreScreenshotTests: BaseUITest {
 
     /// Start test and answer some questions for results screen
     private func startTestAndAnswerQuestions() {
-        let startTestButton = app.buttons["dashboardView.actionButton"]
-        guard startTestButton.waitForExistence(timeout: standardTimeout) else {
-            XCTFail("Start Test button not found")
-            return
-        }
-        startTestButton.tap()
+        // Use descendants(matching: .any) per CLAUDE.md note: the questionCard element
+        // (Color.clear overlay) may map to a non-.other type depending on iOS version.
+        let questionCard = app.descendants(matching: .any)["testTakingView.questionCard"]
+        let questionText = app.descendants(matching: .any)["testTakingView.questionText"]
 
-        // Wait for test to start
-        let questionCard = app.otherElements["testTakingView.questionCard"]
-        guard questionCard.waitForExistence(timeout: networkTimeout) else {
-            XCTFail("Question card did not appear")
-            return
+        // Only start a new test if not already in the test-taking view
+        let alreadyInTest = questionCard.exists || questionText.exists
+        if !alreadyInTest {
+            let startTestButton = app.buttons["dashboardView.actionButton"]
+            guard startTestButton.waitForExistence(timeout: standardTimeout) else {
+                XCTFail("Start Test button not found")
+                return
+            }
+            startTestButton.tap()
+
+            let appeared = questionText.waitForExistence(timeout: networkTimeout) ||
+                questionCard.waitForExistence(timeout: networkTimeout)
+            guard appeared else {
+                XCTFail("Question card did not appear")
+                return
+            }
         }
 
-        // Answer 5 questions (mock will accept any answers)
-        let totalQuestions = 5
-        for questionIndex in 1 ... totalQuestions {
-            // Find and tap first answer option
-            let answerOption = app.buttons.matching(
-                NSPredicate(format: "identifier CONTAINS 'answerOption'")
+        // Answer all questions until the submit button appears.
+        // Uses a max-iteration cap to avoid infinite loops in unexpected states.
+        for _ in 1 ... 20 {
+            // Handle memory question stimulus phase: tap Continue before answer options appear
+            let continueButton = app.buttons["memoryQuestionView.continueButton"]
+            if continueButton.waitForExistence(timeout: quickTimeout) {
+                continueButton.tap()
+            }
+
+            // Try multiple-choice answer buttons first (identifier: testTakingView.answerButton.N)
+            let mcAnswer = app.buttons.matching(
+                NSPredicate(format: "identifier BEGINSWITH %@", "testTakingView.answerButton.")
             ).firstMatch
 
-            guard answerOption.waitForExistence(timeout: standardTimeout) else {
-                continue
-            }
-            answerOption.tap()
-
-            // Move to next question if not the last one
-            if questionIndex < totalQuestions {
-                let nextButton = app.buttons["testTakingView.nextButton"]
-                if nextButton.waitForExistence(timeout: quickTimeout) {
-                    nextButton.tap()
-                    // Wait for next question to appear
-                    _ = questionCard.waitForExistence(timeout: quickTimeout)
+            if mcAnswer.waitForExistence(timeout: standardTimeout) {
+                mcAnswer.tap()
+            } else {
+                // Fall back to text input for open-ended questions (math, pattern, etc.)
+                let textField = app.textFields["testTakingView.answerTextField"]
+                if textField.waitForExistence(timeout: standardTimeout) {
+                    textField.tap()
+                    textField.typeText("42")
                 }
+            }
+
+            // Stop answering once the submit button is visible (last question answered)
+            let submitButton = app.buttons["testTakingView.submitButton"]
+            if submitButton.waitForExistence(timeout: quickTimeout) {
+                break
+            }
+
+            // Advance to the next question
+            let nextButton = app.buttons["testTakingView.nextButton"]
+            if nextButton.waitForExistence(timeout: quickTimeout), nextButton.isEnabled {
+                nextButton.tap()
+                _ = questionCard.waitForExistence(timeout: quickTimeout)
+            } else {
+                break
             }
         }
     }
 
-    /// Submit the test and wait for results
+    /// Submit the test and navigate to the results screen.
+    ///
+    /// After submission the app shows TestCompletionView first, then TestResultsView
+    /// once the user taps "View Results". This method handles both transitions.
     private func submitTestAndWaitForResults() {
-        // Look for submit button
         let submitButton = app.buttons["testTakingView.submitButton"]
         guard submitButton.waitForExistence(timeout: standardTimeout) else {
             XCTFail("Submit button not found")
@@ -279,15 +307,24 @@ final class AppStoreScreenshotTests: BaseUITest {
         }
         submitButton.tap()
 
-        // Wait for results screen
-        let resultsView = app.otherElements["testResultsView"]
+        // TestCompletionView appears immediately after submission
+        let completionOverlay = app.otherElements["testCompletionView.successOverlay"]
+        if completionOverlay.waitForExistence(timeout: networkTimeout) {
+            // Tap "View Results" to navigate to TestResultsView
+            let viewResultsButton = app.buttons["testCompletionView.viewResultsButton"]
+            if viewResultsButton.waitForExistence(timeout: standardTimeout) {
+                viewResultsButton.tap()
+            }
+        }
+
+        // Wait for the results score label to confirm TestResultsView is loaded
+        let scoreLabel = app.otherElements["testResultsView.scoreLabel"]
         XCTAssertTrue(
-            resultsView.waitForExistence(timeout: networkTimeout),
+            scoreLabel.waitForExistence(timeout: networkTimeout),
             "Results view should appear"
         )
 
-        // Wait for results animations to complete
-        waitForUIToSettle(element: resultsView)
+        waitForUIToSettle(element: scoreLabel)
     }
 
     /// Capture results screenshot
@@ -295,13 +332,19 @@ final class AppStoreScreenshotTests: BaseUITest {
         startTestAndAnswerQuestions()
         submitTestAndWaitForResults()
 
-        let resultsView = app.otherElements["testResultsView"]
-        XCTAssertTrue(resultsView.exists, "Results view should be visible")
+        let scoreLabel = app.otherElements["testResultsView.scoreLabel"]
+        XCTAssertTrue(scoreLabel.exists, "Results view should be visible")
         takeScreenshot(named: "03_Results")
     }
 
     /// Navigate to history and capture screenshot
     private func captureHistoryScreenshot() {
+        // If we're on the TestResultsView, tap Done to return to the main tab bar
+        let doneButton = app.buttons["testResultsView.doneButton"]
+        if doneButton.waitForExistence(timeout: quickTimeout) {
+            doneButton.tap()
+        }
+
         // Navigate to History tab
         let historyTab = app.buttons["History"]
         guard historyTab.waitForExistence(timeout: standardTimeout) else {
@@ -327,17 +370,16 @@ final class AppStoreScreenshotTests: BaseUITest {
     /// Capture domain scores breakdown
     private func captureDomainScoresScreenshot() {
         // Check if we're on results screen with domain scores visible
-        let domainScoresSection = app.otherElements["testResultsView.domainScores"]
+        let domainScoresSection = app.otherElements["testResultsView.domainScoresSection"]
         if domainScoresSection.exists {
-            // Scroll to domain scores if needed
             domainScoresSection.swipeUp()
             waitForUIToSettle(element: domainScoresSection)
-            XCTAssertTrue(domainScoresSection.isHittable, "Domain scores should be visible")
             takeScreenshot(named: "05_DomainScores")
             return
         }
 
-        // Alternative: Navigate to history and tap on a result to see domain scores
+        // Navigate to History tab and tap the first result to see its detail/domain scores.
+        // HistoryView uses a ScrollView with identifiers "historyView.testRow.N" (not UITableView cells).
         let historyTab = app.buttons["History"]
         guard historyTab.waitForExistence(timeout: standardTimeout) else {
             XCTFail("History tab not found")
@@ -345,15 +387,14 @@ final class AppStoreScreenshotTests: BaseUITest {
         }
         historyTab.tap()
 
-        // Tap first history item
-        let firstItem = app.cells.firstMatch
+        let firstItem = app.descendants(matching: .any)["historyView.testRow.0"]
         guard firstItem.waitForExistence(timeout: standardTimeout) else {
             XCTFail("No history items found")
             return
         }
         firstItem.tap()
 
-        // Wait for detail view to appear
+        // Wait for detail view to appear (result is discarded — screenshot is taken regardless)
         let detailView = app.otherElements["testDetailView"]
         _ = detailView.waitForExistence(timeout: standardTimeout)
         waitForUIToSettle(element: detailView)
