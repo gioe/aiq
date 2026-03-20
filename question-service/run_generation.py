@@ -44,11 +44,11 @@ from app.observability.alerting import (  # noqa: E402
     InventoryAlertManager,
 )
 from app.observability.alerting_adapter import to_run_summary  # noqa: E402
-from gioe_libs.alerting.alerting import RunSummary  # noqa: E402
 from app.config.config import settings  # noqa: E402
 from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
 )
+from gioe_libs.alerting.alerting import RunSummary  # noqa: E402
 from gioe_libs.aiq_logging import setup_logging  # noqa: E402
 from gioe_libs.cron_runner import CronJob  # noqa: E402
 from app.reporting.run_summary import RunSummary as PipelineRunSummary  # noqa: E402
@@ -76,10 +76,10 @@ class InsertionError(RuntimeError):
     report partial metrics without resorting to duck-typing.
     """
 
-    def __init__(self, message: str, run_summary: "RunSummary") -> None:
+    def __init__(self, message: str, run_summary: RunSummary) -> None:
         """Initialize with a message and the run summary captured at failure time."""
         super().__init__(message)
-        self.run_summary: "RunSummary" = run_summary
+        self.run_summary: RunSummary = run_summary
 
 
 def log_rejection_details(
