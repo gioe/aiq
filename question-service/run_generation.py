@@ -1229,6 +1229,10 @@ def main() -> int:
                 metrics.generation_failures = (
                     stats["target_questions"] - stats["questions_generated"]
                 )
+                metrics.questions_by_type = dict(stats.get("questions_by_type", {}))
+                metrics.questions_by_difficulty = dict(
+                    stats.get("questions_by_difficulty", {})
+                )
 
                 gen_span.set_attribute(
                     "questions_generated", stats["questions_generated"]
