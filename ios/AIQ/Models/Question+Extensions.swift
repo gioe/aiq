@@ -5,11 +5,66 @@ import Foundation
 
 // Extensions for the Question type (Components.Schemas.QuestionResponse)
 //
-// This file provides additional extensions beyond what's available in the APIClient package.
-// The core UI properties (questionTypeDisplay, difficultyColorName, etc.) are provided in
-// QuestionResponse+UI.swift in the APIClient package.
+// This file provides UI-specific computed properties for QuestionResponse.
+// Core UI properties were migrated from the APIClient package to the app target (TASK-711)
+// following the 'bring your own extensions' pattern.
 //
 // Pattern: Following TASK-368 and TASK-365, we extend generated types rather than duplicating them.
+
+// MARK: - Core UI Properties (migrated from APIClient package, TASK-711)
+
+extension Components.Schemas.QuestionResponse {
+    /// Question type with proper capitalization (e.g., "Pattern", "Logic")
+    var questionTypeDisplay: String {
+        questionType.capitalized
+    }
+
+    /// Full question type description (e.g., "Pattern Recognition", "Logical Reasoning")
+    var questionTypeFullName: String {
+        switch questionType.lowercased() {
+        case "pattern":
+            "Pattern Recognition"
+        case "logic":
+            "Logical Reasoning"
+        case "spatial":
+            "Spatial Reasoning"
+        case "math":
+            "Mathematical"
+        case "verbal":
+            "Verbal Reasoning"
+        case "memory":
+            "Memory"
+        default:
+            questionType.capitalized
+        }
+    }
+
+    /// Difficulty level with proper capitalization (e.g., "Easy", "Medium", "Hard")
+    var difficultyDisplay: String {
+        difficultyLevel.capitalized
+    }
+
+    /// Difficulty badge color name for UI display
+    /// Returns a string name that can be mapped to SwiftUI Color in the main app
+    var difficultyColorName: String {
+        switch difficultyLevel.lowercased() {
+        case "easy": "green"
+        case "medium": "orange"
+        case "hard": "red"
+        default: "gray"
+        }
+    }
+
+    /// Accessibility description for the question
+    var accessibilityDescription: String {
+        "Question \(id): \(questionTypeFullName), \(difficultyDisplay) difficulty"
+    }
+
+    /// Accessibility hint for the question
+    var accessibilityHint: String {
+        "This is a \(difficultyDisplay) \(questionTypeDisplay) question"
+    }
+}
 
 // MARK: - Protocol Conformance
 

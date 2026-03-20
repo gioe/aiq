@@ -73,7 +73,7 @@ struct TestHistoryListItem: View {
 
                 MetricView(
                     label: "Time",
-                    value: testResult.completionTimeFormatted,
+                    value: testResult.completionTimeFormatted ?? "N/A",
                     icon: "clock.fill"
                 )
             }

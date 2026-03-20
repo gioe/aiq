@@ -271,7 +271,7 @@ struct TestResultsView: View {
                 metricCard(
                     icon: "clock.fill",
                     title: "Time",
-                    value: result.completionTimeFormatted,
+                    value: result.completionTimeFormatted ?? "N/A",
                     color: ColorPalette.statOrange
                 )
 

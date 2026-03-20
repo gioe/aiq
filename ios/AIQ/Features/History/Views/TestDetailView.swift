@@ -213,7 +213,7 @@ struct TestDetailView: View {
                 metricCard(
                     icon: "clock.fill",
                     title: "Time Taken",
-                    value: testResult.completionTimeFormatted,
+                    value: testResult.completionTimeFormatted ?? "N/A",
                     color: .orange
                 )
 
