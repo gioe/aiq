@@ -50,6 +50,7 @@ python_functions = "test_*"
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+pythonpath = [".", ".."]
 markers = [
     "integration: tests requiring live external services (skipped unless --run-integration is passed)",
 ]

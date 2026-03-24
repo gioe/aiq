@@ -8,8 +8,11 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-# Domain enums — single source of truth in libs/domain_types
-from gioe_libs.domain_types import QuestionType, DifficultyLevel  # noqa: F401
+# Generic domain enum shared via gioe_libs
+from gioe_libs.domain_types import DifficultyLevel  # noqa: F401
+
+# AIQ-specific shared enum (single source of truth shared with backend)
+from aiq_types import QuestionType  # noqa: F401
 
 
 class GeneratedQuestion(BaseModel):

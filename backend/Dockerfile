@@ -36,11 +36,14 @@ COPY --from=builder /root/.local /home/appuser/.local
 # Copy backend application code
 COPY backend/ /app/backend/
 
+# Copy shared aiq-internal types (single source of truth for enums used by both services)
+COPY aiq_types/ /app/aiq_types/
+
 # Set working directory to backend for alembic and app imports
 WORKDIR /app/backend
 
-# Set PYTHONPATH to include backend (for app imports); gioe-libs is installed as a package
-ENV PYTHONPATH=/app/backend
+# Set PYTHONPATH to include backend (for app imports) and /app (for aiq_types)
+ENV PYTHONPATH=/app/backend:/app
 
 # Fix permissions
 RUN chown -R appuser:appuser /app /home/appuser/.local

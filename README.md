@@ -18,7 +18,8 @@ aiq/
 ├── website/             # Privacy policy, terms of service
 ├── .claude/             # Claude Code config, skills, and scripts
 ├── .github/             # CI/CD workflows, PR template, Dependabot
-└── README.md            # This file
+├── README.md            # This file
+└── aiq_types/           # (new - needs description)
 ```
 
 ## Components

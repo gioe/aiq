@@ -30,11 +30,14 @@ WORKDIR /app
 # Copy question-service application code
 COPY question-service/ /app/question-service/
 
+# Copy shared aiq-internal types (single source of truth for enums used by both services)
+COPY aiq_types/ /app/aiq_types/
+
 # Set working directory to question-service for runtime
 WORKDIR /app/question-service
 
-# Set PYTHONPATH to include question-service (for app imports); gioe-libs is installed as a package
-ENV PYTHONPATH=/app/question-service
+# Set PYTHONPATH to include question-service (for app imports) and /app (for aiq_types)
+ENV PYTHONPATH=/app/question-service:/app
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && \

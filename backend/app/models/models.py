@@ -69,17 +69,39 @@ from app.core.datetime_utils import utc_now
 from .base import Base
 from .types import FloatArray
 
-# Domain enums — single source of truth in libs/domain_types
+# Generic domain enums shared via gioe_libs
 from gioe_libs.domain_types import (
-    QuestionType,
     DifficultyLevel,
-    TestStatus,
-    NotificationType,
-    GenerationRunStatus,
-    EducationLevel,
-    FeedbackCategory,
+    AsyncRunStatus as GenerationRunStatus,  # renamed in gioe_libs; alias preserves aiq name
     FeedbackStatus,
 )
+
+# AIQ-specific shared enums (single source of truth for both backend and question-service)
+from aiq_types import QuestionType, TestStatus, NotificationType  # noqa: F401
+
+
+# AIQ-specific enums defined locally (not duplicated in question-service)
+class EducationLevel(str, enum.Enum):
+    """Education level for demographic data."""
+
+    HIGH_SCHOOL = "high_school"
+    SOME_COLLEGE = "some_college"
+    ASSOCIATES = "associates"
+    BACHELORS = "bachelors"
+    MASTERS = "masters"
+    DOCTORATE = "doctorate"
+    PREFER_NOT_TO_SAY = "prefer_not_to_say"
+
+
+class FeedbackCategory(str, enum.Enum):
+    """Feedback category."""
+
+    BUG_REPORT = "bug_report"
+    FEATURE_REQUEST = "feature_request"
+    GENERAL_FEEDBACK = "general_feedback"
+    QUESTION_HELP = "question_help"
+    OTHER = "other"
+
 
 # Re-export so existing `from app.models.models import QuestionType` still works
 __all__ = [
