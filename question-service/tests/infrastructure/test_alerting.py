@@ -141,7 +141,7 @@ class TestAlertManager:
         message = manager._build_alert_message(error)
 
         assert "INVENTORY_LOW" in message
-        assert "Run question generation with --auto-balance flag" in message
+        assert "Review resource inventory levels and replenish as needed" in message
 
     def test_build_alert_message_script_failure(self):
         """Test alert message building for script-level failures."""
@@ -162,7 +162,7 @@ class TestAlertManager:
         assert "CRITICAL" in message
         assert "bootstrap" in message
         assert "Check bootstrap script logs" in message
-        assert "Re-run failed types individually" in message
+        assert "Re-run individual failed components if applicable" in message
 
     def test_get_alerts_summary_empty(self):
         """Test alerts summary when no alerts sent."""
