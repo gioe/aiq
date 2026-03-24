@@ -608,14 +608,17 @@ class TestInventoryAlertManager:
         assert len(manager._alerts_this_hour) == 1  # Only recent one kept
 
 
-class TestSendRunCompletion:
-    """Tests for AlertManager.send_run_completion()."""
+class TestSendNotification:
+    """Tests for AlertManager.send_notification()."""
 
-    def test_noop_when_email_disabled(self):
-        """send_run_completion() is a no-op when email_enabled=False."""
+    def test_noop_when_email_disabled_and_no_discord(self):
+        """send_notification is a no-op when email is disabled and no Discord URL."""
         manager = AlertManager(email_enabled=False)
-        # Should return without raising and without sending anything
-        manager.send_run_completion(exit_code=0, run_summary={"generated": 10})
+        manager.send_notification(
+            title="Run Complete",
+            fields=[("Generated", 10), ("Inserted", 8)],
+            severity="info",
+        )
 
     def test_noop_when_email_disabled_no_smtp_call(self):
         """No SMTP connection is attempted when email is disabled."""
@@ -624,7 +627,7 @@ class TestSendRunCompletion:
 
         manager = AlertManager(email_enabled=False)
         with patch.object(smtplib, "SMTP") as mock_smtp:
-            manager.send_run_completion(exit_code=0, run_summary={})
+            manager.send_notification(title="Test", fields=[], severity="info")
             mock_smtp.assert_not_called()
 
     def test_smtp_error_caught_and_logged(self, caplog):
@@ -648,89 +651,13 @@ class TestSendRunCompletion:
                 "connection refused"
             )
             with caplog.at_level(logging.ERROR):
-                # Must not raise
-                manager.send_run_completion(exit_code=0, run_summary={})
+                manager.send_notification(title="Test", fields=[], severity="info")
 
         assert any(
-            "Failed to send run completion email" in r.message for r in caplog.records
+            "Failed to send notification email" in r.message for r in caplog.records
         )
 
-    def test_subject_success(self):
-        """Subject clearly indicates success for exit code 0."""
-        manager = AlertManager()
-        subject = manager._get_completion_subject(0)
-        assert "Success" in subject
-
-    def test_subject_partial_failure(self):
-        """Subject clearly indicates partial failure for exit code 1."""
-        manager = AlertManager()
-        subject = manager._get_completion_subject(1)
-        assert "Partial Failure" in subject
-
-    def test_subject_failure(self):
-        """Subject clearly indicates failure for exit codes 2+."""
-        manager = AlertManager()
-        for code in [2, 3, 4]:
-            subject = manager._get_completion_subject(code)
-            assert "Failed" in subject
-
-    def test_completion_text_includes_stats(self):
-        """Plain-text body includes all required statistics."""
-        manager = AlertManager()
-        run_summary = {
-            "generated": 50,
-            "inserted": 42,
-            "duration_seconds": 123.5,
-            "details": {"approval_rate": 84.0},
-        }
-        text = manager._build_completion_text(0, run_summary)
-
-        assert "50" in text
-        assert "42" in text
-        assert "84.0%" in text
-        assert "123.5s" in text
-
-    def test_completion_text_missing_stats_defaults(self):
-        """Plain-text body handles missing stats gracefully."""
-        manager = AlertManager()
-        text = manager._build_completion_text(2, {})
-        assert "N/A" in text
-
-    def test_completion_html_includes_stats(self):
-        """HTML body includes all required statistics."""
-        manager = AlertManager()
-        run_summary = {
-            "generated": 30,
-            "inserted": 28,
-            "duration_seconds": 60.0,
-            "details": {"approval_rate": 93.3},
-        }
-        html = manager._build_completion_html(0, run_summary)
-
-        assert "30" in html
-        assert "28" in html
-        assert "93.3%" in html
-        assert "60.0s" in html
-
-    def test_completion_html_success_color(self):
-        """HTML uses green color for successful run."""
-        manager = AlertManager()
-        html = manager._build_completion_html(0, {})
-        assert "#28a745" in html
-
-    def test_completion_html_partial_failure_color(self):
-        """HTML uses yellow color for partial failure."""
-        manager = AlertManager()
-        html = manager._build_completion_html(1, {})
-        assert "#ffc107" in html
-
-    def test_completion_html_failure_color(self):
-        """HTML uses red color for failed run."""
-        manager = AlertManager()
-        html = manager._build_completion_html(2, {})
-        assert "#dc3545" in html
-
-    def test_send_run_completion_sends_email_on_success(self):
+    def test_send_notification_sends_email_on_success(self):
         """Email is sent when email_enabled and SMTP is configured."""
         from unittest.mock import MagicMock, patch
 
@@ -748,17 +675,55 @@ class TestSendRunCompletion:
             mock_server = MagicMock()
             mock_smtp_class.return_value.__enter__.return_value = mock_server
 
-            manager.send_run_completion(
-                exit_code=0,
-                run_summary={
-                    "generated": 10,
-                    "inserted": 8,
-                    "duration_seconds": 30.0,
-                    "details": {"approval_rate": 80.0},
-                },
+            manager.send_notification(
+                title="✅ question-generation: Success",
+                fields=[
+                    ("Generated", 10),
+                    ("Inserted", 8),
+                    ("Duration", "30.0s"),
+                    ("Approval Rate", "80.0%"),
+                ],
+                severity="info",
             )
 
             mock_server.send_message.assert_called_once()
+
+    def test_html_uses_green_for_info(self):
+        """HTML notification body uses green color for severity='info'."""
+        manager = AlertManager()
+        html = manager._build_notification_html(
+            title="Success", fields=[], severity="info", metadata=None
+        )
+        assert "#28a745" in html
+
+    def test_html_uses_yellow_for_warning(self):
+        """HTML notification body uses yellow color for severity='warning'."""
+        manager = AlertManager()
+        html = manager._build_notification_html(
+            title="Warning", fields=[], severity="warning", metadata=None
+        )
+        assert "#ffc107" in html
+
+    def test_html_uses_red_for_critical(self):
+        """HTML notification body uses red color for severity='critical'."""
+        manager = AlertManager()
+        html = manager._build_notification_html(
+            title="Failed", fields=[], severity="critical", metadata=None
+        )
+        assert "#dc3545" in html
+
+    def test_html_includes_field_values(self):
+        """HTML body contains field labels and values."""
+        manager = AlertManager()
+        html = manager._build_notification_html(
+            title="Run Complete",
+            fields=[("Generated", 50), ("Inserted", 42), ("Duration", "123.5s")],
+            severity="info",
+            metadata=None,
+        )
+        assert "50" in html
+        assert "42" in html
+        assert "123.5s" in html
 
 
 class TestInventoryAlertingIntegration:

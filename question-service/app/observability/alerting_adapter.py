@@ -1,9 +1,10 @@
 """Adapter mapping question-service native stats to the generic RunSummary dict.
 
-The libs AlertManager accepts a generic RunSummary with standard keys
-(generated, inserted, errors, duration_seconds, details).  This module
-provides a single function that converts the question-service's native
-stats/summary dicts into that format.
+CronJob receives the RunSummary returned by work_fn and converts it to
+(label, value) tuples via _run_summary_to_fields(), which are then passed to
+alert_manager.send_notification().  Top-level scalar keys (generated, inserted,
+errors, duration_seconds) become top-level fields; everything under 'details'
+is flattened and appended.
 """
 
 from typing import Any, Dict
@@ -22,7 +23,8 @@ def to_run_summary(stats: Dict[str, Any]) -> RunSummary:
 
     Returns:
         A RunSummary dict with standard top-level keys and the original stats
-        stored verbatim under 'details' for use by the email template.
+        stored verbatim under 'details' for CronJob to flatten into notification
+        fields.
     """
     return {
         "generated": stats.get("questions_generated", 0),
