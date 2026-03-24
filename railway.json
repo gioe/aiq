@@ -3,7 +3,7 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "backend/Dockerfile",
-    "watchPatterns": ["/backend/**", "/libs/**"]
+    "watchPatterns": ["/backend/**", "/aiq_types/**"]
   },
   "deploy": {
     "healthcheckPath": "/v1/health",

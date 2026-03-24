@@ -3,7 +3,7 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "/question-service/Dockerfile.trigger",
-    "watchPatterns": ["/question-service/**", "/libs/**"]
+    "watchPatterns": ["/question-service/**", "/aiq_types/**"]
   },
   "deploy": {
     "healthcheckPath": "/health",
