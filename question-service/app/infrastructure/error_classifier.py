@@ -18,6 +18,8 @@ from gioe_libs.alerting.alerting import (
     ErrorSeverity,
 )  # noqa: F401  # re-exported for callers that import from error_classifier
 
+from app.infrastructure.llm_error_categories import LLMErrorCategory  # noqa: F401
+
 # HTTP Status Code Constants
 HTTP_STATUS_BAD_REQUEST = 400
 HTTP_STATUS_UNAUTHORIZED = 401
@@ -355,7 +357,7 @@ class ErrorClassifier:
                     and error_detail.get("code") == "insufficient_quota"
                 ):
                     return ClassifiedError(
-                        category=ErrorCategory.BILLING_QUOTA,
+                        category=LLMErrorCategory.BILLING_QUOTA,
                         severity=ErrorSeverity.CRITICAL,
                         provider=provider,
                         original_error=error_type,
@@ -367,7 +369,7 @@ class ErrorClassifier:
                         status_code=getattr(error, "status_code", 429),
                     )
                 return ClassifiedError(
-                    category=ErrorCategory.RATE_LIMIT,
+                    category=LLMErrorCategory.RATE_LIMIT,
                     severity=ErrorSeverity.HIGH,
                     provider=provider,
                     original_error=error_type,
@@ -419,7 +421,7 @@ class ErrorClassifier:
         if ANTHROPIC_AVAILABLE:
             if isinstance(error, AnthropicRateLimitError):
                 return ClassifiedError(
-                    category=ErrorCategory.RATE_LIMIT,
+                    category=LLMErrorCategory.RATE_LIMIT,
                     severity=ErrorSeverity.HIGH,
                     provider=provider,
                     original_error=error_type,
@@ -474,7 +476,7 @@ class ErrorClassifier:
                 # 429 is rate limit
                 if status == HTTP_STATUS_TOO_MANY_REQUESTS:
                     return ClassifiedError(
-                        category=ErrorCategory.RATE_LIMIT,
+                        category=LLMErrorCategory.RATE_LIMIT,
                         severity=ErrorSeverity.HIGH,
                         provider=provider,
                         original_error=error_type,
@@ -537,7 +539,7 @@ class ErrorClassifier:
         # 429 - Rate Limit (always retryable)
         if status_code == HTTP_STATUS_TOO_MANY_REQUESTS:
             return ClassifiedError(
-                category=ErrorCategory.RATE_LIMIT,
+                category=LLMErrorCategory.RATE_LIMIT,
                 severity=ErrorSeverity.HIGH,
                 provider=provider,
                 original_error=error_type,
@@ -561,7 +563,7 @@ class ErrorClassifier:
         # 402 - Payment Required (billing issue)
         if status_code == HTTP_STATUS_PAYMENT_REQUIRED:
             return ClassifiedError(
-                category=ErrorCategory.BILLING_QUOTA,
+                category=LLMErrorCategory.BILLING_QUOTA,
                 severity=ErrorSeverity.CRITICAL,
                 provider=provider,
                 original_error=error_type,
@@ -650,7 +652,7 @@ class ErrorClassifier:
             error_str, ErrorClassifier.RATE_LIMIT_PATTERNS
         ):
             return ClassifiedError(
-                category=ErrorCategory.RATE_LIMIT,
+                category=LLMErrorCategory.RATE_LIMIT,
                 severity=ErrorSeverity.HIGH,
                 provider=provider,
                 original_error=error_type,
@@ -662,7 +664,7 @@ class ErrorClassifier:
         # Check for billing/quota errors (CRITICAL) - only if NOT a rate limit
         if ErrorClassifier._match_patterns(error_str, ErrorClassifier.BILLING_PATTERNS):
             return ClassifiedError(
-                category=ErrorCategory.BILLING_QUOTA,
+                category=LLMErrorCategory.BILLING_QUOTA,
                 severity=ErrorSeverity.CRITICAL,
                 provider=provider,
                 original_error=error_type,
@@ -692,7 +694,7 @@ class ErrorClassifier:
         # Check for model errors (MEDIUM)
         if ErrorClassifier._match_patterns(error_str, ErrorClassifier.MODEL_PATTERNS):
             return ClassifiedError(
-                category=ErrorCategory.MODEL_ERROR,
+                category=LLMErrorCategory.MODEL_ERROR,
                 severity=ErrorSeverity.MEDIUM,
                 provider=provider,
                 original_error=error_type,

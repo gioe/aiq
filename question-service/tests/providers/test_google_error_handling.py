@@ -13,7 +13,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.infrastructure.error_classifier import ErrorCategory, ErrorSeverity
+from app.infrastructure.error_classifier import (
+    ErrorCategory,
+    ErrorSeverity,
+    LLMErrorCategory,
+)
 from app.providers.base import (
     LLMProviderError,
     get_retry_metrics,
@@ -45,7 +49,7 @@ class TestGoogleProviderErrorClassification:
         llm_error = provider._handle_api_error(rate_limit_error)
 
         assert isinstance(llm_error, LLMProviderError)
-        assert llm_error.classified_error.category == ErrorCategory.RATE_LIMIT
+        assert llm_error.classified_error.category == LLMErrorCategory.RATE_LIMIT
         assert llm_error.classified_error.severity == ErrorSeverity.HIGH
         assert llm_error.classified_error.is_retryable is True
         assert llm_error.classified_error.provider == "google"
@@ -126,7 +130,7 @@ class TestGoogleProviderErrorClassification:
         llm_error = provider._handle_api_error(quota_error)
 
         assert isinstance(llm_error, LLMProviderError)
-        assert llm_error.classified_error.category == ErrorCategory.BILLING_QUOTA
+        assert llm_error.classified_error.category == LLMErrorCategory.BILLING_QUOTA
         assert llm_error.classified_error.severity == ErrorSeverity.CRITICAL
         assert llm_error.classified_error.is_retryable is False
 
@@ -137,7 +141,7 @@ class TestGoogleProviderErrorClassification:
         llm_error = provider._handle_api_error(model_error)
 
         assert isinstance(llm_error, LLMProviderError)
-        assert llm_error.classified_error.category == ErrorCategory.MODEL_ERROR
+        assert llm_error.classified_error.category == LLMErrorCategory.MODEL_ERROR
         assert llm_error.classified_error.severity == ErrorSeverity.MEDIUM
         assert llm_error.classified_error.is_retryable is False
 
@@ -280,7 +284,9 @@ class TestGoogleProviderRetryBehavior:
         with pytest.raises(LLMProviderError) as exc_info:
             provider.generate_completion("Test prompt")
 
-        assert exc_info.value.classified_error.category == ErrorCategory.BILLING_QUOTA
+        assert (
+            exc_info.value.classified_error.category == LLMErrorCategory.BILLING_QUOTA
+        )
         assert mock_client.models.generate_content.call_count == 1
 
 
@@ -634,5 +640,7 @@ class TestGoogleProviderInternalMethodsErrorHandling:
                 "Generate JSON", {"type": "object"}
             )
 
-        assert exc_info.value.classified_error.category == ErrorCategory.BILLING_QUOTA
+        assert (
+            exc_info.value.classified_error.category == LLMErrorCategory.BILLING_QUOTA
+        )
         assert mock_client.aio.models.generate_content.call_count == 1

@@ -19,6 +19,7 @@ from app.infrastructure.error_classifier import (
     ClassifiedError,
     ErrorCategory,
     ErrorSeverity,
+    LLMErrorCategory,
 )
 from app.data.models import DifficultyLevel, QuestionType
 
@@ -86,7 +87,7 @@ class TestAlertManager:
             )
 
             error = ClassifiedError(
-                category=ErrorCategory.BILLING_QUOTA,
+                category=LLMErrorCategory.BILLING_QUOTA,
                 severity=ErrorSeverity.CRITICAL,
                 provider="openai",
                 original_error="BillingError",
@@ -109,7 +110,7 @@ class TestAlertManager:
         manager = AlertManager()
 
         error = ClassifiedError(
-            category=ErrorCategory.BILLING_QUOTA,
+            category=LLMErrorCategory.BILLING_QUOTA,
             severity=ErrorSeverity.CRITICAL,
             provider="openai",
             original_error="BillingError",
@@ -179,7 +180,7 @@ class TestAlertManager:
             manager = AlertManager(alert_file_path=alert_file)
 
             error = ClassifiedError(
-                category=ErrorCategory.BILLING_QUOTA,
+                category=LLMErrorCategory.BILLING_QUOTA,
                 severity=ErrorSeverity.CRITICAL,
                 provider="openai",
                 original_error="BillingError",
@@ -837,7 +838,7 @@ class TestDiscordAlerting:
 
     def _billing_error(self, provider: str = "openai") -> ClassifiedError:
         return ClassifiedError(
-            category=ErrorCategory.BILLING_QUOTA,
+            category=LLMErrorCategory.BILLING_QUOTA,
             severity=ErrorSeverity.CRITICAL,
             provider=provider,
             original_error="BillingError",
@@ -974,7 +975,7 @@ class TestDiscordAlerting:
     def test_send_alert_rate_limit_does_not_trigger_discord(self):
         manager = self._make_manager()
         rate_error = ClassifiedError(
-            category=ErrorCategory.RATE_LIMIT,
+            category=LLMErrorCategory.RATE_LIMIT,
             severity=ErrorSeverity.HIGH,
             provider="openai",
             original_error="RateLimitError",

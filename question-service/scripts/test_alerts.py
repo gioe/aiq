@@ -14,8 +14,8 @@ from app.observability.alerting import AlertManager  # noqa: E402
 from app.config.config import settings  # noqa: E402
 from app.infrastructure.error_classifier import (  # noqa: E402
     ClassifiedError,
-    ErrorCategory,
     ErrorSeverity,
+    LLMErrorCategory,
 )
 
 
@@ -55,7 +55,7 @@ def main():
 
     # Create a test billing error
     test_error = ClassifiedError(
-        category=ErrorCategory.BILLING_QUOTA,
+        category=LLMErrorCategory.BILLING_QUOTA,
         severity=ErrorSeverity.CRITICAL,
         provider="openai",
         original_error="InsufficientQuotaError",

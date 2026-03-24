@@ -8,6 +8,7 @@ from app.infrastructure.error_classifier import (
     ClassifiedError,
     ErrorCategory,
     ErrorSeverity,
+    LLMErrorCategory,
 )
 from app.providers.base import (
     MIN_RETRY_DELAY,
@@ -200,7 +201,7 @@ class TestWithRetry:
         """Test function succeeds after one retry."""
         retryable_error = LLMProviderError(
             classified_error=ClassifiedError(
-                category=ErrorCategory.RATE_LIMIT,
+                category=LLMErrorCategory.RATE_LIMIT,
                 severity=ErrorSeverity.HIGH,
                 provider="openai",
                 original_error="RateLimitError",
@@ -271,7 +272,7 @@ class TestWithRetry:
         """Test that backoff delays are applied between retries."""
         retryable_error = LLMProviderError(
             classified_error=ClassifiedError(
-                category=ErrorCategory.RATE_LIMIT,
+                category=LLMErrorCategory.RATE_LIMIT,
                 severity=ErrorSeverity.HIGH,
                 provider="openai",
                 original_error="RateLimitError",
@@ -375,7 +376,7 @@ class TestOpenAIInsufficientQuotaClassification:
         return err
 
     def test_insufficient_quota_classified_as_billing_quota(self):
-        from app.infrastructure.error_classifier import ErrorClassifier, ErrorCategory
+        from app.infrastructure.error_classifier import ErrorClassifier
 
         try:
             from openai import RateLimitError as OpenAIRateLimitError
@@ -395,12 +396,12 @@ class TestOpenAIInsufficientQuotaClassification:
 
         result = ErrorClassifier.classify_error(error, "openai")
 
-        assert result.category == ErrorCategory.BILLING_QUOTA
+        assert result.category == LLMErrorCategory.BILLING_QUOTA
         assert result.is_retryable is False
         assert result.provider == "openai"
 
     def test_regular_rate_limit_still_classified_as_rate_limit(self):
-        from app.infrastructure.error_classifier import ErrorClassifier, ErrorCategory
+        from app.infrastructure.error_classifier import ErrorClassifier
 
         try:
             from openai import RateLimitError as OpenAIRateLimitError
@@ -417,11 +418,11 @@ class TestOpenAIInsufficientQuotaClassification:
 
         result = ErrorClassifier.classify_error(error, "openai")
 
-        assert result.category == ErrorCategory.RATE_LIMIT
+        assert result.category == LLMErrorCategory.RATE_LIMIT
         assert result.is_retryable is True
 
     def test_rate_limit_with_no_body_classified_as_rate_limit(self):
-        from app.infrastructure.error_classifier import ErrorClassifier, ErrorCategory
+        from app.infrastructure.error_classifier import ErrorClassifier
 
         try:
             from openai import RateLimitError as OpenAIRateLimitError
@@ -435,11 +436,11 @@ class TestOpenAIInsufficientQuotaClassification:
 
         result = ErrorClassifier.classify_error(error, "openai")
 
-        assert result.category == ErrorCategory.RATE_LIMIT
+        assert result.category == LLMErrorCategory.RATE_LIMIT
         assert result.is_retryable is True
 
     def test_rate_limit_with_empty_body_classified_as_rate_limit(self):
-        from app.infrastructure.error_classifier import ErrorClassifier, ErrorCategory
+        from app.infrastructure.error_classifier import ErrorClassifier
 
         try:
             from openai import RateLimitError as OpenAIRateLimitError
@@ -453,5 +454,5 @@ class TestOpenAIInsufficientQuotaClassification:
 
         result = ErrorClassifier.classify_error(error, "openai")
 
-        assert result.category == ErrorCategory.RATE_LIMIT
+        assert result.category == LLMErrorCategory.RATE_LIMIT
         assert result.is_retryable is True
