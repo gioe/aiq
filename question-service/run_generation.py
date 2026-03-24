@@ -49,7 +49,7 @@ from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
 )
 from gioe_libs.alerting.alerting import RunSummary  # noqa: E402
-from gioe_libs.aiq_logging import setup_logging  # noqa: E402
+from gioe_libs.structured_logging import setup_logging  # noqa: E402
 from gioe_libs.cron_runner import CronJob  # noqa: E402
 from app.reporting.run_summary import RunSummary as PipelineRunSummary  # noqa: E402
 from app.data.models import DifficultyLevel, QuestionType  # noqa: E402

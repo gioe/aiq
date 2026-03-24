@@ -26,7 +26,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response as StarletteResponse
 
 from app.config.config import settings
-from gioe_libs.aiq_logging import setup_logging  # noqa: E402
+from gioe_libs.structured_logging import setup_logging  # noqa: E402
 
 # Add repo root to path for libs.observability import
 sys.path.insert(0, str(Path(__file__).parent.parent))
