@@ -12,9 +12,9 @@ import sys
 from typing import Any, Dict
 
 from app.core.config import settings
-from gioe_libs.aiq_logging import JSONFormatter  # noqa: F401
-from gioe_libs.aiq_logging import get_logger  # noqa: F401
-from gioe_libs.aiq_logging import request_id_context  # noqa: F401
+from gioe_libs.structured_logging import JSONFormatter  # noqa: F401
+from gioe_libs.structured_logging import get_logger  # noqa: F401
+from gioe_libs.structured_logging import request_id_context  # noqa: F401
 
 
 def setup_logging() -> None:

@@ -13,7 +13,7 @@ from app.core.validators import (
     EmailValidator,
     validate_no_sql_injection,
 )
-from gioe_libs.domain_types import EducationLevel
+from app.models.models import EducationLevel
 
 
 class UserRegister(BaseModel):

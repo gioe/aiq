@@ -6,7 +6,8 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime, timezone
 
 from app.core.validators import StringSanitizer, validate_no_sql_injection
-from gioe_libs.domain_types import FeedbackCategory, FeedbackStatus
+from app.models.models import FeedbackCategory
+from gioe_libs.domain_types import FeedbackStatus
 
 
 class FeedbackSubmitRequest(BaseModel):

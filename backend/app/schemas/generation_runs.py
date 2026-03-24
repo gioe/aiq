@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, List
 
 from pydantic import BaseModel, Field
 from datetime import datetime
-from gioe_libs.domain_types import GenerationRunStatus
+from app.models.models import GenerationRunStatus
 
 
 class ProviderMetrics(BaseModel):
