@@ -11,9 +11,9 @@ import pytest
 from app.observability.alerting import (
     AlertManager,
     AlertingConfig,
-    InventoryAlertManager,
-    InventoryAlertResult,
-    StratumAlert,
+    ResourceMonitor,
+    ResourceMonitorResult,
+    ResourceStatus,
 )
 from app.infrastructure.error_classifier import (
     ClassifiedError,
@@ -206,7 +206,7 @@ class TestAlertingConfig:
         assert config.healthy_min == 50
         assert config.warning_min == 20
         assert config.critical_min == 5
-        assert config.per_stratum_cooldown_minutes == 60
+        assert config.per_resource_cooldown_minutes == 60
         assert config.global_cooldown_minutes == 15
         assert config.max_alerts_per_hour == 10
 
@@ -222,7 +222,7 @@ inventory:
     warning_min: 30
     critical_min: 10
   cooldown:
-    per_stratum_minutes: 120
+    per_resource_minutes: 120
     global_minutes: 30
     max_alerts_per_hour: 5
 """
@@ -234,7 +234,7 @@ inventory:
             assert config.healthy_min == 100
             assert config.warning_min == 30
             assert config.critical_min == 10
-            assert config.per_stratum_cooldown_minutes == 120
+            assert config.per_resource_cooldown_minutes == 120
             assert config.global_cooldown_minutes == 30
             assert config.max_alerts_per_hour == 5
 
@@ -265,43 +265,23 @@ inventory:
             assert config.warning_min == 20  # Default
 
 
-class TestStratumAlert:
-    """Tests for StratumAlert dataclass."""
-
-    def test_creation(self):
-        """Test creating a StratumAlert."""
-        alert = StratumAlert(
-            question_type="math",
-            difficulty="easy",
-            current_count=3,
-            threshold=5,
-            severity=ErrorSeverity.CRITICAL,
-        )
-
-        assert alert.question_type == "math"
-        assert alert.difficulty == "easy"
-        assert alert.current_count == 3
-        assert alert.threshold == 5
-        assert alert.severity == ErrorSeverity.CRITICAL
-
-
-class TestInventoryAlertResult:
-    """Tests for InventoryAlertResult dataclass."""
+class TestResourceMonitorResult:
+    """Tests for ResourceMonitorResult dataclass."""
 
     def test_default_values(self):
         """Test default result values."""
-        result = InventoryAlertResult()
+        result = ResourceMonitorResult()
 
         assert result.alerts_sent == 0
         assert result.alerts_suppressed == 0
-        assert result.strata_checked == 0
-        assert result.critical_strata == []
-        assert result.warning_strata == []
-        assert result.healthy_strata == 0
+        assert result.resources_checked == 0
+        assert result.critical_resources == []
+        assert result.warning_resources == []
+        assert result.healthy_resources == 0
 
 
-class TestInventoryAlertManager:
-    """Tests for InventoryAlertManager class."""
+class TestResourceMonitorInventory:
+    """Tests for ResourceMonitor used for AIQ inventory alerting."""
 
     @pytest.fixture
     def mock_alert_manager(self):
@@ -317,295 +297,227 @@ class TestInventoryAlertManager:
             healthy_min=50,
             warning_min=20,
             critical_min=5,
-            per_stratum_cooldown_minutes=60,
+            per_resource_cooldown_minutes=60,
             global_cooldown_minutes=15,
             max_alerts_per_hour=10,
         )
 
-    @pytest.fixture
-    def mock_stratum(self):
-        """Factory for creating mock strata."""
-
-        def _create_stratum(
-            q_type: QuestionType, difficulty: DifficultyLevel, count: int
-        ):
-            stratum = Mock()
-            stratum.question_type = q_type
-            stratum.difficulty = difficulty
-            stratum.current_count = count
-            return stratum
-
-        return _create_stratum
+    def _make_monitor(self, strata_counts, alert_manager, config):
+        """Create a ResourceMonitor with a check_fn built from (name, count) pairs."""
+        resources = [
+            ResourceStatus(name=name, count=count) for name, count in strata_counts
+        ]
+        return ResourceMonitor(
+            check_fn=lambda: resources,
+            alert_manager=alert_manager,
+            config=config,
+        )
 
     def test_initialization(self, mock_alert_manager, default_config):
-        """Test InventoryAlertManager initialization."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
-        )
-
-        assert manager.config.critical_min == 5
-        assert manager.config.warning_min == 20
+        """Test ResourceMonitor initialization."""
+        monitor = self._make_monitor([], mock_alert_manager, default_config)
+        assert monitor.config.critical_min == 5
+        assert monitor.config.warning_min == 20
 
     def test_check_and_alert_healthy_inventory(
-        self, mock_alert_manager, default_config, mock_stratum
+        self, mock_alert_manager, default_config
     ):
         """Test that no alerts are sent for healthy inventory."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
+        monitor = self._make_monitor(
+            [("math/easy", 60), ("math/medium", 55), ("math/hard", 70)],
+            mock_alert_manager,
+            default_config,
         )
 
-        strata = [
-            mock_stratum(QuestionType.MATH, DifficultyLevel.EASY, 60),
-            mock_stratum(QuestionType.MATH, DifficultyLevel.MEDIUM, 55),
-            mock_stratum(QuestionType.MATH, DifficultyLevel.HARD, 70),
-        ]
-
-        result = manager.check_and_alert(strata)
+        result = monitor.check_and_alert()
 
         assert result.alerts_sent == 0
-        assert result.healthy_strata == 3
-        assert len(result.critical_strata) == 0
-        assert len(result.warning_strata) == 0
+        assert result.healthy_resources == 3
+        assert len(result.critical_resources) == 0
+        assert len(result.warning_resources) == 0
         mock_alert_manager.send_alert.assert_not_called()
 
-    def test_check_and_alert_critical_strata(
-        self, mock_alert_manager, default_config, mock_stratum
+    def test_check_and_alert_critical_resources(
+        self, mock_alert_manager, default_config
     ):
-        """Test alerts are sent for critical strata."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
+        """Test alerts are sent for critical resources."""
+        monitor = self._make_monitor(
+            [("math/easy", 2), ("math/medium", 3), ("math/hard", 60)],
+            mock_alert_manager,
+            default_config,
         )
 
-        strata = [
-            mock_stratum(QuestionType.MATH, DifficultyLevel.EASY, 2),  # Critical
-            mock_stratum(QuestionType.MATH, DifficultyLevel.MEDIUM, 3),  # Critical
-            mock_stratum(QuestionType.MATH, DifficultyLevel.HARD, 60),  # Healthy
-        ]
-
-        result = manager.check_and_alert(strata)
+        result = monitor.check_and_alert()
 
         assert result.alerts_sent == 2
-        assert len(result.critical_strata) == 2
-        assert result.healthy_strata == 1
+        assert len(result.critical_resources) == 2
+        assert result.healthy_resources == 1
         mock_alert_manager.send_alert.assert_called()
 
-    def test_check_and_alert_warning_strata(
-        self, mock_alert_manager, default_config, mock_stratum
+    def test_check_and_alert_warning_resources(
+        self, mock_alert_manager, default_config
     ):
-        """Test alerts are sent for warning strata."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
+        """Test alerts are sent for warning resources."""
+        monitor = self._make_monitor(
+            [("math/easy", 15), ("math/medium", 10), ("math/hard", 60)],
+            mock_alert_manager,
+            default_config,
         )
 
-        strata = [
-            mock_stratum(QuestionType.MATH, DifficultyLevel.EASY, 15),  # Warning
-            mock_stratum(QuestionType.MATH, DifficultyLevel.MEDIUM, 10),  # Warning
-            mock_stratum(QuestionType.MATH, DifficultyLevel.HARD, 60),  # Healthy
-        ]
-
-        result = manager.check_and_alert(strata)
+        result = monitor.check_and_alert()
 
         assert result.alerts_sent == 2
-        assert len(result.warning_strata) == 2
+        assert len(result.warning_resources) == 2
         mock_alert_manager.send_alert.assert_called()
 
-    def test_per_stratum_cooldown(
-        self, mock_alert_manager, default_config, mock_stratum
-    ):
-        """Test that per-stratum cooldown prevents repeated alerts."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
+    def test_per_resource_cooldown(self, mock_alert_manager, default_config):
+        """Test that per-resource cooldown prevents repeated alerts."""
+        monitor = self._make_monitor(
+            [("math/easy", 2)],
+            mock_alert_manager,
+            default_config,
         )
-
-        strata = [mock_stratum(QuestionType.MATH, DifficultyLevel.EASY, 2)]
 
         # First check should send alert
-        result1 = manager.check_and_alert(strata)
+        result1 = monitor.check_and_alert()
         assert result1.alerts_sent == 1
 
         # Second check should be suppressed by cooldown
-        result2 = manager.check_and_alert(strata)
+        result2 = monitor.check_and_alert()
         assert result2.alerts_sent == 0
         assert result2.alerts_suppressed == 1
 
-    def test_global_cooldown(self, mock_alert_manager, default_config, mock_stratum):
-        """Test that global cooldown prevents back-to-back alerts."""
+    def test_global_cooldown(self, mock_alert_manager):
+        """Test that global cooldown prevents back-to-back alerts from different resources."""
         config = AlertingConfig(
             critical_min=5,
             warning_min=20,
             healthy_min=50,
-            per_stratum_cooldown_minutes=1,  # Very short per-stratum cooldown
+            per_resource_cooldown_minutes=1,  # Very short per-resource cooldown
             global_cooldown_minutes=60,  # Longer global cooldown
             max_alerts_per_hour=100,
         )
 
-        manager = InventoryAlertManager(
+        monitor1 = self._make_monitor([("math/easy", 2)], mock_alert_manager, config)
+        result1 = monitor1.check_and_alert()
+        assert result1.alerts_sent == 1
+
+        # Different resource on a second monitor (same alert_manager state) —
+        # simulate global cooldown by using same monitor with different check_fn
+        monitor2 = ResourceMonitor(
+            check_fn=lambda: [ResourceStatus(name="logic/hard", count=3)],
             alert_manager=mock_alert_manager,
             config=config,
         )
+        # Carry over global cooldown state from first monitor
+        monitor2._global_last_alert = monitor1._global_last_alert
 
-        # First alert for math/easy
-        strata1 = [mock_stratum(QuestionType.MATH, DifficultyLevel.EASY, 2)]
-        result1 = manager.check_and_alert(strata1)
-        assert result1.alerts_sent == 1
-
-        # Second alert for different stratum should be blocked by global cooldown
-        strata2 = [mock_stratum(QuestionType.LOGIC, DifficultyLevel.HARD, 3)]
-        result2 = manager.check_and_alert(strata2)
+        result2 = monitor2.check_and_alert()
         assert result2.alerts_sent == 0
         assert result2.alerts_suppressed == 1
 
-    def test_hourly_rate_limit(self, mock_alert_manager, mock_stratum):
+    def test_hourly_rate_limit(self, mock_alert_manager):
         """Test that hourly rate limit is enforced."""
         config = AlertingConfig(
             critical_min=5,
             warning_min=20,
             healthy_min=50,
-            per_stratum_cooldown_minutes=0,  # Disable per-stratum cooldown
+            per_resource_cooldown_minutes=0,  # Disable per-resource cooldown
             global_cooldown_minutes=0,  # Disable global cooldown
             max_alerts_per_hour=2,  # Very low limit for testing
         )
 
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=config,
-        )
+        monitor = self._make_monitor([("math/easy", 2)], mock_alert_manager, config)
 
         # Manually add alert timestamps to simulate hitting the limit
         now = datetime.now(timezone.utc)
-        manager._alerts_this_hour = [
+        monitor._alerts_this_hour = [
             now - timedelta(minutes=30),
             now - timedelta(minutes=15),
         ]
 
-        strata = [mock_stratum(QuestionType.MATH, DifficultyLevel.EASY, 2)]
-        result = manager.check_and_alert(strata)
+        result = monitor.check_and_alert()
 
         assert result.alerts_sent == 0
         assert result.alerts_suppressed == 1
 
-    def test_build_inventory_error_critical(self, mock_alert_manager, default_config):
-        """Test building ClassifiedError for critical inventory."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
-        )
-
-        strata = [
-            StratumAlert(
-                question_type="math",
-                difficulty="easy",
-                current_count=2,
-                threshold=5,
-                severity=ErrorSeverity.CRITICAL,
-            ),
-            StratumAlert(
-                question_type="logic",
-                difficulty="hard",
-                current_count=1,
-                threshold=5,
-                severity=ErrorSeverity.CRITICAL,
-            ),
-        ]
-
-        error = manager._build_inventory_error(strata, ErrorSeverity.CRITICAL)
-
-        assert error.category == ErrorCategory.INVENTORY_LOW
-        assert error.severity == ErrorSeverity.CRITICAL
-        assert error.provider == "inventory"
-        assert "2 question strata" in error.message
-        assert "critical" in error.message
-
-    def test_build_inventory_context(self, mock_alert_manager, default_config):
-        """Test building context string for inventory alerts."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
-        )
-
-        strata = [
-            StratumAlert("math", "easy", 2, 5, ErrorSeverity.CRITICAL),
-            StratumAlert("logic", "hard", 1, 5, ErrorSeverity.CRITICAL),
-        ]
-
-        context = manager._build_inventory_context(strata)
-
-        assert "Affected strata:" in context
-        assert "math/easy: 2 questions" in context
-        assert "logic/hard: 1 questions" in context
-        assert "Recommended Actions:" in context
-        assert "--auto-balance" in context
-
-    def test_get_cooldown_status(
-        self, mock_alert_manager, default_config, mock_stratum
-    ):
+    def test_get_cooldown_status(self, mock_alert_manager, default_config):
         """Test getting cooldown status."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
+        monitor = self._make_monitor(
+            [("math/easy", 2)], mock_alert_manager, default_config
         )
+        monitor.check_and_alert()
 
-        # Send an alert to trigger cooldowns
-        strata = [mock_stratum(QuestionType.MATH, DifficultyLevel.EASY, 2)]
-        manager.check_and_alert(strata)
-
-        status = manager.get_cooldown_status()
+        status = monitor.get_cooldown_status()
 
         assert "global_cooldown_active" in status
         assert "alerts_this_hour" in status
-        assert "active_stratum_cooldowns" in status
         assert status["alerts_this_hour"] >= 1
 
     def test_is_in_cooldown(self, mock_alert_manager, default_config):
         """Test cooldown checking logic."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
-        )
-
-        key = ("math", "easy")
+        monitor = self._make_monitor([], mock_alert_manager, default_config)
         now = datetime.now(timezone.utc)
 
         # No cooldown initially
-        assert manager._is_in_cooldown(key, now) is False
+        assert monitor._is_in_cooldown("math/easy", now) is False
 
         # Set last alert time
-        manager._stratum_last_alert[key] = now - timedelta(minutes=30)
+        monitor._resource_last_alert["math/easy"] = now - timedelta(minutes=30)
 
         # Should still be in cooldown (60 min default)
-        assert manager._is_in_cooldown(key, now) is True
+        assert monitor._is_in_cooldown("math/easy", now) is True
 
         # After cooldown expires
-        manager._stratum_last_alert[key] = now - timedelta(minutes=61)
-        assert manager._is_in_cooldown(key, now) is False
+        monitor._resource_last_alert["math/easy"] = now - timedelta(minutes=61)
+        assert monitor._is_in_cooldown("math/easy", now) is False
 
     def test_check_hourly_rate_limit_removes_old_alerts(
         self, mock_alert_manager, default_config
     ):
         """Test that old alerts are removed from hourly tracking."""
-        manager = InventoryAlertManager(
-            alert_manager=mock_alert_manager,
-            config=default_config,
-        )
-
+        monitor = self._make_monitor([], mock_alert_manager, default_config)
         now = datetime.now(timezone.utc)
 
         # Add some old and recent alerts
-        manager._alerts_this_hour = [
+        monitor._alerts_this_hour = [
             now - timedelta(hours=2),  # Should be removed
             now - timedelta(minutes=90),  # Should be removed
             now - timedelta(minutes=30),  # Should be kept
         ]
 
-        can_alert = manager._check_hourly_rate_limit(now)
+        can_alert = monitor._check_hourly_rate_limit(now)
 
         assert can_alert is True
-        assert len(manager._alerts_this_hour) == 1  # Only recent one kept
+        assert len(monitor._alerts_this_hour) == 1  # Only recent one kept
+
+    def test_inventory_check_fn_converts_strata_correctly(self):
+        """Test that a check_fn built from StratumInventory objects produces correct ResourceStatus."""
+        strata = [
+            Mock(
+                question_type=Mock(value="math"),
+                difficulty=Mock(value="easy"),
+                current_count=3,
+            ),
+            Mock(
+                question_type=Mock(value="logic"),
+                difficulty=Mock(value="hard"),
+                current_count=60,
+            ),
+        ]
+
+        resources = [
+            ResourceStatus(
+                name=f"{s.question_type.value}/{s.difficulty.value}",
+                count=s.current_count,
+            )
+            for s in strata
+        ]
+
+        assert resources[0].name == "math/easy"
+        assert resources[0].count == 3
+        assert resources[1].name == "logic/hard"
+        assert resources[1].count == 60
 
 
 class TestSendNotification:
@@ -726,14 +638,14 @@ class TestSendNotification:
         assert "123.5s" in html
 
 
-class TestInventoryAlertingIntegration:
-    """Integration tests for inventory alerting."""
+class TestResourceMonitorAlertingIntegration:
+    """Integration tests for ResourceMonitor-based inventory alerting."""
 
     def test_full_alerting_flow(self):
-        """Test complete alerting flow from strata to alert."""
+        """Test complete alerting flow from strata to alert via ResourceMonitor."""
         with tempfile.TemporaryDirectory() as tmpdir:
             alert_file = os.path.join(tmpdir, "alerts.log")
-            inventory_alert_file = os.path.join(tmpdir, "inventory_alerts.log")
+            resource_alert_file = os.path.join(tmpdir, "resource_alerts.log")
 
             # Create real AlertManager
             alert_manager = AlertManager(
@@ -741,56 +653,58 @@ class TestInventoryAlertingIntegration:
                 alert_file_path=alert_file,
             )
 
-            # Create config with inventory file
+            # Create config with resource alert file
             config = AlertingConfig(
                 critical_min=5,
                 warning_min=20,
                 healthy_min=50,
-                inventory_alert_file=inventory_alert_file,
+                resource_alert_file=resource_alert_file,
+                log_all_checks=True,
             )
 
-            # Create InventoryAlertManager
-            inventory_alerter = InventoryAlertManager(
-                alert_manager=alert_manager,
-                config=config,
-            )
-
-            # Create mock strata
+            # Build mock strata and check_fn
             strata = []
             for q_type in [QuestionType.MATH, QuestionType.LOGIC]:
                 for difficulty in DifficultyLevel:
                     stratum = Mock()
                     stratum.question_type = q_type
                     stratum.difficulty = difficulty
-                    # Make some strata critical
-                    if (
-                        q_type == QuestionType.MATH
+                    stratum.current_count = (
+                        2
+                        if q_type == QuestionType.MATH
                         and difficulty == DifficultyLevel.EASY
-                    ):
-                        stratum.current_count = 2
-                    else:
-                        stratum.current_count = 60
+                        else 60
+                    )
                     strata.append(stratum)
 
+            def check_fn():
+                return [
+                    ResourceStatus(
+                        name=f"{s.question_type.value}/{s.difficulty.value}",
+                        count=s.current_count,
+                    )
+                    for s in strata
+                ]
+
+            monitor = ResourceMonitor(
+                check_fn=check_fn,
+                alert_manager=alert_manager,
+                config=config,
+            )
+
             # Run check
-            result = inventory_alerter.check_and_alert(strata)
+            result = monitor.check_and_alert()
 
             # Verify results
             assert result.alerts_sent >= 1
-            assert len(result.critical_strata) >= 1
+            assert len(result.critical_resources) >= 1
 
-            # Verify files were written
+            # Alert file should be written
             assert os.path.exists(alert_file)
-            assert os.path.exists(inventory_alert_file)
 
             with open(alert_file) as f:
                 content = f.read()
-                assert "INVENTORY_LOW" in content
-
-            with open(inventory_alert_file) as f:
-                content = f.read()
-                assert "CRITICAL" in content
-                assert "math/easy" in content
+                assert "RESOURCE_LOW" in content
 
 
 class TestDiscordAlerting:

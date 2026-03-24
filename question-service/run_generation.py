@@ -41,7 +41,8 @@ from app import (  # noqa: E402
 from app.observability.alerting import (  # noqa: E402
     AlertManager,
     AlertingConfig,
-    InventoryAlertManager,
+    ResourceMonitor,
+    ResourceStatus,
 )
 from app.observability.alerting_adapter import to_run_summary  # noqa: E402
 from app.config.config import settings  # noqa: E402
@@ -1113,25 +1114,38 @@ def main() -> int:
                 if not args.skip_inventory_alerts:
                     logger.info("\nChecking inventory levels for alerting...")
                     alerting_config = AlertingConfig.from_yaml(args.alerting_config)
-                    inventory_alerter = InventoryAlertManager(
+
+                    strata_snapshot = analysis.strata
+
+                    def inventory_check_fn() -> list:
+                        return [
+                            ResourceStatus(
+                                name=f"{s.question_type.value}/{s.difficulty.value}",
+                                count=s.current_count,
+                            )
+                            for s in strata_snapshot
+                        ]
+
+                    resource_monitor = ResourceMonitor(
+                        check_fn=inventory_check_fn,
                         alert_manager=alert_manager,
                         config=alerting_config,
                     )
 
-                    alert_result = inventory_alerter.check_and_alert(analysis.strata)
+                    alert_result = resource_monitor.check_and_alert()
 
                     if alert_result.alerts_sent > 0:
                         logger.warning(
                             f"Inventory alerts sent: {alert_result.alerts_sent} strata below threshold"
                         )
-                    if alert_result.critical_strata:
+                    if alert_result.critical_resources:
                         logger.warning(
-                            f"CRITICAL: {len(alert_result.critical_strata)} strata have "
+                            f"CRITICAL: {len(alert_result.critical_resources)} strata have "
                             f"critically low inventory (< {alerting_config.critical_min})"
                         )
-                    if alert_result.warning_strata:
+                    if alert_result.warning_resources:
                         logger.info(
-                            f"WARNING: {len(alert_result.warning_strata)} strata have "
+                            f"WARNING: {len(alert_result.warning_resources)} strata have "
                             f"low inventory (< {alerting_config.warning_min})"
                         )
                 else:
