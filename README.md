@@ -19,7 +19,7 @@ aiq/
 ├── .claude/             # Claude Code config, skills, and scripts
 ├── .github/             # CI/CD workflows, PR template, Dependabot
 ├── README.md            # This file
-└── aiq_types/           # (new - needs description)
+└── aiq_types/           # Shared Python domain types (QuestionType, etc.)
 ```
 
 ## Components
