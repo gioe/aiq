@@ -39,6 +39,13 @@ WORKDIR /app/question-service
 # Set PYTHONPATH to include question-service (for app imports) and /app (for aiq_types)
 ENV PYTHONPATH=/app/question-service:/app
 
+# Use delta temporality for OTLP metric export.
+# This service runs as a short-lived batch job: cumulative counters cause Mimir to
+# reject metrics with "invalid temporality and type combination" because the
+# start_time_unix_nano resets on every run. Delta temporality sends per-run deltas
+# that Grafana Cloud's OTLP gateway aggregates correctly into cumulative Prometheus counters.
+ENV OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta
+
 # Create non-root user
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
