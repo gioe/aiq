@@ -1,4 +1,4 @@
-"""Backend logging configuration — thin shim over gioe_libs.aiq_logging.
+"""Backend logging configuration — thin shim over gioe_libs.structured_logging.
 
 JSONFormatter, get_logger, and request_id_context come from gioe_libs so
 both services share identical structured-log output.  setup_logging() here is
