@@ -1954,6 +1954,30 @@ def main() -> int:
                 stats.get("duration_seconds", 0.0),
             )
 
+            loss_threshold = settings.generation_loss_threshold_pct
+            if _run_stats["generation_loss_pct"] > loss_threshold:
+                logger.warning(
+                    "GENERATION_LOSS_ALERT generation_loss_pct=%.1f exceeds threshold=%.1f "
+                    "requested=%d generated=%d",
+                    _run_stats["generation_loss_pct"],
+                    loss_threshold,
+                    _run_stats["questions_requested"],
+                    _run_stats["questions_generated"],
+                )
+                alert_manager.send_notification(
+                    title="Generation Loss Alert",
+                    fields=[
+                        ("Requested", _run_stats["questions_requested"]),
+                        ("Generated", _run_stats["questions_generated"]),
+                        (
+                            "Loss",
+                            f"{_run_stats['generation_loss']} ({_run_stats['generation_loss_pct']}%)",
+                        ),
+                        ("Threshold", f"{loss_threshold}%"),
+                    ],
+                    severity="warning",
+                )
+
             return run_summary
 
         finally:
