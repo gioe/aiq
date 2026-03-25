@@ -1955,7 +1955,7 @@ def main() -> int:
             )
 
             loss_threshold = settings.generation_loss_threshold_pct
-            if _run_stats["generation_loss_pct"] > loss_threshold:
+            if not args.dry_run and _run_stats["generation_loss_pct"] > loss_threshold:
                 logger.warning(
                     "GENERATION_LOSS_ALERT generation_loss_pct=%.1f exceeds threshold=%.1f "
                     "requested=%d generated=%d",
