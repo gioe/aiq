@@ -41,7 +41,7 @@ psutil==5.9.8  # Process and system monitoring
 redis==5.0.1
 
 # Shared libraries
-gioe-libs[domain-types] @ git+https://github.com/gioe/python-libs.git@b3ec03763065c126c0c4f3ed74c0889f1268f3d7
+gioe-libs[domain-types] @ git+https://github.com/gioe/python-libs.git@c2c0e75c6b23373ac5f93a7b5e5e3428bc08c874
 
 # Error Tracking and Observability
 sentry-sdk[fastapi,opentelemetry]>=2.0.0

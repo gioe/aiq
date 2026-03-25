@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     discord_webhook_url: Optional[str] = (
         None  # Discord webhook for circuit breaker / quota alerts
     )
+    resend_api_key: Optional[str] = None  # Resend HTTP API key (alternative to SMTP)
 
     # Run Reporter Configuration
     enable_run_reporting: bool = True  # Enable/disable reporting to backend API
