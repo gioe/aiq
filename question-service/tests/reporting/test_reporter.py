@@ -126,8 +126,8 @@ class TestDetermineStatus:
         status = reporter._determine_status(3, {})
         assert status == "partial_failure"
 
-    def test_status_failed_config_error(self, reporter):
-        """Test status determination for exit code 1."""
+    def test_status_failed_exit_code_1(self, reporter):
+        """Test status determination for exit code 1 (CronJob unhandled exception)."""
         status = reporter._determine_status(1, {})
         assert status == "failed"
 

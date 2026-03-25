@@ -171,13 +171,13 @@ class RunReporter:
         """Determine run status based on exit code and metrics.
 
         Exit codes from run_generation.py:
-            0: Success
-            1: Configuration error
-            2: No questions generated
-            3: Partial failure (some questions generated)
-            4: Database error
-            5: Unknown error
-            6: Pipeline error
+            0: Success (EXIT_SUCCESS)
+            2: Complete failure — no questions generated (EXIT_COMPLETE_FAILURE)
+            3: Partial failure — some questions generated (EXIT_PARTIAL_FAILURE / EXIT_CODE_PARTIAL_FAILURE)
+            4: Database error (EXIT_DATABASE_ERROR)
+            5: Billing/quota error (EXIT_BILLING_ERROR)
+            6: Authentication error (EXIT_AUTH_ERROR)
+            1: Unhandled exception recorded by CronJob (no named constant)
 
         Args:
             exit_code: Exit code from the generation run
