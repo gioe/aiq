@@ -111,7 +111,21 @@ Map answers to domain and agent suggestions using these rules. Evaluate all thre
 
 Always include `general` agent regardless of answers.
 
-Once you have a proposed domain and agent list, proceed to **Step 3** and **Step 4** using these suggestions. In Step 3, substitute the user's stated plans as the evidence string (e.g., "planned React + FastAPI stack" instead of a scanned directory path).
+Also derive a `project_type` key from question 1 using this table and store it for Step 6:
+
+| Answer | `project_type` |
+|---|---|
+| web app | `web_app` |
+| mobile app | `ios_app` |
+| CLI tool | `cli_tool` |
+| API / backend service | `python_service` |
+| data pipeline / ML | `data_pipeline` |
+| documentation site | `docs_site` |
+| library / package | `library` |
+| monorepo | `monorepo` |
+| other | `null` |
+
+Once you have a proposed domain, agent list, and `project_type`, proceed to **Step 3** and **Step 4** using these suggestions. In Step 3, substitute the user's stated plans as the evidence string (e.g., "planned React + FastAPI stack" instead of a scanned directory path).
 
 ## Step 3: Suggest and Confirm Domains
 
@@ -141,6 +155,20 @@ Before presenting suggestions, frame the concept for the user:
 > For example, in tusk itself, `cli` is a structural domain meaning "the bash dispatcher (`bin/tusk`)". It's not named `bash` — the language is irrelevant; the structure is what matters.
 
 Present each as `- **name** — evidence found`. User confirms, adds, removes, or empties to disable validation.
+
+## Step 3b: Scaffold Domain Reviewer Prompts
+
+After domains are confirmed in Step 3, run:
+
+```bash
+tusk scaffold-reviewer-prompts
+```
+
+This creates a stub `REVIEWER-PROMPT-<domain>.md` in `.claude/skills/review-commits/` for each configured domain. Each stub prepends a domain-specific focus comment to the base `REVIEWER-PROMPT.md` content. Existing files are left untouched (idempotent). The command exits 0 silently if the `review-commits` skill directory does not exist.
+
+If the returned JSON `created` array is non-empty, print a one-line summary:
+
+> Created N domain reviewer prompt(s): REVIEWER-PROMPT-api.md, REVIEWER-PROMPT-frontend.md, ...
 
 ## Step 4: Suggest and Confirm Agents
 
@@ -196,75 +224,55 @@ Store the confirmed value (empty string if skipped) for Step 6.
 
 ## Step 6: Write Config and Initialize
 
-Read the existing config first to preserve any custom review settings:
+Call `tusk init-write-config` with the values confirmed in the previous steps. This command reads the existing config, merges only the keys you provide (carrying forward everything else), backs up the config, writes the new file, runs `tusk init --force`, and restores the backup on failure — all atomically.
+
+Build the call using the values confirmed in Steps 3–5:
 
 ```bash
-cat "$(tusk path | xargs dirname)/config.json" 2>/dev/null
+tusk init-write-config \
+  --domains '<json_array_of_confirmed_domains>' \
+  --agents '<json_object_of_confirmed_agents>' \
+  --task-types '<json_array_of_confirmed_task_types>' \
+  --test-command '<confirmed_test_command_or_empty_string>' \
+  --project-type '<project_type_from_step_2e_or_empty_string>'
 ```
 
-Assemble `tusk/config.json`, carrying forward values from the existing config for any key the user has not explicitly changed (do not reset to defaults):
-
-```json
-{
-  "domains": ["<confirmed>"],
-  "task_types": ["<confirmed>"],
-  "statuses": ["To Do", "In Progress", "Done"],
-  "priorities": ["Highest", "High", "Medium", "Low", "Lowest"],
-  "closed_reasons": ["completed", "expired", "wont_do", "duplicate"],
-  "complexity": ["XS", "S", "M", "L", "XL"],
-  "blocker_types": ["data", "approval", "infra", "external"],
-  "criterion_types": ["manual", "code", "test", "file"],
-  "agents": { "<confirmed>" },
-  "dupes": {
-    "strip_prefixes": ["Deferred", "Enhancement", "Optional"],
-    "check_threshold": 0.82,
-    "similar_threshold": 0.6
-  },
-  "review": {
-    "mode": "<from existing config, or \"disabled\" if none>",
-    "max_passes": 2,
-    "reviewers": "<from existing config, or [] if none>"
-  },
-  "review_categories": ["must_fix", "suggest", "defer"],
-  "review_severities": ["critical", "major", "minor"],
-  "merge": {
-    "mode": "<from existing config, or \"local\" if none>"
-  },
-  "test_command": "<confirmed or empty>"
-}
-```
-
-For any top-level key the user has not explicitly changed in this wizard, read the value from the existing config and carry it forward — only use the defaults shown above if no existing config is present.
-
-Before writing the new config, back it up unconditionally (covers both zero-task and non-zero-task cases):
+**Auto-populated `project_libs`:** When `--project-type` is a known built-in type (`ios_app` or `python_service`) and `--project-libs` is not passed, the command automatically merges the matching `project_libs` entry from `config.default.json` into the config, preserving any other existing `project_libs` entries. No extra flag is needed for the default libs. To override or extend, pass `--project-libs` explicitly — it takes full precedence over auto-population:
 
 ```bash
-CONFIG_DIR=$(tusk path | xargs dirname)
-DB_PATH=$(tusk path)
-[ -f "${CONFIG_DIR}/config.json" ] && cp "${CONFIG_DIR}/config.json" "${CONFIG_DIR}/config.json.bak"
+tusk init-write-config \
+  ... \
+  --project-type 'ios_app' \
+  --project-libs '{"ios_app":{"repo":"my-org/my-libs","ref":"main"}}'
 ```
 
-Write the file (resolve path via `tusk path`), then run init and check the exit code:
+For example, if domains are `["api", "frontend"]`, agents are `{"backend": {"model": "sonnet"}}`, task types are `["bug", "feature", "docs"]`, test command is `pytest`, and project type is `python_service`:
 
 ```bash
-tusk init --force
+tusk init-write-config \
+  --domains '["api","frontend"]' \
+  --agents '{"backend":{"model":"sonnet"}}' \
+  --task-types '["bug","feature","docs"]' \
+  --test-command 'pytest' \
+  --project-type 'python_service'
 ```
 
-**On non-zero exit (failure):**
+This automatically sets `project_libs.python_service` from the built-in defaults. Step 8.5 will use this to seed bootstrap tasks.
 
-1. Restore backups for both config and DB (if available):
-   ```bash
-   [ -f "${CONFIG_DIR}/config.json.bak" ] && cp "${CONFIG_DIR}/config.json.bak" "${CONFIG_DIR}/config.json" && echo "Config restored from backup."
-   [ -f "${DB_PATH}.bak" ] && cp "${DB_PATH}.bak" "${DB_PATH}" && echo "DB restored from backup."
-   ```
-2. Inform the user:
-   > **`tusk init --force` failed.** The database may be in an inconsistent state.
+Pass only the flags for values the user explicitly confirmed. Keys not passed are carried forward from the existing config unchanged. To clear `test_command`, pass `--test-command ''`. To set `project_type` to null, pass `--project-type ''`.
+
+The command returns JSON: `{"success": true, "config_path": "...", "backed_up": true}` on success.
+
+**On `"success": false`:** The `error` field contains the failure reason. The config is restored from backup if one existed.
+
+1. Surface the error to the user:
+   > **`tusk init --force` failed:** `<error>`
    >
    > - **Config**: restored to previous state (if a backup existed), or left as newly written (if no backup).
-   > - **DB** (`${DB_PATH}`): restored from backup if one existed, otherwise in unknown state. Re-run `/tusk-init` once the error above is resolved.
-3. Stop — do not proceed to Step 7.
+   > - Re-run `/tusk-init` once the error above is resolved.
+2. Stop — do not proceed to Step 7.
 
-**On success:** Print summary: confirmed domains, agents, task types, DB reinitialized.
+**On `"success": true`:** Print summary: confirmed domains, agents, task types, DB reinitialized.
 
 ## Step 7: CLAUDE.md Snippet
 
@@ -292,6 +300,57 @@ This scans the project root for `TODO`, `FIXME`, `HACK`, and `XXX` comments, exc
   ```
   Read file: <base_directory>/REFERENCE.md
   ```
+
+## Step 8.5: Seed Tasks from Project Lib Bootstraps (Optional)
+
+Fetch bootstrap data for all configured project libs in one call:
+
+```bash
+tusk init-fetch-bootstrap
+```
+
+This reads `project_libs` from config, fetches each lib's `tusk-bootstrap.json` from GitHub, validates required keys, and returns:
+
+```json
+{
+  "libs": [
+    { "name": "ios_app", "repo": "gioe/ios-libs", "tasks": [...], "error": null },
+    { "name": "bad_lib", "repo": "owner/repo", "tasks": [], "error": "404: tusk-bootstrap.json not found" }
+  ]
+}
+```
+
+If `libs` is empty, skip this step silently.
+
+For each lib entry:
+
+- If `error` is non-null, print a one-line warning and skip:
+  > Warning: could not fetch bootstrap for `<repo>` — <error>.
+- If `error` is null and `tasks` is non-empty, present the task list to the user:
+
+  > **`<lib-name>` bootstrap tasks found** — `tusk-bootstrap.json` from `<owner>/<repo>` contains N tasks to help you set up <lib-name> integration:
+  >
+  > 1. [summary] (task_type, complexity)
+  > 2. ...
+  >
+  > Seed all N tasks? (yes / no / pick)
+
+  - **Yes** — insert all tasks with `tusk task-insert`
+  - **No** — skip
+  - **Pick** — list tasks individually; user selects which to insert
+
+  Insert each selected task:
+
+  ```bash
+  tusk task-insert "<summary>" "<description>" \
+    --priority <priority> \
+    --task-type <task_type> \
+    --complexity <complexity> \
+    --criteria "<criterion1>" \
+    --criteria "<criterion2>"
+  ```
+
+Track bootstrap-seeded task count separately; roll it into the total count reported in Step 10.
 
 ## Step 9: Seed Tasks from Project Description (Optional)
 

@@ -3,7 +3,7 @@
 # tusk — single entry point for a project's task database.
 #
 # Usage:
-#   tusk init [--force]        Create the DB with schema + triggers from config
+#   tusk init [--force] [--yes] Create the DB with schema + triggers from config
 #   tusk path                  Print the resolved DB path
 #   tusk "SELECT ..."          Run a SQL statement
 #   tusk -header -column "SQL" Pass sqlite3 flags + SQL
@@ -125,10 +125,13 @@ read_config_key() {
 import json, sys
 with open(sys.argv[1]) as f:
     cfg = json.load(f)
-val = cfg.get(sys.argv[2])
-if val is None:
+key = sys.argv[2]
+if key not in cfg:
     sys.exit(1)
-if isinstance(val, list):
+val = cfg[key]
+if val is None:
+    print('null')
+elif isinstance(val, list):
     print('\n'.join(str(v) for v in val))
 elif isinstance(val, dict):
     print(json.dumps(val, indent=2))
@@ -253,11 +256,12 @@ update_claude_md() {
 }
 
 cmd_init() {
-  local force=0 skip_gitignore=0
+  local force=0 skip_gitignore=0 yes=0
   for arg in "$@"; do
     case "$arg" in
       --force)          force=1 ;;
       --skip-gitignore) skip_gitignore=1 ;;
+      --yes)            yes=1 ;;
     esac
   done
 
@@ -267,7 +271,20 @@ cmd_init() {
     echo "Database already exists at $DB_PATH"
     echo "Use 'tusk init --force' to recreate (existing data will be lost)."
     [[ $force -eq 1 ]] || exit 0
+    if [[ $yes -eq 0 ]]; then
+      echo "WARNING: This will permanently destroy all existing task data."
+      printf "Continue? [y/N] "
+      read -r reply
+      case "$reply" in
+        [Yy]|[Yy][Ee][Ss]) ;;
+        *)
+          echo "Aborted. Database was not modified."
+          exit 1
+          ;;
+      esac
+    fi
     echo "Recreating database..."
+    cp "$DB_PATH" "${DB_PATH}.bak.$(date +%s)"
     rm "$DB_PATH"
   fi
 
@@ -735,7 +752,7 @@ candidates = [
   'review','deps','session-stats','session-recalc','skill-run',
   'call-breakdown','session-close','task-get','task-get-multi','task-select','task-start',
   'task-done','task-insert','task-update','task-reopen','task-list',
-  'audit','autoclose','backlog-scan','test-detect','init-scan-codebase','init-scan-todos','filter-reviewers','loop','merge','progress',
+  'audit','autoclose','backlog-scan','test-detect','init-scan-codebase','init-scan-todos','scaffold-reviewer-prompts','filter-reviewers','loop','merge','progress',
   'setup','token-audit','sync-skills','generate-manifest','pricing-update','wsjf','shell',
   'version','version-bump','changelog-add','migrate','regen-triggers','upgrade',
 ]
@@ -1047,6 +1064,9 @@ case "${1:-}" in
   test-detect) shift; exec python3 "$SCRIPT_DIR/tusk-test-detect.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   init-scan-codebase) shift; exec python3 "$SCRIPT_DIR/tusk-init-scan-codebase.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   init-scan-todos) shift; exec python3 "$SCRIPT_DIR/tusk-init-scan-todos.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  init-fetch-bootstrap) shift; exec python3 "$SCRIPT_DIR/tusk-init-fetch-bootstrap.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  init-write-config) shift; exec python3 "$SCRIPT_DIR/tusk-init-write-config.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  scaffold-reviewer-prompts) shift; exec python3 "$SCRIPT_DIR/tusk-scaffold-reviewer-prompts.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   filter-reviewers) shift; exec python3 "$SCRIPT_DIR/tusk-filter-reviewers.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   loop) shift; exec python3 "$SCRIPT_DIR/tusk-loop.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   merge) shift; exec python3 "$SCRIPT_DIR/tusk-merge.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
@@ -1066,6 +1086,6 @@ case "${1:-}" in
   update-gitignore) cmd_update_gitignore ;;
   regen-triggers) cmd_regen_triggers ;;
   upgrade) shift; cmd_upgrade "$@" ;;
-  "")     echo "Usage: tusk {init|path|config|validate|sql-quote|commit|lint|lint-rule|dupes|deps|blockers|review|criteria|dag|dashboard|wsjf|audit|setup|autoclose|backlog-scan|init-scan-codebase|filter-reviewers|token-audit|sync-skills|pricing-update|session-stats|session-recalc|session-close|git-default-branch|branch-parse|skill-run|call-breakdown|task-get|task-get-multi|task-select|task-start|task-done|task-insert|task-update|task-reopen|task-list|merge|progress|shell|version|version-bump|changelog-add|migrate|update-gitignore|upgrade|regen-triggers|report-issue|\"SQL ...\"}" >&2; exit 1 ;;
+  "")     echo "Usage: tusk {init|path|config|validate|sql-quote|commit|lint|lint-rule|dupes|deps|blockers|review|criteria|dag|dashboard|wsjf|audit|setup|autoclose|backlog-scan|init-scan-codebase|scaffold-reviewer-prompts|filter-reviewers|token-audit|sync-skills|pricing-update|session-stats|session-recalc|session-close|git-default-branch|branch-parse|skill-run|call-breakdown|task-get|task-get-multi|task-select|task-start|task-done|task-insert|task-update|task-reopen|task-list|merge|progress|shell|version|version-bump|changelog-add|migrate|update-gitignore|upgrade|regen-triggers|report-issue|\"SQL ...\"}" >&2; exit 1 ;;
   *)      cmd_query "$@" ;;
 esac
