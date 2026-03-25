@@ -847,6 +847,6 @@ journalctl -u aiq-generation.service -f             # View systemd logs
 
 ---
 
-**Last Updated**: January 11, 2025
+**Last Updated**: March 25, 2026
 **Maintained By**: Question Generation Service Team
-**Version**: 1.0 (MVP)
+**Version**: 2.0
