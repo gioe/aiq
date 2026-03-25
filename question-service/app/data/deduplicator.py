@@ -92,10 +92,8 @@ class EmbeddingCache:
         embedding = self._cache.get(key)
         if embedding is not None:
             self._hits += 1
-            logger.debug(f"Cache hit for text hash {key[:8]}...")
         else:
             self._misses += 1
-            logger.debug(f"Cache miss for text hash {key[:8]}...")
         return embedding
 
     def set(self, text: str, model: str, embedding: np.ndarray) -> None:
@@ -108,7 +106,6 @@ class EmbeddingCache:
         """
         key = self._compute_key(text, model)
         self._cache[key] = embedding
-        logger.debug(f"Cached embedding for text hash {key[:8]}...")
 
     def clear(self) -> None:
         """Clear all cached embeddings."""
@@ -387,27 +384,15 @@ class QuestionDeduplicator:
                 if existing_embedding_data:
                     # Use pre-computed embedding from database
                     existing_embedding = np.array(existing_embedding_data)
-                    logger.debug(
-                        f"Using pre-computed embedding for question {existing.get('id', 'unknown')}"
-                    )
                 else:
                     # Fall back to on-demand generation for questions without embeddings
                     # (e.g., questions created before TASK-433 was implemented)
                     existing_embedding = self._get_embedding(existing_text)
-                    logger.debug(
-                        f"Computing embedding on-demand for question {existing.get('id', 'unknown')} "
-                        "(missing pre-computed embedding)"
-                    )
 
                 # Skip cross-provider comparison: embeddings from different models have
                 # different dimensionalities (e.g. OpenAI=1536, Google=768) and cannot
                 # be compared meaningfully with cosine similarity.
                 if len(new_embedding) != len(existing_embedding):
-                    logger.debug(
-                        f"Skipping semantic comparison for question "
-                        f"{existing.get('id', 'unknown')}: dimension mismatch "
-                        f"(new={len(new_embedding)}, existing={len(existing_embedding)})"
-                    )
                     continue
 
                 # Calculate cosine similarity

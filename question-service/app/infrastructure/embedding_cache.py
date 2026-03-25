@@ -423,12 +423,7 @@ class HybridEmbeddingCache:
             Cached embedding array or None if not found
         """
         key = self._compute_key(text, model)
-        embedding = self._backend.get(key)
-        if embedding is not None:
-            logger.debug(f"Cache hit for embedding key {key[:8]}...")
-        else:
-            logger.debug(f"Cache miss for embedding key {key[:8]}...")
-        return embedding
+        return self._backend.get(key)
 
     def set(
         self,
@@ -447,7 +442,6 @@ class HybridEmbeddingCache:
         """
         key = self._compute_key(text, model)
         self._backend.set(key, embedding, ttl)
-        logger.debug(f"Cached embedding for key {key[:8]}...")
 
     def clear(self) -> None:
         """Clear all cached embeddings."""
