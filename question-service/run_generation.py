@@ -1831,8 +1831,11 @@ def main() -> int:
                 logger.info("\n[DRY RUN] No questions were inserted to database")
 
             def _build_run_stats() -> dict:  # type: ignore[type-arg]
+                requested = stats.get("target_questions", 0)
+                generated = stats.get("questions_generated", 0)
+                loss = requested - generated
                 return {
-                    "questions_generated": stats.get("questions_generated", 0),
+                    "questions_generated": generated,
                     "questions_inserted": inserted_count,
                     "approval_rate": approval_rate,
                     "duration_seconds": stats.get("duration_seconds", 0),
@@ -1840,8 +1843,10 @@ def main() -> int:
                     "by_difficulty": summary.get("generation", {}).get(
                         "by_difficulty", {}
                     ),
-                    "questions_requested": summary.get("generation", {}).get(
-                        "requested", 0
+                    "questions_requested": requested,
+                    "generation_loss": loss,
+                    "generation_loss_pct": (
+                        round(loss / requested * 100, 1) if requested > 0 else 0.0
                     ),
                     "questions_rejected": summary.get("evaluation", {}).get(
                         "rejected", 0
@@ -1935,10 +1940,18 @@ def main() -> int:
 
             run_summary = to_run_summary(_build_run_stats())
 
+            _requested = stats.get("target_questions", 0)
+            _generated = stats.get("questions_generated", 0)
+            _loss = _requested - _generated
+            _loss_pct = round(_loss / _requested * 100, 1) if _requested > 0 else 0.0
             logger.info(
-                "RUN_COMPLETE exit_code=0 questions_generated=%d questions_inserted=%d "
+                "RUN_COMPLETE exit_code=0 questions_requested=%d questions_generated=%d "
+                "generation_loss=%d generation_loss_pct=%.1f questions_inserted=%d "
                 "approval_rate=%.1f duration_seconds=%.1f",
-                stats.get("questions_generated", 0),
+                _requested,
+                _generated,
+                _loss,
+                _loss_pct,
                 inserted_count,
                 approval_rate,
                 stats.get("duration_seconds", 0.0),

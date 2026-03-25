@@ -694,9 +694,15 @@ class QuestionGenerator:
                     current_provider = new_provider
                     current_model = new_model
                 except Exception as e:
-                    logger.error(
-                        f"Failed to generate question {i+1}/{count} with "
-                        f"specialist {current_provider}: {str(e)}"
+                    logger.warning(
+                        "generation.failure provider=%s type=%s difficulty=%s "
+                        "question=%d/%d reason=%s",
+                        current_provider,
+                        question_type.value,
+                        difficulty.value,
+                        i + 1,
+                        count,
+                        type(e).__name__,
                     )
                     failed_questions += 1
                     continue
@@ -755,17 +761,30 @@ class QuestionGenerator:
                             )
                             questions.append(question)
                         except Exception as e:
-                            logger.error(
-                                f"Fallback provider {fallback_provider} also failed: {str(e)}"
+                            logger.warning(
+                                "generation.failure provider=%s type=%s difficulty=%s "
+                                "question=%d/%d reason=%s",
+                                fallback_provider,
+                                question_type.value,
+                                difficulty.value,
+                                i + 1,
+                                count,
+                                type(e).__name__,
                             )
                             failed_questions += 1
                     else:
                         # No fallback available, question is lost
                         failed_questions += 1
                 except Exception as e:
-                    logger.error(
-                        f"Failed to generate question {i+1}/{count} with "
-                        f"{provider_name}: {str(e)}"
+                    logger.warning(
+                        "generation.failure provider=%s type=%s difficulty=%s "
+                        "question=%d/%d reason=%s",
+                        provider_name,
+                        question_type.value,
+                        difficulty.value,
+                        i + 1,
+                        count,
+                        type(e).__name__,
                     )
                     failed_questions += 1
                     # Continue with next provider on failure
@@ -807,7 +826,16 @@ class QuestionGenerator:
                     if current_provider is None:
                         failed_questions += 1
                 except Exception as e:
-                    logger.error(f"Failed to generate question {i+1}/{count}: {str(e)}")
+                    logger.warning(
+                        "generation.failure provider=%s type=%s difficulty=%s "
+                        "question=%d/%d reason=%s",
+                        current_provider,
+                        question_type.value,
+                        difficulty.value,
+                        i + 1,
+                        count,
+                        type(e).__name__,
+                    )
                     failed_questions += 1
                     continue
 
@@ -1007,17 +1035,25 @@ class QuestionGenerator:
             except asyncio.TimeoutError:
                 span.set_attribute("success", False)
                 span.set_status("error", f"Timeout after {effective_timeout}s")
-                logger.error(
-                    f"Timeout generating question with {provider_name} "
-                    f"(async) after {effective_timeout}s"
+                logger.warning(
+                    "generation.timeout provider=%s type=%s difficulty=%s after=%.1fs",
+                    provider_name,
+                    question_type.value,
+                    difficulty.value,
+                    effective_timeout,
                 )
                 raise
             except LLMProviderError as e:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
-                logger.error(
-                    f"Failed to generate question with {provider_name} (async): {str(e)} "
-                    f"(category={e.classified_error.category.value})"
+                logger.warning(
+                    "generation.provider_error provider=%s type=%s difficulty=%s "
+                    "category=%s message=%s",
+                    provider_name,
+                    question_type.value,
+                    difficulty.value,
+                    e.classified_error.category.value,
+                    str(e),
                 )
                 # Capture classified error to Sentry
                 _safe_capture_generation_error(
@@ -1185,6 +1221,47 @@ class QuestionGenerator:
                         max_tokens=max_tokens * 2,
                     )
 
+                    # Top-up retry: fill any shortfall from the chunked batch
+                    shortfall = count - len(batch_questions)
+                    if shortfall > 0:
+                        logger.warning(
+                            "generation.shortfall provider=%s type=%s difficulty=%s "
+                            "got=%d requested=%d shortfall=%d; attempting top-up",
+                            single_call_provider,
+                            question_type.value,
+                            difficulty.value,
+                            len(batch_questions),
+                            count,
+                            shortfall,
+                        )
+                        try:
+                            top_up = await self.generate_batch_single_call_async(
+                                question_type=question_type,
+                                difficulty=difficulty,
+                                count=shortfall,
+                                provider_name=single_call_provider,
+                                model_override=single_call_model,
+                                temperature=temperature,
+                                max_tokens=max_tokens * 2,
+                            )
+                            batch_questions = batch_questions + top_up
+                            logger.info(
+                                "Top-up produced %d/%d missing questions for %s/%s",
+                                len(top_up),
+                                shortfall,
+                                question_type.value,
+                                difficulty.value,
+                            )
+                        except Exception as top_up_err:
+                            logger.warning(
+                                "generation.topup_failed provider=%s type=%s "
+                                "difficulty=%s reason=%s",
+                                single_call_provider,
+                                question_type.value,
+                                difficulty.value,
+                                top_up_err,
+                            )
+
                     circuit_breaker_stats = (
                         self._circuit_breaker_registry.get_all_stats()
                     )
@@ -1249,6 +1326,48 @@ class QuestionGenerator:
                         max_tokens=max_tokens * 2,  # More tokens for batch response
                         subtype=subtype,
                     )
+
+                    # Top-up retry: fill any shortfall from the single-call batch
+                    shortfall = count - len(batch_questions)
+                    if shortfall > 0:
+                        logger.warning(
+                            "generation.shortfall provider=%s type=%s difficulty=%s "
+                            "got=%d requested=%d shortfall=%d; attempting top-up",
+                            single_call_provider,
+                            question_type.value,
+                            difficulty.value,
+                            len(batch_questions),
+                            count,
+                            shortfall,
+                        )
+                        try:
+                            top_up = await self.generate_batch_single_call_async(
+                                question_type=question_type,
+                                difficulty=difficulty,
+                                count=shortfall,
+                                provider_name=single_call_provider,
+                                model_override=single_call_model,
+                                temperature=temperature,
+                                max_tokens=max_tokens * 2,
+                                subtype=subtype,
+                            )
+                            batch_questions = batch_questions + top_up
+                            logger.info(
+                                "Top-up produced %d/%d missing questions for %s/%s",
+                                len(top_up),
+                                shortfall,
+                                question_type.value,
+                                difficulty.value,
+                            )
+                        except Exception as top_up_err:
+                            logger.warning(
+                                "generation.topup_failed provider=%s type=%s "
+                                "difficulty=%s reason=%s",
+                                single_call_provider,
+                                question_type.value,
+                                difficulty.value,
+                                top_up_err,
+                            )
 
                     # Get circuit breaker states for metadata
                     circuit_breaker_stats = (
@@ -1357,9 +1476,15 @@ class QuestionGenerator:
                 )
             elif isinstance(result, BaseException):
                 failed_questions += 1
-                logger.error(
-                    f"Failed to generate question {i+1}/{count} with "
-                    f"{provider_name}: {str(result)}"
+                logger.warning(
+                    "generation.failure provider=%s type=%s difficulty=%s "
+                    "question=%d/%d reason=%s",
+                    provider_name,
+                    question_type.value,
+                    difficulty.value,
+                    i + 1,
+                    count,
+                    type(result).__name__,
                 )
             elif isinstance(result, GeneratedQuestion):
                 questions.append(result)

@@ -330,12 +330,19 @@ class QuestionGenerationPipeline:
             duration = (end_time - start_time).total_seconds()
 
             # Compile statistics
+            generation_loss = questions_per_run - len(all_questions)
             stats = {
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "duration_seconds": duration,
                 "target_questions": questions_per_run,
                 "questions_generated": len(all_questions),
+                "generation_loss": generation_loss,
+                "generation_loss_pct": (
+                    round(generation_loss / questions_per_run * 100, 1)
+                    if questions_per_run > 0
+                    else 0.0
+                ),
                 "batches_created": len(all_batches),
                 "success_rate": (
                     len(all_questions) / questions_per_run
@@ -358,6 +365,14 @@ class QuestionGenerationPipeline:
             span.set_attribute("success", True)
             span.set_attribute("questions_generated", len(all_questions))
             span.set_attribute("duration_seconds", duration)
+            if generation_loss > 0:
+                logger.warning(
+                    "generation.loss count=%d pct=%.1f requested=%d produced=%d",
+                    generation_loss,
+                    stats["generation_loss_pct"],
+                    questions_per_run,
+                    len(all_questions),
+                )
             logger.info(
                 f"Job complete: Generated {len(all_questions)}/{questions_per_run} "
                 f"questions in {duration:.1f}s"
@@ -470,12 +485,19 @@ class QuestionGenerationPipeline:
             duration = (end_time - start_time).total_seconds()
 
             # Compile statistics
+            generation_loss = questions_per_run - len(all_questions)
             stats = {
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "duration_seconds": duration,
                 "target_questions": questions_per_run,
                 "questions_generated": len(all_questions),
+                "generation_loss": generation_loss,
+                "generation_loss_pct": (
+                    round(generation_loss / questions_per_run * 100, 1)
+                    if questions_per_run > 0
+                    else 0.0
+                ),
                 "batches_created": len(all_batches),
                 "success_rate": (
                     len(all_questions) / questions_per_run
@@ -499,6 +521,14 @@ class QuestionGenerationPipeline:
             span.set_attribute("success", True)
             span.set_attribute("questions_generated", len(all_questions))
             span.set_attribute("duration_seconds", duration)
+            if generation_loss > 0:
+                logger.warning(
+                    "generation.loss count=%d pct=%.1f requested=%d produced=%d",
+                    generation_loss,
+                    stats["generation_loss_pct"],
+                    questions_per_run,
+                    len(all_questions),
+                )
             logger.info(
                 f"Job (async) complete: Generated {len(all_questions)}/{questions_per_run} "
                 f"questions in {duration:.1f}s"
@@ -579,12 +609,19 @@ class QuestionGenerationPipeline:
             duration = (end_time - start_time).total_seconds()
 
             # Compile statistics
+            generation_loss = total_to_generate - len(all_questions)
             stats = {
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "duration_seconds": duration,
                 "target_questions": total_to_generate,
                 "questions_generated": len(all_questions),
+                "generation_loss": generation_loss,
+                "generation_loss_pct": (
+                    round(generation_loss / total_to_generate * 100, 1)
+                    if total_to_generate > 0
+                    else 0.0
+                ),
                 "batches_created": len(all_batches),
                 "success_rate": (
                     len(all_questions) / total_to_generate
@@ -705,12 +742,19 @@ class QuestionGenerationPipeline:
             duration = (end_time - start_time).total_seconds()
 
             # Compile statistics
+            generation_loss = total_to_generate - len(all_questions)
             stats = {
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "duration_seconds": duration,
                 "target_questions": total_to_generate,
                 "questions_generated": len(all_questions),
+                "generation_loss": generation_loss,
+                "generation_loss_pct": (
+                    round(generation_loss / total_to_generate * 100, 1)
+                    if total_to_generate > 0
+                    else 0.0
+                ),
                 "batches_created": len(all_batches),
                 "success_rate": (
                     len(all_questions) / total_to_generate
