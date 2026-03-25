@@ -1285,18 +1285,19 @@ def _make_questions(n: int) -> list:
     return [_make_question(i) for i in range(n)]
 
 
+@pytest.fixture
+def generator():
+    """Generator with a single mocked OpenAI provider."""
+    with patch("app.generation.generator.OpenAIProvider") as mock_openai:
+        provider = Mock()
+        provider.model = "gpt-4"
+        mock_openai.return_value = provider
+        gen = QuestionGenerator(openai_api_key="test-key")
+        yield gen
+
+
 class TestGenerateBatchAsyncTopUpSingleCall:
     """Top-up retry logic in the non-chunked single-call path of generate_batch_async."""
-
-    @pytest.fixture
-    def generator(self):
-        """Generator with a single mocked OpenAI provider."""
-        with patch("app.generation.generator.OpenAIProvider") as mock_openai:
-            provider = Mock()
-            provider.model = "gpt-4"
-            mock_openai.return_value = provider
-            gen = QuestionGenerator(openai_api_key="test-key")
-            yield gen
 
     async def _run(self, generator, *, main_return, topup_side_effect=None, count=3):
         """Call generate_batch_async via the non-chunked single-call path.
@@ -1308,10 +1309,7 @@ class TestGenerateBatchAsyncTopUpSingleCall:
         """
         side_effects = [main_return]
         if topup_side_effect is not None:
-            if isinstance(topup_side_effect, Exception):
-                side_effects.append(topup_side_effect)
-            else:
-                side_effects.append(topup_side_effect)
+            side_effects.append(topup_side_effect)
 
         with (
             patch.object(generator, "_get_max_batch_size", return_value=None),
@@ -1390,16 +1388,6 @@ class TestGenerateBatchAsyncTopUpSingleCall:
 
 class TestGenerateBatchAsyncTopUpChunked:
     """Top-up retry logic in the chunked path of generate_batch_async."""
-
-    @pytest.fixture
-    def generator(self):
-        """Generator with a single mocked OpenAI provider."""
-        with patch("app.generation.generator.OpenAIProvider") as mock_openai:
-            provider = Mock()
-            provider.model = "gpt-4"
-            mock_openai.return_value = provider
-            gen = QuestionGenerator(openai_api_key="test-key")
-            yield gen
 
     async def _run(
         self,
