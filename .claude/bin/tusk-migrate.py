@@ -1230,6 +1230,31 @@ def migrate_41(db_path: str, config_path: str, script_dir: str) -> None:
     print("  Migration 41: added 'superseded' to code_reviews.status CHECK constraint")
 
 
+def migrate_42(db_path: str, config_path: str, script_dir: str) -> None:
+    if not has_column(db_path, "conventions", "topics"):
+        run_script(db_path, """
+            BEGIN;
+            ALTER TABLE conventions ADD COLUMN topics TEXT;
+            PRAGMA user_version = 42;
+            COMMIT;
+        """)
+    else:
+        set_version(db_path, 42)
+    print("  Migration 42: added 'topics' column to conventions table")
+
+
+def migrate_43(db_path: str, config_path: str, script_dir: str) -> None:
+    run_script(db_path, """
+        BEGIN;
+        UPDATE conventions
+        SET topics = replace(replace(topics, ', ', ','), ' ,', ',')
+        WHERE topics IS NOT NULL AND (topics LIKE '%, %' OR topics LIKE '% ,%');
+        PRAGMA user_version = 43;
+        COMMIT;
+    """)
+    print("  Migration 43: backfill normalize whitespace in convention topics")
+
+
 # ── Migration registry ────────────────────────────────────────────────────────
 
 MIGRATIONS = [
@@ -1274,6 +1299,8 @@ MIGRATIONS = [
     (39, migrate_39),
     (40, migrate_40),
     (41, migrate_41),
+    (42, migrate_42),
+    (43, migrate_43),
 ]
 
 
