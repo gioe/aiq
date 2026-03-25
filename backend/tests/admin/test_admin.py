@@ -367,6 +367,56 @@ class TestCreateGenerationRun:
         assert db_run.created_at is not None
         assert db_run.duration_seconds == pytest.approx(300.5)
 
+    @patch("app.core.config.settings.SERVICE_API_KEY", "test-service-key")
+    @pytest.mark.parametrize(
+        "status_value",
+        ["running", "success", "partial_failure", "failed"],
+    )
+    def test_create_generation_run_all_statuses_succeed(
+        self, client, db_session, service_key_headers, status_value
+    ):
+        """Regression test for TASK-122 (AsyncRunStatus alias).
+
+        TASK-122 introduced AsyncRunStatus as an alias for GenerationRunStatus.
+        sa.Enum() then derived the PG type name as 'asyncrunstatus' instead of
+        'generationrunstatus', causing silent HTTP 500s on INSERT. This test
+        posts each of the four status values against the real test DB (no enum
+        mocking) and asserts 201 + the value round-trips through ORM correctly.
+        """
+        payload = {
+            "started_at": "2024-12-05T10:00:00Z",
+            "status": status_value,
+            "questions_requested": 10,
+        }
+
+        response = client.post(
+            "/v1/admin/generation-runs",
+            json=payload,
+            headers=service_key_headers,
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["status"] == status_value
+
+        db_run = (
+            db_session.query(QuestionGenerationRun)
+            .filter(QuestionGenerationRun.id == data["id"])
+            .first()
+        )
+        assert db_run is not None
+        assert db_run.status.value == status_value
+
+    def test_generation_run_status_column_uses_generationrunstatus_pg_type(self):
+        """Regression guard for TASK-122: confirms the SA column is bound to the
+        'generationrunstatus' PG type name, not 'asyncrunstatus' (the name SA
+        would auto-derive from the AsyncRunStatus alias if name= were removed).
+        """
+        import sqlalchemy as _sa
+
+        col = _sa.inspect(QuestionGenerationRun).mapper.columns["status"]
+        assert col.type.name == "generationrunstatus"
+
 
 class TestListGenerationRuns:
     """Tests for GET /v1/admin/generation-runs endpoint."""
