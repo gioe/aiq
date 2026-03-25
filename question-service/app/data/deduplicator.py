@@ -430,11 +430,8 @@ class QuestionDeduplicator:
         Returns:
             True if Redis cache is active, False if using in-memory cache
         """
-        if hasattr(self._embedding_cache, "using_redis"):
-            return self._embedding_cache.using_redis
-        return False
+        return self._embedding_cache.using_redis
 
     def close(self) -> None:
         """Close cache connections and release resources."""
-        if hasattr(self._embedding_cache, "close"):
-            self._embedding_cache.close()
+        self._embedding_cache.close()
