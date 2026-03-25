@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 
 from app.data.deduplicator import (
     DuplicateCheckResult,
-    EmbeddingCache,
     QuestionDeduplicator,
 )
 from app.data.models import DifficultyLevel, GeneratedQuestion, QuestionType
@@ -492,120 +491,6 @@ class TestDeduplicatorIntegration:
         # Should be marked as duplicate if at or above threshold
         assert result.is_duplicate is True
         assert result.similarity_score >= 0.85
-
-
-class TestEmbeddingCache:
-    """Tests for EmbeddingCache class."""
-
-    def test_cache_initialization(self):
-        """Test cache initializes empty."""
-        cache = EmbeddingCache()
-
-        assert cache.size == 0
-        assert cache.stats["hits"] == 0
-        assert cache.stats["misses"] == 0
-
-    def test_cache_miss_returns_none(self):
-        """Test cache miss returns None."""
-        cache = EmbeddingCache()
-
-        result = cache.get("uncached text", "text-embedding-3-small")
-
-        assert result is None
-        assert cache.stats["misses"] == 1
-        assert cache.stats["hits"] == 0
-
-    def test_cache_set_and_get(self):
-        """Test setting and getting cached embedding."""
-        cache = EmbeddingCache()
-        embedding = np.array([0.1, 0.2, 0.3])
-        model = "text-embedding-3-small"
-
-        cache.set("test text", model, embedding)
-        result = cache.get("test text", model)
-
-        assert result is not None
-        np.testing.assert_array_equal(result, embedding)
-        assert cache.size == 1
-        assert cache.stats["hits"] == 1
-
-    def test_cache_normalization(self):
-        """Test that cache normalizes text (case-insensitive, stripped)."""
-        cache = EmbeddingCache()
-        embedding = np.array([0.1, 0.2, 0.3])
-        model = "text-embedding-3-small"
-
-        cache.set("Test Text", model, embedding)
-
-        # All variations should hit the same cache entry
-        assert cache.get("test text", model) is not None
-        assert cache.get("TEST TEXT", model) is not None
-        assert cache.get("  Test Text  ", model) is not None
-        assert cache.get("  test text  ", model) is not None
-
-        # All 4 lookups should be hits
-        assert cache.stats["hits"] == 4
-        # Only one entry in cache
-        assert cache.size == 1
-
-    def test_cache_clear(self):
-        """Test clearing the cache."""
-        cache = EmbeddingCache()
-        model = "text-embedding-3-small"
-        cache.set("text1", model, np.array([0.1, 0.2]))
-        cache.set("text2", model, np.array([0.3, 0.4]))
-        cache.get("text1", model)  # hit
-
-        assert cache.size == 2
-        assert cache.stats["hits"] == 1
-
-        cache.clear()
-
-        assert cache.size == 0
-        assert cache.stats["hits"] == 0
-        assert cache.stats["misses"] == 0
-
-    def test_cache_stats(self):
-        """Test cache statistics tracking."""
-        cache = EmbeddingCache()
-        model = "text-embedding-3-small"
-
-        # Miss
-        cache.get("text1", model)
-        # Set
-        cache.set("text1", model, np.array([0.1]))
-        # Hit
-        cache.get("text1", model)
-        # Miss
-        cache.get("text2", model)
-
-        stats = cache.stats
-        assert stats["size"] == 1
-        assert stats["hits"] == 1
-        assert stats["misses"] == 2
-
-    def test_cache_model_isolation(self):
-        """Test that different models have separate cache entries."""
-        cache = EmbeddingCache()
-        embedding_small = np.array([0.1, 0.2, 0.3])
-        embedding_ada = np.array([0.4, 0.5, 0.6])
-
-        # Cache same text with different models
-        cache.set("test question", "text-embedding-3-small", embedding_small)
-        cache.set("test question", "text-embedding-ada-002", embedding_ada)
-
-        # Should have 2 separate cache entries
-        assert cache.size == 2
-
-        # Each model should return its own embedding
-        result_small = cache.get("test question", "text-embedding-3-small")
-        result_ada = cache.get("test question", "text-embedding-ada-002")
-
-        np.testing.assert_array_equal(result_small, embedding_small)
-        np.testing.assert_array_equal(result_ada, embedding_ada)
-
-        # Wrong model should miss
-        assert cache.get("test question", "text-embedding-3-large") is None
 
 
 class TestDeduplicatorCacheIntegration:

@@ -2,16 +2,12 @@
 
 This module provides functionality to detect duplicate questions using both
 exact match checking and semantic similarity analysis via embeddings.
-
-TASK-629: Added Redis caching support via HybridEmbeddingCache for distributed
-embedding caching across workers, with automatic fallback to in-memory caching.
 """
 
-import hashlib
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from openai import OpenAI
@@ -29,109 +25,6 @@ except ImportError:
     from gioe_libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-
-class EmbeddingCache:
-    """In-memory cache for text embeddings with hash-based keys.
-
-    Uses SHA-256 hash of normalized text as cache key to efficiently store
-    and retrieve embeddings. This reduces API calls from O(n*m) to O(n+m)
-    when checking n new questions against m existing questions.
-
-    Cache Invalidation Strategy:
-    - The cache is instance-scoped, so it is automatically cleared when
-      the QuestionDeduplicator instance is garbage collected
-    - For long-running processes, call clear() periodically or create
-      a new QuestionDeduplicator instance
-    - The cache has no TTL as embeddings are deterministic for a given
-      model - the same text always produces the same embedding
-    """
-
-    def __init__(self) -> None:
-        """Initialize empty embedding cache."""
-        self._cache: Dict[str, np.ndarray] = {}
-        self._hits = 0
-        self._misses = 0
-
-    def _normalize_text(self, text: str) -> str:
-        """Normalize text for consistent cache keys.
-
-        Args:
-            text: Raw text to normalize
-
-        Returns:
-            Normalized text (stripped and lowercased)
-        """
-        return text.strip().lower()
-
-    def _compute_key(self, text: str, model: str) -> str:
-        """Compute SHA-256 hash key for text and model combination.
-
-        Args:
-            text: Text to hash (will be normalized first)
-            model: Embedding model name to include in key
-
-        Returns:
-            Hex digest of SHA-256 hash
-        """
-        normalized = self._normalize_text(text)
-        key_input = f"{model}:{normalized}"
-        return hashlib.sha256(key_input.encode("utf-8")).hexdigest()
-
-    def get(self, text: str, model: str) -> Optional[np.ndarray]:
-        """Get cached embedding for text if available.
-
-        Args:
-            text: Text to look up
-            model: Embedding model name used for generation
-
-        Returns:
-            Cached embedding array or None if not found
-        """
-        key = self._compute_key(text, model)
-        embedding = self._cache.get(key)
-        if embedding is not None:
-            self._hits += 1
-        else:
-            self._misses += 1
-        return embedding
-
-    def set(self, text: str, model: str, embedding: np.ndarray) -> None:
-        """Store embedding in cache.
-
-        Args:
-            text: Text that was embedded
-            model: Embedding model name used for generation
-            embedding: Embedding vector to cache
-        """
-        key = self._compute_key(text, model)
-        self._cache[key] = embedding
-
-    def clear(self) -> None:
-        """Clear all cached embeddings."""
-        count = len(self._cache)
-        self._cache.clear()
-        self._hits = 0
-        self._misses = 0
-        logger.info(f"Cleared {count} cached embeddings")
-
-    @property
-    def size(self) -> int:
-        """Return number of cached embeddings."""
-        return len(self._cache)
-
-    @property
-    def stats(self) -> Dict[str, int]:
-        """Return cache statistics.
-
-        Returns:
-            Dictionary with size, hits, and misses counts
-        """
-        return {
-            "size": self.size,
-            "hits": self._hits,
-            "misses": self._misses,
-        }
 
 
 class DuplicateCheckResult:
@@ -180,10 +73,6 @@ class QuestionDeduplicator:
     This class provides methods to detect duplicate questions by comparing
     question text using both exact string matching and semantic similarity
     via embeddings.
-
-    TASK-629: Updated to support Redis-backed embedding cache via HybridEmbeddingCache.
-    When redis_url is provided, embeddings are cached in Redis for distributed access
-    across workers. Falls back to in-memory caching when Redis is unavailable.
     """
 
     def __init__(
@@ -191,7 +80,7 @@ class QuestionDeduplicator:
         openai_api_key: str,
         similarity_threshold: float = 0.98,
         embedding_model: str = "text-embedding-3-small",
-        embedding_cache: Optional[Union[EmbeddingCache, HybridEmbeddingCache]] = None,
+        embedding_cache: Optional[HybridEmbeddingCache] = None,
         redis_url: Optional[str] = None,
         embedding_cache_ttl: Optional[int] = None,
         google_api_key: Optional[str] = None,
@@ -202,7 +91,7 @@ class QuestionDeduplicator:
             openai_api_key: OpenAI API key for embeddings.
             similarity_threshold: Threshold for semantic similarity (0.0-1.0).
             embedding_model: OpenAI embedding model to use.
-            embedding_cache: Optional pre-configured embedding cache. If provided,
+            embedding_cache: Optional pre-configured HybridEmbeddingCache. If provided,
                             redis_url and embedding_cache_ttl are ignored.
             redis_url: Redis connection URL for distributed caching. If None and
                       embedding_cache is None, uses in-memory cache.
@@ -222,19 +111,12 @@ class QuestionDeduplicator:
         self.similarity_threshold = similarity_threshold
         self.embedding_model = embedding_model
 
-        # TASK-629: Support external cache injection or create HybridEmbeddingCache
         if embedding_cache is not None:
-            self._embedding_cache: Union[EmbeddingCache, HybridEmbeddingCache] = (
-                embedding_cache
-            )
+            self._embedding_cache: HybridEmbeddingCache = embedding_cache
             cache_type = (
-                "hybrid (Redis)"
-                if isinstance(embedding_cache, HybridEmbeddingCache)
-                and embedding_cache.using_redis
-                else "in-memory"
+                "hybrid (Redis)" if embedding_cache.using_redis else "in-memory"
             )
         else:
-            # Create HybridEmbeddingCache which handles Redis/in-memory fallback
             self._embedding_cache = HybridEmbeddingCache(
                 redis_url=redis_url,
                 default_ttl=embedding_cache_ttl,
@@ -528,16 +410,10 @@ class QuestionDeduplicator:
         Returns:
             Dictionary with configuration and cache information
         """
-        # Handle both EmbeddingCache (stats property) and HybridEmbeddingCache (get_stats method)
-        if hasattr(self._embedding_cache, "get_stats"):
-            cache_stats = self._embedding_cache.get_stats()
-        else:
-            cache_stats = self._embedding_cache.stats
-
         return {
             "similarity_threshold": self.similarity_threshold,
             "embedding_model": self.embedding_model,
-            "cache": cache_stats,
+            "cache": self._embedding_cache.get_stats(),
         }
 
     def clear_cache(self) -> None:
