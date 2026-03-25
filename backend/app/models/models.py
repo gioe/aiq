@@ -770,7 +770,11 @@ class QuestionGenerationRun(Base):
 
     # Status & outcome
     status: Mapped[GenerationRunStatus] = mapped_column(
-        sa.Enum(GenerationRunStatus, values_callable=lambda obj: [e.value for e in obj])
+        sa.Enum(
+            GenerationRunStatus,
+            name="generationrunstatus",
+            values_callable=lambda obj: [e.value for e in obj],
+        )
     )
     exit_code: Mapped[Optional[int]] = mapped_column(
         nullable=True
