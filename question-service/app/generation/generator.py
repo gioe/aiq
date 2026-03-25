@@ -1788,7 +1788,13 @@ class QuestionGenerator:
             return question
 
         except Exception as e:
-            logger.error(f"Failed to parse generated response: {str(e)}")
+            logger.warning(
+                "generation.parse_error provider=%s type=%s difficulty=%s message=%s",
+                provider_name,
+                question_type.value,
+                difficulty.value,
+                str(e),
+            )
             logger.debug(f"Response was: {json.dumps(response, indent=2)}")
             raise ValueError(f"Invalid question response: {str(e)}") from e
 
@@ -2007,15 +2013,24 @@ class QuestionGenerator:
             except asyncio.TimeoutError:
                 span.set_attribute("success", False)
                 span.set_status("error", f"Timeout after {effective_timeout}s")
-                logger.error(
-                    f"Timeout generating batch with {provider_name} "
-                    f"after {effective_timeout}s"
+                logger.warning(
+                    "generation.timeout provider=%s type=%s difficulty=%s after=%.1fs",
+                    provider_name,
+                    question_type.value,
+                    difficulty.value,
+                    effective_timeout,
                 )
                 raise
             except Exception as e:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
-                logger.error(f"Failed to generate batch with {provider_name}: {str(e)}")
+                logger.warning(
+                    "generation.error provider=%s type=%s difficulty=%s message=%s",
+                    provider_name,
+                    question_type.value,
+                    difficulty.value,
+                    str(e),
+                )
                 # Capture batch generation error to Sentry
                 _safe_capture_generation_error(
                     e,
@@ -2267,19 +2282,24 @@ class QuestionGenerator:
             except asyncio.TimeoutError:
                 span.set_attribute("success", False)
                 span.set_status("error", f"Timeout after {effective_timeout}s")
-                logger.error(
-                    f"Timeout regenerating question with {provider_name} "
-                    f"after {effective_timeout}s"
+                logger.warning(
+                    "generation.timeout provider=%s type=%s difficulty=%s after=%.1fs",
+                    provider_name,
+                    original_question.question_type.value,
+                    original_question.difficulty_level.value,
+                    effective_timeout,
                 )
                 raise
             except Exception as e:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
-                logger.error(
-                    f"Failed to regenerate question with {provider_name}: {str(e)}\n"
-                    f"  Provider: {provider_name}, Model: {actual_model}\n"
-                    f"  Original question type: {original_question.question_type.value}\n"
-                    f"  Exception type: {type(e).__name__}"
+                logger.warning(
+                    "generation.error provider=%s type=%s difficulty=%s model=%s message=%s",
+                    provider_name,
+                    original_question.question_type.value,
+                    original_question.difficulty_level.value,
+                    actual_model,
+                    str(e),
                 )
                 # Capture regeneration error to Sentry
                 _safe_capture_generation_error(
