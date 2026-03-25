@@ -1258,3 +1258,248 @@ class TestRegeneratePreservesSubType:
 
         assert regenerated.sub_type == "number sequences with arithmetic progressions"
         assert regenerated.metadata["regenerated"] is True
+
+
+# ---------------------------------------------------------------------------
+# Helpers shared by top-up tests
+# ---------------------------------------------------------------------------
+
+
+def _make_question(i: int = 0):
+    """Return a minimal GeneratedQuestion for use in top-up tests."""
+    from app.data.models import GeneratedQuestion
+
+    return GeneratedQuestion(
+        question_text=f"How many sides does a regular hexagon have? ({i})",
+        question_type=QuestionType.MATH,
+        difficulty_level=DifficultyLevel.EASY,
+        correct_answer="six",
+        answer_options=["four", "five", "six", "seven"],
+        explanation="A hexagon has six sides.",
+        source_llm="openai",
+        source_model="gpt-4",
+    )
+
+
+def _make_questions(n: int) -> list:
+    return [_make_question(i) for i in range(n)]
+
+
+class TestGenerateBatchAsyncTopUpSingleCall:
+    """Top-up retry logic in the non-chunked single-call path of generate_batch_async."""
+
+    @pytest.fixture
+    def generator(self):
+        """Generator with a single mocked OpenAI provider."""
+        with patch("app.generation.generator.OpenAIProvider") as mock_openai:
+            provider = Mock()
+            provider.model = "gpt-4"
+            mock_openai.return_value = provider
+            gen = QuestionGenerator(openai_api_key="test-key")
+            yield gen
+
+    async def _run(self, generator, *, main_return, topup_side_effect=None, count=3):
+        """Call generate_batch_async via the non-chunked single-call path.
+
+        Patches:
+          - _get_max_batch_size → None  (forces non-chunked path)
+          - generate_batch_single_call_async → first call returns main_return,
+            second call uses topup_side_effect (value or exception)
+        """
+        side_effects = [main_return]
+        if topup_side_effect is not None:
+            if isinstance(topup_side_effect, Exception):
+                side_effects.append(topup_side_effect)
+            else:
+                side_effects.append(topup_side_effect)
+
+        with (
+            patch.object(generator, "_get_max_batch_size", return_value=None),
+            patch.object(
+                generator,
+                "generate_batch_single_call_async",
+                new=AsyncMock(side_effect=side_effects),
+            ) as mock_single,
+        ):
+            batch = await generator.generate_batch_async(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                count=count,
+                use_specialist_routing=False,
+                distribute_across_providers=False,
+            )
+            return batch, mock_single
+
+    async def test_shortfall_triggers_topup(self, generator):
+        """Shortfall > 0: top-up is called and fills the gap."""
+        batch, mock_single = await self._run(
+            generator,
+            main_return=_make_questions(2),
+            topup_side_effect=_make_questions(1),
+            count=3,
+        )
+        assert len(batch.questions) == 3
+        assert mock_single.call_count == 2
+        # Top-up was requested for the shortfall of 1
+        _, topup_kwargs = mock_single.call_args_list[1]
+        assert topup_kwargs["count"] == 1
+
+    async def test_topup_partial_success(self, generator):
+        """Top-up returns fewer than the shortfall — batch proceeds with partial results."""
+        batch, mock_single = await self._run(
+            generator,
+            main_return=_make_questions(1),
+            topup_side_effect=_make_questions(1),  # shortfall=2, top-up returns 1
+            count=3,
+        )
+        assert len(batch.questions) == 2
+        assert mock_single.call_count == 2
+
+    async def test_topup_failure_leaves_partial_results(self, generator):
+        """Top-up raises an exception — batch continues with questions from main call."""
+        batch, mock_single = await self._run(
+            generator,
+            main_return=_make_questions(2),
+            topup_side_effect=RuntimeError("provider unavailable"),
+            count=3,
+        )
+        assert len(batch.questions) == 2
+        assert mock_single.call_count == 2
+
+    async def test_topup_overshoot_capped_at_count(self, generator):
+        """Top-up returns more than the shortfall — result is capped at count."""
+        batch, mock_single = await self._run(
+            generator,
+            main_return=_make_questions(2),
+            topup_side_effect=_make_questions(5),  # shortfall=1, but top-up returns 5
+            count=3,
+        )
+        assert len(batch.questions) == 3
+        assert mock_single.call_count == 2
+
+    async def test_no_topup_when_count_met(self, generator):
+        """When main call returns exactly count, top-up is never called."""
+        batch, mock_single = await self._run(
+            generator,
+            main_return=_make_questions(3),
+            count=3,
+        )
+        assert len(batch.questions) == 3
+        assert mock_single.call_count == 1
+
+
+class TestGenerateBatchAsyncTopUpChunked:
+    """Top-up retry logic in the chunked path of generate_batch_async."""
+
+    @pytest.fixture
+    def generator(self):
+        """Generator with a single mocked OpenAI provider."""
+        with patch("app.generation.generator.OpenAIProvider") as mock_openai:
+            provider = Mock()
+            provider.model = "gpt-4"
+            mock_openai.return_value = provider
+            gen = QuestionGenerator(openai_api_key="test-key")
+            yield gen
+
+    async def _run(
+        self,
+        generator,
+        *,
+        chunked_return,
+        topup_side_effect=None,
+        count=6,
+        max_batch_size=4,
+    ):
+        """Call generate_batch_async via the chunked path.
+
+        Patches:
+          - _get_max_batch_size → max_batch_size (< count, forces chunked path)
+          - _generate_chunked_batch_async → chunked_return
+          - generate_batch_single_call_async → topup_side_effect (used for top-up only)
+        """
+        topup_mock = AsyncMock()
+        if topup_side_effect is not None:
+            if isinstance(topup_side_effect, Exception):
+                topup_mock.side_effect = topup_side_effect
+            else:
+                topup_mock.return_value = topup_side_effect
+        else:
+            topup_mock.return_value = []
+
+        with (
+            patch.object(generator, "_get_max_batch_size", return_value=max_batch_size),
+            patch.object(
+                generator,
+                "_generate_chunked_batch_async",
+                new=AsyncMock(return_value=chunked_return),
+            ),
+            patch.object(
+                generator,
+                "generate_batch_single_call_async",
+                new=topup_mock,
+            ) as mock_topup,
+        ):
+            batch = await generator.generate_batch_async(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                count=count,
+                use_specialist_routing=False,
+                distribute_across_providers=False,
+            )
+            return batch, mock_topup
+
+    async def test_shortfall_triggers_topup(self, generator):
+        """Chunked batch shortfall triggers a top-up call."""
+        batch, mock_topup = await self._run(
+            generator,
+            chunked_return=_make_questions(4),
+            topup_side_effect=_make_questions(2),
+            count=6,
+        )
+        assert len(batch.questions) == 6
+        assert mock_topup.call_count == 1
+        _, topup_kwargs = mock_topup.call_args
+        assert topup_kwargs["count"] == 2
+
+    async def test_topup_partial_success(self, generator):
+        """Chunked top-up returns fewer than the shortfall — partial results."""
+        batch, mock_topup = await self._run(
+            generator,
+            chunked_return=_make_questions(3),
+            topup_side_effect=_make_questions(1),  # shortfall=3, returns only 1
+            count=6,
+        )
+        assert len(batch.questions) == 4
+        assert mock_topup.call_count == 1
+
+    async def test_topup_failure_leaves_partial_results(self, generator):
+        """Chunked top-up raises an exception — batch proceeds with chunked results."""
+        batch, mock_topup = await self._run(
+            generator,
+            chunked_return=_make_questions(4),
+            topup_side_effect=RuntimeError("timeout"),
+            count=6,
+        )
+        assert len(batch.questions) == 4
+        assert mock_topup.call_count == 1
+
+    async def test_topup_overshoot_capped_at_count(self, generator):
+        """Chunked top-up returns more than the shortfall — capped at count."""
+        batch, mock_topup = await self._run(
+            generator,
+            chunked_return=_make_questions(4),
+            topup_side_effect=_make_questions(10),  # shortfall=2, returns 10
+            count=6,
+        )
+        assert len(batch.questions) == 6
+        assert mock_topup.call_count == 1
+
+    async def test_no_topup_when_count_met(self, generator):
+        """Chunked batch returns exactly count — top-up is never called."""
+        batch, mock_topup = await self._run(
+            generator,
+            chunked_return=_make_questions(6),
+            count=6,
+        )
+        assert len(batch.questions) == 6
+        assert mock_topup.call_count == 0
