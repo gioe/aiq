@@ -1964,19 +1964,24 @@ def main() -> int:
                     _run_stats["questions_requested"],
                     _run_stats["questions_generated"],
                 )
-                alert_manager.send_notification(
-                    title="Generation Loss Alert",
-                    fields=[
-                        ("Requested", _run_stats["questions_requested"]),
-                        ("Generated", _run_stats["questions_generated"]),
-                        (
-                            "Loss",
-                            f"{_run_stats['generation_loss']} ({_run_stats['generation_loss_pct']}%)",
-                        ),
-                        ("Threshold", f"{loss_threshold}%"),
-                    ],
-                    severity="warning",
-                )
+                try:
+                    alert_manager.send_notification(
+                        title="Generation Loss Alert",
+                        fields=[
+                            ("Requested", _run_stats["questions_requested"]),
+                            ("Generated", _run_stats["questions_generated"]),
+                            (
+                                "Loss",
+                                f"{_run_stats['generation_loss']} ({_run_stats['generation_loss_pct']}%)",
+                            ),
+                            ("Threshold", f"{loss_threshold}%"),
+                        ],
+                        severity="warning",
+                    )
+                except Exception as alert_err:
+                    logger.warning(
+                        "Failed to send generation loss alert: %s", alert_err
+                    )
 
             return run_summary
 
