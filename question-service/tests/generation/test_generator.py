@@ -1385,6 +1385,33 @@ class TestGenerateBatchAsyncTopUpSingleCall:
         assert len(batch.questions) == 3
         assert mock_single.call_count == 1
 
+    async def test_main_call_exception_falls_through_to_parallel(self, generator):
+        """Main single-call raises an exception — falls through to parallel generation."""
+        question = _make_question(0)
+        with (
+            patch.object(generator, "_get_max_batch_size", return_value=None),
+            patch.object(
+                generator,
+                "generate_batch_single_call_async",
+                new=AsyncMock(side_effect=RuntimeError("provider error")),
+            ) as mock_single,
+            patch.object(
+                generator,
+                "_generate_question_task",
+                new=AsyncMock(return_value=question),
+            ) as mock_parallel,
+        ):
+            batch = await generator.generate_batch_async(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                count=2,
+                use_specialist_routing=False,
+                distribute_across_providers=False,
+            )
+        assert mock_single.call_count == 1
+        assert mock_parallel.call_count == 2  # one per question in parallel path
+        assert len(batch.questions) == 2
+
 
 class TestGenerateBatchAsyncTopUpChunked:
     """Top-up retry logic in the chunked path of generate_batch_async."""
