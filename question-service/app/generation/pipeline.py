@@ -645,6 +645,14 @@ class QuestionGenerationPipeline:
             span.set_attribute("success", True)
             span.set_attribute("questions_generated", len(all_questions))
             span.set_attribute("duration_seconds", duration)
+            if generation_loss > 0:
+                logger.warning(
+                    "generation.loss count=%d pct=%.1f requested=%d produced=%d",
+                    generation_loss,
+                    stats["generation_loss_pct"],
+                    total_to_generate,
+                    len(all_questions),
+                )
             logger.info(
                 f"Balanced job complete: Generated {len(all_questions)}/{total_to_generate} "
                 f"questions in {duration:.1f}s"
@@ -779,6 +787,14 @@ class QuestionGenerationPipeline:
             span.set_attribute("success", True)
             span.set_attribute("questions_generated", len(all_questions))
             span.set_attribute("duration_seconds", duration)
+            if generation_loss > 0:
+                logger.warning(
+                    "generation.loss count=%d pct=%.1f requested=%d produced=%d",
+                    generation_loss,
+                    stats["generation_loss_pct"],
+                    total_to_generate,
+                    len(all_questions),
+                )
             logger.info(
                 f"Balanced job (async) complete: Generated "
                 f"{len(all_questions)}/{total_to_generate} questions in {duration:.1f}s"

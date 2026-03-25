@@ -1244,7 +1244,7 @@ class QuestionGenerator:
                                 temperature=temperature,
                                 max_tokens=max_tokens * 2,
                             )
-                            batch_questions = batch_questions + top_up
+                            batch_questions = (batch_questions + top_up)[:count]
                             logger.info(
                                 "Top-up produced %d/%d missing questions for %s/%s",
                                 len(top_up),
@@ -1351,7 +1351,7 @@ class QuestionGenerator:
                                 max_tokens=max_tokens * 2,
                                 subtype=subtype,
                             )
-                            batch_questions = batch_questions + top_up
+                            batch_questions = (batch_questions + top_up)[:count]
                             logger.info(
                                 "Top-up produced %d/%d missing questions for %s/%s",
                                 len(top_up),

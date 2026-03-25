@@ -1938,20 +1938,17 @@ def main() -> int:
             logger.info("Script completed successfully")
             logger.info("=" * 80)
 
-            run_summary = to_run_summary(_build_run_stats())
+            _run_stats = _build_run_stats()
+            run_summary = to_run_summary(_run_stats)
 
-            _requested = stats.get("target_questions", 0)
-            _generated = stats.get("questions_generated", 0)
-            _loss = _requested - _generated
-            _loss_pct = round(_loss / _requested * 100, 1) if _requested > 0 else 0.0
             logger.info(
                 "RUN_COMPLETE exit_code=0 questions_requested=%d questions_generated=%d "
                 "generation_loss=%d generation_loss_pct=%.1f questions_inserted=%d "
                 "approval_rate=%.1f duration_seconds=%.1f",
-                _requested,
-                _generated,
-                _loss,
-                _loss_pct,
+                _run_stats["questions_requested"],
+                _run_stats["questions_generated"],
+                _run_stats["generation_loss"],
+                _run_stats["generation_loss_pct"],
                 inserted_count,
                 approval_rate,
                 stats.get("duration_seconds", 0.0),
