@@ -62,12 +62,11 @@ from gioe_libs.observability import observability  # noqa: E402
 
 # Exit codes
 EXIT_SUCCESS = 0
-EXIT_PARTIAL_FAILURE = 1
 EXIT_COMPLETE_FAILURE = 2
-EXIT_CONFIG_ERROR = 3
+EXIT_PARTIAL_FAILURE = 3  # Matches reporter.py EXIT_CODE_PARTIAL_FAILURE
 EXIT_DATABASE_ERROR = 4
-EXIT_BILLING_ERROR = 5  # New: Critical billing/quota issue
-EXIT_AUTH_ERROR = 6  # New: Authentication failure
+EXIT_BILLING_ERROR = 5  # Critical billing/quota issue
+EXIT_AUTH_ERROR = 6  # Authentication failure
 
 
 class InsertionError(RuntimeError):
@@ -1995,12 +1994,12 @@ def main() -> int:
             # CronJob still records the failure as usual.
             if run_reporter:
                 # InsertionError with some questions inserted is a partial failure;
-                # exit_code=3 maps to "partial_failure" in RunReporter._determine_status.
-                # All other exceptions are complete failures (exit_code=2 → "failed").
+                # EXIT_PARTIAL_FAILURE maps to "partial_failure" in RunReporter._determine_status.
+                # All other exceptions are complete failures (EXIT_COMPLETE_FAILURE → "failed").
                 if isinstance(exc, InsertionError) and inserted_count > 0:
-                    failure_exit_code = 3  # partial_failure
+                    failure_exit_code = EXIT_PARTIAL_FAILURE
                 else:
-                    failure_exit_code = 2  # failed
+                    failure_exit_code = EXIT_COMPLETE_FAILURE
                 min_score = args.min_score or settings.min_judge_score
                 run_id = run_reporter.report_run(
                     summary=summary,
