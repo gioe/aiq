@@ -7,12 +7,13 @@ Create Date: 2026-03-25 13:00:00.000000
 Rationale:
 The question_generation_runs.status column was created with a PostgreSQL ENUM
 type using uppercase values ('RUNNING', 'SUCCESS', 'PARTIAL_FAILURE', 'FAILED').
-The Python AsyncRunStatus enum (from gioe_libs) uses lowercase values
-('running', 'success', 'partial_failure', 'failed'), causing every INSERT to
-fail with a constraint violation.
+SQLAlchemy by default sends enum member .name (uppercase) to PostgreSQL, which
+matched the original schema.  As part of TASK-122 we switch to using .value
+(lowercase) via values_callable on the SA Enum column — so the PG enum type
+labels must be converted to lowercase to match.
 
-This migration recreates the enum with lowercase values.  The table is expected
-to be empty, so no data migration is required.
+This migration recreates the enum with lowercase values and uses lower(status)
+in the USING expression so it is safe even if existing rows carry uppercase data.
 
 Idempotency: if the enum already has lowercase values this migration is a no-op.
 """
@@ -65,7 +66,7 @@ def upgrade() -> None:
     op.execute(
         "ALTER TABLE question_generation_runs "
         "ALTER COLUMN status TYPE generationrunstatus "
-        "USING status::generationrunstatus"
+        "USING lower(status)::generationrunstatus"
     )
 
 

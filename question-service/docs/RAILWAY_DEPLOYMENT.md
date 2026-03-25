@@ -73,8 +73,12 @@ XAI_API_KEY=...  # Optional
 QUESTIONS_PER_RUN=50
 MIN_JUDGE_SCORE=0.7
 
-# Run reporting — enables POSTing run metrics to the backend after each run
-# Required for /cron-results and admin tooling to reflect actual run history
+# Run reporting — POSTs run metrics to the backend after each run so that
+# /cron-results and admin tooling reflect actual run history.
+# ENABLE_RUN_REPORTING defaults to true; set it to false to disable.
+# BACKEND_API_URL and BACKEND_SERVICE_KEY are effectively required in
+# production — startup will raise an error if they are missing and reporting
+# is enabled (which it is by default).
 ENABLE_RUN_REPORTING=true
 BACKEND_API_URL=https://aiq-backend-production.up.railway.app
 BACKEND_SERVICE_KEY=<value of SERVICE_API_KEY from backend Railway service>

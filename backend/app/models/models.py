@@ -32,7 +32,8 @@ Enum case note (TASK-1247):
     questiontype        — labels UPPERCASE ('PATTERN', …) → matches SA .name → OK
     difficultylevel     — labels UPPERCASE ('EASY', …)    → matches SA .name → OK
     teststatus          — labels UPPERCASE ('IN_PROGRESS', …) → matches SA .name → OK
-    generationrunstatus — labels UPPERCASE ('RUNNING', …) → matches SA .name → OK
+    generationrunstatus — labels lowercase ('running', …)  → SA configured with
+                          values_callable to send .value → OK (see TASK-122)
     educationlevel      — labels UPPERCASE ('HIGH_SCHOOL', …) → matches SA .name → OK
     feedbackcategory    — labels lowercase ('bug_report', …) → MISMATCH → runtime
                           INSERT will fail with "invalid input value for enum"
@@ -768,7 +769,9 @@ class QuestionGenerationRun(Base):
     duration_seconds: Mapped[Optional[float]] = mapped_column(nullable=True)
 
     # Status & outcome
-    status: Mapped[GenerationRunStatus] = mapped_column()
+    status: Mapped[GenerationRunStatus] = mapped_column(
+        sa.Enum(GenerationRunStatus, values_callable=lambda obj: [e.value for e in obj])
+    )
     exit_code: Mapped[Optional[int]] = mapped_column(
         nullable=True
     )  # 0-6 matching run_generation.py codes
