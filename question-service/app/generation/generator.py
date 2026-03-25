@@ -426,9 +426,14 @@ class QuestionGenerator:
             except LLMProviderError as e:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
-                logger.error(
-                    f"Failed to generate question with {provider_name}: {str(e)} "
-                    f"(category={e.classified_error.category.value})"
+                logger.warning(
+                    "generation.provider_error provider=%s type=%s difficulty=%s "
+                    "category=%s message=%s",
+                    provider_name,
+                    question_type.value,
+                    difficulty.value,
+                    e.classified_error.category.value,
+                    str(e),
                 )
                 # Capture classified error to Sentry
                 _safe_capture_generation_error(
@@ -454,8 +459,12 @@ class QuestionGenerator:
             except Exception as e:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
-                logger.error(
-                    f"Failed to generate question with {provider_name}: {str(e)}"
+                logger.warning(
+                    "generation.error provider=%s type=%s difficulty=%s message=%s",
+                    provider_name,
+                    question_type.value,
+                    difficulty.value,
+                    str(e),
                 )
                 # Capture unclassified error to Sentry
                 _safe_capture_generation_error(
@@ -1079,8 +1088,12 @@ class QuestionGenerator:
             except Exception as e:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
-                logger.error(
-                    f"Failed to generate question with {provider_name} (async): {str(e)}"
+                logger.warning(
+                    "generation.error provider=%s type=%s difficulty=%s message=%s",
+                    provider_name,
+                    question_type.value,
+                    difficulty.value,
+                    str(e),
                 )
                 # Capture unclassified error to Sentry
                 _safe_capture_generation_error(
