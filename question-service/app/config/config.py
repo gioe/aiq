@@ -59,6 +59,9 @@ class Settings(BaseSettings):
 
     # Alert Configuration
     enable_email_alerts: bool = False
+    generation_loss_threshold_pct: float = (
+        20.0  # Alert when generation loss exceeds this %
+    )
     smtp_host: Optional[str] = None
     smtp_port: int = 587
     smtp_username: Optional[str] = None
