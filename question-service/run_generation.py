@@ -905,6 +905,8 @@ def main() -> int:
         approval_rate = 0.0
         stats: dict = {}
         db = None
+        run_reporter = None
+        summary: dict = {}
 
         try:
             # Initialize run summary
@@ -1984,6 +1986,36 @@ def main() -> int:
                     )
 
             return run_summary
+
+        except Exception as exc:
+            # Report failed and partial_failure runs to the backend API so every
+            # run — successful or not — appears in /v1/admin/generation-runs.
+            # The success path already calls report_run() above; this except
+            # handles all non-success terminal paths and then re-raises so that
+            # CronJob still records the failure as usual.
+            if run_reporter:
+                # InsertionError with some questions inserted is a partial failure;
+                # exit_code=3 maps to "partial_failure" in RunReporter._determine_status.
+                # All other exceptions are complete failures (exit_code=2 → "failed").
+                if isinstance(exc, InsertionError) and inserted_count > 0:
+                    failure_exit_code = 3  # partial_failure
+                else:
+                    failure_exit_code = 2  # failed
+                min_score = args.min_score or settings.min_judge_score
+                run_id = run_reporter.report_run(
+                    summary=summary,
+                    exit_code=failure_exit_code,
+                    environment=settings.env,
+                    triggered_by=args.triggered_by,
+                    prompt_version=settings.prompt_version,
+                    judge_config_version=settings.judge_config_version,
+                    min_judge_score_threshold=min_score,
+                )
+                if run_id:
+                    logger.info(f"Failed run reported to backend API (ID: {run_id})")
+                else:
+                    logger.warning("Failed to report failed run to backend API")
+            raise
 
         finally:
             # Always close the database connection, even if an exception is raised
