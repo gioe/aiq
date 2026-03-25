@@ -111,6 +111,7 @@ GOOGLE_API_KEY=...                 # For Google models
 # Generation settings
 QUESTIONS_PER_RUN=50               # Default: 50
 MIN_JUDGE_SCORE=0.7              # Default: 0.7 (range: 0.0-1.0)
+GENERATION_LOSS_THRESHOLD_PCT=20.0 # Default: 20.0 — alert when generation loss % exceeds this value
 
 # Configuration paths
 JUDGE_CONFIG_PATH=./config/judges.yaml  # Default: ./config/judges.yaml
@@ -400,6 +401,21 @@ psql $DATABASE_URL -c "
 ```
 
 ### Alerting
+
+#### Generation Loss Alert
+
+The service tracks how many questions are lost through the pipeline (rejected by the judge, deduplication, etc.) and fires an alert when the loss percentage exceeds `GENERATION_LOSS_THRESHOLD_PCT`.
+
+**Env var**: `GENERATION_LOSS_THRESHOLD_PCT`
+**Default**: `20.0` (alert when more than 20% of generated questions are lost)
+**Range**: `0.0` – `100.0`
+
+**Tuning guidance**:
+- **Raise the threshold** (e.g., `30.0`) if your question pool is large and high duplicate rates are expected and acceptable.
+- **Lower the threshold** (e.g., `10.0`) in production when you want early warning of quality regressions or LLM provider issues.
+- Set to `100.0` to effectively disable the alert.
+
+The alert is suppressed during `--dry-run` runs.
 
 #### Email Alerts (Basic)
 
