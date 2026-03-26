@@ -30,7 +30,6 @@ from typing import Optional
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent))  # project root for aiq_types
 
 from app import (  # noqa: E402
     QuestionJudge,
@@ -849,6 +848,7 @@ def main() -> int:
         to_emails=to_emails,
         alert_file_path=settings.alert_file_path,
         discord_webhook_url=settings.discord_webhook_url,
+        resend_api_key=settings.resend_api_key,
     )
 
     # Register circuit breaker open callback so Discord alerts fire when

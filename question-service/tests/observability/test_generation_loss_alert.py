@@ -62,6 +62,7 @@ class TestGenerationLossWarningInSummary:
         summary = to_run_summary(stats, loss_threshold=None)
         details = summary["details"]
         assert "generation_loss_warning" not in details
+        assert "generation_loss_threshold" not in details
 
     @pytest.mark.parametrize(
         "loss_pct,threshold,expected_warning",
