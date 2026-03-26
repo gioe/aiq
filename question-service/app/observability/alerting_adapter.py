@@ -7,12 +7,14 @@ errors, duration_seconds) become top-level fields; everything under 'details'
 is flattened and appended.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from gioe_libs.alerting.alerting import RunSummary
 
 
-def to_run_summary(stats: Dict[str, Any]) -> RunSummary:
+def to_run_summary(
+    stats: Dict[str, Any], loss_threshold: Optional[float] = None
+) -> RunSummary:
     """Convert question-service native stats dict to a generic RunSummary.
 
     Args:
@@ -20,16 +22,30 @@ def to_run_summary(stats: Dict[str, Any]) -> RunSummary:
             questions_generated, questions_inserted, approval_rate,
             duration_seconds, by_type, by_difficulty, questions_requested,
             questions_rejected, duplicates_found, error_message.
+        loss_threshold: When provided, generation_loss_pct is compared against
+            this value. If it exceeds the threshold, two extra fields are
+            injected into details so the single Success email is self-contained:
+            ``generation_loss_warning`` (formatted "N (P%)") and
+            ``generation_loss_threshold`` (formatted "T%"). Pass None (the
+            default) to omit the warning (e.g. in dry-run mode).
 
     Returns:
         A RunSummary dict with standard top-level keys and the original stats
         stored verbatim under 'details' for CronJob to flatten into notification
         fields.
     """
+    details: Dict[str, Any] = dict(stats)
+    if loss_threshold is not None:
+        loss_pct = stats.get("generation_loss_pct", 0.0)
+        if isinstance(loss_pct, (int, float)) and loss_pct > loss_threshold:
+            details["generation_loss_warning"] = (
+                f"{stats.get('generation_loss', 0)} ({loss_pct}%)"
+            )
+            details["generation_loss_threshold"] = f"{loss_threshold}%"
     return {
         "generated": stats.get("questions_generated", 0),
         "inserted": stats.get("questions_inserted", 0),
         "errors": stats.get("questions_rejected", 0),
         "duration_seconds": float(stats.get("duration_seconds") or 0.0),
-        "details": stats,
+        "details": details,
     }

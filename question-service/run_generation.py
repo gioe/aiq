@@ -30,6 +30,7 @@ from typing import Optional
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))  # project root for aiq_types
 
 from app import (  # noqa: E402
     QuestionJudge,
@@ -848,7 +849,6 @@ def main() -> int:
         to_emails=to_emails,
         alert_file_path=settings.alert_file_path,
         discord_webhook_url=settings.discord_webhook_url,
-        resend_api_key=settings.resend_api_key,
     )
 
     # Register circuit breaker open callback so Discord alerts fire when
@@ -1940,7 +1940,12 @@ def main() -> int:
             logger.info("=" * 80)
 
             _run_stats = _build_run_stats()
-            run_summary = to_run_summary(_run_stats)
+            run_summary = to_run_summary(
+                _run_stats,
+                loss_threshold=(
+                    None if args.dry_run else settings.generation_loss_threshold_pct
+                ),
+            )
 
             logger.info(
                 "RUN_COMPLETE exit_code=0 questions_requested=%d questions_generated=%d "
@@ -1955,34 +1960,19 @@ def main() -> int:
                 stats.get("duration_seconds", 0.0),
             )
 
-            loss_threshold = settings.generation_loss_threshold_pct
-            if not args.dry_run and _run_stats["generation_loss_pct"] > loss_threshold:
+            if (
+                not args.dry_run
+                and _run_stats["generation_loss_pct"]
+                > settings.generation_loss_threshold_pct
+            ):
                 logger.warning(
                     "GENERATION_LOSS_ALERT generation_loss_pct=%.1f exceeds threshold=%.1f "
                     "requested=%d generated=%d",
                     _run_stats["generation_loss_pct"],
-                    loss_threshold,
+                    settings.generation_loss_threshold_pct,
                     _run_stats["questions_requested"],
                     _run_stats["questions_generated"],
                 )
-                try:
-                    alert_manager.send_notification(
-                        title="Generation Loss Alert",
-                        fields=[
-                            ("Requested", _run_stats["questions_requested"]),
-                            ("Generated", _run_stats["questions_generated"]),
-                            (
-                                "Loss",
-                                f"{_run_stats['generation_loss']} ({_run_stats['generation_loss_pct']}%)",
-                            ),
-                            ("Threshold", f"{loss_threshold}%"),
-                        ],
-                        severity="warning",
-                    )
-                except Exception as alert_err:
-                    logger.warning(
-                        "Failed to send generation loss alert: %s", alert_err
-                    )
 
             return run_summary
 
