@@ -30,43 +30,43 @@ Questions scoring above 0.7 are approved for inclusion in the question pool.
 
 ## Current Configuration
 
-**Last Updated**: January 2026
-**Configuration Version**: 2.0
-**Based on**: January 2026 benchmark data
+**Last Updated**: March 2026
+**Configuration Version**: 3.0
+**Based on**: March 2026 update (TASK-141 — xAI/grok-4 removed, credits exhausted 2026-03-27)
 
 ### Question Type Assignments
 
 | Question Type | Judge Model | Provider | Key Benchmarks |
 |--------------|---------------|----------|----------------|
-| **mathematical** | grok-4 | xAI | GSM8K: 95.2%, AIME 2024: 100%, USAMO 2025: 61.9% |
-| **logical_reasoning** | claude-sonnet-4-5-20250929 | Anthropic | HumanEval: >95%, GPQA Diamond: 83.4%, SWE-bench: 77-82% |
-| **pattern_recognition** | gemini-3-pro-preview | Google | ARC-AGI-2: 31.1%, GPQA Diamond: 91.9%, MMMU-Pro: 81.0% |
-| **spatial_reasoning** | gemini-3-pro-preview | Google | ARC-AGI-2: 31.1% standard mode (Deep Think 45.1% not enabled), MMMU-Pro: 81.0% |
-| **verbal_reasoning** | claude-sonnet-4-5-20250929 | Anthropic | MMLU: 89%, HellaSwag: ~95% |
-| **memory** | claude-sonnet-4-5-20250929 | Anthropic | MMLU: 89%, 200K context |
-| **default** | gpt-4-turbo | OpenAI | General-purpose fallback |
+| **mathematical** | gemini-3.1-pro-preview | Google | AIME 2025: 95.0%, FrontierMath: 38.0%, GSM8K: 98.0% |
+| **logical_reasoning** | gemini-2.5-pro | Google | GPQA Diamond: 84.0%, SWE-bench Verified: 63.0%, HumanEval: 90.0% |
+| **pattern_recognition** | gemini-2.5-pro | Google | ARC-AGI-2: 31.1%, GPQA Diamond: 84.0%, MMMU-Pro: 81.0% |
+| **spatial_reasoning** | claude-opus-4-5-20251101 | Anthropic | ARC-AGI-2: 37.6%, MMMU-Pro: 60.0% |
+| **verbal_reasoning** | gpt-5.2 | OpenAI | MMLU: 88.0%, MMLU-Pro: 83.0% |
+| **memory** | claude-opus-4-5-20251101 | Anthropic | MMLU: 87.4%, 200K context |
+| **default** | gemini-2.5-pro | Google | Cross-provider fallback (generator is openai/gpt-4-turbo) |
 
-### Key Findings (January 2026)
+> **Note:** xAI/grok-4 was removed from all judge and fallback assignments on 2026-03-27 (credits exhausted). See Change History for details.
 
-**Claude Sonnet 4.5** leads logical/verbal/memory question types:
-- Major upgrade from Claude 3.5 Sonnet with SWE-bench improving from 49% to 77-82%
-- Exceptional reasoning performance (GPQA Diamond: 83.4%, HumanEval: >95%)
-- Strong knowledge retention (MMLU: 89%)
-- Massive context window (200K tokens) beneficial for memory tasks
+### Key Findings (March 2026)
 
-**Gemini 3 Pro** breakthrough for pattern/spatial reasoning:
-- ARC-AGI-2: 31.1% standard mode (6x improvement over previous models)
-- Deep Think mode achieves 45.1% on ARC-AGI-2 (not currently enabled in our implementation)
-- MMMU-Pro: 81.0% multimodal reasoning
-- GPQA Diamond: 91.9% (highest among all models)
+**Google Gemini** now covers mathematical, logical, and pattern reasoning:
+- gemini-3.1-pro-preview for math: AIME 2025 (95.0%), FrontierMath (38.0%), GSM8K (98.0%)
+- gemini-2.5-pro for logic/pattern: GPQA Diamond (84.0%), SWE-bench Verified (63.0%)
+- Cross-provider independence: assigned as third provider independent from both generator and its fallback
 
-**Grok 4 (xAI)** dominates mathematical reasoning:
-- Perfect score on AIME 2024 (100%)
-- USAMO 2025: 61.9% (competition-level mathematics)
-- GSM8K: 95.2% (slightly above GPT-4 Turbo's 95.0%)
+**Anthropic Claude Opus 4.5** covers spatial and memory:
+- ARC-AGI-2: 37.6% (spatial reasoning)
+- MMLU: 87.4%, 200K context window (memory tasks)
 
-**GPT-4 Turbo retained** for:
-- Default fallback (broad competence across tasks)
+**OpenAI GPT-5.2** covers verbal reasoning:
+- MMLU: 88.0%, MMLU-Pro: 83.0%
+
+**xAI/grok-4 removed** (historical):
+- Was the math judge from January 2026 (v2.0): GSM8K 95.2%, AIME 2024 100%, USAMO 2025 61.9%
+- Removed 2026-03-27 — xAI credits exhausted; replaced by Google for math judging
+
+**GPT-4 Turbo** no longer in active judge assignments (replaced by GPT-5.2 for verbal).
 
 ---
 
@@ -436,10 +436,7 @@ Use the following criteria to decide if an judge change is warranted:
 - Highest GPQA Diamond score (91.9%) among all models
 - Deep Think mode can achieve 45.1% on ARC-AGI-2 (not currently enabled, future enhancement)
 
-**Grok 4 (xAI)**: Selected for mathematical reasoning due to:
-- Perfect AIME 2024 score (100%)
-- Strong USAMO 2025 performance (61.9%)
-- Competitive GSM8K (95.2%, slightly above GPT-4 Turbo)
+**Grok 4 (xAI)**: *Removed from judge assignments 2026-03-27 (credits exhausted).* Was previously selected for mathematical reasoning (AIME 2024: 100%, USAMO 2025: 61.9%, GSM8K: 95.2%). Replaced by Google/gemini-3.1-pro-preview for math judging.
 
 **Claude Sonnet 4.5 vs Opus 4.5**:
 - Opus 4.5 shows higher scores on some benchmarks (GPQA Diamond ~87% vs 83.4%)
@@ -480,6 +477,25 @@ Use this checklist when evaluating judge changes:
 ---
 
 ## Change History
+
+### 2026-03-27 - Remove xAI/grok-4 from Judge Fallback Chain (TASK-141)
+
+**Review Type**: Provider removal (credits exhausted)
+
+**Outcome**: xAI/grok-4 removed from all judge primary and fallback assignments. Replaced with remaining 3-provider setup (OpenAI, Anthropic, Google).
+
+**Changes Made**:
+1. **mathematical**: Judge changed from xAI/grok-4 → Google/gemini-3.1-pro-preview (also required changing from primary xAI to a cross-provider judge since the generator changed to Anthropic)
+2. **logical_reasoning**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251101
+3. **pattern_recognition**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251101
+4. **spatial_reasoning**: Fallback changed from xAI/grok-4 → Google/gemini-2.5-pro
+5. **verbal_reasoning**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251101
+6. **memory**: Fallback changed from xAI/grok-4 → Google/gemini-2.5-pro
+7. **default**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251101
+
+**Root Cause**: xAI API credits exhausted. Full 4-provider independence (OpenAI/Anthropic/Google/xAI) is no longer achievable; judge fallbacks are now best-effort across the remaining 3 providers.
+
+---
 
 ### 2026-01-24 - Fix Gemini 3 Model Identifier (TASK-571)
 
@@ -686,4 +702,4 @@ For questions about judge configuration or to report issues:
 - **Benchmark Questions**: Refer to benchmark documentation linked in this guide
 
 **Maintainers**: Question generation service team
-**Last Updated**: January 24, 2026
+**Last Updated**: March 27, 2026
