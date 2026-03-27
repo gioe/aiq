@@ -210,7 +210,7 @@ class ErrorClassifier:
     def _extract_api_error_message(error: Exception) -> Optional[str]:
         """Extract the actual error message from an API error response body.
 
-        Tries provider SDK-specific attributes before falling back to str(error).
+        Tries provider SDK-specific attributes (body dict, then .message).
 
         Args:
             error: The exception to extract from

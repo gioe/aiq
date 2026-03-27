@@ -456,3 +456,61 @@ class TestOpenAIInsufficientQuotaClassification:
 
         assert result.category == LLMErrorCategory.RATE_LIMIT
         assert result.is_retryable is True
+
+
+class TestExtractApiErrorMessage:
+    """Tests for ErrorClassifier._extract_api_error_message."""
+
+    def test_nested_body_error_message(self):
+        """Returns message from body['error']['message'] (OpenAI/Anthropic SDK style)."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("ignored")
+        err.body = {"error": {"message": "Your credit balance is too low"}}
+        result = ErrorClassifier._extract_api_error_message(err)
+        assert result == "Your credit balance is too low"
+
+    def test_flat_body_message(self):
+        """Returns message from body['message'] when no nested error key."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("ignored")
+        err.body = {"message": "Model not found"}
+        result = ErrorClassifier._extract_api_error_message(err)
+        assert result == "Model not found"
+
+    def test_message_attribute_fallback(self):
+        """Falls back to .message attribute when body is absent."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("ignored")
+        err.message = "Invalid model ID: claude-3-nonexistent"
+        result = ErrorClassifier._extract_api_error_message(err)
+        assert result == "Invalid model ID: claude-3-nonexistent"
+
+    def test_body_takes_precedence_over_message_attr(self):
+        """body['error']['message'] takes precedence over .message attribute."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("ignored")
+        err.body = {"error": {"message": "From body"}}
+        err.message = "From attribute"
+        result = ErrorClassifier._extract_api_error_message(err)
+        assert result == "From body"
+
+    def test_returns_none_when_no_extractable_message(self):
+        """Returns None when neither body nor .message is present."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("plain error with no body or message attr")
+        result = ErrorClassifier._extract_api_error_message(err)
+        assert result is None
+
+    def test_returns_none_when_body_is_not_dict(self):
+        """Returns None when body exists but is not a dict."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("ignored")
+        err.body = "raw string body"
+        result = ErrorClassifier._extract_api_error_message(err)
+        assert result is None
