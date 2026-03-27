@@ -50,6 +50,20 @@ DEFAULT_FALLBACK_TIMEOUT_SECONDS = (
 )
 
 
+def _error_category(error: BaseException) -> str:
+    """Return a lowercase error category derived from the exception type name."""
+    name = type(error).__name__
+    if name.endswith("Error"):
+        name = name[:-5]
+    # Convert PascalCase to snake_case
+    result = ""
+    for i, c in enumerate(name):
+        if c.isupper() and i > 0:
+            result += "_"
+        result += c.lower()
+    return result or "unknown"
+
+
 def _safe_capture_evaluation_error(
     error: BaseException,
     *,
@@ -351,6 +365,12 @@ class QuestionJudge:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
                 logger.error(f"Failed to evaluate question: {str(e)}")
+                logger.warning(
+                    "judge.evaluation_failure provider=%s question_type=%s error=%s",
+                    resolved_provider or "unknown",
+                    question_type,
+                    _error_category(e),
+                )
                 # Capture evaluation error to Sentry (only if provider was resolved)
                 if resolved_provider is not None:
                     _safe_capture_evaluation_error(
@@ -556,7 +576,7 @@ class QuestionJudge:
 
                 return evaluated
 
-            except CircuitBreakerOpen:
+            except CircuitBreakerOpen as e:
                 span.set_attribute("success", False)
                 span.set_status("error", "Circuit breaker open")
                 provider_info = resolved_provider or "unknown"
@@ -564,8 +584,14 @@ class QuestionJudge:
                     f"Circuit breaker is open for judge-{provider_info}, "
                     f"cannot evaluate question (async)"
                 )
+                logger.warning(
+                    "judge.evaluation_failure provider=%s question_type=%s error=%s",
+                    provider_info,
+                    question_type,
+                    _error_category(e),
+                )
                 raise
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutError as e:
                 span.set_attribute("success", False)
                 timeout_info = active_timeout or self._async_timeout
                 span.set_status("error", f"Timeout after {timeout_info}s")
@@ -574,11 +600,23 @@ class QuestionJudge:
                     f"Timeout evaluating question with {provider_info} "
                     f"(async) after {timeout_info}s"
                 )
+                logger.warning(
+                    "judge.evaluation_failure provider=%s question_type=%s error=%s",
+                    provider_info,
+                    question_type,
+                    _error_category(e),
+                )
                 raise
             except Exception as e:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
                 logger.error(f"Failed to evaluate question (async): {str(e)}")
+                logger.warning(
+                    "judge.evaluation_failure provider=%s question_type=%s error=%s",
+                    resolved_provider or "unknown",
+                    question_type,
+                    _error_category(e),
+                )
                 # Capture evaluation error to Sentry (only if provider was resolved)
                 if resolved_provider is not None:
                     _safe_capture_evaluation_error(
