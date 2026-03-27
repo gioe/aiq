@@ -19,7 +19,7 @@ source_hierarchy:
 # Models to evaluate (provider + exact API model ID)
 models:
   - { provider: "openai",    model: "gpt-5.2" }
-  - { provider: "anthropic", model: "claude-opus-4-5-20251101" }
+  - { provider: "anthropic", model: "claude-opus-4-5-20251001" }
   - { provider: "anthropic", model: "claude-sonnet-4-5-20250929" }
   - { provider: "google",    model: "gemini-3.1-pro-preview" }
   - { provider: "xai",       model: "grok-4" }
@@ -70,7 +70,7 @@ scores:
     context_window_norm: { value: 20.0,  source: "official-announcement", date: "2025-12-11" }  # 400K / 2M × 100
     RULER:               { value: null }
 
-  claude-opus-4-5-20251101:
+  claude-opus-4-5-20251001:
     AIME_2025:           { value: 92.8,  source: "official-announcement", date: "2025-11-01" }
     FrontierMath:        { value: 21.0,  source: "epoch-ai",              date: "2025-11-01" }
     GSM8K:               { value: 96.4,  source: "official-announcement", date: "2025-11-01" }

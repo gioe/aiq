@@ -25,7 +25,7 @@
 #
 # IMPORTANT - Model Naming Convention:
 #   Model identifiers MUST match the exact strings used by each provider's API:
-#   - Anthropic: claude-opus-4-5-20251101, claude-sonnet-4-5-20250929, etc.
+#   - Anthropic: claude-opus-4-5-20251001, claude-sonnet-4-5-20250929, etc.
 #   - Google: gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-pro, etc.
 #   - OpenAI: gpt-5.2, gpt-4-turbo, o4-mini, etc.
 #   - xAI: grok-4, grok-3
@@ -43,40 +43,40 @@ judges:
   math:
     model: "gemini-3.1-pro-preview"
     provider: "google"
-    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is openai. Google is the third independent provider — AIME 2025 (95.0%), FrontierMath (38.0%), GSM8K (98.0%), math composite 78.80. Updated Mar 2026 via /refresh-providers (generator changed to anthropic, requiring judge provider change from anthropic to google). Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
+    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is openai. Google is the third independent provider — AIME 2025 (95.0%), FrontierMath (38.0%), GSM8K (98.0%), math composite 78.80. Updated Mar 2026 via /refresh-providers (generator changed to anthropic, requiring judge provider change from anthropic to google). Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251001 (xAI credits exhausted 2026-03-27)."
     benchmark_data:
       AIME_2025: "95.0%"
       FrontierMath: "38.0%"
       GSM8K: "98.0%"
     enabled: true
     fallback: "anthropic"
-    fallback_model: "claude-opus-4-5-20251101"
+    fallback_model: "claude-opus-4-5-20251001"
 
   logic:
     model: "gemini-2.5-pro"
     provider: "google"
-    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is openai. Google is the third independent provider — GPQA Diamond (84.0%), SWE-bench Verified (63.0%), HumanEval (90.0%), composite 79.0. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC) to all GenerateContentConfig calls. Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
+    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is openai. Google is the third independent provider — GPQA Diamond (84.0%), SWE-bench Verified (63.0%), HumanEval (90.0%), composite 79.0. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC) to all GenerateContentConfig calls. Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251001 (xAI credits exhausted 2026-03-27)."
     benchmark_data:
       GPQA_Diamond: "84.0%"
       SWE_bench_Verified: "63.0%"
       HumanEval: "90.0%"
     enabled: true
     fallback: "anthropic"
-    fallback_model: "claude-opus-4-5-20251101"
+    fallback_model: "claude-opus-4-5-20251001"
 
   pattern:
     model: "gemini-2.5-pro"
     provider: "google"
-    rationale: "Cross-provider judge: generator is openai/gpt-5.2, gen_fallback is anthropic. Google is the third independent provider — ARC-AGI-2 (31.1%), MMMU-Pro (81%), composite 51.06. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC) to all GenerateContentConfig calls. Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
+    rationale: "Cross-provider judge: generator is openai/gpt-5.2, gen_fallback is anthropic. Google is the third independent provider — ARC-AGI-2 (31.1%), MMMU-Pro (81%), composite 51.06. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC) to all GenerateContentConfig calls. Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251001 (xAI credits exhausted 2026-03-27)."
     benchmark_data:
       ARC_AGI_2: "31.1%"
       MMMU_Pro: "81.0%"
     enabled: true
     fallback: "anthropic"
-    fallback_model: "claude-opus-4-5-20251101"
+    fallback_model: "claude-opus-4-5-20251001"
 
   spatial:
-    model: "claude-opus-4-5-20251101"
+    model: "claude-opus-4-5-20251001"
     provider: "anthropic"
     rationale: "Cross-provider judge: generator is openai/gpt-5.2, gen_fallback is google. Anthropic is the third independent provider — ARC-AGI-2 (37.6%), MMMU-Pro (60%), composite 48.80. Ensures cross-provider independence even when gen falls back to google. Judge fallback changed from xai/grok-4 to google/gemini-2.5-pro (xAI credits exhausted 2026-03-27). Updated Mar 2026."
     benchmark_data:
@@ -89,16 +89,16 @@ judges:
   verbal:
     model: "gpt-5.2"
     provider: "openai"
-    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is google. OpenAI is the third independent provider — MMLU (88.0%), MMLU-Pro (83.0%), verbal composite 85.67. Updated Mar 2026 via /refresh-providers (gen_fallback changed to google, requiring judge provider change from google to openai). Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
+    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is google. OpenAI is the third independent provider — MMLU (88.0%), MMLU-Pro (83.0%), verbal composite 85.67. Updated Mar 2026 via /refresh-providers (gen_fallback changed to google, requiring judge provider change from google to openai). Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251001 (xAI credits exhausted 2026-03-27)."
     benchmark_data:
       MMLU: "88.0%"
       MMLU_Pro: "83.0%"
     enabled: true
     fallback: "anthropic"
-    fallback_model: "claude-opus-4-5-20251101"
+    fallback_model: "claude-opus-4-5-20251001"
 
   memory:
-    model: "claude-opus-4-5-20251101"
+    model: "claude-opus-4-5-20251001"
     provider: "anthropic"
     rationale: "Cross-provider judge: generator is google/gemini-3-pro-preview, gen_fallback is openai. Anthropic is the third independent provider — MMLU (87.4%), 200K context window (norm 10.0), composite 51.28. Ensures cross-provider independence even when gen falls back to openai. Judge fallback changed from xai/grok-4 to google/gemini-2.5-pro (xAI credits exhausted 2026-03-27). Updated Mar 2026."
     benchmark_data:
@@ -110,13 +110,13 @@ judges:
 
 # Default judge (fallback for unknown question types)
 # default_generator is openai/gpt-4-turbo with fallback anthropic — so judge must be
-# a third provider (google). Using google/gemini-2.5-pro; fallback anthropic/claude-opus-4-5-20251101.
+# a third provider (google). Using google/gemini-2.5-pro; fallback anthropic/claude-opus-4-5-20251001.
 default_judge:
   model: "gemini-2.5-pro"
   provider: "google"
-  rationale: "Cross-provider fallback judge: default generator is openai/gpt-4-turbo, gen_fallback is anthropic. Google is the third independent provider. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC). Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
+  rationale: "Cross-provider fallback judge: default generator is openai/gpt-4-turbo, gen_fallback is anthropic. Google is the third independent provider. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC). Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251001 (xAI credits exhausted 2026-03-27)."
   fallback: "anthropic"
-  fallback_model: "claude-opus-4-5-20251101"
+  fallback_model: "claude-opus-4-5-20251001"
   enabled: true
 
 # Evaluation criteria weights (0.0 to 1.0)

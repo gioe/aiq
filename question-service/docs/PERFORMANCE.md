@@ -73,9 +73,9 @@ Type-specific judge models evaluate questions against five weighted criteria:
 | Math | Google | gemini-3.1-pro-preview | AIME 2025 95.0%, FrontierMath 38.0%, GSM8K 98.0% |
 | Logic | Google | gemini-2.5-pro | GPQA Diamond 84.0%, SWE-bench Verified 63.0%, HumanEval 90.0% |
 | Pattern | Google | gemini-2.5-pro | ARC-AGI-2 31.1%, GPQA Diamond 84.0%, MMMU-Pro 81.0% |
-| Spatial | Anthropic | claude-opus-4-5-20251101 | ARC-AGI-2 37.6%, MMMU-Pro 60.0% |
+| Spatial | Anthropic | claude-opus-4-5-20251001 | ARC-AGI-2 37.6%, MMMU-Pro 60.0% |
 | Verbal | OpenAI | gpt-5.2 | MMLU 88.0%, MMLU-Pro 83.0% |
-| Memory | Anthropic | claude-opus-4-5-20251101 | MMLU 87.4%, 200K context window |
+| Memory | Anthropic | claude-opus-4-5-20251001 | MMLU 87.4%, 200K context window |
 
 > **Note:** xAI/grok-4 removed from all judge assignments 2026-03-27 (credits exhausted). Current setup uses 3 providers: Google, Anthropic, OpenAI. See [docs/JUDGE_SELECTION.md](JUDGE_SELECTION.md) for full rationale.
 

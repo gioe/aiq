@@ -1701,7 +1701,7 @@ def google_anthropic_judge_config():
         version="1.0.0",
         judges={
             "math": JudgeModel(
-                model="claude-opus-4-5-20251101",
+                model="claude-opus-4-5-20251001",
                 provider="anthropic",
                 rationale="Math judge",
                 enabled=True,
@@ -1714,7 +1714,7 @@ def google_anthropic_judge_config():
                 rationale="Logic judge",
                 enabled=True,
                 fallback="anthropic",
-                fallback_model="claude-opus-4-5-20251101",
+                fallback_model="claude-opus-4-5-20251001",
             ),
             "pattern": JudgeModel(
                 model="gemini-2.5-pro",
@@ -1722,10 +1722,10 @@ def google_anthropic_judge_config():
                 rationale="Pattern judge",
                 enabled=True,
                 fallback="anthropic",
-                fallback_model="claude-opus-4-5-20251101",
+                fallback_model="claude-opus-4-5-20251001",
             ),
             "spatial": JudgeModel(
-                model="claude-opus-4-5-20251101",
+                model="claude-opus-4-5-20251001",
                 provider="anthropic",
                 rationale="Spatial judge",
                 enabled=True,
@@ -1738,10 +1738,10 @@ def google_anthropic_judge_config():
                 rationale="Verbal judge",
                 enabled=True,
                 fallback="anthropic",
-                fallback_model="claude-opus-4-5-20251101",
+                fallback_model="claude-opus-4-5-20251001",
             ),
             "memory": JudgeModel(
-                model="claude-opus-4-5-20251101",
+                model="claude-opus-4-5-20251001",
                 provider="anthropic",
                 rationale="Memory judge",
                 enabled=True,
@@ -1755,7 +1755,7 @@ def google_anthropic_judge_config():
             rationale="Default judge",
             enabled=True,
             fallback="anthropic",
-            fallback_model="claude-opus-4-5-20251101",
+            fallback_model="claude-opus-4-5-20251001",
         ),
         evaluation_criteria=EvaluationCriteria(
             clarity=0.30,
@@ -1837,7 +1837,7 @@ class TestRuntimeFallback:
         )
 
         mock_anthropic = Mock()
-        mock_anthropic.model = "claude-opus-4-5-20251101"
+        mock_anthropic.model = "claude-opus-4-5-20251001"
         mock_anthropic.generate_structured_completion_with_usage.return_value = (
             make_completion_result(sample_evaluation_response)
         )
@@ -1885,7 +1885,7 @@ class TestRuntimeFallback:
         )
 
         mock_anthropic = Mock()
-        mock_anthropic.model = "claude-opus-4-5-20251101"
+        mock_anthropic.model = "claude-opus-4-5-20251001"
         mock_anthropic.generate_structured_completion_with_usage.side_effect = (
             Exception("anthropic fallback error")
         )
@@ -1915,7 +1915,7 @@ class TestRuntimeFallback:
         )
 
         mock_anthropic = Mock()
-        mock_anthropic.model = "claude-opus-4-5-20251101"
+        mock_anthropic.model = "claude-opus-4-5-20251001"
         mock_anthropic.generate_structured_completion_with_usage_async = AsyncMock(
             return_value=make_completion_result(sample_evaluation_response)
         )
@@ -1950,7 +1950,7 @@ class TestRuntimeFallback:
             await asyncio.sleep(10)
 
         mock_anthropic = Mock()
-        mock_anthropic.model = "claude-opus-4-5-20251101"
+        mock_anthropic.model = "claude-opus-4-5-20251001"
         mock_anthropic.generate_structured_completion_with_usage_async = AsyncMock(
             side_effect=_hang
         )

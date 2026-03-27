@@ -177,10 +177,10 @@ class TestGeneratorAssignment:
             model="gpt-4-turbo",
             rationale="Test rationale",
             fallback="anthropic",
-            fallback_model="claude-opus-4-5-20251101",
+            fallback_model="claude-opus-4-5-20251001",
         )
         assert assignment.fallback == "anthropic"
-        assert assignment.fallback_model == "claude-opus-4-5-20251101"
+        assert assignment.fallback_model == "claude-opus-4-5-20251001"
 
     def test_fallback_model_without_fallback_fails(self):
         """Test that fallback_model without fallback provider raises validation error."""
@@ -188,7 +188,7 @@ class TestGeneratorAssignment:
             GeneratorAssignment(
                 provider="openai",
                 rationale="Test rationale",
-                fallback_model="claude-opus-4-5-20251101",
+                fallback_model="claude-opus-4-5-20251001",
             )
         assert "fallback_model cannot be set without a fallback provider" in str(
             exc_info.value
@@ -494,7 +494,7 @@ class TestGeneratorConfigLoader:
                     "model": "gpt-4-turbo",
                     "rationale": "Strong math performance",
                     "fallback": "anthropic",
-                    "fallback_model": "claude-opus-4-5-20251101",
+                    "fallback_model": "claude-opus-4-5-20251001",
                 },
                 "logic": {"provider": "openai", "rationale": "r"},
                 "pattern": {"provider": "openai", "rationale": "r"},
@@ -519,7 +519,7 @@ class TestGeneratorConfigLoader:
                 "math", ["anthropic"]
             )
             assert provider == "anthropic"
-            assert model == "claude-opus-4-5-20251101"
+            assert model == "claude-opus-4-5-20251001"
         finally:
             temp_path.unlink()
 
@@ -599,7 +599,7 @@ class TestGeneratorConfigLoader:
                     "model": "gpt-4-turbo",
                     "rationale": "Math",
                     "fallback": "anthropic",
-                    "fallback_model": "claude-opus-4-5-20251101",
+                    "fallback_model": "claude-opus-4-5-20251001",
                 },
                 "logic": {"provider": "openai", "rationale": "r"},
                 "pattern": {"provider": "openai", "rationale": "r"},
@@ -638,7 +638,7 @@ class TestGeneratorConfigLoader:
                     "model": "gpt-4-turbo",
                     "rationale": "Math",
                     "fallback": "anthropic",
-                    "fallback_model": "claude-opus-4-5-20251101",
+                    "fallback_model": "claude-opus-4-5-20251001",
                 },
                 "logic": {"provider": "openai", "rationale": "r"},
                 "pattern": {"provider": "openai", "rationale": "r"},
@@ -730,7 +730,7 @@ class TestGeneratorConfigLoader:
                     "model": "gpt-4-turbo",
                     "rationale": "Math",
                     "fallback": "anthropic",
-                    "fallback_model": "claude-opus-4-5-20251101",
+                    "fallback_model": "claude-opus-4-5-20251001",
                 },
                 "logic": {"provider": "openai", "rationale": "r"},
                 "pattern": {"provider": "openai", "rationale": "r"},
@@ -1155,7 +1155,7 @@ class TestProviderTierSelection:
                     "model": "gpt-4-turbo",
                     "rationale": "Math",
                     "fallback": "anthropic",
-                    "fallback_model": "claude-opus-4-5-20251101",
+                    "fallback_model": "claude-opus-4-5-20251001",
                 },
                 "logic": {
                     "provider": "anthropic",
@@ -1230,7 +1230,7 @@ class TestProviderTierSelection:
             "math", ["openai", "anthropic"], provider_tier="fallback"
         )
         assert provider == "anthropic"
-        assert model == "claude-opus-4-5-20251101"
+        assert model == "claude-opus-4-5-20251001"
 
     def test_fallback_tier_falls_back_to_primary_when_no_fallback_configured(self):
         """Test that fallback tier uses primary when no fallback is configured."""
@@ -1287,7 +1287,7 @@ class TestProviderTierSelection:
     def test_fallback_tier_across_all_question_types(self, fallback_config_loader):
         """Test that fallback tier correctly selects fallback for each question type."""
         expected = {
-            "math": ("anthropic", "claude-opus-4-5-20251101"),
+            "math": ("anthropic", "claude-opus-4-5-20251001"),
             "logic": ("openai", "gpt-4-turbo"),
             "pattern": ("anthropic", "claude-sonnet-4-5-20250929"),
             "spatial": ("openai", "gpt-4-turbo"),
@@ -1542,7 +1542,7 @@ class TestFallbackModelEdgeCases:
                     "model": "grok-4",
                     "rationale": "Math",
                     "fallback": "anthropic",
-                    "fallback_model": "claude-opus-4-5-20251101",
+                    "fallback_model": "claude-opus-4-5-20251001",
                 },
                 "logic": {"provider": "openai", "rationale": "r"},
                 "pattern": {"provider": "openai", "rationale": "r"},
@@ -1567,6 +1567,6 @@ class TestFallbackModelEdgeCases:
                 "math", ["xai", "anthropic"], provider_tier="primary"
             )
             assert provider == "xai"
-            assert model == "grok-4"  # Primary model, NOT claude-opus-4-5-20251101
+            assert model == "grok-4"  # Primary model, NOT claude-opus-4-5-20251001
         finally:
             temp_path.unlink()

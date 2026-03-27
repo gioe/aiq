@@ -41,9 +41,9 @@ Questions scoring above 0.7 are approved for inclusion in the question pool.
 | **mathematical** | gemini-3.1-pro-preview | Google | AIME 2025: 95.0%, FrontierMath: 38.0%, GSM8K: 98.0% |
 | **logical_reasoning** | gemini-2.5-pro | Google | GPQA Diamond: 84.0%, SWE-bench Verified: 63.0%, HumanEval: 90.0% |
 | **pattern_recognition** | gemini-2.5-pro | Google | ARC-AGI-2: 31.1%, GPQA Diamond: 84.0%, MMMU-Pro: 81.0% |
-| **spatial_reasoning** | claude-opus-4-5-20251101 | Anthropic | ARC-AGI-2: 37.6%, MMMU-Pro: 60.0% |
+| **spatial_reasoning** | claude-opus-4-5-20251001 | Anthropic | ARC-AGI-2: 37.6%, MMMU-Pro: 60.0% |
 | **verbal_reasoning** | gpt-5.2 | OpenAI | MMLU: 88.0%, MMLU-Pro: 83.0% |
-| **memory** | claude-opus-4-5-20251101 | Anthropic | MMLU: 87.4%, 200K context |
+| **memory** | claude-opus-4-5-20251001 | Anthropic | MMLU: 87.4%, 200K context |
 | **default** | gemini-2.5-pro | Google | Cross-provider fallback (generator is openai/gpt-4-turbo) |
 
 > **Note:** xAI/grok-4 was removed from all judge and fallback assignments on 2026-03-27 (credits exhausted). See Change History for details.
@@ -224,7 +224,7 @@ Each question type was mapped to relevant public benchmarks:
 - HellaSwag: ~95%
 - Context Window: 200K tokens
 
-**Claude Opus 4.5 (claude-opus-4-5-20251101)**:
+**Claude Opus 4.5 (claude-opus-4-5-20251001)**:
 - GPQA Diamond: ~87%
 - SWE-bench Verified: 82-85%
 - HumanEval: >95%
@@ -486,12 +486,12 @@ Use this checklist when evaluating judge changes:
 
 **Changes Made**:
 1. **mathematical**: Judge changed from xAI/grok-4 → Google/gemini-3.1-pro-preview (also required changing from primary xAI to a cross-provider judge since the generator changed to Anthropic)
-2. **logical_reasoning**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251101
-3. **pattern_recognition**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251101
+2. **logical_reasoning**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251001
+3. **pattern_recognition**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251001
 4. **spatial_reasoning**: Fallback changed from xAI/grok-4 → Google/gemini-2.5-pro
-5. **verbal_reasoning**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251101
+5. **verbal_reasoning**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251001
 6. **memory**: Fallback changed from xAI/grok-4 → Google/gemini-2.5-pro
-7. **default**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251101
+7. **default**: Fallback changed from xAI/grok-4 → Anthropic/claude-opus-4-5-20251001
 
 **Root Cause**: xAI API credits exhausted. Full 4-provider independence (OpenAI/Anthropic/Google/xAI) is no longer achievable; judge fallbacks are now best-effort across the remaining 3 providers.
 

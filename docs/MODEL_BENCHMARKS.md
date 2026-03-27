@@ -34,7 +34,7 @@ AIQ integrates with four major LLM providers:
 
 | Model ID | Generation | Notes |
 |----------|------------|-------|
-| claude-opus-4-5-20251101 | Claude 4.5 | Flagship model |
+| claude-opus-4-5-20251001 | Claude 4.5 | Flagship model |
 | claude-sonnet-4-5-20250929 | Claude 4.5 | Balanced performance/cost |
 | claude-haiku-4-5-20251001 | Claude 4.5 | Fast, cost-effective |
 | claude-opus-4-1-20250805 | Claude 4.1 | Previous flagship |
