@@ -52,7 +52,7 @@ Questions are generated across multiple LLM providers in round-robin distributio
 | OpenAI | gpt-4-turbo-preview | Question generation |
 | Anthropic | claude-3-5-sonnet-20241022 | Question generation |
 | Google | gemini-1.5-pro | Question generation |
-| xAI | grok-4 | Question generation |
+| xAI | grok-4 | Question generation (credits exhausted 2026-03-27; inactive) |
 
 ### Stage 2: Evaluation (Judge)
 
@@ -70,12 +70,14 @@ Type-specific judge models evaluate questions against five weighted criteria:
 
 | Question Type | Provider | Model | Rationale |
 |---------------|----------|-------|-----------|
-| Math | xAI | grok-4 | GSM8K 95.2%, AIME 2024 100%, USAMO 2025 61.9% |
-| Logic | Anthropic | claude-sonnet-4-5-20250929 | HumanEval >95%, GPQA Diamond 83.4%, SWE-bench 77-82% |
-| Pattern | Google | gemini-3-pro-preview | ARC-AGI-2 31.1%, GPQA Diamond 91.9%, MMMU-Pro 81.0% |
-| Spatial | Google | gemini-3-pro-preview | ARC-AGI-2 31.1% standard mode (Deep Think 45.1% not enabled), MMMU-Pro 81.0% |
-| Verbal | Anthropic | claude-sonnet-4-5-20250929 | MMLU 89%, HellaSwag ~95% |
-| Memory | Anthropic | claude-sonnet-4-5-20250929 | MMLU 89%, 200K context window |
+| Math | Google | gemini-3.1-pro-preview | AIME 2025 95.0%, FrontierMath 38.0%, GSM8K 98.0% |
+| Logic | Google | gemini-2.5-pro | GPQA Diamond 84.0%, SWE-bench Verified 63.0%, HumanEval 90.0% |
+| Pattern | Google | gemini-2.5-pro | ARC-AGI-2 31.1%, GPQA Diamond 84.0%, MMMU-Pro 81.0% |
+| Spatial | Anthropic | claude-opus-4-5-20251101 | ARC-AGI-2 37.6%, MMMU-Pro 60.0% |
+| Verbal | OpenAI | gpt-5.2 | MMLU 88.0%, MMLU-Pro 83.0% |
+| Memory | Anthropic | claude-opus-4-5-20251101 | MMLU 87.4%, 200K context window |
+
+> **Note:** xAI/grok-4 removed from all judge assignments 2026-03-27 (credits exhausted). Current setup uses 3 providers: Google, Anthropic, OpenAI. See [docs/JUDGE_SELECTION.md](JUDGE_SELECTION.md) for full rationale.
 
 > **Note:** For comprehensive benchmark data and model selection rationale, see [MODEL_BENCHMARKS.md](../../docs/MODEL_BENCHMARKS.md). That document serves as the authoritative source of truth for all model benchmarks used in AIQ.
 
@@ -113,7 +115,7 @@ Based on observed API response times and rate limits:
 | OpenAI | gpt-4-turbo-preview | 30,000 | ~15-20 | Higher rate limits on paid tiers |
 | Anthropic | claude-3-5-sonnet | 25,000 | ~12-18 | 200K context window |
 | Google | gemini-1.5-pro | 32,000 | ~15-20 | Generous free tier |
-| xAI | grok-4 | 20,000 | ~10-15 | Newer API, variable limits |
+| xAI | grok-4 | 20,000 | ~10-15 | Credits exhausted 2026-03-27; inactive |
 
 *TPM = Tokens Per Minute (input + output)
 
@@ -128,7 +130,7 @@ Average response times for structured completions:
 | Google | gemini-1.5-pro | 3-5s | 8-12s | 15-20s |
 | xAI | grok-4 | 4-7s | 12-18s | 25-30s |
 
-**Note:** Latencies vary significantly based on prompt complexity, output length, and API load.
+**Note:** Latencies vary significantly based on prompt complexity, output length, and API load. xAI/grok-4 row is historical — credits exhausted 2026-03-27, no longer active.
 
 ## Latency by Pipeline Stage
 
@@ -163,7 +165,7 @@ For a typical 50-question run:
 | OpenAI | gpt-4-turbo-preview | $10.00 | $30.00 |
 | Anthropic | claude-3-5-sonnet | $3.00 | $15.00 |
 | Google | gemini-1.5-pro | $1.25 | $5.00 |
-| xAI | grok-4 | $2.00 | $10.00 |
+| xAI | grok-4 | $2.00 | $10.00 (credits exhausted 2026-03-27; inactive) |
 | OpenAI | text-embedding-3-small | $0.02 | N/A |
 
 **Note:** Prices are estimates and may vary. Check provider documentation for current pricing.

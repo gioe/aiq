@@ -35,7 +35,7 @@ flowchart TB
     end
 
     subgraph External["External Services"]
-        LLM["LLM Providers<br/>OpenAI, Anthropic, Google, xAI"]
+        LLM["LLM Providers<br/>OpenAI, Anthropic, Google"]
         DB[(PostgreSQL<br/>Database)]
         BACKEND["Backend API<br/>Metrics Reporting"]
     end
@@ -381,10 +381,10 @@ flowchart TB
         BASE["BaseLLMProvider<br/>Abstract Base Class"]
 
         subgraph Implementations["Provider Implementations"]
-            OPENAI["OpenAIProvider<br/>gpt-4-turbo-preview"]
-            ANTHROPIC["AnthropicProvider<br/>claude-sonnet-4-5"]
-            GOOGLE["GoogleProvider<br/>gemini-pro"]
-            XAI["XAIProvider<br/>grok-4"]
+            OPENAI["OpenAIProvider<br/>gpt-5.2"]
+            ANTHROPIC["AnthropicProvider<br/>claude-opus-4-5"]
+            GOOGLE["GoogleProvider<br/>gemini-2.5-pro"]
+            XAI["XAIProvider<br/>grok-4 (inactive)"]
         end
 
         BASE --> OPENAI
@@ -453,29 +453,33 @@ flowchart LR
     subgraph QuestionTypes["Question Types"]
         PATTERN["Pattern Recognition"]
         LOGIC["Logical Reasoning"]
-        SPATIAL["Spatial Reasoning"]
         MATH["Mathematical"]
-        VERBAL["Verbal Reasoning"]
+        SPATIAL["Spatial Reasoning"]
         MEMORY["Memory"]
+        VERBAL["Verbal Reasoning"]
     end
 
     subgraph JudgeModels["Judge Models"]
-        CLAUDE["Claude Sonnet 3.5<br/>Anthropic"]
-        GROK["Grok-4<br/>xAI"]
+        GOOGLE["Gemini 2.5 Pro / 3.1 Pro<br/>Google"]
+        CLAUDE["Claude Opus 4.5<br/>Anthropic"]
+        GPT["GPT-5.2<br/>OpenAI"]
     end
 
-    PATTERN --> CLAUDE
-    LOGIC --> CLAUDE
+    PATTERN --> GOOGLE
+    LOGIC --> GOOGLE
+    MATH --> GOOGLE
     SPATIAL --> CLAUDE
-    VERBAL --> CLAUDE
     MEMORY --> CLAUDE
-    MATH --> GROK
+    VERBAL --> GPT
 
     subgraph Rationale["Selection Rationale"]
-        CLAUDE_WHY["Claude: GPQA 67.2%, MMLU 90.4%<br/>Strong reasoning & language"]
-        GROK_WHY["Grok: GSM8K 95.2%, AIME 100%<br/>Exceptional math performance"]
+        GOOGLE_WHY["Google: AIME 2025 95.0%, GPQA Diamond 84.0%<br/>Math, logic, pattern"]
+        CLAUDE_WHY["Anthropic: ARC-AGI-2 37.6%, MMLU 87.4%<br/>Spatial, memory"]
+        GPT_WHY["OpenAI: MMLU 88.0%, MMLU-Pro 83.0%<br/>Verbal reasoning"]
     end
 ```
+
+> **Note:** xAI/grok-4 was removed from judge assignments on 2026-03-27 (credits exhausted). Current setup uses 3 active providers: Google, Anthropic, OpenAI. See [docs/JUDGE_SELECTION.md](JUDGE_SELECTION.md) for full history.
 
 ### Evaluation Scoring System
 
