@@ -579,6 +579,26 @@ class TestAuthErrorBodyExtraction:
         assert result is not None
         assert "requires model terms agreement" in result.message
 
+    def test_google_client_error_auth_includes_body_detail(self):
+        """Google ClientError 401 auth message includes extracted API error body."""
+        from unittest.mock import MagicMock
+
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        try:
+            from google.genai import errors as google_errors
+        except ImportError:
+            pytest.skip("google-genai SDK not installed")
+
+        err = MagicMock(spec=google_errors.ClientError)
+        err.__class__ = google_errors.ClientError
+        err.status = 401
+        err.body = {"error": {"message": "API key revoked"}}
+
+        result = ErrorClassifier._classify_by_exception_type(err, "google")
+        assert result is not None
+        assert "API key revoked" in result.message
+
     def test_status_code_401_includes_body_detail(self):
         """_classify_by_status_code 401 includes extracted API error body."""
         from app.infrastructure.error_classifier import ErrorClassifier
