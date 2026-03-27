@@ -594,24 +594,28 @@ class ErrorClassifier:
 
         # 401, 403 - Authentication errors
         if status_code in (HTTP_STATUS_UNAUTHORIZED, HTTP_STATUS_FORBIDDEN):
+            api_msg = ErrorClassifier._extract_api_error_message(error)
+            detail = f": {api_msg}" if api_msg else ""
             return ClassifiedError(
                 category=ErrorCategory.AUTHENTICATION,
                 severity=ErrorSeverity.CRITICAL,
                 provider=provider,
                 original_error=error_type,
-                message=f"Authentication failed. Please verify your {provider} API key.",
+                message=f"Authentication failed. Please verify your {provider} API key{detail}.",
                 is_retryable=False,
                 status_code=status_code,
             )
 
         # 402 - Payment Required (billing issue)
         if status_code == HTTP_STATUS_PAYMENT_REQUIRED:
+            api_msg = ErrorClassifier._extract_api_error_message(error)
+            detail = f": {api_msg}" if api_msg else ""
             return ClassifiedError(
                 category=LLMErrorCategory.BILLING_QUOTA,
                 severity=ErrorSeverity.CRITICAL,
                 provider=provider,
                 original_error=error_type,
-                message=f"Billing issue detected. Please check your {provider} account.",
+                message=f"Billing issue detected. Please check your {provider} account{detail}.",
                 is_retryable=False,
                 status_code=HTTP_STATUS_PAYMENT_REQUIRED,
             )
