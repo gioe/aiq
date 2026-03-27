@@ -207,6 +207,38 @@ class ErrorClassifier:
     ]
 
     @staticmethod
+    def _extract_api_error_message(error: Exception) -> Optional[str]:
+        """Extract the actual error message from an API error response body.
+
+        Tries provider SDK-specific attributes before falling back to str(error).
+
+        Args:
+            error: The exception to extract from
+
+        Returns:
+            The API error message string, or None if not extractable
+        """
+        # OpenAI/Anthropic SDK: body is a dict like {"error": {"message": "..."}}
+        body = getattr(error, "body", None)
+        if isinstance(body, dict):
+            error_detail = body.get("error")
+            if isinstance(error_detail, dict):
+                msg = error_detail.get("message")
+                if msg:
+                    return str(msg)
+            # Some APIs put message directly in body
+            msg = body.get("message")
+            if msg:
+                return str(msg)
+
+        # Anthropic SDK also exposes .message directly on the exception
+        message_attr = getattr(error, "message", None)
+        if message_attr and isinstance(message_attr, str):
+            return message_attr
+
+        return None
+
+    @staticmethod
     def _get_status_code(error: Exception) -> Optional[int]:
         """Extract HTTP status code from an exception if available.
 
@@ -398,12 +430,14 @@ class ErrorClassifier:
                     status_code=getattr(error, "status_code", 500),
                 )
             if isinstance(error, OpenAIBadRequestError):
+                api_msg = ErrorClassifier._extract_api_error_message(error)
+                detail = f": {api_msg}" if api_msg else ""
                 return ClassifiedError(
                     category=ErrorCategory.INVALID_REQUEST,
                     severity=ErrorSeverity.MEDIUM,
                     provider=provider,
                     original_error=error_type,
-                    message=f"Invalid request to {provider}. Check request parameters.",
+                    message=f"Invalid request to {provider}. Check request parameters{detail}.",
                     is_retryable=False,
                     status_code=getattr(error, "status_code", 400),
                 )
@@ -450,12 +484,14 @@ class ErrorClassifier:
                     status_code=getattr(error, "status_code", 500),
                 )
             if isinstance(error, AnthropicBadRequestError):
+                api_msg = ErrorClassifier._extract_api_error_message(error)
+                detail = f": {api_msg}" if api_msg else ""
                 return ClassifiedError(
                     category=ErrorCategory.INVALID_REQUEST,
                     severity=ErrorSeverity.MEDIUM,
                     provider=provider,
                     original_error=error_type,
-                    message=f"Invalid request to {provider}. Check request parameters.",
+                    message=f"Invalid request to {provider}. Check request parameters{detail}.",
                     is_retryable=False,
                     status_code=getattr(error, "status_code", 400),
                 )
@@ -497,12 +533,14 @@ class ErrorClassifier:
                     )
                 # 400 is bad request
                 if status == HTTP_STATUS_BAD_REQUEST:
+                    api_msg = ErrorClassifier._extract_api_error_message(error)
+                    detail = f": {api_msg}" if api_msg else ""
                     return ClassifiedError(
                         category=ErrorCategory.INVALID_REQUEST,
                         severity=ErrorSeverity.MEDIUM,
                         provider=provider,
                         original_error=error_type,
-                        message=f"Invalid request to {provider}. Check request parameters.",
+                        message=f"Invalid request to {provider}. Check request parameters{detail}.",
                         is_retryable=False,
                         status_code=HTTP_STATUS_BAD_REQUEST,
                     )
@@ -574,12 +612,14 @@ class ErrorClassifier:
 
         # 400 - Bad Request
         if status_code == HTTP_STATUS_BAD_REQUEST:
+            api_msg = ErrorClassifier._extract_api_error_message(error)
+            detail = f": {api_msg}" if api_msg else ""
             return ClassifiedError(
                 category=ErrorCategory.INVALID_REQUEST,
                 severity=ErrorSeverity.MEDIUM,
                 provider=provider,
                 original_error=error_type,
-                message=f"Invalid request to {provider}. Check request parameters.",
+                message=f"Invalid request to {provider}. Check request parameters{detail}.",
                 is_retryable=False,
                 status_code=HTTP_STATUS_BAD_REQUEST,
             )
@@ -731,12 +771,14 @@ class ErrorClassifier:
 
         # Check for invalid request errors
         if "invalid" in error_str or "bad request" in error_str:
+            api_msg = ErrorClassifier._extract_api_error_message(error)
+            detail = f": {api_msg}" if api_msg else ""
             return ClassifiedError(
                 category=ErrorCategory.INVALID_REQUEST,
                 severity=ErrorSeverity.MEDIUM,
                 provider=provider,
                 original_error=error_type,
-                message=f"Invalid request to {provider}. Check request parameters.",
+                message=f"Invalid request to {provider}. Check request parameters{detail}.",
                 is_retryable=False,
                 quota_details=quota_details,
             )
