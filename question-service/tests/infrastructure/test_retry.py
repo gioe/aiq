@@ -514,3 +514,124 @@ class TestExtractApiErrorMessage:
         err.body = "raw string body"
         result = ErrorClassifier._extract_api_error_message(err)
         assert result is None
+
+
+class TestAuthErrorBodyExtraction:
+    """Tests that auth error handlers include API error body in the message."""
+
+    def test_openai_auth_error_includes_body_detail(self):
+        """Auth error message includes API error body when body is present."""
+        from unittest.mock import MagicMock
+
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        try:
+            from openai import AuthenticationError as OpenAIAuthError
+        except ImportError:
+            pytest.skip("openai SDK not installed")
+
+        err = MagicMock(spec=OpenAIAuthError)
+        err.__class__ = OpenAIAuthError
+        err.body = {"error": {"message": "API key revoked"}}
+        err.status_code = 401
+
+        result = ErrorClassifier._classify_by_exception_type(err, "openai")
+        assert result is not None
+        assert "API key revoked" in result.message
+
+    def test_openai_auth_error_no_body_omits_detail(self):
+        """Auth error message omits detail suffix when body is absent."""
+        from unittest.mock import MagicMock
+
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        try:
+            from openai import AuthenticationError as OpenAIAuthError
+        except ImportError:
+            pytest.skip("openai SDK not installed")
+
+        err = MagicMock(spec=OpenAIAuthError)
+        err.__class__ = OpenAIAuthError
+        err.body = None
+        err.status_code = 401
+
+        result = ErrorClassifier._classify_by_exception_type(err, "openai")
+        assert result is not None
+        assert result.message.endswith("API key.")
+
+    def test_anthropic_auth_error_includes_body_detail(self):
+        """Anthropic auth error message includes extracted API error body."""
+        from unittest.mock import MagicMock
+
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        try:
+            from anthropic import AuthenticationError as AnthropicAuthError
+        except ImportError:
+            pytest.skip("anthropic SDK not installed")
+
+        err = MagicMock(spec=AnthropicAuthError)
+        err.__class__ = AnthropicAuthError
+        err.body = {"error": {"message": "requires model terms agreement"}}
+        err.status_code = 401
+
+        result = ErrorClassifier._classify_by_exception_type(err, "anthropic")
+        assert result is not None
+        assert "requires model terms agreement" in result.message
+
+    def test_status_code_401_includes_body_detail(self):
+        """_classify_by_status_code 401 includes extracted API error body."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("401 Unauthorized")
+        err.body = {"error": {"message": "Invalid API key provided"}}
+
+        result = ErrorClassifier._classify_by_status_code(err, "openai", 401)
+        assert result is not None
+        assert "Invalid API key provided" in result.message
+
+    def test_status_code_403_includes_body_detail(self):
+        """_classify_by_status_code 403 includes extracted API error body."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("403 Forbidden")
+        err.body = {"error": {"message": "Access denied for this resource"}}
+
+        result = ErrorClassifier._classify_by_status_code(err, "anthropic", 403)
+        assert result is not None
+        assert "Access denied for this resource" in result.message
+
+    def test_status_code_401_no_body_omits_detail(self):
+        """_classify_by_status_code 401 message has no trailing detail when body absent."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("401 Unauthorized")
+
+        result = ErrorClassifier._classify_by_status_code(err, "openai", 401)
+        assert result is not None
+        assert result.message.endswith("API key.")
+
+
+class TestBillingErrorBodyExtraction:
+    """Tests that billing error handlers include API error body in the message."""
+
+    def test_status_code_402_includes_body_detail(self):
+        """_classify_by_status_code 402 includes extracted API error body."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("402 Payment Required")
+        err.body = {"error": {"message": "Insufficient credits"}}
+
+        result = ErrorClassifier._classify_by_status_code(err, "openai", 402)
+        assert result is not None
+        assert "Insufficient credits" in result.message
+
+    def test_status_code_402_no_body_omits_detail(self):
+        """_classify_by_status_code 402 message has no trailing detail when body absent."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        err = Exception("402 Payment Required")
+
+        result = ErrorClassifier._classify_by_status_code(err, "openai", 402)
+        assert result is not None
+        assert result.message.endswith("account.")
