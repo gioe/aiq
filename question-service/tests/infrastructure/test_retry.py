@@ -655,3 +655,33 @@ class TestBillingErrorBodyExtraction:
         result = ErrorClassifier._classify_by_status_code(err, "openai", 402)
         assert result is not None
         assert result.message.endswith("account.")
+
+
+class TestApiMsgLengthCap:
+    """Tests that api_msg is truncated to 200 chars in the detail suffix."""
+
+    def test_long_api_msg_is_truncated_to_200_chars(self):
+        """A provider message longer than 200 chars is capped at 200 in the detail suffix."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        # Use a distinct suffix so we can verify truncation unambiguously
+        long_message = "a" * 200 + "OVERFLOW"
+        err = Exception("401 Unauthorized")
+        err.body = {"error": {"message": long_message}}
+
+        result = ErrorClassifier._classify_by_status_code(err, "openai", 401)
+        assert result is not None
+        assert "a" * 200 in result.message
+        assert "OVERFLOW" not in result.message
+
+    def test_short_api_msg_is_not_truncated(self):
+        """A provider message under 200 chars is included in full."""
+        from app.infrastructure.error_classifier import ErrorClassifier
+
+        short_message = "Invalid API key provided"
+        err = Exception("401 Unauthorized")
+        err.body = {"error": {"message": short_message}}
+
+        result = ErrorClassifier._classify_by_status_code(err, "openai", 401)
+        assert result is not None
+        assert short_message in result.message

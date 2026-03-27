@@ -411,7 +411,7 @@ class ErrorClassifier:
                 )
             if isinstance(error, OpenAIAuthError):
                 api_msg = ErrorClassifier._extract_api_error_message(error)
-                detail = f": {api_msg}" if api_msg else ""
+                detail = f": {api_msg[:200]}" if api_msg else ""
                 return ClassifiedError(
                     category=ErrorCategory.AUTHENTICATION,
                     severity=ErrorSeverity.CRITICAL,
@@ -433,7 +433,7 @@ class ErrorClassifier:
                 )
             if isinstance(error, OpenAIBadRequestError):
                 api_msg = ErrorClassifier._extract_api_error_message(error)
-                detail = f": {api_msg}" if api_msg else ""
+                detail = f": {api_msg[:200]}" if api_msg else ""
                 return ClassifiedError(
                     category=ErrorCategory.INVALID_REQUEST,
                     severity=ErrorSeverity.MEDIUM,
@@ -467,7 +467,7 @@ class ErrorClassifier:
                 )
             if isinstance(error, AnthropicAuthError):
                 api_msg = ErrorClassifier._extract_api_error_message(error)
-                detail = f": {api_msg}" if api_msg else ""
+                detail = f": {api_msg[:200]}" if api_msg else ""
                 return ClassifiedError(
                     category=ErrorCategory.AUTHENTICATION,
                     severity=ErrorSeverity.CRITICAL,
@@ -489,7 +489,7 @@ class ErrorClassifier:
                 )
             if isinstance(error, AnthropicBadRequestError):
                 api_msg = ErrorClassifier._extract_api_error_message(error)
-                detail = f": {api_msg}" if api_msg else ""
+                detail = f": {api_msg[:200]}" if api_msg else ""
                 return ClassifiedError(
                     category=ErrorCategory.INVALID_REQUEST,
                     severity=ErrorSeverity.MEDIUM,
@@ -527,7 +527,7 @@ class ErrorClassifier:
                 # 401/403 are auth errors
                 if status in (HTTP_STATUS_UNAUTHORIZED, HTTP_STATUS_FORBIDDEN):
                     api_msg = ErrorClassifier._extract_api_error_message(error)
-                    detail = f": {api_msg}" if api_msg else ""
+                    detail = f": {api_msg[:200]}" if api_msg else ""
                     return ClassifiedError(
                         category=ErrorCategory.AUTHENTICATION,
                         severity=ErrorSeverity.CRITICAL,
@@ -540,7 +540,7 @@ class ErrorClassifier:
                 # 400 is bad request
                 if status == HTTP_STATUS_BAD_REQUEST:
                     api_msg = ErrorClassifier._extract_api_error_message(error)
-                    detail = f": {api_msg}" if api_msg else ""
+                    detail = f": {api_msg[:200]}" if api_msg else ""
                     return ClassifiedError(
                         category=ErrorCategory.INVALID_REQUEST,
                         severity=ErrorSeverity.MEDIUM,
@@ -595,7 +595,7 @@ class ErrorClassifier:
         # 401, 403 - Authentication errors
         if status_code in (HTTP_STATUS_UNAUTHORIZED, HTTP_STATUS_FORBIDDEN):
             api_msg = ErrorClassifier._extract_api_error_message(error)
-            detail = f": {api_msg}" if api_msg else ""
+            detail = f": {api_msg[:200]}" if api_msg else ""
             return ClassifiedError(
                 category=ErrorCategory.AUTHENTICATION,
                 severity=ErrorSeverity.CRITICAL,
@@ -609,7 +609,7 @@ class ErrorClassifier:
         # 402 - Payment Required (billing issue)
         if status_code == HTTP_STATUS_PAYMENT_REQUIRED:
             api_msg = ErrorClassifier._extract_api_error_message(error)
-            detail = f": {api_msg}" if api_msg else ""
+            detail = f": {api_msg[:200]}" if api_msg else ""
             return ClassifiedError(
                 category=LLMErrorCategory.BILLING_QUOTA,
                 severity=ErrorSeverity.CRITICAL,
@@ -623,7 +623,7 @@ class ErrorClassifier:
         # 400 - Bad Request
         if status_code == HTTP_STATUS_BAD_REQUEST:
             api_msg = ErrorClassifier._extract_api_error_message(error)
-            detail = f": {api_msg}" if api_msg else ""
+            detail = f": {api_msg[:200]}" if api_msg else ""
             return ClassifiedError(
                 category=ErrorCategory.INVALID_REQUEST,
                 severity=ErrorSeverity.MEDIUM,
@@ -782,7 +782,7 @@ class ErrorClassifier:
         # Check for invalid request errors
         if "invalid" in error_str or "bad request" in error_str:
             api_msg = ErrorClassifier._extract_api_error_message(error)
-            detail = f": {api_msg}" if api_msg else ""
+            detail = f": {api_msg[:200]}" if api_msg else ""
             return ClassifiedError(
                 category=ErrorCategory.INVALID_REQUEST,
                 severity=ErrorSeverity.MEDIUM,
