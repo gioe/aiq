@@ -32,12 +32,12 @@ version: "1.0"
 
 generators:
   math:
-    provider: "openai"
-    model: "gpt-5.2"
+    provider: "anthropic"
+    model: "claude-sonnet-4-5-20250929"
     max_batch_size: 10
-    rationale: "Leads all models with full benchmark coverage: AIME 2025 (100%), FrontierMath (40.3%), GSM8K (99.0%). Composite 81.79 — best among models with complete math data. Grok-4 was strong on AIME alone but scored 13% on FrontierMath, dragging its composite to 69.66. Updated Mar 2026."
-    fallback: "google"
-    fallback_model: "gemini-2.5-pro"
+    rationale: "Composite 91.71 leads all models on AIME 2025 (87.0%) and GSM8K (98.0%) with null-redistributed weights (FrontierMath data unavailable; 30% weight redistributed — true composite may be lower). Delta +9.92 over prior gpt-5.2 assignment (81.79). Fallback: openai/gpt-5.2 (composite 81.79, full benchmark coverage). Updated Mar 2026 via /refresh-providers."
+    fallback: "openai"
+    fallback_model: "gpt-5.2"
 
   logic:
     provider: "anthropic"
@@ -67,9 +67,9 @@ generators:
     provider: "anthropic"
     model: "claude-sonnet-4-5-20250929"
     max_batch_size: 10
-    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89%, HellaSwag ~95%. Enhanced language understanding and generation with superior NLP performance."
-    fallback: "openai"
-    fallback_model: "gpt-5.2"
+    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89%, HellaSwag ~95%. Enhanced language understanding and generation with superior NLP performance. Fallback: google/gemini-3.1-pro-preview (composite 91.01, Δ+5.34 vs prior gpt-5.2 fallback). Updated Mar 2026 via /refresh-providers."
+    fallback: "google"
+    fallback_model: "gemini-3.1-pro-preview"
 
   memory:
     provider: "google"

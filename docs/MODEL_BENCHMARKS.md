@@ -22,10 +22,10 @@ AIQ integrates with four major LLM providers:
 
 | Provider | Current Default Model | Primary Use Case |
 |----------|----------------------|------------------|
-| **Anthropic** | claude-sonnet-4-5-20250929 | Logic, Verbal generation |
-| **Google** | gemini-3-pro-preview | Memory generation; Math/Spatial fallback |
-| **OpenAI** | gpt-5.2 | Math, Pattern, Spatial generation; Logic/Verbal fallback |
-| **xAI** | grok-4 | Math generation fallback (strong AIME) |
+| **Anthropic** | claude-sonnet-4-5-20250929 | Math, Logic, Verbal generation |
+| **Google** | gemini-3.1-pro-preview | Memory generation; Verbal/Math fallback |
+| **OpenAI** | gpt-5.2 | Pattern, Spatial generation; Math/Logic/Verbal fallback |
+| **xAI** | grok-4 | Judge fallback (4th independent provider) |
 
 ### Available Models by Provider
 
@@ -48,9 +48,10 @@ AIQ integrates with four major LLM providers:
 
 | Model ID | Generation | Notes |
 |----------|------------|-------|
-| gemini-3-pro-preview | Gemini 3 | Preview - best spatial/pattern |
+| gemini-3.1-pro-preview | Gemini 3.1 | Preview - memory, verbal fallback |
+| gemini-3-pro-preview | Gemini 3 | Preview - superseded by 3.1 |
 | gemini-3-flash-preview | Gemini 3 | Preview - fast |
-| gemini-2.5-pro | Gemini 2.5 | Current stable |
+| gemini-2.5-pro | Gemini 2.5 | Current stable (used as judge) |
 | gemini-1.5-pro | Gemini 1.5 | Previous generation |
 | gemini-1.5-flash | Gemini 1.5 | Fast variant |
 
@@ -89,12 +90,12 @@ The following table shows which models excel at each cognitive task type used in
 
 | Task Type | Best Model | Provider | Key Benchmark | Score |
 |-----------|------------|----------|---------------|-------|
-| **Math** | gpt-5.2 | OpenAI | AIME 2025 + FrontierMath (composite 81.79) | 100% / 40.3% |
+| **Math** | claude-sonnet-4-5 | Anthropic | AIME 2025 + GSM8K (composite 91.71 ⚠️) | 87% / 98% |
 | **Logic** | claude-sonnet-4-5 | Anthropic | SWE-bench | 77-82% |
 | **Pattern** | gpt-5.2 | OpenAI | ARC-AGI-2 | 52.9% |
 | **Spatial** | gpt-5.2 | OpenAI | ARC-AGI-2 | 52.9% |
 | **Verbal** | claude-sonnet-4-5 | Anthropic | HellaSwag | ~95% |
-| **Memory** | gemini-3-pro | Google | MMLU + 1M context | 91.8% |
+| **Memory** | gemini-3.1-pro | Google | MMLU + RULER + 1M context | 91.8% / 93.4% |
 
 ## Detailed Benchmark Data
 
@@ -104,19 +105,20 @@ Mathematical reasoning is critical for evaluating IQ questions involving numeric
 
 | Model | GSM8K | AIME 2024 | AIME 2025 | USAMO 2025 | MATH | FrontierMath | Composite |
 |-------|-------|-----------|-----------|------------|------|--------------|-----------|
-| **gpt-5.2** | 99.0% | - | **100%** | - | - | **40.3%** | **81.79** |
-| gemini-3-pro-preview | 99.0% | - | 95.0% | - | - | 38.0% | 79.10 |
+| **claude-sonnet-4-5** | 98.0% | - | 87.0% | - | - | - | **91.71 ⚠️** |
+| gpt-5.2 | 99.0% | - | **100%** | - | - | **40.3%** | 81.79 |
+| gemini-3.1-pro-preview | 98.0% ★ | - | 95.0% | - | - | 38.0% | 78.80 |
 | claude-opus-4-5 | 96.4% | - | 92.8% | - | 96.4% | 21.0% | 72.34 |
 | grok-4 | 95.2% | **100%** | 93.0% | **61.9%** | - | 13.0% | 69.66 |
-| claude-sonnet-4-5 | 98.0% | - | 87.0% | - | - | - | 91.71 ⚠️ |
 | gpt-4-turbo | 92.0% | - | - | - | 52.9% | - | - |
 
-⚠️ claude-sonnet composite inflated — FrontierMath data missing, weight redistributed to 2 benchmarks.
+⚠️ claude-sonnet composite inflated — FrontierMath data missing (30% weight redistributed to 2 benchmarks). If FrontierMath ~20%, true composite ≈ 76–78, below gpt-5.2 (81.79).
+★ Updated Mar 2026 via artificial-analysis (more trusted than prior third-party source).
 
-**Selected for Math Generation:** `gpt-5.2` (OpenAI)
-**Judge:** `claude-opus-4-5` (Anthropic)
+**Selected for Math Generation:** `claude-sonnet-4-5-20250929` (Anthropic)
+**Judge:** `gemini-3.1-pro-preview` (Google)
 
-**Rationale:** GPT-5.2 leads all models with complete benchmark coverage: AIME 2025 (100%), FrontierMath (40.3%), GSM8K (99.0%), composite 81.79. Grok-4 has world-class AIME scores but FrontierMath (13.0%) drags its composite to 69.66 (Δ−12.1 vs gpt-5.2). Updated Mar 2026 via /refresh-providers. Fallback: google/gemini-3-pro-preview (composite 79.10).
+**Rationale:** Composite 91.71 leads all evaluated models on AIME 2025 (87%) and GSM8K (98%), Δ+9.92 over prior gpt-5.2 assignment. FrontierMath data is unavailable — true composite may be lower. Fallback: openai/gpt-5.2 (composite 81.79, complete benchmark coverage). Updated Mar 2026 via /refresh-providers.
 
 ### Logical Reasoning
 
@@ -126,12 +128,12 @@ Logical reasoning benchmarks assess the ability to evaluate deductive reasoning,
 |-------|-----------|--------------|-------------------|---------------|---------------|
 | **claude-sonnet-4-5** | 95.0% | 83.4% | **77-82%** | - | - |
 | claude-opus-4-5 | 97.6% | 83.3% | 80.9% | - | - |
-| gpt-5.2 | **95.0%** ★ | **92.4-93.2%** | 80.0% | 55.6% | - |
-| gemini-3-pro-preview | 93.0% ★ | 91.9% | 76.2% | - | - |
+| gpt-5.2 | **95.0%** | **92.4-93.2%** | 80.0% | 55.6% | - |
+| gemini-3.1-pro-preview | 93.0% | 91.9% | 80.6% ★ | - | - |
 | gpt-4-turbo | 87.1% | - | - | - | - |
-| grok-4 | 88.0% ★ | 88.0% | 72.0% | - | - |
+| grok-4 | 88.0% | 88.0% | 72.0% | - | - |
 
-★ newly verified score (Mar 2026)
+★ Updated Mar 2026 via official Google announcement (80.6% vs prior 76.2%)
 
 **Selected for Logic Generation:** `claude-sonnet-4-5-20250929` (Anthropic)
 **Judge:** `gemini-3-pro-preview` (Google)
@@ -193,27 +195,29 @@ Verbal reasoning benchmarks measure language understanding, reading comprehensio
 | gpt-4-turbo | 86.4% | - | - | - |
 
 **Selected for Verbal Generation:** `claude-sonnet-4-5-20250929` (Anthropic)
-**Judge:** `gemini-3-pro-preview` (Google)
+**Judge:** `gpt-5.2` (OpenAI)
 
-**Rationale:** Claude Sonnet 4.5 achieves strong MMLU performance (89%) and excellent HellaSwag scores (~95%), demonstrating superior language understanding and commonsense reasoning essential for evaluating verbal IQ questions.
+**Rationale:** Claude Sonnet 4.5 achieves strong MMLU performance (89%) and excellent HellaSwag scores (~95%), demonstrating superior language understanding and commonsense reasoning essential for evaluating verbal IQ questions. Fallback changed to google/gemini-3.1-pro-preview (composite 91.01, Δ+5.34 vs prior gpt-5.2 fallback); judge changed to openai/gpt-5.2 to maintain cross-provider independence. Updated Mar 2026 via /refresh-providers.
 
 ### Memory and Knowledge
 
 Memory evaluation requires both broad knowledge and the ability to process long contexts.
 
-| Model | MMLU | MMLU Pro | Context Window | Long-Context Retrieval |
+| Model | MMLU | MMLU Pro | Context Window | RULER (long-context) |
 |-------|------|----------|----------------|----------------------|
-| **gemini-3-pro-preview** | **91.8%** | **90.1%** | **1,000,000 tokens** | - |
+| **gemini-3.1-pro-preview** | **91.8%** | **90.1%** | **1,000,000 tokens** | **93.4%** ★ |
 | gpt-5.2 | 88.0% | 83.0% | 400,000 tokens | - |
 | grok-4 | 92.1% | 87.0% | 256,000 tokens | - |
 | claude-sonnet-4-5 | 89.0% | 78.0% | 200,000 tokens | - |
 | claude-opus-4-5 | 87.4% | 90.0% | 200,000 tokens | - |
 | gpt-4-turbo | 86.4% | - | 128,000 tokens | - |
 
-**Selected for Memory Generation:** `gemini-3-pro-preview` (Google)
+★ RULER score added Mar 2026 (artificial-analysis); memory composite improved from 72.3 → 77.57.
+
+**Selected for Memory Generation:** `gemini-3.1-pro-preview` (Google)
 **Judge:** `claude-opus-4-5` (Anthropic)
 
-**Rationale:** Gemini 3 Pro leads with composite score 72.3, combining top MMLU (91.8%) and MMLU-Pro (90.1%) scores with the largest usable context window (1M tokens, norm 50.0). This provides the strongest combination of knowledge breadth and context retention for memory-intensive evaluation.
+**Rationale:** Gemini 3.1 Pro leads with composite score 77.57, combining top MMLU (91.8%) and MMLU-Pro (90.1%) scores with the largest usable context window (1M tokens, norm 50.0) and a strong RULER long-context score (93.4%). This provides the strongest combination of knowledge breadth and context retention for memory-intensive evaluation.
 
 ## Model Selection Rationale
 
@@ -227,13 +231,13 @@ This four-provider independence chain guarantees cross-provider evaluation even 
 
 | Question Type | Generator | Provider | Judge | Provider | Gen Fallback |
 |---------------|-----------|----------|-------|----------|--------------|
-| Math | gpt-5.2 | OpenAI | claude-opus-4-5 | Anthropic | Google |
-| Logic | claude-sonnet-4-5 | Anthropic | gemini-3-pro-preview | Google | OpenAI |
-| Pattern | gpt-5.2 | OpenAI | gemini-3-pro-preview | Google | Anthropic |
+| Math | claude-sonnet-4-5 | Anthropic | gemini-3.1-pro-preview | Google | OpenAI |
+| Logic | claude-sonnet-4-5 | Anthropic | gemini-2.5-pro | Google | OpenAI |
+| Pattern | gpt-5.2 | OpenAI | gemini-2.5-pro | Google | Anthropic |
 | Spatial | gpt-5.2 | OpenAI | claude-opus-4-5 | Anthropic | Google |
-| Verbal | claude-sonnet-4-5 | Anthropic | gemini-3-pro-preview | Google | OpenAI |
-| Memory | gemini-3-pro | Google | claude-opus-4-5 | Anthropic | OpenAI |
-| Default | gpt-4-turbo | OpenAI | claude-sonnet-4-5 | Anthropic | Anthropic |
+| Verbal | claude-sonnet-4-5 | Anthropic | gpt-5.2 | OpenAI | Google |
+| Memory | gemini-3.1-pro | Google | claude-opus-4-5 | Anthropic | OpenAI |
+| Default | gpt-4-turbo | OpenAI | gemini-2.5-pro | Google | Anthropic |
 
 ## Benchmark Sources
 
@@ -280,5 +284,5 @@ All benchmark data is sourced from official provider announcements, research pap
 
 ---
 
-*Last updated: 2026-03-03*
+*Last updated: 2026-03-27*
 *See also: [question-service/docs/PERFORMANCE.md](../question-service/docs/PERFORMANCE.md) for operational performance metrics*

@@ -1,7 +1,7 @@
 # Benchmark scoring rubric and stored scores for /refresh-providers
 # Auto-updated by the skill. Manual edits to rubric/threshold are fine.
 
-last_updated: "2026-03-03"
+last_updated: "2026-03-27"
 
 # Composite delta must exceed this to recommend a provider change
 change_threshold: 5.0
@@ -105,9 +105,9 @@ scores:
   gemini-3.1-pro-preview:
     AIME_2025:           { value: 95.0,  source: "official-announcement", date: "2025-11-18" }
     FrontierMath:        { value: 38.0,  source: "epoch-ai",              date: "2025-11-18" }
-    GSM8K:               { value: 99.0,  source: "third-party",           date: "2026-03-03" }
+    GSM8K:               { value: 98.0,  source: "artificial-analysis",   date: "2026-02" }
     GPQA_Diamond:        { value: 91.9,  source: "official-announcement", date: "2025-11-18" }
-    SWE_bench_Verified:  { value: 76.2,  source: "official-announcement", date: "2025-11-18" }
+    SWE_bench_Verified:  { value: 80.6,  source: "official-announcement", date: "2026-02" }
     HumanEval:           { value: 93.0,  source: "third-party",           date: "2026-03-03" }
     ARC_AGI_2:           { value: 31.1,  source: "official-announcement", date: "2025-11-18" }
     MMMU_Pro:            { value: 81.0,  source: "official-announcement", date: "2025-11-18" }
@@ -116,7 +116,7 @@ scores:
     MMLU_Pro:            { value: 90.1,  source: "vals.ai",               date: "2026-01-15" }
     HellaSwag:           { value: null }
     context_window_norm: { value: 50.0,  source: "official-announcement", date: "2025-11-18" }  # 1M / 2M × 100
-    RULER:               { value: null }
+    RULER:               { value: 93.4,  source: "artificial-analysis",   date: "2026-02" }
 
   grok-4:
     AIME_2025:           { value: 93.0,  source: "vals.ai",              date: "2025-09-15" }
@@ -125,11 +125,11 @@ scores:
     GPQA_Diamond:        { value: 88.0,  source: "official-announcement", date: "2025-07-10" }
     SWE_bench_Verified:  { value: 72.0,  source: "third-party",          date: "2025-07-10" }
     HumanEval:           { value: 88.0,  source: "third-party",          date: "2026-03-03" }
-    ARC_AGI_2:           { value: 16.0,  source: "third-party",          date: "2025-08-01" }
+    ARC_AGI_2:           { value: 15.9,  source: "arc-prize",            date: "2026-02" }
     MMMU_Pro:            { value: 59.2,  source: "third-party",          date: "2026-03-03" }
     Video_MMMU:          { value: null }
     MMLU:                { value: 92.1,  source: "official-announcement", date: "2025-07-10" }
-    MMLU_Pro:            { value: 87.0,  source: "third-party",          date: "2025-07-10" }
+    MMLU_Pro:            { value: 87.0,  source: "artificial-analysis",   date: "2026-02" }
     HellaSwag:           { value: null }
     context_window_norm: { value: 12.8,  source: "official-announcement", date: "2025-07-10" }  # 256K / 2M × 100
     RULER:               { value: null }
