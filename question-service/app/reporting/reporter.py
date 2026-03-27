@@ -155,7 +155,11 @@ class RunReporter:
             )
             or None,
             # Error tracking
-            "error_summary": error_summary if any(error_summary.values()) else None,
+            "error_summary": (
+                error_summary
+                if (overall.get("total_errors", 0) > 0 or any(error_summary.values()))
+                else None
+            ),
             # Configuration used
             "prompt_version": prompt_version,
             "judge_config_version": judge_config_version,

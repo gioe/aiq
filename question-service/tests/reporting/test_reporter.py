@@ -1223,6 +1223,25 @@ class TestErrorSummaryTransformation:
         # Error summary should be None when empty
         assert payload["error_summary"] is None
 
+    def test_error_summary_present_when_errors_unclassified(self, reporter):
+        """Test error summary is included when total_errors > 0 even without classification."""
+        tracker = RunSummary()
+        tracker.start_run()
+        tracker.questions_requested = 5
+        # Failures occurred but were never classified into categories/severity
+        tracker.generation_failures = 4
+        tracker.end_run()
+
+        summary = tracker.to_summary_dict()
+        payload = reporter._transform_metrics_to_payload(
+            summary=summary,
+            exit_code=3,
+        )
+
+        # Error summary must not be None when total_errors > 0
+        assert payload["error_summary"] is not None
+        assert payload["total_errors"] == 4
+
 
 class TestDatetimeSerialization:
     """Tests for datetime serialization in payloads."""
