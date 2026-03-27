@@ -9,8 +9,10 @@
 #
 # Provider independence chain (per question type):
 #   Generator primary → Generator fallback → Judge primary → Judge fallback
-#   xAI/grok-4 removed as fallback (credits exhausted 2026-03-27); replaced
-#   with anthropic or google depending on the primary judge provider.
+#   NOTE: With only 3 active providers (openai/anthropic/google), full 4-provider
+#   independence is no longer achievable. Judge fallbacks are best-effort:
+#   assigned to whichever of the remaining providers is not the judge primary.
+#   xAI/grok-4 removed as fallback (credits exhausted 2026-03-27).
 #
 # Configuration Structure:
 #   question_type:

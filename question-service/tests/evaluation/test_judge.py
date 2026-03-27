@@ -1692,7 +1692,11 @@ def logic_question():
 
 @pytest.fixture
 def google_anthropic_judge_config():
-    """Judge config with google as logic primary and anthropic as fallback (mirrors real judges.yaml)."""
+    """Judge config exercising the google-primary + anthropic-fallback pattern.
+
+    Note: math entry uses anthropic/google (inverted from real judges.yaml) for simplicity;
+    tests in this class exercise logic questions specifically.
+    """
     config = JudgeConfig(
         version="1.0.0",
         judges={
