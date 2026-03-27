@@ -8,8 +8,9 @@
 # cross-provider independence even when the primary generator is unavailable.
 #
 # Provider independence chain (per question type):
-#   Generator primary → Generator fallback → Judge primary → Judge fallback (xAI)
-#   All four are different providers (openai/anthropic/google/xai)
+#   Generator primary → Generator fallback → Judge primary → Judge fallback
+#   xAI/grok-4 removed as fallback (credits exhausted 2026-03-27); replaced
+#   with anthropic or google depending on the primary judge provider.
 #
 # Configuration Structure:
 #   question_type:
@@ -40,80 +41,80 @@ judges:
   math:
     model: "gemini-3.1-pro-preview"
     provider: "google"
-    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is openai. Google is the third independent provider — AIME 2025 (95.0%), FrontierMath (38.0%), GSM8K (98.0%), math composite 78.80. Updated Mar 2026 via /refresh-providers (generator changed to anthropic, requiring judge provider change from anthropic to google)."
+    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is openai. Google is the third independent provider — AIME 2025 (95.0%), FrontierMath (38.0%), GSM8K (98.0%), math composite 78.80. Updated Mar 2026 via /refresh-providers (generator changed to anthropic, requiring judge provider change from anthropic to google). Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
     benchmark_data:
       AIME_2025: "95.0%"
       FrontierMath: "38.0%"
       GSM8K: "98.0%"
     enabled: true
-    fallback: "xai"
-    fallback_model: "grok-4"
+    fallback: "anthropic"
+    fallback_model: "claude-opus-4-5-20251101"
 
   logic:
     model: "gemini-2.5-pro"
     provider: "google"
-    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is openai. Google is the third independent provider — GPQA Diamond (84.0%), SWE-bench Verified (63.0%), HumanEval (90.0%), composite 79.0. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC) to all GenerateContentConfig calls. Judge fallback: xai/grok-4 (4th provider)."
+    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is openai. Google is the third independent provider — GPQA Diamond (84.0%), SWE-bench Verified (63.0%), HumanEval (90.0%), composite 79.0. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC) to all GenerateContentConfig calls. Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
     benchmark_data:
       GPQA_Diamond: "84.0%"
       SWE_bench_Verified: "63.0%"
       HumanEval: "90.0%"
     enabled: true
-    fallback: "xai"
-    fallback_model: "grok-4"
+    fallback: "anthropic"
+    fallback_model: "claude-opus-4-5-20251101"
 
   pattern:
     model: "gemini-2.5-pro"
     provider: "google"
-    rationale: "Cross-provider judge: generator is openai/gpt-5.2, gen_fallback is anthropic. Google is the third independent provider — ARC-AGI-2 (31.1%), MMMU-Pro (81%), composite 51.06. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC) to all GenerateContentConfig calls. Judge fallback: xai/grok-4 (4th provider)."
+    rationale: "Cross-provider judge: generator is openai/gpt-5.2, gen_fallback is anthropic. Google is the third independent provider — ARC-AGI-2 (31.1%), MMMU-Pro (81%), composite 51.06. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC) to all GenerateContentConfig calls. Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
     benchmark_data:
       ARC_AGI_2: "31.1%"
       MMMU_Pro: "81.0%"
     enabled: true
-    fallback: "xai"
-    fallback_model: "grok-4"
+    fallback: "anthropic"
+    fallback_model: "claude-opus-4-5-20251101"
 
   spatial:
     model: "claude-opus-4-5-20251101"
     provider: "anthropic"
-    rationale: "Cross-provider judge: generator is openai/gpt-5.2, gen_fallback is google. Anthropic is the third independent provider — ARC-AGI-2 (37.6%), MMMU-Pro (60%), composite 48.80. Ensures cross-provider independence even when gen falls back to google. Judge fallback: xai/grok-4 (4th provider). Updated Mar 2026."
+    rationale: "Cross-provider judge: generator is openai/gpt-5.2, gen_fallback is google. Anthropic is the third independent provider — ARC-AGI-2 (37.6%), MMMU-Pro (60%), composite 48.80. Ensures cross-provider independence even when gen falls back to google. Judge fallback changed from xai/grok-4 to google/gemini-2.5-pro (xAI credits exhausted 2026-03-27). Updated Mar 2026."
     benchmark_data:
       ARC_AGI_2: "37.6%"
       MMMU_Pro: "60.0%"
     enabled: true
-    fallback: "xai"
-    fallback_model: "grok-4"
+    fallback: "google"
+    fallback_model: "gemini-2.5-pro"
 
   verbal:
     model: "gpt-5.2"
     provider: "openai"
-    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is google. OpenAI is the third independent provider — MMLU (88.0%), MMLU-Pro (83.0%), verbal composite 85.67. Updated Mar 2026 via /refresh-providers (gen_fallback changed to google, requiring judge provider change from google to openai). Judge fallback: xai/grok-4 (4th provider)."
+    rationale: "Cross-provider judge: generator is anthropic/claude-sonnet-4-5, gen_fallback is google. OpenAI is the third independent provider — MMLU (88.0%), MMLU-Pro (83.0%), verbal composite 85.67. Updated Mar 2026 via /refresh-providers (gen_fallback changed to google, requiring judge provider change from google to openai). Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
     benchmark_data:
       MMLU: "88.0%"
       MMLU_Pro: "83.0%"
     enabled: true
-    fallback: "xai"
-    fallback_model: "grok-4"
+    fallback: "anthropic"
+    fallback_model: "claude-opus-4-5-20251101"
 
   memory:
     model: "claude-opus-4-5-20251101"
     provider: "anthropic"
-    rationale: "Cross-provider judge: generator is google/gemini-3-pro-preview, gen_fallback is openai. Anthropic is the third independent provider — MMLU (87.4%), 200K context window (norm 10.0), composite 51.28. Ensures cross-provider independence even when gen falls back to openai. Judge fallback: xai/grok-4 (4th provider). Updated Mar 2026."
+    rationale: "Cross-provider judge: generator is google/gemini-3-pro-preview, gen_fallback is openai. Anthropic is the third independent provider — MMLU (87.4%), 200K context window (norm 10.0), composite 51.28. Ensures cross-provider independence even when gen falls back to openai. Judge fallback changed from xai/grok-4 to google/gemini-2.5-pro (xAI credits exhausted 2026-03-27). Updated Mar 2026."
     benchmark_data:
       MMLU: "87.4%"
       context_window_norm: "10.0 (200K tokens)"
     enabled: true
-    fallback: "xai"
-    fallback_model: "grok-4"
+    fallback: "google"
+    fallback_model: "gemini-2.5-pro"
 
 # Default judge (fallback for unknown question types)
 # default_generator is openai/gpt-4-turbo with fallback anthropic — so judge must be
-# a third provider (google or xai). Using google/gemini-2.5-pro; fallback xai/grok-4.
+# a third provider (google). Using google/gemini-2.5-pro; fallback anthropic/claude-opus-4-5-20251101.
 default_judge:
   model: "gemini-2.5-pro"
   provider: "google"
-  rationale: "Cross-provider fallback judge: default generator is openai/gpt-4-turbo, gen_fallback is anthropic. Google is the third independent provider. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC). Judge fallback: xai/grok-4."
-  fallback: "xai"
-  fallback_model: "grok-4"
+  rationale: "Cross-provider fallback judge: default generator is openai/gpt-4-turbo, gen_fallback is anthropic. Google is the third independent provider. gemini-2.5-pro requires thinking_budget in ThinkingConfig (added SDK 1.15.0); fixed Mar 2026 by upgrading google-genai>=1.15.0 and adding thinking_budget=-1 (AUTOMATIC). Judge fallback changed from xai/grok-4 to anthropic/claude-opus-4-5-20251101 (xAI credits exhausted 2026-03-27)."
+  fallback: "anthropic"
+  fallback_model: "claude-opus-4-5-20251101"
   enabled: true
 
 # Evaluation criteria weights (0.0 to 1.0)

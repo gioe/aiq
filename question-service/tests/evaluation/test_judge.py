@@ -1691,8 +1691,8 @@ def logic_question():
 
 
 @pytest.fixture
-def google_xai_judge_config():
-    """Judge config with google as logic primary and xai as fallback (mirrors real judges.yaml)."""
+def google_anthropic_judge_config():
+    """Judge config with google as logic primary and anthropic as fallback (mirrors real judges.yaml)."""
     config = JudgeConfig(
         version="1.0.0",
         judges={
@@ -1701,48 +1701,48 @@ def google_xai_judge_config():
                 provider="anthropic",
                 rationale="Math judge",
                 enabled=True,
-                fallback="xai",
-                fallback_model="grok-4",
+                fallback="google",
+                fallback_model="gemini-2.5-pro",
             ),
             "logic": JudgeModel(
                 model="gemini-2.5-pro",
                 provider="google",
                 rationale="Logic judge",
                 enabled=True,
-                fallback="xai",
-                fallback_model="grok-4",
+                fallback="anthropic",
+                fallback_model="claude-opus-4-5-20251101",
             ),
             "pattern": JudgeModel(
                 model="gemini-2.5-pro",
                 provider="google",
                 rationale="Pattern judge",
                 enabled=True,
-                fallback="xai",
-                fallback_model="grok-4",
+                fallback="anthropic",
+                fallback_model="claude-opus-4-5-20251101",
             ),
             "spatial": JudgeModel(
                 model="claude-opus-4-5-20251101",
                 provider="anthropic",
                 rationale="Spatial judge",
                 enabled=True,
-                fallback="xai",
-                fallback_model="grok-4",
+                fallback="google",
+                fallback_model="gemini-2.5-pro",
             ),
             "verbal": JudgeModel(
                 model="gemini-2.5-pro",
                 provider="google",
                 rationale="Verbal judge",
                 enabled=True,
-                fallback="xai",
-                fallback_model="grok-4",
+                fallback="anthropic",
+                fallback_model="claude-opus-4-5-20251101",
             ),
             "memory": JudgeModel(
                 model="claude-opus-4-5-20251101",
                 provider="anthropic",
                 rationale="Memory judge",
                 enabled=True,
-                fallback="xai",
-                fallback_model="grok-4",
+                fallback="google",
+                fallback_model="gemini-2.5-pro",
             ),
         },
         default_judge=JudgeModel(
@@ -1750,8 +1750,8 @@ def google_xai_judge_config():
             provider="google",
             rationale="Default judge",
             enabled=True,
-            fallback="xai",
-            fallback_model="grok-4",
+            fallback="anthropic",
+            fallback_model="claude-opus-4-5-20251101",
         ),
         evaluation_criteria=EvaluationCriteria(
             clarity=0.30,
@@ -1792,16 +1792,19 @@ class TestRuntimeFallback:
     """Tests for runtime API error fallback in evaluate_question and evaluate_question_async."""
 
     def _make_judge(
-        self, config, mock_google, mock_xai=None, fallback_timeout_seconds=30.0
+        self, config, mock_google, mock_anthropic=None, fallback_timeout_seconds=30.0
     ):
         """Build a QuestionJudge with pre-wired provider mocks, bypassing real __init__."""
         with patch("app.evaluation.judge.GoogleProvider", return_value=mock_google):
-            if mock_xai is not None:
-                with patch("app.evaluation.judge.XAIProvider", return_value=mock_xai):
+            if mock_anthropic is not None:
+                with patch(
+                    "app.evaluation.judge.AnthropicProvider",
+                    return_value=mock_anthropic,
+                ):
                     judge = QuestionJudge(
                         judge_config=config,
                         google_api_key="test-google-key",
-                        xai_api_key="test-xai-key",  # pragma: allowlist secret
+                        anthropic_api_key="test-anthropic-key",  # pragma: allowlist secret
                         fallback_timeout_seconds=fallback_timeout_seconds,
                     )
             else:
@@ -1812,40 +1815,42 @@ class TestRuntimeFallback:
                 )
         # Replace providers with explicit mocks so assertions are unambiguous
         judge.providers["google"] = mock_google
-        if mock_xai is not None:
-            judge.providers["xai"] = mock_xai
+        if mock_anthropic is not None:
+            judge.providers["anthropic"] = mock_anthropic
         return judge
 
     def test_evaluate_question_retries_with_fallback_on_api_error(
         self,
-        google_xai_judge_config,
+        google_anthropic_judge_config,
         logic_question,
         sample_evaluation_response,
     ):
-        """Primary provider raises → fallback (xai) is tried and succeeds."""
+        """Primary provider raises → fallback (anthropic) is tried and succeeds."""
         mock_google = Mock()
         mock_google.model = "gemini-2.5-pro"
         mock_google.generate_structured_completion_with_usage.side_effect = Exception(
             "HTTP 400 Bad Request"
         )
 
-        mock_xai = Mock()
-        mock_xai.model = "grok-4"
-        mock_xai.generate_structured_completion_with_usage.return_value = (
+        mock_anthropic = Mock()
+        mock_anthropic.model = "claude-opus-4-5-20251101"
+        mock_anthropic.generate_structured_completion_with_usage.return_value = (
             make_completion_result(sample_evaluation_response)
         )
 
-        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai)
+        judge = self._make_judge(
+            google_anthropic_judge_config, mock_google, mock_anthropic
+        )
         evaluated = judge.evaluate_question(logic_question)
 
         assert isinstance(evaluated, EvaluatedQuestion)
         assert evaluated.approved is True
         mock_google.generate_structured_completion_with_usage.assert_called_once()
-        mock_xai.generate_structured_completion_with_usage.assert_called_once()
+        mock_anthropic.generate_structured_completion_with_usage.assert_called_once()
 
     def test_evaluate_question_raises_when_fallback_not_available(
         self,
-        google_xai_judge_config,
+        google_anthropic_judge_config,
         logic_question,
     ):
         """Primary raises and fallback provider not initialized → re-raises original error."""
@@ -1855,15 +1860,17 @@ class TestRuntimeFallback:
             "HTTP 400 Bad Request"
         )
 
-        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai=None)
-        # xai NOT in providers → no fallback available
+        judge = self._make_judge(
+            google_anthropic_judge_config, mock_google, mock_anthropic=None
+        )
+        # anthropic NOT in providers → no fallback available
 
         with pytest.raises(Exception, match="HTTP 400 Bad Request"):
             judge.evaluate_question(logic_question)
 
     def test_evaluate_question_raises_when_both_primary_and_fallback_fail(
         self,
-        google_xai_judge_config,
+        google_anthropic_judge_config,
         logic_question,
     ):
         """Both primary and fallback raise → fallback error is propagated."""
@@ -1873,53 +1880,57 @@ class TestRuntimeFallback:
             "HTTP 400 Bad Request"
         )
 
-        mock_xai = Mock()
-        mock_xai.model = "grok-4"
-        mock_xai.generate_structured_completion_with_usage.side_effect = Exception(
-            "xai fallback error"
+        mock_anthropic = Mock()
+        mock_anthropic.model = "claude-opus-4-5-20251101"
+        mock_anthropic.generate_structured_completion_with_usage.side_effect = (
+            Exception("anthropic fallback error")
         )
 
-        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai)
+        judge = self._make_judge(
+            google_anthropic_judge_config, mock_google, mock_anthropic
+        )
 
-        with pytest.raises(Exception, match="xai fallback error"):
+        with pytest.raises(Exception, match="anthropic fallback error"):
             judge.evaluate_question(logic_question)
 
         mock_google.generate_structured_completion_with_usage.assert_called_once()
-        mock_xai.generate_structured_completion_with_usage.assert_called_once()
+        mock_anthropic.generate_structured_completion_with_usage.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_evaluate_question_async_retries_with_fallback_on_api_error(
         self,
-        google_xai_judge_config,
+        google_anthropic_judge_config,
         logic_question,
         sample_evaluation_response,
     ):
-        """Async: primary raises → fallback (xai) is tried and succeeds."""
+        """Async: primary raises → fallback (anthropic) is tried and succeeds."""
         mock_google = Mock()
         mock_google.model = "gemini-2.5-pro"
         mock_google.generate_structured_completion_with_usage_async = AsyncMock(
             side_effect=Exception("HTTP 400 Bad Request")
         )
 
-        mock_xai = Mock()
-        mock_xai.model = "grok-4"
-        mock_xai.generate_structured_completion_with_usage_async = AsyncMock(
+        mock_anthropic = Mock()
+        mock_anthropic.model = "claude-opus-4-5-20251101"
+        mock_anthropic.generate_structured_completion_with_usage_async = AsyncMock(
             return_value=make_completion_result(sample_evaluation_response)
         )
 
-        judge = self._make_judge(google_xai_judge_config, mock_google, mock_xai)
+        judge = self._make_judge(
+            google_anthropic_judge_config, mock_google, mock_anthropic
+        )
 
         evaluated = await judge.evaluate_question_async(logic_question)
 
         assert isinstance(evaluated, EvaluatedQuestion)
         assert evaluated.approved is True
         mock_google.generate_structured_completion_with_usage_async.assert_called_once()
-        mock_xai.generate_structured_completion_with_usage_async.assert_called_once()
+        mock_anthropic.generate_structured_completion_with_usage_async.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_evaluate_question_async_fallback_uses_independent_timeout(
         self,
-        google_xai_judge_config,
+        google_anthropic_judge_config,
         logic_question,
         sample_evaluation_response,
     ):
@@ -1934,16 +1945,16 @@ class TestRuntimeFallback:
         async def _hang(*args, **kwargs):
             await asyncio.sleep(10)
 
-        mock_xai = Mock()
-        mock_xai.model = "grok-4"
-        mock_xai.generate_structured_completion_with_usage_async = AsyncMock(
+        mock_anthropic = Mock()
+        mock_anthropic.model = "claude-opus-4-5-20251101"
+        mock_anthropic.generate_structured_completion_with_usage_async = AsyncMock(
             side_effect=_hang
         )
 
         judge = self._make_judge(
-            google_xai_judge_config,
+            google_anthropic_judge_config,
             mock_google,
-            mock_xai,
+            mock_anthropic,
             fallback_timeout_seconds=0.05,
         )
 
