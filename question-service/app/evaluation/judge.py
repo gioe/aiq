@@ -365,7 +365,7 @@ class QuestionJudge:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
                 logger.error(f"Failed to evaluate question: {str(e)}")
-                logger.warning(
+                logger.error(
                     "judge.evaluation_failure provider=%s question_type=%s error=%s",
                     resolved_provider or "unknown",
                     question_type,
@@ -600,7 +600,7 @@ class QuestionJudge:
                     f"Timeout evaluating question with {provider_info} "
                     f"(async) after {timeout_info}s"
                 )
-                logger.warning(
+                logger.error(
                     "judge.evaluation_failure provider=%s question_type=%s error=%s",
                     provider_info,
                     question_type,
@@ -611,7 +611,7 @@ class QuestionJudge:
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
                 logger.error(f"Failed to evaluate question (async): {str(e)}")
-                logger.warning(
+                logger.error(
                     "judge.evaluation_failure provider=%s question_type=%s error=%s",
                     resolved_provider or "unknown",
                     question_type,
