@@ -410,12 +410,14 @@ class ErrorClassifier:
                     status_code=getattr(error, "status_code", 429),
                 )
             if isinstance(error, OpenAIAuthError):
+                api_msg = ErrorClassifier._extract_api_error_message(error)
+                detail = f": {api_msg}" if api_msg else ""
                 return ClassifiedError(
                     category=ErrorCategory.AUTHENTICATION,
                     severity=ErrorSeverity.CRITICAL,
                     provider=provider,
                     original_error=error_type,
-                    message=f"Authentication failed. Please verify your {provider} API key.",
+                    message=f"Authentication failed. Please verify your {provider} API key{detail}.",
                     is_retryable=False,
                     status_code=getattr(error, "status_code", 401),
                 )
@@ -464,12 +466,14 @@ class ErrorClassifier:
                     status_code=getattr(error, "status_code", 429),
                 )
             if isinstance(error, AnthropicAuthError):
+                api_msg = ErrorClassifier._extract_api_error_message(error)
+                detail = f": {api_msg}" if api_msg else ""
                 return ClassifiedError(
                     category=ErrorCategory.AUTHENTICATION,
                     severity=ErrorSeverity.CRITICAL,
                     provider=provider,
                     original_error=error_type,
-                    message=f"Authentication failed. Please verify your {provider} API key.",
+                    message=f"Authentication failed. Please verify your {provider} API key{detail}.",
                     is_retryable=False,
                     status_code=getattr(error, "status_code", 401),
                 )
@@ -522,12 +526,14 @@ class ErrorClassifier:
                     )
                 # 401/403 are auth errors
                 if status in (HTTP_STATUS_UNAUTHORIZED, HTTP_STATUS_FORBIDDEN):
+                    api_msg = ErrorClassifier._extract_api_error_message(error)
+                    detail = f": {api_msg}" if api_msg else ""
                     return ClassifiedError(
                         category=ErrorCategory.AUTHENTICATION,
                         severity=ErrorSeverity.CRITICAL,
                         provider=provider,
                         original_error=error_type,
-                        message=f"Authentication failed. Please verify your {provider} API key.",
+                        message=f"Authentication failed. Please verify your {provider} API key{detail}.",
                         is_retryable=False,
                         status_code=status,
                     )
