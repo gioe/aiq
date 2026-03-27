@@ -37,9 +37,9 @@ python run_generation.py --count 50 --async --async-judge --verbose
 | Provider | Example Models | SDK |
 |----------|----------------|-----|
 | OpenAI | gpt-5.2, gpt-5, o4-mini, o3, gpt-4o | `openai` |
-| Anthropic | claude-sonnet-4-5-20250929 | `anthropic` |
-| Google | gemini-3-pro-preview | `google-genai` |
-| xAI | grok-4 | `openai` (OpenAI-compatible API) |
+| Anthropic | claude-sonnet-4-5-20250929, claude-opus-4-5-20251101 | `anthropic` |
+| Google | gemini-3-pro-preview, gemini-2.5-pro | `google-genai` |
+| xAI | grok-4 | `openai` (OpenAI-compatible API; credits exhausted 2026-03-27, currently inactive) |
 
 Provider implementations are in `app/providers/`. Each question type maps to a primary and fallback provider configured in `config/generators.yaml`.
 
