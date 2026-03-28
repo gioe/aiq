@@ -18,13 +18,13 @@ Deterministic provider refresh: reads a stored benchmark baseline, fetches new s
 
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `--dry-run` | No | false | Report findings without making any file changes (including benchmark_scores.yaml) |
+| `--dry-run` | No | false | Report findings without making any file changes (including `.claude/skills/refresh-providers/benchmark_scores.yaml`) |
 
 ## Execution Steps
 
 ### Step 1: Read Baseline
 
-Read `question-service/config/benchmark_scores.yaml`. Extract:
+Read `.claude/skills/refresh-providers/benchmark_scores.yaml`. Extract:
 - `change_threshold` (default 5.0)
 - `source_hierarchy` (ordered list of trusted sources, index 0 = most trusted)
 - `models` (list of provider + model ID pairs to evaluate)
@@ -81,7 +81,7 @@ For each search result that returns a score:
 ### Step 4: Update Baseline File
 
 Unless `--dry-run` is specified:
-- Write all accepted score updates back to `question-service/config/benchmark_scores.yaml`
+- Write all accepted score updates back to `.claude/skills/refresh-providers/benchmark_scores.yaml`
 - Update the `last_updated` field to today's date
 - Preserve the file's existing structure, comments, and formatting
 
@@ -159,28 +159,31 @@ If changes are recommended (delta > threshold), ask the user for confirmation be
 
 After confirmation, update files in this order:
 
-#### 8a: Update `generators.yaml`
+#### 8a: Update `config/models.yaml` first (primary entry point)
+
+`question-service/config/models.yaml` is the **single source of truth** for model IDs and pricing. Always edit it first when adding a new model:
+
+1. Add the model to its provider's `known_models` list (newest first)
+2. Add pricing to the provider's `pricing` dict
+
+All downstream files (`generators.yaml`, `judges.yaml`, provider code, cost_tracking, test_model_ids.py) pick up the change automatically — no Python edits needed.
+
+#### 8b: Update `generators.yaml`
 
 For each question type where a change is flagged:
 - `provider` — New primary provider name
-- `model` — New primary model identifier (must match provider's API exactly)
+- `model` — New primary model identifier (must match an entry in `models.yaml` `known_models`)
 - `rationale` — Updated explanation citing composite score and delta
 - `fallback` — New fallback provider name
 - `fallback_model` — New fallback model identifier
 
-**IMPORTANT**: Model identifiers must match the exact strings from each provider's API:
-- Anthropic: `claude-opus-4-5-20251101`, `claude-sonnet-4-5-20250929`, etc.
-- Google: `gemini-3-pro-preview`, `gemini-2.5-pro`, etc.
-- OpenAI: `gpt-5.2`, `o4-mini`, etc.
-- xAI: `grok-4`, `grok-3`, etc.
+**IMPORTANT**: Model identifiers must match exact strings in `config/models.yaml`. Valid IDs per provider are in the `known_models` list for that provider. Do not use IDs that are not already in `models.yaml` — add them there first.
 
-Check the "Available Models by Provider" section in `docs/MODEL_BENCHMARKS.md` or the `get_available_models()` method in each provider's implementation for valid identifiers.
-
-#### 8b: Update `judges.yaml`
+#### 8c: Update `judges.yaml`
 
 Apply the same provider/model changes as `generators.yaml`. The judges config must mirror generators per the "specialists-do-both" alignment policy (same model generates and judges each question type).
 
-#### 8c: Update `MODEL_BENCHMARKS.md`
+#### 8d: Update `MODEL_BENCHMARKS.md`
 
 Update the following sections:
 - **Supported Providers table** — Update "Current Default Model" and "Primary Use Case" columns
@@ -201,7 +204,7 @@ Provide a final summary:
 | math | openai/gpt-5.2 | google/gemini-3-pro | openai/gpt-5.2 | xai/grok-4 | +7.2 | +5.8 |
 
 ### Files Modified
-- `question-service/config/benchmark_scores.yaml` — Updated N score(s)
+- `.claude/skills/refresh-providers/benchmark_scores.yaml` — Updated N score(s)
 - `question-service/config/generators.yaml` — Updated N type(s)
 - `question-service/config/judges.yaml` — Updated N type(s)
 - `docs/MODEL_BENCHMARKS.md` — Updated benchmark data and rationale
@@ -220,7 +223,7 @@ If no changes were needed, report: "All current provider assignments are still o
 1. **Deterministic composites**: Always use the rubric weights and null-redistribution formula. Never invent ad-hoc scoring.
 2. **Source hierarchy enforcement**: Never overwrite a higher-ranked source's value with a lower-ranked one (unless the new data is > 6 months newer).
 3. **Threshold discipline**: Only flag a change when composite delta > `change_threshold`. Report close races but do not recommend action below threshold.
-4. **Use exact model identifiers**: Never guess model IDs. Cross-reference with `MODEL_BENCHMARKS.md` available models lists or provider implementations.
+4. **Use exact model identifiers**: Never guess model IDs. Use `question-service/config/models.yaml` as the authoritative list. Add new models to `models.yaml` first before referencing them anywhere else.
 5. **Specialists-do-both policy**: Generators and judges must use the same provider/model per question type. Always update both files together.
 6. **Different providers for primary and fallback**: The fallback must be from a different provider than the primary, to provide actual redundancy.
 7. **Cite sources**: When presenting benchmark data, note where each score came from and its trust rank.
