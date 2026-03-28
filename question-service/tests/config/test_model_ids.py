@@ -9,25 +9,17 @@ from pathlib import Path
 
 import yaml
 
-from app.providers.anthropic_provider import ANTHROPIC_MODELS
-from app.providers.google_provider import GoogleProvider
-from app.providers.openai_provider import OpenAIProvider
-from app.providers.xai_provider import XAIProvider
+from app.config.models_config import get_known_models
 
 CONFIG_DIR = Path(__file__).parent.parent.parent / "config"
 JUDGES_YAML = CONFIG_DIR / "judges.yaml"
 GENERATORS_YAML = CONFIG_DIR / "generators.yaml"
 
-# Known model lists for non-Anthropic providers (no API key needed).
-OPENAI_MODELS: list[str] = OpenAIProvider(api_key="dummy").get_available_models()
-GOOGLE_MODELS: list[str] = GoogleProvider(api_key="dummy").get_available_models()
-XAI_MODELS: list[str] = XAIProvider(api_key="dummy").get_available_models()
-
+# Known model lists loaded from config/models.yaml — no API keys or provider
+# instantiation needed. To add a new model: edit config/models.yaml only.
 PROVIDER_MODELS: dict[str, list[str]] = {
-    "anthropic": ANTHROPIC_MODELS,
-    "openai": OPENAI_MODELS,
-    "google": GOOGLE_MODELS,
-    "xai": XAI_MODELS,
+    provider: get_known_models(provider)
+    for provider in ("anthropic", "openai", "google", "xai")
 }
 
 
@@ -97,8 +89,9 @@ class TestJudgesYamlModelIds:
     def test_invalid_anthropic_model_id_is_caught(self):
         """Regression: invalid date suffix (20251101 vs 20251001) must be detected."""
         bad_model = "claude-opus-4-5-20251101"
-        assert bad_model not in ANTHROPIC_MODELS, (
-            f"Expected '{bad_model}' to be absent from ANTHROPIC_MODELS — "
+        anthropic_models = PROVIDER_MODELS["anthropic"]
+        assert bad_model not in anthropic_models, (
+            f"Expected '{bad_model}' to be absent from anthropic known-model list — "
             "it was the invalid ID that triggered TASK-143"
         )
 

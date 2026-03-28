@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Deque, Dict, Optional
 
+from app.config.models_config import get_all_pricing
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,50 +51,9 @@ class CompletionResult:
     token_usage: Optional[TokenUsage] = None
 
 
-# Pricing per 1M tokens (in USD) as of January 2026
-# These are approximate and should be updated periodically
-MODEL_PRICING: Dict[str, Dict[str, float]] = {
-    # OpenAI GPT-5 series (per 1M tokens) - pricing based on current OpenAI rates
-    "gpt-5.2": {"input": 5.00, "output": 15.00},
-    "gpt-5.1": {"input": 5.00, "output": 15.00},
-    "gpt-5": {"input": 5.00, "output": 15.00},
-    # OpenAI o-series reasoning models (per 1M tokens) - pricing based on current OpenAI rates
-    "o4-mini": {"input": 1.10, "output": 4.40},
-    "o3": {"input": 10.00, "output": 40.00},
-    "o3-mini": {"input": 1.10, "output": 4.40},
-    "o1": {"input": 15.00, "output": 60.00},
-    # OpenAI GPT-4 series (per 1M tokens)
-    "gpt-4-turbo-preview": {"input": 10.00, "output": 30.00},
-    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
-    "gpt-4-0125-preview": {"input": 10.00, "output": 30.00},
-    "gpt-4": {"input": 30.00, "output": 60.00},
-    "gpt-4-32k": {"input": 60.00, "output": 120.00},
-    "gpt-4o": {"input": 2.50, "output": 10.00},
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-    # OpenAI GPT-3.5 series (per 1M tokens)
-    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
-    "gpt-3.5-turbo-16k": {"input": 3.00, "output": 4.00},
-    # Anthropic pricing (per 1M tokens)
-    # Claude 4 family models
-    "claude-sonnet-4-5-20250929": {"input": 3.00, "output": 15.00},
-    "claude-haiku-4-5-20251001": {"input": 1.00, "output": 5.00},
-    "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
-    "claude-opus-4-6": {"input": 15.00, "output": 75.00},
-    # Claude 3 family models (legacy)
-    "claude-3-5-sonnet-20241022": {"input": 3.00, "output": 15.00},
-    "claude-3-5-sonnet-20240620": {"input": 3.00, "output": 15.00},
-    "claude-3-opus-20240229": {"input": 15.00, "output": 75.00},
-    "claude-3-sonnet-20240229": {"input": 3.00, "output": 15.00},
-    "claude-3-haiku-20240307": {"input": 0.25, "output": 1.25},
-    # Google pricing (per 1M tokens)
-    "gemini-2.5-pro": {"input": 1.25, "output": 10.00},
-    "gemini-3.1-pro-preview": {"input": 1.25, "output": 10.00},
-    "gemini-1.5-pro": {"input": 3.50, "output": 10.50},
-    "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
-    "gemini-1.0-pro": {"input": 0.50, "output": 1.50},
-    # xAI pricing (per 1M tokens) - estimates
-    "grok-4": {"input": 5.00, "output": 15.00},
-}
+# Pricing per 1M tokens (in USD), loaded from config/models.yaml.
+# To add or update model pricing: edit config/models.yaml only.
+MODEL_PRICING: Dict[str, Dict[str, float]] = get_all_pricing()
 
 # Default pricing for unknown models (conservative estimate)
 DEFAULT_PRICING: Dict[str, float] = {"input": 10.00, "output": 30.00}
