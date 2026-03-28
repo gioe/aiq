@@ -9,8 +9,13 @@ import logging
 from pathlib import Path
 from typing import Dict, Optional
 
-import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
+
+from app.config.base_config_loader import (
+    REQUIRED_QUESTION_TYPES,
+    BaseAssignment,
+    BaseConfigLoader,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +24,7 @@ WEIGHT_SUM_TOLERANCE_LOW = 0.99
 WEIGHT_SUM_TOLERANCE_HIGH = 1.01
 
 
-class JudgeModel(BaseModel):
+class JudgeModel(BaseAssignment):
     """Configuration for a single judge model.
 
     Attributes:
@@ -32,31 +37,7 @@ class JudgeModel(BaseModel):
     """
 
     model: str = Field(..., min_length=1)
-    provider: str = Field(..., pattern="^(openai|anthropic|google|xai)$")
-    rationale: str = Field(..., min_length=1)
     enabled: bool = True
-    fallback: Optional[str] = Field(None, pattern="^(openai|anthropic|google|xai)$")
-    fallback_model: Optional[str] = Field(
-        None, description="Specific model to use when fallback provider is activated"
-    )
-
-    @field_validator("provider", "fallback")
-    @classmethod
-    def validate_provider(cls, v: Optional[str]) -> Optional[str]:
-        """Validate provider is one of the supported options."""
-        if v is None:
-            return v
-        valid_providers = {"openai", "anthropic", "google", "xai"}
-        if v not in valid_providers:
-            raise ValueError(f"Provider must be one of {valid_providers}, got '{v}'")
-        return v
-
-    @model_validator(mode="after")
-    def validate_fallback_model_requires_fallback(self) -> "JudgeModel":
-        """Validate that fallback_model is only set when fallback is also set."""
-        if self.fallback_model is not None and self.fallback is None:
-            raise ValueError("fallback_model cannot be set without a fallback provider")
-        return self
 
 
 class EvaluationCriteria(BaseModel):
@@ -149,15 +130,7 @@ class JudgeConfig(BaseModel):
         Note: Keys must match QuestionType enum values from app/models.py
         (pattern, logic, spatial, math, verbal, memory).
         """
-        required_types = {
-            "math",
-            "logic",
-            "pattern",
-            "spatial",
-            "verbal",
-            "memory",
-        }
-        missing = required_types - set(v.keys())
+        missing = REQUIRED_QUESTION_TYPES - set(v.keys())
         if missing:
             raise ValueError(
                 f"Missing required question types in judge config: {missing}"
@@ -165,70 +138,35 @@ class JudgeConfig(BaseModel):
         return v
 
 
-class JudgeConfigLoader:
+class JudgeConfigLoader(BaseConfigLoader[JudgeConfig]):
     """Loader for judge configuration files.
 
     This class handles loading, parsing, and validating judge configuration
     from YAML files.
     """
 
-    def __init__(self, config_path: str | Path):
-        """Initialize the configuration loader.
-
-        Args:
-            config_path: Path to the judge configuration YAML file
-        """
-        self.config_path = Path(config_path)
-        self._config: Optional[JudgeConfig] = None
-
-    def load(self) -> JudgeConfig:
-        """Load and parse the configuration file.
-
-        Returns:
-            Parsed and validated judge configuration
-
-        Raises:
-            FileNotFoundError: If configuration file doesn't exist
-            ValueError: If configuration is invalid
-            yaml.YAMLError: If YAML parsing fails
-        """
-        if not self.config_path.exists():
-            raise FileNotFoundError(
-                f"Judge configuration file not found: {self.config_path}"
-            )
-
-        logger.info(f"Loading judge configuration from {self.config_path}")
-
-        try:
-            with open(self.config_path, "r") as f:
-                raw_config = yaml.safe_load(f)
-
-            self._config = JudgeConfig(**raw_config)
-            logger.info(
-                f"Successfully loaded judge configuration (version {self._config.version})"
-            )
-            return self._config
-
-        except yaml.YAMLError as e:
-            logger.error(f"Failed to parse YAML configuration: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to load judge configuration: {e}")
-            raise
-
     @property
-    def config(self) -> JudgeConfig:
-        """Get the loaded configuration.
+    def _config_label(self) -> str:
+        return "judge configuration"
 
-        Returns:
-            Loaded configuration
+    def _parse_config(self, raw_config: dict) -> JudgeConfig:
+        return JudgeConfig(**raw_config)
 
-        Raises:
-            RuntimeError: If configuration hasn't been loaded yet
-        """
-        if self._config is None:
-            raise RuntimeError("Configuration not loaded. Call load() first.")
-        return self._config
+    def _get_assignments_dict(self) -> Dict[str, JudgeModel]:
+        return self.config.judges
+
+    def _on_load_success(self, config: JudgeConfig) -> None:
+        logger.info(
+            f"Successfully loaded judge configuration (version {config.version})"
+        )
+
+    def _no_providers_error(
+        self, question_type: str, available_providers: list[str]
+    ) -> str:
+        return (
+            f"No judge providers available for question type '{question_type}'. "
+            f"Available providers: {available_providers}"
+        )
 
     def get_judge_for_question_type(self, question_type: str) -> JudgeModel:
         """Get the judge model for a specific question type.
@@ -266,7 +204,7 @@ class JudgeConfigLoader:
         """Resolve the best available provider and model for judging a question type.
 
         Uses a preferred -> alternate -> any resolution chain, matching the
-        pattern in GeneratorConfigLoader._resolve_provider.
+        pattern in GeneratorConfigLoader.get_provider_and_model_for_question_type.
 
         Args:
             question_type: Type of question (e.g., "math", "logic", "pattern")
@@ -284,72 +222,9 @@ class JudgeConfigLoader:
         preferred = (judge_model.provider, judge_model.model)
         alternate = (judge_model.fallback, judge_model.fallback_model)
 
-        return self._resolve_provider(
+        return self._resolve_provider(  # type: ignore[return-value]
             preferred, alternate, question_type, available_providers
         )
-
-    def _resolve_provider(
-        self,
-        preferred: tuple[str, Optional[str]],
-        alternate: tuple[Optional[str], Optional[str]],
-        question_type: str,
-        available_providers: list[str],
-    ) -> tuple[str, Optional[str]]:
-        """Resolve the best available provider using a preferred -> alternate -> any chain.
-
-        Args:
-            preferred: (provider, model) to try first
-            alternate: (provider, model) to try if preferred is unavailable
-            question_type: Question type for logging
-            available_providers: Currently available provider names
-
-        Returns:
-            Tuple of (provider_name, model_override). Model may be None if not specified.
-
-        Raises:
-            ValueError: If no suitable provider is available
-        """
-        pref_provider, pref_model = preferred
-        alt_provider, alt_model = alternate
-
-        # 1. Try preferred provider
-        if pref_provider in available_providers:
-            return (pref_provider, pref_model)
-
-        # 2. Try alternate (fallback) provider
-        if alt_provider and alt_provider in available_providers:
-            logger.warning(
-                f"Judge provider '{pref_provider}' unavailable for "
-                f"'{question_type}', using fallback '{alt_provider}'"
-                f"{f' with model {alt_model}' if alt_model else ''}"
-            )
-            return (alt_provider, alt_model)
-
-        # 3. Fall back to any available provider
-        if available_providers:
-            any_provider = available_providers[0]
-            logger.warning(
-                f"Neither preferred '{pref_provider}' nor fallback "
-                f"'{alt_provider}' available for '{question_type}', "
-                f"using '{any_provider}' (no model override)"
-            )
-            return (any_provider, None)
-
-        raise ValueError(
-            f"No judge providers available for question type '{question_type}'. "
-            f"Available providers: {available_providers}"
-        )
-
-    def get_all_question_types(self) -> list[str]:
-        """Get all configured question types.
-
-        Returns:
-            List of question type names
-
-        Raises:
-            RuntimeError: If configuration hasn't been loaded
-        """
-        return list(self.config.judges.keys())
 
     def get_evaluation_criteria(self) -> EvaluationCriteria:
         """Get evaluation criteria weights.
