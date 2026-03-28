@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 import anthropic
 from anthropic import Anthropic, AsyncAnthropic
 
+from app.config.models_config import get_known_models
 from app.observability.cost_tracking import CompletionResult, TokenUsage
 from app.utils.text_utils import (
     strip_markdown_code_blocks as _strip_markdown_code_blocks,
@@ -15,25 +16,9 @@ from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
 
-# Known Anthropic models ordered from newest to oldest.
-# This constant is the single source of truth for model availability.
-# Update this list when new Claude models are released.
-# See: https://docs.anthropic.com/en/docs/about-claude/models
-ANTHROPIC_MODELS: list[str] = [
-    # Claude 4.6 models (latest)
-    "claude-opus-4-6",
-    # Claude 4.5 models
-    "claude-sonnet-4-5-20250929",
-    "claude-haiku-4-5-20251001",
-    # Claude 4.x models
-    "claude-opus-4-1-20250805",
-    "claude-sonnet-4-20250514",
-    "claude-opus-4-20250514",
-    # Claude 3.x models (legacy)
-    "claude-3-7-sonnet-20250219",
-    # claude-3-5-sonnet-20241022 removed: deprecated by Anthropic
-    "claude-3-haiku-20240307",
-]
+# Known Anthropic models — loaded from config/models.yaml.
+# To add a new Claude model: edit config/models.yaml.
+ANTHROPIC_MODELS: list[str] = get_known_models("anthropic")
 
 
 class AnthropicProvider(BaseLLMProvider):

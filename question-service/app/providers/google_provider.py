@@ -992,44 +992,16 @@ class GoogleProvider(BaseLLMProvider):
 
     def get_available_models(self) -> list[str]:
         """
-        Get list of known Google Gen AI models (static list).
+        Get list of known Google Gen AI models loaded from config/models.yaml.
 
         For runtime validation against the API, use get_validated_models().
 
         Returns:
             List of model identifiers
-
-        Warning:
-            This list is hardcoded and may not reflect current API availability.
-            Using an incorrect or deprecated model identifier will fail at runtime
-            when making API calls. Use fetch_available_models() to query the API
-            for currently available models, or get_validated_models() for a
-            validated intersection of known and available models.
-
-        Note:
-            Common Gemini models (as of January 2026):
-            - gemini-3-pro-preview (Gemini 3 Pro Preview - advanced reasoning)
-            - gemini-3-flash-preview (Gemini 3 Flash Preview - faster variant)
-            - gemini-2.5-pro (stable, enhanced reasoning with 1M context)
-            - gemini-2.5-flash (fast, cost-effective)
-            - gemini-2.0-flash (previous generation flash model)
-
-        Maintenance:
-            Update this list when new Gemini models are released. Check the official
-            Google AI documentation for current model IDs.
-            Run integration tests to verify model availability:
-            pytest tests/providers/test_provider_model_availability_integration.py --run-integration
         """
-        # Last reviewed: 2026-03-19
-        # Docs: https://ai.google.dev/gemini-api/docs/models/gemini
-        # NOTE: gemini-3-pro-preview was shut down 2026-03-09; migrate to gemini-3.1-pro-preview
-        return [
-            "gemini-3.1-pro-preview",
-            "gemini-3-flash",
-            "gemini-2.5-pro",
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-        ]
+        from app.config.models_config import get_known_models
+
+        return get_known_models("google")
 
     def fetch_available_models(self) -> list[str]:
         """

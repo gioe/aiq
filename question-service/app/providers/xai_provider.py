@@ -544,24 +544,16 @@ class XAIProvider(BaseLLMProvider):
 
     def get_available_models(self) -> list[str]:
         """
-        Get list of known xAI models (static list).
+        Get list of known xAI models loaded from config/models.yaml.
 
         For runtime validation against the API, use get_validated_models().
 
         Returns:
             List of model identifiers
-
-        Note:
-            Current xAI models (as of February 2026):
-            - grok-4: Latest flagship model with exceptional math performance (alias for latest stable version)
-            - grok-3: Previous generation flagship
         """
-        # Last reviewed: 2026-02-10
-        # Docs: https://docs.x.ai/docs/models
-        return [
-            "grok-4",
-            "grok-3",
-        ]
+        from app.config.models_config import get_known_models
+
+        return get_known_models("xai")
 
     def fetch_available_models(self) -> list[str]:
         """

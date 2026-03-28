@@ -504,47 +504,16 @@ class OpenAIProvider(BaseLLMProvider):
 
     def get_available_models(self) -> list[str]:
         """
-        Get list of known OpenAI models (static list).
+        Get list of known OpenAI models loaded from config/models.yaml.
 
         For runtime validation against the API, use get_validated_models().
 
         Returns:
             List of model identifiers (ordered newest to oldest)
-
-        Note:
-            Current models (as of January 2026):
-            - gpt-5.2 (latest GPT-5 series)
-            - gpt-5.1, gpt-5 (GPT-5 series)
-            - o4-mini (latest reasoning model, efficient)
-            - o3, o3-mini (reasoning models)
-            - o1 (original reasoning model)
-            - gpt-4o, gpt-4o-mini (GPT-4o series)
-            - gpt-4-turbo-preview, gpt-4 (GPT-4 series)
-            - gpt-3.5-turbo (faster, cheaper, legacy)
         """
-        # Last reviewed: 2026-02-10
-        # Docs: https://platform.openai.com/docs/models
-        return [
-            # GPT-5 series (newest)
-            "gpt-5.2",
-            "gpt-5.1",
-            "gpt-5",
-            # Reasoning models (o-series) — use max_completion_tokens, not max_tokens
-            "o4-mini",
-            "o3",
-            "o3-mini",
-            "o1",
-            # GPT-4 series
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4-turbo",
-            "gpt-4-turbo-preview",
-            "gpt-4",
-            "gpt-4-0125-preview",
-            # GPT-3.5 series (legacy)
-            "gpt-3.5-turbo",
-            "gpt-3.5-turbo-16k",
-        ]
+        from app.config.models_config import get_known_models
+
+        return get_known_models("openai")
 
     def fetch_available_models(self) -> list[str]:
         """
