@@ -62,7 +62,7 @@ class BaseConfigLoader(ABC, Generic[ConfigT]):
     - _parse_config(raw_config): create and validate the typed config object
     - _get_assignments_dict(): return the {question_type: assignment} mapping
     - _on_load_success(config): emit a post-load info log (optional override)
-    - _no_providers_error(question_type, available_providers): error message string
+    - _no_providers_error_message(question_type, available_providers): error message string
     """
 
     def __init__(self, config_path: str | Path) -> None:
@@ -91,7 +91,7 @@ class BaseConfigLoader(ABC, Generic[ConfigT]):
     def _on_load_success(self, config: ConfigT) -> None:
         logger.info(f"Successfully loaded {self._config_label}")
 
-    def _no_providers_error(
+    def _no_providers_error_message(
         self, question_type: str, available_providers: list[str]
     ) -> str:
         return f"No providers available for question type '{question_type}'"
@@ -203,4 +203,6 @@ class BaseConfigLoader(ABC, Generic[ConfigT]):
             )
             return (any_provider, None)
 
-        raise ValueError(self._no_providers_error(question_type, available_providers))
+        raise ValueError(
+            self._no_providers_error_message(question_type, available_providers)
+        )

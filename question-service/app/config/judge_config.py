@@ -160,7 +160,7 @@ class JudgeConfigLoader(BaseConfigLoader[JudgeConfig]):
             f"Successfully loaded judge configuration (version {config.version})"
         )
 
-    def _no_providers_error(
+    def _no_providers_error_message(
         self, question_type: str, available_providers: list[str]
     ) -> str:
         return (
