@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 # Update this list when new Claude models are released.
 # See: https://docs.anthropic.com/en/docs/about-claude/models
 ANTHROPIC_MODELS: list[str] = [
-    # Claude 4.5 models (latest)
-    "claude-opus-4-5-20251001",
+    # Claude 4.6 models (latest)
+    "claude-opus-4-6",
+    # Claude 4.5 models
     "claude-sonnet-4-5-20250929",
     "claude-haiku-4-5-20251001",
     # Claude 4.x models
