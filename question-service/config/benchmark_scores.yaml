@@ -19,7 +19,7 @@ source_hierarchy:
 # Models to evaluate (provider + exact API model ID)
 models:
   - { provider: "openai",    model: "gpt-5.2" }
-  - { provider: "anthropic", model: "claude-opus-4-5-20251001" }
+  - { provider: "anthropic", model: "claude-opus-4-6" }
   - { provider: "anthropic", model: "claude-sonnet-4-5-20250929" }
   - { provider: "google",    model: "gemini-3.1-pro-preview" }
   - { provider: "xai",       model: "grok-4" }
