@@ -942,13 +942,13 @@ class TestProductionGeneratorsYaml:
         assert config.generators["spatial"].provider == "openai"
         assert config.generators["spatial"].model == "gpt-5.2"
 
-    def test_generators_yaml_math_uses_openai(self, production_config_path):
-        """Test that math questions use OpenAI provider (switched from xAI in Mar 2026; gpt-5.2 composite 81.79 vs grok-4 69.66)."""
+    def test_generators_yaml_math_uses_anthropic(self, production_config_path):
+        """Test that math questions use Anthropic provider (switched from OpenAI in Mar 2026; claude-sonnet-4-5 composite 91.71 vs gpt-5.2 81.79)."""
         loader = GeneratorConfigLoader(production_config_path)
         config = loader.load()
 
-        assert config.generators["math"].provider == "openai"
-        assert config.generators["math"].model == "gpt-5.2"
+        assert config.generators["math"].provider == "anthropic"
+        assert config.generators["math"].model == "claude-sonnet-4-5-20250929"
 
     def test_generators_yaml_logic_uses_anthropic(self, production_config_path):
         """Test that logic questions use Anthropic provider."""
