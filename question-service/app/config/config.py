@@ -190,6 +190,8 @@ class Settings(BaseSettings):
             self.smtp_password = secret_value
         if secret_value := get_secret("backend_service_key"):
             self.backend_service_key = secret_value
+        if secret_value := get_secret("resend_api_key"):
+            self.resend_api_key = secret_value
 
         # Validate that at least one LLM API key is configured
         llm_keys_configured = [
@@ -236,11 +238,25 @@ class Settings(BaseSettings):
                 )
                 self.enable_email_alerts = False
         if not self.enable_email_alerts and self.env not in ("development", "test"):
-            logger.warning(
-                "Email alerts are DISABLED (ENABLE_EMAIL_ALERTS=false) in env=%s. "
-                "Run completion notifications will not be sent.",
-                self.env,
-            )
+            has_alt_channel = bool(self.resend_api_key or self.discord_webhook_url)
+            if has_alt_channel:
+                channels = []
+                if self.resend_api_key:
+                    channels.append("Resend")
+                if self.discord_webhook_url:
+                    channels.append("Discord")
+                logger.info(
+                    "SMTP email alerts disabled; notifications will be sent via: %s",
+                    ", ".join(channels),
+                )
+            else:
+                logger.warning(
+                    "No notification channel configured in env=%s. "
+                    "SMTP is disabled and neither RESEND_API_KEY nor DISCORD_WEBHOOK_URL is set. "
+                    "Run completion notifications will not be sent. "
+                    "Note: Railway blocks outbound SMTP — use RESEND_API_KEY or DISCORD_WEBHOOK_URL instead.",
+                    self.env,
+                )
 
         # Validate run reporting configuration
         # Only enforce in non-development environments to allow testing
