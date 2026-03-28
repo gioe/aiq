@@ -87,6 +87,16 @@ repos:
         files: ^question-service/.*\.py$
         pass_filenames: false
 
+  # Validate model IDs in question-service config
+  - repo: local
+    hooks:
+      - id: test-model-ids
+        name: test-model-ids (question-service)
+        entry: bash -c 'cd question-service && source venv/bin/activate && pytest tests/config/test_model_ids.py -q'
+        language: system
+        files: ^question-service/config/.*\.yaml$
+        pass_filenames: false
+
   # ============================================
   # Security Hooks
   # ============================================
