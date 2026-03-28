@@ -189,14 +189,14 @@ class QuestionJudge:
         if anthropic_api_key:
             self.providers["anthropic"] = AnthropicProvider(
                 api_key=anthropic_api_key,
-                model="claude-sonnet-4-5",  # Default model
+                model="claude-sonnet-4-5-20250929",  # Default model
             )
             self._circuit_breaker_registry.get_or_create("judge-anthropic")
             logger.info("Initialized Anthropic provider for judge")
 
         if google_api_key:
             self.providers["google"] = GoogleProvider(
-                api_key=google_api_key, model="gemini-pro"  # Default model
+                api_key=google_api_key, model="gemini-2.5-pro"  # Default model
             )
             self._circuit_breaker_registry.get_or_create("judge-google")
             logger.info("Initialized Google provider for judge")
