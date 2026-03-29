@@ -179,7 +179,9 @@ class TestRunInventoryAnalysis:
         mock_analyzer.analyze_inventory.return_value = mock_analysis
         mock_analyzer.compute_generation_plan.return_value = mock_plan
 
-        with patch("run_generation.InventoryAnalyzer", return_value=mock_analyzer):
+        with patch(
+            "app.inventory.runner.InventoryAnalyzer", return_value=mock_analyzer
+        ):
             result = run_inventory_analysis(
                 db=MagicMock(),
                 healthy_threshold=50,
@@ -208,7 +210,9 @@ class TestRunInventoryAnalysis:
         mock_analyzer.analyze_inventory.return_value = mock_analysis
         mock_analyzer.compute_generation_plan.return_value = mock_plan
 
-        with patch("run_generation.InventoryAnalyzer", return_value=mock_analyzer):
+        with patch(
+            "app.inventory.runner.InventoryAnalyzer", return_value=mock_analyzer
+        ):
             result = run_inventory_analysis(
                 db=MagicMock(),
                 healthy_threshold=50,
@@ -743,14 +747,20 @@ class TestBuildRunStats:
     def test_basic_fields(self):
         from run_generation import _build_run_stats
 
-        stats = {"target_questions": 10, "questions_generated": 8, "duration_seconds": 5.0}
+        stats = {
+            "target_questions": 10,
+            "questions_generated": 8,
+            "duration_seconds": 5.0,
+        }
         summary = {
             "database": {"inserted_by_type": {"math": 3}},
             "generation": {"by_difficulty": {"easy": 4}},
             "evaluation": {"rejected": 2},
             "deduplication": {"duplicates_found": 1},
         }
-        result = _build_run_stats(stats, inserted_count=7, approval_rate=87.5, summary=summary)
+        result = _build_run_stats(
+            stats, inserted_count=7, approval_rate=87.5, summary=summary
+        )
 
         assert result["questions_generated"] == 8
         assert result["questions_inserted"] == 7
@@ -768,7 +778,9 @@ class TestBuildRunStats:
         from run_generation import _build_run_stats
 
         stats = {"target_questions": 0, "questions_generated": 0}
-        result = _build_run_stats(stats, inserted_count=0, approval_rate=0.0, summary={})
+        result = _build_run_stats(
+            stats, inserted_count=0, approval_rate=0.0, summary={}
+        )
 
         assert result["generation_loss_pct"] == pytest.approx(0.0)
         assert result["generation_loss"] == 0
