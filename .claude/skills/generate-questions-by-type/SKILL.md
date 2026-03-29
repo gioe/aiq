@@ -61,19 +61,24 @@ Parse the arguments to extract type, count, and difficulty:
 
 ### Step 2: Check Environment
 
-Verify the question-service environment is ready:
+Resolve the repo root first — do not rely on the current working directory:
 ```bash
-cd question-service && test -d venv && echo "venv exists" || echo "venv missing"
+REPO_ROOT=$(git rev-parse --show-toplevel)
+test -d "${REPO_ROOT}/question-service/venv" && echo "venv exists" || echo "venv missing"
 ```
 
 If venv is missing, inform the user they need to set up the question-service first.
 
 ### Step 3: Execute Generation
 
-Run the generation script with the validated parameters:
+Run the generation script using absolute paths. `PYTHONPATH` must include the repo root so
+`aiq_types` is importable:
 
 ```bash
-cd question-service && source venv/bin/activate && python run_generation.py --types <type> --count <count> --async --async-judge --verbose
+REPO_ROOT=$(git rev-parse --show-toplevel)
+source "${REPO_ROOT}/question-service/venv/bin/activate" && \
+  PYTHONPATH="${REPO_ROOT}" python "${REPO_ROOT}/question-service/run_generation.py" \
+  --types <type> --count <count> --async --async-judge --verbose
 ```
 
 If difficulty is specified, note that the current `run_generation.py` script does not support a `--difficulty` flag. Inform the user that difficulty filtering is not yet implemented and proceed with generation of all difficulty levels.
@@ -93,7 +98,9 @@ After execution:
 ```
 Executes:
 ```bash
-cd question-service && source venv/bin/activate && python run_generation.py --types math --count 50 --async --async-judge --verbose
+REPO_ROOT=$(git rev-parse --show-toplevel)
+source "${REPO_ROOT}/question-service/venv/bin/activate" && \
+  PYTHONPATH="${REPO_ROOT}" python "${REPO_ROOT}/question-service/run_generation.py" --types math --count 50 --async --async-judge --verbose
 ```
 
 ### Generate 100 logic questions
@@ -102,7 +109,9 @@ cd question-service && source venv/bin/activate && python run_generation.py --ty
 ```
 Executes:
 ```bash
-cd question-service && source venv/bin/activate && python run_generation.py --types logic --count 100 --async --async-judge --verbose
+REPO_ROOT=$(git rev-parse --show-toplevel)
+source "${REPO_ROOT}/question-service/venv/bin/activate" && \
+  PYTHONPATH="${REPO_ROOT}" python "${REPO_ROOT}/question-service/run_generation.py" --types logic --count 100 --async --async-judge --verbose
 ```
 
 ### Generate 25 spatial questions (difficulty not yet supported)
@@ -111,7 +120,9 @@ cd question-service && source venv/bin/activate && python run_generation.py --ty
 ```
 Notes that difficulty filtering is not yet supported, then executes:
 ```bash
-cd question-service && source venv/bin/activate && python run_generation.py --types spatial --count 25 --async --async-judge --verbose
+REPO_ROOT=$(git rev-parse --show-toplevel)
+source "${REPO_ROOT}/question-service/venv/bin/activate" && \
+  PYTHONPATH="${REPO_ROOT}" python "${REPO_ROOT}/question-service/run_generation.py" --types spatial --count 25 --async --async-judge --verbose
 ```
 
 ## Error Handling
@@ -159,6 +170,28 @@ case $EXIT_CODE in
   4) echo "Database error. Check database file permissions and connectivity." ;;
 esac
 ```
+
+### Provider 400 Errors (before running full pipeline)
+
+If a provider returns HTTP 400 and the root cause is unclear, diagnose with a minimal
+direct API call **before** running the full pipeline — the error body is always descriptive:
+
+```bash
+REPO_ROOT=$(git rev-parse --show-toplevel)
+source "${REPO_ROOT}/question-service/venv/bin/activate"
+ANTHROPIC_API_KEY=$(grep ANTHROPIC_API_KEY "${REPO_ROOT}/question-service/.env" | cut -d= -f2) \
+  python -c "
+import anthropic, os
+c = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
+try:
+    c.messages.create(model='claude-sonnet-4-5-20251001', max_tokens=5, messages=[{'role':'user','content':'hi'}])
+    print('API key valid')
+except Exception as e:
+    print('Error:', e)
+"
+```
+
+Common 400 causes surfaced this way: depleted credits, invalid model ID, org policy block.
 
 ## Notes
 

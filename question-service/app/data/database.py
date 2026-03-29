@@ -28,7 +28,7 @@ from openai import OpenAI
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from app.utils.embedding_utils import (
+from app.infrastructure.embedding_utils import (
     DEFAULT_EMBEDDING_MODEL as EMBEDDING_MODEL,
     generate_embedding_safe,
     generate_embeddings_batch,

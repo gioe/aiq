@@ -13,7 +13,7 @@ import numpy as np
 from openai import OpenAI
 
 from app.infrastructure.embedding_cache import HybridEmbeddingCache
-from app.utils.embedding_utils import generate_embedding_with_fallback
+from app.infrastructure.embedding_utils import generate_embedding_with_fallback
 from app.data.models import GeneratedQuestion
 
 # Import observability facade for distributed tracing

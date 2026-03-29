@@ -1,12 +1,12 @@
 ---
 name: run-backend-tests
-description: Run Python tests for the AIQ backend. Handles venv activation and pytest execution. Use this whenever you need to run backend tests.
+description: Run Python tests for the AIQ backend or question-service. Handles venv activation and pytest execution. Use this whenever you need to run backend or question-service tests.
 allowed-tools: Bash
 ---
 
 # Run Backend Tests
 
-Runs pytest for the AIQ backend with proper virtual environment activation.
+Runs pytest for the AIQ backend or question-service with proper virtual environment activation.
 
 ## Usage
 
@@ -16,12 +16,13 @@ Runs pytest for the AIQ backend with proper virtual environment activation.
 
 ## Arguments
 
-- `test_path` (optional): Specific test file, directory, or test method
-  - Omit to run all tests
-  - `tests/test_auth.py` - run a specific test file
+- `test_path` (optional): One or more test files, directories, or test methods (space-separated)
+  - Omit to run all backend tests
+  - `tests/test_auth.py` - run a specific backend test file
+  - `question-service/tests/evaluation/test_judge.py` - run a question-service test file (prefix determines routing)
+  - `question-service/tests/a.py question-service/tests/b.py` - run multiple question-service files (all must share the same prefix)
   - `tests/test_auth.py::TestLogin` - run a specific test class
   - `tests/test_auth.py::TestLogin::test_login_success` - run a specific test method
-  - `tests/test_admin*.py` - run tests matching a pattern
 
 - `options` (optional): Additional pytest options
   - `-v` - verbose output (default)
@@ -33,21 +34,40 @@ Runs pytest for the AIQ backend with proper virtual environment activation.
 
 ## Implementation
 
-**IMPORTANT**: Always activate the virtual environment before running pytest.
+**IMPORTANT**: Detect which service the test_path belongs to before activating a venv.
 
-### Run all tests
+- If **all** paths start with `libs/`, run from the repo root with backend venv and PYTHONPATH set:
+  ```bash
+  source backend/venv/bin/activate && PYTHONPATH=. python -m pytest <paths...> -v --tb=short
+  ```
+
+- If **all** paths start with `question-service/`, strip the `question-service/` prefix from each and run from the question-service directory:
+  ```bash
+  cd question-service && source venv/bin/activate && python -m pytest <paths_without_prefix...> -v --tb=short
+  ```
+  Example: `/run-backend-tests question-service/tests/infrastructure/test_alerting.py question-service/tests/observability/test_alerting_adapter.py` →
+  ```bash
+  cd question-service && source venv/bin/activate && python -m pytest tests/infrastructure/test_alerting.py tests/observability/test_alerting_adapter.py -v --tb=short
+  ```
+
+- Otherwise (backend tests or no path given), run from the backend directory:
+  ```bash
+  cd backend && source venv/bin/activate && python -m pytest -v --tb=short
+  ```
+
+### Run all backend tests
 ```bash
 cd backend && source venv/bin/activate && python -m pytest -v --tb=short
 ```
 
-### Run specific test file
+### Run specific backend test file
 ```bash
 cd backend && source venv/bin/activate && python -m pytest tests/<test_file>.py -v --tb=short
 ```
 
-### Run specific test class or method
+### Run specific question-service test file
 ```bash
-cd backend && source venv/bin/activate && python -m pytest tests/<test_file>.py::<TestClass>::<test_method> -v --tb=short
+cd question-service && source venv/bin/activate && python -m pytest tests/<path>.py -v --tb=short
 ```
 
 ### Run with pattern matching
@@ -70,6 +90,8 @@ cd backend && source venv/bin/activate && python -m pytest -x -v --tb=short
 | `tests/test_questions.py` | Question retrieval |
 | `tests/test_test_session.py` | Test session management |
 | `tests/test_scoring.py` | IQ scoring algorithms |
+| `question-service/tests/evaluation/test_judge.py` | Question judge evaluation |
+| `question-service/tests/evaluation/test_deduplicator.py` | Question deduplication |
 
 ## Examples
 
@@ -84,6 +106,11 @@ Run all backend tests.
 Run all authentication tests.
 
 ```
+/run-backend-tests question-service/tests/evaluation/test_judge.py
+```
+Run question-service judge tests.
+
+```
 /run-backend-tests tests/test_auth.py::TestLogin
 ```
 Run only the TestLogin class.
@@ -93,18 +120,16 @@ Run only the TestLogin class.
 ```
 Run all tests with "password" in the name.
 
-```
-/run-backend-tests tests/test_auth.py -x
-```
-Run auth tests, stop on first failure.
-
 ## Troubleshooting
+
+### "file or directory not found" for question-service tests
+The test path must start with `question-service/` for automatic routing to the question-service venv. Using a relative path from inside `question-service/` will fail — always pass the full path from the repo root.
 
 ### "command not found: python"
 This means the venv wasn't activated. The skill commands above include `source venv/bin/activate` to prevent this.
 
 ### Import errors
-Ensure the skill is invoked from the project root directory (the command handles `cd backend` automatically).
+Ensure the skill is invoked from the project root directory. The command handles `cd backend` or `cd question-service` automatically based on the path prefix.
 
 ### Database errors
 Some tests require database setup. Run `alembic upgrade head` if you see migration errors.

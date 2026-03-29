@@ -33,18 +33,21 @@ When working on the backend, read these docs first:
 - **Error responses**: Use helpers from `app/core/error_responses.py`. Never raise raw `HTTPException` with inline strings.
 - **Admin auth**: Two types — `X-Admin-Token` for manual ops, `X-Service-Key` for service-to-service.
 - **Database migrations**: Alembic in `alembic/`. Run `alembic revision --autogenerate -m "..."` then `alembic upgrade head`.
+- **Enum case (read before writing enum migrations)**: SQLAlchemy sends the Python enum member `.name` (UPPERCASE) to PostgreSQL — not `.value`. All native PG enum types in this project use UPPERCASE labels to match. See the docstring in `app/models/models.py` for the full table. Never write a migration that converts enum labels to lowercase without also adding `values_callable=lambda obj: [e.value for e in obj]` to the SA column definition.
 
 ### Testing & Environment
 
-Always activate the backend virtualenv (`source venv/bin/activate`) and ensure `PYTHONPATH` includes `libs/` before running tests. Never assume import paths — verify them first.
+Always activate the backend virtualenv (`source venv/bin/activate`) before running tests. `gioe-libs` is installed as a package via `requirements.txt` — no manual `PYTHONPATH` adjustment needed. Never assume import paths — verify them first.
+
+When referencing a specific test in a bug description or task, always use the full pytest node ID including the class name: `tests/path/test_file.py::ClassName::test_method_name`. Omitting the class prefix causes pytest to fail with "not found" (exit 4), requiring a full-file run to discover the correct ID.
 
 ### Railway Deployment
 
 - **Config**: The root `railway.json` is the backend's config (not a global config). It points to `backend/Dockerfile`.
-- **Dockerfile**: `backend/Dockerfile` — builds from repo root, copies `libs/` and `backend/` into the image.
-- **PYTHONPATH**: `/app:/app/backend` inside the container.
+- **Dockerfile**: `backend/Dockerfile` — builds from repo root, copies `backend/` into the image and installs `gioe-libs` from `requirements.txt`.
+- **PYTHONPATH**: `/app/backend` inside the container.
 - **Healthcheck**: `/v1/health` — always verify this returns 200 after deployment changes.
-- **Watch paths**: `/backend/**` and `/libs/**` — changes to shared libs trigger a backend redeploy.
+- **Watch paths**: `/backend/**`.
 - **Isolation**: Changes to the root `railway.json` or `backend/Dockerfile` must NOT affect the question-service. They have separate configs. See root CLAUDE.md for the full topology table.
 
 ### Dev commands

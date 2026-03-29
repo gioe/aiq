@@ -44,7 +44,8 @@ cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platf
 
 ### Run a Specific Test File
 
-To run tests from a specific test class, use the `-only-testing` flag:
+To run tests from a specific test class, use the `-only-testing` flag.
+Use `AIQTests` for unit tests and `AIQUITests` for UI/integration tests:
 
 ```bash
 # With xcpretty (recommended) — pipefail ensures test failures propagate correctly
@@ -56,14 +57,18 @@ cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ -destination 'platf
 
 **Examples:**
 ```bash
-# Run AuthManagerTests
+# Run AuthManagerTests (unit test — AIQTests target)
 -only-testing:AIQTests/AuthManagerTests
 
-# Run APIClientTests
+# Run APIClientTests (unit test — AIQTests target)
 -only-testing:AIQTests/APIClientTests
 
-# Run NotificationServiceTests
+# Run NotificationServiceTests (unit test — AIQTests target)
 -only-testing:AIQTests/NotificationServiceTests
+
+# Run UITests (note: AIQUITests target, not AIQTests)
+-only-testing:AIQUITests/LoginUITests
+-only-testing:AIQUITests/TestTakingAbandonmentFlowTests
 ```
 
 ### Run a Specific Test Method
@@ -121,6 +126,17 @@ When invoked with arguments, parse them to determine the test scope:
 - **Build Failed**: Compilation errors prevent tests from running; fix build errors first
 
 ## Troubleshooting
+
+### Pre-existing Failure Check (for git stash verification)
+The full iOS test suite takes 10+ minutes. When verifying that test failures are pre-existing
+(via `git stash && <test_command>; git stash pop`), run only the failing test class(es) instead
+of the full suite:
+```bash
+set -o pipefail && cd ios && xcodebuild test -project AIQ.xcodeproj -scheme AIQ \
+  -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' \
+  -only-testing:AIQTests/<FailingTestClass> 2>&1 | xcpretty
+```
+This keeps the stash check under ~2 minutes and avoids timeouts.
 
 ### Simulator Not Found
 If the destination simulator isn't available, list available simulators:

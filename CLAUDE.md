@@ -28,7 +28,7 @@ AIQ tracks cognitive capacity over time, similar to how fitness apps track physi
 
 #### Railway Service Topology
 
-This is a monorepo with two independent Railway services sharing `libs/`. Both Dockerfiles build from the **repo root** to access `libs/`.
+This is a monorepo with two independent Railway services. Both services install `gioe-libs` from [github.com/gioe/python-libs](https://github.com/gioe/python-libs) via `requirements.txt`.
 
 | | Backend | Question Service |
 |---|---|---|
@@ -36,9 +36,9 @@ This is a monorepo with two independent Railway services sharing `libs/`. Both D
 | **railway.json** | `railway.json` (repo root) | `question-service/railway.json` |
 | **Dockerfile** | `backend/Dockerfile` | `question-service/Dockerfile.trigger` |
 | **Healthcheck** | `/v1/health` | None (cron/trigger service) |
-| **Watch paths** | `/backend/**`, `/libs/**` | `/question-service/**`, `/libs/**` |
+| **Watch paths** | `/backend/**` | `/question-service/**` |
 | **Restart policy** | `ON_FAILURE` (max 10) | `NEVER` |
-| **PYTHONPATH** | `/app:/app/backend` | `/app:/app/question-service` |
+| **PYTHONPATH** | `/app/backend` | `/app/question-service` |
 
 **Critical rule**: The root `railway.json` belongs to the **backend**, not to the whole repo. Changing it affects the backend only. The question-service has its own `question-service/railway.json`. Never merge these or create conflicting configs.
 
@@ -73,6 +73,10 @@ The project task database is the SQLite DB at the project root (`tasks.db`), not
 ## General Rules
 
 If a test or command fails, do NOT re-run the exact same command more than twice. Instead, analyze the error output, change approach, or ask the user for guidance.
+
+## Key Conventions
+
+- **Truncation tests**: Use a distinct sentinel suffix (e.g. `"a" * 200 + "OVERFLOW"`) rather than a single repeated character — a repeated char makes `not in` assertions trivially pass on a substring of itself.
 
 ## Required Skills Usage
 

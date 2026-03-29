@@ -43,7 +43,7 @@ Validate:
 
 ### Step 2: Build Command
 
-Construct the command with only the specified arguments:
+Construct the command with only the specified arguments. The `.env` uses Railway's public TCP proxy URL (`switchback.proxy.rlwy.net`) for `DATABASE_URL`, which resolves from anywhere without needing `railway run`.
 
 ```bash
 cd question-service && source venv/bin/activate && set -a && source .env && set +a && python run_generation.py --async --async-judge --verbose [additional args based on input]
@@ -144,6 +144,5 @@ Generate 20 math questions using fallback provider models.
 
 ## Requirements
 
-- `question-service/.env` must contain valid API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
+- `question-service/.env` must exist with valid API keys and `DATABASE_URL` pointing to Railway's public TCP proxy (`switchback.proxy.rlwy.net`)
 - `question-service/venv` must be set up with dependencies installed
-- `DATABASE_URL` must be configured in `.env`

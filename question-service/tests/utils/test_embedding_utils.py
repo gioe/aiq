@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from app.utils.embedding_utils import (
+from app.infrastructure.embedding_utils import (
     FALLBACK_EMBEDDING_DIMENSION,
     _generate_embedding_google,
     _is_quota_error,
@@ -97,7 +97,7 @@ class TestGenerateEmbeddingWithFallback:
         fallback_vec = np.array([0.1] * FALLBACK_EMBEDDING_DIMENSION)
 
         with patch(
-            "app.utils.embedding_utils._generate_embedding_google",
+            "app.infrastructure.embedding_utils._generate_embedding_google",
             return_value=fallback_vec,
         ) as mock_google:
             result = generate_embedding_with_fallback(
@@ -145,7 +145,7 @@ class TestGenerateEmbeddingSafeFallback:
         fallback_vec = [0.2] * FALLBACK_EMBEDDING_DIMENSION
 
         with patch(
-            "app.utils.embedding_utils._generate_embedding_google",
+            "app.infrastructure.embedding_utils._generate_embedding_google",
             return_value=np.array(fallback_vec),
         ) as mock_google:
             result = generate_embedding_safe(client, "text", google_api_key="gkey")
@@ -158,7 +158,7 @@ class TestGenerateEmbeddingSafeFallback:
         client.embeddings.create.side_effect = Exception("429 insufficient_quota")
 
         with patch(
-            "app.utils.embedding_utils._generate_embedding_google",
+            "app.infrastructure.embedding_utils._generate_embedding_google",
             side_effect=Exception("google also failed"),
         ):
             result = generate_embedding_safe(client, "text", google_api_key="gkey")
