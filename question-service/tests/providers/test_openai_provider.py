@@ -260,7 +260,7 @@ class TestOpenAIProvider:
         # GPT-4 series (legacy)
         assert "gpt-4o" in models
         assert "gpt-4o-mini" in models
-        assert "gpt-4o" in models
+        assert "gpt-4-turbo-preview" not in models
         assert "gpt-4" in models
         # GPT-3.5 series (legacy)
         assert "gpt-3.5-turbo" in models
