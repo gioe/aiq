@@ -17,7 +17,7 @@ _TRUNCATED_DISPLAY_CHARS = 77  # 80 - len("...")
 
 
 def log_rejection_details(
-    evaluated_question,
+    evaluated_question: EvaluatedQuestion,
     logger: logging.Logger,
     index: Optional[int] = None,
 ) -> None:
@@ -55,7 +55,7 @@ def log_rejection_details(
 
 
 def apply_difficulty_placement(
-    evaluated_question,
+    evaluated_question: EvaluatedQuestion,
     judge: QuestionJudge,
     logger: logging.Logger,
 ):
