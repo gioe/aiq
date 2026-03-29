@@ -55,6 +55,11 @@ from app.inventory.inventory_config import (  # noqa: E402
 from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
 )
+from app.infrastructure.error_classifier import (  # noqa: E402
+    ClassifiedError,
+    ErrorCategory,
+    ErrorSeverity,
+)
 from gioe_libs.alerting.alerting import RunSummary  # noqa: E402
 from gioe_libs.structured_logging import setup_logging  # noqa: E402
 from gioe_libs.cron_runner import CronJob  # noqa: E402
@@ -841,6 +846,805 @@ def create_run_reporter(
     return reporter
 
 
+def run_optionally_async(async_fn, sync_fn, use_async: bool, cleanup_fn=None):
+    """Dispatch to async_fn (via asyncio.run) or sync_fn based on use_async.
+
+    If cleanup_fn is provided and use_async=True, it is awaited in a finally block.
+    """
+    if use_async:
+
+        async def _wrapper():
+            try:
+                return await async_fn()
+            finally:
+                if cleanup_fn is not None:
+                    await cleanup_fn()
+
+        return asyncio.run(_wrapper())
+    return sync_fn()
+
+
+def send_phase_alert(
+    alert_manager: AlertManager,
+    category: ErrorCategory,
+    severity: ErrorSeverity,
+    provider: str,
+    original_error: str,
+    message: str,
+    context: str,
+    is_retryable: bool = True,
+) -> None:
+    """Construct a ClassifiedError and send it via alert_manager."""
+    error = ClassifiedError(
+        category=category,
+        severity=severity,
+        provider=provider,
+        original_error=original_error,
+        message=message,
+        is_retryable=is_retryable,
+    )
+    alert_manager.send_alert(error, context=context)
+
+
+def _build_run_stats(
+    stats: dict,
+    inserted_count: int,
+    approval_rate: float,
+    summary: dict,
+) -> dict:
+    """Build the run statistics dictionary for reporting."""
+    requested = stats.get("target_questions", 0)
+    generated = stats.get("questions_generated", 0)
+    loss = requested - generated
+    return {
+        "questions_generated": generated,
+        "questions_inserted": inserted_count,
+        "approval_rate": approval_rate,
+        "duration_seconds": stats.get("duration_seconds", 0),
+        "by_type": summary.get("database", {}).get("inserted_by_type", {}),
+        "by_difficulty": summary.get("generation", {}).get("by_difficulty", {}),
+        "questions_requested": requested,
+        "generation_loss": loss,
+        "generation_loss_pct": (
+            round(loss / requested * 100, 1) if requested > 0 else 0.0
+        ),
+        "questions_rejected": summary.get("evaluation", {}).get("rejected", 0),
+        "duplicates_found": summary.get("deduplication", {}).get("duplicates_found", 0),
+    }
+
+
+def _init_components(
+    args: argparse.Namespace,
+    alert_manager: AlertManager,
+    run_id: str,
+    logger: logging.Logger,
+) -> tuple:
+    """Initialize all pipeline components.
+
+    Returns (pipeline, judge, db, deduplicator). Raises RuntimeError on
+    configuration or database errors and sends appropriate alerts.
+    """
+    if not any(
+        [
+            settings.openai_api_key,
+            settings.anthropic_api_key,
+            settings.google_api_key,
+            settings.xai_api_key,
+        ]
+    ):
+        logger.error("No LLM API keys configured!")
+        logger.error(
+            "Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or XAI_API_KEY"
+        )
+        send_phase_alert(
+            alert_manager=alert_manager,
+            category=ErrorCategory.AUTHENTICATION,
+            severity=ErrorSeverity.CRITICAL,
+            provider="system",
+            original_error="ConfigurationError",
+            message="No LLM API keys configured. Question generation cannot run.",
+            context=(
+                f"[run_id={run_id}] Question generation script failed to start due to missing API keys. "
+                "Check environment variables: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, XAI_API_KEY"
+            ),
+            is_retryable=False,
+        )
+        raise RuntimeError("No LLM API keys configured")
+
+    pipeline = QuestionGenerationPipeline(
+        openai_api_key=settings.openai_api_key,
+        anthropic_api_key=settings.anthropic_api_key,
+        google_api_key=settings.google_api_key,
+        xai_api_key=settings.xai_api_key,
+    )
+    logger.info("✓ Pipeline initialized")
+
+    from app.config.judge_config import JudgeConfigLoader  # noqa: PLC0415
+
+    judge_loader = JudgeConfigLoader(settings.judge_config_path)
+    judge_loader.load()
+    logger.info(f"✓ Judge config loaded from {settings.judge_config_path}")
+
+    from app.config.generator_config import initialize_generator_config  # noqa: PLC0415
+
+    try:
+        initialize_generator_config(settings.generator_config_path)
+        logger.info(f"✓ Generator config loaded from {settings.generator_config_path}")
+    except FileNotFoundError:
+        logger.warning(
+            f"Generator config not found at {settings.generator_config_path}. "
+            "Using round-robin distribution instead of specialist routing."
+        )
+
+    judge = QuestionJudge(
+        judge_config=judge_loader,
+        openai_api_key=settings.openai_api_key,
+        anthropic_api_key=settings.anthropic_api_key,
+        google_api_key=settings.google_api_key,
+        xai_api_key=settings.xai_api_key,
+        max_concurrent_evaluations=args.max_concurrent_judge,
+        async_timeout_seconds=args.judge_timeout,
+    )
+    logger.info("✓ Judge initialized")
+
+    db = None
+    deduplicator = None
+
+    if not args.dry_run:
+        try:
+            db = QuestionDatabase(
+                database_url=settings.database_url,
+                openai_api_key=settings.openai_api_key,
+                google_api_key=settings.google_api_key,
+            )
+            logger.info("✓ Database connected")
+
+            if not settings.openai_api_key:
+                logger.error("OpenAI API key required for deduplication")
+                raise RuntimeError("OpenAI API key required for deduplication")
+
+            deduplicator = QuestionDeduplicator(
+                openai_api_key=settings.openai_api_key,
+                similarity_threshold=settings.dedup_similarity_threshold,
+                embedding_model=settings.dedup_embedding_model,
+                redis_url=settings.redis_url,
+                embedding_cache_ttl=settings.embedding_cache_ttl,
+                google_api_key=settings.google_api_key,
+            )
+            cache_type = "Redis" if deduplicator.using_redis_cache else "in-memory"
+            logger.info(f"✓ Deduplicator initialized (cache: {cache_type})")
+        except Exception as e:
+            logger.error(f"Failed to connect to database: {e}")
+            observability.capture_error(
+                e, context={"phase": "init", "step": "database_connection"}
+            )
+            send_phase_alert(
+                alert_manager=alert_manager,
+                category=ErrorCategory.SERVER_ERROR,
+                severity=ErrorSeverity.CRITICAL,
+                provider="database",
+                original_error=type(e).__name__,
+                message=f"Database connection failed: {str(e)}",
+                context=(
+                    f"[run_id={run_id}] Question generation cannot connect to database. "
+                    f"Check DATABASE_URL and database availability. Error: {str(e)}"
+                ),
+                is_retryable=False,
+            )
+            raise RuntimeError(f"Database connection failed: {str(e)}") from e
+
+    return pipeline, judge, db, deduplicator
+
+
+def run_inventory_analysis(
+    db: QuestionDatabase,
+    healthy_threshold: int,
+    warning_threshold: int,
+    target_per_stratum: int,
+    target_count: int,
+    alerting_config_path: str,
+    skip_inventory_alerts: bool,
+    alert_manager: AlertManager,
+    logger: logging.Logger,
+):
+    """Phase 0: Analyze inventory and compute a balanced generation plan.
+
+    Returns the generation plan, or None if all strata are at target (early exit).
+    Raises RuntimeError if auto-balance is requested without a database connection.
+    """
+    if not db:
+        logger.error("Auto-balance requires database connection (cannot use --dry-run)")
+        raise RuntimeError("Auto-balance requires database connection")
+
+    analyzer = InventoryAnalyzer(
+        database_service=db,
+        healthy_threshold=healthy_threshold,
+        warning_threshold=warning_threshold,
+        target_per_stratum=target_per_stratum,
+    )
+
+    analysis = analyzer.analyze_inventory()
+    analyzer.log_inventory_summary(analysis)
+
+    generation_plan = analyzer.compute_generation_plan(
+        target_total=target_count,
+        analysis=analysis,
+    )
+    logger.info("\n" + generation_plan.to_log_summary())
+
+    if not skip_inventory_alerts:
+        logger.info("\nChecking inventory levels for alerting...")
+        alerting_config = AlertingConfig.from_yaml(alerting_config_path)
+        strata_snapshot = analysis.strata
+
+        def inventory_check_fn() -> list:
+            return [
+                ResourceStatus(
+                    name=f"{s.question_type.value}/{s.difficulty.value}",
+                    count=s.current_count,
+                )
+                for s in strata_snapshot
+            ]
+
+        resource_monitor = ResourceMonitor(
+            check_fn=inventory_check_fn,
+            alert_manager=alert_manager,
+            config=alerting_config,
+        )
+        alert_result = resource_monitor.check_and_alert()
+
+        if alert_result.alerts_sent > 0:
+            logger.warning(
+                f"Inventory alerts sent: {alert_result.alerts_sent} strata below threshold"
+            )
+        if alert_result.critical_resources:
+            logger.warning(
+                f"CRITICAL: {len(alert_result.critical_resources)} strata have "
+                f"critically low inventory (< {alerting_config.critical_min})"
+            )
+        if alert_result.warning_resources:
+            logger.info(
+                f"WARNING: {len(alert_result.warning_resources)} strata have "
+                f"low inventory (< {alerting_config.warning_min})"
+            )
+    else:
+        logger.info("Inventory alerting skipped (--skip-inventory-alerts)")
+
+    if generation_plan.total_questions == 0:
+        logger.info("Auto-balance early exit: all strata at or above target")
+        logger.info(
+            f"  Thresholds: healthy={healthy_threshold}, "
+            f"warning={warning_threshold}, "
+            f"target_per_stratum={target_per_stratum}"
+        )
+        logger.info(
+            f"  Analyzed {len(analysis.strata)} strata, "
+            f"{analysis.total_questions} total active questions"
+        )
+        logger.info(
+            f"  Below target: {len(analysis.strata_below_target)}, "
+            f"Critical: {len(analysis.critical_strata)}"
+        )
+        return None
+
+    return generation_plan
+
+
+def run_generation_phase(
+    pipeline: QuestionGenerationPipeline,
+    generation_plan,
+    question_types: Optional[list],
+    difficulty_distribution: Optional[dict],
+    use_async: bool,
+    max_concurrent: int,
+    timeout: int,
+    provider_tier: str,
+    count: Optional[int],
+    metrics: PipelineRunSummary,
+    logger: logging.Logger,
+) -> tuple:
+    """Phase 1: Generate questions.
+
+    Returns (generated_questions, statistics).
+    """
+    with observability.start_span(
+        "phase1_generation",
+        attributes={"provider_tier": provider_tier},
+    ) as gen_span:
+        if generation_plan is not None:
+            logger.info("Using auto-balanced generation mode")
+            gen_span.set_attribute("mode", "auto_balanced")
+            if use_async:
+                logger.info(
+                    f"Using async parallel generation mode "
+                    f"(max_concurrent={max_concurrent}, timeout={timeout}s)"
+                )
+                pipeline.generator._rate_limiter = asyncio.Semaphore(max_concurrent)
+                pipeline.generator._async_timeout = timeout
+            job_result = run_optionally_async(
+                async_fn=lambda: pipeline.run_balanced_generation_job_async(
+                    stratum_allocations=generation_plan.allocations,
+                    provider_tier=provider_tier,
+                ),
+                sync_fn=lambda: pipeline.run_balanced_generation_job(
+                    stratum_allocations=generation_plan.allocations,
+                    provider_tier=provider_tier,
+                ),
+                use_async=use_async,
+                cleanup_fn=pipeline.cleanup,
+            )
+        else:
+            if use_async:
+                logger.info(
+                    f"Using async parallel generation mode "
+                    f"(max_concurrent={max_concurrent}, timeout={timeout}s)"
+                )
+                gen_span.set_attribute("mode", "async")
+                pipeline.generator._rate_limiter = asyncio.Semaphore(max_concurrent)
+                pipeline.generator._async_timeout = timeout
+            else:
+                gen_span.set_attribute("mode", "sync")
+            job_result = run_optionally_async(
+                async_fn=lambda: pipeline.run_generation_job_async(
+                    questions_per_run=count,
+                    question_types=question_types,
+                    difficulty_distribution=difficulty_distribution,
+                    provider_tier=provider_tier,
+                ),
+                sync_fn=lambda: pipeline.run_generation_job(
+                    questions_per_run=count,
+                    question_types=question_types,
+                    difficulty_distribution=difficulty_distribution,
+                    provider_tier=provider_tier,
+                ),
+                use_async=use_async,
+                cleanup_fn=pipeline.cleanup,
+            )
+
+        stats = job_result["statistics"]
+        generated_questions = job_result["questions"]
+
+        metrics.questions_requested = stats["target_questions"]
+        metrics.questions_generated = stats["questions_generated"]
+        metrics.generation_failures = (
+            stats["target_questions"] - stats["questions_generated"]
+        )
+        metrics.questions_by_type = dict(stats.get("questions_by_type", {}))
+        metrics.questions_by_difficulty = dict(stats.get("questions_by_difficulty", {}))
+
+        gen_span.set_attribute("questions_generated", stats["questions_generated"])
+        gen_span.set_attribute("target_questions", stats["target_questions"])
+        gen_span.set_attribute("duration_seconds", stats["duration_seconds"])
+
+        observability.record_metric(
+            "generation.questions_produced",
+            value=stats["questions_generated"],
+            labels={"provider_tier": provider_tier},
+            metric_type="counter",
+        )
+        observability.record_metric(
+            "generation.duration",
+            value=stats["duration_seconds"],
+            labels={"provider_tier": provider_tier},
+            metric_type="histogram",
+            unit="s",
+        )
+
+        logger.info(
+            f"Generated: {stats['questions_generated']}/{stats['target_questions']} "
+            f"questions ({stats['success_rate']*100:.1f}% success rate)"
+        )
+        logger.info(f"Duration: {stats['duration_seconds']:.1f}s")
+
+        if generated_questions and len(generated_questions) > 1:
+            original_count = len(generated_questions)
+            generated_questions = dedupe_within_batch(generated_questions)
+            dupes_removed = original_count - len(generated_questions)
+            if dupes_removed > 0:
+                logger.info(
+                    f"Within-batch dedup: Removed {dupes_removed} near-duplicate questions "
+                    f"({len(generated_questions)} unique remaining)"
+                )
+                gen_span.set_attribute("batch_dupes_removed", dupes_removed)
+
+    return generated_questions, stats
+
+
+def run_judge_phase(
+    generated_questions: list,
+    judge: QuestionJudge,
+    min_score: float,
+    use_async_judge: bool,
+    metrics: PipelineRunSummary,
+    logger: logging.Logger,
+) -> tuple:
+    """Phase 2: Evaluate questions with the judge.
+
+    Returns (approved_questions, rejected_questions, approval_rate).
+    """
+    evaluation_start = time.perf_counter()
+    approved_questions: list = []
+    rejected_questions: list = []
+
+    with observability.start_span(
+        "phase2_judge_evaluation",
+        attributes={
+            "min_score": min_score,
+            "questions_to_evaluate": len(generated_questions),
+        },
+    ) as judge_span:
+        if use_async_judge:
+            logger.info("Using async parallel judge evaluation mode")
+            judge_span.set_attribute("mode", "async")
+
+            async def _eval_async() -> list:
+                try:
+                    return await judge.evaluate_questions_list_async(
+                        questions=generated_questions,
+                    )
+                finally:
+                    await judge.cleanup()
+
+            all_evaluated = asyncio.run(_eval_async())
+        else:
+            judge_span.set_attribute("mode", "sync")
+            all_evaluated = []
+            for i, question in enumerate(generated_questions, 1):
+                logger.info(f"Evaluating question {i}/{len(generated_questions)}...")
+                try:
+                    all_evaluated.append(judge.evaluate_question(question))
+                except Exception as e:
+                    logger.error(f"  ✗ Evaluation failed: {e}")
+                    observability.capture_error(
+                        e,
+                        context={"phase": "judge_evaluation", "question_index": i},
+                    )
+
+        for evaluated_question in all_evaluated:
+            if evaluated_question.evaluation.overall_score >= min_score:
+                logger.info(
+                    f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
+                )
+                approved_questions.append(
+                    apply_difficulty_placement(evaluated_question, judge, logger)
+                )
+            else:
+                rejected_questions.append(evaluated_question)
+                log_rejection_details(evaluated_question, logger)
+
+            metrics.record_evaluation_success(
+                score=evaluated_question.evaluation.overall_score,
+                approved=evaluated_question.evaluation.overall_score >= min_score,
+                judge_model=evaluated_question.judge_model,
+            )
+            observability.record_metric(
+                "judge.evaluation_score",
+                value=evaluated_question.evaluation.overall_score,
+                metric_type="histogram",
+            )
+
+        approval_rate = len(approved_questions) / len(generated_questions) * 100
+
+        judge_span.set_attribute("approved_count", len(approved_questions))
+        judge_span.set_attribute("rejected_count", len(rejected_questions))
+        judge_span.set_attribute("approval_rate", approval_rate)
+
+        observability.record_metric(
+            "judge.approved", value=len(approved_questions), metric_type="counter"
+        )
+        observability.record_metric(
+            "judge.rejected", value=len(rejected_questions), metric_type="counter"
+        )
+
+        logger.info(
+            f"\nApproved: {len(approved_questions)}/{len(generated_questions)} "
+            f"({approval_rate:.1f}%)"
+        )
+        logger.info(f"Rejected: {len(rejected_questions)}")
+
+        observability.record_metric(
+            "pipeline.stage.duration",
+            value=time.perf_counter() - evaluation_start,
+            labels={"stage": "evaluation"},
+            metric_type="histogram",
+            unit="s",
+        )
+
+    return approved_questions, rejected_questions, approval_rate
+
+
+def run_salvage_phase(
+    rejected_questions: list,
+    approved_questions: list,
+    generated_questions: list,
+    pipeline: QuestionGenerationPipeline,
+    judge: QuestionJudge,
+    min_score: float,
+    logger: logging.Logger,
+) -> tuple:
+    """Salvage phase: attempt to repair, reclassify, or regenerate rejected questions.
+
+    Returns (updated_approved_questions, updated_approval_rate).
+    """
+    salvaged_questions = []
+    still_rejected = []
+
+    for rejected in rejected_questions:
+        repair_result = attempt_answer_repair(rejected, logger)
+        if repair_result:
+            repaired_question, reason = repair_result
+            salvaged_questions.append(repaired_question)
+            logger.info(f"  ✓ REPAIRED: {reason}")
+            logger.info(f"    Question: {repaired_question.question_text[:60]}...")
+            continue
+
+        reclass_result = attempt_difficulty_reclassification(rejected, logger)
+        if reclass_result:
+            reclassified_question, new_difficulty, reason = reclass_result
+            salvaged_questions.append(reclassified_question)
+            logger.info(f"  ✓ RECLASSIFIED: {reason}")
+            logger.info(f"    Question: {reclassified_question.question_text[:60]}...")
+            continue
+
+        still_rejected.append(rejected)
+
+    regenerated_count = 0
+    if still_rejected:
+        logger.info(
+            f"\n  Attempting regeneration with feedback for {len(still_rejected)} "
+            "remaining rejected questions..."
+        )
+
+        async def run_regeneration():
+            return await attempt_regeneration_with_feedback(
+                rejected_questions=still_rejected,
+                generator=pipeline.generator,
+                judge=judge,
+                min_score=min_score,
+                logger=logger,
+                max_regenerations=min(len(still_rejected), 5),
+            )
+
+        try:
+            regenerated, final_rejected = asyncio.run(run_regeneration())
+            for regen_eval in regenerated:
+                approved_questions.append(regen_eval)
+            regenerated_count = len(regenerated)
+            still_rejected = final_rejected
+            logger.info(
+                f"  Regeneration complete: {regenerated_count} recovered, "
+                f"{len(final_rejected)} still rejected"
+            )
+        except Exception as e:
+            logger.warning(f"  Regeneration phase failed: {e}")
+
+    total_salvaged = len(salvaged_questions) + regenerated_count
+    if total_salvaged > 0:
+        logger.info(
+            f"\nSalvaged: {total_salvaged} questions "
+            f"(repaired/reclassified: {len(salvaged_questions)}, "
+            f"regenerated: {regenerated_count}, "
+            f"still rejected: {len(still_rejected)})"
+        )
+        for sq in salvaged_questions:
+            from app.data.models import (
+                EvaluatedQuestion,
+                EvaluationScore,
+            )  # noqa: PLC0415
+
+            salvaged_eval = EvaluatedQuestion(
+                question=sq,
+                evaluation=EvaluationScore(
+                    clarity_score=0.8,
+                    difficulty_score=0.8,
+                    validity_score=0.8,
+                    formatting_score=0.8,
+                    creativity_score=0.6,
+                    overall_score=0.75,
+                    feedback="Salvaged question (repaired or reclassified)",
+                ),
+                judge_model="salvage",
+                approved=True,
+            )
+            approved_questions.append(salvaged_eval)
+
+    approval_rate = len(approved_questions) / len(generated_questions) * 100
+    logger.info(
+        f"Updated approval: {len(approved_questions)}/{len(generated_questions)} "
+        f"({approval_rate:.1f}%)"
+    )
+    if total_salvaged == 0:
+        logger.info("No questions could be salvaged")
+
+    return approved_questions, approval_rate
+
+
+def run_dedup_phase(
+    approved_questions: list,
+    db: QuestionDatabase,
+    deduplicator: QuestionDeduplicator,
+    metrics: PipelineRunSummary,
+    logger: logging.Logger,
+) -> list:
+    """Phase 3: Deduplicate approved questions against the database.
+
+    Returns list of unique questions.
+    """
+    dedup_start = time.perf_counter()
+    with observability.start_span(
+        "phase3_deduplication",
+        attributes={"approved_count": len(approved_questions)},
+    ) as dedup_span:
+        try:
+            assert db is not None
+            existing_questions = db.get_all_questions()
+            logger.info(
+                f"Loaded {len(existing_questions)} existing questions for deduplication"
+            )
+            dedup_span.set_attribute("existing_questions", len(existing_questions))
+        except Exception as e:
+            logger.error(f"Failed to load existing questions: {e}")
+            observability.capture_error(
+                e, context={"phase": "deduplication", "step": "load_existing"}
+            )
+            existing_questions = []
+
+        unique_questions = []
+        duplicate_count = 0
+
+        for evaluated_question in approved_questions:
+            try:
+                assert deduplicator is not None
+                q_difficulty = str(
+                    evaluated_question.question.difficulty_level.value
+                ).lower()
+                same_difficulty_questions = [
+                    eq
+                    for eq in existing_questions
+                    if str(
+                        getattr(
+                            eq.get("difficulty_level", ""),
+                            "value",
+                            eq.get("difficulty_level", ""),
+                        )
+                    ).lower()
+                    == q_difficulty
+                ]
+                result = deduplicator.check_duplicate(
+                    evaluated_question.question, same_difficulty_questions
+                )
+
+                if not result.is_duplicate:
+                    unique_questions.append(evaluated_question)
+                    logger.debug(
+                        f"✓ Unique: {evaluated_question.question.question_text[:60]}..."
+                    )
+                else:
+                    duplicate_count += 1
+                    logger.info(
+                        f"✗ Duplicate ({result.duplicate_type}, score={result.similarity_score:.3f}): "
+                        f"{evaluated_question.question.question_text[:60]}..."
+                    )
+
+                metrics.record_duplicate_check(
+                    is_duplicate=result.is_duplicate,
+                    duplicate_type=result.duplicate_type,
+                )
+
+                if result.is_duplicate:
+                    observability.record_metric(
+                        "dedup.by_type",
+                        value=1,
+                        labels={"duplicate_type": result.duplicate_type or "unknown"},
+                        metric_type="counter",
+                    )
+
+            except Exception as e:
+                logger.error(f"Deduplication check failed: {e}")
+                observability.capture_error(
+                    e, context={"phase": "deduplication", "step": "check"}
+                )
+                unique_questions.append(evaluated_question)
+                continue
+
+        dedup_span.set_attribute("unique_count", len(unique_questions))
+        dedup_span.set_attribute("duplicate_count", duplicate_count)
+
+        observability.record_metric(
+            "dedup.duplicates_removed", value=duplicate_count, metric_type="counter"
+        )
+
+        logger.info(f"\nUnique questions: {len(unique_questions)}")
+        logger.info(f"Duplicates removed: {duplicate_count}")
+
+        observability.record_metric(
+            "pipeline.stage.duration",
+            value=time.perf_counter() - dedup_start,
+            labels={"stage": "dedup"},
+            metric_type="histogram",
+            unit="s",
+        )
+
+        assert deduplicator is not None
+        cache_stats = deduplicator.get_stats()["cache"]
+        observability.record_metric(
+            "embedding.cache.hit",
+            value=cache_stats.get("hits", 0),
+            metric_type="counter",
+        )
+        observability.record_metric(
+            "embedding.cache.miss",
+            value=cache_stats.get("misses", 0),
+            metric_type="counter",
+        )
+
+    return unique_questions
+
+
+def run_insertion_phase(
+    unique_questions: list,
+    db: QuestionDatabase,
+    metrics: PipelineRunSummary,
+    logger: logging.Logger,
+) -> int:
+    """Phase 4: Insert unique questions to the database.
+
+    Returns number of successfully inserted questions.
+    """
+    inserted_count = 0
+    storage_start = time.perf_counter()
+
+    with observability.start_span(
+        "phase4_db_insertion",
+        attributes={"questions_to_insert": len(unique_questions)},
+    ) as insert_span:
+        for i, evaluated_question in enumerate(unique_questions, 1):
+            try:
+                assert db is not None
+                question_id = db.insert_evaluated_question(evaluated_question)
+                inserted_count += 1
+                logger.debug(
+                    f"✓ Inserted question {i}/{len(unique_questions)} "
+                    f"(ID: {question_id}, score: {evaluated_question.evaluation.overall_score:.2f})"
+                )
+                metrics.record_insertion_success(
+                    count=1,
+                    question_type=evaluated_question.question.question_type.value,
+                )
+            except Exception as e:
+                logger.error(f"✗ Failed to insert question {i}: {e}")
+                observability.capture_error(
+                    e,
+                    context={
+                        "phase": "db_insertion",
+                        "question_index": i,
+                        "question_type": evaluated_question.question.question_type.value,
+                    },
+                )
+                metrics.record_insertion_failure(count=1)
+                continue
+
+        insert_span.set_attribute("inserted_count", inserted_count)
+        insert_span.set_attribute(
+            "failed_count", len(unique_questions) - inserted_count
+        )
+
+        observability.record_metric(
+            "db.questions_inserted", value=inserted_count, metric_type="counter"
+        )
+        observability.record_metric(
+            "pipeline.stage.duration",
+            value=time.perf_counter() - storage_start,
+            labels={"stage": "storage"},
+            metric_type="histogram",
+            unit="s",
+        )
+
+    logger.info(f"\nInserted: {inserted_count}/{len(unique_questions)} questions")
+
+    return inserted_count
+
+
 def main() -> int:
     """Main entry point for question generation script.
 
@@ -849,8 +1653,7 @@ def main() -> int:
     """
     args = parse_arguments()
 
-    # Initialize observability (Sentry + OTEL via unified facade)
-    # Must happen before any code that could raise exceptions we want to capture
+    # Initialize observability before any code that could raise exceptions
     observability.init(
         config_path="config/observability.yaml",
         service_name="aiq-question-service",
@@ -863,48 +1666,31 @@ def main() -> int:
         discord_webhook_url=settings.discord_webhook_url,
     )
 
-    # Register circuit breaker open callback so Discord alerts fire when
-    # any provider's circuit transitions CLOSED → OPEN during this run.
+    # Register circuit breaker callback so Discord alerts fire on CLOSED → OPEN transitions.
     get_circuit_breaker_registry().set_on_open_callback(
         alert_manager.send_circuit_breaker_alert
     )
 
-    # NOTE: _work() is a closure that captures alert_manager (and other variables
-    # such as args, settings, observability) from the enclosing main() scope.
-    # This is intentional for the single-invocation run_once() use case: one
-    # AlertManager instance is created, registered with the circuit breaker
-    # registry, and used throughout the single run.
-    #
-    # If run_loop() were ever used instead of run_once(), every iteration would
-    # share the same alert_manager instance (and the same circuit-breaker
-    # callback registration).  That is benign today because AlertManager is
-    # stateless between calls, but if it ever accumulates per-run state (e.g.
-    # rate-limiting counters or per-run context) the shared instance would
-    # bleed state across iterations.  Should run_loop() ever be adopted,
-    # reconstruct alert_manager (and re-register the circuit-breaker callback)
-    # inside _work() rather than capturing it from the outer scope.
+    # NOTE: _work() captures alert_manager from main() scope. This is intentional
+    # for run_once(): one AlertManager is created, registered with the circuit breaker
+    # registry, and used throughout the single run. If run_loop() were ever adopted,
+    # reconstruct alert_manager (and re-register the callback) inside _work() instead.
     def _work() -> dict:
         """Run the generation pipeline once; called by CronJob.run_once()."""
-        # Re-configure logging with CLI args (overrides CronJob's default setup)
         log_level = "DEBUG" if args.verbose else settings.log_level
         log_file = args.log_file or settings.log_file
-
         setup_logging(
             log_level=log_level,
             log_file=log_file,
             enable_file_logging=not args.no_console,
         )
 
-        # Generate a stable correlation ID for this run so every log line,
-        # alert, and report can be tied back to a single execution.
         run_id = (
             f"run-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
             f"-{uuid.uuid4().hex[:6]}"
         )
         _run_id_filter = _RunIdFilter(run_id)
         logging.getLogger().addFilter(_run_id_filter)
-
-        # Get logger after setup
         logger = logging.getLogger(__name__)
 
         logger.info("=" * 80)
@@ -929,7 +1715,6 @@ def main() -> int:
         summary: dict = {}
 
         try:
-            # Initialize run summary
             metrics = PipelineRunSummary()
             metrics.start_run()
 
@@ -937,10 +1722,8 @@ def main() -> int:
                 f"Alert manager initialized (discord={'enabled' if settings.discord_webhook_url else 'disabled'})"
             )
 
-            # Initialize run reporter
             run_reporter = create_run_reporter(logger)
 
-            # Parse question types
             question_types = None
             if args.types:
                 question_types = [QuestionType(qt) for qt in args.types]
@@ -948,891 +1731,155 @@ def main() -> int:
                     f"Generating only types: {[qt.value for qt in question_types]}"
                 )
 
-            # Parse difficulty levels
             difficulty_distribution = None
             if args.difficulties:
                 difficulties = [DifficultyLevel(d) for d in args.difficulties]
-                # Equal distribution across selected difficulties
                 weight = 1.0 / len(difficulties)
                 difficulty_distribution = {d: weight for d in difficulties}
                 logger.info(
                     f"Generating only difficulties: {[d.value for d in difficulties]}"
                 )
 
-            # Initialize pipeline components
             logger.info("Initializing pipeline components...")
-
-            # Check API keys
-            if not any(
-                [
-                    settings.openai_api_key,
-                    settings.anthropic_api_key,
-                    settings.google_api_key,
-                    settings.xai_api_key,
-                ]
-            ):
-                logger.error("No LLM API keys configured!")
-                logger.error(
-                    "Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or XAI_API_KEY"
-                )
-
-                # Send alert for configuration error
-                from app.infrastructure.error_classifier import (
-                    ClassifiedError,
-                    ErrorCategory,
-                    ErrorSeverity,
-                )
-
-                config_error = ClassifiedError(
-                    category=ErrorCategory.AUTHENTICATION,
-                    severity=ErrorSeverity.CRITICAL,
-                    provider="system",
-                    original_error="ConfigurationError",
-                    message="No LLM API keys configured. Question generation cannot run.",
-                    is_retryable=False,
-                )
-                alert_manager.send_alert(
-                    config_error,
-                    context=f"[run_id={run_id}] Question generation script failed to start due to missing API keys. "
-                    "Check environment variables: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, XAI_API_KEY",
-                )
-
-                raise RuntimeError("No LLM API keys configured")
-
-            # Initialize pipeline
-            pipeline = QuestionGenerationPipeline(
-                openai_api_key=settings.openai_api_key,
-                anthropic_api_key=settings.anthropic_api_key,
-                google_api_key=settings.google_api_key,
-                xai_api_key=settings.xai_api_key,
+            pipeline, judge, db, deduplicator = _init_components(
+                args, alert_manager, run_id, logger
             )
-            logger.info("✓ Pipeline initialized")
 
-            # Load judge configuration
-            from app.config.judge_config import JudgeConfigLoader
-
-            judge_loader = JudgeConfigLoader(settings.judge_config_path)
-            judge_loader.load()  # Load the config into the loader
-            logger.info(f"✓ Judge config loaded from {settings.judge_config_path}")
-
-            # Load generator configuration (specialist routing)
-            from app.config.generator_config import initialize_generator_config
-
-            try:
-                initialize_generator_config(settings.generator_config_path)
-                logger.info(
-                    f"✓ Generator config loaded from {settings.generator_config_path}"
-                )
-            except FileNotFoundError:
-                logger.warning(
-                    f"Generator config not found at {settings.generator_config_path}. "
-                    "Using round-robin distribution instead of specialist routing."
-                )
-
-            # Initialize judge (pass the loader, not the config)
-            judge = QuestionJudge(
-                judge_config=judge_loader,
-                openai_api_key=settings.openai_api_key,
-                anthropic_api_key=settings.anthropic_api_key,
-                google_api_key=settings.google_api_key,
-                xai_api_key=settings.xai_api_key,
-                max_concurrent_evaluations=args.max_concurrent_judge,
-                async_timeout_seconds=args.judge_timeout,
-            )
-            logger.info("✓ Judge initialized")
-
-            # Initialize database and deduplicator
-            deduplicator = None
-
-            if not args.dry_run:
-                try:
-                    db = QuestionDatabase(
-                        database_url=settings.database_url,
-                        openai_api_key=settings.openai_api_key,
-                        google_api_key=settings.google_api_key,
-                    )
-                    logger.info("✓ Database connected")
-
-                    if not settings.openai_api_key:
-                        logger.error("OpenAI API key required for deduplication")
-                        raise RuntimeError("OpenAI API key required for deduplication")
-
-                    deduplicator = QuestionDeduplicator(
-                        openai_api_key=settings.openai_api_key,
-                        similarity_threshold=settings.dedup_similarity_threshold,
-                        embedding_model=settings.dedup_embedding_model,
-                        redis_url=settings.redis_url,
-                        embedding_cache_ttl=settings.embedding_cache_ttl,
-                        google_api_key=settings.google_api_key,
-                    )
-                    cache_type = (
-                        "Redis" if deduplicator.using_redis_cache else "in-memory"
-                    )
-                    logger.info(f"✓ Deduplicator initialized (cache: {cache_type})")
-                except Exception as e:
-                    logger.error(f"Failed to connect to database: {e}")
-                    observability.capture_error(
-                        e, context={"phase": "init", "step": "database_connection"}
-                    )
-
-                    # Send alert for database error
-                    from app.infrastructure.error_classifier import (
-                        ClassifiedError,
-                        ErrorCategory,
-                        ErrorSeverity,
-                    )
-
-                    db_error = ClassifiedError(
-                        category=ErrorCategory.SERVER_ERROR,
-                        severity=ErrorSeverity.CRITICAL,
-                        provider="database",
-                        original_error=type(e).__name__,
-                        message=f"Database connection failed: {str(e)}",
-                        is_retryable=False,
-                    )
-                    alert_manager.send_alert(
-                        db_error,
-                        context=f"[run_id={run_id}] Question generation cannot connect to database. "
-                        f"Check DATABASE_URL and database availability. Error: {str(e)}",
-                    )
-
-                    raise RuntimeError(f"Database connection failed: {str(e)}") from e
-
-            # Auto-balance inventory analysis (if enabled)
+            # Phase 0: Inventory Analysis
             generation_plan = None
             if args.auto_balance:
                 logger.info("\n" + "=" * 80)
                 logger.info("PHASE 0: Inventory Analysis (Auto-Balance)")
                 logger.info("=" * 80)
-
-                if not db:
-                    logger.error(
-                        "Auto-balance requires database connection (cannot use --dry-run)"
-                    )
-                    raise RuntimeError("Auto-balance requires database connection")
-
-                # Initialize inventory analyzer
-                analyzer = InventoryAnalyzer(
-                    database_service=db,
+                generation_plan = run_inventory_analysis(
+                    db=db,
                     healthy_threshold=args.healthy_threshold,
                     warning_threshold=args.warning_threshold,
                     target_per_stratum=args.target_per_stratum,
+                    target_count=args.count or settings.questions_per_run,
+                    alerting_config_path=args.alerting_config,
+                    skip_inventory_alerts=args.skip_inventory_alerts,
+                    alert_manager=alert_manager,
+                    logger=logger,
                 )
-
-                # Analyze current inventory
-                analysis = analyzer.analyze_inventory()
-                analyzer.log_inventory_summary(analysis)
-
-                # Compute generation plan
-                target_count = args.count or settings.questions_per_run
-                generation_plan = analyzer.compute_generation_plan(
-                    target_total=target_count,
-                    analysis=analysis,
-                )
-
-                logger.info("\n" + generation_plan.to_log_summary())
-
-                # Check inventory levels and send alerts if needed
-                if not args.skip_inventory_alerts:
-                    logger.info("\nChecking inventory levels for alerting...")
-                    alerting_config = AlertingConfig.from_yaml(args.alerting_config)
-
-                    strata_snapshot = analysis.strata
-
-                    def inventory_check_fn() -> list:
-                        return [
-                            ResourceStatus(
-                                name=f"{s.question_type.value}/{s.difficulty.value}",
-                                count=s.current_count,
-                            )
-                            for s in strata_snapshot
-                        ]
-
-                    resource_monitor = ResourceMonitor(
-                        check_fn=inventory_check_fn,
-                        alert_manager=alert_manager,
-                        config=alerting_config,
-                    )
-
-                    alert_result = resource_monitor.check_and_alert()
-
-                    if alert_result.alerts_sent > 0:
-                        logger.warning(
-                            f"Inventory alerts sent: {alert_result.alerts_sent} strata below threshold"
-                        )
-                    if alert_result.critical_resources:
-                        logger.warning(
-                            f"CRITICAL: {len(alert_result.critical_resources)} strata have "
-                            f"critically low inventory (< {alerting_config.critical_min})"
-                        )
-                    if alert_result.warning_resources:
-                        logger.info(
-                            f"WARNING: {len(alert_result.warning_resources)} strata have "
-                            f"low inventory (< {alerting_config.warning_min})"
-                        )
-                else:
-                    logger.info("Inventory alerting skipped (--skip-inventory-alerts)")
-
-                # If no questions needed (all strata are at target), exit early
-                if generation_plan.total_questions == 0:
-                    logger.info(
-                        "Auto-balance early exit: all strata at or above target"
-                    )
-                    logger.info(
-                        f"  Thresholds: healthy={args.healthy_threshold}, "
-                        f"warning={args.warning_threshold}, "
-                        f"target_per_stratum={args.target_per_stratum}"
-                    )
-                    logger.info(
-                        f"  Analyzed {len(analysis.strata)} strata, "
-                        f"{analysis.total_questions} total active questions"
-                    )
-                    logger.info(
-                        f"  Below target: {len(analysis.strata_below_target)}, "
-                        f"Critical: {len(analysis.critical_strata)}"
-                    )
+                if generation_plan is None:
                     return to_run_summary(
                         {"questions_generated": 0, "reason": "inventory_balanced"}
                     )
 
-            # Run generation job
+            # Phase 1: Question Generation
             logger.info("\n" + "=" * 80)
             logger.info("PHASE 1: Question Generation")
             logger.info("=" * 80)
-
-            with observability.start_span(
-                "phase1_generation",
-                attributes={"provider_tier": args.provider_tier},
-            ) as gen_span:
-                # Choose generation mode based on auto-balance flag
-                if args.auto_balance and generation_plan:
-                    # Use balanced generation with pre-computed allocations
-                    logger.info("Using auto-balanced generation mode")
-                    gen_span.set_attribute("mode", "auto_balanced")
-
-                    if args.use_async:
-                        logger.info(
-                            f"Using async parallel generation mode "
-                            f"(max_concurrent={args.max_concurrent}, timeout={args.timeout}s)"
-                        )
-
-                        # Reconfigure generator with CLI-specified async parameters
-                        pipeline.generator._rate_limiter = asyncio.Semaphore(
-                            args.max_concurrent
-                        )
-                        pipeline.generator._async_timeout = args.timeout
-
-                        async def run_balanced_async_with_cleanup() -> dict:
-                            try:
-                                return await pipeline.run_balanced_generation_job_async(
-                                    stratum_allocations=generation_plan.allocations,
-                                    provider_tier=args.provider_tier,
-                                )
-                            finally:
-                                await pipeline.cleanup()
-
-                        job_result = asyncio.run(run_balanced_async_with_cleanup())
-                    else:
-                        job_result = pipeline.run_balanced_generation_job(
-                            stratum_allocations=generation_plan.allocations,
-                            provider_tier=args.provider_tier,
-                        )
-                elif args.use_async:
-                    logger.info(
-                        f"Using async parallel generation mode "
-                        f"(max_concurrent={args.max_concurrent}, timeout={args.timeout}s)"
-                    )
-                    gen_span.set_attribute("mode", "async")
-
-                    # Reconfigure generator with CLI-specified async parameters
-                    pipeline.generator._rate_limiter = asyncio.Semaphore(
-                        args.max_concurrent
-                    )
-                    pipeline.generator._async_timeout = args.timeout
-
-                    async def run_async_with_cleanup() -> dict:
-                        try:
-                            return await pipeline.run_generation_job_async(
-                                questions_per_run=args.count,
-                                question_types=question_types,
-                                difficulty_distribution=difficulty_distribution,
-                                provider_tier=args.provider_tier,
-                            )
-                        finally:
-                            await pipeline.cleanup()
-
-                    job_result = asyncio.run(run_async_with_cleanup())
-                else:
-                    gen_span.set_attribute("mode", "sync")
-                    job_result = pipeline.run_generation_job(
-                        questions_per_run=args.count,
-                        question_types=question_types,
-                        difficulty_distribution=difficulty_distribution,
-                        provider_tier=args.provider_tier,
-                    )
-
-                stats = job_result["statistics"]
-                generated_questions = job_result["questions"]
-
-                # Populate run summary with generation results
-                metrics.questions_requested = stats["target_questions"]
-                metrics.questions_generated = stats["questions_generated"]
-                metrics.generation_failures = (
-                    stats["target_questions"] - stats["questions_generated"]
-                )
-                metrics.questions_by_type = dict(stats.get("questions_by_type", {}))
-                metrics.questions_by_difficulty = dict(
-                    stats.get("questions_by_difficulty", {})
-                )
-
-                gen_span.set_attribute(
-                    "questions_generated", stats["questions_generated"]
-                )
-                gen_span.set_attribute("target_questions", stats["target_questions"])
-                gen_span.set_attribute("duration_seconds", stats["duration_seconds"])
-
-                observability.record_metric(
-                    "generation.questions_produced",
-                    value=stats["questions_generated"],
-                    labels={"provider_tier": args.provider_tier},
-                    metric_type="counter",
-                )
-                observability.record_metric(
-                    "generation.duration",
-                    value=stats["duration_seconds"],
-                    labels={"provider_tier": args.provider_tier},
-                    metric_type="histogram",
-                    unit="s",
-                )
-
-                logger.info(
-                    f"Generated: {stats['questions_generated']}/{stats['target_questions']} "
-                    f"questions ({stats['success_rate']*100:.1f}% success rate)"
-                )
-                logger.info(f"Duration: {stats['duration_seconds']:.1f}s")
-
-                # Note: Generation metrics are already tracked by the pipeline internally
-
-                # Within-batch deduplication to remove near-identical questions before judge
-                if generated_questions and len(generated_questions) > 1:
-                    original_count = len(generated_questions)
-                    generated_questions = dedupe_within_batch(generated_questions)
-                    dupes_removed = original_count - len(generated_questions)
-                    if dupes_removed > 0:
-                        logger.info(
-                            f"Within-batch dedup: Removed {dupes_removed} near-duplicate questions "
-                            f"({len(generated_questions)} unique remaining)"
-                        )
-                        gen_span.set_attribute("batch_dupes_removed", dupes_removed)
+            generated_questions, stats = run_generation_phase(
+                pipeline=pipeline,
+                generation_plan=generation_plan,
+                question_types=question_types,
+                difficulty_distribution=difficulty_distribution,
+                use_async=args.use_async,
+                max_concurrent=args.max_concurrent,
+                timeout=args.timeout,
+                provider_tier=args.provider_tier,
+                count=args.count,
+                metrics=metrics,
+                logger=logger,
+            )
 
             if not generated_questions:
                 logger.error("No questions generated!")
-
-                # Send alert for complete generation failure
-                from app.infrastructure.error_classifier import (
-                    ClassifiedError,
-                    ErrorCategory,
-                    ErrorSeverity,
-                )
-
-                generation_error = ClassifiedError(
+                send_phase_alert(
+                    alert_manager=alert_manager,
                     category=ErrorCategory.UNKNOWN,
                     severity=ErrorSeverity.CRITICAL,
                     provider="pipeline",
                     original_error="GenerationFailure",
                     message="Question generation produced zero questions. All generation attempts failed.",
+                    context=(
+                        f"[run_id={run_id}] Question generation job completed but produced no questions. "
+                        f"Target: {stats['target_questions']}, Generated: 0. "
+                        "Check logs for LLM API errors."
+                    ),
                     is_retryable=True,
                 )
-                alert_manager.send_alert(
-                    generation_error,
-                    context=f"[run_id={run_id}] Question generation job completed but produced no questions. "
-                    f"Target: {stats['target_questions']}, Generated: 0. Check logs for LLM API errors.",
-                )
-
                 raise RuntimeError("No questions generated")
 
-            # Evaluate with judge
+            # Phase 2: Judge Evaluation
             logger.info("\n" + "=" * 80)
             logger.info("PHASE 2: Judge Evaluation")
             logger.info("=" * 80)
-
             min_score = args.min_score or settings.min_judge_score
             logger.info(f"Minimum approval score: {min_score}")
 
-            approved_questions = []
-            rejected_questions = []
+            approved_questions, rejected_questions, approval_rate = run_judge_phase(
+                generated_questions=generated_questions,
+                judge=judge,
+                min_score=min_score,
+                use_async_judge=args.use_async_judge,
+                metrics=metrics,
+                logger=logger,
+            )
 
-            evaluation_start = time.perf_counter()
-            with observability.start_span(
-                "phase2_judge_evaluation",
-                attributes={
-                    "min_score": min_score,
-                    "questions_to_evaluate": len(generated_questions),
-                },
-            ) as judge_span:
-                if args.use_async_judge:
-                    logger.info(
-                        f"Using async parallel judge evaluation mode "
-                        f"(max_concurrent={args.max_concurrent_judge}, "
-                        f"timeout={args.judge_timeout}s)"
-                    )
-                    judge_span.set_attribute("mode", "async")
-
-                    async def run_async_judge_with_cleanup() -> list:
-                        try:
-                            return await judge.evaluate_questions_list_async(
-                                questions=generated_questions,
-                            )
-                        finally:
-                            await judge.cleanup()
-
-                    all_evaluated = asyncio.run(run_async_judge_with_cleanup())
-
-                    # Separate approved and rejected, apply difficulty placement, record metrics
-                    for evaluated_question in all_evaluated:
-                        if evaluated_question.evaluation.overall_score >= min_score:
-                            logger.info(
-                                f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
-                            )
-                            # Apply difficulty placement adjustment if needed
-                            adjusted_question = apply_difficulty_placement(
-                                evaluated_question, judge, logger
-                            )
-                            approved_questions.append(adjusted_question)
-                        else:
-                            rejected_questions.append(evaluated_question)
-                            log_rejection_details(evaluated_question, logger)
-
-                        # Record evaluation metrics
-                        metrics.record_evaluation_success(
-                            score=evaluated_question.evaluation.overall_score,
-                            approved=evaluated_question.evaluation.overall_score
-                            >= min_score,
-                            judge_model=evaluated_question.judge_model,
-                        )
-                        observability.record_metric(
-                            "judge.evaluation_score",
-                            value=evaluated_question.evaluation.overall_score,
-                            metric_type="histogram",
-                        )
-                else:
-                    # Sequential evaluation
-                    judge_span.set_attribute("mode", "sync")
-                    for i, question in enumerate(generated_questions, 1):
-                        logger.info(
-                            f"Evaluating question {i}/{len(generated_questions)}..."
-                        )
-
-                        try:
-                            evaluated_question = judge.evaluate_question(question)
-
-                            if evaluated_question.evaluation.overall_score >= min_score:
-                                logger.info(
-                                    f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
-                                )
-                                # Apply difficulty placement adjustment if needed
-                                adjusted_question = apply_difficulty_placement(
-                                    evaluated_question, judge, logger
-                                )
-                                approved_questions.append(adjusted_question)
-                            else:
-                                rejected_questions.append(evaluated_question)
-                                log_rejection_details(
-                                    evaluated_question, logger, index=i
-                                )
-
-                            # Record evaluation metrics
-                            metrics.record_evaluation_success(
-                                score=evaluated_question.evaluation.overall_score,
-                                approved=evaluated_question.evaluation.overall_score
-                                >= min_score,
-                                judge_model=evaluated_question.judge_model,
-                            )
-                            observability.record_metric(
-                                "judge.evaluation_score",
-                                value=evaluated_question.evaluation.overall_score,
-                                metric_type="histogram",
-                            )
-
-                        except Exception as e:
-                            logger.error(f"  ✗ Evaluation failed: {e}")
-                            observability.capture_error(
-                                e,
-                                context={
-                                    "phase": "judge_evaluation",
-                                    "question_index": i,
-                                },
-                            )
-                            # Can't append to rejected_questions as we don't have an evaluation
-                            continue
-
-                approval_rate = len(approved_questions) / len(generated_questions) * 100
-
-                judge_span.set_attribute("approved_count", len(approved_questions))
-                judge_span.set_attribute("rejected_count", len(rejected_questions))
-                judge_span.set_attribute("approval_rate", approval_rate)
-
-                observability.record_metric(
-                    "judge.approved",
-                    value=len(approved_questions),
-                    metric_type="counter",
-                )
-                observability.record_metric(
-                    "judge.rejected",
-                    value=len(rejected_questions),
-                    metric_type="counter",
-                )
-
-                logger.info(
-                    f"\nApproved: {len(approved_questions)}/{len(generated_questions)} "
-                    f"({approval_rate:.1f}%)"
-                )
-                logger.info(f"Rejected: {len(rejected_questions)}")
-
-                observability.record_metric(
-                    "pipeline.stage.duration",
-                    value=time.perf_counter() - evaluation_start,
-                    labels={"stage": "evaluation"},
-                    metric_type="histogram",
-                    unit="s",
-                )
-
-            # Salvage phase: attempt to repair or reclassify rejected questions
+            # Salvage Phase
             if rejected_questions:
                 logger.info("\n" + "-" * 40)
                 logger.info("SALVAGE PHASE: Attempting to recover rejected questions")
                 logger.info("-" * 40)
-
-                salvaged_questions = []
-                still_rejected = []
-
-                for rejected in rejected_questions:
-                    # Try answer repair first
-                    repair_result = attempt_answer_repair(rejected, logger)
-                    if repair_result:
-                        repaired_question, reason = repair_result
-                        salvaged_questions.append(repaired_question)
-                        logger.info(f"  ✓ REPAIRED: {reason}")
-                        logger.info(
-                            f"    Question: {repaired_question.question_text[:60]}..."
-                        )
-                        continue
-
-                    # Try difficulty reclassification
-                    reclass_result = attempt_difficulty_reclassification(
-                        rejected, logger
-                    )
-                    if reclass_result:
-                        reclassified_question, new_difficulty, reason = reclass_result
-                        salvaged_questions.append(reclassified_question)
-                        logger.info(f"  ✓ RECLASSIFIED: {reason}")
-                        logger.info(
-                            f"    Question: {reclassified_question.question_text[:60]}..."
-                        )
-                        continue
-
-                    # Could not salvage with repair or reclassification
-                    still_rejected.append(rejected)
-
-                # Attempt regeneration with feedback for remaining rejected questions
-                regenerated_count = 0
-                if still_rejected:
-                    logger.info(
-                        f"\n  Attempting regeneration with feedback for {len(still_rejected)} "
-                        "remaining rejected questions..."
-                    )
-
-                    async def run_regeneration():
-                        return await attempt_regeneration_with_feedback(
-                            rejected_questions=still_rejected,
-                            generator=pipeline.generator,
-                            judge=judge,
-                            min_score=min_score,
-                            logger=logger,
-                            max_regenerations=min(len(still_rejected), 5),
-                        )
-
-                    try:
-                        regenerated, final_rejected = asyncio.run(run_regeneration())
-
-                        # Add regenerated questions directly to approved list
-                        # (they're already EvaluatedQuestion objects with proper scores)
-                        for regen_eval in regenerated:
-                            approved_questions.append(regen_eval)
-
-                        regenerated_count = len(regenerated)
-                        still_rejected = final_rejected
-                        logger.info(
-                            f"  Regeneration complete: {regenerated_count} recovered, "
-                            f"{len(final_rejected)} still rejected"
-                        )
-                    except Exception as e:
-                        logger.warning(f"  Regeneration phase failed: {e}")
-
-                total_salvaged = len(salvaged_questions) + regenerated_count
-                if total_salvaged > 0:
-                    logger.info(
-                        f"\nSalvaged: {total_salvaged} questions "
-                        f"(repaired/reclassified: {len(salvaged_questions)}, "
-                        f"regenerated: {regenerated_count}, "
-                        f"still rejected: {len(still_rejected)})"
-                    )
-                    # Add salvaged questions to approved list (as GeneratedQuestion, not EvaluatedQuestion)
-                    # We wrap them in a simple container that has .question attribute for compatibility
-                    for sq in salvaged_questions:
-                        # Create a minimal wrapper to match EvaluatedQuestion interface
-                        from app.data.models import EvaluatedQuestion, EvaluationScore
-
-                        salvaged_eval = EvaluatedQuestion(
-                            question=sq,
-                            evaluation=EvaluationScore(
-                                clarity_score=0.8,
-                                difficulty_score=0.8,
-                                validity_score=0.8,
-                                formatting_score=0.8,
-                                creativity_score=0.6,
-                                overall_score=0.75,
-                                feedback="Salvaged question (repaired or reclassified)",
-                            ),
-                            judge_model="salvage",
-                            approved=True,
-                        )
-                        approved_questions.append(salvaged_eval)
-
-                # Update stats (accounts for both repaired/reclassified and regenerated)
-                approval_rate = len(approved_questions) / len(generated_questions) * 100
-                logger.info(
-                    f"Updated approval: {len(approved_questions)}/{len(generated_questions)} "
-                    f"({approval_rate:.1f}%)"
+                approved_questions, approval_rate = run_salvage_phase(
+                    rejected_questions=rejected_questions,
+                    approved_questions=approved_questions,
+                    generated_questions=generated_questions,
+                    pipeline=pipeline,
+                    judge=judge,
+                    min_score=min_score,
+                    logger=logger,
                 )
-                if total_salvaged == 0:
-                    logger.info("No questions could be salvaged")
 
             if not approved_questions:
                 logger.warning("No questions passed judge evaluation!")
-
-                # Send alert for judge rejection
-                from app.infrastructure.error_classifier import (
-                    ClassifiedError,
-                    ErrorCategory,
-                    ErrorSeverity,
-                )
-
-                judge_error = ClassifiedError(
+                send_phase_alert(
+                    alert_manager=alert_manager,
                     category=ErrorCategory.INVALID_REQUEST,
                     severity=ErrorSeverity.HIGH,
                     provider="judge",
                     original_error="JudgeRejectionFailure",
                     message=f"All {len(generated_questions)} generated questions were rejected by judge evaluation.",
+                    context=(
+                        f"[run_id={run_id}] Question generation produced {len(generated_questions)} questions "
+                        f"but judge rejected all of them. Minimum score threshold: {min_score}. "
+                        "Consider reviewing judge configuration or lowering MIN_JUDGE_SCORE."
+                    ),
                     is_retryable=True,
                 )
-                alert_manager.send_alert(
-                    judge_error,
-                    context=f"[run_id={run_id}] Question generation produced {len(generated_questions)} questions but judge "
-                    f"rejected all of them. Minimum score threshold: {min_score}. "
-                    f"Consider reviewing judge configuration or lowering MIN_JUDGE_SCORE.",
-                )
-
                 raise RuntimeError("No questions passed judge evaluation")
 
-            # Deduplication
+            # Phase 3: Deduplication
             unique_questions = approved_questions
-
             if not args.skip_deduplication and not args.dry_run:
                 logger.info("\n" + "=" * 80)
                 logger.info("PHASE 3: Deduplication")
                 logger.info("=" * 80)
+                unique_questions = run_dedup_phase(
+                    approved_questions=approved_questions,
+                    db=db,
+                    deduplicator=deduplicator,
+                    metrics=metrics,
+                    logger=logger,
+                )
 
-                dedup_start = time.perf_counter()
-                with observability.start_span(
-                    "phase3_deduplication",
-                    attributes={"approved_count": len(approved_questions)},
-                ) as dedup_span:
-                    # Fetch existing questions from database for deduplication
-                    try:
-                        assert db is not None
-                        existing_questions = db.get_all_questions()
-                        logger.info(
-                            f"Loaded {len(existing_questions)} existing questions for deduplication"
-                        )
-                        dedup_span.set_attribute(
-                            "existing_questions", len(existing_questions)
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to load existing questions: {e}")
-                        observability.capture_error(
-                            e,
-                            context={"phase": "deduplication", "step": "load_existing"},
-                        )
-                        existing_questions = []
-
-                    unique_questions = []
-                    duplicate_count = 0
-
-                    for evaluated_question in approved_questions:
-                        try:
-                            # Type assertion: deduplicator is guaranteed to be initialized here
-                            assert deduplicator is not None
-                            # Scope dedup to same difficulty level — questions sharing a
-                            # problem template across difficulties are intentionally distinct.
-                            q_difficulty = str(
-                                evaluated_question.question.difficulty_level.value
-                            ).lower()
-                            same_difficulty_questions = [
-                                eq
-                                for eq in existing_questions
-                                if str(
-                                    getattr(
-                                        eq.get("difficulty_level", ""),
-                                        "value",
-                                        eq.get("difficulty_level", ""),
-                                    )
-                                ).lower()
-                                == q_difficulty
-                            ]
-                            result = deduplicator.check_duplicate(
-                                evaluated_question.question, same_difficulty_questions
-                            )
-
-                            if not result.is_duplicate:
-                                unique_questions.append(evaluated_question)
-                                logger.debug(
-                                    f"✓ Unique: {evaluated_question.question.question_text[:60]}..."
-                                )
-                            else:
-                                duplicate_count += 1
-                                logger.info(
-                                    f"✗ Duplicate ({result.duplicate_type}, score={result.similarity_score:.3f}): "
-                                    f"{evaluated_question.question.question_text[:60]}..."
-                                )
-
-                            metrics.record_duplicate_check(
-                                is_duplicate=result.is_duplicate,
-                                duplicate_type=result.duplicate_type,
-                            )
-
-                            if result.is_duplicate:
-                                observability.record_metric(
-                                    "dedup.by_type",
-                                    value=1,
-                                    labels={
-                                        "duplicate_type": result.duplicate_type
-                                        or "unknown"
-                                    },
-                                    metric_type="counter",
-                                )
-
-                        except Exception as e:
-                            logger.error(f"Deduplication check failed: {e}")
-                            observability.capture_error(
-                                e, context={"phase": "deduplication", "step": "check"}
-                            )
-                            # Include question if deduplication check fails (fail open)
-                            unique_questions.append(evaluated_question)
-                            continue
-
-                    dedup_span.set_attribute("unique_count", len(unique_questions))
-                    dedup_span.set_attribute("duplicate_count", duplicate_count)
-
-                    observability.record_metric(
-                        "dedup.duplicates_removed",
-                        value=duplicate_count,
-                        metric_type="counter",
-                    )
-
-                    logger.info(f"\nUnique questions: {len(unique_questions)}")
-                    logger.info(f"Duplicates removed: {duplicate_count}")
-
-                    observability.record_metric(
-                        "pipeline.stage.duration",
-                        value=time.perf_counter() - dedup_start,
-                        labels={"stage": "dedup"},
-                        metric_type="histogram",
-                        unit="s",
-                    )
-
-                    # Emit embedding cache hit/miss counters (TASK-1142)
-                    assert deduplicator is not None
-                    cache_stats = deduplicator.get_stats()["cache"]
-                    observability.record_metric(
-                        "embedding.cache.hit",
-                        value=cache_stats.get("hits", 0),
-                        metric_type="counter",
-                    )
-                    observability.record_metric(
-                        "embedding.cache.miss",
-                        value=cache_stats.get("misses", 0),
-                        metric_type="counter",
-                    )
-
-            # Database insertion
+            # Phase 4: Database Insertion
             inserted_count = 0
-
             if not args.dry_run and unique_questions:
                 logger.info("\n" + "=" * 80)
                 logger.info("PHASE 4: Database Insertion")
                 logger.info("=" * 80)
-
-                storage_start = time.perf_counter()
-                with observability.start_span(
-                    "phase4_db_insertion",
-                    attributes={"questions_to_insert": len(unique_questions)},
-                ) as insert_span:
-                    for i, evaluated_question in enumerate(unique_questions, 1):
-                        try:
-                            # Type assertion: db is guaranteed to be initialized here
-                            assert db is not None
-                            question_id = db.insert_evaluated_question(
-                                evaluated_question
-                            )
-                            inserted_count += 1
-                            logger.debug(
-                                f"✓ Inserted question {i}/{len(unique_questions)} "
-                                f"(ID: {question_id}, score: {evaluated_question.evaluation.overall_score:.2f})"
-                            )
-
-                            metrics.record_insertion_success(
-                                count=1,
-                                question_type=evaluated_question.question.question_type.value,
-                            )
-
-                        except Exception as e:
-                            logger.error(f"✗ Failed to insert question {i}: {e}")
-                            observability.capture_error(
-                                e,
-                                context={
-                                    "phase": "db_insertion",
-                                    "question_index": i,
-                                    "question_type": evaluated_question.question.question_type.value,
-                                },
-                            )
-                            metrics.record_insertion_failure(count=1)
-                            continue
-
-                    insert_span.set_attribute("inserted_count", inserted_count)
-                    insert_span.set_attribute(
-                        "failed_count", len(unique_questions) - inserted_count
-                    )
-
-                    observability.record_metric(
-                        "db.questions_inserted",
-                        value=inserted_count,
-                        metric_type="counter",
-                    )
-
-                    observability.record_metric(
-                        "pipeline.stage.duration",
-                        value=time.perf_counter() - storage_start,
-                        labels={"stage": "storage"},
-                        metric_type="histogram",
-                        unit="s",
-                    )
-
-                logger.info(
-                    f"\nInserted: {inserted_count}/{len(unique_questions)} questions"
+                inserted_count = run_insertion_phase(
+                    unique_questions=unique_questions,
+                    db=db,
+                    metrics=metrics,
+                    logger=logger,
                 )
 
-            # Final summary
+            # Final Summary
             metrics.end_run()
             summary = metrics.to_summary_dict()
 
@@ -1851,72 +1898,38 @@ def main() -> int:
             if args.dry_run:
                 logger.info("\n[DRY RUN] No questions were inserted to database")
 
-            def _build_run_stats() -> dict:  # type: ignore[type-arg]
-                requested = stats.get("target_questions", 0)
-                generated = stats.get("questions_generated", 0)
-                loss = requested - generated
-                return {
-                    "questions_generated": generated,
-                    "questions_inserted": inserted_count,
-                    "approval_rate": approval_rate,
-                    "duration_seconds": stats.get("duration_seconds", 0),
-                    "by_type": summary.get("database", {}).get("inserted_by_type", {}),
-                    "by_difficulty": summary.get("generation", {}).get(
-                        "by_difficulty", {}
-                    ),
-                    "questions_requested": requested,
-                    "generation_loss": loss,
-                    "generation_loss_pct": (
-                        round(loss / requested * 100, 1) if requested > 0 else 0.0
-                    ),
-                    "questions_rejected": summary.get("evaluation", {}).get(
-                        "rejected", 0
-                    ),
-                    "duplicates_found": summary.get("deduplication", {}).get(
-                        "duplicates_found", 0
-                    ),
-                }
+            _run_stats = _build_run_stats(stats, inserted_count, approval_rate, summary)
 
-            # Determine outcome and raise on failure so CronJob records exit_code=1
             if not args.dry_run:
                 if inserted_count == 0:
                     logger.error("No questions were inserted to database!")
-
-                    # Send alert for insertion failure
-                    from app.infrastructure.error_classifier import (
-                        ClassifiedError,
-                        ErrorCategory,
-                        ErrorSeverity,
-                    )
-
-                    insertion_error = ClassifiedError(
+                    send_phase_alert(
+                        alert_manager=alert_manager,
                         category=ErrorCategory.SERVER_ERROR,
                         severity=ErrorSeverity.CRITICAL,
                         provider="database",
                         original_error="InsertionFailure",
                         message=f"Database insertion failed for all {len(unique_questions)} unique questions.",
+                        context=(
+                            f"[run_id={run_id}] Question generation completed successfully through judge evaluation, "
+                            f"but all {len(unique_questions)} questions failed to insert to database. "
+                            "Check database connection and logs."
+                        ),
                         is_retryable=True,
                     )
-                    alert_manager.send_alert(
-                        insertion_error,
-                        context=f"[run_id={run_id}] Question generation completed successfully through judge evaluation, "
-                        f"but all {len(unique_questions)} questions failed to insert to database. Check database connection and logs.",
-                    )
-
                     raise InsertionError(
                         f"Database insertion failed: 0 of {len(unique_questions)} questions inserted",
-                        run_summary=to_run_summary(_build_run_stats()),
+                        run_summary=to_run_summary(_run_stats),
                     )
                 elif inserted_count < len(unique_questions):
                     logger.warning("Some questions failed to insert")
                     raise InsertionError(
                         f"Partial insertion failure: {inserted_count} of {len(unique_questions)} questions inserted",
-                        run_summary=to_run_summary(_build_run_stats()),
+                        run_summary=to_run_summary(_run_stats),
                     )
                 else:
                     logger.info("✓ All unique questions inserted successfully")
 
-            # Write success metrics for successful runs
             if inserted_count > 0:
                 log_success_run(
                     stats=stats,
@@ -1926,7 +1939,6 @@ def main() -> int:
                 )
                 logger.info("Success metrics logged to logs/success_runs.jsonl")
 
-            # Report run to backend API
             if run_reporter:
                 min_score = args.min_score or settings.min_judge_score
                 backend_run_id = run_reporter.report_run(
@@ -1947,7 +1959,9 @@ def main() -> int:
             # Post-run answer-leakage audit (always runs; respects args.dry_run for writes)
             if db is not None:
                 try:
-                    from app.data.answer_leakage_auditor import run_answer_leakage_audit
+                    from app.data.answer_leakage_auditor import (
+                        run_answer_leakage_audit,
+                    )  # noqa: PLC0415
 
                     run_answer_leakage_audit(db.SessionLocal, dry_run=args.dry_run)
                 except Exception as audit_err:
@@ -1961,7 +1975,6 @@ def main() -> int:
             logger.info("Script completed successfully")
             logger.info("=" * 80)
 
-            _run_stats = _build_run_stats()
             run_summary = to_run_summary(
                 _run_stats,
                 loss_threshold=(
@@ -2002,13 +2015,7 @@ def main() -> int:
         except Exception as exc:
             # Report failed and partial_failure runs to the backend API so every
             # run — successful or not — appears in /v1/admin/generation-runs.
-            # The success path already calls report_run() above; this except
-            # handles all non-success terminal paths and then re-raises so that
-            # CronJob still records the failure as usual.
             if run_reporter:
-                # InsertionError with some questions inserted is a partial failure;
-                # EXIT_PARTIAL_FAILURE maps to "partial_failure" in RunReporter._determine_status.
-                # All other exceptions are complete failures (EXIT_COMPLETE_FAILURE → "failed").
                 if isinstance(exc, InsertionError) and inserted_count > 0:
                     failure_exit_code = EXIT_PARTIAL_FAILURE
                 else:
