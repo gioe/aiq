@@ -24,6 +24,7 @@ import json
 import logging
 import sys
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -38,13 +39,13 @@ from app import (  # noqa: E402
     QuestionGenerationPipeline,
     InventoryAnalyzer,
 )
-from app.observability.alerting import (  # noqa: E402
+from gioe_libs.alerting.alerting import (  # noqa: E402
     AlertManager,
     AlertingConfig,
     ResourceMonitor,
     ResourceStatus,
 )
-from app.observability.alerting_adapter import to_run_summary  # noqa: E402
+from app.reporting.alerting_adapter import to_run_summary  # noqa: E402
 from app.config.config import settings  # noqa: E402
 from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
@@ -524,10 +525,24 @@ async def attempt_regeneration_with_feedback(
     return regenerated_approved, still_rejected
 
 
+class _RunIdFilter(logging.Filter):
+    """Injects run_id into every log record's extra dict for JSON output."""
+
+    def __init__(self, run_id: str) -> None:
+        super().__init__()
+        self._run_id = run_id
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        existing = getattr(record, "extra", None) or {}
+        record.extra = {**existing, "run_id": self._run_id}
+        return True
+
+
 def log_success_run(
     stats: dict,
     inserted_count: int,
     approval_rate: float,
+    run_id: Optional[str] = None,
 ) -> None:
     """Log successful run to a separate success log for monitoring.
 
@@ -545,6 +560,7 @@ def log_success_run(
 
     success_entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "run_id": run_id,
         "questions_generated": stats.get("questions_generated", 0),
         "questions_inserted": inserted_count,
         "duration_seconds": stats.get("duration_seconds", 0),
@@ -871,11 +887,20 @@ def main() -> int:
             enable_file_logging=not args.no_console,
         )
 
+        # Generate a stable correlation ID for this run so every log line,
+        # alert, and report can be tied back to a single execution.
+        run_id = (
+            f"run-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+            f"-{uuid.uuid4().hex[:6]}"
+        )
+        _run_id_filter = _RunIdFilter(run_id)
+        logging.getLogger().addFilter(_run_id_filter)
+
         # Get logger after setup
         logger = logging.getLogger(__name__)
 
         logger.info("=" * 80)
-        logger.info("Question Generation Script Starting")
+        logger.info(f"Question Generation Script Starting  run_id={run_id}")
         logger.info(
             f"Observability initialized: service=aiq-question-service, env={settings.env}"
         )
@@ -960,7 +985,7 @@ def main() -> int:
                 )
                 alert_manager.send_alert(
                     config_error,
-                    context="Question generation script failed to start due to missing API keys. "
+                    context=f"[run_id={run_id}] Question generation script failed to start due to missing API keys. "
                     "Check environment variables: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, XAI_API_KEY",
                 )
 
@@ -1059,7 +1084,7 @@ def main() -> int:
                     )
                     alert_manager.send_alert(
                         db_error,
-                        context=f"Question generation cannot connect to database. "
+                        context=f"[run_id={run_id}] Question generation cannot connect to database. "
                         f"Check DATABASE_URL and database availability. Error: {str(e)}",
                     )
 
@@ -1312,7 +1337,7 @@ def main() -> int:
                 )
                 alert_manager.send_alert(
                     generation_error,
-                    context=f"Question generation job completed but produced no questions. "
+                    context=f"[run_id={run_id}] Question generation job completed but produced no questions. "
                     f"Target: {stats['target_questions']}, Generated: 0. Check logs for LLM API errors.",
                 )
 
@@ -1595,7 +1620,7 @@ def main() -> int:
                 )
                 alert_manager.send_alert(
                     judge_error,
-                    context=f"Question generation produced {len(generated_questions)} questions but judge "
+                    context=f"[run_id={run_id}] Question generation produced {len(generated_questions)} questions but judge "
                     f"rejected all of them. Minimum score threshold: {min_score}. "
                     f"Consider reviewing judge configuration or lowering MIN_JUDGE_SCORE.",
                 )
@@ -1866,7 +1891,7 @@ def main() -> int:
                     )
                     alert_manager.send_alert(
                         insertion_error,
-                        context=f"Question generation completed successfully through judge evaluation, "
+                        context=f"[run_id={run_id}] Question generation completed successfully through judge evaluation, "
                         f"but all {len(unique_questions)} questions failed to insert to database. Check database connection and logs.",
                     )
 
@@ -1889,13 +1914,14 @@ def main() -> int:
                     stats=stats,
                     inserted_count=inserted_count,
                     approval_rate=approval_rate,
+                    run_id=run_id,
                 )
                 logger.info("Success metrics logged to logs/success_runs.jsonl")
 
             # Report run to backend API
             if run_reporter:
                 min_score = args.min_score or settings.min_judge_score
-                run_id = run_reporter.report_run(
+                backend_run_id = run_reporter.report_run(
                     summary=summary,
                     exit_code=EXIT_SUCCESS,
                     environment=settings.env,
@@ -1903,9 +1929,10 @@ def main() -> int:
                     prompt_version=settings.prompt_version,
                     judge_config_version=settings.judge_config_version,
                     min_judge_score_threshold=min_score,
+                    client_run_id=run_id,
                 )
-                if run_id:
-                    logger.info(f"Run reported to backend API (ID: {run_id})")
+                if backend_run_id:
+                    logger.info(f"Run reported to backend API (ID: {backend_run_id})")
                 else:
                     logger.warning("Failed to report run to backend API")
 
@@ -1935,9 +1962,10 @@ def main() -> int:
             )
 
             logger.info(
-                "RUN_COMPLETE exit_code=0 questions_requested=%d questions_generated=%d "
+                "RUN_COMPLETE run_id=%s exit_code=0 questions_requested=%d questions_generated=%d "
                 "generation_loss=%d generation_loss_pct=%.1f questions_inserted=%d "
                 "approval_rate=%.1f duration_seconds=%.1f",
+                run_id,
                 _run_stats["questions_requested"],
                 _run_stats["questions_generated"],
                 _run_stats["generation_loss"],
@@ -1978,7 +2006,7 @@ def main() -> int:
                 else:
                     failure_exit_code = EXIT_COMPLETE_FAILURE
                 min_score = args.min_score or settings.min_judge_score
-                run_id = run_reporter.report_run(
+                backend_run_id = run_reporter.report_run(
                     summary=summary,
                     exit_code=failure_exit_code,
                     environment=settings.env,
@@ -1986,14 +2014,19 @@ def main() -> int:
                     prompt_version=settings.prompt_version,
                     judge_config_version=settings.judge_config_version,
                     min_judge_score_threshold=min_score,
+                    client_run_id=run_id,
                 )
-                if run_id:
-                    logger.info(f"Failed run reported to backend API (ID: {run_id})")
+                if backend_run_id:
+                    logger.info(
+                        f"Failed run reported to backend API (ID: {backend_run_id})"
+                    )
                 else:
                     logger.warning("Failed to report failed run to backend API")
             raise
 
         finally:
+            # Remove run_id filter so it does not persist across runs
+            logging.getLogger().removeFilter(_run_id_filter)
             # Always close the database connection, even if an exception is raised
             if db is not None:
                 try:
