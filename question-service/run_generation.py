@@ -156,8 +156,6 @@ def apply_difficulty_placement(
     Returns:
         EvaluatedQuestion with adjusted difficulty (or original if no change)
     """
-    from app.data.models import EvaluatedQuestion, GeneratedQuestion
-
     question = evaluated_question.question
     evaluation = evaluated_question.evaluation
 
@@ -320,8 +318,6 @@ def attempt_answer_repair(
         return None
 
     # Create repaired question by updating correct_answer
-    from app.data.models import GeneratedQuestion
-
     repaired = GeneratedQuestion(
         question_text=question.question_text,
         question_type=question.question_type,
@@ -360,8 +356,6 @@ def attempt_difficulty_reclassification(
     Returns:
         Tuple of (reclassified_question, new_difficulty, reason) if reclassifiable, None otherwise
     """
-    from app.data.models import DifficultyLevel, GeneratedQuestion
-
     feedback = evaluated_question.evaluation.feedback
     eval_scores = evaluated_question.evaluation
     question = evaluated_question.question
