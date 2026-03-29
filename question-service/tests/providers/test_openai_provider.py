@@ -49,7 +49,7 @@ class TestOpenAIProvider:
 
         provider = OpenAIProvider(api_key=mock_openai_api_key)
 
-        assert provider.model == "gpt-4-turbo-preview"
+        assert provider.model == "gpt-4o"
 
     @patch("app.providers.openai_provider.OpenAI")
     def test_generate_completion_success(
@@ -83,7 +83,7 @@ class TestOpenAIProvider:
 
         assert result == mock_completion_response
         mock_client.chat.completions.create.assert_called_once_with(
-            model="gpt-4-turbo-preview",
+            model="gpt-4o",
             messages=[{"role": "user", "content": sample_prompt}],
             temperature=0.7,
             max_tokens=1000,
@@ -114,7 +114,7 @@ class TestOpenAIProvider:
         )
 
         mock_client.chat.completions.create.assert_called_once_with(
-            model="gpt-4-turbo-preview",
+            model="gpt-4o",
             messages=[{"role": "user", "content": sample_prompt}],
             temperature=0.5,
             max_tokens=500,
@@ -260,7 +260,7 @@ class TestOpenAIProvider:
         # GPT-4 series (legacy)
         assert "gpt-4o" in models
         assert "gpt-4o-mini" in models
-        assert "gpt-4-turbo-preview" in models
+        assert "gpt-4o" in models
         assert "gpt-4" in models
         # GPT-3.5 series (legacy)
         assert "gpt-3.5-turbo" in models
@@ -316,9 +316,7 @@ class TestOpenAIProvider:
 
         mock_client.chat.completions.create.return_value = mock_response
 
-        provider = OpenAIProvider(
-            api_key=mock_openai_api_key, model="gpt-4-turbo-preview"
-        )
+        provider = OpenAIProvider(api_key=mock_openai_api_key, model="gpt-4o")
 
         # Use model_override to use a different model
         provider.generate_completion(
@@ -334,7 +332,7 @@ class TestOpenAIProvider:
         )
 
         # Verify the provider's default model was not mutated
-        assert provider.model == "gpt-4-turbo-preview"
+        assert provider.model == "gpt-4o"
 
     @patch("app.providers.openai_provider.OpenAI")
     def test_generate_structured_completion_with_model_override(
@@ -360,9 +358,7 @@ class TestOpenAIProvider:
 
         mock_client.chat.completions.create.return_value = mock_response
 
-        provider = OpenAIProvider(
-            api_key=mock_openai_api_key, model="gpt-4-turbo-preview"
-        )
+        provider = OpenAIProvider(api_key=mock_openai_api_key, model="gpt-4o")
 
         # Use model_override to use a different model
         provider.generate_structured_completion(
@@ -378,7 +374,7 @@ class TestOpenAIProvider:
         assert call_args.kwargs["model"] == "gpt-4"
 
         # Verify the provider's default model was not mutated
-        assert provider.model == "gpt-4-turbo-preview"
+        assert provider.model == "gpt-4o"
 
     @patch("app.providers.openai_provider.OpenAI")
     def test_empty_choices_list(

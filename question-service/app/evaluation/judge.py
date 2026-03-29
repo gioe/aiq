@@ -181,7 +181,7 @@ class QuestionJudge:
         # Initialize providers for all available API keys
         if openai_api_key:
             self.providers["openai"] = OpenAIProvider(
-                api_key=openai_api_key, model="gpt-4-turbo-preview"  # Default model
+                api_key=openai_api_key, model="gpt-4o"  # Default model
             )
             self._circuit_breaker_registry.get_or_create("judge-openai")
             logger.info("Initialized OpenAI provider for judge")

@@ -209,7 +209,7 @@ class QuestionGenerator:
         anthropic_api_key: Optional[str] = None,
         google_api_key: Optional[str] = None,
         xai_api_key: Optional[str] = None,
-        openai_model: str = "gpt-4-turbo-preview",
+        openai_model: str = "gpt-4o",
         anthropic_model: str = "claude-sonnet-4-5-20250929",
         google_model: str = "gemini-3.1-pro-preview",
         xai_model: str = "grok-4",

@@ -811,7 +811,7 @@ class TestJudgeIntegration:
         """
         # Setup mock provider with a different default model than judge config
         mock_provider = Mock()
-        mock_provider.model = "gpt-4-turbo-preview"  # Default model
+        mock_provider.model = "gpt-4o"  # Default model
         mock_provider.generate_structured_completion_with_usage.return_value = (
             make_completion_result(sample_evaluation_response)
         )

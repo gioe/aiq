@@ -26,7 +26,7 @@ class OpenAIProvider(BaseLLMProvider):
     def __init__(
         self,
         api_key: str,
-        model: str = "gpt-4-turbo-preview",
+        model: str = "gpt-4o",
         organization: Optional[str] = None,
     ):
         """
@@ -34,7 +34,7 @@ class OpenAIProvider(BaseLLMProvider):
 
         Args:
             api_key: OpenAI API key
-            model: Model to use (default: gpt-4-turbo-preview)
+            model: Model to use (default: gpt-4o)
             organization: Optional organization ID
         """
         super().__init__(api_key, model)
