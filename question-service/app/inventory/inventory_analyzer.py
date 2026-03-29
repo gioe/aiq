@@ -16,16 +16,13 @@ from sqlalchemy import func
 
 from app.data.database import DatabaseService, QuestionModel
 from app.data.models import DifficultyLevel, QuestionType
+from app.inventory.inventory_config import (
+    DEFAULT_HEALTHY_THRESHOLD,
+    DEFAULT_TARGET_QUESTIONS_PER_STRATUM,
+    DEFAULT_WARNING_THRESHOLD,
+)
 
 logger = logging.getLogger(__name__)
-
-# Default thresholds for inventory health assessment
-# These match the backend inventory health endpoint defaults
-DEFAULT_HEALTHY_THRESHOLD = 50  # Questions per stratum for healthy status
-DEFAULT_WARNING_THRESHOLD = 20  # Below this is critical
-
-# Configuration for balancing algorithm
-DEFAULT_TARGET_QUESTIONS_PER_STRATUM = 50  # Target inventory level
 
 
 @dataclass
