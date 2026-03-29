@@ -27,7 +27,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -1148,7 +1148,7 @@ def run_generation_phase(
     count: Optional[int],
     metrics: PipelineRunSummary,
     logger: logging.Logger,
-) -> tuple[list[GeneratedQuestion], dict]:
+) -> tuple[list[GeneratedQuestion], dict[str, Any]]:
     """Phase 1: Generate questions.
 
     Returns (generated_questions, statistics).
