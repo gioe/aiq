@@ -178,6 +178,49 @@ class TestSecretsIntegration:
             settings = Settings()
             assert settings.backend_service_key == "secret-service-key"
 
+    def test_discord_warning_emitted_in_production_without_webhook(self):
+        """Test that missing DISCORD_WEBHOOK_URL in production emits a WARNING."""
+        env_vars = {
+            "OPENAI_API_KEY": "sk-test",
+            "ENV": "production",
+            "DISCORD_WEBHOOK_URL": "",
+            "BACKEND_SERVICE_KEY": "svc-key",  # pragma: allowlist secret
+            "BACKEND_API_URL": "https://api.example.com",
+        }
+        with patch.dict("os.environ", env_vars, clear=False):
+            with patch("app.config.config.logger") as mock_logger:
+                Settings()
+                warning_messages = [str(c) for c in mock_logger.warning.call_args_list]
+                assert any("DISCORD_WEBHOOK_URL" in m for m in warning_messages)
+
+    def test_discord_no_warning_when_webhook_configured(self):
+        """Test that no warning is emitted when DISCORD_WEBHOOK_URL is set."""
+        env_vars = {
+            "OPENAI_API_KEY": "sk-test",
+            "ENV": "production",
+            "DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/test",
+            "BACKEND_SERVICE_KEY": "svc-key",  # pragma: allowlist secret
+            "BACKEND_API_URL": "https://api.example.com",
+        }
+        with patch.dict("os.environ", env_vars, clear=False):
+            with patch("app.config.config.logger") as mock_logger:
+                Settings()
+                for call in mock_logger.warning.call_args_list:
+                    assert "DISCORD_WEBHOOK_URL" not in str(call)
+
+    def test_discord_no_warning_in_development(self):
+        """Test that no Discord warning is emitted in development regardless of webhook."""
+        env_vars = {
+            "OPENAI_API_KEY": "sk-test",
+            "ENV": "development",
+        }
+        with patch.dict("os.environ", env_vars, clear=False):
+            os.environ.pop("DISCORD_WEBHOOK_URL", None)
+            with patch("app.config.config.logger") as mock_logger:
+                Settings()
+                for call in mock_logger.warning.call_args_list:
+                    assert "DISCORD_WEBHOOK_URL" not in str(call)
+
     def test_run_reporting_validation_skipped_in_development(self):
         """Test that run reporting validation is skipped in development."""
         env_vars = {

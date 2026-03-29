@@ -482,12 +482,18 @@ class TestSendNotification:
 
     def test_noop_when_no_discord(self):
         """send_notification is a no-op when no Discord URL is configured."""
+        import requests
+        from unittest.mock import patch
+
         manager = AlertManager()
-        manager.send_notification(
-            title="Run Complete",
-            fields=[("Generated", 10), ("Inserted", 8)],
-            severity="info",
-        )
+        assert manager.discord_webhook_url is None
+        with patch.object(requests, "post") as mock_post:
+            manager.send_notification(
+                title="Run Complete",
+                fields=[("Generated", 10), ("Inserted", 8)],
+                severity="info",
+            )
+            mock_post.assert_not_called()
 
     def test_html_uses_green_for_info(self):
         """HTML notification body uses green color for severity='info'."""
