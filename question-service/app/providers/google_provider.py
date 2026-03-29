@@ -108,31 +108,9 @@ class GoogleProvider(BaseLLMProvider):
         Raises:
             Exception: If the API call fails
         """
-        model = model_override or self.model
-
-        def _make_request() -> str:
-            try:
-                config = types.GenerateContentConfig(
-                    temperature=temperature,
-                    max_output_tokens=max_tokens,
-                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
-                    **kwargs,
-                )
-
-                response = self._client.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                    config=config,
-                )
-
-                if response.text:
-                    return response.text
-                return ""
-
-            except Exception as e:
-                raise self._handle_api_error(e)
-
-        return self._execute_with_retry(_make_request)
+        return self._generate_completion_internal(
+            prompt, temperature, max_tokens, model_override, **kwargs
+        ).content
 
     def generate_structured_completion(
         self,
@@ -164,48 +142,9 @@ class GoogleProvider(BaseLLMProvider):
             Google Gemini doesn't have native JSON mode like OpenAI, so we
             instruct the model via the prompt and parse the response.
         """
-        model = model_override or self.model
-        # Ensure minimum tokens for structured completions to avoid truncation
-        effective_max_tokens = max(max_tokens, MIN_STRUCTURED_COMPLETION_TOKENS)
-
-        def _make_request() -> Dict[str, Any]:
-            try:
-                # Only add JSON schema instructions if a non-empty schema is provided.
-                # If response_format is empty, assume the prompt already contains
-                # JSON format instructions (e.g., judge prompts specify exact structure).
-                if response_format:
-                    json_prompt = (
-                        f"{prompt}\n\n"
-                        f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                        f"Your response must be only valid JSON with no additional text."
-                    )
-                else:
-                    json_prompt = prompt
-
-                config = types.GenerateContentConfig(
-                    temperature=temperature,
-                    max_output_tokens=effective_max_tokens,
-                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
-                    **kwargs,
-                )
-
-                response = self._client.models.generate_content(
-                    model=model,
-                    contents=json_prompt,
-                    config=config,
-                )
-
-                if response.text:
-                    return json.loads(_strip_markdown_code_blocks(response.text))
-
-                return {}
-
-            except json.JSONDecodeError as e:
-                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
-            except Exception as e:
-                raise self._handle_api_error(e)
-
-        return self._execute_with_retry(_make_request)
+        return self._generate_structured_completion_internal(
+            prompt, response_format, temperature, max_tokens, model_override, **kwargs
+        ).content
 
     def count_tokens(self, text: str) -> int:
         """
@@ -247,31 +186,11 @@ class GoogleProvider(BaseLLMProvider):
         Raises:
             Exception: If the API call fails
         """
-        model = model_override or self.model
-
-        async def _make_request() -> str:
-            try:
-                config = types.GenerateContentConfig(
-                    temperature=temperature,
-                    max_output_tokens=max_tokens,
-                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
-                    **kwargs,
-                )
-
-                response = await self._client.aio.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                    config=config,
-                )
-
-                if response.text:
-                    return response.text
-                return ""
-
-            except Exception as e:
-                raise self._handle_api_error(e)
-
-        return await self._execute_with_retry_async(_make_request)
+        return (
+            await self._generate_completion_internal_async(
+                prompt, temperature, max_tokens, model_override, **kwargs
+            )
+        ).content
 
     async def generate_structured_completion_async(
         self,
@@ -299,48 +218,16 @@ class GoogleProvider(BaseLLMProvider):
         Raises:
             Exception: If the API call fails or response cannot be parsed as JSON
         """
-        model = model_override or self.model
-        # Ensure minimum tokens for structured completions to avoid truncation
-        effective_max_tokens = max(max_tokens, MIN_STRUCTURED_COMPLETION_TOKENS)
-
-        async def _make_request() -> Dict[str, Any]:
-            try:
-                # Only add JSON schema instructions if a non-empty schema is provided.
-                # If response_format is empty, assume the prompt already contains
-                # JSON format instructions (e.g., judge prompts specify exact structure).
-                if response_format:
-                    json_prompt = (
-                        f"{prompt}\n\n"
-                        f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                        f"Your response must be only valid JSON with no additional text."
-                    )
-                else:
-                    json_prompt = prompt
-
-                config = types.GenerateContentConfig(
-                    temperature=temperature,
-                    max_output_tokens=effective_max_tokens,
-                    thinking_config=types.ThinkingConfig(thinking_budget=-1),
-                    **kwargs,
-                )
-
-                response = await self._client.aio.models.generate_content(
-                    model=model,
-                    contents=json_prompt,
-                    config=config,
-                )
-
-                if response.text:
-                    return json.loads(_strip_markdown_code_blocks(response.text))
-
-                return {}
-
-            except json.JSONDecodeError as e:
-                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
-            except Exception as e:
-                raise self._handle_api_error(e)
-
-        return await self._execute_with_retry_async(_make_request)
+        return (
+            await self._generate_structured_completion_internal_async(
+                prompt,
+                response_format,
+                temperature,
+                max_tokens,
+                model_override,
+                **kwargs,
+            )
+        ).content
 
     def _generate_completion_internal(
         self,

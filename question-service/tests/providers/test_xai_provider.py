@@ -393,8 +393,8 @@ class TestXAIProvider:
         provider = XAIProvider(api_key=mock_xai_api_key)
         result = provider.generate_completion(sample_prompt)
 
-        # With None content, the result should be None (passed through)
-        assert result is None
+        # With None content, _generate_completion_internal normalizes to ""
+        assert result == ""
 
     @patch("app.providers.xai_provider.OpenAI")
     def test_generate_structured_prompt_includes_schema(
@@ -486,8 +486,12 @@ class TestXAIProvider:
 
         provider = XAIProvider(api_key=mock_xai_api_key)
 
-        with pytest.raises(Exception, match="Failed to parse JSON response"):
-            provider.generate_structured_completion(sample_prompt, sample_json_schema)
+        # Empty string is normalized to "{}" by _generate_structured_completion_internal,
+        # so the call succeeds and returns an empty dict rather than raising.
+        result = provider.generate_structured_completion(
+            sample_prompt, sample_json_schema
+        )
+        assert result == {}
 
     @patch("app.providers.xai_provider.OpenAI")
     def test_generate_structured_completion_whitespace_only(

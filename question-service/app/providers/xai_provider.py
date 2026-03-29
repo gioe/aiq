@@ -71,25 +71,9 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If API call fails
         """
-        model_to_use = model_override or self.model
-
-        def _make_request() -> str:
-            try:
-                response = self.client.chat.completions.create(
-                    model=model_to_use,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs,
-                )
-
-                return response.choices[0].message.content
-
-            except Exception as e:
-                logger.warning(f"xAI API call failed: {str(e)}")
-                raise self._handle_api_error(e)
-
-        return self._execute_with_retry(_make_request)
+        return self._generate_completion_internal(
+            prompt, temperature, max_tokens, model_override, **kwargs
+        ).content
 
     def generate_structured_completion(
         self,
@@ -117,45 +101,9 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If API call or JSON parsing fails
         """
-        model_to_use = model_override or self.model
-
-        def _make_request() -> Dict[str, Any]:
-            content = ""
-            try:
-                # Add JSON formatting instruction to the prompt
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"IMPORTANT: Return ONLY valid JSON with no markdown formatting or additional text."
-                )
-
-                # Make API call using OpenAI SDK
-                response = self.client.chat.completions.create(
-                    model=model_to_use,
-                    messages=[{"role": "user", "content": json_prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    response_format={"type": "json_object"},
-                    **kwargs,
-                )
-
-                # Extract and parse JSON response
-                content = response.choices[0].message.content
-                logger.debug(f"xAI API response content: {content[:500]}")
-
-                content = _strip_markdown_code_blocks(content)
-
-                return json.loads(content)
-
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse JSON response: {str(e)}")
-                logger.warning(f"Raw response: {content}")
-                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
-            except Exception as e:
-                logger.warning(f"xAI API call failed: {str(e)}")
-                raise self._handle_api_error(e)
-
-        return self._execute_with_retry(_make_request)
+        return self._generate_structured_completion_internal(
+            prompt, response_format, temperature, max_tokens, model_override, **kwargs
+        ).content
 
     def count_tokens(self, text: str) -> int:
         """
@@ -196,25 +144,11 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If API call fails
         """
-        model_to_use = model_override or self.model
-
-        async def _make_request() -> str:
-            try:
-                response = await self.async_client.chat.completions.create(
-                    model=model_to_use,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs,
-                )
-
-                return response.choices[0].message.content
-
-            except Exception as e:
-                logger.warning(f"xAI API async error: {str(e)}")
-                raise self._handle_api_error(e)
-
-        return await self._execute_with_retry_async(_make_request)
+        return (
+            await self._generate_completion_internal_async(
+                prompt, temperature, max_tokens, model_override, **kwargs
+            )
+        ).content
 
     async def generate_structured_completion_async(
         self,
@@ -242,45 +176,16 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If API call or JSON parsing fails
         """
-        model_to_use = model_override or self.model
-
-        async def _make_request() -> Dict[str, Any]:
-            content = ""
-            try:
-                # Add JSON formatting instruction to the prompt
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"IMPORTANT: Return ONLY valid JSON with no markdown formatting or additional text."
-                )
-
-                # Make API call using OpenAI SDK
-                response = await self.async_client.chat.completions.create(
-                    model=model_to_use,
-                    messages=[{"role": "user", "content": json_prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    response_format={"type": "json_object"},
-                    **kwargs,
-                )
-
-                # Extract and parse JSON response
-                content = response.choices[0].message.content
-                logger.debug(f"xAI API async response content: {content[:500]}")
-
-                content = _strip_markdown_code_blocks(content)
-
-                return json.loads(content)
-
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse JSON response: {str(e)}")
-                logger.warning(f"Raw response: {content}")
-                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
-            except Exception as e:
-                logger.warning(f"xAI API async error: {str(e)}")
-                raise self._handle_api_error(e)
-
-        return await self._execute_with_retry_async(_make_request)
+        return (
+            await self._generate_structured_completion_internal_async(
+                prompt,
+                response_format,
+                temperature,
+                max_tokens,
+                model_override,
+                **kwargs,
+            )
+        ).content
 
     def _generate_completion_internal(
         self,

@@ -60,27 +60,9 @@ class AnthropicProvider(BaseLLMProvider):
         Raises:
             anthropic.AnthropicError: If the API call fails
         """
-        model_to_use = model_override or self.model
-
-        def _make_request() -> str:
-            try:
-                response = self.client.messages.create(
-                    model=model_to_use,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs,
-                )
-
-                # Extract text from response
-                if response.content and len(response.content) > 0:
-                    return response.content[0].text
-                return ""
-
-            except anthropic.AnthropicError as e:
-                raise self._handle_api_error(e)
-
-        return self._execute_with_retry(_make_request)
+        return self._generate_completion_internal(
+            prompt, temperature, max_tokens, model_override, **kwargs
+        ).content
 
     def generate_structured_completion(
         self,
@@ -113,43 +95,9 @@ class AnthropicProvider(BaseLLMProvider):
             Anthropic doesn't have native JSON mode like OpenAI, so we
             instruct the model via the prompt and parse the response.
         """
-        model_to_use = model_override or self.model
-
-        def _make_request() -> Dict[str, Any]:
-            try:
-                # Add JSON formatting instruction to the prompt
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"Your response must be only valid JSON with no additional text."
-                )
-
-                response = self.client.messages.create(
-                    model=model_to_use,
-                    messages=[{"role": "user", "content": json_prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs,
-                )
-
-                # Extract text from response
-                if response.content and len(response.content) > 0:
-                    content = response.content[0].text
-                    logger.debug(f"Anthropic API response content: {content[:500]}")
-
-                    content = _strip_markdown_code_blocks(content)
-
-                    return json.loads(content)
-
-                logger.warning("Anthropic API returned empty response")
-                return {}
-
-            except anthropic.AnthropicError as e:
-                raise self._handle_api_error(e)
-            except json.JSONDecodeError as e:
-                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
-
-        return self._execute_with_retry(_make_request)
+        return self._generate_structured_completion_internal(
+            prompt, response_format, temperature, max_tokens, model_override, **kwargs
+        ).content
 
     def count_tokens(self, text: str) -> int:
         """
@@ -193,27 +141,11 @@ class AnthropicProvider(BaseLLMProvider):
         Raises:
             anthropic.AnthropicError: If the API call fails
         """
-        model_to_use = model_override or self.model
-
-        async def _make_request() -> str:
-            try:
-                response = await self.async_client.messages.create(
-                    model=model_to_use,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs,
-                )
-
-                # Extract text from response
-                if response.content and len(response.content) > 0:
-                    return response.content[0].text
-                return ""
-
-            except anthropic.AnthropicError as e:
-                raise self._handle_api_error(e)
-
-        return await self._execute_with_retry_async(_make_request)
+        return (
+            await self._generate_completion_internal_async(
+                prompt, temperature, max_tokens, model_override, **kwargs
+            )
+        ).content
 
     async def generate_structured_completion_async(
         self,
@@ -242,45 +174,16 @@ class AnthropicProvider(BaseLLMProvider):
             anthropic.AnthropicError: If the API call fails
             json.JSONDecodeError: If response cannot be parsed as JSON
         """
-        model_to_use = model_override or self.model
-
-        async def _make_request() -> Dict[str, Any]:
-            try:
-                # Add JSON formatting instruction to the prompt
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"Your response must be only valid JSON with no additional text."
-                )
-
-                response = await self.async_client.messages.create(
-                    model=model_to_use,
-                    messages=[{"role": "user", "content": json_prompt}],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs,
-                )
-
-                # Extract text from response
-                if response.content and len(response.content) > 0:
-                    content = response.content[0].text
-                    logger.debug(
-                        f"Anthropic API async response content: {content[:500]}"
-                    )
-
-                    content = _strip_markdown_code_blocks(content)
-
-                    return json.loads(content)
-
-                logger.warning("Anthropic API returned empty response")
-                return {}
-
-            except anthropic.AnthropicError as e:
-                raise self._handle_api_error(e)
-            except json.JSONDecodeError as e:
-                raise Exception(f"Failed to parse JSON response: {str(e)}") from e
-
-        return await self._execute_with_retry_async(_make_request)
+        return (
+            await self._generate_structured_completion_internal_async(
+                prompt,
+                response_format,
+                temperature,
+                max_tokens,
+                model_override,
+                **kwargs,
+            )
+        ).content
 
     def _generate_completion_internal(
         self,
