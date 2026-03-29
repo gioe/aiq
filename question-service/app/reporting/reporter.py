@@ -85,6 +85,7 @@ class RunReporter:
             prompt_version: Version of prompts used
             judge_config_version: Version of judge config used
             min_judge_score_threshold: Minimum judge score for approval
+            client_run_id: Correlation ID generated at run start (e.g. run-20260329-143022-abc123)
 
         Returns:
             Dictionary matching QuestionGenerationRunCreate schema
@@ -269,6 +270,7 @@ class RunReporter:
             prompt_version: Version of prompts used
             judge_config_version: Version of judge config used
             min_judge_score_threshold: Minimum judge score for approval
+            client_run_id: Correlation ID generated at run start (e.g. run-20260329-143022-abc123)
 
         Returns:
             Created run ID if successful, None if reporting failed
