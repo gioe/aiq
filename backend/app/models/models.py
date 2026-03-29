@@ -859,6 +859,7 @@ class QuestionGenerationRun(Base):
         Index("ix_qgr_status", "status"),
         Index("ix_qgr_environment", "environment"),
         Index("ix_qgr_overall_success", "overall_success_rate"),
+        Index("ix_qgr_client_run_id_unique", "client_run_id", unique=True),
     )
 
 
