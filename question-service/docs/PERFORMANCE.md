@@ -50,7 +50,7 @@ Questions are generated across multiple LLM providers in round-robin distributio
 | Provider | Model | Purpose |
 |----------|-------|---------|
 | OpenAI | gpt-4o | Question generation |
-| Anthropic | claude-3-5-sonnet-20241022 | Question generation |
+| Anthropic | claude-sonnet-4-5-20250929 | Question generation |
 | Google | gemini-3.1-pro-preview | Question generation |
 | xAI | grok-4 | Question generation (credits exhausted 2026-03-27; inactive) |
 
