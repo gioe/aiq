@@ -528,20 +528,17 @@ class OpenAIProvider(BaseLLMProvider):
         Raises:
             openai.OpenAIError: If the API call fails
         """
-        try:
-            models = self.client.models.list()
-            # Filter to models that support chat completions
-            # Chat models typically include gpt-*, o1*, o3*, o4*, etc.
-            chat_model_prefixes = ("gpt-", "o1", "o3", "o4")
-            result = []
-            for model in models.data:
-                if any(model.id.startswith(prefix) for prefix in chat_model_prefixes):
-                    result.append(model.id)
-                else:
-                    logger.debug(f"Filtered out non-chat model: {model.id}")
-            return sorted(result)
-        except openai.OpenAIError:
-            raise
+        models = self.client.models.list()
+        # Filter to models that support chat completions
+        # Chat models typically include gpt-*, o1*, o3*, o4*, etc.
+        chat_model_prefixes = ("gpt-", "o1", "o3", "o4")
+        result = []
+        for model in models.data:
+            if any(model.id.startswith(prefix) for prefix in chat_model_prefixes):
+                result.append(model.id)
+            else:
+                logger.debug(f"Filtered out non-chat model: {model.id}")
+        return sorted(result)
 
     async def fetch_available_models_async(self) -> list[str]:
         """
@@ -556,21 +553,16 @@ class OpenAIProvider(BaseLLMProvider):
         Raises:
             openai.OpenAIError: If the API call fails
         """
-        try:
-            models = await self.async_client.models.list()
-            # Filter to models that support chat completions
-            chat_model_prefixes = ("gpt-", "o1", "o3", "o4")
-            return sorted(
-                [
-                    model.id
-                    for model in models.data
-                    if any(
-                        model.id.startswith(prefix) for prefix in chat_model_prefixes
-                    )
-                ]
-            )
-        except openai.OpenAIError:
-            raise
+        models = await self.async_client.models.list()
+        # Filter to models that support chat completions
+        chat_model_prefixes = ("gpt-", "o1", "o3", "o4")
+        return sorted(
+            [
+                model.id
+                for model in models.data
+                if any(model.id.startswith(prefix) for prefix in chat_model_prefixes)
+            ]
+        )
 
     async def cleanup(self) -> None:
         """Clean up async resources.

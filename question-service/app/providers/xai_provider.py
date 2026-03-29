@@ -567,18 +567,15 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If the API call fails
         """
-        try:
-            models = self.client.models.list()
-            # Filter to grok models
-            result = []
-            for model in models.data:
-                if model.id.startswith("grok"):
-                    result.append(model.id)
-                else:
-                    logger.debug(f"Filtered out non-Grok model: {model.id}")
-            return sorted(result)
-        except Exception:
-            raise
+        models = self.client.models.list()
+        # Filter to grok models
+        result = []
+        for model in models.data:
+            if model.id.startswith("grok"):
+                result.append(model.id)
+            else:
+                logger.debug(f"Filtered out non-Grok model: {model.id}")
+        return sorted(result)
 
     async def fetch_available_models_async(self) -> list[str]:
         """
@@ -593,14 +590,11 @@ class XAIProvider(BaseLLMProvider):
         Raises:
             Exception: If the API call fails
         """
-        try:
-            models = await self.async_client.models.list()
-            # Filter to grok models
-            return sorted(
-                [model.id for model in models.data if model.id.startswith("grok")]
-            )
-        except Exception:
-            raise
+        models = await self.async_client.models.list()
+        # Filter to grok models
+        return sorted(
+            [model.id for model in models.data if model.id.startswith("grok")]
+        )
 
     async def cleanup(self) -> None:
         """Clean up async resources.
