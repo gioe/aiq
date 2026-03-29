@@ -6,13 +6,13 @@ from typing import Optional
 
 from gioe_libs.observability import observability
 
-from app.data.database import QuestionDatabase
+from app.data.database import DatabaseService
 from app.reporting.run_summary import RunSummary as PipelineRunSummary
 
 
 def run_insertion_phase(
     unique_questions: list,
-    db: Optional[QuestionDatabase],
+    db: Optional[DatabaseService],
     metrics: PipelineRunSummary,
     logger: logging.Logger,
 ) -> int:
