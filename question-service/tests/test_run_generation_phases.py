@@ -503,10 +503,14 @@ class TestRunSalvagePhase:
         mock_salvaged_eval = MagicMock()
 
         with (
-            patch("run_generation.attempt_answer_repair") as mock_repair,
-            patch("run_generation.attempt_difficulty_reclassification") as mock_reclass,
-            patch("app.data.models.EvaluatedQuestion", return_value=mock_salvaged_eval),
-            patch("app.data.models.EvaluationScore", return_value=MagicMock()),
+            patch("app.salvage.runner.attempt_answer_repair") as mock_repair,
+            patch(
+                "app.salvage.runner.attempt_difficulty_reclassification"
+            ) as mock_reclass,
+            patch(
+                "app.salvage.runner.EvaluatedQuestion", return_value=mock_salvaged_eval
+            ),
+            patch("app.salvage.runner.EvaluationScore", return_value=MagicMock()),
         ):
             mock_repair.return_value = (repaired, "Fixed answer from A to B")
             mock_reclass.return_value = None
@@ -534,11 +538,14 @@ class TestRunSalvagePhase:
             return [], [rejected]
 
         with (
-            patch("run_generation.attempt_answer_repair", return_value=None),
+            patch("app.salvage.runner.attempt_answer_repair", return_value=None),
             patch(
-                "run_generation.attempt_difficulty_reclassification", return_value=None
+                "app.salvage.runner.attempt_difficulty_reclassification",
+                return_value=None,
             ),
-            patch("run_generation.attempt_regeneration_with_feedback", _async_regen),
+            patch(
+                "app.salvage.runner.attempt_regeneration_with_feedback", _async_regen
+            ),
         ):
             approved, rate = run_salvage_phase(
                 rejected_questions=[rejected],

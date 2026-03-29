@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from typing import Optional
 
 from app.data.models import (
@@ -31,8 +32,6 @@ def attempt_answer_repair(
     Returns:
         Tuple of (repaired_question, repair_reason) if repairable, None otherwise
     """
-    import re
-
     feedback = evaluated_question.evaluation.feedback
     if not feedback:
         return None
