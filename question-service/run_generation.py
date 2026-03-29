@@ -65,7 +65,13 @@ from gioe_libs.alerting.alerting import RunSummary  # noqa: E402
 from gioe_libs.structured_logging import setup_logging  # noqa: E402
 from gioe_libs.cron_runner import CronJob  # noqa: E402
 from app.reporting.run_summary import RunSummary as PipelineRunSummary  # noqa: E402
-from app.data.models import DifficultyLevel, QuestionType  # noqa: E402
+from app.data.models import (  # noqa: E402
+    DifficultyLevel,
+    EvaluatedQuestion,
+    EvaluationScore,
+    GeneratedQuestion,
+    QuestionType,
+)
 from app.reporting.reporter import RunReporter  # noqa: E402
 
 # Add repo root to path for libs.observability import
@@ -919,7 +925,12 @@ def _init_components(
     alert_manager: AlertManager,
     run_id: str,
     logger: logging.Logger,
-) -> tuple:
+) -> tuple[
+    QuestionGenerationPipeline,
+    QuestionJudge,
+    Optional[QuestionDatabase],
+    Optional[QuestionDeduplicator],
+]:
     """Initialize all pipeline components.
 
     Returns (pipeline, judge, db, deduplicator). Raises RuntimeError on
@@ -1038,7 +1049,7 @@ def _init_components(
 
 
 def run_inventory_analysis(
-    db: QuestionDatabase,
+    db: Optional[QuestionDatabase],
     healthy_threshold: int,
     warning_threshold: int,
     target_per_stratum: int,
@@ -1143,7 +1154,7 @@ def run_generation_phase(
     count: Optional[int],
     metrics: PipelineRunSummary,
     logger: logging.Logger,
-) -> tuple:
+) -> tuple[list[GeneratedQuestion], dict]:
     """Phase 1: Generate questions.
 
     Returns (generated_questions, statistics).
@@ -1258,7 +1269,7 @@ def run_judge_phase(
     use_async_judge: bool,
     metrics: PipelineRunSummary,
     logger: logging.Logger,
-) -> tuple:
+) -> tuple[list[EvaluatedQuestion], list[EvaluatedQuestion], float]:
     """Phase 2: Evaluate questions with the judge.
 
     Returns (approved_questions, rejected_questions, approval_rate).
@@ -1366,7 +1377,7 @@ def run_salvage_phase(
     judge: QuestionJudge,
     min_score: float,
     logger: logging.Logger,
-) -> tuple:
+) -> tuple[list[EvaluatedQuestion], float]:
     """Salvage phase: attempt to repair, reclassify, or regenerate rejected questions.
 
     Returns (updated_approved_questions, updated_approval_rate).
@@ -1433,11 +1444,6 @@ def run_salvage_phase(
             f"still rejected: {len(still_rejected)})"
         )
         for sq in salvaged_questions:
-            from app.data.models import (
-                EvaluatedQuestion,
-                EvaluationScore,
-            )  # noqa: PLC0415
-
             salvaged_eval = EvaluatedQuestion(
                 question=sq,
                 evaluation=EvaluationScore(
@@ -1471,11 +1477,11 @@ def run_salvage_phase(
 
 def run_dedup_phase(
     approved_questions: list,
-    db: QuestionDatabase,
-    deduplicator: QuestionDeduplicator,
+    db: Optional[QuestionDatabase],
+    deduplicator: Optional[QuestionDeduplicator],
     metrics: PipelineRunSummary,
     logger: logging.Logger,
-) -> list:
+) -> list[EvaluatedQuestion]:
     """Phase 3: Deduplicate approved questions against the database.
 
     Returns list of unique questions.
@@ -1593,7 +1599,7 @@ def run_dedup_phase(
 
 def run_insertion_phase(
     unique_questions: list,
-    db: QuestionDatabase,
+    db: Optional[QuestionDatabase],
     metrics: PipelineRunSummary,
     logger: logging.Logger,
 ) -> int:
