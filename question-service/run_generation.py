@@ -834,21 +834,9 @@ def main() -> int:
     )
 
     # Build alert manager (needed by CronJob and circuit breaker callback)
-    to_emails = []
-    if settings.alert_to_emails:
-        to_emails = [email.strip() for email in settings.alert_to_emails.split(",")]
-
     alert_manager = AlertManager(
-        email_enabled=settings.enable_email_alerts,
-        smtp_host=settings.smtp_host,
-        smtp_port=settings.smtp_port,
-        smtp_username=settings.smtp_username,
-        smtp_password=settings.smtp_password,
-        from_email=settings.alert_from_email,
-        to_emails=to_emails,
         alert_file_path=settings.alert_file_path,
         discord_webhook_url=settings.discord_webhook_url,
-        resend_api_key=settings.resend_api_key,
     )
 
     # Register circuit breaker open callback so Discord alerts fire when
@@ -913,8 +901,7 @@ def main() -> int:
             metrics.start_run()
 
             logger.info(
-                f"Alert manager initialized (email={'enabled' if settings.enable_email_alerts else 'disabled'}, "
-                f"discord={'enabled' if settings.discord_webhook_url else 'disabled'})"
+                f"Alert manager initialized (discord={'enabled' if settings.discord_webhook_url else 'disabled'})"
             )
 
             # Initialize run reporter
