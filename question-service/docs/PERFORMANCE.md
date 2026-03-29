@@ -168,7 +168,7 @@ For a typical 50-question run:
 | xAI | grok-4 | $2.00 | $10.00 (credits exhausted 2026-03-27; inactive) |
 | OpenAI | text-embedding-3-small | $0.02 | N/A |
 
-**Note:** Prices are estimates and may vary. Check provider documentation for current pricing.
+**Note:** Prices are estimates and may vary. Check provider documentation for current pricing. Google row uses gemini-2.5-pro (stable model with published pricing) as the cost baseline; the active generators also use gemini-3.1-pro-preview (preview pricing not publicly listed).
 
 ### Estimated Token Usage per Question
 
