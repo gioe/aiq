@@ -43,10 +43,20 @@ class InventoryConfig:
             with open(path) as f:
                 data = yaml.safe_load(f)
             thresholds = (data or {}).get("inventory", {}).get("thresholds", {})
+
+            def _int(key: str, default: int) -> int:
+                value = thresholds.get(key, default)
+                try:
+                    return int(value)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        f"inventory.thresholds.{key} must be an integer, got {value!r}"
+                    ) from exc
+
             return cls(
-                healthy_threshold=thresholds.get("healthy_threshold", 50),
-                warning_threshold=thresholds.get("warning_threshold", 20),
-                target_per_stratum=thresholds.get("target_per_stratum", 50),
+                healthy_threshold=_int("healthy_threshold", 50),
+                warning_threshold=_int("warning_threshold", 20),
+                target_per_stratum=_int("target_per_stratum", 50),
             )
         except Exception as e:
             logger.error(f"Failed to load inventory config from {config_path}: {e}")
