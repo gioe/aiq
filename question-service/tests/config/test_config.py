@@ -248,7 +248,7 @@ class TestSecretsIntegration:
         with patch.dict("os.environ", env_vars, clear=False):
             os.environ.pop("BACKEND_SERVICE_KEY", None)
             with pytest.raises(ValueError) as exc_info:
-                Settings()
+                Settings(_env_file=None)
             assert "BACKEND_SERVICE_KEY" in str(exc_info.value)
 
 
