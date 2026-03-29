@@ -385,7 +385,7 @@ class TestRunJudgePhase:
         eq.question.difficulty_level = MagicMock()
         return eq
 
-    @patch("run_generation.observability")
+    @patch("app.evaluation.runner.observability")
     def test_sync_separates_approved_and_rejected(self, mock_obs):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
         from run_generation import run_judge_phase
@@ -415,7 +415,7 @@ class TestRunJudgePhase:
         assert len(rejected) == 1
         assert rate == pytest.approx(50.0)
 
-    @patch("run_generation.observability")
+    @patch("app.evaluation.runner.observability")
     def test_sync_skips_question_on_evaluation_error(self, mock_obs):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
         from run_generation import run_judge_phase
@@ -447,7 +447,7 @@ class TestRunJudgePhase:
         assert len(rejected) == 0
         assert rate == pytest.approx(50.0)  # 1 approved / 2 generated
 
-    @patch("run_generation.observability")
+    @patch("app.evaluation.runner.observability")
     def test_async_judge_calls_batch_method(self, mock_obs):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
         from run_generation import run_judge_phase
