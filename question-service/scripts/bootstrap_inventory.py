@@ -2416,28 +2416,11 @@ async def main() -> int:
     log_dir = project_root / "logs"
     event_logger = EventLogger(log_dir)
 
-    # Create alert manager if configured
-    alert_manager: Optional[AlertManager] = None
-    if settings.enable_email_alerts:
-        # Parse comma-separated email list
-        to_emails = (
-            [e.strip() for e in settings.alert_to_emails.split(",")]
-            if settings.alert_to_emails
-            else []
-        )
-        alert_manager = AlertManager(
-            email_enabled=settings.enable_email_alerts,
-            smtp_host=settings.smtp_host,
-            smtp_port=settings.smtp_port,
-            smtp_username=settings.smtp_username,
-            smtp_password=settings.smtp_password,
-            from_email=settings.alert_from_email,
-            to_emails=to_emails,
-            alert_file_path=str(log_dir / "bootstrap_alerts.log"),
-        )
-        logger.info("AlertManager configured for email alerts")
-    else:
-        logger.info("AlertManager not configured (email alerts disabled)")
+    # Create alert manager
+    alert_manager = AlertManager(
+        alert_file_path=str(log_dir / "bootstrap_alerts.log"),
+        discord_webhook_url=settings.discord_webhook_url,
+    )
 
     # Create bootstrap alerter
     alerter = BootstrapAlerter(
