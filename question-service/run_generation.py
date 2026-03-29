@@ -52,6 +52,7 @@ from app.inventory.inventory_config import (  # noqa: E402
     DEFAULT_TARGET_QUESTIONS_PER_STRATUM,
     DEFAULT_WARNING_THRESHOLD,
 )
+from app.inventory.inventory_analyzer import GenerationPlan  # noqa: E402
 from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
 )
@@ -1132,7 +1133,7 @@ def run_inventory_analysis(
 
 def run_generation_phase(
     pipeline: QuestionGenerationPipeline,
-    generation_plan,
+    generation_plan: Optional[GenerationPlan],
     question_types: Optional[list],
     difficulty_distribution: Optional[dict],
     use_async: bool,
@@ -1323,7 +1324,11 @@ def run_judge_phase(
                 metric_type="histogram",
             )
 
-        approval_rate = len(approved_questions) / len(generated_questions) * 100
+        approval_rate = (
+            len(approved_questions) / len(generated_questions) * 100
+            if generated_questions
+            else 0.0
+        )
 
         judge_span.set_attribute("approved_count", len(approved_questions))
         judge_span.set_attribute("rejected_count", len(rejected_questions))
@@ -1419,6 +1424,7 @@ def run_salvage_phase(
             logger.warning(f"  Regeneration phase failed: {e}")
 
     total_salvaged = len(salvaged_questions) + regenerated_count
+    new_approved = list(approved_questions)
     if total_salvaged > 0:
         logger.info(
             f"\nSalvaged: {total_salvaged} questions "
@@ -1446,17 +1452,21 @@ def run_salvage_phase(
                 judge_model="salvage",
                 approved=True,
             )
-            approved_questions.append(salvaged_eval)
+            new_approved.append(salvaged_eval)
 
-    approval_rate = len(approved_questions) / len(generated_questions) * 100
+    approval_rate = (
+        len(new_approved) / len(generated_questions) * 100
+        if generated_questions
+        else 0.0
+    )
     logger.info(
-        f"Updated approval: {len(approved_questions)}/{len(generated_questions)} "
+        f"Updated approval: {len(new_approved)}/{len(generated_questions)} "
         f"({approval_rate:.1f}%)"
     )
     if total_salvaged == 0:
         logger.info("No questions could be salvaged")
 
-    return approved_questions, approval_rate
+    return new_approved, approval_rate
 
 
 def run_dedup_phase(

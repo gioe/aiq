@@ -732,3 +732,54 @@ class TestRunInsertionPhase:
         )
 
         assert inserted == 0
+
+
+# ---------------------------------------------------------------------------
+# _build_run_stats
+# ---------------------------------------------------------------------------
+
+
+class TestBuildRunStats:
+    def test_basic_fields(self):
+        from run_generation import _build_run_stats
+
+        stats = {"target_questions": 10, "questions_generated": 8, "duration_seconds": 5.0}
+        summary = {
+            "database": {"inserted_by_type": {"math": 3}},
+            "generation": {"by_difficulty": {"easy": 4}},
+            "evaluation": {"rejected": 2},
+            "deduplication": {"duplicates_found": 1},
+        }
+        result = _build_run_stats(stats, inserted_count=7, approval_rate=87.5, summary=summary)
+
+        assert result["questions_generated"] == 8
+        assert result["questions_inserted"] == 7
+        assert result["approval_rate"] == pytest.approx(87.5)
+        assert result["questions_requested"] == 10
+        assert result["generation_loss"] == 2
+        assert result["generation_loss_pct"] == pytest.approx(20.0)
+        assert result["duration_seconds"] == pytest.approx(5.0)
+        assert result["by_type"] == {"math": 3}
+        assert result["by_difficulty"] == {"easy": 4}
+        assert result["questions_rejected"] == 2
+        assert result["duplicates_found"] == 1
+
+    def test_zero_requested_avoids_division_by_zero(self):
+        from run_generation import _build_run_stats
+
+        stats = {"target_questions": 0, "questions_generated": 0}
+        result = _build_run_stats(stats, inserted_count=0, approval_rate=0.0, summary={})
+
+        assert result["generation_loss_pct"] == pytest.approx(0.0)
+        assert result["generation_loss"] == 0
+
+    def test_missing_stats_keys_default_to_zero(self):
+        from run_generation import _build_run_stats
+
+        result = _build_run_stats({}, inserted_count=0, approval_rate=0.0, summary={})
+
+        assert result["questions_generated"] == 0
+        assert result["questions_requested"] == 0
+        assert result["duration_seconds"] == 0
+        assert result["by_type"] == {}
+        assert result["by_difficulty"] == {}
