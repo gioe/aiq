@@ -573,11 +573,11 @@ class TestRunDedupPhase:
         eq.question.question_text = f"What is {difficulty}?"
         return eq
 
-    @patch("run_generation.observability")
+    @patch("app.data.dedup_runner.observability")
     def test_removes_duplicates(self, mock_obs):
         from app.data.deduplicator import DuplicateCheckResult
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
-        from run_generation import run_dedup_phase
+        from app.data.dedup_runner import run_dedup_phase
 
         mock_obs.start_span.return_value = self._make_mock_span()
 
@@ -612,10 +612,10 @@ class TestRunDedupPhase:
         assert len(unique) == 1
         assert unique[0] is q1
 
-    @patch("run_generation.observability")
+    @patch("app.data.dedup_runner.observability")
     def test_fail_open_on_dedup_error(self, mock_obs):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
-        from run_generation import run_dedup_phase
+        from app.data.dedup_runner import run_dedup_phase
 
         mock_obs.start_span.return_value = self._make_mock_span()
 

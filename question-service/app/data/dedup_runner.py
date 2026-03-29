@@ -2,6 +2,7 @@
 
 import logging
 import time
+from difflib import SequenceMatcher
 from typing import Optional
 
 from gioe_libs.observability import observability
@@ -28,8 +29,6 @@ def dedupe_within_batch(
     Returns:
         Filtered list with duplicates removed (keeps first occurrence)
     """
-    from difflib import SequenceMatcher
-
     if len(questions) <= 1:
         return questions
 
@@ -39,7 +38,6 @@ def dedupe_within_batch(
     for question in questions:
         question_text = question.question_text.lower().strip()
 
-        # Check similarity against all previously seen questions
         is_duplicate = False
         for seen_text in seen_texts:
             similarity = SequenceMatcher(None, question_text, seen_text).ratio()
