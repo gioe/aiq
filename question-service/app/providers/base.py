@@ -1,7 +1,6 @@
 """Base class for LLM providers."""
 
 import asyncio
-import json
 import logging
 import random
 import threading
@@ -13,7 +12,6 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, TypeVar
 from app.config.config import settings
 from app.observability.cost_tracking import (
     CompletionResult,
-    TokenUsage,
     get_cost_tracker,
 )
 from app.infrastructure.error_classifier import ClassifiedError, ErrorClassifier
@@ -735,8 +733,9 @@ class BaseLLMProvider(ABC):
         """
         Internal method to generate completion with token usage.
 
-        Subclasses should override this to extract actual token usage from API responses.
-        Default implementation falls back to generate_completion with estimated tokens.
+        Subclasses must override this method. There is no default fallback — calling
+        generate_completion from here would cause infinite recursion since generate_completion
+        now delegates back to _generate_completion_internal.
 
         Args:
             prompt: The prompt to send to the model
@@ -746,29 +745,11 @@ class BaseLLMProvider(ABC):
             **kwargs: Additional parameters
 
         Returns:
-            CompletionResult with content and token usage (may be estimated)
+            CompletionResult with content and token usage
         """
-        # Validate model on first use to provide early warning for unrecognized models
-        model = model_override or self.model
-        self._validate_model_once(model)
-
-        content = self.generate_completion(
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            model_override=model_override,
-            **kwargs,
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must override _generate_completion_internal"
         )
-
-        # Estimate token usage if not provided by subclass
-        token_usage = TokenUsage(
-            input_tokens=self.count_tokens(prompt),
-            output_tokens=self.count_tokens(content),
-            model=model,
-            provider=self.get_provider_name(),
-        )
-
-        return CompletionResult(content=content, token_usage=token_usage)
 
     def _generate_structured_completion_internal(
         self,
@@ -782,8 +763,9 @@ class BaseLLMProvider(ABC):
         """
         Internal method to generate structured completion with token usage.
 
-        Subclasses should override this to extract actual token usage from API responses.
-        Default implementation falls back to generate_structured_completion with estimated tokens.
+        Subclasses must override this method. There is no default fallback — calling
+        generate_structured_completion from here would cause infinite recursion since
+        generate_structured_completion now delegates back to this method.
 
         Args:
             prompt: The prompt to send to the model
@@ -794,32 +776,11 @@ class BaseLLMProvider(ABC):
             **kwargs: Additional parameters
 
         Returns:
-            CompletionResult with parsed JSON content and token usage (may be estimated)
+            CompletionResult with parsed JSON content and token usage
         """
-        # Validate model on first use to provide early warning for unrecognized models
-        model = model_override or self.model
-        self._validate_model_once(model)
-
-        content = self.generate_structured_completion(
-            prompt=prompt,
-            response_format=response_format,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            model_override=model_override,
-            **kwargs,
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must override _generate_structured_completion_internal"
         )
-
-        # Estimate token usage if not provided by subclass
-        # For structured completion, the prompt includes the schema
-        full_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
-        token_usage = TokenUsage(
-            input_tokens=self.count_tokens(full_prompt),
-            output_tokens=self.count_tokens(json.dumps(content)),
-            model=model,
-            provider=self.get_provider_name(),
-        )
-
-        return CompletionResult(content=content, token_usage=token_usage)
 
     async def _generate_completion_internal_async(
         self,
@@ -832,8 +793,9 @@ class BaseLLMProvider(ABC):
         """
         Internal async method to generate completion with token usage.
 
-        Subclasses should override this to extract actual token usage from API responses.
-        Default implementation falls back to generate_completion_async with estimated tokens.
+        Subclasses must override this method. There is no default fallback — calling
+        generate_completion_async from here would cause infinite recursion since
+        generate_completion_async now delegates back to this method.
 
         Args:
             prompt: The prompt to send to the model
@@ -843,29 +805,11 @@ class BaseLLMProvider(ABC):
             **kwargs: Additional parameters
 
         Returns:
-            CompletionResult with content and token usage (may be estimated)
+            CompletionResult with content and token usage
         """
-        # Validate model on first use to provide early warning for unrecognized models
-        model = model_override or self.model
-        self._validate_model_once(model)
-
-        content = await self.generate_completion_async(
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            model_override=model_override,
-            **kwargs,
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must override _generate_completion_internal_async"
         )
-
-        # Estimate token usage if not provided by subclass
-        token_usage = TokenUsage(
-            input_tokens=self.count_tokens(prompt),
-            output_tokens=self.count_tokens(content),
-            model=model,
-            provider=self.get_provider_name(),
-        )
-
-        return CompletionResult(content=content, token_usage=token_usage)
 
     async def _generate_structured_completion_internal_async(
         self,
@@ -879,8 +823,9 @@ class BaseLLMProvider(ABC):
         """
         Internal async method to generate structured completion with token usage.
 
-        Subclasses should override this to extract actual token usage from API responses.
-        Default implementation falls back to generate_structured_completion_async with estimated tokens.
+        Subclasses must override this method. There is no default fallback — calling
+        generate_structured_completion_async from here would cause infinite recursion since
+        generate_structured_completion_async now delegates back to this method.
 
         Args:
             prompt: The prompt to send to the model
@@ -891,32 +836,11 @@ class BaseLLMProvider(ABC):
             **kwargs: Additional parameters
 
         Returns:
-            CompletionResult with parsed JSON content and token usage (may be estimated)
+            CompletionResult with parsed JSON content and token usage
         """
-        # Validate model on first use to provide early warning for unrecognized models
-        model = model_override or self.model
-        self._validate_model_once(model)
-
-        content = await self.generate_structured_completion_async(
-            prompt=prompt,
-            response_format=response_format,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            model_override=model_override,
-            **kwargs,
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must override _generate_structured_completion_internal_async"
         )
-
-        # Estimate token usage if not provided by subclass
-        # For structured completion, the prompt includes the schema
-        full_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
-        token_usage = TokenUsage(
-            input_tokens=self.count_tokens(full_prompt),
-            output_tokens=self.count_tokens(json.dumps(content)),
-            model=model,
-            provider=self.get_provider_name(),
-        )
-
-        return CompletionResult(content=content, token_usage=token_usage)
 
     def get_provider_name(self) -> str:
         """
