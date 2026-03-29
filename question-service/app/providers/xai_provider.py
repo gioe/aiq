@@ -33,8 +33,7 @@ class XAIProvider(BaseLLMProvider):
             api_key: xAI API key (starts with "xai-")
             model: Model identifier (e.g., "grok-4", "grok-3")
         """
-        self.api_key = api_key
-        self.model = model
+        super().__init__(api_key, model)
         self.provider_name = "xai"
 
         # Initialize OpenAI client with xAI base URL

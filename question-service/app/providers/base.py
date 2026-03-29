@@ -431,6 +431,7 @@ class BaseLLMProvider(ABC):
         self.api_key = api_key
         self.model = model
         self._model_cache = ModelCache()
+        self._validated_models: set[str] = set()
 
     @abstractmethod
     def generate_completion(
@@ -1120,10 +1121,6 @@ class BaseLLMProvider(ABC):
         Args:
             model: The model identifier to validate
         """
-        # Lazy initialization for providers that don't call super().__init__()
-        if not hasattr(self, "_validated_models"):
-            object.__setattr__(self, "_validated_models", set())
-
         if model not in self._validated_models:
             self.validate_model(model)
             self._validated_models.add(model)
