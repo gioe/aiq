@@ -87,7 +87,7 @@ class XAIProvider(BaseLLMProvider):
                 return response.choices[0].message.content
 
             except Exception as e:
-                logger.debug(f"xAI API call failed: {str(e)}")
+                logger.warning(f"xAI API call failed: {str(e)}")
                 raise self._handle_api_error(e)
 
         return self._execute_with_retry(_make_request)
@@ -149,11 +149,11 @@ class XAIProvider(BaseLLMProvider):
                 return json.loads(content)
 
             except json.JSONDecodeError as e:
-                logger.debug(f"Failed to parse JSON response: {str(e)}")
-                logger.debug(f"Raw response: {content}")
+                logger.warning(f"Failed to parse JSON response: {str(e)}")
+                logger.warning(f"Raw response: {content}")
                 raise Exception(f"Failed to parse JSON response: {str(e)}") from e
             except Exception as e:
-                logger.debug(f"xAI API call failed: {str(e)}")
+                logger.warning(f"xAI API call failed: {str(e)}")
                 raise self._handle_api_error(e)
 
         return self._execute_with_retry(_make_request)
@@ -212,7 +212,7 @@ class XAIProvider(BaseLLMProvider):
                 return response.choices[0].message.content
 
             except Exception as e:
-                logger.error(f"xAI API async error: {str(e)}")
+                logger.warning(f"xAI API async error: {str(e)}")
                 raise self._handle_api_error(e)
 
         return await self._execute_with_retry_async(_make_request)
@@ -274,11 +274,11 @@ class XAIProvider(BaseLLMProvider):
                 return json.loads(content)
 
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {str(e)}")
-                logger.error(f"Raw response: {content}")
+                logger.warning(f"Failed to parse JSON response: {str(e)}")
+                logger.warning(f"Raw response: {content}")
                 raise Exception(f"Failed to parse JSON response: {str(e)}") from e
             except Exception as e:
-                logger.error(f"xAI API async error: {str(e)}")
+                logger.warning(f"xAI API async error: {str(e)}")
                 raise self._handle_api_error(e)
 
         return await self._execute_with_retry_async(_make_request)
@@ -333,7 +333,7 @@ class XAIProvider(BaseLLMProvider):
                 return CompletionResult(content=content, token_usage=token_usage)
 
             except Exception as e:
-                logger.debug(f"xAI API call failed: {str(e)}")
+                logger.warning(f"xAI API call failed: {str(e)}")
                 raise self._handle_api_error(e)
 
         return self._execute_with_retry(_make_request)
@@ -404,11 +404,11 @@ class XAIProvider(BaseLLMProvider):
                 return CompletionResult(content=content, token_usage=token_usage)
 
             except json.JSONDecodeError as e:
-                logger.debug(f"Failed to parse JSON response: {str(e)}")
-                logger.debug(f"Raw response: {content_str}")
+                logger.warning(f"Failed to parse JSON response: {str(e)}")
+                logger.warning(f"Raw response: {content_str}")
                 raise Exception(f"Failed to parse JSON response: {str(e)}") from e
             except Exception as e:
-                logger.debug(f"xAI API call failed: {str(e)}")
+                logger.warning(f"xAI API call failed: {str(e)}")
                 raise self._handle_api_error(e)
 
         return self._execute_with_retry(_make_request)
@@ -461,7 +461,7 @@ class XAIProvider(BaseLLMProvider):
                 return CompletionResult(content=content, token_usage=token_usage)
 
             except Exception as e:
-                logger.error(f"xAI API async error: {str(e)}")
+                logger.warning(f"xAI API async error: {str(e)}")
                 raise self._handle_api_error(e)
 
         return await self._execute_with_retry_async(_make_request)
@@ -532,11 +532,11 @@ class XAIProvider(BaseLLMProvider):
                 return CompletionResult(content=content, token_usage=token_usage)
 
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {str(e)}")
-                logger.error(f"Raw response: {content_str}")
+                logger.warning(f"Failed to parse JSON response: {str(e)}")
+                logger.warning(f"Raw response: {content_str}")
                 raise Exception(f"Failed to parse JSON response: {str(e)}") from e
             except Exception as e:
-                logger.error(f"xAI API async error: {str(e)}")
+                logger.warning(f"xAI API async error: {str(e)}")
                 raise self._handle_api_error(e)
 
         return await self._execute_with_retry_async(_make_request)
