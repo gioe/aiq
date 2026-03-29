@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Standalone question generation script.
+"""Thin pipeline orchestrator for question generation.
 
-This script runs the complete question generation pipeline including:
-- Question generation across multiple LLM providers
-- Judge evaluation of question quality
-- Deduplication checking against existing questions
-- Database insertion of approved questions
-- Metrics tracking and logging
+Coordinates the five generation phases by delegating to dedicated phase modules:
+- app.generation.runner  — Phase 1: question generation
+- app.evaluation.runner  — Phase 2: judge evaluation
+- app.salvage.runner     — Salvage: recovering rejected questions
+- app.data.dedup_runner  — Phase 3: deduplication
+- app.data.insertion_runner — Phase 4: database insertion
 
 Can be invoked by any scheduler (cron, cloud scheduler, manual).
 
