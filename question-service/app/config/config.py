@@ -58,21 +58,13 @@ class Settings(BaseSettings):
     generator_config_path: str = "./config/generators.yaml"
 
     # Alert Configuration
-    enable_email_alerts: bool = False
     generation_loss_threshold_pct: float = (
         20.0  # Alert when generation loss exceeds this %
     )
-    smtp_host: Optional[str] = None
-    smtp_port: int = 587
-    smtp_username: Optional[str] = None
-    smtp_password: Optional[str] = None  # Loaded via secrets management
-    alert_from_email: Optional[str] = None
-    alert_to_emails: Optional[str] = None  # Comma-separated list
     alert_file_path: str = "./logs/alerts.log"
     discord_webhook_url: Optional[str] = (
         None  # Discord webhook for circuit breaker / quota alerts
     )
-    resend_api_key: Optional[str] = None  # Resend HTTP API key (alternative to SMTP)
 
     # Run Reporter Configuration
     enable_run_reporting: bool = True  # Enable/disable reporting to backend API
@@ -186,12 +178,8 @@ class Settings(BaseSettings):
             self.xai_api_key = secret_value
 
         # Load other sensitive values
-        if secret_value := get_secret("smtp_password"):
-            self.smtp_password = secret_value
         if secret_value := get_secret("backend_service_key"):
             self.backend_service_key = secret_value
-        if secret_value := get_secret("resend_api_key"):
-            self.resend_api_key = secret_value
 
         # Validate that at least one LLM API key is configured
         llm_keys_configured = [
@@ -219,42 +207,15 @@ class Settings(BaseSettings):
 
         logger.info(f"Configured LLM providers: {', '.join(available_providers)}")
 
-        # Validate email alert configuration
-        if self.enable_email_alerts:
-            missing = []
-            if not self.smtp_password:
-                missing.append("SMTP_PASSWORD")
-            if not self.smtp_username:
-                missing.append("SMTP_USERNAME")
-            if not self.alert_from_email:
-                missing.append("ALERT_FROM_EMAIL")
-            if not self.alert_to_emails:
-                missing.append("ALERT_TO_EMAILS")
-            if missing:
-                logger.warning(
-                    "ENABLE_EMAIL_ALERTS=true but required variable(s) not set: %s. "
-                    "Auto-disabling email alerts to prevent startup crash.",
-                    ", ".join(missing),
-                )
-                self.enable_email_alerts = False
-        if not self.enable_email_alerts and self.env not in ("development", "test"):
-            has_alt_channel = bool(self.resend_api_key or self.discord_webhook_url)
-            if has_alt_channel:
-                channels = []
-                if self.resend_api_key:
-                    channels.append("Resend")
-                if self.discord_webhook_url:
-                    channels.append("Discord")
-                logger.info(
-                    "SMTP email alerts disabled; notifications will be sent via: %s",
-                    ", ".join(channels),
-                )
+        # Warn if no notification channel is configured in non-development environments
+        if self.env not in ("development", "test"):
+            if self.discord_webhook_url:
+                logger.info("Notifications will be sent via: Discord")
             else:
                 logger.warning(
                     "No notification channel configured in env=%s. "
-                    "SMTP is disabled and neither RESEND_API_KEY nor DISCORD_WEBHOOK_URL is set. "
-                    "Run completion notifications will not be sent. "
-                    "Note: Railway blocks outbound SMTP — use RESEND_API_KEY or DISCORD_WEBHOOK_URL instead.",
+                    "DISCORD_WEBHOOK_URL is not set. "
+                    "Run completion notifications will not be sent.",
                     self.env,
                 )
 
