@@ -62,6 +62,7 @@ repos:
       - id: black
         name: black (question-service)
         files: ^question-service/.*\.py$
+        args: ['--target-version', 'py311']
 
   # Flake8 linting (question-service only)
   - repo: https://github.com/pycqa/flake8
