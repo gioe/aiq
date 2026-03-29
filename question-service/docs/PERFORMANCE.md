@@ -49,7 +49,7 @@ Questions are generated across multiple LLM providers in round-robin distributio
 
 | Provider | Model | Purpose |
 |----------|-------|---------|
-| OpenAI | gpt-4-turbo-preview | Question generation |
+| OpenAI | gpt-4o | Question generation |
 | Anthropic | claude-3-5-sonnet-20241022 | Question generation |
 | Google | gemini-1.5-pro | Question generation |
 | xAI | grok-4 | Question generation (credits exhausted 2026-03-27; inactive) |
@@ -112,7 +112,7 @@ Based on observed API response times and rate limits:
 
 | Provider | Model | Est. TPM* | Questions/Min | Notes |
 |----------|-------|-----------|---------------|-------|
-| OpenAI | gpt-4-turbo-preview | 30,000 | ~15-20 | Higher rate limits on paid tiers |
+| OpenAI | gpt-4o | 30,000 | ~15-20 | Higher rate limits on paid tiers |
 | Anthropic | claude-3-5-sonnet | 25,000 | ~12-18 | 200K context window |
 | Google | gemini-1.5-pro | 32,000 | ~15-20 | Generous free tier |
 | xAI | grok-4 | 20,000 | ~10-15 | Credits exhausted 2026-03-27; inactive |
@@ -125,7 +125,7 @@ Average response times for structured completions:
 
 | Provider | Model | P50 Latency | P95 Latency | P99 Latency |
 |----------|-------|-------------|-------------|-------------|
-| OpenAI | gpt-4-turbo-preview | 3-5s | 8-12s | 15-20s |
+| OpenAI | gpt-4o | 3-5s | 8-12s | 15-20s |
 | Anthropic | claude-3-5-sonnet | 4-6s | 10-15s | 20-25s |
 | Google | gemini-1.5-pro | 3-5s | 8-12s | 15-20s |
 | xAI | grok-4 | 4-7s | 12-18s | 25-30s |
@@ -162,7 +162,7 @@ For a typical 50-question run:
 
 | Provider | Model | Input ($/1M tokens) | Output ($/1M tokens) |
 |----------|-------|---------------------|----------------------|
-| OpenAI | gpt-4-turbo-preview | $10.00 | $30.00 |
+| OpenAI | gpt-4o | $10.00 | $30.00 |
 | Anthropic | claude-3-5-sonnet | $3.00 | $15.00 |
 | Google | gemini-1.5-pro | $1.25 | $5.00 |
 | xAI | grok-4 | $2.00 | $10.00 (credits exhausted 2026-03-27; inactive) |
