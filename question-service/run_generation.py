@@ -47,6 +47,9 @@ from gioe_libs.alerting.alerting import (  # noqa: E402
 )
 from app.reporting.alerting_adapter import to_run_summary  # noqa: E402
 from app.config.config import settings  # noqa: E402
+from app.inventory.inventory_config import InventoryConfig  # noqa: E402
+
+_inventory_config = InventoryConfig.from_yaml()
 from app.infrastructure.circuit_breaker import (  # noqa: E402
     get_circuit_breaker_registry,
 )
@@ -750,22 +753,25 @@ Examples:
     parser.add_argument(
         "--target-per-stratum",
         type=int,
-        default=50,
-        help="Target number of questions per stratum when using --auto-balance (default: 50)",
+        default=_inventory_config.target_per_stratum,
+        help="Target number of questions per stratum when using --auto-balance "
+        f"(default: {_inventory_config.target_per_stratum})",
     )
 
     parser.add_argument(
         "--healthy-threshold",
         type=int,
-        default=50,
-        help="Minimum count for healthy inventory status (default: 50)",
+        default=_inventory_config.healthy_threshold,
+        help=f"Minimum count for healthy inventory status "
+        f"(default: {_inventory_config.healthy_threshold})",
     )
 
     parser.add_argument(
         "--warning-threshold",
         type=int,
-        default=20,
-        help="Minimum count for warning inventory status (default: 20)",
+        default=_inventory_config.warning_threshold,
+        help=f"Minimum count for warning inventory status "
+        f"(default: {_inventory_config.warning_threshold})",
     )
 
     parser.add_argument(
