@@ -51,7 +51,7 @@ Questions are generated across multiple LLM providers in round-robin distributio
 |----------|-------|---------|
 | OpenAI | gpt-4o | Question generation |
 | Anthropic | claude-3-5-sonnet-20241022 | Question generation |
-| Google | gemini-1.5-pro | Question generation |
+| Google | gemini-3.1-pro-preview | Question generation |
 | xAI | grok-4 | Question generation (credits exhausted 2026-03-27; inactive) |
 
 ### Stage 2: Evaluation (Judge)
@@ -114,7 +114,7 @@ Based on observed API response times and rate limits:
 |----------|-------|-----------|---------------|-------|
 | OpenAI | gpt-4o | 30,000 | ~15-20 | Higher rate limits on paid tiers |
 | Anthropic | claude-3-5-sonnet | 25,000 | ~12-18 | 200K context window |
-| Google | gemini-1.5-pro | 32,000 | ~15-20 | Generous free tier |
+| Google | gemini-2.5-pro | 32,000 | ~15-20 | Generous free tier |
 | xAI | grok-4 | 20,000 | ~10-15 | Credits exhausted 2026-03-27; inactive |
 
 *TPM = Tokens Per Minute (input + output)
@@ -127,7 +127,7 @@ Average response times for structured completions:
 |----------|-------|-------------|-------------|-------------|
 | OpenAI | gpt-4o | 3-5s | 8-12s | 15-20s |
 | Anthropic | claude-3-5-sonnet | 4-6s | 10-15s | 20-25s |
-| Google | gemini-1.5-pro | 3-5s | 8-12s | 15-20s |
+| Google | gemini-2.5-pro | 3-5s | 8-12s | 15-20s |
 | xAI | grok-4 | 4-7s | 12-18s | 25-30s |
 
 **Note:** Latencies vary significantly based on prompt complexity, output length, and API load. xAI/grok-4 row is historical — credits exhausted 2026-03-27, no longer active.
@@ -158,13 +158,13 @@ For a typical 50-question run:
 
 ## Cost Analysis
 
-### Provider Pricing (as of January 2026)
+### Provider Pricing (as of March 2026)
 
 | Provider | Model | Input ($/1M tokens) | Output ($/1M tokens) |
 |----------|-------|---------------------|----------------------|
-| OpenAI | gpt-4o | $10.00 | $30.00 |
+| OpenAI | gpt-4o | $2.50 | $10.00 |
 | Anthropic | claude-3-5-sonnet | $3.00 | $15.00 |
-| Google | gemini-1.5-pro | $1.25 | $5.00 |
+| Google | gemini-2.5-pro | $1.25 | $10.00 |
 | xAI | grok-4 | $2.00 | $10.00 (credits exhausted 2026-03-27; inactive) |
 | OpenAI | text-embedding-3-small | $0.02 | N/A |
 
@@ -184,7 +184,7 @@ Assuming 50% approval rate and 20% deduplication rate:
 
 | Provider | Generation Cost | Evaluation Cost | Total per Question |
 |----------|-----------------|-----------------|-------------------|
-| OpenAI | ~$0.035 | ~$0.017 | ~$0.052 |
+| OpenAI | ~$0.011 | ~$0.005 | ~$0.016 |
 | Anthropic | ~$0.017 | ~$0.007 | ~$0.024 |
 | Google | ~$0.008 | ~$0.004 | ~$0.012 |
 | xAI | ~$0.012 | ~$0.005 | ~$0.017 |
@@ -346,5 +346,5 @@ python -m app.benchmark \
 
 ---
 
-*Last updated: 2026-01-24*
-*Document version: 1.1*
+*Last updated: 2026-03-29*
+*Document version: 1.2*
