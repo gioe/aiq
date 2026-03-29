@@ -1,0 +1,16 @@
+# Inventory Configuration for Question Service
+# Thresholds for inventory health assessment and generation targeting.
+# Adjust these values per-environment without a code change.
+
+version: "1.0"
+
+inventory:
+  thresholds:
+    # Questions per stratum considered healthy
+    healthy_threshold: 50
+
+    # Below this count the stratum is critical (needs immediate generation)
+    warning_threshold: 20
+
+    # Target inventory level per stratum used by the auto-balance algorithm
+    target_per_stratum: 50
