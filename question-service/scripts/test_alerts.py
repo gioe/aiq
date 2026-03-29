@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test script for the alerting system.
 
-This script sends a test alert to verify that email and file alerts are working correctly.
+This script sends a test alert to verify that Discord and file alerts are working correctly.
 """
 
 import sys
@@ -25,30 +25,15 @@ def main():
     print("Testing Alert System")
     print("=" * 80)
 
-    # Parse email list
-    to_emails = []
-    if settings.alert_to_emails:
-        to_emails = [email.strip() for email in settings.alert_to_emails.split(",")]
-
     # Initialize alert manager
     print(
-        f"\nEmail alerts: {'ENABLED' if settings.enable_email_alerts else 'DISABLED'}"
+        f"\nDiscord alerts: {'ENABLED' if settings.discord_webhook_url else 'DISABLED'}"
     )
-    if settings.enable_email_alerts:
-        print(f"SMTP Host: {settings.smtp_host}:{settings.smtp_port}")
-        print(f"From: {settings.alert_from_email}")
-        print(f"To: {to_emails}")
     print(f"Alert file: {settings.alert_file_path}")
 
     alert_manager = AlertManager(
-        email_enabled=settings.enable_email_alerts,
-        smtp_host=settings.smtp_host,
-        smtp_port=settings.smtp_port,
-        smtp_username=settings.smtp_username,
-        smtp_password=settings.smtp_password,
-        from_email=settings.alert_from_email,
-        to_emails=to_emails,
         alert_file_path=settings.alert_file_path,
+        discord_webhook_url=settings.discord_webhook_url,
     )
 
     print("\nCreating test billing error...")
@@ -81,18 +66,16 @@ def main():
     if success:
         print("✓ Test alert sent successfully!")
         print("\nWhat to check:")
-        if settings.enable_email_alerts:
-            print(f"  1. Check your email inbox at: {', '.join(to_emails)}")
-            print("  2. Check spam folder if not in inbox")
-        print(f"  3. Check alert file at: {settings.alert_file_path}")
+        if settings.discord_webhook_url:
+            print("  1. Check your Discord channel for the alert message")
+        print(f"  2. Check alert file at: {settings.alert_file_path}")
         print("\nIf you received the alert, the system is working correctly!")
     else:
         print("✗ Test alert failed to send!")
         print("\nTroubleshooting:")
-        print("  1. Check your SMTP credentials in .env")
-        print("  2. Verify firewall allows outbound SMTP on port 587")
-        print("  3. If using Gmail, ensure you're using an App Password")
-        print("  4. Check the logs for error details")
+        print("  1. Check DISCORD_WEBHOOK_URL is set correctly in .env")
+        print("  2. Verify the webhook URL is valid and the channel exists")
+        print("  3. Check the logs for error details")
 
     print("=" * 80)
 

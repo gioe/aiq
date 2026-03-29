@@ -31,50 +31,7 @@ class TestAlertManager:
         """Test AlertManager initializes correctly with defaults."""
         manager = AlertManager()
 
-        assert manager.email_enabled is False
-        assert manager.smtp_host is None
-        assert manager.smtp_port == 587
-        assert manager.to_emails == []
         assert manager.alerts_sent == []
-
-    def test_initialization_with_email_config(self):
-        """Test AlertManager initializes with email configuration."""
-        manager = AlertManager(
-            email_enabled=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_username="user@example.com",
-            smtp_password="test-password-not-real",  # pragma: allowlist secret
-            from_email="alerts@example.com",
-            to_emails=["recipient@example.com"],
-        )
-
-        assert manager.email_enabled is True
-        assert manager.smtp_host == "smtp.example.com"
-        assert manager.to_emails == ["recipient@example.com"]
-
-    def test_email_disabled_without_full_config(self):
-        """Test email is disabled when config is incomplete."""
-        manager = AlertManager(
-            email_enabled=True,
-            smtp_host="smtp.example.com",
-            # Missing username, password, from_email
-        )
-
-        assert manager.email_enabled is False
-
-    def test_email_disabled_without_recipients(self):
-        """Test email is disabled when no recipients configured."""
-        manager = AlertManager(
-            email_enabled=True,
-            smtp_host="smtp.example.com",
-            smtp_username="user@example.com",
-            smtp_password="test-pass-fake",  # pragma: allowlist secret
-            from_email="alerts@example.com",
-            to_emails=[],  # No recipients
-        )
-
-        assert manager.email_enabled is False
 
     def test_send_alert_to_file(self):
         """Test alert is written to file when configured."""
@@ -523,82 +480,14 @@ class TestResourceMonitorInventory:
 class TestSendNotification:
     """Tests for AlertManager.send_notification()."""
 
-    def test_noop_when_email_disabled_and_no_discord(self):
-        """send_notification is a no-op when email is disabled and no Discord URL."""
-        manager = AlertManager(email_enabled=False)
+    def test_noop_when_no_discord(self):
+        """send_notification is a no-op when no Discord URL is configured."""
+        manager = AlertManager()
         manager.send_notification(
             title="Run Complete",
             fields=[("Generated", 10), ("Inserted", 8)],
             severity="info",
         )
-
-    def test_noop_when_email_disabled_no_smtp_call(self):
-        """No SMTP connection is attempted when email is disabled."""
-        import smtplib
-        from unittest.mock import patch
-
-        manager = AlertManager(email_enabled=False)
-        with patch.object(smtplib, "SMTP") as mock_smtp:
-            manager.send_notification(title="Test", fields=[], severity="info")
-            mock_smtp.assert_not_called()
-
-    def test_smtp_error_caught_and_logged(self, caplog):
-        """SMTP errors are caught and logged, not raised."""
-        import smtplib
-        from unittest.mock import patch
-        import logging
-
-        manager = AlertManager(
-            email_enabled=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_username="user@example.com",
-            smtp_password="test-password-not-real",  # pragma: allowlist secret
-            from_email="alerts@example.com",
-            to_emails=["recipient@example.com"],
-        )
-
-        with patch("smtplib.SMTP") as mock_smtp_class:
-            mock_smtp_class.return_value.__enter__.return_value.send_message.side_effect = smtplib.SMTPException(
-                "connection refused"
-            )
-            with caplog.at_level(logging.ERROR):
-                manager.send_notification(title="Test", fields=[], severity="info")
-
-        assert any(
-            "Failed to send notification email" in r.message for r in caplog.records
-        )
-
-    def test_send_notification_sends_email_on_success(self):
-        """Email is sent when email_enabled and SMTP is configured."""
-        from unittest.mock import MagicMock, patch
-
-        manager = AlertManager(
-            email_enabled=True,
-            smtp_host="smtp.example.com",
-            smtp_port=587,
-            smtp_username="user@example.com",
-            smtp_password="test-password-not-real",  # pragma: allowlist secret
-            from_email="alerts@example.com",
-            to_emails=["recipient@example.com"],
-        )
-
-        with patch("smtplib.SMTP") as mock_smtp_class:
-            mock_server = MagicMock()
-            mock_smtp_class.return_value.__enter__.return_value = mock_server
-
-            manager.send_notification(
-                title="✅ question-generation: Success",
-                fields=[
-                    ("Generated", 10),
-                    ("Inserted", 8),
-                    ("Duration", "30.0s"),
-                    ("Approval Rate", "80.0%"),
-                ],
-                severity="info",
-            )
-
-            mock_server.send_message.assert_called_once()
 
     def test_html_uses_green_for_info(self):
         """HTML notification body uses green color for severity='info'."""

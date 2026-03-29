@@ -168,16 +168,6 @@ class TestSecretsIntegration:
             assert "at least one" in error_msg
             assert "api key" in error_msg
 
-    def test_smtp_password_loaded_from_secrets(self):
-        """Test that SMTP password is loaded through secrets backend."""
-        env_vars = {
-            "OPENAI_API_KEY": "sk-test",  # Need at least one LLM key
-            "SMTP_PASSWORD": "secret-smtp-password",
-        }
-        with patch.dict("os.environ", env_vars, clear=False):
-            settings = Settings()
-            assert settings.smtp_password == "secret-smtp-password"
-
     def test_backend_service_key_loaded_from_secrets(self):
         """Test that backend service key is loaded through secrets backend."""
         env_vars = {
@@ -187,74 +177,6 @@ class TestSecretsIntegration:
         with patch.dict("os.environ", env_vars, clear=False):
             settings = Settings()
             assert settings.backend_service_key == "secret-service-key"
-
-    def test_email_alerts_auto_disabled_with_missing_smtp_password(self):
-        """Test that enabling email alerts without SMTP password auto-disables alerts."""
-        env_vars = {
-            "OPENAI_API_KEY": "sk-test",
-            "ENABLE_EMAIL_ALERTS": "true",
-            "SMTP_USERNAME": "user@example.com",
-            "ALERT_TO_EMAILS": "admin@example.com",
-            "ENV": "production",
-            "BACKEND_SERVICE_KEY": "svc-key",  # pragma: allowlist secret
-            "BACKEND_API_URL": "https://api.example.com",
-        }
-        with patch.dict("os.environ", env_vars, clear=False):
-            os.environ.pop("SMTP_PASSWORD", None)
-            with patch("app.config.config.logger") as mock_logger:
-                settings = Settings()
-            assert settings.enable_email_alerts is False
-            warning_calls = [str(c) for c in mock_logger.warning.call_args_list]
-            assert any("SMTP_PASSWORD" in c for c in warning_calls)
-
-    def test_email_alerts_auto_disabled_with_missing_alert_to_emails(self):
-        """Test that ENABLE_EMAIL_ALERTS=true with missing ALERT_TO_EMAILS auto-disables."""
-        env_vars = {
-            "OPENAI_API_KEY": "sk-test",
-            "ENABLE_EMAIL_ALERTS": "true",
-            "SMTP_USERNAME": "user@example.com",
-            "SMTP_PASSWORD": "secret",  # pragma: allowlist secret
-            "ENV": "production",
-            "BACKEND_SERVICE_KEY": "svc-key",  # pragma: allowlist secret
-            "BACKEND_API_URL": "https://api.example.com",
-        }
-        with patch.dict("os.environ", env_vars, clear=False):
-            os.environ.pop("ALERT_TO_EMAILS", None)
-            with patch("app.config.config.logger") as mock_logger:
-                settings = Settings()
-            assert settings.enable_email_alerts is False
-            warning_calls = [str(c) for c in mock_logger.warning.call_args_list]
-            assert any("ALERT_TO_EMAILS" in c for c in warning_calls)
-
-    def test_email_alerts_disabled_warning_in_production(self):
-        """Test that disabling email alerts in production emits a WARNING log."""
-        env_vars = {
-            "OPENAI_API_KEY": "sk-test",
-            "ENABLE_EMAIL_ALERTS": "false",
-            "ENV": "production",
-            "BACKEND_SERVICE_KEY": "svc-key",  # pragma: allowlist secret
-            "BACKEND_API_URL": "https://api.example.com",
-        }
-        with patch.dict("os.environ", env_vars, clear=False):
-            with patch("app.config.config.logger") as mock_logger:
-                Settings()
-                mock_logger.warning.assert_called_once()
-                args = mock_logger.warning.call_args[0]
-                assert "DISABLED" in args[0]
-                assert args[1] == "production"
-
-    def test_email_alerts_disabled_no_warning_in_development(self):
-        """Test that disabling email alerts in development does NOT emit a WARNING."""
-        env_vars = {
-            "OPENAI_API_KEY": "sk-test",
-            "ENABLE_EMAIL_ALERTS": "false",
-            "ENV": "development",
-        }
-        with patch.dict("os.environ", env_vars, clear=False):
-            with patch("app.config.config.logger") as mock_logger:
-                Settings()
-                for call in mock_logger.warning.call_args_list:
-                    assert "DISABLED" not in call[0][0]
 
     def test_run_reporting_validation_skipped_in_development(self):
         """Test that run reporting validation is skipped in development."""
