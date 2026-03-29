@@ -1058,7 +1058,7 @@ def run_inventory_analysis(
     skip_inventory_alerts: bool,
     alert_manager: AlertManager,
     logger: logging.Logger,
-):
+) -> Optional[GenerationPlan]:
     """Phase 0: Analyze inventory and compute a balanced generation plan.
 
     Returns the generation plan, or None if all strata are at target (early exit).
