@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.observability.alerting_adapter import to_run_summary
+from app.reporting.alerting_adapter import to_run_summary
 
 
 class TestToRunSummary:

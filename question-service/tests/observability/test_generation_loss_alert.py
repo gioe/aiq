@@ -7,7 +7,7 @@ details when generation_loss_pct exceeds the configured threshold.
 
 import pytest
 
-from app.observability.alerting_adapter import to_run_summary
+from app.reporting.alerting_adapter import to_run_summary
 
 
 def _make_stats(generation_loss_pct: float) -> dict:  # type: ignore[type-arg]

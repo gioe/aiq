@@ -51,7 +51,7 @@ from typing import Any, Dict, List, Optional, TypedDict, Tuple
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.observability.alerting import AlertManager  # noqa: E402
+from gioe_libs.alerting.alerting import AlertManager  # noqa: E402
 from app.config.config import settings  # noqa: E402
 from app.data.database import DatabaseService as QuestionDatabase  # noqa: E402
 from app.data.deduplicator import QuestionDeduplicator  # noqa: E402

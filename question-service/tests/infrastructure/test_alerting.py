@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from app.observability.alerting import (
+from gioe_libs.alerting.alerting import (
     AlertManager,
     AlertingConfig,
     ResourceMonitor,

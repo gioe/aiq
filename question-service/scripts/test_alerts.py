@@ -10,7 +10,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app.observability.alerting import AlertManager  # noqa: E402
+from gioe_libs.alerting.alerting import AlertManager  # noqa: E402
 from app.config.config import settings  # noqa: E402
 from app.infrastructure.error_classifier import (  # noqa: E402
     ClassifiedError,

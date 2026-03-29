@@ -16,7 +16,7 @@ from app.infrastructure.circuit_breaker import (
     get_circuit_breaker_registry,
     reset_circuit_breaker_registry,
 )
-from app.observability.alerting import AlertManager
+from gioe_libs.alerting.alerting import AlertManager
 
 
 class TestCircuitBreakerConfig:
