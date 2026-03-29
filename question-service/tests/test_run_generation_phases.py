@@ -15,7 +15,7 @@ import pytest
 
 class TestRunOptionallyAsync:
     def test_calls_sync_fn_when_use_async_false(self):
-        from run_generation import run_optionally_async
+        from app.generation.runner import run_optionally_async
 
         sync_fn = MagicMock(return_value="sync_result")
 
@@ -27,7 +27,7 @@ class TestRunOptionallyAsync:
         sync_fn.assert_called_once()
 
     def test_calls_async_fn_when_use_async_true(self):
-        from run_generation import run_optionally_async
+        from app.generation.runner import run_optionally_async
 
         sync_fn = MagicMock()
 
@@ -39,7 +39,7 @@ class TestRunOptionallyAsync:
         sync_fn.assert_not_called()
 
     def test_cleanup_called_in_async_path(self):
-        from run_generation import run_optionally_async
+        from app.generation.runner import run_optionally_async
 
         cleanup_called = []
 
@@ -56,7 +56,7 @@ class TestRunOptionallyAsync:
         assert cleanup_called == [True]
 
     def test_cleanup_not_called_in_sync_path(self):
-        from run_generation import run_optionally_async
+        from app.generation.runner import run_optionally_async
 
         cleanup_called = []
 
@@ -72,7 +72,7 @@ class TestRunOptionallyAsync:
         assert cleanup_called == []
 
     def test_cleanup_called_even_when_async_fn_raises(self):
-        from run_generation import run_optionally_async
+        from app.generation.runner import run_optionally_async
 
         cleanup_called = []
 
@@ -257,7 +257,7 @@ class TestRunGenerationPhase:
             },
         }
 
-    @patch("run_generation.observability")
+    @patch("app.generation.runner.observability")
     def test_sync_generation_returns_questions_and_stats(self, mock_obs):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
         from run_generation import run_generation_phase
@@ -288,7 +288,7 @@ class TestRunGenerationPhase:
         assert stats["questions_generated"] == 3
         mock_pipeline.run_generation_job.assert_called_once()
 
-    @patch("run_generation.observability")
+    @patch("app.generation.runner.observability")
     def test_async_generation_calls_async_method(self, mock_obs):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
         from run_generation import run_generation_phase
@@ -321,7 +321,7 @@ class TestRunGenerationPhase:
         mock_pipeline.cleanup.assert_called_once()
         assert stats["questions_generated"] == 2
 
-    @patch("run_generation.observability")
+    @patch("app.generation.runner.observability")
     def test_balanced_generation_uses_plan_allocations(self, mock_obs):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
         from run_generation import run_generation_phase
