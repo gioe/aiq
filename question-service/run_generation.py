@@ -27,7 +27,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional, TypedDict
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -549,8 +549,17 @@ class _RunIdFilter(logging.Filter):
         return True
 
 
+class GenerationStats(TypedDict):
+    questions_generated: int
+    target_questions: int
+    success_rate: float
+    duration_seconds: float
+    questions_by_type: dict[str, int]
+    questions_by_difficulty: dict[str, int]
+
+
 def log_success_run(
-    stats: dict,
+    stats: GenerationStats,
     inserted_count: int,
     approval_rate: float,
     run_id: Optional[str] = None,
@@ -888,7 +897,7 @@ def send_phase_alert(
 
 
 def _build_run_stats(
-    stats: dict,
+    stats: GenerationStats,
     inserted_count: int,
     approval_rate: float,
     summary: dict,
@@ -1148,7 +1157,7 @@ def run_generation_phase(
     count: Optional[int],
     metrics: PipelineRunSummary,
     logger: logging.Logger,
-) -> tuple[list[GeneratedQuestion], dict[str, Any]]:
+) -> tuple[list[GeneratedQuestion], GenerationStats]:
     """Phase 1: Generate questions.
 
     Returns (generated_questions, statistics).
@@ -1719,7 +1728,7 @@ def main() -> int:
 
         inserted_count = 0
         approval_rate = 0.0
-        stats: dict = {}
+        stats: Optional[GenerationStats] = None
         db = None
         run_reporter = None
         summary: dict = {}
