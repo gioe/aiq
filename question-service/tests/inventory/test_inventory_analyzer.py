@@ -223,7 +223,7 @@ class TestInventoryAnalyzer:
                 service = Mock(spec=DatabaseService)
                 service.get_session = Mock()
                 service.close_session = Mock()
-                return service
+                yield service
 
     def test_initialization_with_defaults(self, mock_db_service):
         """Test analyzer initialization with default values."""
@@ -280,6 +280,10 @@ class TestInventoryAnalyzer:
 
         # Check total questions
         assert analysis.total_questions == 85  # 30 + 45 + 10
+
+        # Check total_deficit: 18 strata at target=50; deficits are 20+5+40 for the
+        # three non-zero strata and 50 each for the remaining 15 zero-count strata
+        assert analysis.total_deficit == 815  # 20 + 5 + 40 + 15*50
 
         # Check that specific strata have correct counts
         math_easy = next(
@@ -409,9 +413,10 @@ class TestInventoryAnalyzer:
         math_medium_alloc = plan.get_allocation(
             QuestionType.MATH, DifficultyLevel.MEDIUM
         )
-        # Verify both strata received allocations
-        assert math_easy_alloc > 0
-        assert math_medium_alloc > 0
+        # Verify phases 1+2 capped allocation at per-stratum deficit; since
+        # target_total=100 >> total_deficit=7, both deficits are fully covered
+        assert math_easy_alloc >= strata[0].deficit  # at least 5
+        assert math_medium_alloc >= strata[1].deficit  # at least 2
 
         # Should still allocate the full 100 questions
         total_allocated = sum(plan.allocations.values())
@@ -462,3 +467,15 @@ class TestInventoryAnalyzer:
         allocations = list(plan.allocations.values())
         assert allocations.count(11) == 2
         assert allocations.count(10) == 1
+
+    def test_distribute_evenly_zero_strata(self, mock_db_service):
+        """Test that _distribute_evenly with empty strata returns an empty plan."""
+        analyzer = InventoryAnalyzer(
+            database_service=mock_db_service,
+            target_per_stratum=50,
+        )
+
+        plan = analyzer._distribute_evenly(30, [])
+
+        assert plan.allocations == {}
+        assert plan.total_questions == 0
