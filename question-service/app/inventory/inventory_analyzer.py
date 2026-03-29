@@ -198,10 +198,7 @@ class InventoryAnalyzer:
             # Build count map
             count_map: Dict[Tuple[str, str], int] = {}
             for row in stratum_counts:
-                # Handle both enum and string types from the database
-                q_type = row[0].value if hasattr(row[0], "value") else str(row[0])
-                diff = row[1].value if hasattr(row[1], "value") else str(row[1])
-                count_map[(q_type, diff)] = row[2]
+                count_map[(row[0].value, row[1].value)] = row[2]
 
             # Generate complete stratum list with all combinations
             strata: List[StratumInventory] = []
@@ -282,7 +279,7 @@ class InventoryAnalyzer:
 
             # Allocate proportionally to deficit
             proportion = stratum.deficit / analysis.total_deficit
-            allocation = int(target_total * proportion)
+            allocation = round(target_total * proportion)
 
             # Don't allocate more than the deficit
             allocation = min(allocation, stratum.deficit)
@@ -311,7 +308,9 @@ class InventoryAnalyzer:
                     plan.allocations[key] = current_allocation + additional
                     remaining -= additional
 
-        # Phase 3: If still remaining, distribute to any stratum
+        # Phase 3: If still remaining, distribute to any stratum.
+        # This intentionally overflows strata beyond their target to ensure
+        # target_total questions are always allocated in full.
         if remaining > 0:
             strata_cycle = priority_strata[:]
             idx = 0
@@ -322,7 +321,7 @@ class InventoryAnalyzer:
                 remaining -= 1
                 idx += 1
 
-        plan.total_questions = target_total - remaining
+        plan.total_questions = sum(plan.allocations.values())
 
         logger.info(
             f"Generation plan computed: {plan.total_questions} questions "
@@ -387,13 +386,20 @@ class InventoryAnalyzer:
 
         logger.info("-" * 60)
         logger.info("Inventory by stratum:")
+        critical_keys = {
+            (s.question_type, s.difficulty) for s in analysis.critical_strata
+        }
         for stratum in sorted(
             analysis.strata,
             key=lambda s: (s.question_type.value, s.difficulty.value),
         ):
-            status = "OK" if stratum.current_count >= self.healthy_threshold else "LOW"
-            if stratum.current_count < self.warning_threshold:
+            key = (stratum.question_type, stratum.difficulty)
+            if key in critical_keys:
                 status = "CRITICAL"
+            elif stratum.current_count >= analysis.healthy_threshold:
+                status = "OK"
+            else:
+                status = "LOW"
             logger.info(
                 f"  {stratum.question_type.value}/{stratum.difficulty.value}: "
                 f"{stratum.current_count} [{status}]"
