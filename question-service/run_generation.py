@@ -23,7 +23,6 @@ import asyncio
 import json
 import logging
 import sys
-import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,6 +67,7 @@ from app.data.models import (  # noqa: E402
 )
 from app.reporting.reporter import RunReporter  # noqa: E402
 from app.data.insertion_runner import run_insertion_phase  # noqa: E402
+from app.data.dedup_runner import run_dedup_phase  # noqa: E402
 from app.generation.runner import GenerationStats, run_generation_phase  # noqa: E402
 from app.evaluation.runner import run_judge_phase  # noqa: E402
 
@@ -980,128 +980,6 @@ def run_salvage_phase(
         logger.info("No questions could be salvaged")
 
     return new_approved, approval_rate
-
-
-def run_dedup_phase(
-    approved_questions: list,
-    db: Optional[QuestionDatabase],
-    deduplicator: Optional[QuestionDeduplicator],
-    metrics: PipelineRunSummary,
-    logger: logging.Logger,
-) -> list[EvaluatedQuestion]:
-    """Phase 3: Deduplicate approved questions against the database.
-
-    Returns list of unique questions.
-    """
-    dedup_start = time.perf_counter()
-    with observability.start_span(
-        "phase3_deduplication",
-        attributes={"approved_count": len(approved_questions)},
-    ) as dedup_span:
-        try:
-            assert db is not None
-            existing_questions = db.get_all_questions()
-            logger.info(
-                f"Loaded {len(existing_questions)} existing questions for deduplication"
-            )
-            dedup_span.set_attribute("existing_questions", len(existing_questions))
-        except Exception as e:
-            logger.error(f"Failed to load existing questions: {e}")
-            observability.capture_error(
-                e, context={"phase": "deduplication", "step": "load_existing"}
-            )
-            existing_questions = []
-
-        unique_questions = []
-        duplicate_count = 0
-
-        for evaluated_question in approved_questions:
-            try:
-                assert deduplicator is not None
-                q_difficulty = str(
-                    evaluated_question.question.difficulty_level.value
-                ).lower()
-                same_difficulty_questions = [
-                    eq
-                    for eq in existing_questions
-                    if str(
-                        getattr(
-                            eq.get("difficulty_level", ""),
-                            "value",
-                            eq.get("difficulty_level", ""),
-                        )
-                    ).lower()
-                    == q_difficulty
-                ]
-                result = deduplicator.check_duplicate(
-                    evaluated_question.question, same_difficulty_questions
-                )
-
-                if not result.is_duplicate:
-                    unique_questions.append(evaluated_question)
-                    logger.debug(
-                        f"✓ Unique: {evaluated_question.question.question_text[:60]}..."
-                    )
-                else:
-                    duplicate_count += 1
-                    logger.info(
-                        f"✗ Duplicate ({result.duplicate_type}, score={result.similarity_score:.3f}): "
-                        f"{evaluated_question.question.question_text[:60]}..."
-                    )
-
-                metrics.record_duplicate_check(
-                    is_duplicate=result.is_duplicate,
-                    duplicate_type=result.duplicate_type,
-                )
-
-                if result.is_duplicate:
-                    observability.record_metric(
-                        "dedup.by_type",
-                        value=1,
-                        labels={"duplicate_type": result.duplicate_type or "unknown"},
-                        metric_type="counter",
-                    )
-
-            except Exception as e:
-                logger.error(f"Deduplication check failed: {e}")
-                observability.capture_error(
-                    e, context={"phase": "deduplication", "step": "check"}
-                )
-                unique_questions.append(evaluated_question)
-                continue
-
-        dedup_span.set_attribute("unique_count", len(unique_questions))
-        dedup_span.set_attribute("duplicate_count", duplicate_count)
-
-        observability.record_metric(
-            "dedup.duplicates_removed", value=duplicate_count, metric_type="counter"
-        )
-
-        logger.info(f"\nUnique questions: {len(unique_questions)}")
-        logger.info(f"Duplicates removed: {duplicate_count}")
-
-        observability.record_metric(
-            "pipeline.stage.duration",
-            value=time.perf_counter() - dedup_start,
-            labels={"stage": "dedup"},
-            metric_type="histogram",
-            unit="s",
-        )
-
-        assert deduplicator is not None
-        cache_stats = deduplicator.get_stats()["cache"]
-        observability.record_metric(
-            "embedding.cache.hit",
-            value=cache_stats.get("hits", 0),
-            metric_type="counter",
-        )
-        observability.record_metric(
-            "embedding.cache.miss",
-            value=cache_stats.get("misses", 0),
-            metric_type="counter",
-        )
-
-    return unique_questions
 
 
 def main() -> int:

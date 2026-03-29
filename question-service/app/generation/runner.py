@@ -9,6 +9,7 @@ from gioe_libs.observability import observability
 from app.generation.pipeline import QuestionGenerationPipeline
 from app.inventory.inventory_analyzer import GenerationPlan
 from app.data.models import GeneratedQuestion
+from app.data.dedup_runner import dedupe_within_batch
 from app.reporting.run_summary import RunSummary as PipelineRunSummary
 
 
@@ -37,48 +38,6 @@ def run_optionally_async(async_fn, sync_fn, use_async: bool, cleanup_fn=None):
 
         return asyncio.run(_wrapper())
     return sync_fn()
-
-
-def dedupe_within_batch(
-    questions: list,
-    similarity_threshold: float = 0.85,
-) -> list:
-    """Remove near-duplicate questions within a batch before judge evaluation.
-
-    Uses simple text similarity to identify questions that are too similar,
-    saving API calls to the judge for redundant questions.
-
-    Args:
-        questions: List of GeneratedQuestion objects
-        similarity_threshold: Similarity ratio above which questions are considered duplicates
-
-    Returns:
-        Filtered list with duplicates removed (keeps first occurrence)
-    """
-    from difflib import SequenceMatcher
-
-    if len(questions) <= 1:
-        return questions
-
-    unique_questions = []
-    seen_texts = []
-
-    for question in questions:
-        question_text = question.question_text.lower().strip()
-
-        # Check similarity against all previously seen questions
-        is_duplicate = False
-        for seen_text in seen_texts:
-            similarity = SequenceMatcher(None, question_text, seen_text).ratio()
-            if similarity >= similarity_threshold:
-                is_duplicate = True
-                break
-
-        if not is_duplicate:
-            unique_questions.append(question)
-            seen_texts.append(question_text)
-
-    return unique_questions
 
 
 def run_generation_phase(
