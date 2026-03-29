@@ -844,6 +844,9 @@ class QuestionGenerationRun(Base):
     triggered_by: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True
     )  # 'scheduler', 'manual', 'webhook'
+    client_run_id: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True
+    )  # Correlation ID generated at run start (e.g. run-20260329-143022-abc123)
 
     # Metadata
     created_at: Mapped[datetime] = mapped_column(

@@ -590,6 +590,7 @@ async def create_generation_run(
             min_judge_score_threshold=run_data.min_judge_score_threshold,
             environment=run_data.environment,
             triggered_by=run_data.triggered_by,
+            client_run_id=run_data.client_run_id,
         )
 
         db.add(db_run)

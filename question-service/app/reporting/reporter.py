@@ -73,6 +73,7 @@ class RunReporter:
         prompt_version: Optional[str] = None,
         judge_config_version: Optional[str] = None,
         min_judge_score_threshold: Optional[float] = None,
+        client_run_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Transform run summary dict to API payload format.
 
@@ -167,6 +168,8 @@ class RunReporter:
             # Environment context
             "environment": environment,
             "triggered_by": triggered_by,
+            # Correlation ID generated at run start in run_generation.py
+            "client_run_id": client_run_id,
         }
 
         return payload
@@ -250,6 +253,7 @@ class RunReporter:
         prompt_version: Optional[str] = None,
         judge_config_version: Optional[str] = None,
         min_judge_score_threshold: Optional[float] = None,
+        client_run_id: Optional[str] = None,
     ) -> Optional[int]:
         """Report a completed generation run to the backend API.
 
@@ -279,6 +283,7 @@ class RunReporter:
                 prompt_version=prompt_version,
                 judge_config_version=judge_config_version,
                 min_judge_score_threshold=min_judge_score_threshold,
+                client_run_id=client_run_id,
             )
 
             # Send to backend
