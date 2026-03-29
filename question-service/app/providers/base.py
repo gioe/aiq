@@ -1,6 +1,7 @@
 """Base class for LLM providers."""
 
 import asyncio
+import json
 import logging
 import random
 import threading
@@ -795,8 +796,6 @@ class BaseLLMProvider(ABC):
         Returns:
             CompletionResult with parsed JSON content and token usage (may be estimated)
         """
-        import json
-
         # Validate model on first use to provide early warning for unrecognized models
         model = model_override or self.model
         self._validate_model_once(model)
@@ -894,8 +893,6 @@ class BaseLLMProvider(ABC):
         Returns:
             CompletionResult with parsed JSON content and token usage (may be estimated)
         """
-        import json
-
         # Validate model on first use to provide early warning for unrecognized models
         model = model_override or self.model
         self._validate_model_once(model)
