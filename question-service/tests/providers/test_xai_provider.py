@@ -23,7 +23,7 @@ class TestXAIProvider:
 
         assert provider.api_key == mock_xai_api_key
         assert provider.model == "grok-4"
-        assert provider.provider_name == "xai"
+        assert provider.get_provider_name() == "xai"
         assert provider.client is not None
         mock_openai_class.assert_called_once_with(
             api_key=mock_xai_api_key,
@@ -48,8 +48,6 @@ class TestXAIProvider:
 
         provider = XAIProvider(api_key=mock_xai_api_key)
 
-        # XAI sets provider_name directly in __init__, so get_provider_name
-        # from base class should still work
         assert provider.get_provider_name() == "xai"
 
     @patch("app.providers.xai_provider.OpenAI")
