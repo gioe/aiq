@@ -682,7 +682,7 @@ class BootstrapAlerter:
         """Initialize the bootstrap alerter.
 
         Args:
-            alert_manager: AlertManager instance (can be None if alerts disabled)
+            alert_manager: AlertManager instance (None in test scenarios only; production always provides one)
             event_logger: Event logger for structured logging
             logger: Python logger for console/file logging
             log_dir: Directory for log files
