@@ -15,7 +15,8 @@ ios/
 ├── app-store/            # App Store metadata and screenshots
 ├── TestNotifications/    # APNs test payloads
 ├── .claude/              # Claude Code config for iOS
-└── build/                # (new - needs description)
+├── build/                # (new - needs description)
+└── Packages/             # (new - needs description)
 ```
 
 ## Setup

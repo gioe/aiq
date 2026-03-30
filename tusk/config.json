@@ -1,5 +1,5 @@
 {
-  "domains": [],
+  "domains": ["mobile", "backend", "question-service", "infrastructure", "docs"],
   "task_types": [
     "bug",
     "feature",
@@ -46,7 +46,13 @@
     "test",
     "file"
   ],
-  "agents": {},
+  "agents": {
+    "backend": "API, business logic, data layer, generation pipeline",
+    "mobile": "iOS development",
+    "infrastructure": "CI/CD, deployment",
+    "docs": "documentation",
+    "general": "general-purpose tasks"
+  },
   "dupes": {
     "strip_prefixes": [
       "Deferred",
@@ -116,10 +122,6 @@
   "project_libs": {
     "python_service": {
       "repo": "gioe/python-libs",
-      "ref": "main"
-    },
-    "ios_app": {
-      "repo": "gioe/ios-libs",
       "ref": "main"
     }
   }
