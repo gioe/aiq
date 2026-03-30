@@ -598,4 +598,106 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(mockAnalyticsService.lastResumedSessionId, 99)
         XCTAssertEqual(mockAnalyticsService.lastResumedQuestionsAnswered, 0)
     }
+
+    // MARK: - refreshDashboard Tests
+
+    func testRefreshDashboard_IsLoadingStaysFalse() async {
+        // Given
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = nil
+
+        var loadingValues: [Bool] = []
+        var cancellables = Set<AnyCancellable>()
+        sut.$isLoading
+            .sink { loadingValues.append($0) }
+            .store(in: &cancellables)
+
+        // When
+        await sut.refreshDashboard()
+
+        // Then
+        XCTAssertFalse(
+            loadingValues.contains(true),
+            "isLoading should never become true during refreshDashboard (showLoadingIndicator: false)"
+        )
+        XCTAssertFalse(sut.isLoading, "isLoading should be false after refreshDashboard completes")
+    }
+
+    func testRefreshDashboard_UpdatesTestCountAndActiveSession() async {
+        // Given
+        let mockTestResult = TestResult(
+            accuracyPercentage: 75.0,
+            completedAt: Date(),
+            completionTimeSeconds: 300,
+            confidenceInterval: nil,
+            correctAnswers: 15,
+            domainScores: nil,
+            id: 1,
+            iqScore: 120,
+            percentileRank: 84.0,
+            responseTimeFlags: nil,
+            strongestDomain: nil,
+            testSessionId: 100,
+            totalQuestions: 20,
+            userId: 1,
+            weakestDomain: nil
+        )
+        await mockService.setTestHistoryResponse([mockTestResult], totalCount: 3)
+
+        let mockSession = MockDataFactory.makeTestSession(
+            id: 77,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date()
+        )
+        let mockResponse = TestSessionStatusResponse(
+            questions: nil,
+            questionsCount: 4,
+            session: mockSession
+        )
+        await mockService.getActiveTestResponse = mockResponse
+
+        // When
+        await sut.refreshDashboard()
+
+        // Then
+        XCTAssertEqual(sut.testCount, 3, "testCount should reflect totalCount returned by the API")
+        XCTAssertEqual(sut.activeTestSession?.id, 77, "activeTestSession should be set from the API response")
+    }
+
+    func testRefreshDashboard_ClearsCacheBeforeFetching() async {
+        // Given - pre-populate cache with stale data
+        let staleSession = MockDataFactory.makeTestSession(
+            id: 999,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date()
+        )
+        let staleResponse = TestSessionStatusResponse(
+            questions: nil,
+            questionsCount: 0,
+            session: staleSession
+        )
+        await DataCache.shared.set(staleResponse, forKey: DataCache.Key.activeTestSession)
+
+        let staleHistory: [TestResult] = []
+        await DataCache.shared.set(staleHistory, forKey: DataCache.Key.testHistory)
+
+        // Configure mock to succeed with fresh (empty) data
+        await mockService.setTestHistoryResponse([])
+        await mockService.getActiveTestResponse = nil
+
+        // When
+        await sut.refreshDashboard()
+
+        // Then - both cache keys should be nil (cleared before fetch; not re-populated with nil response)
+        let cachedHistory: [TestResult]? = await DataCache.shared.get(forKey: DataCache.Key.testHistory)
+        let cachedSession: TestSessionStatusResponse? = await DataCache.shared.get(forKey: DataCache.Key.activeTestSession)
+        XCTAssertNil(cachedHistory, "testHistory cache should be cleared after refresh")
+        XCTAssertNil(cachedSession, "activeTestSession cache should be cleared after refresh")
+
+        // Confirm a real API call was made (not served from cache)
+        let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        XCTAssertTrue(getTestHistoryCalled, "getTestHistory should be called after cache is cleared")
+    }
 }
