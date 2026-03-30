@@ -1,0 +1,19 @@
+# Swift OpenAPI Generator Configuration
+# Generates type-safe Swift client code from the AIQ backend's OpenAPI spec.
+# The generator runs at build time via the OpenAPIGenerator build plugin.
+#
+# Documentation: https://github.com/apple/swift-openapi-generator
+# Related: TASK-224
+
+# Generate both types (models) and client code
+generate:
+  - types
+  - client
+
+# Make generated types public so they can be used from the main app
+# and from the AIQAPIClient extension target
+accessModifier: public
+
+# Use idiomatic Swift naming conventions
+# Converts OpenAPI identifiers (snake_case, etc.) to Swift-idiomatic names (camelCase)
+namingStrategy: idiomatic

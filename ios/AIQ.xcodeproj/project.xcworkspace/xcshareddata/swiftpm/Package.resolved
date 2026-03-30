@@ -83,15 +83,6 @@
       }
     },
     {
-      "identity" : "ios-libs",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/gioe/ios-libs",
-      "state" : {
-        "revision" : "50519608f9bc174566175067af2c7f02984b94ab",
-        "version" : "1.3.0"
-      }
-    },
-    {
       "identity" : "leveldb",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/firebase/leveldb.git",

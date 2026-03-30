@@ -33,6 +33,7 @@
 		1A57DF962EFE222F009F9E9D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1A57DF952EFE222F009F9E9D /* PrivacyInfo.xcprivacy */; };
 		1A66E85D14DF3026B9616C56 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DB1F74E4C42D4EDE293DC7 /* User.swift */; };
 		1A9B817B2F2EDE3900403187 /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */; };
+		05B972B5035EF251D9BE7842 /* AIQAPIClient in Frameworks */ = {isa = PBXBuildFile; productRef = 13ECAB6546FFCEF192E7F317 /* AIQAPIClient */; };
 		1A9B817C2F2EDE3900403187 /* APIClient in Frameworks */ = {isa = PBXBuildFile; productRef = DA4FCB7C2F404E6197A1C048 /* APIClient */; };
 		1AB0686C93E844A7881DB7E9 /* KeychainStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C333BE1267F47B99054F76A /* KeychainStorageTests.swift */; };
 		1AD58AF22F03115D00ED0517 /* TrustKit in Frameworks */ = {isa = PBXBuildFile; productRef = 611BDFC8D2A24A669AF6D722 /* TrustKit */; };
@@ -665,6 +666,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				05B972B5035EF251D9BE7842 /* AIQAPIClient in Frameworks */,
 				1A9B817C2F2EDE3900403187 /* APIClient in Frameworks */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* SharedKit in Frameworks */,
 				1A9B817B2F2EDE3900403187 /* OpenAPIRuntime in Frameworks */,
@@ -1558,6 +1560,7 @@
 			packageProductDependencies = (
 				C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */,
 				DA4FCB7C2F404E6197A1C048 /* APIClient */,
+				13ECAB6546FFCEF192E7F317 /* AIQAPIClient */,
 				B3C4D5E6F7A8B9C0D1E2F3A4 /* SharedKit */,
 				611BDFC8D2A24A669AF6D722 /* TrustKit */,
 				5F67568DF35617BE6981320E /* FirebaseAnalytics */,
@@ -1590,7 +1593,8 @@
 				4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */,
-				A5B6C7D8E9F0A1B2C3D4E5F6 /* XCRemoteSwiftPackageReference "ios-libs" */,
+				A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */,
+				15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */,
 			);
 			productRefGroup = 428258610120552FEA09E4AC /* Products */;
 			projectDirPath = "";
@@ -2271,14 +2275,6 @@
 				minimumVersion = 3.0.7;
 			};
 		};
-		A5B6C7D8E9F0A1B2C3D4E5F6 /* XCRemoteSwiftPackageReference "ios-libs" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/gioe/ios-libs";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.0;
-			};
-		};
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-openapi-runtime";
@@ -2288,6 +2284,17 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SharedKit;
+		};
+		A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/APIClient;
+		};
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		5F67568DF35617BE6981320E /* FirebaseAnalytics */ = {
@@ -2302,7 +2309,7 @@
 		};
 		B3C4D5E6F7A8B9C0D1E2F3A4 /* SharedKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A5B6C7D8E9F0A1B2C3D4E5F6 /* XCRemoteSwiftPackageReference "ios-libs" */;
+			package = 15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */;
 			productName = SharedKit;
 		};
 		C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */ = {
@@ -2310,9 +2317,14 @@
 			package = B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */;
 			productName = OpenAPIRuntime;
 		};
+		13ECAB6546FFCEF192E7F317 /* AIQAPIClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */;
+			productName = AIQAPIClient;
+		};
 		DA4FCB7C2F404E6197A1C048 /* APIClient */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A5B6C7D8E9F0A1B2C3D4E5F6 /* XCRemoteSwiftPackageReference "ios-libs" */;
+			package = A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */;
 			productName = APIClient;
 		};
 		F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */ = {
