@@ -186,8 +186,7 @@ class Settings(BaseSettings):
         description="Webhook URL for Slack/Discord alert notifications (leave empty to disable)",
     )
 
-    # Email/SMTP Settings (for feedback notifications)
-    # NOTE: Email functionality is not yet implemented - these are placeholder settings
+    # Email/SMTP Settings (for password reset and feedback notifications)
     SMTP_HOST: str = Field(
         default="smtp.gmail.com",
         description="SMTP server hostname",
