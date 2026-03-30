@@ -590,7 +590,7 @@ class TestRunDedupPhase:
         mock_obs.start_span.return_value = self._make_mock_span()
 
         mock_db = MagicMock()
-        mock_db.get_all_questions.return_value = []
+        mock_db.get_questions_by_difficulty.return_value = []
 
         mock_deduplicator = MagicMock()
         mock_deduplicator.check_duplicate.side_effect = [
@@ -628,7 +628,7 @@ class TestRunDedupPhase:
         mock_obs.start_span.return_value = self._make_mock_span()
 
         mock_db = MagicMock()
-        mock_db.get_all_questions.return_value = []
+        mock_db.get_questions_by_difficulty.return_value = []
 
         mock_deduplicator = MagicMock()
         mock_deduplicator.check_duplicate.side_effect = RuntimeError(

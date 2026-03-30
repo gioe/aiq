@@ -72,39 +72,30 @@ def run_dedup_phase(
         "phase3_deduplication",
         attributes={"approved_count": len(approved_questions)},
     ) as dedup_span:
-        try:
-            existing_questions = db.get_all_questions()
-            logger.info(
-                f"Loaded {len(existing_questions)} existing questions for deduplication"
-            )
-            dedup_span.set_attribute("existing_questions", len(existing_questions))
-        except Exception as e:
-            logger.error(f"Failed to load existing questions: {e}")
-            observability.capture_error(
-                e, context={"phase": "deduplication", "step": "load_existing"}
-            )
-            existing_questions = []
-
+        questions_by_difficulty: dict = {}
         unique_questions = []
         duplicate_count = 0
+        total_existing = 0
 
         for evaluated_question in approved_questions:
             try:
                 q_difficulty = str(
                     evaluated_question.question.difficulty_level.value
                 ).lower()
-                same_difficulty_questions = [
-                    eq
-                    for eq in existing_questions
-                    if str(
-                        getattr(
-                            eq.get("difficulty_level", ""),
-                            "value",
-                            eq.get("difficulty_level", ""),
+                if q_difficulty not in questions_by_difficulty:
+                    try:
+                        questions_by_difficulty[q_difficulty] = (
+                            db.get_questions_by_difficulty(q_difficulty)
                         )
-                    ).lower()
-                    == q_difficulty
-                ]
+                        total_existing += len(questions_by_difficulty[q_difficulty])
+                    except Exception as e:
+                        logger.error(f"Failed to load existing questions: {e}")
+                        observability.capture_error(
+                            e,
+                            context={"phase": "deduplication", "step": "load_existing"},
+                        )
+                        questions_by_difficulty[q_difficulty] = []
+                same_difficulty_questions = questions_by_difficulty[q_difficulty]
                 result = deduplicator.check_duplicate(
                     evaluated_question.question, same_difficulty_questions
                 )
@@ -142,6 +133,7 @@ def run_dedup_phase(
                 unique_questions.append(evaluated_question)
                 continue
 
+        dedup_span.set_attribute("existing_questions", total_existing)
         dedup_span.set_attribute("unique_count", len(unique_questions))
         dedup_span.set_attribute("duplicate_count", duplicate_count)
 
@@ -149,6 +141,7 @@ def run_dedup_phase(
             "dedup.duplicates_removed", value=duplicate_count, metric_type="counter"
         )
 
+        logger.info(f"Loaded {total_existing} existing questions for deduplication")
         logger.info(f"\nUnique questions: {len(unique_questions)}")
         logger.info(f"Duplicates removed: {duplicate_count}")
 
