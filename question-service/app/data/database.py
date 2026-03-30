@@ -476,6 +476,49 @@ class DatabaseService:
         finally:
             self.close_session(session)
 
+    def get_questions_by_difficulty(self, difficulty: str) -> List[Dict[str, Any]]:
+        """Retrieve questions filtered by difficulty level.
+
+        Only fetches question_text and question_embedding columns to minimise
+        data transfer — sufficient for deduplication checks.
+
+        Args:
+            difficulty: Difficulty level string (e.g. "easy", "medium", "hard")
+
+        Returns:
+            List of dicts with keys: question_text, question_embedding
+
+        Raises:
+            Exception: If query fails
+        """
+        session = self.get_session()
+        try:
+            rows = (
+                session.query(
+                    QuestionModel.question_text,
+                    QuestionModel.question_embedding,
+                )
+                .filter(QuestionModel.difficulty_level == difficulty)
+                .all()
+            )
+            result = [
+                {
+                    "question_text": r.question_text,
+                    "question_embedding": r.question_embedding,
+                }
+                for r in rows
+            ]
+            logger.info(
+                f"Retrieved {len(result)} questions with difficulty={difficulty!r}"
+            )
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to retrieve questions by difficulty: {str(e)}")
+            raise
+        finally:
+            self.close_session(session)
+
     def get_question_count(self) -> int:
         """Get total count of questions in database.
 
