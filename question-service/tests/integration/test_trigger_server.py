@@ -639,6 +639,60 @@ class TestRateLimiting:
             assert response.status_code == 429
 
 
+class TestRequestIdMiddleware:
+    """Tests for the RequestIdMiddleware."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Reset module state before each test."""
+        with patch.dict(os.environ, {"ADMIN_TOKEN": "test-secret-token"}, clear=False):
+            import importlib
+
+            import trigger_server
+
+            importlib.reload(trigger_server)
+            self.app = trigger_server.app
+            self.client = TestClient(self.app)
+            self.module = trigger_server
+            yield
+
+    def test_request_without_request_id_gets_uuid4_in_response(self):
+        """Requests without X-Request-ID get a generated UUID4 in the response header."""
+        import uuid
+
+        response = self.client.get("/health")
+        assert response.status_code == 200
+        assert "X-Request-ID" in response.headers
+        request_id = response.headers["X-Request-ID"]
+        parsed = uuid.UUID(request_id, version=4)
+        assert str(parsed) == request_id
+
+    def test_request_with_existing_request_id_echoes_it_back_unchanged(self):
+        """Requests with an existing X-Request-ID echo it back unchanged in the response."""
+        custom_id = "my-custom-request-id-abc123"
+        response = self.client.get("/health", headers={"X-Request-ID": custom_id})
+        assert response.status_code == 200
+        assert response.headers.get("X-Request-ID") == custom_id
+
+    def test_request_id_context_reset_after_request(self):
+        """request_id_context.reset is called after the request to prevent context leakage."""
+        real_ctx_var = self.module.request_id_context
+        spy = MagicMock()
+        spy.set.side_effect = real_ctx_var.set
+        spy.reset.side_effect = real_ctx_var.reset
+        spy.get.side_effect = real_ctx_var.get
+
+        self.module.request_id_context = spy
+        try:
+            response = self.client.get("/health")
+            assert response.status_code == 200
+        finally:
+            self.module.request_id_context = real_ctx_var
+
+        spy.set.assert_called_once()
+        spy.reset.assert_called_once()
+
+
 class TestPrometheusMetrics:
     """Tests for Prometheus /metrics endpoint."""
 
