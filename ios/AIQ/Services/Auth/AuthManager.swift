@@ -189,6 +189,9 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         isLoading = false
         authError = nil
 
+        // Clear all cached data so re-login fetches fresh data
+        await DataCache.shared.clearAll()
+
         // Track analytics
         AnalyticsService.shared.trackUserLogout()
     }
