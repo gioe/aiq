@@ -248,23 +248,22 @@ class QuestionDeduplicator:
         try:
             # Generate embedding for new question
             new_embedding = self._get_embedding(question_text)
+            new_norm = np.linalg.norm(new_embedding)
+            if new_norm == 0:
+                return DuplicateCheckResult(is_duplicate=False)
 
-            # Compare with existing questions
-            max_similarity = 0.0
-            most_similar_question = None
+            # Collect all comparable embeddings (TASK-433: use pre-computed when available;
+            # skip cross-provider mismatches with different dimensionalities).
+            embeddings: List[np.ndarray] = []
+            candidates: List[Dict[str, Any]] = []
 
             for existing in existing_questions:
                 existing_text = existing.get("question_text", "")
                 if not existing_text:
                     continue
 
-                # TASK-433: Use pre-computed embedding if available
-                # This eliminates API calls for existing questions, dramatically
-                # improving performance as the question pool grows.
                 existing_embedding_data = existing.get("question_embedding")
-
                 if existing_embedding_data:
-                    # Use pre-computed embedding from database
                     existing_embedding = np.array(existing_embedding_data)
                 else:
                     # Fall back to on-demand generation for questions without embeddings
@@ -277,12 +276,27 @@ class QuestionDeduplicator:
                 if len(new_embedding) != len(existing_embedding):
                     continue
 
-                # Calculate cosine similarity
-                similarity = self._cosine_similarity(new_embedding, existing_embedding)
+                embeddings.append(existing_embedding)
+                candidates.append(existing)
 
-                if similarity > max_similarity:
-                    max_similarity = similarity
-                    most_similar_question = existing
+            if not embeddings:
+                return DuplicateCheckResult(is_duplicate=False)
+
+            # Stack all embeddings into a 2D matrix and compute all cosine similarities
+            # in a single vectorized operation: O(N*D) instead of O(N) sequential calls.
+            matrix = np.stack(embeddings)  # shape (N, D)
+            norms = np.linalg.norm(matrix, axis=1)  # shape (N,)
+            valid = norms > 0
+            similarities = np.zeros(len(embeddings))
+            if np.any(valid):
+                similarities[valid] = np.clip(
+                    np.dot(matrix[valid], new_embedding) / (norms[valid] * new_norm),
+                    0.0,
+                    1.0,
+                )
+
+            max_idx = int(np.argmax(similarities))
+            max_similarity = float(similarities[max_idx])
 
             # Check if similarity exceeds threshold
             if max_similarity >= self.similarity_threshold:
@@ -290,7 +304,7 @@ class QuestionDeduplicator:
                     is_duplicate=True,
                     duplicate_type="semantic",
                     similarity_score=max_similarity,
-                    matched_question=most_similar_question,
+                    matched_question=candidates[max_idx],
                 )
 
             return DuplicateCheckResult(is_duplicate=False)
