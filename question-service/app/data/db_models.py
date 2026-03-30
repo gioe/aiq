@@ -5,9 +5,10 @@ answer_leakage_auditor, inventory_analyzer) to import only the models
 without pulling in the entire service and its heavy dependencies.
 """
 
-import enum
 from datetime import datetime, timezone
 
+from aiq_types import QuestionType
+from gioe_libs.domain_types import DifficultyLevel
 from sqlalchemy import (
     ARRAY,
     Boolean,
@@ -29,25 +30,6 @@ class Base(DeclarativeBase):
     pass
 
 
-class QuestionTypeEnum(str, enum.Enum):
-    """Question type enumeration for database."""
-
-    PATTERN = "pattern"
-    LOGIC = "logic"
-    SPATIAL = "spatial"
-    MATH = "math"
-    VERBAL = "verbal"
-    MEMORY = "memory"
-
-
-class DifficultyLevelEnum(str, enum.Enum):
-    """Difficulty level enumeration for database."""
-
-    EASY = "easy"
-    MEDIUM = "medium"
-    HARD = "hard"
-
-
 class QuestionModel(Base):
     """SQLAlchemy model for questions table."""
 
@@ -55,8 +37,8 @@ class QuestionModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     question_text = Column(Text, nullable=False)
-    question_type = Column(Enum(QuestionTypeEnum), nullable=False)
-    difficulty_level = Column(Enum(DifficultyLevelEnum), nullable=False)
+    question_type = Column(Enum(QuestionType), nullable=False)
+    difficulty_level = Column(Enum(DifficultyLevel), nullable=False)
     correct_answer = Column(String(500), nullable=False)
     answer_options = Column(JSON)
     explanation = Column(Text)
