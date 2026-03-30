@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "APIClient",
     platforms: [
-        .iOS(.v16)
+        .iOS(.v16),
+        .macOS(.v13)
     ],
     products: [
         .library(
@@ -51,6 +52,15 @@ let package = Package(
             dependencies: [
                 "APIClient"
             ]
+        ),
+        .testTarget(
+            name: "APIClientTests",
+            dependencies: [
+                "APIClient",
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "HTTPTypes", package: "swift-http-types")
+            ],
+            path: "Tests/APIClientTests"
         )
     ]
 )
