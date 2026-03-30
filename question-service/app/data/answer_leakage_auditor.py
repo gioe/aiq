@@ -19,7 +19,11 @@ logger = logging.getLogger(__name__)
 
 MIN_ACTIVE_PER_BUCKET = 10
 # Answers shorter than this are too generic for substring matching to be reliable
-# (e.g. "A", "yes", "no", "4" appear in virtually any question text)
+# (e.g. "A", "yes", "no", "4" appear in virtually any question text).
+# Intentional asymmetry: GeneratedQuestion.validate_no_answer_in_question has no
+# such threshold because it rejects at generation time (false positives are just
+# regeneration cost). The auditor runs post-hoc against the live pool so a false
+# positive would deactivate a valid question — the higher bar is deliberate.
 MIN_ANSWER_LENGTH_FOR_LEAKAGE_CHECK = 5
 
 
