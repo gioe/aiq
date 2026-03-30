@@ -240,18 +240,6 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .confirmationDialog(
-                "Are you sure you want to logout?",
-                isPresented: $viewModel.showLogoutConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Logout", role: .destructive) {
-                    Task {
-                        await viewModel.logout()
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            }
-            .confirmationDialog(
                 "Delete Account",
                 isPresented: $viewModel.showDeleteAccountConfirmation,
                 titleVisibility: .visible
@@ -292,6 +280,10 @@ struct SettingsView: View {
                     OnboardingContainerView()
                 }
 
+            if viewModel.showLogoutConfirmation {
+                logoutConfirmationModal
+            }
+
             // Loading overlay
             if viewModel.isLoggingOut {
                 LoadingOverlay(message: "Logging out...")
@@ -299,6 +291,75 @@ struct SettingsView: View {
                 LoadingOverlay(message: "Deleting account...")
             }
         }
+    }
+}
+
+// MARK: - Subviews
+
+extension SettingsView {
+    private var logoutConfirmationModal: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { viewModel.showLogoutConfirmation = false }
+
+            VStack(spacing: DesignSystem.Spacing.lg) {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.system(size: 32))
+                    .foregroundColor(ColorPalette.error)
+                    .accessibilityHidden(true)
+
+                Text("Logout")
+                    .font(Typography.h3)
+                    .foregroundColor(ColorPalette.textPrimary)
+
+                Text("Are you sure you want to logout?")
+                    .font(Typography.bodyMedium)
+                    .foregroundColor(ColorPalette.textSecondary)
+                    .multilineTextAlignment(.center)
+
+                VStack(spacing: DesignSystem.Spacing.sm) {
+                    Button {
+                        Task { await viewModel.logout() }
+                    } label: {
+                        Text("Logout")
+                            .font(Typography.button)
+                            .frame(maxWidth: .infinity)
+                            .padding(DesignSystem.Spacing.lg)
+                            .background(ColorPalette.error)
+                            .foregroundColor(.white)
+                            .cornerRadius(DesignSystem.CornerRadius.md)
+                    }
+                    .accessibilityLabel("Logout")
+                    .accessibilityHint("Double tap to confirm logout")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutConfirmButton)
+
+                    Button {
+                        viewModel.showLogoutConfirmation = false
+                    } label: {
+                        Text("Cancel")
+                            .font(Typography.button)
+                            .frame(maxWidth: .infinity)
+                            .padding(DesignSystem.Spacing.lg)
+                            .background(ColorPalette.backgroundSecondary)
+                            .foregroundColor(ColorPalette.textPrimary)
+                            .cornerRadius(DesignSystem.CornerRadius.md)
+                    }
+                    .accessibilityLabel("Cancel")
+                    .accessibilityHint("Double tap to cancel logout")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutCancelButton)
+                }
+            }
+            .padding(DesignSystem.Spacing.xxl)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
+                    .fill(ColorPalette.background)
+                    .shadowStyle(DesignSystem.Shadow.lg)
+            )
+            .padding(DesignSystem.Spacing.xl)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutConfirmationModal)
     }
 }
 

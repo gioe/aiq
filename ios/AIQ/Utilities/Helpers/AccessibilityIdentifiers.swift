@@ -174,6 +174,9 @@ enum AccessibilityIdentifiers {
         static let testCrashButton = "settingsView.testCrashButton"
         static let biometricToggle = "settingsView.biometricToggle"
         static let securitySection = "settingsView.securitySection"
+        static let logoutConfirmationModal = "settingsView.logoutConfirmationModal"
+        static let logoutConfirmButton = "settingsView.logoutConfirmButton"
+        static let logoutCancelButton = "settingsView.logoutCancelButton"
     }
 
     // MARK: - History View
