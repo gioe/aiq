@@ -844,6 +844,61 @@ final class HistoryViewModelTests: XCTestCase {
         XCTAssertEqual(newViewModel.testHistory.last?.id, 2, "Newest within filter should be last")
     }
 
+    // MARK: - refreshHistory Tests
+
+    func testRefreshHistory_IsLoadingStaysFalse() async {
+        // Given
+        await mockService.setTestHistoryResponse([])
+
+        var loadingValues: [Bool] = []
+        var cancellables = Set<AnyCancellable>()
+        sut.$isLoading
+            .sink { loadingValues.append($0) }
+            .store(in: &cancellables)
+
+        // When
+        await sut.refreshHistory()
+
+        // Then
+        XCTAssertFalse(
+            loadingValues.contains(true),
+            "isLoading should never become true during refreshHistory (showLoadingIndicator: false)"
+        )
+        XCTAssertFalse(sut.isLoading, "isLoading should be false after refreshHistory completes")
+    }
+
+    func testRefreshHistory_IsRefreshingToggles() async {
+        // Given
+        await mockService.setTestHistoryResponse([])
+
+        // When
+        await sut.refreshHistory()
+
+        // Then
+        XCTAssertFalse(sut.isRefreshing, "isRefreshing should be reset to false after refreshHistory completes")
+    }
+
+    func testRefreshHistory_PopulatesTestHistory() async {
+        // Given
+        let result1 = createMockTestResult(id: 1, iqScore: 110)
+        let result2 = createMockTestResult(id: 2, iqScore: 120)
+        await mockService.setTestHistoryResponse([result1, result2])
+
+        // When
+        await sut.refreshHistory()
+
+        // Then
+        XCTAssertEqual(sut.testHistory.count, 2, "testHistory should be populated after refreshHistory")
+        XCTAssertTrue(
+            sut.testHistory.contains { $0.id == 1 },
+            "testHistory should contain result with id 1"
+        )
+        XCTAssertTrue(
+            sut.testHistory.contains { $0.id == 2 },
+            "testHistory should contain result with id 2"
+        )
+    }
+
     // MARK: - CancellationError Cleanup Tests
 
     func testFetchHistory_CancellationError_ResetsIsLoading() async {
