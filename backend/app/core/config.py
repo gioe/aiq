@@ -180,6 +180,12 @@ class Settings(BaseSettings):
         description="OTLP exporter headers (e.g., 'Authorization=Bearer <token>' for Grafana Cloud)",
     )
 
+    # Alerting (AlertManager — Slack/Discord webhook notifications)
+    SLACK_ALERT_WEBHOOK: str = Field(
+        default="",
+        description="Webhook URL for Slack/Discord alert notifications (leave empty to disable)",
+    )
+
     # Email/SMTP Settings (for feedback notifications)
     # NOTE: Email functionality is not yet implemented - these are placeholder settings
     SMTP_HOST: str = Field(

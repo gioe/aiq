@@ -18,6 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.tracing import setup_tracing, shutdown_tracing
+from gioe_libs.alerting.alerting import AlertManager, ErrorCategory, ErrorSeverity
 from gioe_libs.observability import observability
 
 from app.core.analytics import AnalyticsTracker
@@ -45,6 +46,32 @@ from app.ratelimit import (
 setup_logging()
 
 logger = logging.getLogger(__name__)
+
+
+class _BackendError:
+    """Minimal AlertableError-compatible wrapper for unhandled backend exceptions."""
+
+    def __init__(self, exc: Exception, path: str) -> None:
+        self.category = ErrorCategory.SERVER_ERROR
+        self.severity = ErrorSeverity.CRITICAL
+        self.provider = "aiq-backend"
+        self.original_error = exc.__class__.__name__
+        self.message = f"Unhandled exception on {path}: {exc.__class__.__name__}"
+        self.is_retryable = False
+
+    def to_dict(self) -> dict:
+        return {
+            "category": self.category.value,
+            "severity": self.severity.value,
+            "provider": self.provider,
+            "original_error": self.original_error,
+            "message": self.message,
+            "is_retryable": self.is_retryable,
+        }
+
+
+# Shared AlertManager singleton — initialized once at startup in lifespan()
+_alert_manager: AlertManager | None = None
 
 
 def _sanitize_redis_url(url: str) -> str:
@@ -127,6 +154,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     - On shutdown: Terminates any running background processes and closes connections
     """
     # Startup
+    global _alert_manager
+    _alert_manager = AlertManager(
+        discord_webhook_url=settings.SLACK_ALERT_WEBHOOK or None,
+        service_name="aiq-backend",
+    )
+    if settings.SLACK_ALERT_WEBHOOK:
+        logger.info("AlertManager initialized with webhook notifications enabled")
+    else:
+        logger.info(
+            "AlertManager initialized (no webhook configured — alerts will no-op)"
+        )
+
     # Initialize observability (Sentry + OTEL via unified facade)
     observability.init(
         config_path="config/observability.yaml",
@@ -611,6 +650,13 @@ def create_application() -> FastAPI:
             },
             tags={"error_type": exc.__class__.__name__},
         )
+
+        # Send alert via AlertManager (rate-limited; no-ops when webhook not configured)
+        if _alert_manager is not None:
+            _alert_manager.send_alert(
+                _BackendError(exc, str(request.url.path)),
+                context=f"error_id={error_id} method={request.method}",
+            )
 
         # Return error response with tracking ID (don't leak internal details)
         return JSONResponse(
