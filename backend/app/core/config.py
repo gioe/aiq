@@ -24,6 +24,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ENV", "RAILWAY_ENVIRONMENT"),
     )
     DEBUG: bool = True
+    LOG_LEVEL: str = "INFO"
 
     # API
     API_V1_PREFIX: str = "/v1"
