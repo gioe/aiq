@@ -2,7 +2,6 @@
 Tests for rate limiting strategies.
 """
 
-import pytest
 from app.ratelimit.strategies import (
     TokenBucketStrategy,
     SlidingWindowStrategy,
@@ -43,7 +42,6 @@ class TestTokenBucketStrategy:
         assert allowed is False
         assert metadata["remaining"] == 0
 
-    @pytest.mark.skip("Edge case - needs refinement")
     def test_refills_tokens_over_time(self):
         """Test that tokens are refilled over time."""
         # Consume all tokens
@@ -180,14 +178,13 @@ class TestSlidingWindowStrategy:
         )
         assert allowed is False
 
-        # At t=11, oldest request (t=0) has expired
+        # At t=11, requests at t=0 and t=1 have expired (window_start=1.0, strict >)
         allowed, metadata = self.strategy.is_allowed(
             "user1", limit=3, window_seconds=10, current_time=11.0
         )
         assert allowed is True
-        assert metadata["remaining"] == 0  # Used 1 of 3 available
+        assert metadata["remaining"] == 1  # t=2 and t=11 in window; 1 of 3 remaining
 
-    @pytest.mark.skip("Edge case - needs refinement")
     def test_precise_window_enforcement(self):
         """Test that sliding window provides precise enforcement."""
         # Make 3 requests at t=0, t=1, t=2 (limit=3, window=5)
@@ -207,7 +204,6 @@ class TestSlidingWindowStrategy:
         )
         assert allowed is True
 
-    @pytest.mark.skip("Edge case - needs refinement")
     def test_metadata_includes_reset_at(self):
         """Test that metadata includes accurate reset_at time."""
         # Make request at t=0
@@ -275,7 +271,6 @@ class TestFixedWindowStrategy:
             )
             assert allowed is True
 
-    @pytest.mark.skip("Edge case - needs refinement")
     def test_denies_requests_over_limit(self):
         """Test that requests over the limit are denied."""
         # Allow 3 requests per 10 seconds
@@ -291,7 +286,6 @@ class TestFixedWindowStrategy:
         )
         assert allowed is False
 
-    @pytest.mark.skip("Edge case - needs refinement")
     def test_counter_resets_at_window_boundary(self):
         """Test that counter resets at fixed window boundaries."""
         # Window size = 10 seconds
@@ -318,7 +312,6 @@ class TestFixedWindowStrategy:
         assert allowed is True
         assert metadata["remaining"] == 2  # 1 used in new window
 
-    @pytest.mark.skip("Edge case - needs refinement")
     def test_window_boundaries_calculated_correctly(self):
         """Test that window IDs are calculated correctly."""
         # Window size = 5 seconds
@@ -367,7 +360,6 @@ class TestFixedWindowStrategy:
         )
         assert allowed is True
 
-    @pytest.mark.skip("Edge case - needs refinement")
     def test_metadata_remaining_decrements(self):
         """Test that remaining count decrements correctly."""
         _, metadata1 = self.strategy.is_allowed(
@@ -389,7 +381,6 @@ class TestFixedWindowStrategy:
 class TestStrategyComparison:
     """Compare behavior of different strategies."""
 
-    @pytest.mark.skip("Edge case - needs refinement")
     def test_burst_handling_differences(self):
         """Test how strategies handle bursts differently."""
         storage = InMemoryStorage()

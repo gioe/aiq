@@ -107,7 +107,7 @@ class TokenBucketStrategy(RateLimiterStrategy):
         current_time: Optional[float] = None,
     ) -> Tuple[bool, dict]:
         """Check if request is allowed using token bucket algorithm."""
-        current_time = current_time or time.time()
+        current_time = current_time if current_time is not None else time.time()
 
         # Get current bucket state
         bucket_data = self.storage.get(identifier) or {
@@ -225,7 +225,7 @@ class SlidingWindowStrategy(RateLimiterStrategy):
         current_time: Optional[float] = None,
     ) -> Tuple[bool, dict]:
         """Check if request is allowed using sliding window algorithm."""
-        current_time = current_time or time.time()
+        current_time = current_time if current_time is not None else time.time()
         window_start = current_time - window_seconds
 
         # Get request log
@@ -330,7 +330,7 @@ class FixedWindowStrategy(RateLimiterStrategy):
         current_time: Optional[float] = None,
     ) -> Tuple[bool, dict]:
         """Check if request is allowed using fixed window algorithm."""
-        current_time = current_time or time.time()
+        current_time = current_time if current_time is not None else time.time()
 
         # Calculate current window
         window_id = int(current_time // window_seconds)
