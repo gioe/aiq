@@ -176,8 +176,7 @@ class InventoryAnalyzer:
         Raises:
             Exception: If database query fails
         """
-        session = self.db.get_session()
-        try:
+        with self.db.session_scope() as session:
             # Query database for active question counts grouped by type and difficulty
             # Only count questions where is_active == True (deactivated questions are excluded)
             stratum_counts = (
@@ -228,9 +227,6 @@ class InventoryAnalyzer:
                 healthy_threshold=self.healthy_threshold,
                 warning_threshold=self.warning_threshold,
             )
-
-        finally:
-            self.db.close_session(session)
 
     def compute_generation_plan(
         self,
