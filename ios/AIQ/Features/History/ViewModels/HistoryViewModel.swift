@@ -94,8 +94,14 @@ class HistoryViewModel: BaseViewModel {
     // MARK: - Public Methods
 
     /// Fetch test history from API (with caching)
-    func fetchHistory(forceRefresh: Bool = false) async {
-        setLoading(true)
+    /// - Parameters:
+    ///   - forceRefresh: If true, bypass cache and fetch from API
+    ///   - showLoadingIndicator: If false, skip `setLoading` calls so the system
+    ///     pull-to-refresh spinner handles UI feedback and the ScrollView is not
+    ///     destroyed mid-flight (which would cancel the `.refreshable` task with
+    ///     NSURLErrorDomain Code=-999).
+    func fetchHistory(forceRefresh: Bool = false, showLoadingIndicator: Bool = true) async {
+        if showLoadingIndicator { setLoading(true) }
         clearError()
         currentOffset = 0
 
@@ -110,7 +116,7 @@ class HistoryViewModel: BaseViewModel {
             await cacheResults(response.results)
             updateState(with: response, fromCache: false)
         } catch is CancellationError {
-            setLoading(false)
+            if showLoadingIndicator { setLoading(false) }
             return // view is gone; discard silently
         } catch {
             let contextualError = ContextualError(
@@ -119,7 +125,7 @@ class HistoryViewModel: BaseViewModel {
             )
             let historyCtx = CrashlyticsErrorRecorder.ErrorContext.fetchHistory.rawValue
             handleError(contextualError, context: historyCtx) { [weak self] in
-                await self?.fetchHistory(forceRefresh: forceRefresh)
+                await self?.fetchHistory(forceRefresh: forceRefresh, showLoadingIndicator: showLoadingIndicator)
             }
         }
     }
@@ -256,7 +262,11 @@ class HistoryViewModel: BaseViewModel {
         defer { isRefreshing = false }
         // Clear cache and force refresh
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
-        await fetchHistory(forceRefresh: true)
+        // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
+        // handles UI feedback. Calling setLoading(true) here would swap the
+        // ScrollView for LoadingView, destroying the refreshable context and
+        // cancelling the in-flight network request (NSURLErrorDomain Code=-999).
+        await fetchHistory(forceRefresh: true, showLoadingIndicator: false)
     }
 
     // MARK: - Computed Properties
