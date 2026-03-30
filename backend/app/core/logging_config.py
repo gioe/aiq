@@ -19,7 +19,7 @@ from gioe_libs.structured_logging import request_id_context  # noqa: F401
 
 def setup_logging() -> None:
     """Configure application-wide logging for the backend."""
-    log_level_name = getattr(settings, "LOG_LEVEL", "INFO")
+    log_level_name = settings.LOG_LEVEL
     log_level = getattr(logging, log_level_name.upper(), logging.INFO)
 
     is_production = settings.ENV == "production"

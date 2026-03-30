@@ -11,6 +11,7 @@ Triggers question generation with async mode enabled for fast throughput:
 import logging
 import os
 import secrets
+import uuid
 import subprocess
 import sys
 import threading
@@ -18,7 +19,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncGenerator, Dict, List, Literal, Optional
+from typing import AsyncGenerator, Callable, Dict, List, Literal, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -287,15 +288,17 @@ app = FastAPI(
 class RequestIdMiddleware(BaseHTTPMiddleware):
     """Propagate or generate a request ID through the async context."""
 
-    async def dispatch(self, request: Request, call_next):
-        request_id = request.headers.get("X-Request-ID") or secrets.token_hex(16)
+    async def dispatch(
+        self, request: Request, call_next: Callable
+    ) -> StarletteResponse:
+        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         ctx_token = request_id_context.set(request_id)
         try:
             response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            return response
         finally:
             request_id_context.reset(ctx_token)
-        response.headers["X-Request-ID"] = request_id
-        return response
 
 
 # Add request-id middleware first so all downstream logs include the correlation ID
