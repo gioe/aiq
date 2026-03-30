@@ -2,6 +2,7 @@
 Main FastAPI application.
 """
 
+import asyncio
 import logging
 import uuid
 from contextlib import asynccontextmanager
@@ -56,7 +57,10 @@ class _BackendError:
         self.severity = ErrorSeverity.CRITICAL
         self.provider = "aiq-backend"
         self.original_error = exc.__class__.__name__
-        self.message = f"Unhandled exception on {path}: {exc.__class__.__name__}"
+        exc_msg = str(exc)[:200]
+        self.message = (
+            f"Unhandled exception on {path}: {exc.__class__.__name__}: {exc_msg}"
+        )
         self.is_retryable = False
 
     def to_dict(self) -> dict:
@@ -652,10 +656,13 @@ def create_application() -> FastAPI:
         )
 
         # Send alert via AlertManager (rate-limited; no-ops when webhook not configured)
+        # Wrapped in asyncio.to_thread to avoid blocking the event loop — send_alert
+        # performs blocking I/O (urllib) with up to a 10-second timeout.
         if _alert_manager is not None:
-            _alert_manager.send_alert(
+            await asyncio.to_thread(
+                _alert_manager.send_alert,
                 _BackendError(exc, str(request.url.path)),
-                context=f"error_id={error_id} method={request.method}",
+                f"error_id={error_id} method={request.method}",
             )
 
         # Return error response with tracking ID (don't leak internal details)
