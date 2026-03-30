@@ -26,7 +26,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response as StarletteResponse
 
 from app.config.config import settings
-from gioe_libs.structured_logging import setup_logging  # noqa: E402
+from gioe_libs.structured_logging import request_id_context, setup_logging  # noqa: E402
 
 # Add repo root to path for libs.observability import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -282,6 +282,24 @@ app = FastAPI(
     },
     lifespan=lifespan,
 )
+
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    """Propagate or generate a request ID through the async context."""
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID") or secrets.token_hex(16)
+        ctx_token = request_id_context.set(request_id)
+        try:
+            response = await call_next(request)
+        finally:
+            request_id_context.reset(ctx_token)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
+# Add request-id middleware first so all downstream logs include the correlation ID
+app.add_middleware(RequestIdMiddleware)
 
 # Add rate limiting middleware (skip health check and metrics)
 app.add_middleware(RateLimitMiddleware, skip_paths=["/health", "/metrics"])
