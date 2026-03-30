@@ -81,8 +81,11 @@ class DatabaseService:
             )
 
     @contextmanager
-    def session_scope(self) -> Generator[Session, None, None]:
+    def session_scope(self, read_only: bool = False) -> Generator[Session, None, None]:
         """Context manager that handles session commit, rollback, and close.
+
+        Args:
+            read_only: If True, skip the commit on success (no-op for SELECT-only paths).
 
         Yields:
             Session: Database session
@@ -93,7 +96,8 @@ class DatabaseService:
         session = self.SessionLocal()
         try:
             yield session
-            session.commit()
+            if not read_only:
+                session.commit()
         except Exception:
             session.rollback()
             raise
@@ -427,7 +431,7 @@ class DatabaseService:
             Exception: If query fails
         """
         try:
-            with self.session_scope() as session:
+            with self.session_scope(read_only=True) as session:
                 questions = session.query(QuestionModel).all()
 
                 result = []
@@ -478,7 +482,7 @@ class DatabaseService:
             Exception: If query fails
         """
         try:
-            with self.session_scope() as session:
+            with self.session_scope(read_only=True) as session:
                 rows = (
                     session.query(
                         QuestionModel.question_text,
@@ -513,7 +517,7 @@ class DatabaseService:
             Exception: If query fails
         """
         try:
-            with self.session_scope() as session:
+            with self.session_scope(read_only=True) as session:
                 count = session.query(QuestionModel).count()
                 logger.info(f"Total questions in database: {count}")
                 return count
@@ -529,7 +533,7 @@ class DatabaseService:
             True if connection successful, False otherwise
         """
         try:
-            with self.session_scope() as session:
+            with self.session_scope(read_only=True) as session:
                 session.execute(text("SELECT 1"))
             logger.info("Database connection test successful")
             return True

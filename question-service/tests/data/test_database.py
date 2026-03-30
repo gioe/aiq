@@ -134,6 +134,23 @@ class TestDatabaseService:
 
     @patch("app.data.database.create_engine")
     @patch("app.data.database.sessionmaker")
+    def test_session_scope_read_only_skips_commit(
+        self, mock_sessionmaker, mock_create_engine
+    ):
+        """Test session_scope(read_only=True) skips commit but still closes."""
+        mock_session = Mock(spec=Session)
+        mock_sessionmaker.return_value = Mock(return_value=mock_session)
+
+        service = DatabaseService(database_url="postgresql://test:test@localhost/test")
+        with service.session_scope(read_only=True) as session:
+            assert session == mock_session
+
+        mock_session.commit.assert_not_called()
+        mock_session.close.assert_called_once()
+        mock_session.rollback.assert_not_called()
+
+    @patch("app.data.database.create_engine")
+    @patch("app.data.database.sessionmaker")
     def test_session_scope_rollback_on_error(
         self, mock_sessionmaker, mock_create_engine
     ):
