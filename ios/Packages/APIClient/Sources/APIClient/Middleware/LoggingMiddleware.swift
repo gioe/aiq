@@ -68,7 +68,7 @@ public struct LoggingMiddleware: ClientMiddleware, Sendable {
         }
 
         let startTime = Date()
-        let requestURL = baseURL.appendingPathComponent(request.path ?? "")
+        let requestURL = URL(string: request.path ?? "", relativeTo: baseURL)?.absoluteURL ?? baseURL
 
         // Log request
         if logLevel >= .info {
