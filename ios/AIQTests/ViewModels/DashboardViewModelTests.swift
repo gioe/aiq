@@ -621,6 +621,7 @@ final class DashboardViewModelTests: XCTestCase {
             "isLoading should never become true during refreshDashboard (showLoadingIndicator: false)"
         )
         XCTAssertFalse(sut.isLoading, "isLoading should be false after refreshDashboard completes")
+        XCTAssertFalse(sut.isRefreshing, "isRefreshing should be reset to false after refreshDashboard completes")
     }
 
     func testRefreshDashboard_UpdatesTestCountAndActiveSession() async {
@@ -698,6 +699,8 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Confirm a real API call was made (not served from cache)
         let getTestHistoryCalled = await mockService.getTestHistoryCalled
+        let getActiveTestCalled = await mockService.getActiveTestCalled
         XCTAssertTrue(getTestHistoryCalled, "getTestHistory should be called after cache is cleared")
+        XCTAssertTrue(getActiveTestCalled, "getActiveTest should be called after cache is cleared")
     }
 }
