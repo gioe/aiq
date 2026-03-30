@@ -15,10 +15,6 @@ import Foundation
         // MARK: - TestResult Mock Data
 
         // Creates a mock TestResult for previews.
-        //
-        // The generated TestResultResponse only includes required properties. Optional properties
-        // like percentileRank, completionTimeSeconds, domainScores, and confidenceInterval are not
-        // available due to OpenAPI generator limitations.
         // swiftlint:disable:next function_parameter_count
         static func makeTestResult(
             id: Int,
@@ -28,11 +24,13 @@ import Foundation
             totalQuestions: Int,
             correctAnswers: Int,
             accuracyPercentage: Double,
-            completedAt: Date
+            completedAt: Date,
+            confidenceInterval: Components.Schemas.TestResultResponse.ConfidenceIntervalPayload? = nil
         ) -> TestResult {
             Components.Schemas.TestResultResponse(
                 accuracyPercentage: accuracyPercentage,
                 completedAt: completedAt,
+                confidenceInterval: confidenceInterval,
                 correctAnswers: correctAnswers,
                 id: id,
                 iqScore: iqScore,

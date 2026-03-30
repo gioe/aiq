@@ -76,7 +76,7 @@ If a test or command fails, do NOT re-run the exact same command more than twice
 
 ## Key Conventions
 
-- **Truncation tests**: Use a distinct sentinel suffix (e.g. `"a" * 200 + "OVERFLOW"`) rather than a single repeated character — a repeated char makes `not in` assertions trivially pass on a substring of itself.
+Run `tusk conventions list` to see project conventions.
 
 ## Required Skills Usage
 

@@ -590,12 +590,10 @@ final class TestResultTests: XCTestCase {
         XCTAssertEqual(result.iqScore, 108)
         XCTAssertNotNil(result.confidenceInterval)
 
-        // TODO: Re-enable when confidenceIntervalConverted uses value1 properly
-        // The generated type wraps it in a Payload struct
-        // XCTAssertEqual(result.confidenceInterval?.lower, 101)
-        // XCTAssertEqual(result.confidenceInterval?.upper, 115)
-        // XCTAssertEqual(result.confidenceInterval?.confidenceLevel, 0.95)
-        // XCTAssertEqual(result.confidenceInterval?.standardError, 3.5)
+        XCTAssertEqual(result.confidenceIntervalConverted?.lower, 101)
+        XCTAssertEqual(result.confidenceIntervalConverted?.upper, 115)
+        XCTAssertEqual(result.confidenceIntervalConverted?.confidenceLevel, 0.95)
+        XCTAssertEqual(result.confidenceIntervalConverted?.standardError, 3.5)
     }
 
     func testTestResultDecodingWithNullConfidenceInterval() throws {

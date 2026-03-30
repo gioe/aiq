@@ -118,6 +118,22 @@ When invoked with arguments, parse them to determine the test scope:
 - **No arguments**: Run all tests
 - **Class name** (e.g., `AuthManagerTests`): Run that test class
 - **Class/method** (e.g., `AuthManagerTests/testLogin`): Run that specific test
+- **Package path** (e.g., `ios/Packages/APIClient`): Run that SPM package's tests via `swift test` (not `xcodebuild`)
+
+## SPM Package Tests
+
+If the argument is a path to a Swift Package (contains a `Package.swift`), use `swift test` instead of `xcodebuild`:
+
+```bash
+cd <package-path> && swift test 2>&1
+```
+
+Example:
+```bash
+cd ios/Packages/APIClient && swift test 2>&1
+```
+
+`xcodebuild` cannot test standalone SPM packages — it requires an `.xcodeproj` or `.xcworkspace`.
 
 ## Interpreting Results
 

@@ -60,8 +60,11 @@ ARGV.each do |file_path|
   end
   next unless found
 
-  # Find the file reference in the group
-  file_ref = group.files.find { |f| f.path == file_name }
+  # Find the file reference in the group.
+  # Match on the full path or just the basename — some file references store a
+  # subdirectory-prefixed path (e.g. path = "Network/Foo.swift") even though
+  # they live inside the correctly-named group.
+  file_ref = group.files.find { |f| f.path == file_name || File.basename(f.path.to_s) == file_name }
   if file_ref.nil?
     puts "#{ERR} File not found in project: #{file_path}"
     failures += 1
@@ -73,13 +76,13 @@ ARGV.each do |file_path|
   # can arise after botched migrations; all of them need their build-phase entries removed.
   # Scoping to the same group avoids false positives from unrelated files that share the
   # same basename (e.g. Extensions.swift in different feature groups).
-  refs_in_group = group.files.select { |f| f.path == file_name }
+  refs_in_group = group.files.select { |f| f.path == file_name || File.basename(f.path.to_s) == file_name }
 
   # Warn if refs with the same filename exist in other groups — those may have stale
   # build-phase entries that require a separate invocation of this script to clean up.
   other_ref_count = project.objects.count do |obj|
     obj.is_a?(Xcodeproj::Project::Object::PBXFileReference) &&
-      obj.path == file_name &&
+      (obj.path == file_name || File.basename(obj.path.to_s) == file_name) &&
       !refs_in_group.include?(obj)
   end
   if other_ref_count > 0
