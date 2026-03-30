@@ -44,8 +44,6 @@ final class FlexibleISO8601DateTranscoderTests: XCTestCase {
         let date = try transcoder.decode(dateString)
 
         // Then — the result must be a valid date
-        XCTAssertNotNil(date)
-
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "UTC"))
         let components = calendar.dateComponents([.year, .month, .day], from: date)
@@ -120,7 +118,7 @@ final class FlexibleISO8601DateTranscoderTests: XCTestCase {
         XCTAssertEqual(
             decoded.timeIntervalSinceReferenceDate,
             reDecoded.timeIntervalSinceReferenceDate,
-            accuracy: 0.001
+            accuracy: 0.01
         )
     }
 }

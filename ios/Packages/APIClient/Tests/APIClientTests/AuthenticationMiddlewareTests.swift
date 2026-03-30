@@ -137,6 +137,11 @@ final class AuthenticationMiddlewareTests: XCTestCase {
 /// A reference-type wrapper that allows `@Sendable` closures to store a captured
 /// value without requiring `inout` (which cannot be captured by escaping closures)
 /// or triggering Swift 6 sendable-capture warnings on mutable local variables.
+///
+/// Safety: `@unchecked Sendable` is safe here because XCTest async tests execute
+/// on a single cooperative thread — the write (inside the `next` closure) always
+/// completes before the `await` returns, so the subsequent read in the test body
+/// is always sequenced after it with no concurrent access.
 private final class CaptureBox<T>: @unchecked Sendable {
     var value: T?
 }
