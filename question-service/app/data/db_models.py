@@ -6,7 +6,7 @@ without pulling in the entire service and its heavy dependencies.
 """
 
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     ARRAY,
@@ -67,7 +67,9 @@ class QuestionModel(Base):
     source_model = Column(String(100))
     judge_score = Column(Float)
     prompt_version = Column(String(50))
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     question_embedding = Column(
         ARRAY(Float), nullable=True
