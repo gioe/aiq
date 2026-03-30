@@ -79,6 +79,59 @@ This is an automated email from AIQ. Please do not reply to this message.
 © {year} AIQ. All rights reserved.
 """
 
+FEEDBACK_NOTIFICATION_HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Feedback Submission</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background-color: #f8f9fa; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
+        <h1 style="color: #1a1a1a; margin-top: 0;">New Feedback: {category}</h1>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr>
+                <td style="padding: 8px 0; font-weight: 600; width: 120px; vertical-align: top;">From:</td>
+                <td style="padding: 8px 0;">{name} &lt;{email}&gt;</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: 600; vertical-align: top;">Category:</td>
+                <td style="padding: 8px 0;">{category}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: 600; vertical-align: top;">Submission ID:</td>
+                <td style="padding: 8px 0;">{submission_id}</td>
+            </tr>
+        </table>
+        <div style="background-color: #fff; border-radius: 6px; padding: 20px; border: 1px solid #e0e0e0;">
+            <h3 style="margin-top: 0; color: #555;">Message</h3>
+            <p style="white-space: pre-wrap; margin: 0;">{description}</p>
+        </div>
+    </div>
+    <div style="font-size: 12px; color: #999; text-align: center; margin-top: 20px;">
+        <p>This is an automated notification from AIQ.</p>
+        <p>© {year} AIQ. All rights reserved.</p>
+    </div>
+</body>
+</html>
+"""
+
+FEEDBACK_NOTIFICATION_TEXT_TEMPLATE = """
+New Feedback: {category}
+
+From: {name} <{email}>
+Category: {category}
+Submission ID: {submission_id}
+
+Message:
+{description}
+
+---
+This is an automated notification from AIQ.
+© {year} AIQ. All rights reserved.
+"""
+
 
 def _is_smtp_configured() -> bool:
     """
@@ -187,6 +240,88 @@ def send_password_reset_email(
     except Exception as e:
         logger.error(
             f"Unexpected error sending password reset email to {email}: {e}",
+            exc_info=True,
+        )
+        return False
+
+
+def send_feedback_notification_email(
+    name: str,
+    email: str,
+    category: str,
+    description: str,
+    submission_id: int,
+) -> bool:
+    """
+    Send admin notification email for a new feedback submission.
+
+    In production environments with SMTP configured, sends an actual email to
+    settings.ADMIN_EMAIL. In development/testing without SMTP, logs the feedback
+    details instead.
+
+    Args:
+        name: Submitter's name
+        email: Submitter's email address
+        category: Feedback category (human-readable, e.g. "Bug Report")
+        description: Full feedback message
+        submission_id: Database ID of the feedback submission
+
+    Returns:
+        True if email was sent successfully or logged, False on error
+    """
+    if not _is_smtp_configured():
+        logger.info(
+            f"SMTP not configured. New feedback submission: "
+            f"id={submission_id}, category={category}, from={name}"
+        )
+        return True
+
+    try:
+        current_year = utc_now().year
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"[AIQ Feedback] New {category} from {name}"
+        msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
+        msg["To"] = formataddr(("", settings.ADMIN_EMAIL))
+
+        text_content = FEEDBACK_NOTIFICATION_TEXT_TEMPLATE.format(
+            name=name,
+            email=email,
+            category=category,
+            description=description,
+            submission_id=submission_id,
+            year=current_year,
+        )
+        html_content = FEEDBACK_NOTIFICATION_HTML_TEMPLATE.format(
+            name=name,
+            email=email,
+            category=category,
+            description=description,
+            submission_id=submission_id,
+            year=current_year,
+        )
+
+        msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
+
+        with smtplib.SMTP(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS
+        ) as server:
+            server.starttls()
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+
+        logger.info(f"Feedback notification email sent: submission_id={submission_id}")
+        return True
+
+    except smtplib.SMTPException as e:
+        logger.error(
+            f"SMTP error sending feedback notification: submission_id={submission_id}, error={e}"
+        )
+        return False
+    except Exception as e:
+        logger.error(
+            f"Unexpected error sending feedback notification: submission_id={submission_id}, error={e}",
             exc_info=True,
         )
         return False

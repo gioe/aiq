@@ -18,6 +18,7 @@ from app.core.auth.dependencies import get_current_user_optional
 from app.core.config import settings
 from app.core.error_responses import raise_server_error, ErrorMessages
 from app.core.auth.ip_extraction import get_secure_client_ip
+from app.services.email_service import send_feedback_notification_email
 from app.ratelimit.limiter import RateLimiter
 from app.ratelimit.storage import InMemoryStorage, RateLimiterStorage
 from app.ratelimit.strategies import TokenBucketStrategy
@@ -153,11 +154,6 @@ def _send_feedback_notification(feedback: FeedbackSubmission) -> bool:
     """
     try:
         category_display = feedback.category.value.replace("_", " ").title()
-        description_preview = (
-            feedback.description[:100] + "..."
-            if len(feedback.description) > 100
-            else feedback.description
-        )
 
         # Log without PII - redact email to protect user privacy
         email_domain = (
@@ -165,20 +161,16 @@ def _send_feedback_notification(feedback: FeedbackSubmission) -> bool:
         )
         logger.info(
             f"New feedback received (domain: {email_domain}): "
-            f"{category_display} - {description_preview}"
+            f"{category_display} - id={feedback.id}"
         )
 
-        # TODO: Implement actual email notification
-        # When implementing, add email sending here. The try-except will
-        # catch any SMTP errors, connection timeouts, etc.
-        # Example:
-        # await send_email(
-        #     to=settings.ADMIN_EMAIL,
-        #     subject=f"New {category_display} from {feedback.name}",
-        #     body=f"Email: {feedback.email}\n\n{feedback.description}"
-        # )
-
-        return True
+        return send_feedback_notification_email(
+            name=feedback.name,
+            email=feedback.email,
+            category=category_display,
+            description=feedback.description,
+            submission_id=feedback.id,
+        )
 
     except Exception as e:
         # Log the error with context for debugging and monitoring
