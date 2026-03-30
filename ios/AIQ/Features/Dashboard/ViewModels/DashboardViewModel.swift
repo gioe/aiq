@@ -29,8 +29,14 @@ class DashboardViewModel: BaseViewModel {
     // MARK: - Public Methods
 
     /// Fetch dashboard data from API (with caching)
-    func fetchDashboardData(forceRefresh: Bool = false) async {
-        setLoading(true)
+    /// - Parameters:
+    ///   - forceRefresh: If true, bypass cache and fetch from API
+    ///   - showLoadingIndicator: If false, skip `setLoading` calls so the system
+    ///     pull-to-refresh spinner handles UI feedback and the ScrollView is not
+    ///     destroyed mid-flight (which would cancel the `.refreshable` task with
+    ///     NSURLErrorDomain Code=-999).
+    func fetchDashboardData(forceRefresh: Bool = false, showLoadingIndicator: Bool = true) async {
+        if showLoadingIndicator { setLoading(true) }
         clearError()
 
         // Fetch count and active session in parallel
@@ -43,12 +49,12 @@ class DashboardViewModel: BaseViewModel {
         if let countError = countResult {
             let dashCtx = CrashlyticsErrorRecorder.ErrorContext.fetchDashboard.rawValue
             handleError(countError, context: dashCtx) { [weak self] in
-                await self?.fetchDashboardData(forceRefresh: forceRefresh)
+                await self?.fetchDashboardData(forceRefresh: forceRefresh, showLoadingIndicator: showLoadingIndicator)
             }
             return
         }
 
-        setLoading(false)
+        if showLoadingIndicator { setLoading(false) }
     }
 
     /// Refresh dashboard data (pull-to-refresh)
@@ -58,7 +64,11 @@ class DashboardViewModel: BaseViewModel {
         // Clear cache and force refresh
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
         await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
-        await fetchDashboardData(forceRefresh: true)
+        // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
+        // handles UI feedback. Calling setLoading(true) here would swap the
+        // ScrollView for LoadingView, destroying the refreshable context and
+        // cancelling the in-flight network request (NSURLErrorDomain Code=-999).
+        await fetchDashboardData(forceRefresh: true, showLoadingIndicator: false)
     }
 
     /// Abandon the active test session
