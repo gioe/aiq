@@ -12,6 +12,8 @@ from app.core.datetime_utils import utc_now
 from enum import Enum
 from typing import Optional, Dict, Any, List, Tuple
 
+from gioe_libs.observability import observability
+
 import numpy as np
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -126,11 +128,15 @@ class AnalyticsTracker:
             },
         )
 
-        # In production, send to external analytics service
-        if settings.ENV == "production":
-            # TODO: Integrate with external analytics service
-            # Example: mixpanel.track(user_id, event_type.value, properties)
-            pass
+        # Send to observability backend (Sentry breadcrumbs/events via gioe_libs)
+        # observability is a no-op when Sentry DSN is not configured
+        if user_id is not None:
+            observability.set_user(str(user_id))
+        observability.record_event(
+            event_type.value,
+            data=event_data,
+            tags={"environment": settings.ENV},
+        )
 
     @staticmethod
     def track_user_registered(user_id: int, email: str) -> None:
