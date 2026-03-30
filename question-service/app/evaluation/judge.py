@@ -7,18 +7,9 @@ specialized LLM models based on question type.
 import asyncio
 import json
 import logging
-import sys
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Import observability facade for Sentry error capture
-# TODO: Remove sys.path manipulation once libs.observability is a proper package
-try:
-    from gioe_libs.observability import observability
-except ImportError:
-    # Fallback for environments where libs.observability isn't installed as a package
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-    from gioe_libs.observability import observability  # noqa: E402
+from gioe_libs.observability import observability
 
 from app.config.judge_config import JudgeConfigLoader
 from app.infrastructure.circuit_breaker import (

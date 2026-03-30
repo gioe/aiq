@@ -8,11 +8,11 @@ import asyncio
 import json
 import logging
 import random
-import sys
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
+
+from gioe_libs.observability import observability
 
 from app.infrastructure.circuit_breaker import (
     CircuitBreakerOpen,
@@ -36,15 +36,6 @@ from app.providers.base import BaseLLMProvider, LLMProviderError
 from app.providers.google_provider import GoogleProvider
 from app.providers.openai_provider import OpenAIProvider
 from app.providers.xai_provider import XAIProvider
-
-# Import observability facade for metrics and Sentry error capture
-# TODO: Remove sys.path manipulation once libs.observability is a proper package
-try:
-    from gioe_libs.observability import observability
-except ImportError:
-    # Fallback for environments where libs.observability isn't installed as a package
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-    from gioe_libs.observability import observability  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
