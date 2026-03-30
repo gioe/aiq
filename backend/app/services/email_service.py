@@ -6,6 +6,7 @@ In development/testing environments without SMTP configured, it logs tokens
 instead of sending actual emails.
 """
 
+import html
 import logging
 import smtplib
 from email.mime.text import MIMEText
@@ -147,6 +148,7 @@ def _is_smtp_configured() -> bool:
         and settings.SMTP_PASSWORD
         and settings.SMTP_FROM_EMAIL
         and settings.SMTP_FROM_NAME
+        and settings.ADMIN_EMAIL
     )
 
 
@@ -272,15 +274,19 @@ def send_feedback_notification_email(
     if not _is_smtp_configured():
         logger.info(
             f"SMTP not configured. New feedback submission: "
-            f"id={submission_id}, category={category}, from={name}"
+            f"id={submission_id}, category={category}"
         )
         return True
 
     try:
         current_year = utc_now().year
 
+        # Strip newline/CR from header values to prevent header injection
+        safe_category = category.replace("\r", "").replace("\n", "")
+        safe_name = name.replace("\r", "").replace("\n", "")
+
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"[AIQ Feedback] New {category} from {name}"
+        msg["Subject"] = f"[AIQ Feedback] New {safe_category} from {safe_name}"
         msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
         msg["To"] = formataddr(("", settings.ADMIN_EMAIL))
 
@@ -292,11 +298,12 @@ def send_feedback_notification_email(
             submission_id=submission_id,
             year=current_year,
         )
+        # HTML-escape all user-supplied values to prevent HTML injection in admin email
         html_content = FEEDBACK_NOTIFICATION_HTML_TEMPLATE.format(
-            name=name,
-            email=email,
-            category=category,
-            description=description,
+            name=html.escape(name),
+            email=html.escape(email),
+            category=html.escape(category),
+            description=html.escape(description),
             submission_id=submission_id,
             year=current_year,
         )
