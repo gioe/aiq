@@ -301,39 +301,6 @@ class TestQuestionDeduplicator:
         assert results[2].is_duplicate is False  # New question
 
     @patch("app.data.deduplicator.OpenAI")
-    def test_cosine_similarity(self, mock_openai):
-        """Test cosine similarity calculation."""
-        deduplicator = QuestionDeduplicator(openai_api_key="test-key")
-
-        # Test identical vectors
-        vec1 = np.array([1.0, 2.0, 3.0])
-        similarity = deduplicator._cosine_similarity(vec1, vec1)
-        assert pytest.approx(similarity, abs=0.01) == 1.0
-
-        # Test orthogonal vectors
-        vec2 = np.array([1.0, 0.0, 0.0])
-        vec3 = np.array([0.0, 1.0, 0.0])
-        similarity = deduplicator._cosine_similarity(vec2, vec3)
-        assert pytest.approx(similarity, abs=0.01) == 0.0
-
-        # Test similar vectors
-        vec4 = np.array([1.0, 1.0, 1.0])
-        vec5 = np.array([1.1, 0.9, 1.0])
-        similarity = deduplicator._cosine_similarity(vec4, vec5)
-        assert 0.9 < similarity < 1.0
-
-    @patch("app.data.deduplicator.OpenAI")
-    def test_cosine_similarity_zero_vectors(self, mock_openai):
-        """Test cosine similarity with zero vectors."""
-        deduplicator = QuestionDeduplicator(openai_api_key="test-key")
-
-        vec1 = np.array([0.0, 0.0, 0.0])
-        vec2 = np.array([1.0, 2.0, 3.0])
-
-        similarity = deduplicator._cosine_similarity(vec1, vec2)
-        assert similarity == pytest.approx(0.0)
-
-    @patch("app.data.deduplicator.OpenAI")
     def test_get_embedding_success(self, mock_openai):
         """Test successful embedding generation."""
         mock_response = Mock()

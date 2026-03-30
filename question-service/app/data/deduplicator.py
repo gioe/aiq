@@ -347,29 +347,6 @@ class QuestionDeduplicator:
             logger.error(f"Failed to generate embedding: {str(e)}")
             raise
 
-    def _cosine_similarity(self, vector1: np.ndarray, vector2: np.ndarray) -> float:
-        """Calculate cosine similarity between two vectors.
-
-        Args:
-            vector1: First embedding vector
-            vector2: Second embedding vector
-
-        Returns:
-            Cosine similarity score (0.0 to 1.0)
-        """
-        # Normalize vectors
-        norm1 = np.linalg.norm(vector1)
-        norm2 = np.linalg.norm(vector2)
-
-        if norm1 == 0 or norm2 == 0:
-            return 0.0
-
-        # Calculate cosine similarity
-        similarity = np.dot(vector1, vector2) / (norm1 * norm2)
-
-        # Clamp to [0, 1] range (cosine similarity is [-1, 1], but we expect [0, 1])
-        return float(max(0.0, min(1.0, similarity)))
-
     def filter_duplicates(
         self,
         questions: List[GeneratedQuestion],
