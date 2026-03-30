@@ -3,7 +3,6 @@
 import logging
 import time
 from difflib import SequenceMatcher
-from typing import Optional
 
 from gioe_libs.observability import observability
 
@@ -54,8 +53,8 @@ def dedupe_within_batch(
 
 def run_dedup_phase(
     approved_questions: list,
-    db: Optional[QuestionDatabase],
-    deduplicator: Optional[QuestionDeduplicator],
+    db: QuestionDatabase,
+    deduplicator: QuestionDeduplicator,
     metrics: PipelineRunSummary,
     logger: logging.Logger,
 ) -> list[EvaluatedQuestion]:
@@ -63,13 +62,17 @@ def run_dedup_phase(
 
     Returns list of unique questions.
     """
+    if db is None:
+        raise ValueError("db must not be None")
+    if deduplicator is None:
+        raise ValueError("deduplicator must not be None")
+
     dedup_start = time.perf_counter()
     with observability.start_span(
         "phase3_deduplication",
         attributes={"approved_count": len(approved_questions)},
     ) as dedup_span:
         try:
-            assert db is not None
             existing_questions = db.get_all_questions()
             logger.info(
                 f"Loaded {len(existing_questions)} existing questions for deduplication"
@@ -87,7 +90,6 @@ def run_dedup_phase(
 
         for evaluated_question in approved_questions:
             try:
-                assert deduplicator is not None
                 q_difficulty = str(
                     evaluated_question.question.difficulty_level.value
                 ).lower()
@@ -158,7 +160,6 @@ def run_dedup_phase(
             unit="s",
         )
 
-        assert deduplicator is not None
         cache_stats = deduplicator.get_stats()["cache"]
         observability.record_metric(
             "embedding.cache.hit",
