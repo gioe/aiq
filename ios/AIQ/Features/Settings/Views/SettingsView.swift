@@ -282,6 +282,7 @@ struct SettingsView: View {
 
             if viewModel.showLogoutConfirmation {
                 logoutConfirmationModal
+                    .transition(.opacity)
             }
 
             // Loading overlay
@@ -320,6 +321,7 @@ extension SettingsView {
 
                 VStack(spacing: DesignSystem.Spacing.sm) {
                     Button {
+                        viewModel.showLogoutConfirmation = false
                         Task { await viewModel.logout() }
                     } label: {
                         Text("Logout")
@@ -359,6 +361,7 @@ extension SettingsView {
             .padding(DesignSystem.Spacing.xl)
         }
         .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutConfirmationModal)
     }
 }
