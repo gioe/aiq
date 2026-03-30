@@ -42,6 +42,9 @@ actor DataCache {
     /// Retrieve value from cache if not expired
     func get<T>(forKey key: String) -> T? {
         guard let entry = cache[key] as? CacheEntry<T> else {
+            #if DEBUG
+                print("[CACHE MISS] \(key)")
+            #endif
             return nil
         }
 
