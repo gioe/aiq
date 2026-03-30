@@ -6,8 +6,9 @@ PostgreSQL database using SQLAlchemy.
 
 import logging
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 from sqlalchemy import (
     create_engine,
@@ -79,32 +80,25 @@ class DatabaseService:
                 "embeddings will not be computed"
             )
 
-    def get_session(self) -> Session:
-        """Get a new database session.
-
-        Returns:
-            SQLAlchemy session
+    @contextmanager
+    def session_scope(self) -> Generator[Session, None, None]:
+        """Context manager that handles session commit, rollback, and close.
 
         Yields:
             Session: Database session
+
+        Raises:
+            Exception: Re-raises any exception after rolling back the session
         """
         session = self.SessionLocal()
         try:
-            return session
-        except Exception as e:
-            logger.error(f"Failed to create database session: {str(e)}")
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
             raise
-
-    def close_session(self, session: Session) -> None:
-        """Close a database session.
-
-        Args:
-            session: Session to close
-        """
-        try:
+        finally:
             session.close()
-        except Exception as e:
-            logger.error(f"Error closing session: {str(e)}")
 
     def _generate_embedding(self, text: str) -> Optional[List[float]]:
         """Generate embedding vector for text using OpenAI API with Google fallback.
@@ -150,57 +144,54 @@ class DatabaseService:
                 "difficulty": question.difficulty_level.value,
             },
         ) as span:
-            session = self.get_session()
             try:
-                # Generate embedding for the question (TASK-433)
-                # This is computed once at insertion time to avoid repeated API calls
-                # during deduplication. Falls back to None if OpenAI client is unavailable.
-                embedding = self._generate_embedding(question.question_text)
+                with self.session_scope() as session:
+                    # Generate embedding for the question (TASK-433)
+                    # This is computed once at insertion time to avoid repeated API calls
+                    # during deduplication. Falls back to None if OpenAI client is unavailable.
+                    embedding = self._generate_embedding(question.question_text)
 
-                # Create database model
-                # Note: No mapping needed - QuestionType enum values now match backend directly
-                db_question = QuestionModel(
-                    question_text=question.question_text,
-                    question_type=question.question_type.value,
-                    difficulty_level=question.difficulty_level.value,
-                    correct_answer=question.correct_answer,
-                    answer_options=question.answer_options,
-                    explanation=question.explanation,
-                    stimulus=question.stimulus,  # TASK-727: Content to memorize
-                    sub_type=question.sub_type,
-                    question_metadata=question.metadata,
-                    source_llm=question.source_llm,
-                    source_model=question.source_model,
-                    judge_score=judge_score,
-                    prompt_version=PROMPT_VERSION,
-                    is_active=True,
-                    question_embedding=embedding,  # TASK-433: Store pre-computed embedding
-                )
+                    # Create database model
+                    # Note: No mapping needed - QuestionType enum values now match backend directly
+                    db_question = QuestionModel(
+                        question_text=question.question_text,
+                        question_type=question.question_type.value,
+                        difficulty_level=question.difficulty_level.value,
+                        correct_answer=question.correct_answer,
+                        answer_options=question.answer_options,
+                        explanation=question.explanation,
+                        stimulus=question.stimulus,  # TASK-727: Content to memorize
+                        sub_type=question.sub_type,
+                        question_metadata=question.metadata,
+                        source_llm=question.source_llm,
+                        source_model=question.source_model,
+                        judge_score=judge_score,
+                        prompt_version=PROMPT_VERSION,
+                        is_active=True,
+                        question_embedding=embedding,  # TASK-433: Store pre-computed embedding
+                    )
 
-                session.add(db_question)
-                session.commit()
-                session.refresh(db_question)
+                    session.add(db_question)
+                    session.commit()
+                    session.refresh(db_question)
 
-                question_id = db_question.id
-                embedding_status = (
-                    "with embedding" if embedding else "without embedding"
-                )
-                span.set_attribute("success", True)
-                span.set_attribute("question_id", question_id)
-                logger.info(
-                    f"Inserted question with ID: {question_id} ({embedding_status})"
-                )
+                    question_id = db_question.id
+                    embedding_status = (
+                        "with embedding" if embedding else "without embedding"
+                    )
+                    span.set_attribute("success", True)
+                    span.set_attribute("question_id", question_id)
+                    logger.info(
+                        f"Inserted question with ID: {question_id} ({embedding_status})"
+                    )
 
-                return question_id  # type: ignore[return-value]
+                    return question_id  # type: ignore[return-value]
 
             except Exception as e:
-                session.rollback()
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
                 logger.error(f"Failed to insert question: {str(e)}")
                 raise
-            finally:
-                self.close_session(session)
 
     def insert_evaluated_question(
         self,
@@ -295,73 +286,70 @@ class DatabaseService:
             "database.insert_questions_batch",
             attributes={"count": len(questions)},
         ) as span:
-            session = self.get_session()
-            db_questions = []
-            embeddings_computed = 0
-
             try:
-                # Generate embeddings in a single batch API call for efficiency
-                embeddings: List[Optional[List[float]]] = [None] * len(questions)
-                if self.openai_client:
-                    try:
-                        texts = [q.question_text for q in questions]
-                        batch_results = generate_embeddings_batch(
-                            self.openai_client, texts, EMBEDDING_MODEL
-                        )
-                        for i, emb in enumerate(batch_results):
-                            embeddings[i] = emb.tolist()
-                            embeddings_computed += 1
-                    except Exception as e:
-                        logger.debug(
-                            f"Batch embedding generation failed, proceeding without: {e}"
+                with self.session_scope() as session:
+                    db_questions = []
+                    embeddings_computed = 0
+
+                    # Generate embeddings in a single batch API call for efficiency
+                    embeddings: List[Optional[List[float]]] = [None] * len(questions)
+                    if self.openai_client:
+                        try:
+                            texts = [q.question_text for q in questions]
+                            batch_results = generate_embeddings_batch(
+                                self.openai_client, texts, EMBEDDING_MODEL
+                            )
+                            for i, emb in enumerate(batch_results):
+                                embeddings[i] = emb.tolist()
+                                embeddings_computed += 1
+                        except Exception as e:
+                            logger.debug(
+                                f"Batch embedding generation failed, proceeding without: {e}"
+                            )
+
+                    for i, question in enumerate(questions):
+                        judge_score = judge_scores[i] if judge_scores else None
+
+                        db_question = QuestionModel(
+                            question_text=question.question_text,
+                            question_type=question.question_type.value,
+                            difficulty_level=question.difficulty_level.value,
+                            correct_answer=question.correct_answer,
+                            answer_options=question.answer_options,
+                            explanation=question.explanation,
+                            stimulus=question.stimulus,  # TASK-727: Content to memorize
+                            sub_type=question.sub_type,
+                            question_metadata=question.metadata,
+                            source_llm=question.source_llm,
+                            source_model=question.source_model,
+                            judge_score=judge_score,
+                            prompt_version=PROMPT_VERSION,
+                            is_active=True,
+                            question_embedding=embeddings[i],
                         )
 
-                for i, question in enumerate(questions):
-                    judge_score = judge_scores[i] if judge_scores else None
+                        session.add(db_question)
+                        db_questions.append(db_question)
 
-                    db_question = QuestionModel(
-                        question_text=question.question_text,
-                        question_type=question.question_type.value,
-                        difficulty_level=question.difficulty_level.value,
-                        correct_answer=question.correct_answer,
-                        answer_options=question.answer_options,
-                        explanation=question.explanation,
-                        stimulus=question.stimulus,  # TASK-727: Content to memorize
-                        sub_type=question.sub_type,
-                        question_metadata=question.metadata,
-                        source_llm=question.source_llm,
-                        source_model=question.source_model,
-                        judge_score=judge_score,
-                        prompt_version=PROMPT_VERSION,
-                        is_active=True,
-                        question_embedding=embeddings[i],
+                    session.commit()
+
+                    # IDs are populated by SQLAlchemy after commit
+                    question_ids = [q.id for q in db_questions]
+
+                    span.set_attribute("success", True)
+                    span.set_attribute("questions_inserted", len(question_ids))
+                    logger.info(
+                        f"Inserted {len(question_ids)} questions in batch "
+                        f"({embeddings_computed} with embeddings)"
                     )
 
-                    session.add(db_question)
-                    db_questions.append(db_question)
-
-                session.commit()
-
-                # IDs are populated by SQLAlchemy after commit
-                question_ids = [q.id for q in db_questions]
-
-                span.set_attribute("success", True)
-                span.set_attribute("questions_inserted", len(question_ids))
-                logger.info(
-                    f"Inserted {len(question_ids)} questions in batch "
-                    f"({embeddings_computed} with embeddings)"
-                )
-
-                return question_ids  # type: ignore[return-value]
+                    return question_ids  # type: ignore[return-value]
 
             except Exception as e:
-                session.rollback()
                 span.set_attribute("success", False)
                 span.set_status("error", str(e))
                 logger.error(f"Failed to insert batch of questions: {str(e)}")
                 raise
-            finally:
-                self.close_session(session)
 
     def insert_evaluated_questions_batch(
         self,
@@ -438,43 +426,41 @@ class DatabaseService:
         Raises:
             Exception: If query fails
         """
-        session = self.get_session()
         try:
-            questions = session.query(QuestionModel).all()
+            with self.session_scope() as session:
+                questions = session.query(QuestionModel).all()
 
-            result = []
-            for q in questions:
-                result.append(
-                    {
-                        "id": q.id,
-                        "question_text": q.question_text,
-                        "question_type": q.question_type,
-                        "difficulty_level": q.difficulty_level,
-                        "correct_answer": q.correct_answer,
-                        "answer_options": q.answer_options,
-                        "explanation": q.explanation,
-                        "stimulus": q.stimulus,  # TASK-727: Content to memorize
-                        "sub_type": q.sub_type,
-                        "inferred_sub_type": q.inferred_sub_type,
-                        "metadata": q.question_metadata,  # TASK-445: Standardized key name
-                        "source_llm": q.source_llm,
-                        "source_model": q.source_model,
-                        "judge_score": q.judge_score,
-                        "prompt_version": q.prompt_version,
-                        "created_at": q.created_at,
-                        "is_active": q.is_active,
-                        "question_embedding": q.question_embedding,  # TASK-433: Include pre-computed embedding
-                    }
-                )
+                result = []
+                for q in questions:
+                    result.append(
+                        {
+                            "id": q.id,
+                            "question_text": q.question_text,
+                            "question_type": q.question_type,
+                            "difficulty_level": q.difficulty_level,
+                            "correct_answer": q.correct_answer,
+                            "answer_options": q.answer_options,
+                            "explanation": q.explanation,
+                            "stimulus": q.stimulus,  # TASK-727: Content to memorize
+                            "sub_type": q.sub_type,
+                            "inferred_sub_type": q.inferred_sub_type,
+                            "metadata": q.question_metadata,  # TASK-445: Standardized key name
+                            "source_llm": q.source_llm,
+                            "source_model": q.source_model,
+                            "judge_score": q.judge_score,
+                            "prompt_version": q.prompt_version,
+                            "created_at": q.created_at,
+                            "is_active": q.is_active,
+                            "question_embedding": q.question_embedding,  # TASK-433: Include pre-computed embedding
+                        }
+                    )
 
-            logger.info(f"Retrieved {len(result)} questions from database")
-            return result
+                logger.info(f"Retrieved {len(result)} questions from database")
+                return result
 
         except Exception as e:
             logger.error(f"Failed to retrieve questions: {str(e)}")
             raise
-        finally:
-            self.close_session(session)
 
     def get_questions_by_difficulty(self, difficulty: str) -> List[Dict[str, Any]]:
         """Retrieve questions filtered by difficulty level.
@@ -491,33 +477,31 @@ class DatabaseService:
         Raises:
             Exception: If query fails
         """
-        session = self.get_session()
         try:
-            rows = (
-                session.query(
-                    QuestionModel.question_text,
-                    QuestionModel.question_embedding,
+            with self.session_scope() as session:
+                rows = (
+                    session.query(
+                        QuestionModel.question_text,
+                        QuestionModel.question_embedding,
+                    )
+                    .filter(QuestionModel.difficulty_level == difficulty)
+                    .all()
                 )
-                .filter(QuestionModel.difficulty_level == difficulty)
-                .all()
-            )
-            result = [
-                {
-                    "question_text": r.question_text,
-                    "question_embedding": r.question_embedding,
-                }
-                for r in rows
-            ]
-            logger.info(
-                f"Retrieved {len(result)} questions with difficulty={difficulty!r}"
-            )
-            return result
+                result = [
+                    {
+                        "question_text": r.question_text,
+                        "question_embedding": r.question_embedding,
+                    }
+                    for r in rows
+                ]
+                logger.info(
+                    f"Retrieved {len(result)} questions with difficulty={difficulty!r}"
+                )
+                return result
 
         except Exception as e:
             logger.error(f"Failed to retrieve questions by difficulty: {str(e)}")
             raise
-        finally:
-            self.close_session(session)
 
     def get_question_count(self) -> int:
         """Get total count of questions in database.
@@ -528,17 +512,15 @@ class DatabaseService:
         Raises:
             Exception: If query fails
         """
-        session = self.get_session()
         try:
-            count = session.query(QuestionModel).count()
-            logger.info(f"Total questions in database: {count}")
-            return count
+            with self.session_scope() as session:
+                count = session.query(QuestionModel).count()
+                logger.info(f"Total questions in database: {count}")
+                return count
 
         except Exception as e:
             logger.error(f"Failed to count questions: {str(e)}")
             raise
-        finally:
-            self.close_session(session)
 
     def test_connection(self) -> bool:
         """Test database connection.
@@ -547,9 +529,8 @@ class DatabaseService:
             True if connection successful, False otherwise
         """
         try:
-            session = self.get_session()
-            session.execute(text("SELECT 1"))
-            self.close_session(session)
+            with self.session_scope() as session:
+                session.execute(text("SELECT 1"))
             logger.info("Database connection test successful")
             return True
         except Exception as e:

@@ -117,25 +117,38 @@ class TestDatabaseService:
 
     @patch("app.data.database.create_engine")
     @patch("app.data.database.sessionmaker")
-    def test_get_session(self, mock_sessionmaker, mock_create_engine):
-        """Test getting a database session."""
+    def test_session_scope_commits_and_closes(
+        self, mock_sessionmaker, mock_create_engine
+    ):
+        """Test session_scope commits on success and always closes."""
         mock_session = Mock(spec=Session)
         mock_sessionmaker.return_value = Mock(return_value=mock_session)
 
         service = DatabaseService(database_url="postgresql://test:test@localhost/test")
-        session = service.get_session()
+        with service.session_scope() as session:
+            assert session == mock_session
 
-        assert session == mock_session
+        mock_session.commit.assert_called_once()
+        mock_session.close.assert_called_once()
+        mock_session.rollback.assert_not_called()
 
     @patch("app.data.database.create_engine")
     @patch("app.data.database.sessionmaker")
-    def test_close_session(self, mock_sessionmaker, mock_create_engine):
-        """Test closing a database session."""
+    def test_session_scope_rollback_on_error(
+        self, mock_sessionmaker, mock_create_engine
+    ):
+        """Test session_scope rolls back and closes on exception."""
         mock_session = Mock(spec=Session)
-        service = DatabaseService(database_url="postgresql://test:test@localhost/test")
+        mock_sessionmaker.return_value = Mock(return_value=mock_session)
 
-        service.close_session(mock_session)
+        service = DatabaseService(database_url="postgresql://test:test@localhost/test")
+        with pytest.raises(RuntimeError, match="boom"):
+            with service.session_scope():
+                raise RuntimeError("boom")
+
+        mock_session.rollback.assert_called_once()
         mock_session.close.assert_called_once()
+        mock_session.commit.assert_not_called()
 
     def test_insert_question_success(self, mock_database_service, sample_question):
         """Test successful question insertion."""
@@ -143,8 +156,7 @@ class TestDatabaseService:
         mock_db_question = Mock()
         mock_db_question.id = 123
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         # Mock session operations
         mock_session.add = Mock()
@@ -156,8 +168,8 @@ class TestDatabaseService:
 
         assert question_id == 123
         mock_session.add.assert_called_once()
-        mock_session.commit.assert_called_once()
-        mock_database_service.close_session.assert_called_once()
+        mock_session.commit.assert_called()
+        mock_session.close.assert_called_once()
 
     def test_insert_question_with_judge_score(
         self, mock_database_service, sample_question
@@ -167,8 +179,7 @@ class TestDatabaseService:
         mock_db_question = Mock()
         mock_db_question.id = 456
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         mock_session.add = Mock()
         mock_session.commit = Mock()
@@ -189,8 +200,7 @@ class TestDatabaseService:
         mock_db_question = Mock()
         mock_db_question.id = 555
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         mock_session.add = Mock()
         mock_session.commit = Mock()
@@ -210,7 +220,7 @@ class TestDatabaseService:
             assert "Memorize the following list" in call_kwargs["stimulus"]
 
         assert question_id == 555
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_insert_question_failure_rollback(
         self, mock_database_service, sample_question
@@ -221,15 +231,14 @@ class TestDatabaseService:
         mock_session.commit = Mock(side_effect=Exception("Database error"))
         mock_session.rollback = Mock()
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         with patch("app.data.database.QuestionModel"):
             with pytest.raises(Exception, match="Database error"):
                 mock_database_service.insert_question(sample_question)
 
         mock_session.rollback.assert_called_once()
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_insert_evaluated_question(
         self, mock_database_service, sample_evaluated_question
@@ -239,8 +248,7 @@ class TestDatabaseService:
         mock_db_question = Mock()
         mock_db_question.id = 789
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         mock_session.add = Mock()
         mock_session.commit = Mock()
@@ -261,8 +269,7 @@ class TestDatabaseService:
         mock_db_question = Mock()
         mock_db_question.id = 999
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         mock_session.add = Mock()
         mock_session.commit = Mock()
@@ -305,8 +312,7 @@ class TestDatabaseService:
         mock_db_question = Mock()
         mock_db_question.id = 888
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         mock_session.add = Mock()
         mock_session.commit = Mock()
@@ -353,15 +359,14 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.new = []  # No new objects after commit in mock
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         with patch("app.data.database.QuestionModel"):
             question_ids = mock_database_service.insert_questions_batch(questions)
 
         assert isinstance(question_ids, list)
         assert mock_session.commit.called
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_insert_questions_batch_with_scores(self, mock_database_service):
         """Test batch insertion with judge scores."""
@@ -385,8 +390,7 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.new = []
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         with patch("app.data.database.QuestionModel"):
             question_ids = mock_database_service.insert_questions_batch(
@@ -394,7 +398,7 @@ class TestDatabaseService:
             )
 
         assert isinstance(question_ids, list)
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_insert_questions_batch_with_stimulus(self, mock_database_service):
         """Test batch insertion includes stimulus field for memory questions."""
@@ -428,8 +432,7 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.new = []
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         captured_models = []
 
@@ -452,7 +455,7 @@ class TestDatabaseService:
             )
             assert captured_models[1]["stimulus"] is None
 
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_insert_questions_batch_score_length_mismatch(self, mock_database_service):
         """Test batch insertion fails with mismatched score length."""
@@ -506,8 +509,7 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.new = []
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         with patch("app.data.database.QuestionModel"):
             question_ids = mock_database_service.insert_evaluated_questions_batch(
@@ -515,7 +517,7 @@ class TestDatabaseService:
             )
 
         assert isinstance(question_ids, list)
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_insert_evaluated_questions_batch_with_stimulus(
         self, mock_database_service
@@ -575,8 +577,7 @@ class TestDatabaseService:
         mock_session.commit = Mock()
         mock_session.new = []
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         captured_models = []
 
@@ -599,7 +600,7 @@ class TestDatabaseService:
             )
             assert captured_models[1]["stimulus"] is None
 
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_get_all_questions(self, mock_database_service):
         """Test retrieving all questions."""
@@ -649,8 +650,7 @@ class TestDatabaseService:
         mock_query.all.return_value = mock_questions
         mock_session.query.return_value = mock_query
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         questions = mock_database_service.get_all_questions()
 
@@ -659,7 +659,7 @@ class TestDatabaseService:
         assert questions[0]["stimulus"] is None
         assert questions[1]["id"] == 2
         assert questions[1]["stimulus"] == "Remember these items: apple, banana, cherry"
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_get_questions_by_difficulty(self, mock_database_service):
         """Test retrieving questions filtered by difficulty level."""
@@ -673,8 +673,7 @@ class TestDatabaseService:
         mock_query.filter.return_value.all.return_value = mock_rows
         mock_session.query.return_value = mock_query
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         results = mock_database_service.get_questions_by_difficulty("easy")
 
@@ -687,7 +686,7 @@ class TestDatabaseService:
             "question_text": "Easy question 2",
             "question_embedding": [0.4, 0.5, 0.6],
         }
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_get_question_count(self, mock_database_service):
         """Test getting question count."""
@@ -697,31 +696,29 @@ class TestDatabaseService:
 
         mock_session.query.return_value = mock_query
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         count = mock_database_service.get_question_count()
 
         assert count == 42
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_test_connection_success(self, mock_database_service):
         """Test successful database connection test."""
         mock_session = Mock(spec=Session)
         mock_session.execute = Mock()
 
-        mock_database_service.get_session = Mock(return_value=mock_session)
-        mock_database_service.close_session = Mock()
+        mock_database_service.SessionLocal = Mock(return_value=mock_session)
 
         result = mock_database_service.test_connection()
 
         assert result is True
         mock_session.execute.assert_called_once_with(ANY)
-        mock_database_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     def test_test_connection_failure(self, mock_database_service):
         """Test failed database connection test."""
-        mock_database_service.get_session = Mock(
+        mock_database_service.SessionLocal = Mock(
             side_effect=Exception("Connection failed")
         )
 
@@ -755,8 +752,7 @@ class TestQuestionTypeMapping:
         mock_session.commit = Mock()
         mock_session.refresh = Mock()
 
-        service.get_session = Mock(return_value=mock_session)
-        service.close_session = Mock()
+        service.SessionLocal = Mock(return_value=mock_session)
 
         mock_db_question = None
 
