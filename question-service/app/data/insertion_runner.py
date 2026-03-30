@@ -20,6 +20,9 @@ def run_insertion_phase(
 
     Returns number of successfully inserted questions.
     """
+    if db is None:
+        raise ValueError("db is required for insertion phase")
+
     inserted_count = 0
     storage_start = time.perf_counter()
 
@@ -29,7 +32,6 @@ def run_insertion_phase(
     ) as insert_span:
         for i, evaluated_question in enumerate(unique_questions, 1):
             try:
-                assert db is not None
                 question_id = db.insert_evaluated_question(evaluated_question)
                 inserted_count += 1
                 logger.debug(
