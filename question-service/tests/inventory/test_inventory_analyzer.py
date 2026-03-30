@@ -221,8 +221,11 @@ class TestInventoryAnalyzer:
         with patch("app.data.database.create_engine"):
             with patch("app.data.database.sessionmaker"):
                 service = Mock(spec=DatabaseService)
-                service.get_session = Mock()
-                service.close_session = Mock()
+                service.session_scope = MagicMock()
+                service.session_scope.return_value.__enter__ = MagicMock()
+                service.session_scope.return_value.__exit__ = MagicMock(
+                    return_value=False
+                )
                 yield service
 
     def test_initialization_with_defaults(self, mock_db_service):
@@ -265,7 +268,7 @@ class TestInventoryAnalyzer:
         mock_query.group_by.return_value = mock_query
         mock_query.all.return_value = mock_results
 
-        mock_db_service.get_session.return_value = mock_session
+        mock_db_service.session_scope.return_value.__enter__.return_value = mock_session
 
         analyzer = InventoryAnalyzer(
             database_service=mock_db_service,
