@@ -81,6 +81,45 @@ class TestRateLimiter:
         assert allowed is True
 
 
+class TestGetLimits:
+    """Tests for RateLimiter.get_limits() read-only peek behavior."""
+
+    def setup_method(self):
+        self.limiter = RateLimiter(default_limit=5, default_window=10)
+
+    def test_get_limits_returns_metadata_structure(self):
+        """get_limits() returns expected metadata keys."""
+        metadata = self.limiter.get_limits("user1")
+        assert "remaining" in metadata
+        assert "limit" in metadata
+        assert "reset_at" in metadata
+        assert "retry_after" in metadata
+
+    def test_get_limits_does_not_consume_quota(self):
+        """get_limits() does not affect the rate limit counter."""
+        self.limiter.get_limits("user1")
+        self.limiter.get_limits("user1")
+        self.limiter.get_limits("user1")
+        # All 5 check() calls should still be allowed
+        for _ in range(5):
+            allowed, _ = self.limiter.check("user1")
+            assert allowed is True
+
+    def test_get_limits_reflects_consumed_quota(self):
+        """get_limits() remaining decreases after check() calls."""
+        for _ in range(3):
+            self.limiter.check("user1")
+        metadata = self.limiter.get_limits("user1")
+        assert metadata["remaining"] == 2
+
+    def test_get_limits_exhausted_returns_zero(self):
+        """get_limits() returns remaining=0 when quota is exhausted."""
+        for _ in range(5):
+            self.limiter.check("user1")
+        metadata = self.limiter.get_limits("user1")
+        assert metadata["remaining"] == 0
+
+
 class TestRateLimitExceeded:
     """Tests for RateLimitExceeded exception."""
 

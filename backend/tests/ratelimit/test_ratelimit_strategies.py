@@ -423,3 +423,154 @@ class TestStrategyComparison:
             )
             fw_results.append(allowed)
         assert fw_results.count(True) == 5
+
+
+class TestTokenBucketPeek:
+    """Tests for TokenBucketStrategy.peek()."""
+
+    def setup_method(self):
+        self.storage = InMemoryStorage()
+        self.strategy = TokenBucketStrategy(self.storage)
+
+    def test_peek_returns_correct_remaining_after_consumption(self):
+        """peek() remaining reflects tokens already consumed by is_allowed."""
+        for _ in range(2):
+            self.strategy.is_allowed(
+                "user1", limit=5, window_seconds=10, current_time=100.0
+            )
+        metadata = self.strategy.peek(
+            "user1", limit=5, window_seconds=10, current_time=100.0
+        )
+        assert metadata["remaining"] == 3
+
+    def test_peek_does_not_consume_token(self):
+        """Calling peek() twice returns identical remaining counts."""
+        self.strategy.is_allowed(
+            "user1", limit=5, window_seconds=10, current_time=100.0
+        )
+        m1 = self.strategy.peek("user1", limit=5, window_seconds=10, current_time=100.0)
+        m2 = self.strategy.peek("user1", limit=5, window_seconds=10, current_time=100.0)
+        assert m1["remaining"] == m2["remaining"]
+
+    def test_peek_exhausted_bucket_returns_zero_remaining(self):
+        """peek() returns remaining=0 when bucket is exhausted."""
+        for _ in range(3):
+            self.strategy.is_allowed(
+                "user1", limit=3, window_seconds=10, current_time=100.0
+            )
+        metadata = self.strategy.peek(
+            "user1", limit=3, window_seconds=10, current_time=100.0
+        )
+        assert metadata["remaining"] == 0
+        assert metadata["retry_after"] > 0
+
+    def test_peek_metadata_structure(self):
+        """peek() returns all required metadata keys."""
+        metadata = self.strategy.peek(
+            "user1", limit=5, window_seconds=10, current_time=100.0
+        )
+        assert "remaining" in metadata
+        assert "limit" in metadata
+        assert "reset_at" in metadata
+        assert "retry_after" in metadata
+        assert metadata["limit"] == 5
+
+    def test_peek_respects_current_time_zero(self):
+        """peek() must accept current_time=0.0 without silently ignoring it."""
+        # No prior state — peek at t=0 should return the full limit.
+        metadata = self.strategy.peek(
+            "user1", limit=5, window_seconds=10, current_time=0.0
+        )
+        assert metadata["remaining"] == 5
+
+
+class TestSlidingWindowPeek:
+    """Tests for SlidingWindowStrategy.peek()."""
+
+    def setup_method(self):
+        self.storage = InMemoryStorage()
+        self.strategy = SlidingWindowStrategy(self.storage)
+
+    def test_peek_returns_correct_remaining_after_consumption(self):
+        """peek() remaining reflects requests already consumed."""
+        for i in range(2):
+            self.strategy.is_allowed(
+                "user1", limit=5, window_seconds=10, current_time=float(i + 1)
+            )
+        metadata = self.strategy.peek(
+            "user1", limit=5, window_seconds=10, current_time=3.0
+        )
+        assert metadata["remaining"] == 3
+
+    def test_peek_does_not_consume_token(self):
+        """Calling peek() twice returns identical remaining counts."""
+        self.strategy.is_allowed("user1", limit=5, window_seconds=10, current_time=1.0)
+        m1 = self.strategy.peek("user1", limit=5, window_seconds=10, current_time=2.0)
+        m2 = self.strategy.peek("user1", limit=5, window_seconds=10, current_time=2.0)
+        assert m1["remaining"] == m2["remaining"]
+
+    def test_peek_exhausted_window_returns_zero_remaining(self):
+        """peek() returns remaining=0 and retry_after>0 when exhausted."""
+        for i in range(3):
+            self.strategy.is_allowed(
+                "user1", limit=3, window_seconds=10, current_time=float(i + 1)
+            )
+        metadata = self.strategy.peek(
+            "user1", limit=3, window_seconds=10, current_time=4.0
+        )
+        assert metadata["remaining"] == 0
+        assert metadata["retry_after"] > 0
+
+    def test_peek_respects_current_time_zero(self):
+        """peek() must accept current_time=0.0 without silently ignoring it."""
+        # No prior state — peek at t=0 should return the full limit.
+        metadata = self.strategy.peek(
+            "user1", limit=5, window_seconds=10, current_time=0.0
+        )
+        assert metadata["remaining"] == 5
+
+
+class TestFixedWindowPeek:
+    """Tests for FixedWindowStrategy.peek()."""
+
+    def setup_method(self):
+        self.storage = InMemoryStorage()
+        self.strategy = FixedWindowStrategy(self.storage)
+
+    def test_peek_returns_correct_remaining_after_consumption(self):
+        """peek() remaining reflects requests already consumed."""
+        for i in range(2):
+            self.strategy.is_allowed(
+                "user1", limit=5, window_seconds=10, current_time=float(i + 1)
+            )
+        metadata = self.strategy.peek(
+            "user1", limit=5, window_seconds=10, current_time=3.0
+        )
+        assert metadata["remaining"] == 3
+
+    def test_peek_does_not_consume_token(self):
+        """Calling peek() twice returns identical remaining counts."""
+        self.strategy.is_allowed("user1", limit=5, window_seconds=10, current_time=1.0)
+        m1 = self.strategy.peek("user1", limit=5, window_seconds=10, current_time=2.0)
+        m2 = self.strategy.peek("user1", limit=5, window_seconds=10, current_time=2.0)
+        assert m1["remaining"] == m2["remaining"]
+
+    def test_peek_exhausted_window_returns_zero_remaining(self):
+        """peek() returns remaining=0 and retry_after>0 when exhausted."""
+        for i in range(3):
+            self.strategy.is_allowed(
+                "user1", limit=3, window_seconds=10, current_time=float(i + 1)
+            )
+        metadata = self.strategy.peek(
+            "user1", limit=3, window_seconds=10, current_time=4.0
+        )
+        assert metadata["remaining"] == 0
+        assert metadata["retry_after"] > 0
+
+    def test_peek_respects_current_time_zero(self):
+        """peek() must accept current_time=0.0 without silently ignoring it."""
+        # No prior state — peek at t=0 should return the full limit.
+        metadata = self.strategy.peek(
+            "user1", limit=5, window_seconds=10, current_time=0.0
+        )
+        assert metadata["remaining"] == 5

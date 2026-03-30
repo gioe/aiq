@@ -161,7 +161,7 @@ class TokenBucketStrategy(RateLimiterStrategy):
         current_time: Optional[float] = None,
     ) -> dict:
         """Return current rate limit state without consuming a token."""
-        current_time = current_time or time.time()
+        current_time = current_time if current_time is not None else time.time()
 
         bucket_data = self.storage.get(identifier) or {
             "tokens": float(limit),
@@ -184,7 +184,9 @@ class TokenBucketStrategy(RateLimiterStrategy):
             "remaining": remaining,
             "limit": limit,
             "reset_at": int(reset_at),
-            "retry_after": 0,
+            "retry_after": (
+                max(0, int(reset_at - current_time)) if remaining == 0 else 0
+            ),
         }
 
     def reset(self, identifier: str) -> None:
@@ -269,7 +271,7 @@ class SlidingWindowStrategy(RateLimiterStrategy):
         current_time: Optional[float] = None,
     ) -> dict:
         """Return current rate limit state without consuming a token."""
-        current_time = current_time or time.time()
+        current_time = current_time if current_time is not None else time.time()
         window_start = current_time - window_seconds
 
         request_log = self.storage.get(identifier) or []
@@ -287,7 +289,9 @@ class SlidingWindowStrategy(RateLimiterStrategy):
             "remaining": remaining,
             "limit": limit,
             "reset_at": int(reset_at),
-            "retry_after": 0,
+            "retry_after": (
+                max(0, int(reset_at - current_time)) if remaining == 0 else 0
+            ),
         }
 
     def reset(self, identifier: str) -> None:
@@ -371,7 +375,7 @@ class FixedWindowStrategy(RateLimiterStrategy):
         current_time: Optional[float] = None,
     ) -> dict:
         """Return current rate limit state without consuming a token."""
-        current_time = current_time or time.time()
+        current_time = current_time if current_time is not None else time.time()
 
         window_id = int(current_time // window_seconds)
         key = f"{identifier}:{window_id}"
@@ -387,7 +391,9 @@ class FixedWindowStrategy(RateLimiterStrategy):
             "remaining": remaining,
             "limit": limit,
             "reset_at": int(reset_at),
-            "retry_after": 0,
+            "retry_after": (
+                max(0, int(reset_at - current_time)) if remaining == 0 else 0
+            ),
         }
 
     def reset(self, identifier: str) -> None:
