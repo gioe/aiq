@@ -105,19 +105,9 @@ class RateLimiter:
         Returns:
             Dict with limit info (remaining, reset_at, etc.)
         """
-        # This is a bit of a hack - we check but don't actually consume
-        # For production, might want to add a separate method to strategies
         limit = limit if limit is not None else self.default_limit
         window = window if window is not None else self.default_window
-
-        # Get current state without modifying it
-        # This depends on strategy implementation
-        allowed, metadata = self.strategy.is_allowed(identifier, limit, window)
-
-        # If it was allowed, we need to undo the consumption
-        # This is strategy-specific and a limitation of current design
-        # For now, return metadata as-is
-        return metadata
+        return self.strategy.peek(identifier, limit, window)
 
 
 class RateLimitExceeded(Exception):

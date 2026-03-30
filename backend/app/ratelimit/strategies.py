@@ -48,6 +48,28 @@ class RateLimiterStrategy(ABC):
         pass
 
     @abstractmethod
+    def peek(
+        self,
+        identifier: str,
+        limit: int,
+        window_seconds: int,
+        current_time: Optional[float] = None,
+    ) -> dict:
+        """
+        Get current rate limit status without consuming a token.
+
+        Args:
+            identifier: Unique identifier for the client
+            limit: Maximum number of requests allowed in the time window
+            window_seconds: Time window in seconds
+            current_time: Current timestamp (for testing), defaults to time.time()
+
+        Returns:
+            Dict with info like remaining, reset_at, etc.
+        """
+        pass
+
+    @abstractmethod
     def reset(self, identifier: str) -> None:
         """Reset rate limit state for an identifier."""
         pass
@@ -131,6 +153,40 @@ class TokenBucketStrategy(RateLimiterStrategy):
 
         return allowed, metadata
 
+    def peek(
+        self,
+        identifier: str,
+        limit: int,
+        window_seconds: int,
+        current_time: Optional[float] = None,
+    ) -> dict:
+        """Return current rate limit state without consuming a token."""
+        current_time = current_time or time.time()
+
+        bucket_data = self.storage.get(identifier) or {
+            "tokens": float(limit),
+            "last_refill": current_time,
+        }
+
+        time_elapsed = current_time - bucket_data["last_refill"]
+        refill_rate = limit / window_seconds
+        tokens_to_add = time_elapsed * refill_rate
+        current_tokens = min(bucket_data["tokens"] + tokens_to_add, float(limit))
+
+        remaining = int(current_tokens)
+        if current_tokens < limit:
+            seconds_until_next_token = (1.0 - (current_tokens % 1.0)) / refill_rate
+            reset_at = current_time + seconds_until_next_token
+        else:
+            reset_at = current_time
+
+        return {
+            "remaining": remaining,
+            "limit": limit,
+            "reset_at": int(reset_at),
+            "retry_after": 0,
+        }
+
     def reset(self, identifier: str) -> None:
         """Reset bucket for an identifier."""
         self.storage.delete(identifier)
@@ -205,6 +261,35 @@ class SlidingWindowStrategy(RateLimiterStrategy):
 
         return allowed, metadata
 
+    def peek(
+        self,
+        identifier: str,
+        limit: int,
+        window_seconds: int,
+        current_time: Optional[float] = None,
+    ) -> dict:
+        """Return current rate limit state without consuming a token."""
+        current_time = current_time or time.time()
+        window_start = current_time - window_seconds
+
+        request_log = self.storage.get(identifier) or []
+        request_log = [ts for ts in request_log if ts > window_start]
+
+        remaining = max(0, limit - len(request_log))
+
+        if request_log:
+            oldest_request = min(request_log)
+            reset_at = oldest_request + window_seconds
+        else:
+            reset_at = current_time + window_seconds
+
+        return {
+            "remaining": remaining,
+            "limit": limit,
+            "reset_at": int(reset_at),
+            "retry_after": 0,
+        }
+
     def reset(self, identifier: str) -> None:
         """Reset sliding window for an identifier."""
         self.storage.delete(identifier)
@@ -277,6 +362,33 @@ class FixedWindowStrategy(RateLimiterStrategy):
         }
 
         return allowed, metadata
+
+    def peek(
+        self,
+        identifier: str,
+        limit: int,
+        window_seconds: int,
+        current_time: Optional[float] = None,
+    ) -> dict:
+        """Return current rate limit state without consuming a token."""
+        current_time = current_time or time.time()
+
+        window_id = int(current_time // window_seconds)
+        key = f"{identifier}:{window_id}"
+
+        window_data = self.storage.get(key) or {"count": 0, "window_id": window_id}
+        if window_data["window_id"] != window_id:
+            window_data = {"count": 0, "window_id": window_id}
+
+        remaining = max(0, limit - window_data["count"])
+        reset_at = (window_id + 1) * window_seconds
+
+        return {
+            "remaining": remaining,
+            "limit": limit,
+            "reset_at": int(reset_at),
+            "retry_after": 0,
+        }
 
     def reset(self, identifier: str) -> None:
         """Reset fixed window for an identifier."""
