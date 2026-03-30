@@ -431,29 +431,25 @@ def main() -> int:
             logger.info("DATABASE UPDATE PHASE")
             logger.info("=" * 80)
 
-            session = db.get_session()
             update_count = 0
 
             try:
-                for r in results:
-                    db_question = (
-                        session.query(QuestionModel)
-                        .filter(QuestionModel.id == r["id"])
-                        .first()
-                    )
-                    if db_question:
-                        db_question.inferred_sub_type = r["inferred_sub_type"]
-                        update_count += 1
+                with db.session_scope() as session:
+                    for r in results:
+                        db_question = (
+                            session.query(QuestionModel)
+                            .filter(QuestionModel.id == r["id"])
+                            .first()
+                        )
+                        if db_question:
+                            db_question.inferred_sub_type = r["inferred_sub_type"]
+                            update_count += 1
 
-                session.commit()
                 logger.info(f"Updated {update_count} questions")
 
             except Exception as e:
-                session.rollback()
                 logger.error(f"Database update failed: {e}")
                 return EXIT_DATABASE_ERROR
-            finally:
-                db.close_session(session)
         else:
             logger.info("\n[DRY RUN] No database updates performed")
 
