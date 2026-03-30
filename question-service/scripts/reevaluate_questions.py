@@ -656,60 +656,61 @@ def main() -> int:
             logger.info("DATABASE UPDATE PHASE")
             logger.info("=" * 80)
 
-            session = db.get_session()
             update_count = 0
             deactivate_count = 0
 
             try:
-                for result in results:
-                    question_id = result["id"]
+                with db.session_scope() as session:
+                    for result in results:
+                        question_id = result["id"]
 
-                    # Build update data
-                    update_data = {
-                        "judge_score": result["new_score"],
-                    }
+                        # Build update data
+                        update_data = {
+                            "judge_score": result["new_score"],
+                        }
 
-                    # Update difficulty if changed
-                    if "new_difficulty" in result:
-                        update_data["difficulty_level"] = result["new_difficulty"].value
+                        # Update difficulty if changed
+                        if "new_difficulty" in result:
+                            update_data["difficulty_level"] = result[
+                                "new_difficulty"
+                            ].value
 
-                    # Store individual scores in metadata for future recalculations
-                    existing_metadata = {}
-                    db_question = (
-                        session.query(QuestionModel)
-                        .filter(QuestionModel.id == question_id)
-                        .first()
-                    )
+                        # Store individual scores in metadata for future recalculations
+                        existing_metadata = {}
+                        db_question = (
+                            session.query(QuestionModel)
+                            .filter(QuestionModel.id == question_id)
+                            .first()
+                        )
 
-                    if db_question:
-                        existing_metadata = db_question.question_metadata or {}
+                        if db_question:
+                            existing_metadata = db_question.question_metadata or {}
 
-                    existing_metadata["evaluation_scores"] = {
-                        "clarity_score": result["evaluation"].clarity_score,
-                        "difficulty_score": result["evaluation"].difficulty_score,
-                        "validity_score": result["evaluation"].validity_score,
-                        "formatting_score": result["evaluation"].formatting_score,
-                        "creativity_score": result["evaluation"].creativity_score,
-                        "feedback": result["evaluation"].feedback,
-                    }
-                    existing_metadata["last_reevaluated"] = datetime.now(
-                        timezone.utc
-                    ).isoformat()
+                        existing_metadata["evaluation_scores"] = {
+                            "clarity_score": result["evaluation"].clarity_score,
+                            "difficulty_score": result["evaluation"].difficulty_score,
+                            "validity_score": result["evaluation"].validity_score,
+                            "formatting_score": result["evaluation"].formatting_score,
+                            "creativity_score": result["evaluation"].creativity_score,
+                            "feedback": result["evaluation"].feedback,
+                        }
+                        existing_metadata["last_reevaluated"] = datetime.now(
+                            timezone.utc
+                        ).isoformat()
 
-                    update_data["question_metadata"] = existing_metadata
+                        update_data["question_metadata"] = existing_metadata
 
-                    # Deactivate if below threshold and flag is set
-                    if args.deactivate_below_threshold and not result["approved"]:
-                        update_data["is_active"] = False
-                        deactivate_count += 1
+                        # Deactivate if below threshold and flag is set
+                        if args.deactivate_below_threshold and not result["approved"]:
+                            update_data["is_active"] = False
+                            deactivate_count += 1
 
-                    # Perform update
-                    if db_question:
-                        for key, value in update_data.items():
-                            setattr(db_question, key, value)
-                        update_count += 1
+                        # Perform update
+                        if db_question:
+                            for key, value in update_data.items():
+                                setattr(db_question, key, value)
+                            update_count += 1
 
-                session.commit()
                 logger.info(f"Updated {update_count} questions")
 
                 if deactivate_count > 0:
@@ -718,12 +719,8 @@ def main() -> int:
                     )
 
             except Exception as e:
-                session.rollback()
                 logger.error(f"Database update failed: {e}")
                 return EXIT_PARTIAL_FAILURE
-
-            finally:
-                db.close_session(session)
 
         else:
             logger.info("\n[DRY RUN] No database updates performed")
