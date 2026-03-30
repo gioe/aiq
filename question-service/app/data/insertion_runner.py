@@ -30,10 +30,13 @@ def run_insertion_phase(
         "phase4_db_insertion",
         attributes={"questions_to_insert": len(unique_questions)},
     ) as insert_span:
-        for i, evaluated_question in enumerate(unique_questions, 1):
-            try:
-                question_id = db.insert_evaluated_question(evaluated_question)
-                inserted_count += 1
+        try:
+            question_ids = db.insert_evaluated_questions_batch(unique_questions)
+            inserted_count = len(question_ids)
+
+            for i, (evaluated_question, question_id) in enumerate(
+                zip(unique_questions, question_ids), 1
+            ):
                 logger.debug(
                     f"✓ Inserted question {i}/{len(unique_questions)} "
                     f"(ID: {question_id}, score: {evaluated_question.evaluation.overall_score:.2f})"
@@ -42,18 +45,17 @@ def run_insertion_phase(
                     count=1,
                     question_type=evaluated_question.question.question_type.value,
                 )
-            except Exception as e:
-                logger.error(f"✗ Failed to insert question {i}: {e}")
-                observability.capture_error(
-                    e,
-                    context={
-                        "phase": "db_insertion",
-                        "question_index": i,
-                        "question_type": evaluated_question.question.question_type.value,
-                    },
-                )
+        except Exception as e:
+            logger.error(f"✗ Failed to insert questions batch: {e}")
+            observability.capture_error(
+                e,
+                context={
+                    "phase": "db_insertion",
+                    "question_count": len(unique_questions),
+                },
+            )
+            for evaluated_question in unique_questions:
                 metrics.record_insertion_failure(count=1)
-                continue
 
         insert_span.set_attribute("inserted_count", inserted_count)
         insert_span.set_attribute(

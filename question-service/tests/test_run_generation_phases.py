@@ -679,7 +679,7 @@ class TestRunInsertionPhase:
         mock_obs.start_span.return_value = self._make_mock_span()
 
         mock_db = MagicMock()
-        mock_db.insert_evaluated_question.side_effect = [101, 102, 103]
+        mock_db.insert_evaluated_questions_batch.return_value = [101, 102, 103]
 
         questions = [self._make_evaluated_question() for _ in range(3)]
         metrics = PipelineRunSummary()
@@ -693,20 +693,19 @@ class TestRunInsertionPhase:
         )
 
         assert inserted == 3
+        mock_db.insert_evaluated_questions_batch.assert_called_once_with(questions)
 
     @patch("run_generation.observability")
-    def test_skips_failed_insertions_and_counts_successes(self, mock_obs):
+    def test_batch_failure_returns_zero(self, mock_obs):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
         from run_generation import run_insertion_phase
 
         mock_obs.start_span.return_value = self._make_mock_span()
 
         mock_db = MagicMock()
-        mock_db.insert_evaluated_question.side_effect = [
-            201,
-            Exception("constraint violation"),
-            203,
-        ]
+        mock_db.insert_evaluated_questions_batch.side_effect = Exception(
+            "constraint violation"
+        )
 
         questions = [self._make_evaluated_question() for _ in range(3)]
         metrics = PipelineRunSummary()
@@ -719,7 +718,7 @@ class TestRunInsertionPhase:
             logger=MagicMock(),
         )
 
-        assert inserted == 2
+        assert inserted == 0
 
     @patch("run_generation.observability")
     def test_all_failures_returns_zero(self, mock_obs):
@@ -729,7 +728,7 @@ class TestRunInsertionPhase:
         mock_obs.start_span.return_value = self._make_mock_span()
 
         mock_db = MagicMock()
-        mock_db.insert_evaluated_question.side_effect = Exception("DB down")
+        mock_db.insert_evaluated_questions_batch.side_effect = Exception("DB down")
 
         questions = [self._make_evaluated_question() for _ in range(2)]
         metrics = PipelineRunSummary()
