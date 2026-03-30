@@ -168,7 +168,8 @@ class TestDatabaseService:
 
         assert question_id == 123
         mock_session.add.assert_called_once()
-        mock_session.commit.assert_called()
+        mock_session.flush.assert_called_once()
+        mock_session.commit.assert_called_once()
         mock_session.close.assert_called_once()
 
     def test_insert_question_with_judge_score(
@@ -365,7 +366,8 @@ class TestDatabaseService:
             question_ids = mock_database_service.insert_questions_batch(questions)
 
         assert isinstance(question_ids, list)
-        assert mock_session.commit.called
+        mock_session.flush.assert_called_once()
+        mock_session.commit.assert_called_once()
         mock_session.close.assert_called_once()
 
     def test_insert_questions_batch_with_scores(self, mock_database_service):

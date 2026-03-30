@@ -172,7 +172,7 @@ class DatabaseService:
                     )
 
                     session.add(db_question)
-                    session.commit()
+                    session.flush()
                     session.refresh(db_question)
 
                     question_id = db_question.id
@@ -331,9 +331,9 @@ class DatabaseService:
                         session.add(db_question)
                         db_questions.append(db_question)
 
-                    session.commit()
+                    session.flush()
 
-                    # IDs are populated by SQLAlchemy after commit
+                    # IDs are populated by SQLAlchemy after flush
                     question_ids = [q.id for q in db_questions]
 
                     span.set_attribute("success", True)
