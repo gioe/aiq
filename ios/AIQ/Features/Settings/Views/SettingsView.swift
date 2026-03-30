@@ -3,6 +3,7 @@ import SwiftUI
 /// Settings view for user preferences and account management
 struct SettingsView: View {
     @Environment(\.appRouter) private var router
+    @Environment(\.appTheme) private var theme
     @StateObject private var viewModel: SettingsViewModel
     @State private var showCrashConfirmation = false
 
@@ -44,10 +45,10 @@ struct SettingsView: View {
                     if let user = viewModel.currentUser {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(user.fullName)
-                                .font(.headline)
+                                .font(theme.typography.h4)
                             Text(user.email)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .font(theme.typography.bodySmall)
+                                .foregroundColor(theme.colors.textSecondary)
                         }
                         .padding(.vertical, 8)
                         .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.accountSection)
@@ -64,7 +65,7 @@ struct SettingsView: View {
                     Text("Notifications")
                 } footer: {
                     Text("Receive reminders when it's time to take your next AIQ test (every 3 months)")
-                        .font(.caption)
+                        .font(theme.typography.captionMedium)
                 }
 
                 // Security Section
@@ -76,8 +77,8 @@ struct SettingsView: View {
                             Text(biometricToggleLabel)
                             if !viewModel.isBiometricAvailable {
                                 Text("Not available on this device")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .font(theme.typography.captionMedium)
+                                    .foregroundColor(theme.colors.textSecondary)
                             }
                         }
                         Spacer()
@@ -97,7 +98,7 @@ struct SettingsView: View {
                     Text("Security")
                 } footer: {
                     Text(biometricFooterText)
-                        .font(.caption)
+                        .font(theme.typography.captionMedium)
                 }
                 .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.securitySection)
 
@@ -112,8 +113,8 @@ struct SettingsView: View {
                             Text("Help & FAQ")
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.secondary)
+                                .font(theme.typography.labelSmall)
+                                .foregroundColor(theme.colors.textSecondary)
                         }
                     }
                     .foregroundColor(.primary)
@@ -130,8 +131,8 @@ struct SettingsView: View {
                             Text("Send Feedback")
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.secondary)
+                                .font(theme.typography.labelSmall)
+                                .foregroundColor(theme.colors.textSecondary)
                         }
                     }
                     .foregroundColor(.primary)
@@ -148,8 +149,8 @@ struct SettingsView: View {
                             Text("View Onboarding Again")
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.secondary)
+                                .font(theme.typography.labelSmall)
+                                .foregroundColor(theme.colors.textSecondary)
                         }
                     }
                     .foregroundColor(.primary)
@@ -166,7 +167,7 @@ struct SettingsView: View {
                         Text("App Version")
                         Spacer()
                         Text(AppConfig.appVersion)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(theme.colors.textSecondary)
                     }
                     .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.appVersionLabel)
                 } header: {
@@ -209,7 +210,7 @@ struct SettingsView: View {
                     Deleting your account is permanent and cannot be undone. \
                     All your data will be permanently deleted.
                     """)
-                    .font(.caption)
+                    .font(theme.typography.captionMedium)
                 }
 
                 #if DEBUG
@@ -233,7 +234,7 @@ struct SettingsView: View {
                         Text("Debug")
                     } footer: {
                         Text("Force a crash to test Crashlytics. Reported on next app launch.")
-                            .font(.caption)
+                            .font(theme.typography.captionMedium)
                     }
                     .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.debugSection)
                 #endif
@@ -307,16 +308,16 @@ extension SettingsView {
             VStack(spacing: DesignSystem.Spacing.lg) {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                     .font(.system(size: 32))
-                    .foregroundColor(ColorPalette.error)
+                    .foregroundColor(theme.colors.error)
                     .accessibilityHidden(true)
 
                 Text("Logout")
-                    .font(Typography.h3)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(theme.typography.h3)
+                    .foregroundColor(theme.colors.textPrimary)
 
                 Text("Are you sure you want to logout?")
-                    .font(Typography.bodyMedium)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.bodyMedium)
+                    .foregroundColor(theme.colors.textSecondary)
                     .multilineTextAlignment(.center)
 
                 VStack(spacing: DesignSystem.Spacing.sm) {
@@ -325,10 +326,10 @@ extension SettingsView {
                         Task { await viewModel.logout() }
                     } label: {
                         Text("Logout")
-                            .font(Typography.button)
+                            .font(theme.typography.button)
                             .frame(maxWidth: .infinity)
                             .padding(DesignSystem.Spacing.lg)
-                            .background(ColorPalette.error)
+                            .background(theme.colors.error)
                             .foregroundColor(.white)
                             .cornerRadius(DesignSystem.CornerRadius.md)
                     }
@@ -340,11 +341,11 @@ extension SettingsView {
                         viewModel.showLogoutConfirmation = false
                     } label: {
                         Text("Cancel")
-                            .font(Typography.button)
+                            .font(theme.typography.button)
                             .frame(maxWidth: .infinity)
                             .padding(DesignSystem.Spacing.lg)
-                            .background(ColorPalette.backgroundSecondary)
-                            .foregroundColor(ColorPalette.textPrimary)
+                            .background(theme.colors.backgroundSecondary)
+                            .foregroundColor(theme.colors.textPrimary)
                             .cornerRadius(DesignSystem.CornerRadius.md)
                     }
                     .accessibilityLabel("Cancel")
@@ -355,7 +356,7 @@ extension SettingsView {
             .padding(DesignSystem.Spacing.xxl)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
-                    .fill(ColorPalette.background)
+                    .fill(theme.colors.background)
                     .shadowStyle(DesignSystem.Shadow.lg)
             )
             .padding(DesignSystem.Spacing.xl)
