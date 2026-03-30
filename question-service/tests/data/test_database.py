@@ -661,6 +661,34 @@ class TestDatabaseService:
         assert questions[1]["stimulus"] == "Remember these items: apple, banana, cherry"
         mock_database_service.close_session.assert_called_once()
 
+    def test_get_questions_by_difficulty(self, mock_database_service):
+        """Test retrieving questions filtered by difficulty level."""
+        mock_session = Mock(spec=Session)
+        mock_query = Mock()
+
+        mock_rows = [
+            Mock(question_text="Easy question 1", question_embedding=[0.1, 0.2, 0.3]),
+            Mock(question_text="Easy question 2", question_embedding=[0.4, 0.5, 0.6]),
+        ]
+        mock_query.filter.return_value.all.return_value = mock_rows
+        mock_session.query.return_value = mock_query
+
+        mock_database_service.get_session = Mock(return_value=mock_session)
+        mock_database_service.close_session = Mock()
+
+        results = mock_database_service.get_questions_by_difficulty("easy")
+
+        assert len(results) == 2
+        assert results[0] == {
+            "question_text": "Easy question 1",
+            "question_embedding": [0.1, 0.2, 0.3],
+        }
+        assert results[1] == {
+            "question_text": "Easy question 2",
+            "question_embedding": [0.4, 0.5, 0.6],
+        }
+        mock_database_service.close_session.assert_called_once()
+
     def test_get_question_count(self, mock_database_service):
         """Test getting question count."""
         mock_session = Mock(spec=Session)

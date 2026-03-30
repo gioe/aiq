@@ -141,7 +141,10 @@ def run_dedup_phase(
             "dedup.duplicates_removed", value=duplicate_count, metric_type="counter"
         )
 
-        logger.info(f"Loaded {total_existing} existing questions for deduplication")
+        logger.info(
+            f"Loaded {total_existing} existing questions for deduplication "
+            f"(across {len(questions_by_difficulty)} difficulty bucket(s))"
+        )
         logger.info(f"\nUnique questions: {len(unique_questions)}")
         logger.info(f"Duplicates removed: {duplicate_count}")
 

@@ -653,6 +653,83 @@ class TestRunDedupPhase:
         assert len(unique) == 1
         assert unique[0] is q1
 
+    @patch("app.data.dedup_runner.observability")
+    def test_caches_per_difficulty(self, mock_obs):
+        """get_questions_by_difficulty is called once per unique difficulty, not once per question."""
+        from app.data.deduplicator import DuplicateCheckResult
+        from app.reporting.run_summary import RunSummary as PipelineRunSummary
+        from app.data.dedup_runner import run_dedup_phase
+
+        mock_obs.start_span.return_value = self._make_mock_span()
+
+        mock_db = MagicMock()
+        mock_db.get_questions_by_difficulty.return_value = []
+
+        mock_deduplicator = MagicMock()
+        mock_deduplicator.check_duplicate.return_value = DuplicateCheckResult(
+            is_duplicate=False, duplicate_type=None, similarity_score=0.1
+        )
+        mock_deduplicator.get_stats.return_value = {"cache": {"hits": 0, "misses": 0}}
+
+        # Two easy + one medium — should result in exactly 2 DB calls
+        q_easy1 = self._make_evaluated_question("easy")
+        q_easy2 = self._make_evaluated_question("easy")
+        q_medium = self._make_evaluated_question("medium")
+
+        metrics = PipelineRunSummary()
+        metrics.start_run()
+
+        run_dedup_phase(
+            approved_questions=[q_easy1, q_easy2, q_medium],
+            db=mock_db,
+            deduplicator=mock_deduplicator,
+            metrics=metrics,
+            logger=MagicMock(),
+        )
+
+        assert mock_db.get_questions_by_difficulty.call_count == 2
+        called_difficulties = {
+            call.args[0] for call in mock_db.get_questions_by_difficulty.call_args_list
+        }
+        assert called_difficulties == {"easy", "medium"}
+
+    @patch("app.data.dedup_runner.observability")
+    def test_fail_open_on_db_load_error(self, mock_obs):
+        """A DB error in get_questions_by_difficulty falls back to empty list and pipeline continues."""
+        from app.data.deduplicator import DuplicateCheckResult
+        from app.reporting.run_summary import RunSummary as PipelineRunSummary
+        from app.data.dedup_runner import run_dedup_phase
+
+        mock_obs.start_span.return_value = self._make_mock_span()
+
+        mock_db = MagicMock()
+        mock_db.get_questions_by_difficulty.side_effect = RuntimeError(
+            "DB connection lost"
+        )
+
+        mock_deduplicator = MagicMock()
+        mock_deduplicator.check_duplicate.return_value = DuplicateCheckResult(
+            is_duplicate=False, duplicate_type=None, similarity_score=0.1
+        )
+        mock_deduplicator.get_stats.return_value = {"cache": {"hits": 0, "misses": 0}}
+
+        q1 = self._make_evaluated_question("easy")
+
+        metrics = PipelineRunSummary()
+        metrics.start_run()
+
+        # Should not raise; question should be kept (fail open)
+        unique = run_dedup_phase(
+            approved_questions=[q1],
+            db=mock_db,
+            deduplicator=mock_deduplicator,
+            metrics=metrics,
+            logger=MagicMock(),
+        )
+
+        assert len(unique) == 1
+        assert unique[0] is q1
+
 
 # ---------------------------------------------------------------------------
 # run_insertion_phase
