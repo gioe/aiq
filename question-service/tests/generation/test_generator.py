@@ -568,9 +568,9 @@ class TestGeneratorConfigModelOverride:
         loader = GeneratorConfigLoader("config/generators.yaml")
         loader.load()
 
-        # Math has openai with gpt-5.2 model explicitly specified in the config
+        # Pattern has openai with gpt-5.2 model explicitly specified in the config
         provider, model = loader.get_provider_and_model_for_question_type(
-            "math", ["openai", "anthropic", "xai"]
+            "pattern", ["openai", "anthropic", "xai"]
         )
 
         assert provider == "openai"

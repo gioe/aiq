@@ -257,8 +257,9 @@ class TestRunGenerationPhase:
             },
         }
 
+    @patch("app.generation.runner.dedupe_within_batch", side_effect=lambda x: x)
     @patch("app.generation.runner.observability")
-    def test_sync_generation_returns_questions_and_stats(self, mock_obs):
+    def test_sync_generation_returns_questions_and_stats(self, mock_obs, mock_dedup):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
         from run_generation import run_generation_phase
 

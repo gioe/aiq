@@ -347,9 +347,12 @@ class TestProviderRetryIntegration:
 
         provider = OpenAIProvider(api_key="test-key", model="gpt-4")
 
+        from app.observability.cost_tracking import CompletionResult
+
         with patch.object(provider, "_execute_with_retry") as mock_execute:
-            # Simulate retry helper being called
-            mock_execute.return_value = "Generated text"
+            # Simulate retry helper being called; must return CompletionResult
+            # because generate_completion accesses .content on the result.
+            mock_execute.return_value = CompletionResult(content="Generated text")
             result = provider.generate_completion("Test prompt")
 
             assert result == "Generated text"

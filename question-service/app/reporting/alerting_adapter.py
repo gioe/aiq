@@ -34,7 +34,7 @@ def to_run_summary(
         stored verbatim under 'details' for CronJob to flatten into notification
         fields.
     """
-    details: Dict[str, Any] = dict(stats)
+    details: Dict[str, Any] = dict(stats) if loss_threshold is not None else stats
     if loss_threshold is not None:
         loss_pct = stats.get("generation_loss_pct", 0.0)
         if isinstance(loss_pct, (int, float)) and loss_pct > loss_threshold:
