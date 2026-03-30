@@ -13,7 +13,7 @@ from typing import Callable
 
 from sqlalchemy.orm import Session
 
-from app.data.database import QuestionModel
+from app.data.db_models import QuestionModel
 
 logger = logging.getLogger(__name__)
 

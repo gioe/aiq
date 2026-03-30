@@ -33,7 +33,8 @@ from typing import Any, Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).parent))
 
 from app.config.config import settings  # noqa: E402
-from app.data.database import DatabaseService, QuestionModel  # noqa: E402
+from app.data.database import DatabaseService  # noqa: E402
+from app.data.db_models import QuestionModel  # noqa: E402
 from app.evaluation.judge import QuestionJudge  # noqa: E402
 from app.config.judge_config import JudgeConfigLoader  # noqa: E402
 from gioe_libs.structured_logging import setup_logging  # noqa: E402

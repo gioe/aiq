@@ -4,30 +4,19 @@ This module provides functionality to insert approved questions into the
 PostgreSQL database using SQLAlchemy.
 """
 
-import enum
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
-    ARRAY,
-    Boolean,
-    Column,
-    DateTime,
-    Enum,
-    Float,
-    Integer,
-    String,
-    Text,
     create_engine,
     text,
 )
 from openai import OpenAI
-from sqlalchemy.dialects.postgresql import JSON
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
+from app.data.db_models import QuestionModel
 from app.infrastructure.embedding_utils import (
     DEFAULT_EMBEDDING_MODEL as EMBEDDING_MODEL,
     generate_embedding_safe,
@@ -49,67 +38,6 @@ logger = logging.getLogger(__name__)
 # - 2.0: Enhanced prompts with IQ testing context and examples
 # - 2.1: Added stimulus field for memory questions (TASK-732-736)
 PROMPT_VERSION = "2.1"
-
-
-class Base(DeclarativeBase):
-    """Base class for SQLAlchemy models."""
-
-    pass
-
-
-# Database models (mirror backend models)
-class QuestionTypeEnum(str, enum.Enum):
-    """Question type enumeration for database."""
-
-    PATTERN = "pattern"
-    LOGIC = "logic"
-    SPATIAL = "spatial"
-    MATH = "math"
-    VERBAL = "verbal"
-    MEMORY = "memory"
-
-
-class DifficultyLevelEnum(str, enum.Enum):
-    """Difficulty level enumeration for database."""
-
-    EASY = "easy"
-    MEDIUM = "medium"
-    HARD = "hard"
-
-
-class QuestionModel(Base):
-    """SQLAlchemy model for questions table."""
-
-    __tablename__ = "questions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    question_text = Column(Text, nullable=False)
-    question_type = Column(Enum(QuestionTypeEnum), nullable=False)
-    difficulty_level = Column(Enum(DifficultyLevelEnum), nullable=False)
-    correct_answer = Column(String(500), nullable=False)
-    answer_options = Column(JSON)
-    explanation = Column(Text)
-    question_metadata = Column(
-        "metadata", JSON
-    )  # Maps to 'metadata' DB column (TASK-445)
-    source_llm = Column(String(100))
-    source_model = Column(String(100))
-    judge_score = Column(Float)
-    prompt_version = Column(String(50))
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False, index=True)
-    question_embedding = Column(
-        ARRAY(Float), nullable=True
-    )  # TASK-433: Pre-computed embedding
-    stimulus = Column(
-        Text, nullable=True
-    )  # TASK-727: Content to memorize (memory questions)
-    sub_type = Column(
-        String(200), nullable=True
-    )  # Generation sub-type (e.g., "cube rotations", "cross-section")
-    inferred_sub_type = Column(
-        String(200), nullable=True
-    )  # Inferred sub-type from LLM classification of existing questions
 
 
 class DatabaseService:

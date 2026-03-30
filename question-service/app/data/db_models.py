@@ -1,0 +1,83 @@
+"""SQLAlchemy ORM model definitions for the question-service.
+
+Separating ORM models from DatabaseService allows consumers (e.g.
+answer_leakage_auditor, inventory_analyzer) to import only the models
+without pulling in the entire service and its heavy dependencies.
+"""
+
+import enum
+from datetime import datetime
+
+from sqlalchemy import (
+    ARRAY,
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    Float,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.orm import DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    """Base class for SQLAlchemy models."""
+
+    pass
+
+
+class QuestionTypeEnum(str, enum.Enum):
+    """Question type enumeration for database."""
+
+    PATTERN = "pattern"
+    LOGIC = "logic"
+    SPATIAL = "spatial"
+    MATH = "math"
+    VERBAL = "verbal"
+    MEMORY = "memory"
+
+
+class DifficultyLevelEnum(str, enum.Enum):
+    """Difficulty level enumeration for database."""
+
+    EASY = "easy"
+    MEDIUM = "medium"
+    HARD = "hard"
+
+
+class QuestionModel(Base):
+    """SQLAlchemy model for questions table."""
+
+    __tablename__ = "questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    question_text = Column(Text, nullable=False)
+    question_type = Column(Enum(QuestionTypeEnum), nullable=False)
+    difficulty_level = Column(Enum(DifficultyLevelEnum), nullable=False)
+    correct_answer = Column(String(500), nullable=False)
+    answer_options = Column(JSON)
+    explanation = Column(Text)
+    question_metadata = Column(
+        "metadata", JSON
+    )  # Maps to 'metadata' DB column (TASK-445)
+    source_llm = Column(String(100))
+    source_model = Column(String(100))
+    judge_score = Column(Float)
+    prompt_version = Column(String(50))
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    question_embedding = Column(
+        ARRAY(Float), nullable=True
+    )  # TASK-433: Pre-computed embedding
+    stimulus = Column(
+        Text, nullable=True
+    )  # TASK-727: Content to memorize (memory questions)
+    sub_type = Column(
+        String(200), nullable=True
+    )  # Generation sub-type (e.g., "cube rotations", "cross-section")
+    inferred_sub_type = Column(
+        String(200), nullable=True
+    )  # Inferred sub-type from LLM classification of existing questions

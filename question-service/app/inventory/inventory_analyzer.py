@@ -14,7 +14,8 @@ from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import func
 
-from app.data.database import DatabaseService, QuestionModel
+from app.data.database import DatabaseService
+from app.data.db_models import QuestionModel
 from app.data.models import DifficultyLevel, QuestionType
 from app.inventory.inventory_config import (
     DEFAULT_HEALTHY_THRESHOLD,

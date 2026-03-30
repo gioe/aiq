@@ -39,7 +39,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from openai import AsyncOpenAI  # noqa: E402
 
 from app.config.config import settings  # noqa: E402
-from app.data.database import DatabaseService, QuestionModel  # noqa: E402
+from app.data.database import DatabaseService  # noqa: E402
+from app.data.db_models import QuestionModel  # noqa: E402
 from gioe_libs.structured_logging import setup_logging  # noqa: E402
 from app.data.models import QuestionType  # noqa: E402
 from app.generation.prompts import QUESTION_SUBTYPES  # noqa: E402
