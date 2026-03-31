@@ -291,137 +291,43 @@ struct SettingsView: View {
 
 extension SettingsView {
     private var logoutConfirmationModal: some View {
-        ZStack {
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-                .onTapGesture { viewModel.showLogoutConfirmation = false }
-
-            VStack(spacing: DesignSystem.Spacing.lg) {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: 32))
-                    .foregroundColor(theme.colors.error)
-                    .accessibilityHidden(true)
-
-                Text("Logout")
-                    .font(theme.typography.h3)
-                    .foregroundColor(theme.colors.textPrimary)
-
-                Text("Are you sure you want to logout?")
-                    .font(theme.typography.bodyMedium)
-                    .foregroundColor(theme.colors.textSecondary)
-                    .multilineTextAlignment(.center)
-
-                VStack(spacing: DesignSystem.Spacing.sm) {
-                    Button {
-                        viewModel.showLogoutConfirmation = false
-                        Task { await viewModel.logout() }
-                    } label: {
-                        Text("Logout")
-                            .font(theme.typography.button)
-                            .frame(maxWidth: .infinity)
-                            .padding(DesignSystem.Spacing.lg)
-                            .background(theme.colors.error)
-                            .foregroundColor(.white)
-                            .cornerRadius(DesignSystem.CornerRadius.md)
-                    }
-                    .accessibilityLabel("Logout")
-                    .accessibilityHint("Double tap to confirm logout")
-                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutConfirmButton)
-
-                    Button {
-                        viewModel.showLogoutConfirmation = false
-                    } label: {
-                        Text("Cancel")
-                            .font(theme.typography.button)
-                            .frame(maxWidth: .infinity)
-                            .padding(DesignSystem.Spacing.lg)
-                            .background(theme.colors.backgroundSecondary)
-                            .foregroundColor(theme.colors.textPrimary)
-                            .cornerRadius(DesignSystem.CornerRadius.md)
-                    }
-                    .accessibilityLabel("Cancel")
-                    .accessibilityHint("Double tap to cancel logout")
-                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutCancelButton)
-                }
-            }
-            .padding(DesignSystem.Spacing.xxl)
-            .background(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
-                    .fill(theme.colors.background)
-                    .shadowStyle(DesignSystem.Shadow.lg)
-            )
-            .padding(DesignSystem.Spacing.xl)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityAddTraits(.isModal)
-        .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutConfirmationModal)
+        ConfirmationModal(
+            iconName: "rectangle.portrait.and.arrow.right",
+            title: "Logout",
+            message: "Are you sure you want to logout?",
+            confirmLabel: "Logout",
+            confirmAccessibilityLabel: "Logout",
+            confirmAccessibilityHint: "Double tap to confirm logout",
+            confirmAccessibilityIdentifier: AccessibilityIdentifiers.SettingsView.logoutConfirmButton,
+            cancelAccessibilityHint: "Double tap to cancel logout",
+            cancelAccessibilityIdentifier: AccessibilityIdentifiers.SettingsView.logoutCancelButton,
+            modalAccessibilityIdentifier: AccessibilityIdentifiers.SettingsView.logoutConfirmationModal,
+            onConfirm: {
+                viewModel.showLogoutConfirmation = false
+                Task { await viewModel.logout() }
+            },
+            onCancel: { viewModel.showLogoutConfirmation = false }
+        )
     }
 
     private var deleteAccountConfirmationModal: some View {
-        ZStack {
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-                .onTapGesture { viewModel.showDeleteAccountConfirmation = false }
-
-            VStack(spacing: DesignSystem.Spacing.lg) {
-                Image(systemName: "trash.circle")
-                    .font(.system(size: 32))
-                    .foregroundColor(theme.colors.error)
-                    .accessibilityHidden(true)
-
-                Text("Delete Account")
-                    .font(theme.typography.h3)
-                    .foregroundColor(theme.colors.textPrimary)
-
-                Text("This action is irreversible. All your data will be permanently deleted and cannot be recovered.")
-                    .font(theme.typography.bodyMedium)
-                    .foregroundColor(theme.colors.textSecondary)
-                    .multilineTextAlignment(.center)
-
-                VStack(spacing: DesignSystem.Spacing.sm) {
-                    Button {
-                        viewModel.showDeleteAccountConfirmation = false
-                        Task { await viewModel.deleteAccount() }
-                    } label: {
-                        Text("Delete Account")
-                            .font(theme.typography.button)
-                            .frame(maxWidth: .infinity)
-                            .padding(DesignSystem.Spacing.lg)
-                            .background(theme.colors.error)
-                            .foregroundColor(.white)
-                            .cornerRadius(DesignSystem.CornerRadius.md)
-                    }
-                    .accessibilityLabel("Delete Account")
-                    .accessibilityHint("Double tap to permanently delete your account")
-                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.deleteAccountConfirmButton)
-
-                    Button {
-                        viewModel.showDeleteAccountConfirmation = false
-                    } label: {
-                        Text("Cancel")
-                            .font(theme.typography.button)
-                            .frame(maxWidth: .infinity)
-                            .padding(DesignSystem.Spacing.lg)
-                            .background(theme.colors.backgroundSecondary)
-                            .foregroundColor(theme.colors.textPrimary)
-                            .cornerRadius(DesignSystem.CornerRadius.md)
-                    }
-                    .accessibilityLabel("Cancel")
-                    .accessibilityHint("Double tap to cancel account deletion")
-                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.deleteAccountCancelButton)
-                }
-            }
-            .padding(DesignSystem.Spacing.xxl)
-            .background(
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
-                    .fill(theme.colors.background)
-                    .shadowStyle(DesignSystem.Shadow.lg)
-            )
-            .padding(DesignSystem.Spacing.xl)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityAddTraits(.isModal)
-        .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.deleteAccountConfirmationModal)
+        ConfirmationModal(
+            iconName: "trash.circle",
+            title: "Delete Account",
+            message: "This action is irreversible. All your data will be permanently deleted and cannot be recovered.",
+            confirmLabel: "Delete Account",
+            confirmAccessibilityLabel: "Delete Account",
+            confirmAccessibilityHint: "Double tap to permanently delete your account",
+            confirmAccessibilityIdentifier: AccessibilityIdentifiers.SettingsView.deleteAccountConfirmButton,
+            cancelAccessibilityHint: "Double tap to cancel account deletion",
+            cancelAccessibilityIdentifier: AccessibilityIdentifiers.SettingsView.deleteAccountCancelButton,
+            modalAccessibilityIdentifier: AccessibilityIdentifiers.SettingsView.deleteAccountConfirmationModal,
+            onConfirm: {
+                viewModel.showDeleteAccountConfirmation = false
+                Task { await viewModel.deleteAccount() }
+            },
+            onCancel: { viewModel.showDeleteAccountConfirmation = false }
+        )
     }
 }
 
