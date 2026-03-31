@@ -204,4 +204,29 @@ struct ScoreBreakdownView: View {
         }
     }
 
+    #Preview("With Domain Scores") {
+        NavigationStack {
+            ScoreBreakdownView(
+                result: MockDataFactory.makeTestResult(
+                    id: 4,
+                    testSessionId: 126,
+                    userId: 1,
+                    iqScore: 118,
+                    totalQuestions: 20,
+                    correctAnswers: 15,
+                    accuracyPercentage: 75.0,
+                    completedAt: Date(),
+                    domainScores: MockDataFactory.makeDomainScoresPayload([
+                        "pattern": DomainScore(correct: 4, total: 4, pct: 100.0, percentile: 92.0),
+                        "logic": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 68.0),
+                        "spatial": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: 45.0),
+                        "math": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: 72.0),
+                        "verbal": DomainScore(correct: 2, total: 2, pct: 100.0, percentile: 88.0),
+                        "memory": DomainScore(correct: 1, total: 2, pct: 50.0, percentile: 40.0)
+                    ])
+                )
+            )
+        }
+    }
+
 #endif
