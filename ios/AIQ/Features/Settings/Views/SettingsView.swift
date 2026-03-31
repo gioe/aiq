@@ -240,20 +240,6 @@ struct SettingsView: View {
                 #endif
             }
             .navigationTitle("Settings")
-            .confirmationDialog(
-                "Delete Account",
-                isPresented: $viewModel.showDeleteAccountConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Delete Account", role: .destructive) {
-                    Task {
-                        await viewModel.deleteAccount()
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This action is irreversible. All your data will be permanently deleted and cannot be recovered.")
-            }
             .alert("Delete Account Failed", isPresented: Binding(
                 get: { viewModel.deleteAccountError != nil },
                 set: { if !$0 { viewModel.clearDeleteAccountError() } }
@@ -283,6 +269,11 @@ struct SettingsView: View {
 
             if viewModel.showLogoutConfirmation {
                 logoutConfirmationModal
+                    .transition(.opacity)
+            }
+
+            if viewModel.showDeleteAccountConfirmation {
+                deleteAccountConfirmationModal
                     .transition(.opacity)
             }
 
@@ -364,6 +355,73 @@ extension SettingsView {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutConfirmationModal)
+    }
+
+    private var deleteAccountConfirmationModal: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { viewModel.showDeleteAccountConfirmation = false }
+
+            VStack(spacing: DesignSystem.Spacing.lg) {
+                Image(systemName: "trash.circle")
+                    .font(.system(size: 32))
+                    .foregroundColor(theme.colors.error)
+                    .accessibilityHidden(true)
+
+                Text("Delete Account")
+                    .font(theme.typography.h3)
+                    .foregroundColor(theme.colors.textPrimary)
+
+                Text("This action is irreversible. All your data will be permanently deleted and cannot be recovered.")
+                    .font(theme.typography.bodyMedium)
+                    .foregroundColor(theme.colors.textSecondary)
+                    .multilineTextAlignment(.center)
+
+                VStack(spacing: DesignSystem.Spacing.sm) {
+                    Button {
+                        viewModel.showDeleteAccountConfirmation = false
+                        Task { await viewModel.deleteAccount() }
+                    } label: {
+                        Text("Delete Account")
+                            .font(theme.typography.button)
+                            .frame(maxWidth: .infinity)
+                            .padding(DesignSystem.Spacing.lg)
+                            .background(theme.colors.error)
+                            .foregroundColor(.white)
+                            .cornerRadius(DesignSystem.CornerRadius.md)
+                    }
+                    .accessibilityLabel("Delete Account")
+                    .accessibilityHint("Double tap to permanently delete your account")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.deleteAccountConfirmButton)
+
+                    Button {
+                        viewModel.showDeleteAccountConfirmation = false
+                    } label: {
+                        Text("Cancel")
+                            .font(theme.typography.button)
+                            .frame(maxWidth: .infinity)
+                            .padding(DesignSystem.Spacing.lg)
+                            .background(theme.colors.backgroundSecondary)
+                            .foregroundColor(theme.colors.textPrimary)
+                            .cornerRadius(DesignSystem.CornerRadius.md)
+                    }
+                    .accessibilityLabel("Cancel")
+                    .accessibilityHint("Double tap to cancel account deletion")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.deleteAccountCancelButton)
+                }
+            }
+            .padding(DesignSystem.Spacing.xxl)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
+                    .fill(theme.colors.background)
+                    .shadowStyle(DesignSystem.Shadow.lg)
+            )
+            .padding(DesignSystem.Spacing.xl)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.deleteAccountConfirmationModal)
     }
 }
 
