@@ -845,8 +845,7 @@ class TestDeduplicationToStorageFlow:
         mock_session.commit = Mock()
         mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 100))
 
-        db_service.get_session = Mock(return_value=mock_session)
-        db_service.close_session = Mock()
+        mock_sessionmaker.return_value.return_value = mock_session
 
         # Insert question
         with patch("app.data.database.QuestionModel", return_value=mock_db_question):
@@ -898,8 +897,7 @@ class TestDeduplicationToStorageFlow:
         mock_session.commit = Mock()
         mock_session.new = []
 
-        db_service.get_session = Mock(return_value=mock_session)
-        db_service.close_session = Mock()
+        mock_sessionmaker.return_value.return_value = mock_session
 
         # Insert batch
         with patch("app.data.database.QuestionModel"):
@@ -908,7 +906,7 @@ class TestDeduplicationToStorageFlow:
         # Assertions
         assert isinstance(question_ids, list)
         mock_session.commit.assert_called()
-        db_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     @patch("app.data.database.create_engine")
     @patch("app.data.database.sessionmaker")
@@ -969,8 +967,7 @@ class TestDeduplicationToStorageFlow:
         mock_session.commit = Mock()
         mock_session.refresh = Mock(side_effect=lambda obj: setattr(obj, "id", 200))
 
-        db_service.get_session = Mock(return_value=mock_session)
-        db_service.close_session = Mock()
+        mock_sessionmaker.return_value.return_value = mock_session
 
         # Capture the question model to verify judge_score is set
         captured_question = None
@@ -1111,8 +1108,7 @@ class TestFullPipelineIntegration:
         mock_session.commit = Mock()
         mock_session.new = []
 
-        db_service.get_session = Mock(return_value=mock_session)
-        db_service.close_session = Mock()
+        mock_sessionmaker.return_value.return_value = mock_session
 
         # Insert all evaluated questions
         with patch("app.data.database.QuestionModel"):
@@ -1120,7 +1116,7 @@ class TestFullPipelineIntegration:
 
         # Final assertions
         assert mock_session.commit.called
-        db_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     @patch("app.data.database.create_engine")
     @patch("app.data.database.sessionmaker")
@@ -1225,8 +1221,7 @@ class TestFullPipelineIntegration:
         mock_session.commit = Mock()
         mock_session.new = []
 
-        db_service.get_session = Mock(return_value=mock_session)
-        db_service.close_session = Mock()
+        mock_sessionmaker.return_value.return_value = mock_session
 
         with patch("app.data.database.QuestionModel"):
             db_service.insert_questions_batch(unique_questions)
@@ -1338,8 +1333,7 @@ class TestFullPipelineIntegration:
         mock_session.commit = Mock()
         mock_session.new = []
 
-        db_service.get_session = Mock(return_value=mock_session)
-        db_service.close_session = Mock()
+        mock_sessionmaker.return_value.return_value = mock_session
 
         with patch("app.data.database.QuestionModel"):
             db_service.insert_questions_batch(unique_questions)
@@ -1475,15 +1469,14 @@ class TestFailurePaths:
         mock_session.commit = Mock(side_effect=Exception("Database write error"))
         mock_session.rollback = Mock()
 
-        db_service.get_session = Mock(return_value=mock_session)
-        db_service.close_session = Mock()
+        mock_sessionmaker.return_value.return_value = mock_session
 
         with patch("app.data.database.QuestionModel"):
             with pytest.raises(Exception, match="Database write error"):
                 db_service.insert_question(sample_math_question)
 
         mock_session.rollback.assert_called_once()
-        db_service.close_session.assert_called_once()
+        mock_session.close.assert_called_once()
 
     @patch("app.data.database.create_engine")
     @patch("app.data.database.sessionmaker")
@@ -1560,8 +1553,7 @@ class TestFailurePaths:
         mock_session.commit = Mock(side_effect=Exception("Database unavailable"))
         mock_session.rollback = Mock()
 
-        db_service.get_session = Mock(return_value=mock_session)
-        db_service.close_session = Mock()
+        mock_sessionmaker.return_value.return_value = mock_session
 
         # Attempt storage
         with patch("app.data.database.QuestionModel"):
