@@ -130,6 +130,87 @@ final class AuthenticationMiddlewareTests: XCTestCase {
         // Then
         XCTAssertNil(box.value?.headerFields[.authorization])
     }
+
+    func testSetTokensSetsAccessTokenHeader() async throws {
+        // Given — middleware starts with no tokens, then setTokens is called
+        let accessToken = "access-new"
+        let refreshToken = "refresh-new"
+        let middleware = AuthenticationMiddleware()
+        await middleware.setTokens(accessToken: accessToken, refreshToken: refreshToken)
+
+        let baseURL = makeBaseURL()
+        let request = makeRequest(path: "/v1/users/me")
+        let box = CaptureBox<HTTPRequest>()
+
+        // When
+        _ = try await middleware.intercept(
+            request,
+            body: nil,
+            baseURL: baseURL,
+            operationID: "get_user_v1_users_get"
+        ) { req, _, _ in
+            box.value = req
+            return (HTTPResponse(status: .ok), nil)
+        }
+
+        // Then — the access token set via setTokens is used for non-refresh endpoints
+        XCTAssertEqual(box.value?.headerFields[.authorization], "Bearer \(accessToken)")
+    }
+
+    func testSetAccessTokenNilClearsAccessHeader() async throws {
+        // Given — middleware has tokens, then access token is cleared
+        let middleware = AuthenticationMiddleware(
+            accessToken: "access-abc",
+            refreshToken: "refresh-xyz"
+        )
+        await middleware.setAccessToken(nil)
+
+        let baseURL = makeBaseURL()
+        let request = makeRequest(path: "/v1/users/me")
+        let box = CaptureBox<HTTPRequest>()
+
+        // When
+        _ = try await middleware.intercept(
+            request,
+            body: nil,
+            baseURL: baseURL,
+            operationID: "get_user_v1_users_get"
+        ) { req, _, _ in
+            box.value = req
+            return (HTTPResponse(status: .ok), nil)
+        }
+
+        // Then — no Authorization header after clearing access token
+        XCTAssertNil(box.value?.headerFields[.authorization])
+    }
+
+    func testSetRefreshTokenUpdatesRefreshEndpointToken() async throws {
+        // Given — middleware has tokens, then refresh token is replaced
+        let newRefreshToken = "refresh-updated"
+        let middleware = AuthenticationMiddleware(
+            accessToken: "access-abc",
+            refreshToken: "refresh-old"
+        )
+        await middleware.setRefreshToken(newRefreshToken)
+
+        let baseURL = makeBaseURL()
+        let request = makeRequest(path: "/v1/auth/refresh")
+        let box = CaptureBox<HTTPRequest>()
+
+        // When
+        _ = try await middleware.intercept(
+            request,
+            body: nil,
+            baseURL: baseURL,
+            operationID: "refresh_access_token_v1_auth_refresh_post"
+        ) { req, _, _ in
+            box.value = req
+            return (HTTPResponse(status: .ok), nil)
+        }
+
+        // Then — the new refresh token is used for the refresh endpoint
+        XCTAssertEqual(box.value?.headerFields[.authorization], "Bearer \(newRefreshToken)")
+    }
 }
 
 // MARK: - CaptureBox
