@@ -80,7 +80,7 @@ class RateLimiter:
 
         return self.strategy.is_allowed(identifier, limit, window)
 
-    def reset(self, identifier: str) -> None:
+    def reset(self, identifier: str, window: Optional[int] = None) -> None:
         """
         Reset rate limit for an identifier.
 
@@ -88,8 +88,10 @@ class RateLimiter:
 
         Args:
             identifier: Identifier to reset
+            window: Time window in seconds (uses default if None)
         """
-        self.strategy.reset(identifier, window_seconds=self.default_window)
+        window = window if window is not None else self.default_window
+        self.strategy.reset(identifier, window_seconds=window)
 
     def get_limits(
         self, identifier: str, limit: Optional[int] = None, window: Optional[int] = None
