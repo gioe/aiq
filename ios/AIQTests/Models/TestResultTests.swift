@@ -466,6 +466,46 @@ final class TestResultTests: XCTestCase {
         XCTAssertEqual(result.weakestCognitiveDomain?.domain, .verbal)
     }
 
+    // MARK: - MockDataFactory Round-Trip Tests
+
+    func testMakeDomainScoresPayloadRoundTrip() {
+        let input: [String: DomainScore] = [
+            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil),
+            "verbal": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 85.0),
+            "memory": DomainScore(correct: 1, total: 3, pct: 33.33, percentile: nil)
+        ]
+
+        let payload = MockDataFactory.makeDomainScoresPayload(input)
+        let result = MockDataFactory.makeTestResult(
+            id: 1,
+            testSessionId: 10,
+            userId: 100,
+            iqScore: 115,
+            totalQuestions: 10,
+            correctAnswers: 7,
+            accuracyPercentage: 70.0,
+            completedAt: Date(),
+            domainScores: payload
+        )
+
+        let converted = result.domainScoresConverted
+        XCTAssertNotNil(converted)
+        XCTAssertEqual(converted?.count, 3)
+
+        XCTAssertEqual(converted?["pattern"]?.correct, 3)
+        XCTAssertEqual(converted?["pattern"]?.total, 4)
+        XCTAssertEqual(converted?["pattern"]?.pct, 75.0)
+
+        XCTAssertEqual(converted?["verbal"]?.correct, 3)
+        XCTAssertEqual(converted?["verbal"]?.total, 3)
+        XCTAssertEqual(converted?["verbal"]?.pct, 100.0)
+        XCTAssertEqual(converted?["verbal"]?.percentile, 85.0)
+
+        XCTAssertEqual(converted?["memory"]?.correct, 1)
+        XCTAssertEqual(converted?["memory"]?.total, 3)
+        XCTAssertEqual(converted?["memory"]?.pct, 33.33)
+    }
+
     // MARK: - Helper Methods
 
     private func createTestResultWithDomainScores() throws -> TestResult {
