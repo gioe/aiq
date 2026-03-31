@@ -420,13 +420,51 @@ final class TestResultTests: XCTestCase {
         XCTAssertNil(result.weakestDomain)
     }
 
-    // TODO: Re-enable testStrongestDomain and testWeakestDomain once strongestDomain/weakestDomain
-    // are computed from domain scores rather than returned as String? from the generated type.
-    // The generated properties return the domain name string from the backend, not a typed tuple,
-    // so `result.strongestDomain?.domain` won't compile.
-    //
-    // TODO: Re-enable testStrongestWeakestExcludesDomainsWithZeroQuestions once the generated
-    // TestResultResponse initializer accepts [String: DomainScore] instead of DomainScoresPayload.
+    func testStrongestDomain() throws {
+        let result = try createTestResultWithDomainScores()
+
+        // verbal has pct 100.0 — highest among all domains
+        XCTAssertNotNil(result.strongestCognitiveDomain)
+        XCTAssertEqual(result.strongestCognitiveDomain?.domain, .verbal)
+        XCTAssertEqual(result.strongestCognitiveDomain?.score.pct, 100.0)
+    }
+
+    func testWeakestDomain() throws {
+        let result = try createTestResultWithDomainScores()
+
+        // memory has pct 33.33 — lowest among all domains
+        XCTAssertNotNil(result.weakestCognitiveDomain)
+        XCTAssertEqual(result.weakestCognitiveDomain?.domain, .memory)
+        XCTAssertEqual(result.weakestCognitiveDomain?.score.pct, 33.33)
+    }
+
+    func testStrongestWeakestExcludesDomainsWithZeroQuestions() throws {
+        let json = """
+        {
+            "id": 1,
+            "test_session_id": 10,
+            "user_id": 100,
+            "iq_score": 115,
+            "total_questions": 10,
+            "correct_answers": 7,
+            "accuracy_percentage": 70.0,
+            "completed_at": "2025-12-13T10:00:00Z",
+            "domain_scores": {
+                "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+                "logic": {"correct": 0, "total": 0, "pct": null},
+                "verbal": {"correct": 4, "total": 6, "pct": 66.67}
+            }
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let result = try decoder.decode(TestResult.self, from: data)
+
+        // logic has total == 0 and must be excluded
+        XCTAssertEqual(result.strongestCognitiveDomain?.domain, .pattern)
+        XCTAssertEqual(result.weakestCognitiveDomain?.domain, .verbal)
+    }
 
     // MARK: - Helper Methods
 
