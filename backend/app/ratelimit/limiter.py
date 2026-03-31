@@ -89,7 +89,7 @@ class RateLimiter:
         Args:
             identifier: Identifier to reset
         """
-        self.strategy.reset(identifier)
+        self.strategy.reset(identifier, window_seconds=self.default_window)
 
     def get_limits(
         self, identifier: str, limit: Optional[int] = None, window: Optional[int] = None

@@ -70,7 +70,12 @@ class RateLimiterStrategy(ABC):
         pass
 
     @abstractmethod
-    def reset(self, identifier: str) -> None:
+    def reset(
+        self,
+        identifier: str,
+        window_seconds: Optional[int] = None,
+        current_time: Optional[float] = None,
+    ) -> None:
         """Reset rate limit state for an identifier."""
         pass
 
@@ -189,7 +194,12 @@ class TokenBucketStrategy(RateLimiterStrategy):
             ),
         }
 
-    def reset(self, identifier: str) -> None:
+    def reset(
+        self,
+        identifier: str,
+        window_seconds: Optional[int] = None,
+        current_time: Optional[float] = None,
+    ) -> None:
         """Reset bucket for an identifier."""
         self.storage.delete(identifier)
 
@@ -294,7 +304,12 @@ class SlidingWindowStrategy(RateLimiterStrategy):
             ),
         }
 
-    def reset(self, identifier: str) -> None:
+    def reset(
+        self,
+        identifier: str,
+        window_seconds: Optional[int] = None,
+        current_time: Optional[float] = None,
+    ) -> None:
         """Reset sliding window for an identifier."""
         self.storage.delete(identifier)
 
@@ -396,8 +411,17 @@ class FixedWindowStrategy(RateLimiterStrategy):
             ),
         }
 
-    def reset(self, identifier: str) -> None:
+    def reset(
+        self,
+        identifier: str,
+        window_seconds: Optional[int] = None,
+        current_time: Optional[float] = None,
+    ) -> None:
         """Reset fixed window for an identifier."""
-        # For fixed window, we need to delete all window keys
-        # This is a limitation - in production, use key patterns
-        self.storage.delete(identifier)
+        if window_seconds is not None:
+            current_time = current_time if current_time is not None else time.time()
+            window_id = int(current_time // window_seconds)
+            key = f"{identifier}:{window_id}"
+            self.storage.delete(key)
+        else:
+            self.storage.delete(identifier)

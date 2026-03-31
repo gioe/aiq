@@ -377,6 +377,29 @@ class TestFixedWindowStrategy:
         )
         assert metadata3["remaining"] == 2
 
+    def test_reset_clears_window(self):
+        """Test that reset clears the fixed window for a user."""
+        # Fill window
+        for i in range(3):
+            self.strategy.is_allowed(
+                "user1", limit=3, window_seconds=10, current_time=float(i)
+            )
+
+        # Should be denied
+        allowed, _ = self.strategy.is_allowed(
+            "user1", limit=3, window_seconds=10, current_time=3.0
+        )
+        assert allowed is False
+
+        # Reset using compound key (window_seconds required)
+        self.strategy.reset("user1", window_seconds=10, current_time=3.0)
+
+        # Should be allowed again
+        allowed, _ = self.strategy.is_allowed(
+            "user1", limit=3, window_seconds=10, current_time=3.0
+        )
+        assert allowed is True
+
 
 class TestStrategyComparison:
     """Compare behavior of different strategies."""
