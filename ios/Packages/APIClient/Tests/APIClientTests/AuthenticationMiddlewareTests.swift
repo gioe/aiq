@@ -139,22 +139,34 @@ final class AuthenticationMiddlewareTests: XCTestCase {
         await middleware.setTokens(accessToken: accessToken, refreshToken: refreshToken)
 
         let baseURL = makeBaseURL()
-        let request = makeRequest(path: "/v1/users/me")
-        let box = CaptureBox<HTTPRequest>()
+        let regularBox = CaptureBox<HTTPRequest>()
+        let refreshBox = CaptureBox<HTTPRequest>()
 
-        // When
+        // When — non-refresh endpoint
         _ = try await middleware.intercept(
-            request,
+            makeRequest(path: "/v1/users/me"),
             body: nil,
             baseURL: baseURL,
             operationID: "get_user_v1_users_get"
         ) { req, _, _ in
-            box.value = req
+            regularBox.value = req
             return (HTTPResponse(status: .ok), nil)
         }
 
-        // Then — the access token set via setTokens is used for non-refresh endpoints
-        XCTAssertEqual(box.value?.headerFields[.authorization], "Bearer \(accessToken)")
+        // When — refresh endpoint
+        _ = try await middleware.intercept(
+            makeRequest(path: "/v1/auth/refresh"),
+            body: nil,
+            baseURL: baseURL,
+            operationID: "refresh_access_token_v1_auth_refresh_post"
+        ) { req, _, _ in
+            refreshBox.value = req
+            return (HTTPResponse(status: .ok), nil)
+        }
+
+        // Then — both tokens set by setTokens are used for their respective endpoints
+        XCTAssertEqual(regularBox.value?.headerFields[.authorization], "Bearer \(accessToken)")
+        XCTAssertEqual(refreshBox.value?.headerFields[.authorization], "Bearer \(refreshToken)")
     }
 
     func testSetAccessTokenNilClearsAccessHeader() async throws {
