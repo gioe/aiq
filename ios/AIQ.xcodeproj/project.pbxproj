@@ -204,6 +204,7 @@
 		A0719326721984567C906017 /* OpenAPIServiceMapToAPIErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11FC47CAFCC74AFAEFF03D41 /* OpenAPIServiceMapToAPIErrorTests.swift */; };
 		A1020D7FBE59F666D88A50D7 /* DataCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8584310DF575119FD30D7CD3 /* DataCache.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* SharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = B3C4D5E6F7A8B9C0D1E2F3A4 /* SharedKit */; };
+		ECA2EEC6F3D845FEADEB9015 /* SharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 666F2CD1B6D44CB2B4FCB894 /* SharedKit */; };
 		A23D5B36E3B68055A55BBEFC /* AppStateStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3024C5290E1AEBB243A5EDEA /* AppStateStorage.swift */; };
 		A2E372580E83FB91517EBEAB /* MockLocalAnswerStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2199668A3916B07E37543DDE /* MockLocalAnswerStorage.swift */; };
 		A34479C983ADE8AE59302135 /* TestCompletionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC01A88DFF06E36580FC9675 /* TestCompletionView.swift */; };
@@ -313,6 +314,7 @@
 		F8D28DE01F161F392675F33F /* NumberExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E32836E4C5FF9CA1853060FC /* NumberExtensionsTests.swift */; };
 		F936E2A0F43FCA979BBE3977 /* MockServiceConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70608F3722C3538B465EA556 /* MockServiceConfiguration.swift */; };
 		F9F7F18D1083F9210320606F /* NotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A9DE389A0A5B5902EC26C7E /* NotificationSettingsViewModel.swift */; };
+		88CEC6CF7C6A4EF8A785FFCC /* ConfirmationModalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F3935D84D246D8821EFC9C /* ConfirmationModalTests.swift */; };
 		FB939A1DF3E1B4B746B3DD67 /* ConfirmationModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C07CACC8B1BD6330191E38F /* ConfirmationModal.swift */; };
 		FC3162E0ADD5408CE98F4060 /* MockModeDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972EDF14D846639206E3F31D /* MockModeDetectorTests.swift */; };
 		FE4E97DD6D013577F04589A7 /* TestProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE8BBE439EDEA46900F6A608 /* TestProgressView.swift */; };
@@ -442,6 +444,7 @@
 		4956D5824BBEBCF145738D45 /* DeepLinkNavigationIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkNavigationIntegrationTests.swift; sourceTree = "<group>"; };
 		4AFC40BD7A1DF41D954DF073 /* FeedbackHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeedbackHelper.swift; sourceTree = "<group>"; };
 		4C07CACC8B1BD6330191E38F /* ConfirmationModal.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ConfirmationModal.swift; path = Shared/Components/ConfirmationModal.swift; sourceTree = "<group>"; };
+		90F3935D84D246D8821EFC9C /* ConfirmationModalTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ConfirmationModalTests.swift; path = Packages/SharedKit/Tests/SharedKitTests/Components/ConfirmationModalTests.swift; sourceTree = SOURCE_ROOT; };
 		4C4F23DD832678C6F11E29DF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		4C5115CB67E059810DB88970 /* BackgroundRefreshManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundRefreshManagerTests.swift; sourceTree = "<group>"; };
 		4DD364FDF0483DE20906256C /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
@@ -635,6 +638,7 @@
 		F26CF87F3D4EB1B5BDCD68E1 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		F27D5F7D5011005CA8EF6841 /* OnboardingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingViewModel.swift; path = Features/Onboarding/ViewModels/OnboardingViewModel.swift; sourceTree = "<group>"; };
 		F2851219836D6EDDBDB78A8E /* AIQTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AIQTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD01E1F52B9748658718D7DA /* SharedKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SharedKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F31CC8E9877C977FE779BAFD /* ColorPalette.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ColorPalette.swift; path = Shared/Design/ColorPalette.swift; sourceTree = "<group>"; };
 		F3A93824D01C24459287DE76 /* Int+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "Int+Extensions.swift"; path = "Shared/Extensions/Int+Extensions.swift"; sourceTree = "<group>"; };
 		F453EC93FC1C925DB2BD4725 /* ScrollPositionStorageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollPositionStorageTests.swift; sourceTree = "<group>"; };
@@ -678,6 +682,14 @@
 				B2313C5B760D0E7C05315E20 /* SwiftUI.framework in Frameworks */,
 				25F8149AA5AD3B8B578234D6 /* FirebaseAnalytics in Frameworks */,
 				47412521B43C2DF46D236AAA /* FirebaseCrashlytics in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E5AAD968B0B740348DA6FB2F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ECA2EEC6F3D845FEADEB9015 /* SharedKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -924,6 +936,7 @@
 				43C82CA7CE076639CEF7A3EF /* AIQ.app */,
 				F2851219836D6EDDBDB78A8E /* AIQTests.xctest */,
 				20569FF92112452385F4C5BA /* AIQUITests.xctest */,
+				FD01E1F52B9748658718D7DA /* SharedKitTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1576,6 +1589,25 @@
 			productReference = 43C82CA7CE076639CEF7A3EF /* AIQ.app */;
 			productType = "com.apple.product-type.application";
 		};
+		45D24137818645FD8732ADFC /* SharedKitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C0A6664AA2041D5B6C8055B /* Build configuration list for PBXNativeTarget "SharedKitTests" */;
+			buildPhases = (
+				BC4358C46A0F4CD7B56E2B40 /* Sources */,
+				E5AAD968B0B740348DA6FB2F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SharedKitTests;
+			packageProductDependencies = (
+				666F2CD1B6D44CB2B4FCB894 /* SharedKit */,
+			);
+			productName = SharedKitTests;
+			productReference = FD01E1F52B9748658718D7DA /* SharedKitTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -1609,6 +1641,7 @@
 				B58C1107D351E09C806FEED4 /* AIQ */,
 				2ACB0FA2211ACF7BC8FBFB28 /* AIQTests */,
 				7F81DE23637148F8AD9EB84E /* AIQUITests */,
+				45D24137818645FD8732ADFC /* SharedKitTests */,
 			);
 		};
 /* End PBXProject section */
@@ -1953,6 +1986,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BC4358C46A0F4CD7B56E2B40 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				88CEC6CF7C6A4EF8A785FFCC /* ConfirmationModalTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1997,6 +2038,21 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AIQ.app/AIQ";
+			};
+			name = Release;
+		};
+		086BE9F8C3A74B6A9228B33A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_TEAM = 4HDNC3V5Q6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aiq.sharedkittests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -2094,6 +2150,21 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AIQ.app/AIQ";
+			};
+			name = Debug;
+		};
+		78DBC694038443519AF7718F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_TEAM = 4HDNC3V5Q6;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aiq.sharedkittests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -2237,6 +2308,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		4C0A6664AA2041D5B6C8055B /* Build configuration list for PBXNativeTarget "SharedKitTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				78DBC694038443519AF7718F /* Debug */,
+				086BE9F8C3A74B6A9228B33A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		AB38316564D15AFFB92BF6E7 /* Build configuration list for PBXNativeTarget "AIQTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2319,6 +2399,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */;
 			productName = TrustKit;
+		};
+		666F2CD1B6D44CB2B4FCB894 /* SharedKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */;
+			productName = SharedKit;
 		};
 		B3C4D5E6F7A8B9C0D1E2F3A4 /* SharedKit */ = {
 			isa = XCSwiftPackageProductDependency;

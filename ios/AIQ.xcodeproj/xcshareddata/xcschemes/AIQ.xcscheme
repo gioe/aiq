@@ -58,6 +58,16 @@
                ReferencedContainer = "container:AIQ.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "45D24137818645FD8732ADFC"
+               BuildableName = "SharedKitTests.xctest"
+               BlueprintName = "SharedKitTests"
+               ReferencedContainer = "container:AIQ.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
