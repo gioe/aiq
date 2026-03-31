@@ -25,18 +25,42 @@ import Foundation
             correctAnswers: Int,
             accuracyPercentage: Double,
             completedAt: Date,
-            confidenceInterval: Components.Schemas.TestResultResponse.ConfidenceIntervalPayload? = nil
+            confidenceInterval: Components.Schemas.TestResultResponse.ConfidenceIntervalPayload? = nil,
+            domainScores: Components.Schemas.TestResultResponse.DomainScoresPayload? = nil
         ) -> TestResult {
             Components.Schemas.TestResultResponse(
                 accuracyPercentage: accuracyPercentage,
                 completedAt: completedAt,
                 confidenceInterval: confidenceInterval,
                 correctAnswers: correctAnswers,
+                domainScores: domainScores,
                 id: id,
                 iqScore: iqScore,
                 testSessionId: testSessionId,
                 totalQuestions: totalQuestions,
                 userId: userId
+            )
+        }
+
+        /// Creates a `DomainScoresPayload` from a typed `[String: DomainScore]` dictionary.
+        ///
+        /// Each `DomainScore` is round-tripped through JSON to produce the
+        /// `OpenAPIObjectContainer` values expected by the generated type — mirroring
+        /// the inverse operation in `domainScoresConverted`.
+        static func makeDomainScoresPayload(
+            _ scores: [String: DomainScore]
+        ) -> Components.Schemas.TestResultResponse.DomainScoresPayload {
+            let encoder = JSONEncoder()
+            let decoder = JSONDecoder()
+            var additionalProperties: [String: OpenAPIObjectContainer] = [:]
+            for (key, score) in scores {
+                guard let data = try? encoder.encode(score),
+                      let container = try? decoder.decode(OpenAPIObjectContainer.self, from: data)
+                else { continue }
+                additionalProperties[key] = container
+            }
+            return Components.Schemas.TestResultResponse.DomainScoresPayload(
+                additionalProperties: additionalProperties
             )
         }
 
