@@ -649,81 +649,72 @@ final class TestResultTests: XCTestCase {
 
     // MARK: - TestResult Score Display Helper Tests
 
-    // TODO: Re-enable when OpenAPI generator supports confidence intervals properly
-    /*
-     func testScoreWithConfidenceIntervalWhenPresent() {
-         let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
-         let result = TestResult(
-             id: 1,
-             testSessionId: 10,
-             userId: 100,
-             iqScore: 108,
-             percentileRank: 70.2,
-             totalQuestions: 20,
-             correctAnswers: 14,
-             accuracyPercentage: 70.0,
-             completedAt: Date(),
-             confidenceInterval: ci
-         )
+    func testScoreWithConfidenceIntervalWhenPresent() {
+        let ci = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
+        let result = MockDataFactory.makeTestResult(
+            id: 1,
+            testSessionId: 10,
+            userId: 100,
+            iqScore: 108,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date(),
+            confidenceInterval: .init(value1: ci)
+        )
 
-         XCTAssertEqual(result.scoreWithConfidenceInterval, "108 (101-115)")
-     }
+        XCTAssertEqual(result.scoreWithConfidenceInterval, "108 (101-115)")
+    }
 
-     func testScoreWithConfidenceIntervalWhenNil() {
-         let result = TestResult(
-             id: 1,
-             testSessionId: 10,
-             userId: 100,
-             iqScore: 108,
-             percentileRank: 70.2,
-             totalQuestions: 20,
-             correctAnswers: 14,
-             accuracyPercentage: 70.0,
-             completedAt: Date(),
-             confidenceInterval: nil
-         )
+    func testScoreWithConfidenceIntervalWhenNil() {
+        let result = MockDataFactory.makeTestResult(
+            id: 1,
+            testSessionId: 10,
+            userId: 100,
+            iqScore: 108,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date()
+        )
 
-         XCTAssertEqual(result.scoreWithConfidenceInterval, "108")
-     }
+        XCTAssertEqual(result.scoreWithConfidenceInterval, "108")
+    }
 
-     func testScoreAccessibilityDescriptionWithConfidenceInterval() {
-         let ci = ConfidenceInterval(lower: 101, upper: 115, confidenceLevel: 0.95, standardError: 3.5)
-         let result = TestResult(
-             id: 1,
-             testSessionId: 10,
-             userId: 100,
-             iqScore: 108,
-             percentileRank: 70.2,
-             totalQuestions: 20,
-             correctAnswers: 14,
-             accuracyPercentage: 70.0,
-             completedAt: Date(),
-             confidenceInterval: ci
-         )
+    func testScoreAccessibilityDescriptionWithConfidenceInterval() {
+        let ci = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
+        let result = MockDataFactory.makeTestResult(
+            id: 1,
+            testSessionId: 10,
+            userId: 100,
+            iqScore: 108,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date(),
+            confidenceInterval: .init(value1: ci)
+        )
 
-         XCTAssertEqual(
-             result.scoreAccessibilityDescription,
-             "IQ score 108. Score range from 101 to 115 with 95 percent confidence"
-         )
-     }
+        XCTAssertEqual(
+            result.scoreAccessibilityDescription,
+            "AIQ score 108, range 101 to 115"
+        )
+    }
 
-     func testScoreAccessibilityDescriptionWithoutConfidenceInterval() {
-         let result = TestResult(
-             id: 1,
-             testSessionId: 10,
-             userId: 100,
-             iqScore: 108,
-             percentileRank: 70.2,
-             totalQuestions: 20,
-             correctAnswers: 14,
-             accuracyPercentage: 70.0,
-             completedAt: Date(),
-             confidenceInterval: nil
-         )
+    func testScoreAccessibilityDescriptionWithoutConfidenceInterval() {
+        let result = MockDataFactory.makeTestResult(
+            id: 1,
+            testSessionId: 10,
+            userId: 100,
+            iqScore: 108,
+            totalQuestions: 20,
+            correctAnswers: 14,
+            accuracyPercentage: 70.0,
+            completedAt: Date()
+        )
 
-         XCTAssertEqual(result.scoreAccessibilityDescription, "IQ score 108")
-     }
-     */
+        XCTAssertEqual(result.scoreAccessibilityDescription, "AIQ score 108")
+    }
 
     // MARK: - ConfidenceInterval Edge Cases
 
