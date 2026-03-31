@@ -19,9 +19,9 @@ struct ScoreBreakdownView: View {
                 summaryCard
 
                 // Domain scores breakdown (or empty state)
-                if result.domainScoresConverted != nil {
+                if let domainScores = result.domainScoresConverted {
                     DomainScoresBreakdownView(
-                        domainScores: result.domainScoresConverted,
+                        domainScores: domainScores,
                         showAnimation: showAnimation,
                         strongestDomain: result.strongestDomain,
                         weakestDomain: result.weakestDomain
@@ -100,11 +100,11 @@ struct ScoreBreakdownView: View {
         .accessibilityLabel("Score summary")
     }
 
-    private func summaryMetricCard(title: String, value: String, color _: Color) -> some View {
+    private func summaryMetricCard(title: String, value: String, color: Color) -> some View {
         VStack(spacing: DesignSystem.Spacing.xs) {
             Text(value)
                 .font(Typography.h3)
-                .foregroundColor(ColorPalette.textPrimary)
+                .foregroundColor(color)
                 .accessibilityHidden(true)
 
             Text(title)
@@ -153,7 +153,7 @@ struct ScoreBreakdownView: View {
 
     // MARK: - Previews
 
-    #Preview("With Domain Scores") {
+    #Preview("No Domain Scores (High Score)") {
         NavigationStack {
             ScoreBreakdownView(
                 result: MockDataFactory.makeTestResult(
