@@ -446,7 +446,7 @@ struct DomainScoresBreakdownView: View {
         )
         .padding()
     }
-    .background(ColorPalette.backgroundGrouped)
+    .background(DefaultTheme().colors.backgroundGrouped)
 }
 
 #Preview("All Domains - No Percentiles") {
@@ -464,7 +464,7 @@ struct DomainScoresBreakdownView: View {
         )
         .padding()
     }
-    .background(ColorPalette.backgroundGrouped)
+    .background(DefaultTheme().colors.backgroundGrouped)
 }
 
 #Preview("Mixed Performance Levels") {
@@ -484,7 +484,7 @@ struct DomainScoresBreakdownView: View {
         )
         .padding()
     }
-    .background(ColorPalette.backgroundGrouped)
+    .background(DefaultTheme().colors.backgroundGrouped)
 }
 
 #Preview("Partial Domains") {
@@ -501,7 +501,7 @@ struct DomainScoresBreakdownView: View {
         )
         .padding()
     }
-    .background(ColorPalette.backgroundGrouped)
+    .background(DefaultTheme().colors.backgroundGrouped)
 }
 
 #Preview("No Domain Scores") {
@@ -512,7 +512,7 @@ struct DomainScoresBreakdownView: View {
         )
         .padding()
     }
-    .background(ColorPalette.backgroundGrouped)
+    .background(DefaultTheme().colors.backgroundGrouped)
 }
 
 #Preview("Empty Dictionary") {
@@ -523,7 +523,7 @@ struct DomainScoresBreakdownView: View {
         )
         .padding()
     }
-    .background(ColorPalette.backgroundGrouped)
+    .background(DefaultTheme().colors.backgroundGrouped)
 }
 
 #Preview("Single Domain Bar - With Percentile") {
