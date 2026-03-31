@@ -137,12 +137,12 @@ def mock_judge_config():
 def sample_math_question():
     """Create a sample MATH question."""
     return GeneratedQuestion(
-        question_text="If x + 5 = 12, what is the value of x?",
+        question_text="If y + 13 = 20, what is y?",
         question_type=QuestionType.MATH,
         difficulty_level=DifficultyLevel.EASY,
         correct_answer="7",
         answer_options=["5", "6", "7", "8"],
-        explanation="Subtracting 5 from both sides: x = 12 - 5 = 7",
+        explanation="Subtracting 13 from both sides: y = 20 - 13 = 7",
         metadata={"category": "algebra"},
         source_llm="openai",
         source_model="gpt-4",
@@ -615,8 +615,8 @@ class TestJudgeToDeduplicationFlow:
             question_text="What is 2 + 2?",  # Exact match with existing
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
-            correct_answer="4",
-            answer_options=["2", "3", "4", "5"],
+            correct_answer="four",
+            answer_options=["two", "three", "four", "five"],
             explanation="Basic addition",
             source_llm="openai",
             source_model="gpt-4",
@@ -740,8 +740,8 @@ class TestJudgeToDeduplicationFlow:
             question_text="What is 2 + 2?",  # Exact match with existing
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
-            correct_answer="4",
-            answer_options=["2", "3", "4", "5"],
+            correct_answer="four",
+            answer_options=["two", "three", "four", "five"],
             explanation="Basic addition",
             source_llm="openai",
             source_model="gpt-4",
@@ -1251,8 +1251,8 @@ class TestFullPipelineIntegration:
             question_text="What is 2 + 2?",  # Exact match
             question_type=QuestionType.MATH,
             difficulty_level=DifficultyLevel.EASY,
-            correct_answer="4",
-            answer_options=["2", "3", "4", "5"],
+            correct_answer="four",
+            answer_options=["two", "three", "four", "five"],
             explanation="Basic addition",
             source_llm="openai",
             source_model="gpt-4",
@@ -1643,8 +1643,8 @@ class TestEdgeCases:
                 question_text="What is 2 + 2?",
                 question_type=QuestionType.MATH,
                 difficulty_level=DifficultyLevel.EASY,
-                correct_answer="4",
-                answer_options=["2", "3", "4", "5"],
+                correct_answer="four",
+                answer_options=["two", "three", "four", "five"],
                 explanation="Basic addition",
                 source_llm="openai",
                 source_model="gpt-4",
