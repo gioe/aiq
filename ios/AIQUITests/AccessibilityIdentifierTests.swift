@@ -286,6 +286,66 @@ final class AccessibilityIdentifierTests: BaseUITest {
         )
     }
 
+    func testSettingsView_LogoutConfirmationModalIdentifiersExist() throws {
+        throw XCTSkip("Requires backend connection and valid test account")
+
+        try loginAndNavigateToSettings()
+
+        let logoutButton = app.buttons["settingsView.logoutButton"]
+        guard wait(for: logoutButton, timeout: standardTimeout) else {
+            throw XCTSkip("Logout button not found")
+        }
+        logoutButton.tap()
+
+        let modal = app.otherElements["settingsView.logoutConfirmationModal"]
+        XCTAssertTrue(
+            wait(for: modal, timeout: standardTimeout),
+            "settingsView.logoutConfirmationModal identifier should exist after tapping logout"
+        )
+
+        let confirmButton = app.buttons["settingsView.logoutConfirmButton"]
+        XCTAssertTrue(
+            wait(for: confirmButton, timeout: standardTimeout),
+            "settingsView.logoutConfirmButton identifier should be reachable within modal"
+        )
+
+        let cancelButton = app.buttons["settingsView.logoutCancelButton"]
+        XCTAssertTrue(
+            wait(for: cancelButton, timeout: standardTimeout),
+            "settingsView.logoutCancelButton identifier should be reachable within modal"
+        )
+    }
+
+    func testSettingsView_DeleteAccountConfirmationModalIdentifiersExist() throws {
+        throw XCTSkip("Requires backend connection and valid test account")
+
+        try loginAndNavigateToSettings()
+
+        let deleteAccountButton = app.buttons["settingsView.deleteAccountButton"]
+        guard wait(for: deleteAccountButton, timeout: standardTimeout) else {
+            throw XCTSkip("Delete account button not found")
+        }
+        deleteAccountButton.tap()
+
+        let modal = app.otherElements["settingsView.deleteAccountConfirmationModal"]
+        XCTAssertTrue(
+            wait(for: modal, timeout: standardTimeout),
+            "settingsView.deleteAccountConfirmationModal identifier should exist after tapping delete account"
+        )
+
+        let confirmButton = app.buttons["settingsView.deleteAccountConfirmButton"]
+        XCTAssertTrue(
+            wait(for: confirmButton, timeout: standardTimeout),
+            "settingsView.deleteAccountConfirmButton identifier should be reachable within modal"
+        )
+
+        let cancelButton = app.buttons["settingsView.deleteAccountCancelButton"]
+        XCTAssertTrue(
+            wait(for: cancelButton, timeout: standardTimeout),
+            "settingsView.deleteAccountCancelButton identifier should be reachable within modal"
+        )
+    }
+
     // MARK: - HistoryView Identifier Tests
 
     func testHistoryView_ScrollViewIdentifierExists() throws {
