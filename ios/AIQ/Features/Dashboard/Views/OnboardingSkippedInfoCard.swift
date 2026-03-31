@@ -105,10 +105,10 @@ struct OnboardingSkippedInfoCard: View {
             // Simulated welcome header
             VStack(spacing: DesignSystem.Spacing.md) {
                 Text("Good morning!")
-                    .font(Typography.h1)
+                    .font(DefaultTheme().typography.h1)
                 Text("Track your cognitive performance over time")
-                    .font(Typography.bodyMedium)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(DefaultTheme().typography.bodyMedium)
+                    .foregroundColor(DefaultTheme().colors.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, DesignSystem.Spacing.lg)
@@ -122,11 +122,11 @@ struct OnboardingSkippedInfoCard: View {
             // Simulated stats grid
             HStack(spacing: DesignSystem.Spacing.lg) {
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                    .fill(ColorPalette.backgroundSecondary)
+                    .fill(DefaultTheme().colors.backgroundSecondary)
                     .frame(height: 80)
 
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                    .fill(ColorPalette.backgroundSecondary)
+                    .fill(DefaultTheme().colors.backgroundSecondary)
                     .frame(height: 80)
             }
 

@@ -271,7 +271,7 @@ struct InProgressTestCard: View {
             )
             .padding()
         }
-        .background(ColorPalette.background)
+        .background(DefaultTheme().colors.background)
     }
 
     #Preview("Just Started") {
@@ -292,7 +292,7 @@ struct InProgressTestCard: View {
             )
             .padding()
         }
-        .background(ColorPalette.background)
+        .background(DefaultTheme().colors.background)
     }
 
     #Preview("Days Ago") {
@@ -313,6 +313,6 @@ struct InProgressTestCard: View {
             )
             .padding()
         }
-        .background(ColorPalette.background)
+        .background(DefaultTheme().colors.background)
     }
 #endif
