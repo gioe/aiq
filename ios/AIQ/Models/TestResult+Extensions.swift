@@ -223,4 +223,18 @@ extension Components.Schemas.TestResultResponse {
     var sortedDomainScores: [(domain: CognitiveDomain, score: DomainScore)]? {
         sortedDomainScoresWithMetadata
     }
+
+    /// The domain with the highest accuracy score, excluding domains with zero questions.
+    var strongestCognitiveDomain: (domain: CognitiveDomain, score: DomainScore)? {
+        sortedDomainScoresWithMetadata?
+            .filter { $0.score.total > 0 }
+            .max { ($0.score.pct ?? 0) < ($1.score.pct ?? 0) }
+    }
+
+    /// The domain with the lowest accuracy score, excluding domains with zero questions.
+    var weakestCognitiveDomain: (domain: CognitiveDomain, score: DomainScore)? {
+        sortedDomainScoresWithMetadata?
+            .filter { $0.score.total > 0 }
+            .min { ($0.score.pct ?? 0) < ($1.score.pct ?? 0) }
+    }
 }
