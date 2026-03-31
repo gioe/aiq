@@ -3,6 +3,8 @@ Tests for main RateLimiter class.
 """
 
 from app.ratelimit import RateLimiter, RateLimitExceeded
+from app.ratelimit.strategies import FixedWindowStrategy
+from app.ratelimit.storage import InMemoryStorage
 
 
 class TestRateLimiter:
@@ -78,6 +80,32 @@ class TestRateLimiter:
 
         # user2 should still have capacity
         allowed, _ = self.limiter.check("user2")
+        assert allowed is True
+
+
+class TestResetWithCustomWindow:
+    """Tests for RateLimiter.reset() with a custom window parameter."""
+
+    def test_reset_with_custom_window_clears_correct_key(self):
+        """reset() with a custom window clears the FixedWindowStrategy key for that window."""
+        storage = InMemoryStorage()
+        strategy = FixedWindowStrategy(storage)
+        limiter = RateLimiter(strategy=strategy, default_limit=2, default_window=60)
+
+        # Exhaust limit using a custom 3600-second window
+        limiter.check("user1", window=3600)
+        limiter.check("user1", window=3600)
+        allowed, _ = limiter.check("user1", window=3600)
+        assert allowed is False
+
+        # reset() with wrong (default) window leaves the 3600-window key intact
+        limiter.reset("user1")
+        still_blocked, _ = limiter.check("user1", window=3600)
+        assert still_blocked is False
+
+        # reset() with the correct custom window clears the 3600-window key
+        limiter.reset("user1", window=3600)
+        allowed, _ = limiter.check("user1", window=3600)
         assert allowed is True
 
 
