@@ -16,6 +16,10 @@ let package = Package(
         .target(
             name: "SharedKit",
             dependencies: []
+        ),
+        .testTarget(
+            name: "SharedKitTests",
+            dependencies: ["SharedKit"]
         )
     ]
 )
