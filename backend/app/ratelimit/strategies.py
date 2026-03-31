@@ -424,4 +424,7 @@ class FixedWindowStrategy(RateLimiterStrategy):
             key = f"{identifier}:{window_id}"
             self.storage.delete(key)
         else:
+            # window_seconds not provided: fall back to bare key deletion.
+            # FixedWindowStrategy always stores under compound keys, so this
+            # is a no-op — callers should always pass window_seconds.
             self.storage.delete(identifier)
