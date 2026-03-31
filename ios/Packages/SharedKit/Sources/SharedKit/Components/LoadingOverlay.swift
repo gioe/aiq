@@ -24,7 +24,7 @@ public struct LoadingOverlay: View {
                 // Animated brain icon
                 Image(systemName: "brain.head.profile")
                     .font(.system(size: 48))
-                    .foregroundStyle(ColorPalette.scoreGradient)
+                    .foregroundStyle(theme.gradients.scoreGradient)
                     .rotationEffect(.degrees(rotationAngle))
                     .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.1 : 1.0))
                     .accessibilityHidden(true)
