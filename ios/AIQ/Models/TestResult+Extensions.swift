@@ -188,19 +188,39 @@ extension Components.Schemas.TestResultResponse {
     /// Converts the OpenAPI domain scores payload to a dictionary for UI usage.
     ///
     /// The generated `domainScores` property is of type `DomainScoresPayload?` which wraps
-    /// an `additionalProperties` dictionary. This computed property converts it to the
-    /// `[String: DomainScore]` format expected by UI components.
-    ///
-    /// **Note:** Returns nil because `domainScores.additionalProperties` contains raw JSON
-    /// that requires more sophisticated decoding. For now, UI should handle nil gracefully.
+    /// an `additionalProperties: [String: OpenAPIObjectContainer]` dictionary. Each container
+    /// is round-tripped through JSON to produce a typed `DomainScore` value.
     var domainScoresConverted: [String: DomainScore]? {
-        nil
+        guard let payload = domainScores else { return nil }
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+        var result: [String: DomainScore] = [:]
+        for (key, value) in payload.additionalProperties {
+            guard let data = try? encoder.encode(value),
+                  let score = try? decoder.decode(DomainScore.self, from: data)
+            else { continue }
+            result[key] = score
+        }
+        return result.isEmpty ? nil : result
     }
 
-    /// Returns domain scores sorted by domain order with full metadata.
+    /// Returns domain scores sorted by `CognitiveDomain.allCases` order with full metadata.
     ///
-    /// **Note:** Returns nil because domain score conversion is not yet implemented.
+    /// Only domains present in `domainScoresConverted` are included, so the count may be
+    /// less than six when the backend omits certain domains.
     var sortedDomainScoresWithMetadata: [(domain: CognitiveDomain, score: DomainScore)]? {
-        nil
+        guard let scores = domainScoresConverted, !scores.isEmpty else { return nil }
+        let sorted = CognitiveDomain.allCases.compactMap { domain -> (domain: CognitiveDomain, score: DomainScore)? in
+            guard let score = scores[domain.rawValue] else { return nil }
+            return (domain: domain, score: score)
+        }
+        return sorted.isEmpty ? nil : sorted
+    }
+
+    /// Domain scores sorted by `CognitiveDomain.allCases` order.
+    ///
+    /// Convenience alias for `sortedDomainScoresWithMetadata`.
+    var sortedDomainScores: [(domain: CognitiveDomain, score: DomainScore)]? {
+        sortedDomainScoresWithMetadata
     }
 }

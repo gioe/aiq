@@ -386,105 +386,75 @@ final class TestResultTests: XCTestCase {
 
     // MARK: - Domain Score Helper Tests
 
-    // TODO: Re-enable when sortedDomainScoresWithMetadata is implemented
-    /*
-     func testSortedDomainScores() {
-         let result = createTestResultWithDomainScores()
+    func testSortedDomainScores() throws {
+        let result = try createTestResultWithDomainScores()
 
-         let sorted = result.sortedDomainScores
-         XCTAssertNotNil(sorted)
-         XCTAssertEqual(sorted?.count, 6)
+        let sorted = result.sortedDomainScores
+        XCTAssertNotNil(sorted)
+        XCTAssertEqual(sorted?.count, 6)
 
-         // Verify order matches CognitiveDomain.allCases
-         XCTAssertEqual(sorted?[0].domain, .pattern)
-         XCTAssertEqual(sorted?[1].domain, .logic)
-         XCTAssertEqual(sorted?[2].domain, .spatial)
-         XCTAssertEqual(sorted?[3].domain, .math)
-         XCTAssertEqual(sorted?[4].domain, .verbal)
-         XCTAssertEqual(sorted?[5].domain, .memory)
-     }
+        // Verify order matches CognitiveDomain.allCases
+        XCTAssertEqual(sorted?[0].domain, .pattern)
+        XCTAssertEqual(sorted?[1].domain, .logic)
+        XCTAssertEqual(sorted?[2].domain, .spatial)
+        XCTAssertEqual(sorted?[3].domain, .math)
+        XCTAssertEqual(sorted?[4].domain, .verbal)
+        XCTAssertEqual(sorted?[5].domain, .memory)
+    }
 
-     func testSortedDomainScoresReturnsNilWhenNoDomainScores() {
-         let result = createTestResultWithoutDomainScores()
+    func testSortedDomainScoresReturnsNilWhenNoDomainScores() {
+        let result = createTestResultWithoutDomainScores()
 
-         XCTAssertNil(result.sortedDomainScores)
-     }
+        XCTAssertNil(result.sortedDomainScores)
+    }
 
-     func testStrongestDomain() {
-         let result = createTestResultWithDomainScores()
+    func testStrongestDomainReturnsNilWhenNoDomainScores() {
+        let result = createTestResultWithoutDomainScores()
 
-         let strongest = result.strongestDomain
-         XCTAssertNotNil(strongest)
-         XCTAssertEqual(strongest?.domain, .verbal) // 100%
-         XCTAssertEqual(strongest?.score.pct, 100.0)
-     }
+        XCTAssertNil(result.strongestDomain)
+    }
 
-     func testWeakestDomain() {
-         let result = createTestResultWithDomainScores()
+    func testWeakestDomainReturnsNilWhenNoDomainScores() {
+        let result = createTestResultWithoutDomainScores()
 
-         let weakest = result.weakestDomain
-         XCTAssertNotNil(weakest)
-         XCTAssertEqual(weakest?.domain, .memory) // 33.33%
-         XCTAssertEqual(weakest?.score.pct, 33.33)
-     }
+        XCTAssertNil(result.weakestDomain)
+    }
 
-     func testStrongestDomainReturnsNilWhenNoDomainScores() {
-         let result = createTestResultWithoutDomainScores()
-
-         XCTAssertNil(result.strongestDomain)
-     }
-
-     func testWeakestDomainReturnsNilWhenNoDomainScores() {
-         let result = createTestResultWithoutDomainScores()
-
-         XCTAssertNil(result.weakestDomain)
-     }
-
-     func testStrongestWeakestExcludesDomainsWithZeroQuestions() {
-         let domainScores: [String: DomainScore] = [
-             "pattern": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil),
-             "logic": DomainScore(correct: 0, total: 0, pct: nil, percentile: nil), // No questions
-             "spatial": DomainScore(correct: 2, total: 4, pct: 50.0, percentile: nil),
-             "math": DomainScore(correct: 4, total: 4, pct: 100.0, percentile: nil),
-             "verbal": DomainScore(correct: 1, total: 4, pct: 25.0, percentile: nil),
-             "memory": DomainScore(correct: 0, total: 0, pct: nil, percentile: nil) // No questions
-         ]
-
-         let result = TestResult(
-             id: 1,
-             testSessionId: 10,
-             userId: 100,
-             iqScore: 115,
-             percentileRank: 84.0,
-             totalQuestions: 16,
-             correctAnswers: 10,
-             accuracyPercentage: 62.5,
-             completionTimeSeconds: 1200,
-             completedAt: Date(),
-             domainScores: domainScores
-         )
-
-         let strongest = result.strongestDomain
-         XCTAssertEqual(strongest?.domain, .math) // 100%
-
-         let weakest = result.weakestDomain
-         XCTAssertEqual(weakest?.domain, .verbal) // 25%
-     }
-     */
+    // TODO: Re-enable testStrongestDomain and testWeakestDomain once strongestDomain/weakestDomain
+    // are computed from domain scores rather than returned as String? from the generated type.
+    // The generated properties return the domain name string from the backend, not a typed tuple,
+    // so `result.strongestDomain?.domain` won't compile.
+    //
+    // TODO: Re-enable testStrongestWeakestExcludesDomainsWithZeroQuestions once the generated
+    // TestResultResponse initializer accepts [String: DomainScore] instead of DomainScoresPayload.
 
     // MARK: - Helper Methods
 
-    private func createTestResultWithDomainScores() -> TestResult {
-        MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 10,
-            userId: 100,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 14,
-            accuracyPercentage: 70.0,
-            completedAt: Date()
-        )
+    private func createTestResultWithDomainScores() throws -> TestResult {
+        let json = """
+        {
+            "id": 1,
+            "test_session_id": 10,
+            "user_id": 100,
+            "iq_score": 115,
+            "total_questions": 20,
+            "correct_answers": 14,
+            "accuracy_percentage": 70.0,
+            "completed_at": "2025-12-13T10:00:00Z",
+            "domain_scores": {
+                "pattern": {"correct": 3, "total": 4, "pct": 75.0},
+                "logic": {"correct": 2, "total": 3, "pct": 66.67},
+                "spatial": {"correct": 2, "total": 3, "pct": 66.67},
+                "math": {"correct": 3, "total": 4, "pct": 75.0},
+                "verbal": {"correct": 3, "total": 3, "pct": 100.0},
+                "memory": {"correct": 1, "total": 3, "pct": 33.33}
+            }
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(TestResult.self, from: data)
     }
 
     private func createTestResultWithoutDomainScores() -> TestResult {
