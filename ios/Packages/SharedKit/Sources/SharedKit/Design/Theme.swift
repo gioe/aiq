@@ -4,32 +4,61 @@ import SwiftUI
 
 /// Semantic color tokens available for theming
 public struct ColorTokens {
-    // Brand
+    /// Brand
+    /// Primary brand color
     public let primary: Color
+    /// Secondary brand color
     public let secondary: Color
 
-    // Semantic (icon use; low contrast in light mode — use accessible text variants for text)
+    /// Semantic (icon use; low contrast in light mode — use accessible text variants for text)
+    /// Success state color (icon use; low contrast on white — use successText for text)
     public let success: Color
+    /// Warning state color (icon use; low contrast on white — use warningText for text)
     public let warning: Color
+    /// Error state color (icon use; low contrast on white — use errorText for text)
     public let error: Color
+    /// Info state color (icon use; low contrast on white — use infoText for text)
     public let info: Color
 
-    // Accessible text variants (WCAG AA compliant; use for text, not icons)
+    /// Accessible text variants (WCAG AA compliant; use for text, not icons)
+    /// WCAG AA–compliant success text color
     public let successText: Color
+    /// WCAG AA–compliant warning text color
     public let warningText: Color
+    /// WCAG AA–compliant error text color
     public let errorText: Color
+    /// WCAG AA–compliant info text color
     public let infoText: Color
 
-    // Text
+    /// Text
+    /// Primary text color
     public let textPrimary: Color
+    /// Secondary text color
     public let textSecondary: Color
+    /// Tertiary / disabled text color
     public let textTertiary: Color
 
-    // Background
+    /// Background
+    /// Primary background color
     public let background: Color
+    /// Secondary background (cards, elevated surfaces)
     public let backgroundSecondary: Color
+    /// Tertiary background
     public let backgroundTertiary: Color
+    /// Grouped-list background (mirrors UIColor.systemGroupedBackground)
+    public let backgroundGrouped: Color
 
+    /// Stats (icon use; low contrast on white — do not use for text)
+    /// Stat color for tests-taken / correct-count metrics (blue)
+    public let statBlue: Color
+    /// Stat color for accuracy metrics (green)
+    public let statGreen: Color
+    /// Stat color for percentile / duration metrics (purple)
+    public let statPurple: Color
+    /// Stat color for time metrics (orange)
+    public let statOrange: Color
+
+    /// Creates a ColorTokens instance
     public init(
         primary: Color,
         secondary: Color,
@@ -46,7 +75,12 @@ public struct ColorTokens {
         textTertiary: Color,
         background: Color,
         backgroundSecondary: Color,
-        backgroundTertiary: Color
+        backgroundTertiary: Color,
+        backgroundGrouped: Color,
+        statBlue: Color,
+        statGreen: Color,
+        statPurple: Color,
+        statOrange: Color
     ) {
         self.primary = primary
         self.secondary = secondary
@@ -64,6 +98,11 @@ public struct ColorTokens {
         self.background = background
         self.backgroundSecondary = backgroundSecondary
         self.backgroundTertiary = backgroundTertiary
+        self.backgroundGrouped = backgroundGrouped
+        self.statBlue = statBlue
+        self.statGreen = statGreen
+        self.statPurple = statPurple
+        self.statOrange = statOrange
     }
 }
 
@@ -71,22 +110,38 @@ public struct ColorTokens {
 
 /// Typography tokens mirroring the Typography enum
 public struct TypographyTokens {
+    /// Heading 1 font
     public let h1: Font
+    /// Heading 2 font
     public let h2: Font
+    /// Heading 3 font
     public let h3: Font
+    /// Heading 4 font
     public let h4: Font
+    /// Large body font
     public let bodyLarge: Font
+    /// Medium body font
     public let bodyMedium: Font
+    /// Small body font
     public let bodySmall: Font
+    /// Large label font
     public let labelLarge: Font
+    /// Medium label font
     public let labelMedium: Font
+    /// Small label font
     public let labelSmall: Font
+    /// Large caption font
     public let captionLarge: Font
+    /// Medium caption font
     public let captionMedium: Font
+    /// Small caption font
     public let captionSmall: Font
+    /// Stat value display font
     public let statValue: Font
+    /// Button label font
     public let button: Font
 
+    /// Creates a TypographyTokens instance
     public init(
         h1: Font,
         h2: Font,
@@ -126,16 +181,26 @@ public struct TypographyTokens {
 
 /// Spacing tokens mirroring DesignSystem.Spacing
 public struct SpacingTokens {
+    /// Extra-small spacing
     public let xs: CGFloat
+    /// Small spacing
     public let sm: CGFloat
+    /// Medium spacing
     public let md: CGFloat
+    /// Large spacing
     public let lg: CGFloat
+    /// Extra-large spacing
     public let xl: CGFloat
+    /// 2× extra-large spacing
     public let xxl: CGFloat
+    /// 3× extra-large spacing
     public let xxxl: CGFloat
+    /// Huge spacing
     public let huge: CGFloat
+    /// Section-level spacing
     public let section: CGFloat
 
+    /// Creates a SpacingTokens instance
     public init(
         xs: CGFloat,
         sm: CGFloat,
@@ -163,12 +228,18 @@ public struct SpacingTokens {
 
 /// Corner radius tokens mirroring DesignSystem.CornerRadius
 public struct CornerRadiusTokens {
+    /// Small corner radius
     public let sm: CGFloat
+    /// Medium corner radius
     public let md: CGFloat
+    /// Large corner radius
     public let lg: CGFloat
+    /// Extra-large corner radius
     public let xl: CGFloat
+    /// Full (pill) corner radius
     public let full: CGFloat
 
+    /// Creates a CornerRadiusTokens instance
     public init(sm: CGFloat, md: CGFloat, lg: CGFloat, xl: CGFloat, full: CGFloat) {
         self.sm = sm
         self.md = md
@@ -182,10 +253,14 @@ public struct CornerRadiusTokens {
 
 /// Shadow tokens mirroring DesignSystem.Shadow
 public struct ShadowTokens {
+    /// Small shadow
     public let sm: ShadowStyle
+    /// Medium shadow
     public let md: ShadowStyle
+    /// Large shadow
     public let lg: ShadowStyle
 
+    /// Creates a ShadowTokens instance
     public init(sm: ShadowStyle, md: ShadowStyle, lg: ShadowStyle) {
         self.sm = sm
         self.md = md
@@ -197,12 +272,18 @@ public struct ShadowTokens {
 
 /// Icon size tokens mirroring DesignSystem.IconSize
 public struct IconSizeTokens {
+    /// Small icon size
     public let sm: CGFloat
+    /// Medium icon size
     public let md: CGFloat
+    /// Large icon size
     public let lg: CGFloat
+    /// Extra-large icon size
     public let xl: CGFloat
+    /// Huge icon size
     public let huge: CGFloat
 
+    /// Creates an IconSizeTokens instance
     public init(sm: CGFloat, md: CGFloat, lg: CGFloat, xl: CGFloat, huge: CGFloat) {
         self.sm = sm
         self.md = md
@@ -216,16 +297,37 @@ public struct IconSizeTokens {
 
 /// Animation tokens mirroring DesignSystem.Animation
 public struct AnimationTokens {
+    /// Quick animation curve
     public let quick: Animation
+    /// Standard animation curve
     public let standard: Animation
+    /// Smooth animation curve
     public let smooth: Animation
+    /// Bouncy animation curve
     public let bouncy: Animation
 
+    /// Creates an AnimationTokens instance
     public init(quick: Animation, standard: Animation, smooth: Animation, bouncy: Animation) {
         self.quick = quick
         self.standard = standard
         self.smooth = smooth
         self.bouncy = bouncy
+    }
+}
+
+// MARK: - Gradient Tokens
+
+/// Gradient tokens for branded gradient fills
+public struct GradientTokens {
+    /// Blue-to-purple gradient used for IQ score display and hero UI
+    public let scoreGradient: LinearGradient
+    /// Yellow-to-orange gradient used for trophy and achievement icons
+    public let trophyGradient: LinearGradient
+
+    /// Creates a GradientTokens instance
+    public init(scoreGradient: LinearGradient, trophyGradient: LinearGradient) {
+        self.scoreGradient = scoreGradient
+        self.trophyGradient = trophyGradient
     }
 }
 
@@ -247,12 +349,21 @@ public struct AnimationTokens {
 /// that components read via @Environment(\.appTheme). Enables future theme variants
 /// (high-contrast, seasonal, white-label) without touching component internals.
 public protocol AppThemeProtocol {
+    /// Semantic color tokens
     var colors: ColorTokens { get }
+    /// Gradient tokens
+    var gradients: GradientTokens { get }
+    /// Typography tokens
     var typography: TypographyTokens { get }
+    /// Spacing tokens
     var spacing: SpacingTokens { get }
+    /// Corner radius tokens
     var cornerRadius: CornerRadiusTokens { get }
+    /// Shadow tokens
     var shadows: ShadowTokens { get }
+    /// Icon size tokens
     var iconSizes: IconSizeTokens { get }
+    /// Animation tokens
     var animations: AnimationTokens { get }
 }
 
@@ -261,8 +372,10 @@ public protocol AppThemeProtocol {
 /// Default theme that delegates to existing ColorPalette, Typography, and DesignSystem.
 /// No visual values change — this is a thin wrapper enabling the theme environment.
 public struct DefaultTheme: AppThemeProtocol {
+    /// Creates a DefaultTheme instance
     public init() {}
 
+    /// Semantic color tokens
     public let colors = ColorTokens(
         primary: ColorPalette.primary,
         secondary: ColorPalette.secondary,
@@ -279,9 +392,21 @@ public struct DefaultTheme: AppThemeProtocol {
         textTertiary: ColorPalette.textTertiary,
         background: ColorPalette.background,
         backgroundSecondary: ColorPalette.backgroundSecondary,
-        backgroundTertiary: ColorPalette.backgroundTertiary
+        backgroundTertiary: ColorPalette.backgroundTertiary,
+        backgroundGrouped: ColorPalette.backgroundGrouped,
+        statBlue: ColorPalette.statBlue,
+        statGreen: ColorPalette.statGreen,
+        statPurple: ColorPalette.statPurple,
+        statOrange: ColorPalette.statOrange
     )
 
+    /// Gradient tokens
+    public let gradients = GradientTokens(
+        scoreGradient: ColorPalette.scoreGradient,
+        trophyGradient: ColorPalette.trophyGradient
+    )
+
+    /// Typography tokens
     public let typography = TypographyTokens(
         h1: Typography.h1,
         h2: Typography.h2,
@@ -300,6 +425,7 @@ public struct DefaultTheme: AppThemeProtocol {
         button: Typography.button
     )
 
+    /// Spacing tokens
     public let spacing = SpacingTokens(
         xs: DesignSystem.Spacing.xs,
         sm: DesignSystem.Spacing.sm,
@@ -312,6 +438,7 @@ public struct DefaultTheme: AppThemeProtocol {
         section: DesignSystem.Spacing.section
     )
 
+    /// Corner radius tokens
     public let cornerRadius = CornerRadiusTokens(
         sm: DesignSystem.CornerRadius.sm,
         md: DesignSystem.CornerRadius.md,
@@ -320,12 +447,14 @@ public struct DefaultTheme: AppThemeProtocol {
         full: DesignSystem.CornerRadius.full
     )
 
+    /// Shadow tokens
     public let shadows = ShadowTokens(
         sm: DesignSystem.Shadow.sm,
         md: DesignSystem.Shadow.md,
         lg: DesignSystem.Shadow.lg
     )
 
+    /// Icon size tokens
     public let iconSizes = IconSizeTokens(
         sm: DesignSystem.IconSize.sm,
         md: DesignSystem.IconSize.md,
@@ -334,6 +463,7 @@ public struct DefaultTheme: AppThemeProtocol {
         huge: DesignSystem.IconSize.huge
     )
 
+    /// Animation tokens
     public let animations = AnimationTokens(
         quick: DesignSystem.Animation.quick,
         standard: DesignSystem.Animation.standard,

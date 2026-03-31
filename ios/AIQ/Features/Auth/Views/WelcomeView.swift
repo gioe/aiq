@@ -20,7 +20,7 @@ struct WelcomeView: View {
         NavigationStack {
             ZStack {
                 // Gradient Background
-                ColorPalette.scoreGradient
+                theme.gradients.scoreGradient
                     .opacity(0.15)
                     .ignoresSafeArea()
 
@@ -43,7 +43,7 @@ struct WelcomeView: View {
                             // Animated Brain Icon
                             Image(systemName: "brain.head.profile")
                                 .font(.system(size: 80))
-                                .foregroundStyle(ColorPalette.scoreGradient)
+                                .foregroundStyle(theme.gradients.scoreGradient)
                                 .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
                                 .animation(
                                     reduceMotion
@@ -56,7 +56,7 @@ struct WelcomeView: View {
 
                             Text("AIQ")
                                 .displayMediumFont()
-                                .foregroundStyle(ColorPalette.scoreGradient)
+                                .foregroundStyle(theme.gradients.scoreGradient)
                                 .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.0 : 0.95))
 
                             Text("AI-Generated Cognitive Assessment")

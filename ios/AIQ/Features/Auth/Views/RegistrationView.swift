@@ -35,7 +35,7 @@ struct RegistrationView: View {
     var body: some View {
         ZStack {
             // Gradient Background
-            ColorPalette.scoreGradient
+            theme.gradients.scoreGradient
                 .opacity(0.12)
                 .ignoresSafeArea()
 
@@ -57,7 +57,7 @@ struct RegistrationView: View {
                         // Animated Icon - Using sparkles to represent new beginning
                         Image(systemName: "sparkles")
                             .font(.system(size: 72))
-                            .foregroundStyle(ColorPalette.scoreGradient)
+                            .foregroundStyle(theme.gradients.scoreGradient)
                             .rotationEffect(.degrees(reduceMotion ? 0 : (isAnimating ? 5 : -5)))
                             .animation(
                                 reduceMotion
@@ -68,7 +68,7 @@ struct RegistrationView: View {
 
                         Text("Begin Your Journey")
                             .displayMediumFont()
-                            .foregroundStyle(ColorPalette.scoreGradient)
+                            .foregroundStyle(theme.gradients.scoreGradient)
                             .multilineTextAlignment(.center)
 
                         Text("Track your cognitive performance over time")

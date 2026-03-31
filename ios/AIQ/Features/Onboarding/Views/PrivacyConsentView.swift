@@ -22,7 +22,7 @@ struct PrivacyConsentView: View {
         NavigationStack {
             ZStack {
                 // Gradient Background
-                ColorPalette.scoreGradient
+                theme.gradients.scoreGradient
                     .opacity(0.15)
                     .ignoresSafeArea()
 
@@ -32,7 +32,7 @@ struct PrivacyConsentView: View {
                         VStack(spacing: DesignSystem.Spacing.lg) {
                             Image(systemName: "hand.raised.fill")
                                 .font(.system(size: 80))
-                                .foregroundStyle(ColorPalette.scoreGradient)
+                                .foregroundStyle(theme.gradients.scoreGradient)
                                 .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
                                 .animation(
                                     reduceMotion
@@ -44,7 +44,7 @@ struct PrivacyConsentView: View {
 
                             Text("Privacy & Terms")
                                 .displayMediumFont()
-                                .foregroundStyle(ColorPalette.scoreGradient)
+                                .foregroundStyle(theme.gradients.scoreGradient)
                                 .multilineTextAlignment(.center)
 
                             Text("Your privacy matters to us")
@@ -69,28 +69,28 @@ struct PrivacyConsentView: View {
                                 icon: "shield.checkered",
                                 title: "Your Data is Protected",
                                 description: "We use industry-standard encryption to keep your information secure.",
-                                color: ColorPalette.statGreen
+                                color: theme.colors.statGreen
                             )
 
                             privacyPointCard(
                                 icon: "eye.slash.fill",
                                 title: "No Sale of Data",
                                 description: "We never sell your personal information to third parties.",
-                                color: ColorPalette.statBlue
+                                color: theme.colors.statBlue
                             )
 
                             privacyPointCard(
                                 icon: "brain.head.profile",
                                 title: "Your Results",
                                 description: "Test results are stored securely and only accessible to you.",
-                                color: ColorPalette.statPurple
+                                color: theme.colors.statPurple
                             )
 
                             privacyPointCard(
                                 icon: "chart.line.uptrend.xyaxis",
                                 title: "Analytics",
                                 description: "We collect anonymous usage data to improve the app experience.",
-                                color: ColorPalette.statOrange
+                                color: theme.colors.statOrange
                             )
                         }
                         .padding(.horizontal, DesignSystem.Spacing.xl)

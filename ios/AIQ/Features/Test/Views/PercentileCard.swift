@@ -29,7 +29,7 @@ struct PercentileCard: View {
                     .font(theme.typography.h1)
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [ColorPalette.statBlue, ColorPalette.statPurple],
+                            colors: [theme.colors.statBlue, theme.colors.statPurple],
                             startPoint: .leading,
                             endPoint: .trailing
                         )

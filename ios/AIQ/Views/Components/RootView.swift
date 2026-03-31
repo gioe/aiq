@@ -217,7 +217,7 @@ struct SplashView: View {
     var body: some View {
         ZStack {
             // Gradient Background matching WelcomeView
-            ColorPalette.scoreGradient
+            theme.gradients.scoreGradient
                 .ignoresSafeArea()
 
             VStack(spacing: theme.spacing.lg) {

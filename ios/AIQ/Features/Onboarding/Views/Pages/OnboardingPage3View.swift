@@ -13,7 +13,7 @@ struct OnboardingPage3View: View {
                 // Header Icon
                 Image(systemName: "calendar.badge.clock")
                     .font(.system(size: 80))
-                    .foregroundColor(ColorPalette.statPurple)
+                    .foregroundColor(theme.colors.statPurple)
                     .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
                     .animation(
                         reduceMotion ? nil : theme.animations.bouncy.repeatForever(autoreverses: true),
@@ -40,14 +40,14 @@ struct OnboardingPage3View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     IconContentCard(
                         icon: "brain.head.profile",
-                        iconColor: ColorPalette.statPurple,
+                        iconColor: theme.colors.statPurple,
                         title: String(localized: "onboarding.page3.rationale.neuroplasticity.title"),
                         description: String(localized: "onboarding.page3.rationale.neuroplasticity.description")
                     )
 
                     IconContentCard(
                         icon: "chart.xyaxis.line",
-                        iconColor: ColorPalette.statBlue,
+                        iconColor: theme.colors.statBlue,
                         title: String(localized: "onboarding.page3.rationale.trends.title"),
                         description: String(localized: "onboarding.page3.rationale.trends.description")
                     )

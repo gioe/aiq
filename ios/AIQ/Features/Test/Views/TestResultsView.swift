@@ -58,7 +58,7 @@ struct TestResultsView: View {
             }
             .padding(DesignSystem.Spacing.lg)
         }
-        .background(ColorPalette.backgroundGrouped)
+        .background(theme.colors.backgroundGrouped)
         .navigationTitle("Test Results")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -143,7 +143,7 @@ struct TestResultsView: View {
             // Trophy icon
             Image(systemName: "trophy.fill")
                 .font(.system(size: theme.iconSizes.xl))
-                .foregroundStyle(ColorPalette.trophyGradient)
+                .foregroundStyle(theme.gradients.trophyGradient)
                 .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.5))
                 .opacity(showAnimation ? 1.0 : 0.0)
                 .accessibilityHidden(true) // Decorative icon
@@ -157,7 +157,7 @@ struct TestResultsView: View {
 
                 Text("\(result.iqScore)")
                     .scoreDisplayFont()
-                    .foregroundStyle(ColorPalette.scoreGradient)
+                    .foregroundStyle(theme.gradients.scoreGradient)
                     .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.8))
                     .opacity(showAnimation ? 1.0 : 0.0)
                     .accessibilityLabel(result.scoreAccessibilityDescription)
@@ -257,14 +257,14 @@ struct TestResultsView: View {
                     icon: "percent",
                     title: "Accuracy",
                     value: String(format: "%.1f%%", result.accuracyPercentage),
-                    color: ColorPalette.statGreen
+                    color: theme.colors.statGreen
                 )
 
                 metricCard(
                     icon: "checkmark.circle.fill",
                     title: "Correct",
                     value: "\(result.correctAnswers)/\(result.totalQuestions)",
-                    color: ColorPalette.statBlue
+                    color: theme.colors.statBlue
                 )
             }
 
@@ -273,14 +273,14 @@ struct TestResultsView: View {
                     icon: "clock.fill",
                     title: "Time",
                     value: result.completionTimeFormatted ?? "N/A",
-                    color: ColorPalette.statOrange
+                    color: theme.colors.statOrange
                 )
 
                 metricCard(
                     icon: "calendar",
                     title: "Completed",
                     value: formatDate(result.completedAt),
-                    color: ColorPalette.statPurple
+                    color: theme.colors.statPurple
                 )
             }
         }

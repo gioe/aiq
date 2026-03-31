@@ -32,7 +32,7 @@ struct ScoreBreakdownView: View {
             }
             .padding(DesignSystem.Spacing.lg)
         }
-        .background(ColorPalette.backgroundGrouped)
+        .background(theme.colors.backgroundGrouped)
         .navigationTitle("Score Breakdown")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -61,7 +61,7 @@ struct ScoreBreakdownView: View {
                 summaryMetricCard(
                     title: "Accuracy",
                     value: String(format: "%.1f%%", result.accuracyPercentage),
-                    color: ColorPalette.statGreen
+                    color: theme.colors.statGreen
                 )
             }
 
@@ -70,20 +70,20 @@ struct ScoreBreakdownView: View {
                 summaryMetricCard(
                     title: "Correct",
                     value: "\(result.correctAnswers)/\(result.totalQuestions)",
-                    color: ColorPalette.statBlue
+                    color: theme.colors.statBlue
                 )
 
                 if let percentile = result.percentileRankFormatted {
                     summaryMetricCard(
                         title: "Percentile",
                         value: percentile,
-                        color: ColorPalette.statPurple
+                        color: theme.colors.statPurple
                     )
                 } else {
                     summaryMetricCard(
                         title: "Time",
                         value: result.completionTimeFormatted ?? "N/A",
-                        color: ColorPalette.statOrange
+                        color: theme.colors.statOrange
                     )
                 }
             }

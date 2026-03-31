@@ -13,7 +13,7 @@ struct OnboardingPage2View: View {
                 // Header Icon
                 Image(systemName: "puzzlepiece.extension.fill")
                     .font(.system(size: 80))
-                    .foregroundColor(ColorPalette.statBlue)
+                    .foregroundColor(theme.colors.statBlue)
                     .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
                     .animation(
                         reduceMotion ? nil : theme.animations.bouncy.repeatForever(autoreverses: true),

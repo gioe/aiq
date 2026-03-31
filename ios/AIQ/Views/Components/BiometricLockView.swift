@@ -51,7 +51,7 @@ struct BiometricLockView: View {
     var body: some View {
         ZStack {
             // Gradient background matching SplashView / WelcomeView branding
-            ColorPalette.scoreGradient
+            theme.gradients.scoreGradient
                 .ignoresSafeArea()
 
             VStack(spacing: theme.spacing.xxl) {

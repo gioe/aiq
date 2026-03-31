@@ -13,7 +13,7 @@ struct OnboardingPage1View: View {
                 // Header Icon
                 Image(systemName: "brain.head.profile")
                     .font(.system(size: 80))
-                    .foregroundStyle(ColorPalette.scoreGradient)
+                    .foregroundStyle(theme.gradients.scoreGradient)
                     .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
                     .animation(
                         reduceMotion ? nil : theme.animations.bouncy.repeatForever(autoreverses: true),
@@ -40,13 +40,13 @@ struct OnboardingPage1View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     IconContentRow(
                         icon: "chart.line.uptrend.xyaxis",
-                        iconColor: ColorPalette.statBlue,
+                        iconColor: theme.colors.statBlue,
                         title: String(localized: "onboarding.page1.feature.tracking")
                     )
 
                     IconContentRow(
                         icon: "brain.head.profile",
-                        iconColor: ColorPalette.statPurple,
+                        iconColor: theme.colors.statPurple,
                         title: String(localized: "onboarding.page1.feature.ai")
                     )
 
