@@ -37,8 +37,8 @@ struct DashboardView: View {
             // Modern gradient background
             LinearGradient(
                 gradient: Gradient(colors: [
-                    ColorPalette.background,
-                    ColorPalette.backgroundSecondary.opacity(0.3)
+                    theme.colors.background,
+                    theme.colors.backgroundSecondary.opacity(0.3)
                 ]),
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -90,8 +90,8 @@ struct DashboardView: View {
                         inProgressCardView
 
                         Text("No completed tests yet")
-                            .font(Typography.captionMedium)
-                            .foregroundStyle(ColorPalette.textSecondary)
+                            .font(theme.typography.captionMedium)
+                            .foregroundStyle(theme.colors.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.top, DesignSystem.Spacing.sm)
                             .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.noCompletedTestsNote)

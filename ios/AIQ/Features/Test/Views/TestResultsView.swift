@@ -151,8 +151,8 @@ struct TestResultsView: View {
             // IQ Score
             VStack(spacing: DesignSystem.Spacing.xs) {
                 Text("Your AIQ Score")
-                    .font(Typography.h3)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.h3)
+                    .foregroundColor(theme.colors.textSecondary)
                     .accessibilityHidden(true) // Redundant with full label below
 
                 Text("\(result.iqScore)")
@@ -171,8 +171,8 @@ struct TestResultsView: View {
 
             // IQ Range context
             Text(iqRangeDescription)
-                .font(Typography.bodyMedium)
-                .foregroundColor(ColorPalette.textSecondary)
+                .font(theme.typography.bodyMedium)
+                .foregroundColor(theme.colors.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DesignSystem.Spacing.lg)
                 .opacity(showAnimation ? 1.0 : 0.0)
@@ -180,8 +180,8 @@ struct TestResultsView: View {
 
             // Disclaimer
             Text("This is a cognitive performance assessment for personal insight, not a clinical assessment.")
-                .font(Typography.captionMedium)
-                .foregroundColor(ColorPalette.textTertiary)
+                .font(theme.typography.captionMedium)
+                .foregroundColor(theme.colors.textTertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DesignSystem.Spacing.lg)
                 .padding(.top, DesignSystem.Spacing.sm)
@@ -191,7 +191,7 @@ struct TestResultsView: View {
         .cardStyle(
             cornerRadius: DesignSystem.CornerRadius.lg,
             shadow: DesignSystem.Shadow.md,
-            backgroundColor: ColorPalette.background
+            backgroundColor: theme.colors.background
         )
         // .accessibilityElement(children: .contain) forces the VStack to be a real
         // otherElement container in XCTest so that app.otherElements["testResultsView.scoreLabel"]
@@ -207,15 +207,15 @@ struct TestResultsView: View {
         VStack(spacing: DesignSystem.Spacing.sm) {
             HStack(spacing: DesignSystem.Spacing.xs) {
                 Text("Range: \(ci.rangeFormatted)")
-                    .font(Typography.bodyMedium)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.bodyMedium)
+                    .foregroundColor(theme.colors.textSecondary)
 
                 Button {
                     showConfidenceIntervalInfo = true
                 } label: {
                     Image(systemName: "info.circle")
                         .font(.system(size: theme.iconSizes.sm))
-                        .foregroundColor(ColorPalette.primary)
+                        .foregroundColor(theme.colors.primary)
                 }
                 .accessibilityLabel("Learn about score range")
                 .accessibilityHint("Shows explanation of confidence interval")
@@ -297,13 +297,13 @@ struct TestResultsView: View {
 
             VStack(spacing: DesignSystem.Spacing.xs) {
                 Text(value)
-                    .font(Typography.h3)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(theme.typography.h3)
+                    .foregroundColor(theme.colors.textPrimary)
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(Typography.captionMedium)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.captionMedium)
+                    .foregroundColor(theme.colors.textSecondary)
                     .accessibilityHidden(true)
             }
         }
@@ -312,7 +312,7 @@ struct TestResultsView: View {
         .cardStyle(
             cornerRadius: DesignSystem.CornerRadius.md,
             shadow: DesignSystem.Shadow.sm,
-            backgroundColor: ColorPalette.background
+            backgroundColor: theme.colors.background
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title): \(value)")
@@ -323,11 +323,11 @@ struct TestResultsView: View {
     private var performanceMessage: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Text(performanceTitle)
-                .font(Typography.h3)
+                .font(theme.typography.h3)
 
             Text(performanceDescription)
-                .font(Typography.bodyMedium)
-                .foregroundColor(ColorPalette.textSecondary)
+                .font(theme.typography.bodyMedium)
+                .foregroundColor(theme.colors.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding(DesignSystem.Spacing.lg)
@@ -355,7 +355,7 @@ struct TestResultsView: View {
                     Text("View Detailed Breakdown")
                 }
                 .frame(maxWidth: .infinity)
-                .font(Typography.button)
+                .font(theme.typography.button)
             }
             .buttonStyle(.bordered)
             .accessibilityLabel("View Detailed Breakdown")
@@ -365,7 +365,7 @@ struct TestResultsView: View {
                 handleDismiss()
             } label: {
                 Text("Return to Dashboard")
-                    .font(Typography.button)
+                    .font(theme.typography.button)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)

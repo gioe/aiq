@@ -36,7 +36,7 @@ struct DashboardActionButton: View {
                     .font(.system(size: theme.iconSizes.md, weight: .semibold))
 
                 Text(resolvedLabel)
-                    .font(Typography.button)
+                    .font(theme.typography.button)
 
                 Spacer()
 
@@ -48,14 +48,14 @@ struct DashboardActionButton: View {
             .padding(DesignSystem.Spacing.lg)
             .background(
                 LinearGradient(
-                    colors: [ColorPalette.primary, ColorPalette.primary.opacity(0.8)],
+                    colors: [theme.colors.primary, theme.colors.primary.opacity(0.8)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
             )
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg))
             .shadow(
-                color: ColorPalette.primary.opacity(0.3),
+                color: theme.colors.primary.opacity(0.3),
                 radius: 8,
                 x: 0,
                 y: 4

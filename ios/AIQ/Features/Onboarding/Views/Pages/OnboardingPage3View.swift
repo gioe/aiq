@@ -25,13 +25,13 @@ struct OnboardingPage3View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     Text("onboarding.page3.title")
                         .displayMediumFont()
-                        .foregroundColor(ColorPalette.textPrimary)
+                        .foregroundColor(theme.colors.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
                     Text("onboarding.page3.subtitle")
-                        .font(Typography.bodyLarge)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.bodyLarge)
+                        .foregroundColor(theme.colors.textSecondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)
@@ -63,18 +63,18 @@ struct OnboardingPage3View: View {
                 // Reminder Note
                 HStack(spacing: DesignSystem.Spacing.md) {
                     Image(systemName: "bell.fill")
-                        .foregroundColor(ColorPalette.info)
+                        .foregroundColor(theme.colors.info)
                         .accessibilityHidden(true)
 
                     Text("onboarding.page3.reminder.note")
-                        .font(Typography.bodyMedium)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.bodyMedium)
+                        .foregroundColor(theme.colors.textSecondary)
                         .multilineTextAlignment(.leading)
 
                     Spacer()
                 }
                 .padding(DesignSystem.Spacing.md)
-                .background(ColorPalette.backgroundSecondary)
+                .background(theme.colors.backgroundSecondary)
                 .cornerRadius(DesignSystem.CornerRadius.md)
                 .padding(.horizontal, DesignSystem.Spacing.xl)
                 .opacity(isAnimating ? 1.0 : 0.0)

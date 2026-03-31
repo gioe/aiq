@@ -60,8 +60,8 @@ struct WelcomeView: View {
                                 .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.0 : 0.95))
 
                             Text("AI-Generated Cognitive Assessment")
-                                .font(Typography.bodyLarge)
-                                .foregroundColor(ColorPalette.textSecondary)
+                                .font(theme.typography.bodyLarge)
+                                .foregroundColor(theme.colors.textSecondary)
                                 .multilineTextAlignment(.center)
                         }
                         .padding(.top, DesignSystem.Spacing.xl)
@@ -88,8 +88,8 @@ struct WelcomeView: View {
 
                             if let emailError = viewModel.emailError {
                                 Text(emailError)
-                                    .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.errorText)
+                                    .font(theme.typography.captionMedium)
+                                    .foregroundColor(theme.colors.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
 
@@ -103,8 +103,8 @@ struct WelcomeView: View {
 
                             if let passwordError = viewModel.passwordError {
                                 Text(passwordError)
-                                    .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.errorText)
+                                    .font(theme.typography.captionMedium)
+                                    .foregroundColor(theme.colors.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
 
@@ -132,8 +132,8 @@ struct WelcomeView: View {
                         // Registration Link
                         VStack(spacing: DesignSystem.Spacing.md) {
                             Text("Don't have an account?")
-                                .font(Typography.bodyMedium)
-                                .foregroundColor(ColorPalette.textSecondary)
+                                .font(theme.typography.bodyMedium)
+                                .foregroundColor(theme.colors.textSecondary)
 
                             Button(
                                 action: {
@@ -141,8 +141,8 @@ struct WelcomeView: View {
                                 },
                                 label: {
                                     Text("Create Account")
-                                        .font(Typography.button)
-                                        .foregroundColor(ColorPalette.primary)
+                                        .font(theme.typography.button)
+                                        .foregroundColor(theme.colors.primary)
                                         .frame(minHeight: 44)
                                 }
                             )

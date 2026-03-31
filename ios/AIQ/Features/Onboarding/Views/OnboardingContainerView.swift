@@ -27,7 +27,7 @@ struct OnboardingContainerView: View {
     var body: some View {
         ZStack {
             // Background
-            ColorPalette.background
+            theme.colors.background
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -39,8 +39,8 @@ struct OnboardingContainerView: View {
                         Button(String(localized: "onboarding.skip")) {
                             handleSkip()
                         }
-                        .font(Typography.labelLarge)
-                        .foregroundColor(ColorPalette.primary)
+                        .font(theme.typography.labelLarge)
+                        .foregroundColor(theme.colors.primary)
                         .frame(minWidth: 44, minHeight: 44)
                         .padding(.horizontal, DesignSystem.Spacing.xl)
                         .padding(.top, DesignSystem.Spacing.md)

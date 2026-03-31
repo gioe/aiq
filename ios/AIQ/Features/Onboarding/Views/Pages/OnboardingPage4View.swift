@@ -13,7 +13,7 @@ struct OnboardingPage4View: View {
                 // Header Icon
                 Image(systemName: "lock.shield.fill")
                     .font(.system(size: 80))
-                    .foregroundColor(ColorPalette.successText)
+                    .foregroundColor(theme.colors.successText)
                     .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
                     .animation(
                         reduceMotion ? nil : theme.animations.bouncy.repeatForever(autoreverses: true),
@@ -25,13 +25,13 @@ struct OnboardingPage4View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     Text("onboarding.page4.title")
                         .displayMediumFont()
-                        .foregroundColor(ColorPalette.textPrimary)
+                        .foregroundColor(theme.colors.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
                     Text("onboarding.page4.subtitle")
-                        .font(Typography.bodyLarge)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.bodyLarge)
+                        .foregroundColor(theme.colors.textSecondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)
@@ -40,22 +40,22 @@ struct OnboardingPage4View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     IconContentRow(
                         icon: "checkmark.circle.fill",
-                        iconColor: ColorPalette.successText,
+                        iconColor: theme.colors.successText,
                         title: String(localized: "onboarding.page4.feature.encryption")
                     )
                     IconContentRow(
                         icon: "checkmark.circle.fill",
-                        iconColor: ColorPalette.successText,
+                        iconColor: theme.colors.successText,
                         title: String(localized: "onboarding.page4.feature.no.sale")
                     )
                     IconContentRow(
                         icon: "checkmark.circle.fill",
-                        iconColor: ColorPalette.successText,
+                        iconColor: theme.colors.successText,
                         title: String(localized: "onboarding.page4.feature.compliance")
                     )
                     IconContentRow(
                         icon: "checkmark.circle.fill",
-                        iconColor: ColorPalette.successText,
+                        iconColor: theme.colors.successText,
                         title: String(localized: "onboarding.page4.feature.private.results")
                     )
                 }
@@ -70,12 +70,12 @@ struct OnboardingPage4View: View {
                 // Privacy Policy Link
                 VStack(spacing: DesignSystem.Spacing.sm) {
                     Text("onboarding.page4.privacy.policy.intro")
-                        .font(Typography.bodyMedium)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.bodyMedium)
+                        .foregroundColor(theme.colors.textSecondary)
 
                     Link(String(localized: "onboarding.page4.privacy.policy.link"), destination: privacyPolicyURL)
-                        .font(Typography.labelLarge)
-                        .foregroundColor(ColorPalette.primary)
+                        .font(theme.typography.labelLarge)
+                        .foregroundColor(theme.colors.primary)
                         .frame(minHeight: 44)
                         .accessibilityIdentifier(AccessibilityIdentifiers.OnboardingView.privacyPolicyLink)
                         .accessibilityHint(String(localized: "onboarding.page4.privacy.policy.hint"))

@@ -4,6 +4,8 @@ import SwiftUI
 struct InsightsCardView: View {
     let insights: PerformanceInsights
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Header
@@ -227,23 +229,23 @@ struct InsightsCardView: View {
     private var trendColor: Color {
         switch insights.trendDirection {
         case .improving:
-            ColorPalette.success
+            theme.colors.success
         case .declining:
-            ColorPalette.error
+            theme.colors.error
         case .stable:
-            ColorPalette.info
+            theme.colors.info
         case .insufficient:
-            ColorPalette.textTertiary
+            theme.colors.textTertiary
         }
     }
 
     private var consistencyColor: Color {
         if insights.consistencyScore >= 80 {
-            ColorPalette.success
+            theme.colors.success
         } else if insights.consistencyScore >= 60 {
-            ColorPalette.info
+            theme.colors.info
         } else {
-            ColorPalette.warning
+            theme.colors.warning
         }
     }
 
@@ -271,11 +273,11 @@ struct InsightsCardView: View {
 
     private func improvementColor(_ improvement: Double) -> Color {
         if improvement > 5 {
-            ColorPalette.success
+            theme.colors.success
         } else if improvement < -5 {
-            ColorPalette.error
+            theme.colors.error
         } else {
-            ColorPalette.info
+            theme.colors.info
         }
     }
 

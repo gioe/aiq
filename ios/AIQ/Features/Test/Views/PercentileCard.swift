@@ -26,7 +26,7 @@ struct PercentileCard: View {
             // Percentile rank - large display
             if let percentileText = percentileFormatted {
                 Text(percentileText)
-                    .font(Typography.h1)
+                    .font(theme.typography.h1)
                     .foregroundStyle(
                         LinearGradient(
                             colors: [ColorPalette.statBlue, ColorPalette.statPurple],
@@ -41,15 +41,15 @@ struct PercentileCard: View {
             // Detailed percentile description
             if let description = percentileDescription {
                 Text(description)
-                    .font(Typography.bodyMedium)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.bodyMedium)
+                    .foregroundColor(theme.colors.textSecondary)
                     .opacity(showAnimation ? 1.0 : 0.0)
             }
 
             // Context message
             Text("percentile.card.description".localized(with: percentileContextText))
-                .font(Typography.captionMedium)
-                .foregroundColor(ColorPalette.textTertiary)
+                .font(theme.typography.captionMedium)
+                .foregroundColor(theme.colors.textTertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DesignSystem.Spacing.lg)
                 .padding(.top, DesignSystem.Spacing.xs)
@@ -59,7 +59,7 @@ struct PercentileCard: View {
         .cardStyle(
             cornerRadius: DesignSystem.CornerRadius.lg,
             shadow: DesignSystem.Shadow.md,
-            backgroundColor: ColorPalette.background
+            backgroundColor: theme.colors.background
         )
         .opacity(showAnimation ? 1.0 : 0.0)
         .offset(y: showAnimation ? 0 : 20)

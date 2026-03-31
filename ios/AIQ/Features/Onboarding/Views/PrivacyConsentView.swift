@@ -48,8 +48,8 @@ struct PrivacyConsentView: View {
                                 .multilineTextAlignment(.center)
 
                             Text("Your privacy matters to us")
-                                .font(Typography.bodyLarge)
-                                .foregroundColor(ColorPalette.textSecondary)
+                                .font(theme.typography.bodyLarge)
+                                .foregroundColor(theme.colors.textSecondary)
                                 .multilineTextAlignment(.center)
                         }
                         .padding(.top, DesignSystem.Spacing.xl)
@@ -104,24 +104,24 @@ struct PrivacyConsentView: View {
                         // Legal Links
                         VStack(spacing: DesignSystem.Spacing.md) {
                             Text("By continuing, you agree to our:")
-                                .font(Typography.bodyMedium)
-                                .foregroundColor(ColorPalette.textSecondary)
+                                .font(theme.typography.bodyMedium)
+                                .foregroundColor(theme.colors.textSecondary)
                                 .multilineTextAlignment(.center)
 
                             HStack(spacing: DesignSystem.Spacing.lg) {
                                 Link("Privacy Policy", destination: privacyPolicyURL)
-                                    .font(Typography.labelMedium)
-                                    .foregroundColor(ColorPalette.primary)
+                                    .font(theme.typography.labelMedium)
+                                    .foregroundColor(theme.colors.primary)
                                     .accessibilityIdentifier(
                                         AccessibilityIdentifiers.PrivacyConsentView.privacyPolicyLink
                                     )
 
                                 Text("•")
-                                    .foregroundColor(ColorPalette.textSecondary)
+                                    .foregroundColor(theme.colors.textSecondary)
 
                                 Link("Terms of Service", destination: termsOfServiceURL)
-                                    .font(Typography.labelMedium)
-                                    .foregroundColor(ColorPalette.primary)
+                                    .font(theme.typography.labelMedium)
+                                    .foregroundColor(theme.colors.primary)
                                     .accessibilityIdentifier(
                                         AccessibilityIdentifiers.PrivacyConsentView.termsOfServiceLink
                                     )
@@ -180,19 +180,19 @@ struct PrivacyConsentView: View {
             // Text Content
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text(title)
-                    .font(Typography.bodyLarge)
+                    .font(theme.typography.bodyLarge)
                     .fontWeight(.semibold)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .foregroundColor(theme.colors.textPrimary)
 
                 Text(description)
-                    .font(Typography.bodySmall)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.bodySmall)
+                    .foregroundColor(theme.colors.textSecondary)
             }
 
             Spacer()
         }
         .padding(DesignSystem.Spacing.md)
-        .background(ColorPalette.backgroundSecondary)
+        .background(theme.colors.backgroundSecondary)
         .cornerRadius(DesignSystem.CornerRadius.md)
         .shadowStyle(DesignSystem.Shadow.sm)
         .accessibilityLabel("\(title). \(description)")

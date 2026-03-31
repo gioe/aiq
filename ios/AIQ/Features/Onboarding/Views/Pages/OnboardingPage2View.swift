@@ -25,13 +25,13 @@ struct OnboardingPage2View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     Text("onboarding.page2.title")
                         .displayMediumFont()
-                        .foregroundColor(ColorPalette.textPrimary)
+                        .foregroundColor(theme.colors.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
                     Text("onboarding.page2.subtitle")
-                        .font(Typography.bodyLarge)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.bodyLarge)
+                        .foregroundColor(theme.colors.textSecondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)
@@ -40,19 +40,19 @@ struct OnboardingPage2View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     IconContentRow(
                         icon: "1.circle.fill",
-                        iconColor: ColorPalette.primary,
+                        iconColor: theme.colors.primary,
                         title: String(localized: "onboarding.page2.step1")
                     )
 
                     IconContentRow(
                         icon: "2.circle.fill",
-                        iconColor: ColorPalette.primary,
+                        iconColor: theme.colors.primary,
                         title: String(localized: "onboarding.page2.step2")
                     )
 
                     IconContentRow(
                         icon: "3.circle.fill",
-                        iconColor: ColorPalette.primary,
+                        iconColor: theme.colors.primary,
                         title: String(localized: "onboarding.page2.step3")
                     )
                 }
@@ -67,18 +67,18 @@ struct OnboardingPage2View: View {
                 // Info Note
                 HStack(spacing: DesignSystem.Spacing.md) {
                     Image(systemName: "info.circle.fill")
-                        .foregroundColor(ColorPalette.info)
+                        .foregroundColor(theme.colors.info)
                         .accessibilityHidden(true)
 
                     Text("onboarding.page2.info.note")
-                        .font(Typography.bodyMedium)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.bodyMedium)
+                        .foregroundColor(theme.colors.textSecondary)
                         .multilineTextAlignment(.leading)
 
                     Spacer()
                 }
                 .padding(DesignSystem.Spacing.md)
-                .background(ColorPalette.backgroundSecondary)
+                .background(theme.colors.backgroundSecondary)
                 .cornerRadius(DesignSystem.CornerRadius.md)
                 .padding(.horizontal, DesignSystem.Spacing.xl)
                 .opacity(isAnimating ? 1.0 : 0.0)

@@ -25,13 +25,13 @@ struct OnboardingPage1View: View {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     Text("onboarding.page1.title")
                         .displayMediumFont()
-                        .foregroundColor(ColorPalette.textPrimary)
+                        .foregroundColor(theme.colors.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
                     Text("onboarding.page1.subtitle")
-                        .font(Typography.bodyLarge)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.bodyLarge)
+                        .foregroundColor(theme.colors.textSecondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, DesignSystem.Spacing.xl)
@@ -52,7 +52,7 @@ struct OnboardingPage1View: View {
 
                     IconContentRow(
                         icon: "lock.shield.fill",
-                        iconColor: ColorPalette.successText,
+                        iconColor: theme.colors.successText,
                         title: String(localized: "onboarding.page1.feature.privacy")
                     )
                 }

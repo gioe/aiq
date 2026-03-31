@@ -46,13 +46,13 @@ struct FeedbackView: View {
     private var headerSection: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Text("We'd love to hear from you!")
-                .font(Typography.h3)
-                .foregroundColor(ColorPalette.textPrimary)
+                .font(theme.typography.h3)
+                .foregroundColor(theme.colors.textPrimary)
                 .multilineTextAlignment(.center)
 
             Text("Share your feedback, report bugs, or request new features.")
-                .font(Typography.bodyMedium)
-                .foregroundColor(ColorPalette.textSecondary)
+                .font(theme.typography.bodyMedium)
+                .foregroundColor(theme.colors.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .accessibilityElement(children: .combine)
@@ -113,8 +113,8 @@ struct FeedbackView: View {
     private var categoryMenu: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
             Text("Category")
-                .font(Typography.labelMedium)
-                .foregroundColor(ColorPalette.textPrimary)
+                .font(theme.typography.labelMedium)
+                .foregroundColor(theme.colors.textPrimary)
 
             Menu {
                 ForEach(FeedbackCategory.allCases, id: \.self) { category in
@@ -134,21 +134,21 @@ struct FeedbackView: View {
                     Text(viewModel.selectedCategory?.displayName ?? "Select a category")
                         .foregroundColor(
                             viewModel.selectedCategory == nil
-                                ? ColorPalette.textSecondary
-                                : ColorPalette.textPrimary
+                                ? theme.colors.textSecondary
+                                : theme.colors.textPrimary
                         )
                     Spacer()
                     Image(systemName: "chevron.down")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .foregroundColor(theme.colors.textSecondary)
                 }
                 .frame(minHeight: 44) // Ensure minimum touch target
                 .padding(DesignSystem.Spacing.lg)
-                .background(ColorPalette.backgroundSecondary)
+                .background(theme.colors.backgroundSecondary)
                 .cornerRadius(DesignSystem.CornerRadius.md)
                 .overlay(
                     RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                        .stroke(ColorPalette.textSecondary.opacity(0.2), lineWidth: 1)
+                        .stroke(theme.colors.textSecondary.opacity(0.2), lineWidth: 1)
                 )
             }
             .frame(maxWidth: .infinity)
@@ -166,25 +166,25 @@ struct FeedbackView: View {
     private var descriptionField: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
             Text("Description")
-                .font(Typography.labelMedium)
-                .foregroundColor(ColorPalette.textPrimary)
+                .font(theme.typography.labelMedium)
+                .foregroundColor(theme.colors.textPrimary)
 
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $viewModel.description)
                     .frame(minHeight: 150)
                     .padding(DesignSystem.Spacing.sm)
                     .scrollContentBackground(.hidden)
-                    .background(ColorPalette.backgroundSecondary)
+                    .background(theme.colors.backgroundSecondary)
                     .cornerRadius(DesignSystem.CornerRadius.md)
                     .overlay(
                         RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                            .stroke(ColorPalette.textSecondary.opacity(0.2), lineWidth: 1)
+                            .stroke(theme.colors.textSecondary.opacity(0.2), lineWidth: 1)
                     )
 
                 if viewModel.description.isEmpty {
                     Text("Describe your feedback, bug, or feature request...")
-                        .font(Typography.bodyMedium)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.bodyMedium)
+                        .foregroundColor(theme.colors.textSecondary)
                         .padding(.horizontal, DesignSystem.Spacing.lg)
                         .padding(.vertical, DesignSystem.Spacing.lg)
                         .allowsHitTesting(false)
@@ -196,8 +196,8 @@ struct FeedbackView: View {
 
             // Character count
             Text("\(viewModel.description.count) characters")
-                .font(Typography.captionMedium)
-                .foregroundColor(ColorPalette.textSecondary)
+                .font(theme.typography.captionMedium)
+                .foregroundColor(theme.colors.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .accessibilityLabel("\(viewModel.description.count) characters entered")
 
@@ -216,7 +216,7 @@ struct FeedbackView: View {
             HStack {
                 Spacer()
                 Text("Submit Feedback")
-                    .font(Typography.button)
+                    .font(theme.typography.button)
                     .foregroundColor(.white)
                 Spacer()
             }
@@ -224,8 +224,8 @@ struct FeedbackView: View {
             .padding(DesignSystem.Spacing.lg)
             .background(
                 viewModel.isFormValid
-                    ? ColorPalette.primary
-                    : ColorPalette.textSecondary.opacity(0.3)
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary.opacity(0.3)
             )
             .cornerRadius(DesignSystem.CornerRadius.md)
         }
@@ -241,22 +241,22 @@ struct FeedbackView: View {
 
     private var successOverlay: some View {
         ZStack {
-            ColorPalette.background.opacity(0.95)
+            theme.colors.background.opacity(0.95)
                 .ignoresSafeArea()
 
             VStack(spacing: DesignSystem.Spacing.xl) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: theme.iconSizes.huge))
-                    .foregroundColor(ColorPalette.success)
+                    .foregroundColor(theme.colors.success)
                     .accessibilityHidden(true)
 
                 Text("Thank you!")
-                    .font(Typography.h2)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(theme.typography.h2)
+                    .foregroundColor(theme.colors.textPrimary)
 
                 Text("Your feedback has been submitted successfully.")
-                    .font(Typography.bodyMedium)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.bodyMedium)
+                    .foregroundColor(theme.colors.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .padding(DesignSystem.Spacing.xxl)
@@ -270,8 +270,8 @@ struct FeedbackView: View {
 
     private func validationErrorText(_ message: String) -> some View {
         Text(message)
-            .font(Typography.captionMedium)
-            .foregroundColor(ColorPalette.errorText)
+            .font(theme.typography.captionMedium)
+            .foregroundColor(theme.colors.errorText)
             .accessibilityLabel("Error: \(message)")
     }
 }

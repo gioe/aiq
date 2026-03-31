@@ -22,7 +22,7 @@ struct InProgressTestCard: View {
 
             // Divider
             Divider()
-                .background(ColorPalette.textSecondary.opacity(0.2))
+                .background(theme.colors.textSecondary.opacity(0.2))
 
             // Action Buttons
             actionButtons
@@ -33,7 +33,7 @@ struct InProgressTestCard: View {
         }
         .background(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                .fill(ColorPalette.backgroundSecondary)
+                .fill(theme.colors.backgroundSecondary)
                 .shadow(
                     color: Color.black.opacity(0.1),
                     radius: DesignSystem.Shadow.lg.radius,
@@ -43,7 +43,7 @@ struct InProgressTestCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                .strokeBorder(ColorPalette.warning.opacity(0.3), lineWidth: 2)
+                .strokeBorder(theme.colors.warning.opacity(0.3), lineWidth: 2)
         )
         .alert("Abandon Test?", isPresented: $showAbandonConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -69,13 +69,13 @@ struct InProgressTestCard: View {
                             .scaleEffect(1.2)
 
                         Text("Abandoning test...")
-                            .font(Typography.bodyMedium)
+                            .font(theme.typography.bodyMedium)
                             .foregroundColor(.white)
                     }
                     .padding(DesignSystem.Spacing.xl)
                     .background(
                         RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                            .fill(ColorPalette.textPrimary.opacity(0.9))
+                            .fill(theme.colors.textPrimary.opacity(0.9))
                     )
                 }
                 .transition(reduceMotion ? .identity : .opacity)
@@ -92,14 +92,14 @@ struct InProgressTestCard: View {
         HStack(spacing: DesignSystem.Spacing.sm) {
             ZStack {
                 Circle()
-                    .fill(ColorPalette.warning.opacity(0.15))
+                    .fill(theme.colors.warning.opacity(0.15))
                     .frame(width: 48, height: 48)
 
                 Image(systemName: "clock.fill")
                     .font(.system(size: theme.iconSizes.md))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [ColorPalette.warning, ColorPalette.warning.opacity(0.7)],
+                            colors: [theme.colors.warning, theme.colors.warning.opacity(0.7)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -108,12 +108,12 @@ struct InProgressTestCard: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Test in Progress")
-                    .font(Typography.h3)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(theme.typography.h3)
+                    .foregroundColor(theme.colors.textPrimary)
 
                 Text(timeElapsedText)
-                    .font(Typography.captionMedium)
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(theme.typography.captionMedium)
+                    .foregroundColor(theme.colors.textSecondary)
             }
 
             Spacer()
@@ -129,11 +129,11 @@ struct InProgressTestCard: View {
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(ColorPalette.success)
+                        .foregroundColor(theme.colors.success)
 
                     Text("\(answered) questions answered")
-                        .font(Typography.bodyMedium)
-                        .foregroundColor(ColorPalette.textPrimary)
+                        .font(theme.typography.bodyMedium)
+                        .foregroundColor(theme.colors.textPrimary)
 
                     Spacer()
                 }
@@ -144,11 +144,11 @@ struct InProgressTestCard: View {
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Image(systemName: "number.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .foregroundColor(theme.colors.textSecondary)
 
                     Text("Session ID: \(session.id)")
-                        .font(Typography.captionMedium)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.captionMedium)
+                        .foregroundColor(theme.colors.textSecondary)
 
                     Spacer()
                 }
@@ -171,7 +171,7 @@ struct InProgressTestCard: View {
                         .font(.system(size: theme.iconSizes.md, weight: .semibold))
 
                     Text("Resume Test")
-                        .font(Typography.button)
+                        .font(theme.typography.button)
 
                     Spacer()
 
@@ -183,7 +183,7 @@ struct InProgressTestCard: View {
                 .padding(DesignSystem.Spacing.md)
                 .background(
                     LinearGradient(
-                        colors: [ColorPalette.primary, ColorPalette.primary.opacity(0.8)],
+                        colors: [theme.colors.primary, theme.colors.primary.opacity(0.8)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -207,18 +207,18 @@ struct InProgressTestCard: View {
                         .font(.system(size: 16))
 
                     Text("Abandon Test")
-                        .font(Typography.bodySmall.weight(.medium))
+                        .font(theme.typography.bodySmall.weight(.medium))
                 }
-                .foregroundColor(ColorPalette.errorText)
+                .foregroundColor(theme.colors.errorText)
                 .frame(maxWidth: .infinity)
                 .padding(DesignSystem.Spacing.md)
                 .background(
                     RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                        .fill(ColorPalette.error.opacity(0.1))
+                        .fill(theme.colors.error.opacity(0.1))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                        .strokeBorder(ColorPalette.error.opacity(0.3), lineWidth: 1)
+                        .strokeBorder(theme.colors.error.opacity(0.3), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)

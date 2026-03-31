@@ -72,14 +72,14 @@ struct RegistrationView: View {
                             .multilineTextAlignment(.center)
 
                         Text("Track your cognitive performance over time")
-                            .font(Typography.bodyLarge)
-                            .foregroundColor(ColorPalette.textSecondary)
+                            .font(theme.typography.bodyLarge)
+                            .foregroundColor(theme.colors.textSecondary)
                             .multilineTextAlignment(.center)
 
                         // Disclaimer
                         Text("For personal insight. Not a clinical assessment.")
-                            .font(Typography.captionMedium)
-                            .foregroundColor(ColorPalette.textSecondary)
+                            .font(theme.typography.captionMedium)
+                            .foregroundColor(theme.colors.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, DesignSystem.Spacing.xl)
                     }
@@ -112,8 +112,8 @@ struct RegistrationView: View {
 
                                 if let firstNameError = viewModel.firstNameError {
                                     Text(firstNameError)
-                                        .font(Typography.captionMedium)
-                                        .foregroundColor(ColorPalette.errorText)
+                                        .font(theme.typography.captionMedium)
+                                        .foregroundColor(theme.colors.errorText)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .accessibilityIdentifier(
                                             AccessibilityIdentifiers.RegistrationView.firstNameError
@@ -135,8 +135,8 @@ struct RegistrationView: View {
 
                                 if let lastNameError = viewModel.lastNameError {
                                     Text(lastNameError)
-                                        .font(Typography.captionMedium)
-                                        .foregroundColor(ColorPalette.errorText)
+                                        .font(theme.typography.captionMedium)
+                                        .foregroundColor(theme.colors.errorText)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .accessibilityIdentifier(
                                             AccessibilityIdentifiers.RegistrationView.lastNameError
@@ -161,8 +161,8 @@ struct RegistrationView: View {
 
                             if let emailError = viewModel.emailError {
                                 Text(emailError)
-                                    .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.errorText)
+                                    .font(theme.typography.captionMedium)
+                                    .foregroundColor(theme.colors.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .accessibilityIdentifier(AccessibilityIdentifiers.RegistrationView.emailError)
                             }
@@ -183,8 +183,8 @@ struct RegistrationView: View {
 
                             if let passwordError = viewModel.passwordError {
                                 Text(passwordError)
-                                    .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.errorText)
+                                    .font(theme.typography.captionMedium)
+                                    .foregroundColor(theme.colors.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .accessibilityIdentifier(AccessibilityIdentifiers.RegistrationView.passwordError)
                             }
@@ -205,8 +205,8 @@ struct RegistrationView: View {
 
                             if let confirmPasswordError = viewModel.confirmPasswordError {
                                 Text(confirmPasswordError)
-                                    .font(Typography.captionMedium)
-                                    .foregroundColor(ColorPalette.errorText)
+                                    .font(theme.typography.captionMedium)
+                                    .foregroundColor(theme.colors.errorText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .accessibilityIdentifier(
                                         AccessibilityIdentifiers.RegistrationView.confirmPasswordError
@@ -226,13 +226,13 @@ struct RegistrationView: View {
                         // Section Header
                         VStack(spacing: DesignSystem.Spacing.xs) {
                             Text("Help Improve Our Research")
-                                .font(Typography.h4)
-                                .foregroundColor(ColorPalette.textPrimary)
+                                .font(theme.typography.h4)
+                                .foregroundColor(theme.colors.textPrimary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
                             Text("This optional information helps us validate test accuracy. All data remains private.")
-                                .font(Typography.captionMedium)
-                                .foregroundColor(ColorPalette.textSecondary)
+                                .font(theme.typography.captionMedium)
+                                .foregroundColor(theme.colors.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
@@ -253,8 +253,8 @@ struct RegistrationView: View {
                         // Education Level picker
                         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                             Text("Education Level (Optional)")
-                                .font(Typography.captionLarge)
-                                .foregroundColor(ColorPalette.textSecondary)
+                                .font(theme.typography.captionLarge)
+                                .foregroundColor(theme.colors.textSecondary)
 
                             Menu {
                                 Button("None selected") {
@@ -269,21 +269,21 @@ struct RegistrationView: View {
                             } label: {
                                 HStack {
                                     Text(viewModel.selectedEducationLevel?.displayName ?? "Select education level")
-                                        .font(Typography.bodyMedium)
+                                        .font(theme.typography.bodyMedium)
                                         .foregroundColor(
                                             viewModel.selectedEducationLevel == nil
-                                                ? ColorPalette.textSecondary
-                                                : ColorPalette.textPrimary
+                                                ? theme.colors.textSecondary
+                                                : theme.colors.textPrimary
                                         )
 
                                     Spacer()
 
                                     Image(systemName: "chevron.down")
                                         .font(.system(size: theme.iconSizes.sm))
-                                        .foregroundColor(ColorPalette.textSecondary)
+                                        .foregroundColor(theme.colors.textSecondary)
                                 }
                                 .padding(DesignSystem.Spacing.md)
-                                .background(ColorPalette.backgroundSecondary)
+                                .background(theme.colors.backgroundSecondary)
                                 .cornerRadius(DesignSystem.CornerRadius.md)
                             }
                             .accessibilityIdentifier(AccessibilityIdentifiers.RegistrationView.educationLevelButton)
@@ -352,8 +352,8 @@ struct RegistrationView: View {
                     // Login Link
                     VStack(spacing: DesignSystem.Spacing.md) {
                         Text("Already have an account?")
-                            .font(Typography.bodyMedium)
-                            .foregroundColor(ColorPalette.textSecondary)
+                            .font(theme.typography.bodyMedium)
+                            .foregroundColor(theme.colors.textSecondary)
 
                         Button(
                             action: {
@@ -361,8 +361,8 @@ struct RegistrationView: View {
                             },
                             label: {
                                 Text("Sign In")
-                                    .font(Typography.button)
-                                    .foregroundColor(ColorPalette.primary)
+                                    .font(theme.typography.button)
+                                    .foregroundColor(theme.colors.primary)
                                     .frame(minHeight: 44)
                             }
                         )

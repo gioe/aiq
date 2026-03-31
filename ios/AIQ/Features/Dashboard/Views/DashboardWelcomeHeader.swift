@@ -15,7 +15,7 @@ struct DashboardWelcomeHeader: View {
                     .font(.system(size: theme.iconSizes.lg))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [ColorPalette.primary, ColorPalette.primary.opacity(0.7)],
+                            colors: [theme.colors.primary, theme.colors.primary.opacity(0.7)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -23,24 +23,24 @@ struct DashboardWelcomeHeader: View {
 
                 if let userName {
                     Text("\(greetingText), \(userName)!")
-                        .font(Typography.h1)
+                        .font(theme.typography.h1)
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [ColorPalette.textPrimary, ColorPalette.textSecondary],
+                                colors: [theme.colors.textPrimary, theme.colors.textSecondary],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
                 } else {
                     Text("\(greetingText)!")
-                        .font(Typography.h1)
-                        .foregroundColor(ColorPalette.textPrimary)
+                        .font(theme.typography.h1)
+                        .foregroundColor(theme.colors.textPrimary)
                 }
             }
 
             Text("Track your cognitive performance over time")
-                .font(Typography.bodyMedium)
-                .foregroundColor(ColorPalette.textSecondary)
+                .font(theme.typography.bodyMedium)
+                .foregroundColor(theme.colors.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)

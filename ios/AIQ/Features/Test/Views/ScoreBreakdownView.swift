@@ -55,7 +55,7 @@ struct ScoreBreakdownView: View {
                 summaryMetricCard(
                     title: "AIQ Score",
                     value: "\(result.iqScore)",
-                    color: ColorPalette.primary
+                    color: theme.colors.primary
                 )
 
                 summaryMetricCard(
@@ -92,7 +92,7 @@ struct ScoreBreakdownView: View {
         .cardStyle(
             cornerRadius: DesignSystem.CornerRadius.lg,
             shadow: DesignSystem.Shadow.md,
-            backgroundColor: ColorPalette.background
+            backgroundColor: theme.colors.background
         )
         .opacity(showAnimation ? 1.0 : 0.0)
         .offset(y: reduceMotion ? 0 : (showAnimation ? 0 : 20))
@@ -103,13 +103,13 @@ struct ScoreBreakdownView: View {
     private func summaryMetricCard(title: String, value: String, color: Color) -> some View {
         VStack(spacing: DesignSystem.Spacing.xs) {
             Text(value)
-                .font(Typography.h3)
+                .font(theme.typography.h3)
                 .foregroundColor(color)
                 .accessibilityHidden(true)
 
             Text(title)
-                .font(Typography.captionMedium)
-                .foregroundColor(ColorPalette.textSecondary)
+                .font(theme.typography.captionMedium)
+                .foregroundColor(theme.colors.textSecondary)
                 .accessibilityHidden(true)
         }
         .frame(maxWidth: .infinity)
@@ -117,7 +117,7 @@ struct ScoreBreakdownView: View {
         .cardStyle(
             cornerRadius: DesignSystem.CornerRadius.md,
             shadow: DesignSystem.Shadow.sm,
-            backgroundColor: ColorPalette.backgroundSecondary
+            backgroundColor: theme.colors.backgroundSecondary
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title): \(value)")
@@ -129,12 +129,12 @@ struct ScoreBreakdownView: View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: "chart.bar.xaxis")
                 .font(.system(size: theme.iconSizes.lg))
-                .foregroundColor(ColorPalette.textTertiary)
+                .foregroundColor(theme.colors.textTertiary)
                 .accessibilityHidden(true)
 
             Text("Domain breakdown not available")
-                .font(Typography.bodyMedium)
-                .foregroundColor(ColorPalette.textTertiary)
+                .font(theme.typography.bodyMedium)
+                .foregroundColor(theme.colors.textTertiary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -142,7 +142,7 @@ struct ScoreBreakdownView: View {
         .cardStyle(
             cornerRadius: DesignSystem.CornerRadius.md,
             shadow: DesignSystem.Shadow.sm,
-            backgroundColor: ColorPalette.background
+            backgroundColor: theme.colors.background
         )
         .opacity(showAnimation ? 1.0 : 0.0)
         .accessibilityLabel("Domain breakdown not available")

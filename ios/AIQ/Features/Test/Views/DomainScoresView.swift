@@ -30,11 +30,11 @@ struct DomainScoreBarView: View {
         }
         // Fall back to strongest/weakest indicators
         if isStrongest {
-            return ColorPalette.success
+            return theme.colors.success
         } else if isWeakest {
-            return ColorPalette.warning
+            return theme.colors.warning
         }
-        return ColorPalette.primary
+        return theme.colors.primary
     }
 
     /// WCAG AA compliant text color for displaying performance level text
@@ -46,11 +46,11 @@ struct DomainScoreBarView: View {
         }
         // Fall back to accessible text colors for strongest/weakest indicators
         if isStrongest {
-            return ColorPalette.successText
+            return theme.colors.successText
         } else if isWeakest {
-            return ColorPalette.warningText
+            return theme.colors.warningText
         }
-        return ColorPalette.primary
+        return theme.colors.primary
     }
 
     private var accessibilityLabel: String {
@@ -76,18 +76,18 @@ struct DomainScoreBarView: View {
             HStack {
                 HStack(spacing: DesignSystem.Spacing.xs) {
                     Text(domain.displayName)
-                        .font(Typography.labelMedium)
-                        .foregroundColor(ColorPalette.textPrimary)
+                        .font(theme.typography.labelMedium)
+                        .foregroundColor(theme.colors.textPrimary)
 
                     if isStrongest {
                         Image(systemName: "star.fill")
                             .font(.system(size: 10))
-                            .foregroundColor(ColorPalette.success)
+                            .foregroundColor(theme.colors.success)
                             .accessibilityHidden(true)
                     } else if isWeakest {
                         Image(systemName: "arrow.up.circle")
                             .font(.system(size: 10))
-                            .foregroundColor(ColorPalette.warning)
+                            .foregroundColor(theme.colors.warning)
                             .accessibilityHidden(true)
                     }
                 }
@@ -97,13 +97,13 @@ struct DomainScoreBarView: View {
                 // Score display: percentage and percentile
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Text(score.percentageFormatted)
-                        .font(Typography.labelMedium)
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(theme.typography.labelMedium)
+                        .foregroundColor(theme.colors.textSecondary)
 
                     // Show percentile badge if available
                     if let percentileFormatted = score.percentileFormatted {
                         Text(percentileFormatted)
-                            .font(Typography.captionSmall)
+                            .font(theme.typography.captionSmall)
                             .fontWeight(.semibold)
                             .foregroundColor(.white)
                             .padding(.horizontal, DesignSystem.Spacing.xs)
@@ -119,7 +119,7 @@ struct DomainScoreBarView: View {
                 ZStack(alignment: .leading) {
                     // Background track
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(ColorPalette.backgroundTertiary)
+                        .fill(theme.colors.backgroundTertiary)
                         .frame(height: 8)
 
                     // Filled progress
@@ -133,16 +133,16 @@ struct DomainScoreBarView: View {
             // Correct/Total detail with percentile description
             HStack {
                 Text("domain.scores.correct.format".localized(with: score.correct, score.total))
-                    .font(Typography.captionSmall)
-                    .foregroundColor(ColorPalette.textTertiary)
+                    .font(theme.typography.captionSmall)
+                    .foregroundColor(theme.colors.textTertiary)
 
                 if let percentileDesc = score.percentileDescription {
                     Text("•")
-                        .font(Typography.captionSmall)
-                        .foregroundColor(ColorPalette.textTertiary)
+                        .font(theme.typography.captionSmall)
+                        .foregroundColor(theme.colors.textTertiary)
 
                     Text(percentileDesc)
-                        .font(Typography.captionSmall)
+                        .font(theme.typography.captionSmall)
                         .foregroundColor(barTextColor)
                 }
             }
@@ -242,12 +242,12 @@ struct DomainScoresBreakdownView: View {
             HStack {
                 Image(systemName: "brain.head.profile")
                     .font(.system(size: theme.iconSizes.md))
-                    .foregroundColor(ColorPalette.primary)
+                    .foregroundColor(theme.colors.primary)
                     .accessibilityHidden(true)
 
                 Text("domain.scores.header".localized)
-                    .font(Typography.h4)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(theme.typography.h4)
+                    .foregroundColor(theme.colors.textPrimary)
             }
             .accessibilityAddTraits(.isHeader)
 
@@ -279,7 +279,7 @@ struct DomainScoresBreakdownView: View {
         .cardStyle(
             cornerRadius: DesignSystem.CornerRadius.md,
             shadow: DesignSystem.Shadow.sm,
-            backgroundColor: ColorPalette.background
+            backgroundColor: theme.colors.background
         )
         .opacity(showAnimation ? 1.0 : 0.0)
     }
@@ -292,7 +292,7 @@ struct DomainScoresBreakdownView: View {
             if let domain = strongestDomain, let score = strongestDomainScore {
                 domainHighlightRow(DomainHighlightConfig(
                     icon: "star.fill",
-                    iconColor: ColorPalette.success,
+                    iconColor: theme.colors.success,
                     title: "domain.scores.strongest".localized,
                     domain: domain.displayName,
                     percentile: score.percentileFormatted,
@@ -304,7 +304,7 @@ struct DomainScoresBreakdownView: View {
             if let domain = weakestDomain, let score = weakestDomainScore, weakestDomain != strongestDomain {
                 domainHighlightRow(DomainHighlightConfig(
                     icon: "arrow.up.circle",
-                    iconColor: ColorPalette.warning,
+                    iconColor: theme.colors.warning,
                     title: "domain.scores.room.to.grow".localized,
                     domain: domain.displayName,
                     percentile: score.percentileFormatted,
@@ -313,7 +313,7 @@ struct DomainScoresBreakdownView: View {
             }
         }
         .padding(DesignSystem.Spacing.md)
-        .background(ColorPalette.backgroundSecondary)
+        .background(theme.colors.backgroundSecondary)
         .cornerRadius(DesignSystem.CornerRadius.sm)
     }
 
@@ -335,24 +335,24 @@ struct DomainScoresBreakdownView: View {
                 .accessibilityHidden(true)
 
             Text(config.title)
-                .font(Typography.captionMedium)
-                .foregroundColor(ColorPalette.textSecondary)
+                .font(theme.typography.captionMedium)
+                .foregroundColor(theme.colors.textSecondary)
 
             Text(config.domain)
-                .font(Typography.captionMedium)
+                .font(theme.typography.captionMedium)
                 .fontWeight(.semibold)
-                .foregroundColor(ColorPalette.textPrimary)
+                .foregroundColor(theme.colors.textPrimary)
 
             Spacer()
 
             if let percentile = config.percentile {
                 Text(percentile)
-                    .font(Typography.captionSmall)
+                    .font(theme.typography.captionSmall)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
                     .padding(.horizontal, DesignSystem.Spacing.xs)
                     .padding(.vertical, 2)
-                    .background(config.performanceLevel?.color ?? ColorPalette.primary)
+                    .background(config.performanceLevel?.color ?? theme.colors.primary)
                     .cornerRadius(DesignSystem.CornerRadius.xs)
             }
         }
@@ -364,12 +364,12 @@ struct DomainScoresBreakdownView: View {
             HStack(spacing: DesignSystem.Spacing.lg) {
                 legendItem(
                     icon: "star.fill",
-                    color: ColorPalette.success,
+                    color: theme.colors.success,
                     text: "domain.scores.legend.strongest".localized
                 )
                 legendItem(
                     icon: "arrow.up.circle",
-                    color: ColorPalette.warning,
+                    color: theme.colors.warning,
                     text: "domain.scores.legend.room.to.grow".localized
                 )
             }
@@ -379,8 +379,8 @@ struct DomainScoresBreakdownView: View {
                 let levels: [PerformanceLevel] = [.excellent, .good, .average, .belowAverage, .needsWork]
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Text("domain.scores.legend.percentile".localized)
-                        .font(Typography.captionSmall)
-                        .foregroundColor(ColorPalette.textTertiary)
+                        .font(theme.typography.captionSmall)
+                        .foregroundColor(theme.colors.textTertiary)
 
                     ForEach(levels, id: \.displayName) { level in
                         Circle()
@@ -389,13 +389,13 @@ struct DomainScoresBreakdownView: View {
                     }
 
                     Text("domain.scores.legend.range".localized)
-                        .font(Typography.captionSmall)
-                        .foregroundColor(ColorPalette.textTertiary)
+                        .font(theme.typography.captionSmall)
+                        .foregroundColor(theme.colors.textTertiary)
                 }
             }
         }
-        .font(Typography.captionSmall)
-        .foregroundColor(ColorPalette.textTertiary)
+        .font(theme.typography.captionSmall)
+        .foregroundColor(theme.colors.textTertiary)
         .padding(.top, DesignSystem.Spacing.sm)
         .accessibilityHidden(true) // Legend is supplementary
     }
@@ -413,12 +413,12 @@ struct DomainScoresBreakdownView: View {
         VStack(spacing: DesignSystem.Spacing.sm) {
             Image(systemName: "chart.bar.xaxis")
                 .font(.system(size: theme.iconSizes.lg))
-                .foregroundColor(ColorPalette.textTertiary)
+                .foregroundColor(theme.colors.textTertiary)
                 .accessibilityHidden(true)
 
             Text("domain.scores.empty.title".localized)
-                .font(Typography.bodySmall)
-                .foregroundColor(ColorPalette.textTertiary)
+                .font(theme.typography.bodySmall)
+                .foregroundColor(theme.colors.textTertiary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
