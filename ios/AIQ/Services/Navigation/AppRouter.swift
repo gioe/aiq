@@ -59,6 +59,9 @@ enum Route: Hashable, Equatable {
     /// Test results screen showing the completed test results
     case testResults(result: SubmittedTestResult, isFirstTest: Bool = false)
 
+    /// Detailed score breakdown screen
+    case scoreBreakdown(result: SubmittedTestResult)
+
     // MARK: - History Routes
 
     /// Detailed view of a specific test result from history
@@ -80,6 +83,7 @@ enum Route: Hashable, Equatable {
 
     // MARK: - Equatable Conformance
 
+    // swiftlint:disable:next cyclomatic_complexity
     static func == (lhs: Route, rhs: Route) -> Bool {
         switch (lhs, rhs) {
         case (.welcome, .welcome):
@@ -94,6 +98,8 @@ enum Route: Hashable, Equatable {
             lhsResult.id == rhsResult.id && lhsFirst == rhsFirst
         case let (.testDetail(lhsResult, lhsAvg), .testDetail(rhsResult, rhsAvg)):
             lhsResult.id == rhsResult.id && lhsAvg == rhsAvg
+        case let (.scoreBreakdown(lhsResult), .scoreBreakdown(rhsResult)):
+            lhsResult.id == rhsResult.id
         case (.notificationSettings, .notificationSettings):
             true
         case (.help, .help):
@@ -126,6 +132,9 @@ enum Route: Hashable, Equatable {
             hasher.combine("testDetail")
             hasher.combine(result.id)
             hasher.combine(average)
+        case let .scoreBreakdown(result):
+            hasher.combine("scoreBreakdown")
+            hasher.combine(result.id)
         case .notificationSettings:
             hasher.combine("notificationSettings")
         case .help:

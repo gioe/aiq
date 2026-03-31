@@ -318,6 +318,8 @@ private struct DashboardTabNavigationView: View {
             )
         case let .testDetail(result, userAverage):
             TestDetailView(testResult: result, userAverage: userAverage)
+        case let .scoreBreakdown(result):
+            ScoreBreakdownView(result: result)
         case .notificationSettings:
             NotificationSettingsView()
         case .help:

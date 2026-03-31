@@ -10,6 +10,7 @@
 		01D7569C2D7C3CBCF6026EF5 /* TestProgressHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08A3A24F902D9D469A002D10 /* TestProgressHeader.swift */; };
 		03410AB8BC73C0A0F418E03F /* AuthManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */; };
 		059902F264BEAA5E3A8218B2 /* NotificationEngagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C92DFD433134807D93604B68 /* NotificationEngagementTests.swift */; };
+		05B972B5035EF251D9BE7842 /* AIQAPIClient in Frameworks */ = {isa = PBXBuildFile; productRef = 13ECAB6546FFCEF192E7F317 /* AIQAPIClient */; };
 		05E1A06BAD57398B16C03F79 /* TestResult+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48FCBD9EA44E9A3B5CB1544 /* TestResult+Extensions.swift */; };
 		06D0B80EA19118F877CE5B54 /* MockDeepLinkHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */; };
 		071051FE0B55D6E6FFF9386C /* BiometricLockViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E76CB8FC47B1D9F5FE6FB50 /* BiometricLockViewTests.swift */; };
@@ -33,7 +34,6 @@
 		1A57DF962EFE222F009F9E9D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1A57DF952EFE222F009F9E9D /* PrivacyInfo.xcprivacy */; };
 		1A66E85D14DF3026B9616C56 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DB1F74E4C42D4EDE293DC7 /* User.swift */; };
 		1A9B817B2F2EDE3900403187 /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */; };
-		05B972B5035EF251D9BE7842 /* AIQAPIClient in Frameworks */ = {isa = PBXBuildFile; productRef = 13ECAB6546FFCEF192E7F317 /* AIQAPIClient */; };
 		1A9B817C2F2EDE3900403187 /* APIClient in Frameworks */ = {isa = PBXBuildFile; productRef = DA4FCB7C2F404E6197A1C048 /* APIClient */; };
 		1AB0686C93E844A7881DB7E9 /* KeychainStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C333BE1267F47B99054F76A /* KeychainStorageTests.swift */; };
 		1AD58AF22F03115D00ED0517 /* TrustKit in Frameworks */ = {isa = PBXBuildFile; productRef = 611BDFC8D2A24A669AF6D722 /* TrustKit */; };
@@ -100,6 +100,7 @@
 		3CCEF8EACD200FE150B6685C /* TestDetailView+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915618D2F348FB1C641A85D3 /* TestDetailView+Helpers.swift */; };
 		3EC6082B483B4D1EC7E9576B /* Feedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 409E33929D1D00C484DD2426 /* Feedback.swift */; };
 		3F70E3D07D59B9FDB48929D7 /* DifficultyBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED9E9E00C2A95B6B07A5E45 /* DifficultyBadge.swift */; };
+		425B55FAA0037E345568F049 /* ScoreBreakdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F6A2FD10A1FD9522B11FC0 /* ScoreBreakdownView.swift */; };
 		42F810187A0E40F1896555DE /* DeviceTokenManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB13242D059C434ABC566C5B /* DeviceTokenManagerProtocol.swift */; };
 		44D3E2F739E1E66A6D013418 /* AdaptiveTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 667D2E4160E9BEB72BC4DD10 /* AdaptiveTestView.swift */; };
 		44FC9BBBF530F8114776B4B9 /* DashboardViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5313369593EDDB0AD20AF99A /* DashboardViewStateTests.swift */; };
@@ -446,6 +447,7 @@
 		50DF8CAA3E236F47AF772D01 /* ViewModelFactoryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ViewModelFactoryTests.swift; sourceTree = "<group>"; };
 		5313369593EDDB0AD20AF99A /* DashboardViewStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardViewStateTests.swift; sourceTree = "<group>"; };
 		53D457A020ADE6E1ACD55F8D /* PercentileCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PercentileCard.swift; path = Features/Test/Views/PercentileCard.swift; sourceTree = "<group>"; };
+		55F6A2FD10A1FD9522B11FC0 /* ScoreBreakdownView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScoreBreakdownView.swift; path = Features/Test/Views/ScoreBreakdownView.swift; sourceTree = "<group>"; };
 		563EC90BD7AB46A29E9B5554 /* DesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DesignSystem.swift; path = Shared/Design/DesignSystem.swift; sourceTree = "<group>"; };
 		565626843F5F25C6E5794673 /* ServiceContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DI/ServiceContainer.swift; sourceTree = "<group>"; };
 		567AB0D6DFB36FE87A73FCEE /* ChartDomainCalculator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ChartDomainCalculator.swift; path = Features/History/Views/ChartDomainCalculator.swift; sourceTree = "<group>"; };
@@ -1259,6 +1261,7 @@
 				1B3DE625363E7D923EC1A875 /* TestTimerModifier.swift */,
 				B5DDCF4046E6E9C20EE7C4FD /* TestTimerView.swift */,
 				9EDCAD695C094EB03F39B9B8 /* TimeWarningBanner.swift */,
+				55F6A2FD10A1FD9522B11FC0 /* ScoreBreakdownView.swift */,
 			);
 			name = Views;
 			sourceTree = "<group>";
@@ -1942,6 +1945,7 @@
 				603B9D85D7E38C4B29C96370 /* IQScoreUtility.swift in Sources */,
 				8B1CBD6AD5BF68F3CA970AA9 /* CrashlyticsRecorderAdapter.swift in Sources */,
 				A68E4B21733288F6BB3D6B15 /* RetryableErrorConformances.swift in Sources */,
+				425B55FAA0037E345568F049 /* ScoreBreakdownView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2258,6 +2262,17 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SharedKit;
+		};
+		A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/APIClient;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -2285,18 +2300,12 @@
 		};
 /* End XCRemoteSwiftPackageReference section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/SharedKit;
-		};
-		A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/APIClient;
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
+		13ECAB6546FFCEF192E7F317 /* AIQAPIClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */;
+			productName = AIQAPIClient;
+		};
 		5F67568DF35617BE6981320E /* FirebaseAnalytics */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
@@ -2316,11 +2325,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */;
 			productName = OpenAPIRuntime;
-		};
-		13ECAB6546FFCEF192E7F317 /* AIQAPIClient */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */;
-			productName = AIQAPIClient;
 		};
 		DA4FCB7C2F404E6197A1C048 /* APIClient */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -19,6 +19,7 @@ struct TestResultsView: View {
         return manager
     }()
 
+    @EnvironmentObject private var router: AppRouter
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.appTheme) private var theme
 
@@ -347,9 +348,7 @@ struct TestResultsView: View {
     private var actionButtons: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Button {
-                // swiftlint:disable:next todo
-                // TODO: Navigate to detailed breakdown (future feature)
-                print("View detailed breakdown")
+                router.push(.scoreBreakdown(result: result))
             } label: {
                 HStack {
                     Image(systemName: "chart.bar.fill")
