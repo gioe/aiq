@@ -208,8 +208,8 @@ struct ScoreBreakdownView: View {
         NavigationStack {
             ScoreBreakdownView(
                 result: MockDataFactory.makeTestResult(
-                    id: 4,
-                    testSessionId: 126,
+                    id: 100,
+                    testSessionId: 200,
                     userId: 1,
                     iqScore: 118,
                     totalQuestions: 20,

@@ -56,7 +56,10 @@ import Foundation
             for (key, score) in scores {
                 guard let data = try? encoder.encode(score),
                       let container = try? decoder.decode(OpenAPIObjectContainer.self, from: data)
-                else { continue }
+                else {
+                    assertionFailure("makeDomainScoresPayload: failed to encode/decode DomainScore for key '\(key)'")
+                    continue
+                }
                 additionalProperties[key] = container
             }
             return Components.Schemas.TestResultResponse.DomainScoresPayload(
