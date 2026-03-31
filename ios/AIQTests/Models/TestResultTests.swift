@@ -304,14 +304,13 @@ final class TestResultTests: XCTestCase {
         XCTAssertEqual(result.iqScore, 115)
         XCTAssertNotNil(result.domainScores)
 
-        // TODO: Re-enable when domainScoresConverted is implemented
-        // The generated type uses DomainScoresPayload which doesn't support subscripting
-        // XCTAssertEqual(result.domainScores?.count, 6)
-        // XCTAssertEqual(result.domainScores?["pattern"]?.correct, 3)
-        // XCTAssertEqual(result.domainScores?["pattern"]?.total, 4)
-        // XCTAssertEqual(result.domainScores?["pattern"]?.pct, 75.0)
-        // XCTAssertEqual(result.domainScores?["verbal"]?.pct, 100.0)
-        // XCTAssertEqual(result.domainScores?["memory"]?.pct, 33.33)
+        let converted = result.domainScoresConverted
+        XCTAssertEqual(converted?.count, 6)
+        XCTAssertEqual(converted?["pattern"]?.correct, 3)
+        XCTAssertEqual(converted?["pattern"]?.total, 4)
+        XCTAssertEqual(converted?["pattern"]?.pct, 75.0)
+        XCTAssertEqual(converted?["verbal"]?.pct, 100.0)
+        XCTAssertEqual(converted?["memory"]?.pct, 33.33)
     }
 
     func testTestResultDecodingWithNullDomainScores() throws {
