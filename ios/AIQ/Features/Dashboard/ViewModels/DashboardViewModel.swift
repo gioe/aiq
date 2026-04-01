@@ -154,6 +154,9 @@ class DashboardViewModel: BaseViewModel {
 
         } catch is CancellationError {
             return nil // view is gone; discard silently
+        } catch let urlError as NSError
+            where urlError.domain == NSURLErrorDomain && urlError.code == NSURLErrorCancelled {
+            return nil // URLSession cancelled mid-flight; discard silently
         } catch {
             testCount = 0
             return error
@@ -205,6 +208,9 @@ class DashboardViewModel: BaseViewModel {
 
         } catch is CancellationError {
             return nil // view is gone; discard silently
+        } catch let urlError as NSError
+            where urlError.domain == NSURLErrorDomain && urlError.code == NSURLErrorCancelled {
+            return nil // URLSession cancelled mid-flight; discard silently
         } catch {
             // Record non-fatal error to Crashlytics for production monitoring
             CrashlyticsErrorRecorder.recordError(error, context: .fetchActiveSession)
