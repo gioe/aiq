@@ -102,13 +102,21 @@ final class DashboardPullToRefreshUITests: BaseUITest {
         // Trigger pull-to-refresh gesture
         scrollView.swipeDown()
 
-        // Wait for the system refresh spinner to disappear, proving the refresh
-        // closure returned and the spinner was dismissed by the framework.
+        // Assert the system refresh spinner appears, confirming the pull-to-refresh gesture
+        // was recognised and the refresh closure was invoked by the framework.
         let spinner = app.activityIndicators.firstMatch
+        XCTAssertTrue(
+            wait(for: spinner, timeout: standardTimeout),
+            "Pull-to-refresh spinner should appear after swipe gesture — "
+                + "if absent the gesture was not recognised or the mock responded before the indicator rendered"
+        )
+
+        // Wait for the spinner to disappear, proving the refresh closure returned
+        // and the framework dismissed the indicator.
         XCTAssertTrue(
             waitForDisappearance(of: spinner, timeout: networkTimeout),
             "Pull-to-refresh spinner should disappear after refresh completes — "
-                + "if it persists the refresh task is still running or was cancelled"
+                + "if it persists the refresh task is still running or was cancelled (TASK-269 regression)"
         )
         takeScreenshot(named: "PullToRefresh_SpinnerGone")
 
