@@ -285,6 +285,13 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     func validateSession() async {
         guard isAuthenticated else { return }
 
+        // Await AuthService.initializationTask so AuthenticationMiddleware has tokens
+        // before the refresh call. The initializationTask loads keychain tokens into the
+        // middleware actor asynchronously during AuthService.init; if we call the refresh
+        // endpoint before it completes, AuthenticationMiddleware has no refresh token and
+        // the request goes out unauthenticated → 401.
+        await authService.awaitInitialization()
+
         do {
             // Try to refresh token to validate session
             try await refreshToken()

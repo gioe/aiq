@@ -62,6 +62,10 @@ struct RootView: View {
     @State private var showSplash = true
     @State private var isBiometricLocked = false
     @State private var hasAcceptedConsent: Bool
+    /// Set to true after restoreSession() completes. Gates MainTabView/OnboardingContainerView
+    /// from rendering until session tokens are stable, preventing DashboardView.task from
+    /// making API calls concurrently with validateSession()'s token refresh.
+    @State private var isSessionRestored: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -98,8 +102,10 @@ struct RootView: View {
                 if !hasAcceptedConsent {
                     // Show privacy consent on first launch
                     PrivacyConsentView(hasAcceptedConsent: $hasAcceptedConsent)
-                } else if authState.isAuthenticated {
-                    // Show onboarding for authenticated users who haven't completed it
+                } else if authState.isAuthenticated && isSessionRestored {
+                    // Show onboarding for authenticated users who haven't completed it.
+                    // isSessionRestored gates this branch until restoreSession() finishes,
+                    // so DashboardView.task never races with validateSession()'s token refresh.
                     if !hasCompletedOnboarding {
                         OnboardingContainerView()
                     } else {
@@ -112,6 +118,10 @@ struct RootView: View {
             .task {
                 // Restore session on app launch
                 await authState.restoreSession()
+                // Mark session restored so MainTabView/OnboardingContainerView can render.
+                // This must happen before the sleep so authenticated content is ready to
+                // display the moment the splash fades out.
+                isSessionRestored = true
 
                 // Keep splash screen visible for minimum duration for smooth transition
                 try? await Task.sleep(nanoseconds: 800_000_000) // 0.8 seconds
