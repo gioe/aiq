@@ -119,6 +119,7 @@ struct DashboardView: View {
                 """
             )
             .padding(.vertical, DesignSystem.Spacing.xl)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.emptyStateView)
 
             DashboardActionButton(
