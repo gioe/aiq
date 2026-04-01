@@ -119,6 +119,7 @@ struct DashboardView: View {
                 """
             )
             .padding(.vertical, DesignSystem.Spacing.xl)
+            .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.emptyStateView)
 
             DashboardActionButton(
                 hasActiveTest: false,
@@ -245,6 +246,7 @@ struct DashboardScrollBody<OnboardingCard: View, BottomContent: View>: View {
             .padding(DesignSystem.Spacing.lg)
             .adaptiveContentWidth()
         }
+        .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.scrollView)
         .refreshable {
             await onRefresh()
         }
