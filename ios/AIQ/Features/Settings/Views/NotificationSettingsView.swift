@@ -113,6 +113,16 @@ struct NotificationSettingsView: View {
         } message: {
             Text("notification.settings.redirect.alert.message".localized)
         }
+        .sheet(isPresented: $viewModel.showNotificationSoftPrompt) {
+            NotificationSoftPromptView(
+                onEnableReminders: {
+                    Task {
+                        await viewModel.enableRemindersFromSoftPrompt()
+                    }
+                },
+                onDismiss: {}
+            )
+        }
     }
 }
 
