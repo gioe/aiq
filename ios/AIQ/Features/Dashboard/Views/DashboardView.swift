@@ -45,9 +45,12 @@ struct DashboardView: View {
             )
             .ignoresSafeArea()
 
-            if viewModel.isLoading && !viewModel.hasTests {
+            // Guard both loading and error states with !isRefreshing: swapping DashboardScrollBody
+            // for LoadingView or ErrorView during a pull-to-refresh destroys the ScrollView
+            // context and cancels the .refreshable task (NSURLErrorDomain Code=-999).
+            if viewModel.isLoading && !viewModel.hasTests && !viewModel.isRefreshing {
                 LoadingView(message: "Loading dashboard...")
-            } else if viewModel.error != nil {
+            } else if viewModel.error != nil && !viewModel.isRefreshing {
                 ErrorView(
                     error: viewModel.error!,
                     retryAction: {
