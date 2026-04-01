@@ -2,3 +2,11 @@
 docs/api/openapi.json linguist-generated=true
 ios/AIQ/openapi.json linguist-generated=true
 ios/Packages/AIQAPIClient/Sources/AIQAPIClient/openapi.json linguist-generated=true
+
+# Reduce pbxproj diff noise in GitHub PRs and conflicts during concurrent development.
+# linguist-generated: collapses pbxproj diffs in the GitHub PR view (click to expand).
+# merge=union: resolves conflicts by combining both sides' additions/removals rather
+#              than hard-failing — safe because pbxproj entries are independent keyed
+#              blocks; a union merge preserves all UUID entries from both branches.
+*.pbxproj linguist-generated=true
+*.pbxproj merge=union
