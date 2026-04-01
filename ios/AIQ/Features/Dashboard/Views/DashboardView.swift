@@ -56,68 +56,16 @@ struct DashboardView: View {
                         }
                     }
                 )
-            } else if !viewModel.hasTests && !viewModel.hasActiveTest {
-                // State 1: no completed tests, no active test — first-run empty state
-                DashboardScrollBody(
-                    userName: authManager.userFullName,
-                    onRefresh: { await viewModel.refreshDashboard() },
-                    onboardingInfoCard: { onboardingInfoCardSection },
-                    bottomContent: {
-                        EmptyStateView(
-                            icon: "brain.head.profile",
-                            title: "Ready to Begin?",
-                            message: """
-                            Take your first cognitive performance assessment to establish your baseline score. \
-                            Track your progress over time and discover insights about your performance.
-                            """
-                        )
-                        .padding(.vertical, DesignSystem.Spacing.xl)
-
-                        DashboardActionButton(
-                            hasActiveTest: false,
-                            onTap: navigateToTest,
-                            label: "Start Your First Test"
-                        )
-                    }
-                )
-            } else if !viewModel.hasTests && viewModel.hasActiveTest {
-                // State 2: active test in progress, no completed tests yet
-                DashboardScrollBody(
-                    userName: authManager.userFullName,
-                    onRefresh: { await viewModel.refreshDashboard() },
-                    onboardingInfoCard: { onboardingInfoCardSection },
-                    bottomContent: {
-                        inProgressCardView
-
-                        Text("No completed tests yet")
-                            .font(theme.typography.captionMedium)
-                            .foregroundStyle(theme.colors.textSecondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.top, DesignSystem.Spacing.sm)
-                            .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.noCompletedTestsNote)
-                    }
-                )
-            } else if viewModel.hasTests && !viewModel.hasActiveTest {
-                // State 3: completed tests exist, no active test — new test CTA only
-                DashboardScrollBody(
-                    userName: authManager.userFullName,
-                    onRefresh: { await viewModel.refreshDashboard() },
-                    onboardingInfoCard: { onboardingInfoCardSection },
-                    bottomContent: {
-                        DashboardActionButton(hasActiveTest: false, onTap: navigateToTest)
-                    }
-                )
             } else {
-                // State 4: completed tests exist + active test in progress — in-progress card only
-                // No "Take Another Test" CTA here by design: only one test session can be active at a time.
-                // InProgressTestCard's own Abandon action transitions back to State 3 where the CTA appears.
+                // Single stable DashboardScrollBody instance for all four dashboard states.
+                // Using a single instance with a @ViewBuilder computed property prevents SwiftUI
+                // from treating each generic specialisation as a distinct view type, which would
+                // destroy the scroll view context and cancel .refreshable tasks on state transitions.
                 DashboardScrollBody(
                     userName: authManager.userFullName,
                     onRefresh: { await viewModel.refreshDashboard() },
                     onboardingInfoCard: { onboardingInfoCardSection },
-                    bottomContent: {
-                        inProgressCardView
-                    }
+                    bottomContent: { dashboardBottomContent }
                 )
             }
         }
@@ -133,6 +81,51 @@ struct DashboardView: View {
             Task {
                 await viewModel.refreshDashboard()
             }
+        }
+    }
+
+    // MARK: - Dashboard Bottom Content
+
+    /// Varying bottom content for the four dashboard states, provided to the single shared DashboardScrollBody.
+    /// Extracting this into a @ViewBuilder computed property ensures DashboardScrollBody has a single stable
+    /// concrete generic type across all state transitions, preventing .refreshable task cancellation.
+    @ViewBuilder
+    private var dashboardBottomContent: some View {
+        if !viewModel.hasTests && !viewModel.hasActiveTest {
+            // State 1: no completed tests, no active test — first-run empty state
+            EmptyStateView(
+                icon: "brain.head.profile",
+                title: "Ready to Begin?",
+                message: """
+                Take your first cognitive performance assessment to establish your baseline score. \
+                Track your progress over time and discover insights about your performance.
+                """
+            )
+            .padding(.vertical, DesignSystem.Spacing.xl)
+
+            DashboardActionButton(
+                hasActiveTest: false,
+                onTap: navigateToTest,
+                label: "Start Your First Test"
+            )
+        } else if !viewModel.hasTests && viewModel.hasActiveTest {
+            // State 2: active test in progress, no completed tests yet
+            inProgressCardView
+
+            Text("No completed tests yet")
+                .font(theme.typography.captionMedium)
+                .foregroundStyle(theme.colors.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, DesignSystem.Spacing.sm)
+                .accessibilityIdentifier(AccessibilityIdentifiers.DashboardView.noCompletedTestsNote)
+        } else if viewModel.hasTests && !viewModel.hasActiveTest {
+            // State 3: completed tests exist, no active test — new test CTA only
+            DashboardActionButton(hasActiveTest: false, onTap: navigateToTest)
+        } else {
+            // State 4: completed tests exist + active test in progress — in-progress card only
+            // No "Take Another Test" CTA here by design: only one test session can be active at a time.
+            // InProgressTestCard's own Abandon action transitions back to State 3 where the CTA appears.
+            inProgressCardView
         }
     }
 
