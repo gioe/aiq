@@ -20,6 +20,9 @@ class NotificationSettingsViewModel: BaseViewModel {
     /// Whether to show the settings redirect confirmation alert
     @Published var showSettingsRedirectAlert: Bool = false
 
+    /// Whether to show the notification soft prompt (permission priming) sheet
+    @Published var showNotificationSoftPrompt: Bool = false
+
     // MARK: - Private Properties
 
     private let notificationService: NotificationServiceProtocol
@@ -128,7 +131,12 @@ class NotificationSettingsViewModel: BaseViewModel {
             }
         }
 
-        // Request authorization (this will set hasRequestedNotificationPermission = true)
+        // Show soft prompt before requesting system permission (iOS best-practice priming)
+        showNotificationSoftPrompt = true
+    }
+
+    /// Handle "Enable Reminders" tap from the soft prompt sheet
+    func enableRemindersFromSoftPrompt() async {
         let granted = await notificationManager.requestAuthorization()
         systemPermissionGranted = granted
 
