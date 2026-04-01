@@ -64,6 +64,7 @@ This document outlines the coding standards and best practices for the AIQ iOS a
 - [Git and Version Control](#git-and-version-control)
 - [App Lifecycle](#app-lifecycle)
 - [Logging Standards](#logging-standards)
+- [Debug Build Gating](#debug-build-gating)
 - [Swift Language Features](#swift-language-features)
 - [Recommended Enhancements](#recommended-enhancements)
 
@@ -5423,6 +5424,59 @@ print("❌ [operationID] Error after 0.45s: unauthorized")
 print("error happened")
 print("something went wrong with the request")
 ```
+
+---
+
+## Debug Build Gating
+
+### Canonical Compilation Condition: `DebugBuild`
+
+All debug-only code in this codebase uses `#if DebugBuild`, never `#if DEBUG`. `DebugBuild` is a custom compilation condition that is active whenever `DEBUG` is active. Using a single named condition makes it easy to audit, search, and enforce debug gating across the project.
+
+**Definition locations:**
+- `SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG DebugBuild"` in `AIQ.xcodeproj/project.pbxproj` (Debug configuration, covers all Xcode targets)
+- `.define("DebugBuild", .when(configuration: .debug))` in `Packages/SharedKit/Package.swift` and `Packages/APIClient/Package.swift` (covers SPM targets)
+
+**Canonical reference file:** `Packages/SharedKit/Sources/SharedKit/Utilities/DebugFlags.swift`
+
+### Compile-Time Gating
+
+```swift
+// ✅ Required — use DebugBuild, never DEBUG
+#if DebugBuild
+    print("Debug-only log")
+#endif
+
+// ❌ Forbidden — do not use raw #if DEBUG anywhere
+#if DEBUG
+    print("Debug-only log")
+#endif
+```
+
+### Runtime Boolean Check
+
+For cases where you need a runtime boolean rather than compile-time exclusion, use `BuildEnvironment.isDebug` from SharedKit:
+
+```swift
+// ✅ Good — runtime check via canonical helper
+if BuildEnvironment.isDebug {
+    enableVerboseLogging()
+}
+
+// ❌ Do not inline this logic — use BuildEnvironment.isDebug
+```
+
+### When to Use Each Form
+
+| Situation | Use |
+|-----------|-----|
+| Entire type/extension only exists in debug | `#if DebugBuild` wrapping the type declaration |
+| Code block that should not compile in release | `#if DebugBuild` wrapping the block |
+| Conditional logic at runtime in a shared code path | `BuildEnvironment.isDebug` |
+
+### Enforcement Rule
+
+A grep for `#if DEBUG` or `#if !DEBUG` in `*.swift` files (excluding `.build/`) must return no results. Any raw `DEBUG` compiler directive is a standards violation.
 
 ---
 

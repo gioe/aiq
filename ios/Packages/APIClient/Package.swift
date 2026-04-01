@@ -43,6 +43,9 @@ let package = Package(
                 .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
                 .product(name: "HTTPTypes", package: "swift-http-types")
             ],
+            swiftSettings: [
+                .define("DebugBuild", .when(configuration: .debug))
+            ],
             plugins: [
                 .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator")
             ]
