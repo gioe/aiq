@@ -1,6 +1,6 @@
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// In-memory biometric preference storage for UI tests
     ///

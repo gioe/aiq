@@ -130,7 +130,7 @@ struct MemoryQuestionView: View {
     }
 }
 
-#if DEBUG
+#if DebugBuild
 
     // MARK: - Preview
 

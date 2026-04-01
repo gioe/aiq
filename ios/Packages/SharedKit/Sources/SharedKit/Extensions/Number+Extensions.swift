@@ -26,7 +26,7 @@ public extension Double {
         if let formatted = formatter.string(from: NSNumber(value: percentValue)) {
             return formatted
         }
-        #if DEBUG
+        #if DebugBuild
             logger.warning("NumberFormatter failed for percentage value: \(self), locale: \(locale.identifier)")
         #endif
         return "\(self)%"
@@ -47,7 +47,7 @@ public extension Double {
         if let formatted = formatter.string(from: NSNumber(value: self)) {
             return formatted
         }
-        #if DEBUG
+        #if DebugBuild
             logger.warning("NumberFormatter failed for decimal value: \(self), locale: \(locale.identifier)")
         #endif
         return "\(self)"
@@ -70,7 +70,7 @@ public extension Double {
         if let formatted = formatter.string(from: NSNumber(value: self)) {
             return formatted
         }
-        #if DEBUG
+        #if DebugBuild
             let code = currencyCode ?? "default"
             logger.warning("NumberFormatter failed for currency: \(self), code: \(code), locale: \(locale.identifier)")
         #endif
@@ -121,7 +121,7 @@ public extension Int {
         if let formatted = formatter.string(from: NSNumber(value: self)) {
             return formatted
         }
-        #if DEBUG
+        #if DebugBuild
             logger.warning("NumberFormatter failed for Int decimal value: \(self), locale: \(locale.identifier)")
         #endif
         return "\(self)"
@@ -144,7 +144,7 @@ public extension Int {
         if let formatted = formatter.string(from: NSNumber(value: self)) {
             return formatted
         }
-        #if DEBUG
+        #if DebugBuild
             let code = currencyCode ?? "default"
             logger.warning("NumberFormatter failed: Int \(self), code: \(code), locale: \(locale.identifier)")
         #endif

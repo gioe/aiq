@@ -82,7 +82,7 @@ enum CrashlyticsErrorRecorder {
         // Always log to OSLog for debugging
         logger.error("[\(context.rawValue)] \(error.localizedDescription)")
 
-        #if DEBUG
+        #if DebugBuild
             // In debug builds, print detailed error info
             print("[ERROR] [\(context.rawValue)] \(error)")
             if let additionalInfo {
@@ -123,7 +123,7 @@ enum CrashlyticsErrorRecorder {
     /// Call this when user logs in to associate crashes/errors with a user.
     /// - Parameter userId: The user's unique identifier
     static func setUserId(_ userId: String?) {
-        #if !DEBUG
+        #if !DebugBuild
             Crashlytics.crashlytics().setUserID(userId ?? "")
         #endif
     }
@@ -134,7 +134,7 @@ enum CrashlyticsErrorRecorder {
     ///   - key: The key for the custom value
     ///   - value: The value to log
     static func log(key: String, value: String) {
-        #if DEBUG
+        #if DebugBuild
             print("[CRASHLYTICS] Log: \(key) = \(value)")
         #else
             Crashlytics.crashlytics().setCustomValue(value, forKey: key)
@@ -146,7 +146,7 @@ enum CrashlyticsErrorRecorder {
     /// Use this to track the user's journey through the app for debugging.
     /// - Parameter message: The breadcrumb message
     static func logBreadcrumb(_ message: String) {
-        #if DEBUG
+        #if DebugBuild
             print("[CRASHLYTICS] Breadcrumb: \(message)")
         #else
             Crashlytics.crashlytics().log(message)

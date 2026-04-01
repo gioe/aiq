@@ -1,7 +1,7 @@
 import Combine
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// Mock BiometricAuthManager for UI tests and previews
     ///

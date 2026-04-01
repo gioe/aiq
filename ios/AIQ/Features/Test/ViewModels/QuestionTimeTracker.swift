@@ -25,7 +25,7 @@ class QuestionTimeTracker {
 
     /// Starts timing for the given question.
     func startTracking(questionId: Int) {
-        #if DEBUG
+        #if DebugBuild
             if currentQuestionStartTime != nil {
                 assertionFailure("[TIMING] startTracking called while already tracking — missing recordCurrent() call")
             }
@@ -42,7 +42,7 @@ class QuestionTimeTracker {
         questionTimeSpent[questionId, default: 0] += elapsed
         currentQuestionStartTime = nil
         currentQuestionId = nil
-        #if DEBUG
+        #if DebugBuild
             print("[TIMING] Question \(questionId): +\(elapsed)s (total: \(questionTimeSpent[questionId] ?? 0)s)")
         #endif
     }
@@ -85,7 +85,7 @@ class QuestionTimeTracker {
         questionTimeSpent[questionId, default: 0] += elapsed
         currentQuestionStartTime = nil
         // Keep currentQuestionId so resumeTracking knows to restart
-        #if DEBUG
+        #if DebugBuild
             print("[TIMING] Time tracking paused - app backgrounded")
         #endif
     }
@@ -93,7 +93,7 @@ class QuestionTimeTracker {
     private func resumeTracking() {
         guard currentQuestionId != nil else { return }
         currentQuestionStartTime = clock.now
-        #if DEBUG
+        #if DebugBuild
             print("[TIMING] Time tracking resumed - app foregrounded")
         #endif
     }

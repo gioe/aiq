@@ -99,7 +99,7 @@ final class ServiceContainer {
     /// }
     /// ```
     func register<T>(_ type: T.Type, factory: @escaping () -> T) {
-        #if DEBUG
+        #if DebugBuild
             assert(
                 !configurationComplete,
                 """
@@ -139,7 +139,7 @@ final class ServiceContainer {
     /// container.register(OpenAPIServiceProtocol.self, instance: apiService)
     /// ```
     func register<T>(_ type: T.Type, instance: T) {
-        #if DEBUG
+        #if DebugBuild
             assert(
                 !configurationComplete,
                 """

@@ -1,6 +1,6 @@
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// Mock HapticManager for UI tests
     ///

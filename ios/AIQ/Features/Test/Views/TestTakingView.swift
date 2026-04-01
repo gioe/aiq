@@ -312,7 +312,7 @@ struct TestTakingView: View {
 
     private var testContentView: some View {
         VStack(spacing: 0) {
-            #if DEBUG
+            #if DebugBuild
                 // Debug indicator for test mode - shows question count and loading state
                 HStack {
                     let qCount = viewModel.navigationState.questions.count

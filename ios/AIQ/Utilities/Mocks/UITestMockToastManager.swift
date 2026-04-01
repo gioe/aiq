@@ -7,7 +7,7 @@
 
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// Mock ToastManager for UI tests
     ///

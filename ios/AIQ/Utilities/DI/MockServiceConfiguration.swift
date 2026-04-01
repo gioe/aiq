@@ -1,6 +1,6 @@
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// Configuration for registering mock services with the ServiceContainer
     ///

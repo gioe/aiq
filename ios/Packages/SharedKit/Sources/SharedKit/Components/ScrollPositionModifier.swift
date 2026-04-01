@@ -84,7 +84,7 @@ private struct ScrollPositionPersistenceModifier<Item: Identifiable>: ViewModifi
 
     private func restoreScrollPosition() {
         guard let savedPosition = storage.getPosition(forView: viewId) else {
-            #if DEBUG
+            #if DebugBuild
                 print("No saved scroll position for \(viewId)")
             #endif
             return
@@ -94,7 +94,7 @@ private struct ScrollPositionPersistenceModifier<Item: Identifiable>: ViewModifi
         guard items.contains(where: { $0.id == itemId }) else { return }
 
         scrollPosition = itemId
-        #if DEBUG
+        #if DebugBuild
             print("Restored scroll position for \(viewId): itemId=\(itemId)")
         #endif
     }
@@ -114,7 +114,7 @@ private struct ScrollPositionPersistenceModifier<Item: Identifiable>: ViewModifi
     private func clearScrollPosition() {
         scrollPosition = nil
         storage.clearPosition(forView: viewId)
-        #if DEBUG
+        #if DebugBuild
             print("Cleared scroll position for \(viewId)")
         #endif
     }

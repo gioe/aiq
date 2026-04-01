@@ -436,7 +436,7 @@ struct TestResultsView: View {
     }
 }
 
-#if DEBUG
+#if DebugBuild
 
     // MARK: - Preview
 

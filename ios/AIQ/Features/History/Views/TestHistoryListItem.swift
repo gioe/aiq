@@ -124,7 +124,7 @@ private struct MetricView: View {
     }
 }
 
-#if DEBUG
+#if DebugBuild
     #Preview("High Score") {
         TestHistoryListItem(
             testResult: MockDataFactory.makeTestResult(

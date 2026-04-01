@@ -39,7 +39,7 @@ enum MockModeDetector {
     /// This checks for the `-UITestMockMode` launch argument.
     /// Only available in DEBUG builds.
     static var isMockMode: Bool {
-        #if DEBUG
+        #if DebugBuild
             return CommandLine.arguments.contains(mockModeArgument)
         #else
             return false
@@ -55,7 +55,7 @@ enum MockModeDetector {
     ///
     /// - Returns: The MockScenario if specified and valid, otherwise `.default`
     static var currentScenario: MockScenario {
-        #if DEBUG
+        #if DebugBuild
             guard isMockMode else { return .default }
 
             if let scenarioName = ProcessInfo.processInfo.environment[scenarioEnvironmentKey],
@@ -72,7 +72,7 @@ enum MockModeDetector {
     ///
     /// Call this early in app initialization to verify mock mode detection.
     static func logStatus() {
-        #if DEBUG
+        #if DebugBuild
             if isMockMode {
                 print("=== UI TEST MOCK MODE ENABLED ===")
                 print("Scenario: \(currentScenario.rawValue)")

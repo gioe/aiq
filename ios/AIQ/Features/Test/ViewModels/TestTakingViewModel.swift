@@ -222,7 +222,7 @@ class TestTakingViewModel: BaseViewModel {
     // MARK: - Test Management
 
     func startTest(questionCount: Int = Constants.Test.defaultQuestionCount, isRetry: Bool = false) async {
-        #if DEBUG
+        #if DebugBuild
             print("[TestTakingViewModel] startTest called with questionCount: \(questionCount)")
         #endif
         wasAbandonedSilently = false
@@ -234,17 +234,17 @@ class TestTakingViewModel: BaseViewModel {
 
         do {
             let response = try await fetchTestQuestions(questionCount: questionCount)
-            #if DEBUG
+            #if DebugBuild
                 print("[TestTakingViewModel] Got response with \(response.questions.count) questions")
             #endif
             handleTestStartSuccess(response: response)
         } catch let error as APIError {
-            #if DEBUG
+            #if DebugBuild
                 print("[TestTakingViewModel] APIError in startTest: \(error)")
             #endif
             await handleTestStartError(error, questionCount: questionCount, isRetry: isRetry)
         } catch {
-            #if DEBUG
+            #if DebugBuild
                 print("[TestTakingViewModel] Generic error in startTest: \(error)")
             #endif
             handleGenericTestStartError(error, questionCount: questionCount)
@@ -256,7 +256,7 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func handleTestStartSuccess(response: StartTestResponse) {
-        #if DEBUG
+        #if DebugBuild
             print("[TestTakingViewModel] handleTestStartSuccess: received \(response.questions.count) questions")
         #endif
         isLocked = false
@@ -266,7 +266,7 @@ class TestTakingViewModel: BaseViewModel {
         navigationState.userAnswers.removeAll()
         navigationState.stimulusSeen.removeAll()
         isTestCompleted = false
-        #if DEBUG
+        #if DebugBuild
             print("[TestTakingViewModel] questions array now has \(navigationState.questions.count) items")
         #endif
 
@@ -280,7 +280,7 @@ class TestTakingViewModel: BaseViewModel {
         )
 
         setLoading(false)
-        #if DEBUG
+        #if DebugBuild
             print("[TestTakingViewModel] isLoading set to false, questions.count = \(navigationState.questions.count)")
         #endif
     }
@@ -360,7 +360,7 @@ class TestTakingViewModel: BaseViewModel {
             // If we fail to fetch test count, assume it's not the first test to avoid false positives
             // This is a safe fallback - we'd rather skip showing the prompt than show it incorrectly
             testCountAtStart = 1
-            #if DEBUG
+            #if DebugBuild
                 print("[WARN] [TestTakingViewModel] Failed to fetch test count: \(error.localizedDescription)")
             #endif
         }
@@ -370,7 +370,7 @@ class TestTakingViewModel: BaseViewModel {
 
     func startAdaptiveTest() async {
         guard Constants.Features.adaptiveTesting else {
-            #if DEBUG
+            #if DebugBuild
                 print("[TestTakingViewModel] Adaptive testing is disabled via feature flag")
             #endif
             return
@@ -426,7 +426,7 @@ class TestTakingViewModel: BaseViewModel {
 
             setLoading(false)
 
-            #if DEBUG
+            #if DebugBuild
                 print("[SUCCESS] Resumed session \(sessionId) with \(fetchedQuestions.count) questions")
                 if navigationState.userAnswers.isEmpty {
                     print("   Starting fresh - no saved progress found")
@@ -478,7 +478,7 @@ class TestTakingViewModel: BaseViewModel {
         )
         handleError(contextualError, context: CrashlyticsErrorRecorder.ErrorContext.resumeTest.rawValue)
 
-        #if DEBUG
+        #if DebugBuild
             print("[ERROR] Failed to resume session \(sessionId): \(error)")
         #endif
     }
@@ -493,7 +493,7 @@ class TestTakingViewModel: BaseViewModel {
             // First, abandon the existing session
             _ = try await apiService.abandonTest(sessionId: sessionId)
 
-            #if DEBUG
+            #if DebugBuild
                 print("[SUCCESS] Abandoned session \(sessionId), starting new test")
             #endif
 
@@ -514,7 +514,7 @@ class TestTakingViewModel: BaseViewModel {
             )
             handleError(contextualError, context: CrashlyticsErrorRecorder.ErrorContext.abandonTest.rawValue)
 
-            #if DEBUG
+            #if DebugBuild
                 print("[ERROR] Failed to abandon session \(sessionId): \(error)")
             #endif
         }
@@ -524,7 +524,7 @@ class TestTakingViewModel: BaseViewModel {
     /// Called when the timer expires to prevent race conditions.
     func lockAnswers() {
         isLocked = true
-        #if DEBUG
+        #if DebugBuild
             print("[LOCK] Test answers locked - no further modifications allowed")
         #endif
     }
@@ -589,7 +589,7 @@ class TestTakingViewModel: BaseViewModel {
             ), context: CrashlyticsErrorRecorder.ErrorContext.submitTest.rawValue)
             return
         }
-        #if DEBUG
+        #if DebugBuild
             let qCount = navigationState.questions.count
             print("[TIMEOUT] Auto-submitting test due to timeout: \(answeredCount)/\(qCount) answered")
         #endif
@@ -607,7 +607,7 @@ class TestTakingViewModel: BaseViewModel {
         do {
             try await apiService.abandonTest(sessionId: session.id)
         } catch {
-            #if DEBUG
+            #if DebugBuild
                 print("[WARN] abandonTestSilently: backend call failed for session \(session.id): \(error)")
             #endif
         }
@@ -631,7 +631,7 @@ class TestTakingViewModel: BaseViewModel {
                 )
             } catch {
                 // Log validation error - negative timeSpent shouldn't happen in production
-                #if DEBUG
+                #if DebugBuild
                     // swiftlint:disable:next line_length
                     print("[WARN] Failed to create QuestionResponse for question \(question.id): \(error.localizedDescription)")
                 #endif
@@ -668,7 +668,7 @@ class TestTakingViewModel: BaseViewModel {
 
         NotificationCenter.default.post(name: .refreshCurrentView, object: nil)
 
-        #if DEBUG
+        #if DebugBuild
             if isTimeoutSubmission {
                 print("[TIMEOUT] Test auto-submitted due to timeout! IQ Score: \(response.result.iqScore)")
             } else {
@@ -688,14 +688,14 @@ class TestTakingViewModel: BaseViewModel {
             await self?.submitTest()
         }
 
-        #if DEBUG
+        #if DebugBuild
             print("[ERROR] Failed to submit test: \(error)")
         #endif
     }
 
     func abandonTest() async {
         guard let session = testSession else {
-            #if DEBUG
+            #if DebugBuild
                 print("[WARN] No active session to abandon")
             #endif
             return
@@ -721,7 +721,7 @@ class TestTakingViewModel: BaseViewModel {
 
             setLoading(false)
 
-            #if DEBUG
+            #if DebugBuild
                 print("[SUCCESS] Test abandoned successfully. Responses saved: \(response.responsesSaved)")
             #endif
         } catch {
@@ -737,7 +737,7 @@ class TestTakingViewModel: BaseViewModel {
                 await self?.abandonTest()
             }
 
-            #if DEBUG
+            #if DebugBuild
                 print("[ERROR] Failed to abandon test: \(error)")
             #endif
         }
@@ -807,7 +807,7 @@ class TestTakingViewModel: BaseViewModel {
 
         do {
             try answerStorage.saveProgress(progress)
-            #if DEBUG
+            #if DebugBuild
                 print("[AUTOSAVE] Auto-saved test progress: \(navigationState.userAnswers.count) answers")
             #endif
         } catch {
@@ -847,7 +847,7 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func performSavedProgressCheck() async {
-        #if DEBUG
+        #if DebugBuild
             print("[TestTakingViewModel] checkForSavedProgress called")
         #endif
         if let progress = loadSavedProgress() {
@@ -864,7 +864,7 @@ class TestTakingViewModel: BaseViewModel {
                 resumeIntent = .showResumePrompt
             }
         } else {
-            #if DEBUG
+            #if DebugBuild
                 print("[TestTakingViewModel] No saved progress, calling startTest")
             #endif
             await startTest()
@@ -872,7 +872,7 @@ class TestTakingViewModel: BaseViewModel {
     }
 
     private func performDeepLinkResume(sessionId: Int) async {
-        #if DEBUG
+        #if DebugBuild
             print("[TestTakingViewModel] resumeSessionFromDeepLink called with sessionId: \(sessionId)")
         #endif
         await resumeActiveSession(sessionId: sessionId)

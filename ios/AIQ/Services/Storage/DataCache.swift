@@ -34,7 +34,7 @@ actor DataCache {
         )
         cache[key] = entry
 
-        #if DEBUG
+        #if DebugBuild
             print("[CACHE SET] \(key)")
         #endif
     }
@@ -42,7 +42,7 @@ actor DataCache {
     /// Retrieve value from cache if not expired
     func get<T>(forKey key: String) -> T? {
         guard let entry = cache[key] as? CacheEntry<T> else {
-            #if DEBUG
+            #if DebugBuild
                 print("[CACHE MISS] \(key)")
             #endif
             return nil
@@ -50,13 +50,13 @@ actor DataCache {
 
         if entry.isExpired {
             cache.removeValue(forKey: key)
-            #if DEBUG
+            #if DebugBuild
                 print("[CACHE EXPIRED] \(key)")
             #endif
             return nil
         }
 
-        #if DEBUG
+        #if DebugBuild
             print("[CACHE HIT] \(key)")
         #endif
         return entry.value
@@ -65,7 +65,7 @@ actor DataCache {
     /// Remove specific key from cache
     func remove(forKey key: String) {
         cache.removeValue(forKey: key)
-        #if DEBUG
+        #if DebugBuild
             print("[CACHE REMOVE] \(key)")
         #endif
     }
@@ -73,7 +73,7 @@ actor DataCache {
     /// Clear all cached data
     func clearAll() {
         cache.removeAll()
-        #if DEBUG
+        #if DebugBuild
             print("[CACHE CLEARED]")
         #endif
     }
@@ -93,7 +93,7 @@ actor DataCache {
 
         expiredKeys.forEach { cache.removeValue(forKey: $0) }
 
-        #if DEBUG
+        #if DebugBuild
             if !expiredKeys.isEmpty {
                 print("[CACHE CLEARED] \(expiredKeys.count) expired entries")
             }

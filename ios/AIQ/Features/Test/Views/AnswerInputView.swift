@@ -226,7 +226,7 @@ private struct OptionButton: View {
     }
 }
 
-#if DEBUG
+#if DebugBuild
 
     // MARK: - Preview
 

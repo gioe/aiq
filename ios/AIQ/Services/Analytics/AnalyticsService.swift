@@ -291,7 +291,7 @@ class AnalyticsService {
     ///   - event: The type of event to track
     ///   - properties: Optional dictionary of event properties
     func track(event: AnalyticsEvent, properties: [String: Any]? = nil) {
-        #if DEBUG
+        #if DebugBuild
             let propertiesString = properties?.description ?? "{}"
             logger.info("Analytics Event: \(event.rawValue) | Properties: \(propertiesString)")
         #endif
@@ -859,7 +859,7 @@ class AnalyticsService {
 
     // MARK: - Test Helpers (Internal)
 
-    #if DEBUG
+    #if DebugBuild
         /// Returns the current event queue count (for testing)
         var eventQueueCount: Int {
             queueAccessQueue.sync { eventQueue.count }

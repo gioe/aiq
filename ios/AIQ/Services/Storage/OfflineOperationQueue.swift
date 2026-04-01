@@ -507,7 +507,7 @@ private struct QueueStateSnapshot: Sendable {
 
 // MARK: - Mock Implementation
 
-#if DEBUG
+#if DebugBuild
     /// Mock implementation for testing
     actor MockOfflineOperationQueue: OfflineOperationQueueProtocol {
         var operationCount: Int {

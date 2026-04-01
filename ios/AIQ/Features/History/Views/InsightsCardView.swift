@@ -314,7 +314,7 @@ struct InsightsCardView: View {
     }
 }
 
-#if DEBUG
+#if DebugBuild
 
     // MARK: - Preview
 

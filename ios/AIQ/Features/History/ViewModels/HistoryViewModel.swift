@@ -152,7 +152,7 @@ class HistoryViewModel: BaseViewModel {
         applyFiltersAndSort()
         setLoading(false)
 
-        #if DEBUG
+        #if DebugBuild
             print("[CACHE HIT] Loaded \(cached.count) test results from cache")
         #endif
     }
@@ -166,7 +166,7 @@ class HistoryViewModel: BaseViewModel {
         applyFiltersAndSort()
         setLoading(false)
 
-        #if DEBUG
+        #if DebugBuild
             print("[SUCCESS] Fetched \(response.results.count) of \(totalCount) from API (hasMore: \(hasMore))")
         #endif
     }
@@ -202,7 +202,7 @@ class HistoryViewModel: BaseViewModel {
             applyFiltersAndSort()
             isLoadingMore = false
 
-            #if DEBUG
+            #if DebugBuild
                 let loaded = allTestHistory.count
                 print("[SUCCESS] Loaded \(newResults.count) more (total: \(loaded)/\(totalCount), hasMore: \(hasMore))")
             #endif

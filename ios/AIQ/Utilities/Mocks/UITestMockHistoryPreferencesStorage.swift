@@ -1,6 +1,6 @@
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// Mock HistoryPreferencesStorage for UI tests
     ///

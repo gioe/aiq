@@ -149,7 +149,7 @@ struct ScoreBreakdownView: View {
     }
 }
 
-#if DEBUG
+#if DebugBuild
 
     // MARK: - Previews
 

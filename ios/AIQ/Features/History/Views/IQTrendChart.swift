@@ -193,7 +193,7 @@ struct IQTrendChart: View {
     }
 }
 
-#if DEBUG
+#if DebugBuild
     #Preview("With Confidence Intervals") {
         let sampleHistory = MockDataFactory.sampleTestHistory
 

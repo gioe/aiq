@@ -37,7 +37,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Initialize Firebase
         FirebaseApp.configure()
 
-        #if DEBUG
+        #if DebugBuild
             // Skip TrustKit initialization in DEBUG builds to allow development with proxies
             Self.logger.info("DEBUG build: Certificate pinning disabled for development")
             Self.logger.info("API URL: \(AppConfig.apiBaseURL)")

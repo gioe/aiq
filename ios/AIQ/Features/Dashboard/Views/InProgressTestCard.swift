@@ -140,7 +140,7 @@ struct InProgressTestCard: View {
             }
 
             // Session ID (for debugging/reference)
-            #if DEBUG
+            #if DebugBuild
                 HStack(spacing: DesignSystem.Spacing.sm) {
                     Image(systemName: "number.circle.fill")
                         .font(.system(size: 16))
@@ -249,7 +249,7 @@ struct InProgressTestCard: View {
     }
 }
 
-#if DEBUG
+#if DebugBuild
 
     // MARK: - Preview
 

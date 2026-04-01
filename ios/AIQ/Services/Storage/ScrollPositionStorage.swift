@@ -90,7 +90,7 @@ class ScrollPositionStorage: SharedKit.ScrollPositionStorageProtocol {
         let key = storageKey(for: viewId)
         appStateStorage.setValue(position, forKey: key)
 
-        #if DEBUG
+        #if DebugBuild
             let itemStr = position.itemId?.description ?? "nil"
             let offsetStr = position.offsetY?.description ?? "nil"
             print("Saved scroll position for \(viewId): itemId=\(itemStr), offsetY=\(offsetStr)")

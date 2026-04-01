@@ -1,7 +1,7 @@
 import APIClient
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// Mock OpenAPI service for UI tests
     ///

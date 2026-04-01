@@ -70,7 +70,7 @@ final class CertificatePinningTests: XCTestCase {
         XCTAssertFalse(productionDomain.contains("http"), "Production domain should not include protocol")
 
         // In release builds, apiBaseURL should contain the production domain
-        #if !DEBUG
+        #if !DebugBuild
             XCTAssertTrue(
                 AppConfig.apiBaseURL.contains(productionDomain),
                 "Release apiBaseURL should use productionDomain"
@@ -243,7 +243,7 @@ final class CertificatePinningTests: XCTestCase {
     func testLocalhostNotBlockedInDebugMode() {
         let apiBaseURL = AppConfig.apiBaseURL
 
-        #if DEBUG
+        #if DebugBuild
             // In DEBUG mode, verify we're using localhost without HTTPS
             XCTAssertTrue(
                 apiBaseURL.contains("localhost"),
@@ -298,7 +298,7 @@ final class CertificatePinningTests: XCTestCase {
         let productionDomain = AppConfig.productionDomain
         let apiBaseURL = AppConfig.apiBaseURL
 
-        #if DEBUG
+        #if DebugBuild
             XCTAssertEqual(
                 apiBaseURL,
                 "http://localhost:8000",
@@ -356,12 +356,12 @@ final class CertificatePinningTests: XCTestCase {
     /// - This allows developers to use MITM proxies for debugging
     ///
     /// **Testing Limitations:**
-    /// - This test uses `#if DEBUG` conditional compilation
+    /// - This test uses `#if DebugBuild` conditional compilation
     /// - Only runs when compiled in DEBUG mode
     /// - CI/CD typically runs in DEBUG, so this test executes in automated builds
     /// - RELEASE builds skip this test (see `testReleaseBuildEnforcesCertificatePinning`)
     func testDebugBuildSkipsCertificatePinning() throws {
-        #if DEBUG
+        #if DebugBuild
             // Verify API base URL is localhost without HTTPS
             XCTAssertEqual(
                 AppConfig.apiBaseURL,
@@ -400,12 +400,12 @@ final class CertificatePinningTests: XCTestCase {
     /// - Certificate pinning is enforced to prevent MITM attacks
     ///
     /// **Testing Limitations:**
-    /// - This test uses `#if !DEBUG` conditional compilation
+    /// - This test uses `#if !DebugBuild` conditional compilation
     /// - CI/CD typically runs in DEBUG mode, so this test is skipped in automated builds
     /// - Manual testing in RELEASE configuration is required for full verification
     /// - See `CERTIFICATE_PINNING_TESTING.md` for manual testing procedures
     func testReleaseBuildEnforcesCertificatePinning() throws {
-        #if !DEBUG
+        #if !DebugBuild
             // Verify production URL is used with HTTPS
             XCTAssertTrue(
                 AppConfig.apiBaseURL.hasPrefix("https://"),
@@ -458,7 +458,7 @@ final class CertificatePinningTests: XCTestCase {
     /// - Does not verify the opposite configuration (DEBUG can't test RELEASE behavior)
     /// - Full verification requires running tests in both DEBUG and RELEASE modes
     func testBuildConfigurationSwitching() {
-        #if DEBUG
+        #if DebugBuild
             // In DEBUG: localhost without SSL
             XCTAssertEqual(
                 AppConfig.apiBaseURL,

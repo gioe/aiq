@@ -2,7 +2,7 @@ import APIClient
 import Combine
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// Mock AuthManager for UI tests
     ///

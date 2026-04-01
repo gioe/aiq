@@ -47,7 +47,7 @@ public struct LoggingMiddleware: ClientMiddleware, Sendable {
         logLevel: LogLevel? = nil,
         sensitiveHeaders: Set<String> = ["authorization"]
     ) {
-        #if DEBUG
+        #if DebugBuild
             self.logLevel = logLevel ?? .debug
         #else
             self.logLevel = logLevel ?? .error

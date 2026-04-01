@@ -67,7 +67,7 @@ struct DashboardView: View {
                 DashboardScrollBody(
                     userName: authManager.userFullName,
                     onRefresh: {
-                        #if DEBUG
+                        #if DebugBuild
                             // swiftlint:disable:next line_length
                             print("[REFRESH-VIEW] .refreshable action invoked. isLoading=\(viewModel.isLoading) hasTests=\(viewModel.hasTests) isRefreshing=\(viewModel.isRefreshing) error=\(viewModel.error != nil)")
                         #endif
@@ -77,7 +77,7 @@ struct DashboardView: View {
                     bottomContent: { dashboardBottomContent }
                 )
                 .onDisappear {
-                    #if DEBUG
+                    #if DebugBuild
                         if viewModel.isRefreshing {
                             // swiftlint:disable:next line_length
                             print("[REFRESH-VIEW] ⚠️ DashboardScrollBody disappeared while isRefreshing=true! isLoading=\(viewModel.isLoading) hasTests=\(viewModel.hasTests) error=\(viewModel.error != nil)")

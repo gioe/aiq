@@ -153,7 +153,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
                     "previousStatus": "\(previousStatus.rawValue)"
                 ]
             )
-            #if DEBUG
+            #if DebugBuild
                 print("[ERROR] [NotificationManager] Authorization request failed: \(error.localizedDescription)")
             #endif
             return false
@@ -216,7 +216,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// - Parameter deviceToken: The device token data
     func didReceiveDeviceToken(_ deviceToken: Data) {
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        #if DEBUG
+        #if DebugBuild
             print("[NOTIFICATION] Received device token: \(tokenString)")
         #endif
 

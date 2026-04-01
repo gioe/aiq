@@ -2,7 +2,7 @@ import Combine
 import Foundation
 import UserNotifications
 
-#if DEBUG
+#if DebugBuild
 
     /// Mock NotificationManager for UI tests
     ///

@@ -1,6 +1,6 @@
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// In-memory secure storage for UI tests
     ///

@@ -7,7 +7,7 @@
 
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     /// Mock NetworkMonitor for UI tests
     ///

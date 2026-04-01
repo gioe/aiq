@@ -161,7 +161,7 @@ class AdaptiveTestCoordinator {
             )
         }
 
-        #if DEBUG
+        #if DebugBuild
             // swiftlint:disable:next line_length
             print("[CAT] Adaptive test completed. Items: \(response.itemsAdministered), Reason: \(response.stoppingReason ?? "unknown")")
         #endif
@@ -181,7 +181,7 @@ class AdaptiveTestCoordinator {
             await submitAnswerAndGetNext()
         }
 
-        #if DEBUG
+        #if DebugBuild
             print("[ERROR] Failed to submit adaptive response: \(error)")
         #endif
     }

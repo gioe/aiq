@@ -1,7 +1,7 @@
 import APIClient
 import Foundation
 
-#if DEBUG
+#if DebugBuild
 
     // MARK: - Mock Data Factory
 

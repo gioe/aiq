@@ -213,7 +213,7 @@ struct SettingsView: View {
                     .font(theme.typography.captionMedium)
                 }
 
-                #if DEBUG
+                #if DebugBuild
                     // Debug Section - Only visible in DEBUG builds
                     Section {
                         Button(
@@ -250,7 +250,7 @@ struct SettingsView: View {
                     Text(error.localizedDescription)
                 }
             }
-            #if DEBUG
+            #if DebugBuild
             .confirmationDialog(
                     "This will crash the app to test Crashlytics",
                     isPresented: $showCrashConfirmation,

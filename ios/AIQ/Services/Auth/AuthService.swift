@@ -51,7 +51,7 @@ class AuthService: AuthServiceProtocol {
                 context: .storageRetrieve,
                 additionalInfo: ["key": SecureStorageKey.accessToken.rawValue, "operation": "init"]
             )
-            #if DEBUG
+            #if DebugBuild
                 print("[WARN] [AuthService] Storage error during init: \(error)")
             #endif
         }
@@ -73,7 +73,7 @@ class AuthService: AuthServiceProtocol {
         country: String? = nil,
         region: String? = nil
     ) async throws -> AuthResponse {
-        #if DEBUG
+        #if DebugBuild
             print("[AUTH] Starting registration")
             print("   - Email: \(email)")
             print("   - First name: \(firstName), Last name: \(lastName)")
@@ -93,7 +93,7 @@ class AuthService: AuthServiceProtocol {
                 region: region
             )
 
-            #if DEBUG
+            #if DebugBuild
                 print("[SUCCESS] Registration successful")
                 print("   - Access token length: \(response.accessToken.count)")
                 print("   - User ID: \(response.user.id)")
@@ -105,7 +105,7 @@ class AuthService: AuthServiceProtocol {
 
             return response
         } catch {
-            #if DEBUG
+            #if DebugBuild
                 print("[ERROR] Registration failed with error: \(error)")
             #endif
             throw error
@@ -113,7 +113,7 @@ class AuthService: AuthServiceProtocol {
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
-        #if DEBUG
+        #if DebugBuild
             print("[AUTH] Starting login")
             print("   - Email: \(email)")
         #endif
@@ -121,7 +121,7 @@ class AuthService: AuthServiceProtocol {
         do {
             let response = try await apiService.login(email: email, password: password)
 
-            #if DEBUG
+            #if DebugBuild
                 print("[SUCCESS] Login successful")
                 print("   - Access token length: \(response.accessToken.count)")
                 print("   - User ID: \(response.user.id)")
@@ -133,7 +133,7 @@ class AuthService: AuthServiceProtocol {
 
             return response
         } catch {
-            #if DEBUG
+            #if DebugBuild
                 print("[ERROR] Login failed with error: \(error)")
             #endif
             throw error
@@ -163,19 +163,19 @@ class AuthService: AuthServiceProtocol {
     }
 
     func deleteAccount() async throws {
-        #if DEBUG
+        #if DebugBuild
             print("[AUTH] Starting account deletion")
         #endif
 
         do {
             try await apiService.deleteAccount()
 
-            #if DEBUG
+            #if DebugBuild
                 print("[SUCCESS] Account deletion successful")
             #endif
             await clearAuthData()
         } catch {
-            #if DEBUG
+            #if DebugBuild
                 print("[ERROR] Account deletion failed: \(error)")
             #endif
             throw AuthError.accountDeletionFailed(underlying: error)
@@ -193,7 +193,7 @@ class AuthService: AuthServiceProtocol {
                 context: .storageRetrieve,
                 additionalInfo: ["key": SecureStorageKey.accessToken.rawValue, "operation": "getAccessToken"]
             )
-            #if DEBUG
+            #if DebugBuild
                 print("[WARN] [AuthService] Storage error in getAccessToken: \(error)")
             #endif
             return nil
@@ -238,7 +238,7 @@ class AuthService: AuthServiceProtocol {
                     userId: oldUserId
                 )
             } catch let rollbackError {
-                #if DEBUG
+                #if DebugBuild
                     print("[WARN] Auth rollback failed: \(rollbackError)")
                 #endif
                 // Note: We still throw the original error below.
@@ -285,7 +285,7 @@ class AuthService: AuthServiceProtocol {
         // Remove tokens from keychain
         do {
             try secureStorage.deleteAll()
-            #if DEBUG
+            #if DebugBuild
                 print("[SUCCESS] [AuthService] Successfully cleared secure storage")
             #endif
         } catch {
@@ -297,7 +297,7 @@ class AuthService: AuthServiceProtocol {
                 context: .storageDelete,
                 additionalInfo: ["operation": "clearAuthData", "severity": "critical"]
             )
-            #if DEBUG
+            #if DebugBuild
                 print("[ERROR] [AuthService] Storage error during clearAuthData: \(error)")
                 print("   WARNING: Tokens may still exist in secure storage!")
             #endif
