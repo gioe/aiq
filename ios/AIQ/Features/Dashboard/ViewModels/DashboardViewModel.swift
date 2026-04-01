@@ -36,9 +36,17 @@ class DashboardViewModel: BaseViewModel {
     ///     destroyed mid-flight (which would cancel the `.refreshable` task with
     ///     NSURLErrorDomain Code=-999).
     func fetchDashboardData(forceRefresh: Bool = false, showLoadingIndicator: Bool = true) async {
+        #if DEBUG
+            // swiftlint:disable:next line_length
+            print("[FETCH] fetchDashboardData started. forceRefresh=\(forceRefresh) Task.isCancelled=\(Task.isCancelled)")
+        #endif
         if showLoadingIndicator { setLoading(true) }
         clearError()
 
+        #if DEBUG
+            // swiftlint:disable:next line_length
+            print("[FETCH] Before async let. Task.isCancelled=\(Task.isCancelled) testCount=\(testCount) isRefreshing=\(isRefreshing)")
+        #endif
         // Fetch count and active session in parallel
         async let countError: Error? = fetchTestCount(forceRefresh: forceRefresh)
         async let activeSessionError: Error? = fetchActiveSession(forceRefresh: forceRefresh)
@@ -59,11 +67,22 @@ class DashboardViewModel: BaseViewModel {
 
     /// Refresh dashboard data (pull-to-refresh)
     func refreshDashboard() async {
+        #if DEBUG
+            print("[REFRESH] refreshDashboard started. Task.isCancelled=\(Task.isCancelled)")
+        #endif
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            isRefreshing = false
+            #if DEBUG
+                print("[REFRESH] refreshDashboard finished. Task.isCancelled=\(Task.isCancelled)")
+            #endif
+        }
         // Clear cache and force refresh
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
         await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
+        #if DEBUG
+            print("[REFRESH] After cache clear. Task.isCancelled=\(Task.isCancelled)")
+        #endif
         // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
         // handles UI feedback. Calling setLoading(true) here would swap the
         // ScrollView for LoadingView, destroying the refreshable context and

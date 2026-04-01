@@ -66,10 +66,24 @@ struct DashboardView: View {
                 // destroy the scroll view context and cancel .refreshable tasks on state transitions.
                 DashboardScrollBody(
                     userName: authManager.userFullName,
-                    onRefresh: { await viewModel.refreshDashboard() },
+                    onRefresh: {
+                        #if DEBUG
+                            // swiftlint:disable:next line_length
+                            print("[REFRESH-VIEW] .refreshable action invoked. isLoading=\(viewModel.isLoading) hasTests=\(viewModel.hasTests) isRefreshing=\(viewModel.isRefreshing) error=\(viewModel.error != nil)")
+                        #endif
+                        await viewModel.refreshDashboard()
+                    },
                     onboardingInfoCard: { onboardingInfoCardSection },
                     bottomContent: { dashboardBottomContent }
                 )
+                .onDisappear {
+                    #if DEBUG
+                        if viewModel.isRefreshing {
+                            // swiftlint:disable:next line_length
+                            print("[REFRESH-VIEW] ⚠️ DashboardScrollBody disappeared while isRefreshing=true! isLoading=\(viewModel.isLoading) hasTests=\(viewModel.hasTests) error=\(viewModel.error != nil)")
+                        }
+                    #endif
+                }
             }
         }
         .navigationTitle("Dashboard")
