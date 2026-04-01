@@ -14,16 +14,16 @@
 /// For compile-time type exclusion (e.g., entire debug-only type definitions), use `#if DebugBuild`.
 public enum BuildEnvironment {
     #if DebugBuild
-        /// Whether the current build is a debug build.
-        ///
         /// `true` in Debug builds, `false` in Release builds.
-        /// This is the single canonical runtime replacement for scattered `#if DEBUG` blocks.
+        ///
+        /// Use this for runtime-conditional debug behavior. For compile-time type exclusion
+        /// (e.g., entire debug-only type definitions), use `#if DebugBuild` directly.
         public static let isDebug = true
     #else
-        /// Whether the current build is a debug build.
-        ///
         /// `true` in Debug builds, `false` in Release builds.
-        /// This is the single canonical runtime replacement for scattered `#if DEBUG` blocks.
+        ///
+        /// Use this for runtime-conditional debug behavior. For compile-time type exclusion
+        /// (e.g., entire debug-only type definitions), use `#if DebugBuild` directly.
         public static let isDebug = false
     #endif
 }

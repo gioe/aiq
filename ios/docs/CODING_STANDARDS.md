@@ -5434,7 +5434,7 @@ print("something went wrong with the request")
 All debug-only code in this codebase uses `#if DebugBuild`, never `#if DEBUG`. `DebugBuild` is a custom compilation condition that is active whenever `DEBUG` is active. Using a single named condition makes it easy to audit, search, and enforce debug gating across the project.
 
 **Definition locations:**
-- `SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG DebugBuild"` in `AIQ.xcodeproj/project.pbxproj` (Debug configuration, covers all Xcode targets)
+- `SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG DebugBuild"` in `AIQ.xcodeproj/project.pbxproj` (set at the project-level Debug configuration; inherited by all targets that do not override `SWIFT_ACTIVE_COMPILATION_CONDITIONS` in their own build settings)
 - `.define("DebugBuild", .when(configuration: .debug))` in `Packages/SharedKit/Package.swift` and `Packages/APIClient/Package.swift` (covers SPM targets)
 
 **Canonical reference file:** `Packages/SharedKit/Sources/SharedKit/Utilities/DebugFlags.swift`
