@@ -29,6 +29,10 @@ final class DashboardPullToRefreshUITests: BaseUITest {
         app.buttons["dashboardView.actionButton"]
     }
 
+    private var emptyStateView: XCUIElement {
+        app.otherElements["dashboardView.emptyStateView"]
+    }
+
     // MARK: - Setup
 
     /// Sets the default scenario to `loggedInWithHistory` so the dashboard
@@ -152,6 +156,14 @@ final class DashboardPullToRefreshUITests: BaseUITest {
             wait(for: actionButton, timeout: networkTimeout),
             "Dashboard action button should remain visible after pull-to-refresh in empty state — "
                 + "refresh should not produce an error when test count is zero"
+        )
+
+        // Regression guard for TASK-272: emptyStateView container must be detectable via
+        // app.otherElements after .accessibilityElement(children: .contain) was applied.
+        XCTAssertTrue(
+            emptyStateView.waitForExistence(timeout: networkTimeout),
+            "dashboardView.emptyStateView should be findable via app.otherElements after pull-to-refresh — "
+                + "regression check for TASK-272 accessibility container fix"
         )
         takeScreenshot(named: "PullToRefresh_EmptyState_After")
     }
