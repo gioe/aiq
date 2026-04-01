@@ -189,6 +189,7 @@ struct SettingsView: View {
                             }
                         }
                     )
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                     .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.logoutButton)
 
                     Button(
