@@ -35,9 +35,9 @@ open class BaseViewModel: ObservableObject {
         context: String,
         retryOperation: (() async -> Void)? = nil
     ) {
-        guard !(error is CancellationError) else { isLoading = false; return }
         let nsError = error as NSError
-        guard !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
+        guard !(error is CancellationError)
+            && !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
         else { isLoading = false; return }
         isLoading = false
         self.error = error
