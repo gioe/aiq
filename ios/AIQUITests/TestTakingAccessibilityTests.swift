@@ -242,8 +242,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testAnswerTextField_HasAccessibilityLabelAndHint() throws {
-        throw XCTSkip("Requires backend connection and active test session with open-ended question")
-
         try loginAndStartTest()
 
         let answerTextField = app.textFields["testTakingView.answerTextField"]
