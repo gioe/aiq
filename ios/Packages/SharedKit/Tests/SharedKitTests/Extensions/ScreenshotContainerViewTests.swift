@@ -171,4 +171,102 @@ final class ScreenshotContainerViewTests: XCTestCase {
             "height should be noIntrinsicMetric when no provider is set"
         )
     }
+
+    // MARK: - sizeThatFits (UIView override)
+
+    /// Criterion: When no `preferredSizeProvider` is set, `sizeThatFits` must delegate to
+    /// `super.sizeThatFits(_:)`, which for an unframed `UIView` returns `bounds.size` (`.zero`).
+    func testSizeThatFits_delegatesToSuper_whenProviderIsNil() {
+        // Given: a fresh view with no frame and no provider
+        let view = ScreenshotContainerView()
+        // No preferredSizeProvider assigned.
+
+        // When
+        let size = view.sizeThatFits(CGSize(width: 200, height: 10000))
+
+        // Then: super.sizeThatFits returns bounds.size, which is .zero for an unframed view
+        XCTAssertEqual(
+            size,
+            .zero,
+            "sizeThatFits should delegate to super (returning bounds.size == .zero) when no provider is set"
+        )
+    }
+
+    /// Criterion: When a `preferredSizeProvider` is set, `sizeThatFits` must forward the exact
+    /// target size to the provider and return the provider's result.
+    func testSizeThatFits_forwardsToProvider_whenProviderIsSet() {
+        // Given
+        let view = ScreenshotContainerView()
+        let targetSize = CGSize(width: 375, height: 10000)
+        let expectedResult = CGSize(width: 375, height: 88)
+        var capturedSize: CGSize?
+        view.preferredSizeProvider = { size in
+            capturedSize = size
+            return expectedResult
+        }
+
+        // When
+        let result = view.sizeThatFits(targetSize)
+
+        // Then
+        XCTAssertEqual(
+            capturedSize,
+            targetSize,
+            "sizeThatFits should forward the exact target size to preferredSizeProvider"
+        )
+        XCTAssertEqual(result, expectedResult, "sizeThatFits should return the provider's result")
+    }
+
+    // MARK: - lastValidWidth
+
+    /// Criterion: A freshly created `ScreenshotContainerView` with no layout pass has
+    /// `lastValidWidth == 0` because `layoutSubviews` has never run with a positive width.
+    func testLastValidWidth_isZero_beforeAnyLayout() {
+        // Given
+        let view = ScreenshotContainerView()
+
+        // When / Then
+        XCTAssertEqual(view.lastValidWidth, 0, "lastValidWidth should be zero before any layout pass")
+    }
+
+    /// Criterion: After a layout pass with a positive frame width, `lastValidWidth` must
+    /// reflect that width.
+    func testLastValidWidth_updatesAfterLayoutSubviews() {
+        // Given
+        let view = ScreenshotContainerView()
+        let realWidth: CGFloat = 300
+
+        // When
+        view.frame = CGRect(x: 0, y: 0, width: realWidth, height: 100)
+        view.layoutSubviews()
+
+        // Then
+        XCTAssertEqual(
+            view.lastValidWidth,
+            realWidth,
+            "lastValidWidth should equal the frame width after layoutSubviews"
+        )
+    }
+
+    /// Criterion: After a real layout pass, collapsing the frame to `.zero` and calling
+    /// `layoutSubviews` again must NOT overwrite the cached width — `lastValidWidth` must
+    /// retain the previously recorded real width.
+    func testLastValidWidth_retainsValue_whenBoundsCollapseToZero() {
+        // Given
+        let realWidth: CGFloat = 414
+        let view = ScreenshotContainerView()
+        view.frame = CGRect(x: 0, y: 0, width: realWidth, height: 100)
+        view.layoutSubviews()
+
+        // When: bounds collapse to zero (e.g. during a dismiss animation)
+        view.frame = .zero
+        view.layoutSubviews()
+
+        // Then: the cached width from the earlier real layout is preserved
+        XCTAssertEqual(
+            view.lastValidWidth,
+            realWidth,
+            "lastValidWidth should retain the last real width when bounds subsequently collapse to zero"
+        )
+    }
 }

@@ -132,10 +132,15 @@ public extension View {
             uiView: ScreenshotContainerView,
             coordinator: Coordinator
         ) -> CGSize? {
-            let width: CGFloat = if let proposed = proposal.width {
-                max(proposed, 1)
+            let width: CGFloat
+            if let proposed = proposal.width {
+                width = max(proposed, 1)
+            } else if uiView.bounds.width > 0 {
+                width = uiView.bounds.width
+            } else if uiView.lastValidWidth > 0 {
+                width = uiView.lastValidWidth
             } else {
-                uiView.bounds.width > 0 ? uiView.bounds.width : 1
+                return nil // No valid width yet; SwiftUI will use intrinsicContentSize
             }
             let targetSize = CGSize(width: width, height: 10000)
             return coordinator.hostingController?.sizeThatFits(in: targetSize)
@@ -163,6 +168,11 @@ public extension View {
         /// Cache the last real width so intrinsicContentSize doesn't fall back to
         /// width=1 during animation frames where bounds haven't been assigned yet.
         private var _lastValidWidth: CGFloat = 0
+
+        /// The last layout width cached by `layoutSubviews`; zero if no real layout has occurred.
+        var lastValidWidth: CGFloat {
+            _lastValidWidth
+        }
 
         override func layoutSubviews() {
             super.layoutSubviews()
