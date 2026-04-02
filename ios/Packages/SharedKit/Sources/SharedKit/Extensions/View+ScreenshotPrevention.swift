@@ -160,11 +160,30 @@ public extension View {
 
         var preferredSizeProvider: ((CGSize) -> CGSize)?
 
+        /// Cache the last real width so intrinsicContentSize doesn't fall back to
+        /// width=1 during animation frames where bounds haven't been assigned yet.
+        private var _lastValidWidth: CGFloat = 0
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            if bounds.width > 0 {
+                _lastValidWidth = bounds.width
+            }
+        }
+
         override var intrinsicContentSize: CGSize {
             guard let provider = preferredSizeProvider else {
                 return super.intrinsicContentSize
             }
-            let width = bounds.width > 0 ? bounds.width : 1
+            let width: CGFloat
+            if bounds.width > 0 {
+                width = bounds.width
+            } else if _lastValidWidth > 0 {
+                width = _lastValidWidth
+            } else {
+                // No valid width yet — let external constraints size this view.
+                return CGSize(width: UIView.noIntrinsicMetric, height: UIView.noIntrinsicMetric)
+            }
             return provider(CGSize(width: width, height: 10000))
         }
 
