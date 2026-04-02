@@ -42,11 +42,19 @@ struct TestProgressHeader: View {
             }
 
             let allAnswered = answeredCount == totalQuestions && totalQuestions > 0
-            ProgressView(
-                value: Double(answeredCount),
-                total: Double(max(totalQuestions, 1))
-            )
-            .tint(allAnswered ? .green : .accentColor)
+            // Wrap ProgressView in a container so XCUITest can find it via app.otherElements[id].
+            // .accessibilityElement(children: .contain) must precede .accessibilityIdentifier;
+            // without it, SwiftUI leaves isAccessibilityElement=false and XCUITest never surfaces
+            // the element.
+            VStack {
+                ProgressView(
+                    value: Double(answeredCount),
+                    total: Double(max(totalQuestions, 1))
+                )
+                .tint(allAnswered ? .green : .accentColor)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.progressBar)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)

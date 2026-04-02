@@ -3,6 +3,8 @@ import SwiftUI
 /// A card view that displays a single question with appropriate styling
 struct QuestionCardView: View {
     let question: Question
+    /// 1-based question number used to construct the accessibility label for VoiceOver.
+    let questionNumber: Int
 
     var body: some View {
         // The question text uses screenshotPrevented (UIViewRepresentable) to prevent
@@ -14,7 +16,9 @@ struct QuestionCardView: View {
         // Fix: attach questionCard as an overlay element instead of as a .contain
         // container.  Color.clear with .accessibilityElement(children: .ignore)
         // creates a pure-SwiftUI otherElement at the card's position that XCUITest
-        // can query.  The inner screenshotPrevented Text retains its own
+        // can query.  An explicit .accessibilityLabel is required because .ignore
+        // suppresses child labels; without it VoiceOver and XCUITest both see an
+        // empty label.  The inner screenshotPrevented Text retains its own
         // "questionText" identifier and is not affected by the overlay.
         VStack(alignment: .leading) {
             Text(question.questionText)
@@ -35,6 +39,10 @@ struct QuestionCardView: View {
         .overlay(
             Color.clear
                 .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    "Question \(questionNumber), \(question.questionTypeFullName), " +
+                        "\(question.difficultyDisplay) difficulty"
+                )
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionCard)
         )
     }
@@ -52,7 +60,8 @@ struct QuestionCardView: View {
                     questionText: "What number comes next in this sequence: 2, 4, 8, 16, ?",
                     questionType: "pattern",
                     difficultyLevel: "medium"
-                )
+                ),
+                questionNumber: 1
             )
             .padding()
 
@@ -62,7 +71,8 @@ struct QuestionCardView: View {
                     questionText: "Which word doesn't belong: Apple, Banana, Carrot, Orange",
                     questionType: "logic",
                     difficultyLevel: "easy"
-                )
+                ),
+                questionNumber: 2
             )
             .padding()
         }

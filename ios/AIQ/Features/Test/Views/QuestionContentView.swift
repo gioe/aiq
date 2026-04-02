@@ -39,7 +39,7 @@ struct QuestionContentView: View {
             .questionCardTransition(reduceMotion: reduceMotion)
         } else {
             // Standard questions: show question card and answer input separately
-            QuestionCardView(question: question)
+            QuestionCardView(question: question, questionNumber: questionNumber)
                 .questionCardTransition(reduceMotion: reduceMotion)
 
             // Answer input
