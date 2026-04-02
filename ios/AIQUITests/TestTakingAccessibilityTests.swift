@@ -530,7 +530,7 @@ final class TestTakingAccessibilityTests: BaseUITest {
 
         try loginAndStartTest()
 
-        let questionText = app.staticTexts["testTakingView.questionText"]
+        let questionText = app.descendants(matching: .any)["testTakingView.questionText"]
         guard wait(for: questionText, timeout: standardTimeout) else {
             XCTFail("Question text not found")
             return
