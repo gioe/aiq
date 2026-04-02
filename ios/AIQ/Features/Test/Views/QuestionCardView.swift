@@ -23,7 +23,8 @@ struct QuestionCardView: View {
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .screenshotPrevented(
-                    accessibilityIdentifier: AccessibilityIdentifiers.TestTakingView.questionText
+                    accessibilityIdentifier: AccessibilityIdentifiers.TestTakingView.questionText,
+                    accessibilityLabel: question.questionText
                 )
         }
         .padding(DesignSystem.Spacing.lg)
