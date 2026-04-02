@@ -76,8 +76,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     // MARK: - VoiceOver Labels on Question Elements
 
     func testQuestionCard_HasAccessibilityLabel() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Find the question card
@@ -98,8 +96,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testQuestionCard_AccessibilityLabelIncludesQuestionNumber() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         let questionCard = app.otherElements["testTakingView.questionCard"]
@@ -117,8 +113,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testQuestionCard_AccessibilityLabelIncludesQuestionType() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         let questionCard = app.otherElements["testTakingView.questionCard"]
@@ -138,8 +132,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testQuestionCard_AccessibilityLabelIncludesDifficulty() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         let questionCard = app.otherElements["testTakingView.questionCard"]
@@ -278,8 +270,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     // MARK: - Navigation Controls Accessibility
 
     func testPreviousButton_HasAccessibilitySupport() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Answer first question and navigate to second
@@ -321,8 +311,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testNextButton_DisabledStateIsAccessible() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Don't answer the question - Next should be disabled
@@ -344,8 +332,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testSubmitButton_HasAccessibilityIdentifier() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Navigate to the last question
@@ -392,8 +378,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     // MARK: - Question Navigation Grid Accessibility
 
     func testQuestionNavigationGrid_Exists() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Look for question navigation buttons (numbered cells in the grid)
@@ -413,8 +397,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testQuestionNavigationCell_HasAccessibilityLabel() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Find question navigation buttons by looking for buttons with numbers
@@ -443,8 +425,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     // MARK: - Full Accessibility Navigation Flow
 
     func testAccessibilityNavigationThroughTestFlow() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Step 1: Verify question is accessible
@@ -486,8 +466,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testProgressIndicator_IsAccessible() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Progress label should show "Question X of Y"
@@ -508,8 +486,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testProgressBar_HasAccessibilityIdentifier() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Progress bar is a combined VStack element (otherElements), not a progressIndicator
@@ -526,8 +502,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     // MARK: - Dynamic Type Support Tests
 
     func testQuestionText_SupportsLargerAccessibilityTextSizes() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         let questionText = app.descendants(matching: .any)["testTakingView.questionText"]
