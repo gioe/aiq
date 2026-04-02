@@ -41,6 +41,7 @@ project = Xcodeproj::Project.open(project_path)
 main_target = project.targets.find { |t| t.name == 'AIQ' }
 test_target = project.targets.find { |t| t.name == 'AIQTests' }
 ui_test_target = project.targets.find { |t| t.name == 'AIQUITests' }
+sharedkit_test_target = project.targets.find { |t| t.name == 'SharedKitTests' }
 
 # Process each file
 ARGV.each do |file_path|
@@ -107,6 +108,8 @@ ARGV.each do |file_path|
       [ui_test_target, 'AIQUITests']
     elsif file_path.start_with?('AIQTests/')
       [test_target, 'AIQTests']
+    elsif file_path.start_with?('Packages/SharedKit/Tests/SharedKitTests/')
+      [sharedkit_test_target, 'SharedKitTests']
     else
       [main_target, 'AIQ']
     end
