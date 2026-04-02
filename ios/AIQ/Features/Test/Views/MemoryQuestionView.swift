@@ -45,6 +45,7 @@ struct MemoryQuestionView: View {
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     Spacer()
                 }
@@ -53,6 +54,7 @@ struct MemoryQuestionView: View {
                 Text("memory.question.remember.content".localized)
                     .font(.headline)
                     .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Stimulus content
                 if let stimulus = question.stimulus {
