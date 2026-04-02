@@ -117,6 +117,11 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
 
 6. **Delegate the work** to the chosen subagent(s).
 
+   When delegating iOS work to the `ios-engineer` agent that requires **creating new Swift files**, explicitly state in the agent prompt:
+   > "Use the `/xcode-file-manager` skill to add the new file to the Xcode project — do not manipulate `project.pbxproj` directly."
+
+   Bypassing `/xcode-file-manager` causes incorrect path registration in the pbxproj (bare filename instead of full relative path), which produces a build error.
+
 7. **Implement, commit, and mark criteria done.** Work through the acceptance criteria from step 1 as your checklist — **one commit per criterion is the default**. For each criterion in order:
     1. Implement the changes that satisfy it
     2. Commit and mark the criterion done atomically using `tusk commit --criteria`:

@@ -8,7 +8,7 @@ enum AppConfig {
     /// API base URL
     static var apiBaseURL: String {
         #if DebugBuild
-            return "http://localhost:8000"
+            return "https://\(productionDomain)"
         #else
             // Railway production backend
             return "https://\(productionDomain)"
