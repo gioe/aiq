@@ -96,6 +96,7 @@ enum AccessibilityIdentifiers {
         static let questionText = "testTakingView.questionText"
         static let progressLabel = "testTakingView.progressLabel"
         static let progressBar = "testTakingView.progressBar"
+        static let answerInputLabel = "testTakingView.answerInputLabel"
         static let answerTextField = "testTakingView.answerTextField"
         // Append index: answerButton.0, answerButton.1, etc.
         static let answerButtonPrefix = "testTakingView.answerButton"
