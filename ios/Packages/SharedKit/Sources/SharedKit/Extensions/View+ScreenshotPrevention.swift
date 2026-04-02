@@ -155,7 +155,7 @@ public extension View {
 
     // MARK: - Container view
 
-    private final class ScreenshotContainerView: UIView {
+    final class ScreenshotContainerView: UIView {
         var onEnterWindow: (() -> Void)?
 
         var preferredSizeProvider: ((CGSize) -> CGSize)?
