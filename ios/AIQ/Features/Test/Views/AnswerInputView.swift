@@ -13,6 +13,8 @@ struct AnswerInputView: View {
             Text("answer.input.your.answer".localized)
                 .font(.headline)
                 .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.answerInputLabel)
 
             if question.isMultipleChoice {
                 // Multiple choice options
@@ -22,6 +24,7 @@ struct AnswerInputView: View {
                 textInputField
             }
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var multipleChoiceOptions: some View {
