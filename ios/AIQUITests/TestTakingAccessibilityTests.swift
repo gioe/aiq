@@ -20,11 +20,8 @@ import XCTest
 /// - Button hints for answer selection
 /// - Accessibility navigation through test flow
 ///
-/// Note: These tests are skipped by default and require:
-/// - Valid backend connection
-/// - Existing test account credentials
-/// - Proper test environment configuration
-/// - Active test session with questions
+/// Most tests run in mock mode (no backend required). A small subset that require
+/// an open-ended question type retain their skip guard and are excluded from CI.
 final class TestTakingAccessibilityTests: BaseUITest {
     // MARK: - Helper Properties
 
@@ -162,11 +159,9 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testQuestionText_HasAccessibilityIdentifier() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
-        let questionText = app.staticTexts["testTakingView.questionText"]
+        let questionText = app.descendants(matching: .any)["testTakingView.questionText"]
         XCTAssertTrue(
             wait(for: questionText, timeout: standardTimeout),
             "Question text with accessibility identifier should exist"
@@ -182,8 +177,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     // MARK: - Button Hints for Answer Selection
 
     func testAnswerOptions_HaveAccessibilityLabels() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         // Wait for answer options to appear
@@ -204,8 +197,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testAnswerOptions_AreAccessibleWithCorrectIdentifiers() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         let firstOption = app.buttons["testTakingView.answerButton.0"]
@@ -233,8 +224,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testSelectedAnswerOption_HasSelectedTrait() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         let firstOption = app.buttons["testTakingView.answerButton.0"]
@@ -320,8 +309,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testNextButton_HasAccessibilityIdentifier() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         let nextButton = app.buttons["testTakingView.nextButton"]
@@ -384,8 +371,6 @@ final class TestTakingAccessibilityTests: BaseUITest {
     }
 
     func testExitButton_HasAccessibilityLabelAndHint() throws {
-        throw XCTSkip("Requires backend connection and active test session")
-
         try loginAndStartTest()
 
         let exitButton = app.buttons["testTakingView.exitButton"]
