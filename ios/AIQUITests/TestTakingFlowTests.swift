@@ -676,6 +676,34 @@ final class TestTakingFlowTests: BaseUITest {
         takeScreenshot(named: "NavigatedForwardToQuestion3")
     }
 
+    // MARK: - Layout Tests
+
+    func testQuestionCardLayout_LabelsAreOnScreen() {
+        // Runs in mock mode — no throw XCTSkip guard needed (BaseUITest passes -UITestMockMode).
+        // XCUITest .exists returns true for off-screen elements; only .isHittable returns false
+        // when an element is outside the visible viewport. This test serves as a permanent
+        // regression guard for the off-screen layout bug fixed in TASK-279/TASK-280.
+        guard startTestSession() != nil else {
+            XCTFail("Failed to start test session")
+            return
+        }
+
+        XCTAssertTrue(
+            testHelper.questionText.isHittable,
+            "Question text should be on-screen (hittable); isHittable == false means it is outside the visible viewport"
+        )
+        XCTAssertTrue(
+            app.buttons["testTakingView.answerButton.0"].isHittable,
+            "First answer button should be on-screen (hittable); off-screen layout causes isHittable == false"
+        )
+        XCTAssertTrue(
+            app.staticTexts["testTakingView.answerInputLabel"].isHittable,
+            "Answer input label should be on-screen (hittable); off-screen layout causes isHittable == false"
+        )
+
+        takeScreenshot(named: "QuestionCardLayout_LabelsOnScreen")
+    }
+
     // MARK: - Error Handling Tests
 
     func testAbandonTest_ShowsConfirmation() {
