@@ -142,6 +142,33 @@ final class ScreenshotContainerViewTests: XCTestCase {
             boundsWidth,
             "preferredSizeProvider should receive the current bounds.width when it is positive"
         )
+        XCTAssertEqual(size.width, boundsWidth, "intrinsicContentSize.width should equal bounds.width")
         XCTAssertEqual(size.height, 44)
+    }
+
+    // MARK: - preferredSizeProvider == nil
+
+    /// When no `preferredSizeProvider` is set, `intrinsicContentSize` must delegate to
+    /// `super.intrinsicContentSize`, which returns `UIView.noIntrinsicMetric` on both axes
+    /// for a plain `UIView` with no explicit size constraints.
+    func testIntrinsicContentSize_delegatesToSuper_whenProviderIsNil() {
+        // Given
+        let view = ScreenshotContainerView()
+        // No preferredSizeProvider assigned.
+
+        // When
+        let size = view.intrinsicContentSize
+
+        // Then
+        XCTAssertEqual(
+            size.width,
+            UIView.noIntrinsicMetric,
+            "width should be noIntrinsicMetric when no provider is set"
+        )
+        XCTAssertEqual(
+            size.height,
+            UIView.noIntrinsicMetric,
+            "height should be noIntrinsicMetric when no provider is set"
+        )
     }
 }
