@@ -75,7 +75,7 @@ open class BaseViewModel: ObservableObject {
     /// (e.g. `.refreshable`, `onAppear`, `NotificationCenter`) trigger a refresh simultaneously.
     ///
     /// - Parameter operation: The async work to perform during the refresh.
-    public func withRefreshing(_ operation: () async -> Void) async {
+    @MainActor public func withRefreshing(_ operation: () async -> Void) async {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
