@@ -123,16 +123,30 @@ tusk review add-comment <review_id> "<description>" --file "<file>" --line-start
 
 After recording the inline decision, skip directly to Step 6.
 
-**For all other diffs:** verify Bash is accessible before spawning reviewer agents. Run:
+**For all other diffs:** verify the required agent sandbox permissions are configured before spawning reviewer agents. Run:
 
 ```bash
-tusk version
+python3 -c "
+import json, sys
+try:
+    d = json.load(open('.claude/settings.json'))
+    allow = d.get('permissions', {}).get('allow', [])
+    required = ['Bash(git diff:*)', 'Bash(git remote:*)', 'Bash(git symbolic-ref:*)', 'Bash(git branch:*)', 'Bash(tusk review:*)']
+    missing = [r for r in required if r not in allow]
+    if missing:
+        print('MISSING: ' + ', '.join(missing))
+        sys.exit(1)
+    print('OK')
+except FileNotFoundError:
+    print('MISSING: .claude/settings.json not found — no permissions.allow configured')
+    sys.exit(1)
+"
 ```
 
-If this command fails with a permissions error (Bash not permitted), stop and surface:
-> Agent review aborted: Bash is not accessible in agent sandboxes for this project. The `permissions.allow` block in `.claude/settings.json` must include the required entries: `Bash(git diff:*)`, `Bash(git remote:*)`, `Bash(git symbolic-ref:*)`, `Bash(git branch:*)`, `Bash(tusk review:*)`. Run `tusk upgrade` to apply them, then restart the session.
+If this command prints `MISSING:` or exits nonzero, stop and surface:
+> Agent review aborted: The following required `permissions.allow` entries are missing from `.claude/settings.json`: `<missing entries listed in the MISSING: output>`. Add them manually or run `tusk upgrade` to apply them, then restart the session.
 
-Proceed to spawn agents only if `tusk version` succeeds.
+Proceed to spawn agents only if the check prints `OK`.
 
 Read the reviewer prompt template:
 
@@ -186,6 +200,14 @@ After spawning, record a map of: review_id → agent task ID.
 
 Wait for all reviewer agents to finish:
 
+**Setup before entering the loop:**
+
+Initialize a stall counter for each spawned review_id:
+```
+stall_counts = { <review_id>: 0, ... }   # one entry per spawned agent
+STALL_THRESHOLD = 5                       # iterations (~2.5 min at 30 s/iter)
+```
+
 **Monitoring loop:**
 
 1. Wait 30 seconds:
@@ -200,12 +222,23 @@ Wait for all reviewer agents to finish:
    Parse the JSON. Reviews with `status = "pending"` are still in progress. If all reviews have `status` of `"approved"` or `"changes_requested"`, exit the loop.
 
 3. For each pending review, check whether its agent has finished using `TaskOutput` with `block: false` and the agent task ID:
-   - If **any agent is still running**, go back to step 1.
-   - If **all agents have completed** but some reviews are still `"pending"`, those agents finished without calling `tusk review approve` or `tusk review request-changes`. For each stuck review, log a warning and auto-approve it with a note:
+
+   **Agent still running:**
+   - Increment `stall_counts[review_id]` by 1.
+   - If `stall_counts[review_id] >= STALL_THRESHOLD`, the agent has been running for too long without posting a verdict. Auto-approve it immediately with a stall warning note and remove it from the pending set:
      ```bash
-     tusk review approve <review_id> --note "Auto-approved: reviewer agent completed without posting a decision. Most likely cause: Bash tool not permitted in agent sandbox. Required permissions.allow entries: Bash(git diff:*), Bash(git remote:*), Bash(git symbolic-ref:*), Bash(git branch:*), Bash(tusk review:*)"
+     tusk review approve <review_id> --note "Auto-approved (stall): reviewer agent has been running for ≥5 monitoring iterations (~2.5 min) without posting a verdict. The agent may be looping or running a long-running command such as a full test suite. Check REVIEWER-PROMPT.md Step 2.6 constraints. To prevent stalls, ensure the agent sandbox has the required permissions.allow entries: Bash(git diff:*), Bash(git remote:*), Bash(git symbolic-ref:*), Bash(git branch:*), Bash(tusk review:*)"
+     ```
+     Continue as if this review returned no findings.
+
+   **Agent has completed** (TaskOutput shows the agent is done) but the review is still `"pending"`:
+   - The agent finished without calling `tusk review approve` or `tusk review request-changes`. Log a warning and auto-approve it with a note:
+     ```bash
+     tusk review approve <review_id> --note "Auto-approved (no verdict): reviewer agent completed without posting a decision. Most likely cause: Bash tool not permitted in agent sandbox. Required permissions.allow entries: Bash(git diff:*), Bash(git remote:*), Bash(git symbolic-ref:*), Bash(git branch:*), Bash(tusk review:*)"
      ```
      The most common cause is missing Bash tool permissions (the agent could not run `git diff` or `tusk review`). Run `tusk upgrade` to propagate the required `permissions.allow` entries if they are missing from `.claude/settings.json`. Continue as if those reviews returned no findings.
+
+4. If any agents remain running (and have not yet been stall-auto-approved), go back to step 1.
 
 ## Step 7: Process Findings
 
@@ -280,6 +313,7 @@ These are valid issues but out of scope for the current work. For each `defer` c
        --priority Medium \
        --domain <same domain as current task> \
        --task-type <DEFERRED_TASK_TYPE> \
+       --criteria "Address deferred finding: <summary from comment>" \
        --deferred
      ```
    - **If `DEFERRED_TASK_TYPE` is null** (config has no suitable task type), skip task creation and print a warning: "Skipped deferred task — no suitable task_type in config (not 'bug'): <summary>".
@@ -332,16 +366,30 @@ Otherwise, loop while `can_retry` is true:
 
    **For small or documentation-only diffs (fewer than ~200 lines changed, or only non-code files):** skip agent spawning and perform an inline review. Read the diff yourself, evaluate it against reviewer focus areas, and record the result directly (approve or request-changes + add-comment). After recording the inline decision, skip to step 3.
 
-   **For all other diffs:** verify Bash is accessible before spawning re-review agents. Run:
+   **For all other diffs:** verify the required agent sandbox permissions are configured before spawning re-review agents. Run:
 
    ```bash
-   tusk version
+   python3 -c "
+   import json, sys
+   try:
+       d = json.load(open('.claude/settings.json'))
+       allow = d.get('permissions', {}).get('allow', [])
+       required = ['Bash(git diff:*)', 'Bash(git remote:*)', 'Bash(git symbolic-ref:*)', 'Bash(git branch:*)', 'Bash(tusk review:*)']
+       missing = [r for r in required if r not in allow]
+       if missing:
+           print('MISSING: ' + ', '.join(missing))
+           sys.exit(1)
+       print('OK')
+   except FileNotFoundError:
+       print('MISSING: .claude/settings.json not found — no permissions.allow configured')
+       sys.exit(1)
+   "
    ```
 
-   If this command fails with a permissions error (Bash not permitted), stop and surface:
-   > Re-review agent aborted: Bash is not accessible in agent sandboxes for this project. The `permissions.allow` block in `.claude/settings.json` must include the required entries: `Bash(git diff:*)`, `Bash(git remote:*)`, `Bash(git symbolic-ref:*)`, `Bash(git branch:*)`, `Bash(tusk review:*)`. Run `tusk upgrade` to apply them, then restart the session.
+   If this command prints `MISSING:` or exits nonzero, stop and surface:
+   > Re-review agent aborted: The following required `permissions.allow` entries are missing from `.claude/settings.json`: `<missing entries listed in the MISSING: output>`. Add them manually or run `tusk upgrade` to apply them, then restart the session.
 
-   Proceed to spawn re-review agents only if `tusk version` succeeds. Re-review agents fetch the diff themselves — no diff is passed inline.
+   Proceed to spawn re-review agents only if the check prints `OK`. Re-review agents fetch the diff themselves — no diff is passed inline.
 
 3. Monitor completion (Step 6) and process findings (Step 7).
 

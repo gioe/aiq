@@ -204,24 +204,31 @@ cmd_validate() {
 
 update_gitignore() {
   local gitignore="$REPO_ROOT/.gitignore"
-  local deprecated="tusk/tasks.db-*"
+  # Entries that were previously added by tusk but should now be removed.
+  # .claude/skills/ was removed so that skill file edits made during /tusk
+  # or /retro sessions can be committed and tracked in git.
+  local -a deprecated_ignores=(
+    "tusk/tasks.db-*"
+    ".claude/skills/"
+  )
   local -a tusk_ignores=(
     ".claude/bin/"
-    ".claude/skills/"
     ".claude/settings.json"
     ".claude/tusk-manifest.json"
     "tusk/tasks.db"
     "tusk/tasks.db-wal"
     "tusk/tasks.db-shm"
   )
-  # Remove deprecated wildcard entry added by older versions of tusk-upgrade.py
-  if grep -qxF "$deprecated" "$gitignore" 2>/dev/null; then
-    local tmpfile
-    tmpfile=$(mktemp)
-    trap "rm -f $tmpfile" RETURN
-    grep -vxF "$deprecated" "$gitignore" > "$tmpfile" && mv "$tmpfile" "$gitignore"
-    echo "  Removed deprecated .gitignore entry: $deprecated"
-  fi
+  # Remove deprecated entries added by older versions of tusk
+  for deprecated in "${deprecated_ignores[@]}"; do
+    if grep -qxF "$deprecated" "$gitignore" 2>/dev/null; then
+      local tmpfile
+      tmpfile=$(mktemp)
+      trap "rm -f $tmpfile" RETURN
+      grep -vxF "$deprecated" "$gitignore" > "$tmpfile" && mv "$tmpfile" "$gitignore"
+      echo "  Removed deprecated .gitignore entry: $deprecated"
+    fi
+  done
   local added=0
   for entry in "${tusk_ignores[@]}"; do
     if ! grep -qxF "$entry" "$gitignore" 2>/dev/null; then
@@ -1074,7 +1081,9 @@ case "${1:-}" in
   audit) shift; exec python3 "$SCRIPT_DIR/tusk-audit.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   autoclose) shift; exec python3 "$SCRIPT_DIR/tusk-autoclose.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   backlog-scan) shift; exec python3 "$SCRIPT_DIR/tusk-backlog-scan.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  check-deliverables) shift; exec python3 "$SCRIPT_DIR/tusk-check-deliverables.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   test-detect) shift; exec python3 "$SCRIPT_DIR/tusk-test-detect.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  add-lib) shift; exec python3 "$SCRIPT_DIR/tusk-add-lib.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   init-scan-codebase) shift; exec python3 "$SCRIPT_DIR/tusk-init-scan-codebase.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   init-scan-todos) shift; exec python3 "$SCRIPT_DIR/tusk-init-scan-todos.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   init-fetch-bootstrap) shift; exec python3 "$SCRIPT_DIR/tusk-init-fetch-bootstrap.py" "$DB_PATH" "$(resolve_config)" "$@" ;;

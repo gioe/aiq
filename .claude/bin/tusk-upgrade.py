@@ -260,6 +260,23 @@ def _normalize_hook_cmd(cmd: str) -> str:
     return cmd
 
 
+def _dedup_hook_groups(groups: list) -> list:
+    """Remove duplicate hook groups, keeping the first occurrence of each normalized command."""
+    seen: set = set()
+    deduped = []
+    for group in groups:
+        commands = [
+            _normalize_hook_cmd(h.get("command", ""))
+            for h in group.get("hooks", [])
+            if h.get("command")
+        ]
+        if any(cmd in seen for cmd in commands):
+            continue
+        deduped.append(group)
+        seen.update(commands)
+    return deduped
+
+
 def merge_hook_registrations(src: str, repo_root: str) -> None:
     source_settings_path = os.path.join(src, ".claude", "settings.json")
     target_settings_path = os.path.join(repo_root, ".claude", "settings.json")
@@ -286,6 +303,14 @@ def merge_hook_registrations(src: str, repo_root: str) -> None:
         target_settings = {}
 
     target_hooks = target_settings.setdefault("hooks", {})
+
+    # Dedup pass: remove duplicate hook groups already present in target settings
+    for event_type in list(target_hooks.keys()):
+        before = len(target_hooks[event_type])
+        target_hooks[event_type] = _dedup_hook_groups(target_hooks[event_type])
+        removed = before - len(target_hooks[event_type])
+        if removed:
+            print(f"  Removed {removed} duplicate hook group(s) from {event_type}")
 
     for event_type, source_groups in source_hooks.items():
         target_groups = target_hooks.setdefault(event_type, [])
@@ -321,6 +346,29 @@ def merge_hook_registrations(src: str, repo_root: str) -> None:
     with open(target_settings_path, "w") as f:
         json.dump(target_settings, f, indent=2)
         f.write("\n")
+
+
+REQUIRED_REVIEW_COMMITS_PERMISSIONS = [
+    "Bash(git diff:*)",
+    "Bash(git remote:*)",
+    "Bash(git symbolic-ref:*)",
+    "Bash(git branch:*)",
+    "Bash(tusk review:*)",
+]
+
+
+def check_review_commits_permissions(repo_root: str) -> list[str]:
+    """Return any required permissions.allow entries missing from .claude/settings.json."""
+    settings_path = os.path.join(repo_root, ".claude", "settings.json")
+    if not os.path.isfile(settings_path):
+        return list(REQUIRED_REVIEW_COMMITS_PERMISSIONS)
+    try:
+        with open(settings_path) as f:
+            settings = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return list(REQUIRED_REVIEW_COMMITS_PERMISSIONS)
+    existing = set(settings.get("permissions", {}).get("allow", []))
+    return [e for e in REQUIRED_REVIEW_COMMITS_PERMISSIONS if e not in existing]
 
 
 def remove_deprecated_files(repo_root: str) -> None:
@@ -470,6 +518,18 @@ def main() -> None:
 
     print()
     print(f"Upgrade complete (version {remote_version}).")
+
+    # Check that required permissions.allow entries for review-commits are present
+    missing = check_review_commits_permissions(repo_root)
+    if missing:
+        print()
+        print("  Warning: The following permissions.allow entries are missing from")
+        print("  .claude/settings.json and are required for /review-commits to work:")
+        print()
+        for entry in missing:
+            print(f'    "{entry}"')
+        print()
+        print("  Add these entries to the permissions.allow array in .claude/settings.json.")
 
     # Auto-commit
     if args.no_commit:

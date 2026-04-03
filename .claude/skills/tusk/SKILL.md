@@ -80,11 +80,14 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
    ```
    This detects the default branch (remote HEAD → gh fallback → main), checks it out, pulls latest, and creates `feature/TASK-<id>-<slug>`. It prints the created branch name on success.
 
-   **Partial-criteria + no-commits diagnostic:** After creating or switching to the feature branch, if the `criteria` from step 1 show at least one completed criterion but `git log --oneline $(tusk git-default-branch)..HEAD` returns no commits, prior work may be stranded on another branch. Before exploring the codebase, run:
+   **Deliverable check:** If `deliverable_check_needed` from step 1 is `true`, run:
    ```bash
-   git log --all --oneline --grep="\[TASK-<id>\]"
+   tusk check-deliverables <id>
    ```
-   (Replace `<id>` with the actual task ID.) This searches all branches for commits referencing the task. If commits appear on another branch (e.g., a recycled or prior branch), that branch contains the prior work — switch to it or cherry-pick the relevant commits before proceeding to Explore. If no commits appear anywhere, the criteria completions were marked without corresponding code — proceed normally and implement from scratch.
+   (Replace `<id>` with the actual task ID.) This command checks all branches for commits referencing the task and, if none are found, scans the task description and criteria for referenced file paths and tests whether they exist on disk. Act on the `recommendation` field:
+   - **`"commits_found"`** — commits exist on another branch. Switch to it or cherry-pick the relevant commits before proceeding to Explore.
+   - **`"mark_done"`** — no commits, but deliverable files listed in `files` already exist on disk. Mark all criteria done with `--skip-verify` and proceed directly to step 9 (commit + merge) without reimplementing.
+   - **`"implement_fresh"`** — no commits and no deliverable files found. The criteria completions were marked without corresponding code — proceed normally and implement from scratch.
 
 3. **Determine the best subagent(s)** based on:
    - Task domain
@@ -116,11 +119,6 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
    The task's `summary` and `description` fields define the full scope of work for this session. If the description references or links to external documents (evaluation docs, design specs, RFCs), treat them as **background context only** — do not implement items from those docs that go beyond what the task's own description asks for. Referenced docs often describe multi-task plans; implementing the entire plan collapses future tasks into one PR and defeats dependency ordering.
 
 6. **Delegate the work** to the chosen subagent(s).
-
-   When delegating iOS work to the `ios-engineer` agent that requires **creating new Swift files**, explicitly state in the agent prompt:
-   > "Use the `/xcode-file-manager` skill to add the new file to the Xcode project — do not manipulate `project.pbxproj` directly."
-
-   Bypassing `/xcode-file-manager` causes incorrect path registration in the pbxproj (bare filename instead of full relative path), which produces a build error.
 
 7. **Implement, commit, and mark criteria done.** Work through the acceptance criteria from step 1 as your checklist — **one commit per criterion is the default**. For each criterion in order:
     1. Implement the changes that satisfy it
@@ -238,6 +236,12 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
     `tusk merge` closes the session, merges the feature branch into the default branch, pushes, deletes the feature branch, and marks the task Done. It returns JSON including an `unblocked_tasks` array. If there are newly unblocked tasks, note them in the retro.
 
     **Already-merged path:** If the feature branch was previously merged and deleted (e.g. via a PR that was merged in another session), `tusk merge` detects this automatically when you are on the default branch — it prints `Note: TASK-<id> — no feature branch found; already on '<branch>'. Branch was previously merged.`, closes the session, pushes, and marks the task Done without re-merging. If `tusk merge` exits 0 in this scenario, proceed to `/retro` as normal.
+
+    **Diverged branch — rebase fallback:** If `tusk merge` exits non-zero because the feature branch has diverged from the default branch (fast-forward-only merge not possible), run:
+    ```bash
+    tusk merge <id> --session $SESSION_ID --rebase
+    ```
+    `--rebase` rebases the feature branch onto the default branch before merging. If the rebase produces conflicts, resolve them (`git rebase --continue`) and retry.
 
     **Not-on-default fallback:** If `tusk merge` exits non-zero with `No branch found matching feature/TASK-<id>-*` and you are NOT on the default branch, switch to the default branch first (`git checkout <default_branch>`), then retry `tusk merge <id> --session <session_id>`.
 

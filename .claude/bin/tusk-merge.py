@@ -710,8 +710,68 @@ def main(argv: list[str]) -> int:
                 _try_pop_stash(task_id)
             return 2
 
+        # Detect if the task commit was already applied directly on the default branch
+        # (e.g. a rebase conflict resolved by re-applying the fix on main). When true,
+        # the feature branch is diverged and cannot be fast-forwarded — skip the
+        # rebase/ff-merge steps and proceed directly to push + cleanup.
+        #
+        # Scoped to commits reachable from the feature branch but NOT from the default
+        # branch (<branch> --not <default>). This prevents false-positives when task IDs
+        # are recycled after a DB reset: an old [TASK-N] commit on the default branch
+        # would be matched by a naïve `git log <default> --grep` but is irrelevant to the
+        # current feature branch. If the feature branch has no exclusive [TASK-N] commits
+        # (empty result), the task's changes must already be on the default branch.
+        _log_check = run(
+            ["git", "log", branch_name, "--not", default_branch, "--oneline",
+             f"--grep=\\[TASK-{task_id}\\]"],
+            check=False,
+        )
+        task_on_default = (
+            _log_check.returncode == 0 and not bool(_log_check.stdout.strip())
+        )
+        if task_on_default:
+            print(
+                f"Note: TASK-{task_id} commit already on {default_branch} — "
+                "feature branch is diverged. Skipping ff-only merge.",
+                file=sys.stderr,
+            )
+
+        # Secondary check: use git cherry to detect commits that were cherry-picked
+        # onto the default branch (same patch content, different hash). The log-scoped
+        # check above finds the feature branch's own [TASK-N] commit and sets
+        # task_on_default=False, but if that commit was cherry-picked to default the
+        # ff-only merge will fail. git cherry compares by patch ID, so cherry-picked
+        # equivalents appear as '-' lines. If every exclusive commit on the feature
+        # branch is already applied (all '-', no '+'), the branch is safe to discard.
+        if not task_on_default:
+            _cherry_check = run(
+                ["git", "cherry", default_branch, branch_name],
+                check=False,
+            )
+            if _cherry_check.returncode != 0:
+                print(
+                    f"Warning: git cherry {default_branch} {branch_name} failed — "
+                    "cherry-pick detection skipped. The ff-only merge will proceed "
+                    "and may fail if the branch was cherry-picked.",
+                    file=sys.stderr,
+                )
+            if _cherry_check.returncode == 0:
+                _cherry_lines = [
+                    line for line in _cherry_check.stdout.splitlines() if line.strip()
+                ]
+                if _cherry_lines and not any(
+                    line.startswith("+ ") for line in _cherry_lines
+                ):
+                    task_on_default = True
+                    print(
+                        f"Note: TASK-{task_id} — all feature branch commits already "
+                        f"applied to {default_branch} via cherry-pick. "
+                        "Skipping ff-only merge.",
+                        file=sys.stderr,
+                    )
+
         # Step 4 (optional --rebase): rebase feature branch onto default before ff-merge
-        if use_rebase:
+        if not task_on_default and use_rebase:
             print(f"Rebasing {branch_name} onto {default_branch}...", file=sys.stderr)
             # Switch to feature branch — move db files aside first (same pattern as above)
             for src, dst in zip(db_siblings, db_tmp):
@@ -775,47 +835,59 @@ def main(argv: list[str]) -> int:
                     _try_pop_stash(task_id)
                 return 2
 
-        # Step 4 (cont): Fast-forward merge
-        result = run(["git", "merge", "--ff-only", branch_name], check=False)
-        if result.returncode != 0:
-            print(
-                f"Error: git merge --ff-only {branch_name} failed:\n{result.stderr.strip()}\n"
-                "The feature branch cannot be fast-forward merged. Run one of:\n"
-                f"  git rebase origin/{default_branch}  # rebase manually, then re-run: tusk merge {task_id}\n"
-                f"  tusk merge {task_id} --rebase        # auto-rebase before merging\n"
-                f"  tusk merge {task_id} --pr --pr-number <N>  # squash merge via PR",
-                file=sys.stderr,
-            )
-            # Restore feature branch so user can investigate
-            run(["git", "checkout", branch_name], check=False)
-            if did_stash:
-                _try_pop_stash(task_id)
-            return 2
+        # Step 4 (cont): Fast-forward merge (skipped when task commit already on default)
+        if not task_on_default:
+            result = run(["git", "merge", "--ff-only", branch_name], check=False)
+            if result.returncode != 0:
+                print(
+                    f"Error: git merge --ff-only {branch_name} failed:\n{result.stderr.strip()}\n"
+                    "The feature branch cannot be fast-forward merged. Run one of:\n"
+                    f"  git rebase origin/{default_branch}  # rebase manually, then re-run: tusk merge {task_id}\n"
+                    f"  tusk merge {task_id} --rebase        # auto-rebase before merging\n"
+                    f"  tusk merge {task_id} --pr --pr-number <N>  # squash merge via PR",
+                    file=sys.stderr,
+                )
+                # Restore feature branch so user can investigate
+                run(["git", "checkout", branch_name], check=False)
+                if did_stash:
+                    _try_pop_stash(task_id)
+                return 2
 
         # Step 5: Push
         result = run(["git", "push", "origin", default_branch], check=False)
         if result.returncode != 0:
-            print(
-                f"Error: git push failed:\n{result.stderr.strip()}\n"
-                f"The branch has been merged locally but not pushed.\n"
-                f"  Retry: git push origin {default_branch}\n"
-                f"  Undo:  git reset --hard HEAD~1 && git checkout {branch_name}",
-                file=sys.stderr,
-            )
-            if did_stash:
-                # Restore feature branch before popping stash so the user's
-                # uncommitted changes land back on the feature branch, not on
-                # the default branch where the unmerged commit lives.
-                run(["git", "checkout", branch_name], check=False)
-                _try_pop_stash(task_id)
+            if task_on_default:
+                print(
+                    f"Error: git push failed:\n{result.stderr.strip()}\n"
+                    f"  Retry: git push origin {default_branch}",
+                    file=sys.stderr,
+                )
+                if did_stash:
+                    _try_pop_stash(task_id)
+            else:
+                print(
+                    f"Error: git push failed:\n{result.stderr.strip()}\n"
+                    f"The branch has been merged locally but not pushed.\n"
+                    f"  Retry: git push origin {default_branch}\n"
+                    f"  Undo:  git reset --hard HEAD~1 && git checkout {branch_name}",
+                    file=sys.stderr,
+                )
+                if did_stash:
+                    # Restore feature branch before popping stash so the user's
+                    # uncommitted changes land back on the feature branch, not on
+                    # the default branch where the unmerged commit lives.
+                    run(["git", "checkout", branch_name], check=False)
+                    _try_pop_stash(task_id)
             return 2
 
         # Step 6: Delete feature branch
-        result = run(["git", "branch", "-d", branch_name], check=False)
+        # Use -D (force) when the branch was not merged via git merge (task_on_default path).
+        branch_delete_flag = "-D" if task_on_default else "-d"
+        result = run(["git", "branch", branch_delete_flag, branch_name], check=False)
         if result.returncode != 0:
-            # Non-fatal: branch is already merged, warn and continue
+            # Non-fatal: branch is already gone or merge state mismatch, warn and continue
             print(
-                f"Warning: git branch -d {branch_name} failed:\n{result.stderr.strip()}",
+                f"Warning: git branch {branch_delete_flag} {branch_name} failed:\n{result.stderr.strip()}",
                 file=sys.stderr,
             )
 
