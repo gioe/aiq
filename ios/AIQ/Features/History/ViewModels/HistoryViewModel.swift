@@ -46,7 +46,6 @@ class HistoryViewModel: BaseViewModel {
     // MARK: - Published Properties
 
     @Published var testHistory: [TestResult] = []
-    @Published var isRefreshing: Bool = false
 
     /// Sort order with persistence across app launches.
     /// Defaults to .newestFirst on first launch or if stored value is invalid.
@@ -258,16 +257,15 @@ class HistoryViewModel: BaseViewModel {
 
     /// Refresh history data (pull-to-refresh)
     func refreshHistory() async {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        defer { isRefreshing = false }
-        // Clear cache and force refresh
-        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
-        // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
-        // handles UI feedback. Calling setLoading(true) here would swap the
-        // ScrollView for LoadingView, destroying the refreshable context and
-        // cancelling the in-flight network request (NSURLErrorDomain Code=-999).
-        await fetchHistory(forceRefresh: true, showLoadingIndicator: false)
+        await withRefreshing {
+            // Clear cache and force refresh
+            await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+            // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
+            // handles UI feedback. Calling setLoading(true) here would swap the
+            // ScrollView for LoadingView, destroying the refreshable context and
+            // cancelling the in-flight network request (NSURLErrorDomain Code=-999).
+            await self.fetchHistory(forceRefresh: true, showLoadingIndicator: false)
+        }
     }
 
     // MARK: - Computed Properties

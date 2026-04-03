@@ -4,6 +4,8 @@ import Foundation
 /// Base class for ViewModels providing common functionality
 open class BaseViewModel: ObservableObject {
     @Published public var isLoading: Bool = false
+    /// Indicates whether a pull-to-refresh operation is in progress
+    @Published public var isRefreshing: Bool = false
     @Published public var error: Error?
     /// Indicates whether the last failed operation can be retried
     @Published public var canRetry: Bool = false
@@ -64,6 +66,20 @@ open class BaseViewModel: ObservableObject {
     /// Set loading state
     open func setLoading(_ loading: Bool) {
         isLoading = loading
+    }
+
+    /// Runs `operation` guarded against concurrent calls, setting `isRefreshing` for the duration.
+    ///
+    /// If `isRefreshing` is already `true` when called, the function returns immediately without
+    /// invoking `operation`. This prevents the retry cascade that can occur when multiple callers
+    /// (e.g. `.refreshable`, `onAppear`, `NotificationCenter`) trigger a refresh simultaneously.
+    ///
+    /// - Parameter operation: The async work to perform during the refresh.
+    public func withRefreshing(_ operation: () async -> Void) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+        await operation()
     }
 
     /// Retry the last failed operation

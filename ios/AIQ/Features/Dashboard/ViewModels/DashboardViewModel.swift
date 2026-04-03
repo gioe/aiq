@@ -7,7 +7,6 @@ class DashboardViewModel: BaseViewModel {
     // MARK: - Published Properties
 
     @Published var testCount: Int = 0
-    @Published var isRefreshing: Bool = false
 
     // Active session tracking
     @Published var activeTestSession: TestSession?
@@ -70,24 +69,22 @@ class DashboardViewModel: BaseViewModel {
         #if DebugBuild
             print("[REFRESH] refreshDashboard started. Task.isCancelled=\(Task.isCancelled)")
         #endif
-        isRefreshing = true
-        defer {
-            isRefreshing = false
+        await withRefreshing {
+            // Clear cache and force refresh
+            await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+            await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
             #if DebugBuild
-                print("[REFRESH] refreshDashboard finished. Task.isCancelled=\(Task.isCancelled)")
+                print("[REFRESH] After cache clear. Task.isCancelled=\(Task.isCancelled)")
             #endif
+            // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
+            // handles UI feedback. Calling setLoading(true) here would swap the
+            // ScrollView for LoadingView, destroying the refreshable context and
+            // cancelling the in-flight network request (NSURLErrorDomain Code=-999).
+            await self.fetchDashboardData(forceRefresh: true, showLoadingIndicator: false)
         }
-        // Clear cache and force refresh
-        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
-        await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
         #if DebugBuild
-            print("[REFRESH] After cache clear. Task.isCancelled=\(Task.isCancelled)")
+            print("[REFRESH] refreshDashboard finished. Task.isCancelled=\(Task.isCancelled)")
         #endif
-        // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
-        // handles UI feedback. Calling setLoading(true) here would swap the
-        // ScrollView for LoadingView, destroying the refreshable context and
-        // cancelling the in-flight network request (NSURLErrorDomain Code=-999).
-        await fetchDashboardData(forceRefresh: true, showLoadingIndicator: false)
     }
 
     /// Abandon the active test session
