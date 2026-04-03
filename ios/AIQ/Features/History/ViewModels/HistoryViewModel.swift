@@ -258,6 +258,7 @@ class HistoryViewModel: BaseViewModel {
 
     /// Refresh history data (pull-to-refresh)
     func refreshHistory() async {
+        guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
         // Clear cache and force refresh
