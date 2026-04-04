@@ -88,17 +88,7 @@ class HistoryViewModel: BaseViewModel {
         // Load stored preferences after initialization
         sortOrder = preferencesStorage.sortOrder
         dateFilter = preferencesStorage.dateFilter
-
-        #if DebugBuild
-            print("[HistoryViewModel] init \(ObjectIdentifier(self))")
-        #endif
     }
-
-    #if DebugBuild
-        deinit {
-            print("[HistoryViewModel] deinit \(ObjectIdentifier(self))")
-        }
-    #endif
 
     // MARK: - Public Methods
 
@@ -160,10 +150,6 @@ class HistoryViewModel: BaseViewModel {
         totalCount = cached.count
         applyFiltersAndSort()
         setLoading(false)
-
-        #if DebugBuild
-            print("[CACHE HIT] Loaded \(cached.count) test results from cache")
-        #endif
     }
 
     private func updateState(with response: PaginatedTestHistoryResponse, fromCache _: Bool) {
@@ -174,10 +160,6 @@ class HistoryViewModel: BaseViewModel {
         currentOffset = response.results.count
         applyFiltersAndSort()
         setLoading(false)
-
-        #if DebugBuild
-            print("[SUCCESS] Fetched \(response.results.count) of \(totalCount) from API (hasMore: \(hasMore))")
-        #endif
     }
 
     /// Load more test results from the next page
@@ -210,11 +192,6 @@ class HistoryViewModel: BaseViewModel {
             cachedInsights = nil // Invalidate insights cache
             applyFiltersAndSort()
             isLoadingMore = false
-
-            #if DebugBuild
-                let loaded = allTestHistory.count
-                print("[SUCCESS] Loaded \(newResults.count) more (total: \(loaded)/\(totalCount), hasMore: \(hasMore))")
-            #endif
         } catch is CancellationError {
             isLoadingMore = false
             return // view is gone; discard silently
@@ -267,10 +244,6 @@ class HistoryViewModel: BaseViewModel {
 
     /// Refresh history data (pull-to-refresh)
     func refreshHistory() async {
-        #if DebugBuild
-            let frames = Thread.callStackSymbols.prefix(4).joined(separator: "\n  ")
-            print("[refreshHistory] called — stack:\n  \(frames)")
-        #endif
         await withRefreshing {
             // Clear cache and force refresh
             await DataCache.shared.remove(forKey: DataCache.Key.testHistory)

@@ -35,17 +35,9 @@ class DashboardViewModel: BaseViewModel {
     ///     destroyed mid-flight (which would cancel the `.refreshable` task with
     ///     NSURLErrorDomain Code=-999).
     func fetchDashboardData(forceRefresh: Bool = false, showLoadingIndicator: Bool = true) async {
-        #if DebugBuild
-            // swiftlint:disable:next line_length
-            print("[FETCH] fetchDashboardData started. forceRefresh=\(forceRefresh) Task.isCancelled=\(Task.isCancelled)")
-        #endif
         if showLoadingIndicator { setLoading(true) }
         clearError()
 
-        #if DebugBuild
-            // swiftlint:disable:next line_length
-            print("[FETCH] Before async let. Task.isCancelled=\(Task.isCancelled) testCount=\(testCount) isRefreshing=\(isRefreshing)")
-        #endif
         // Fetch count and active session in parallel
         async let countError: Error? = fetchTestCount(forceRefresh: forceRefresh)
         async let activeSessionError: Error? = fetchActiveSession(forceRefresh: forceRefresh)
@@ -66,34 +58,22 @@ class DashboardViewModel: BaseViewModel {
 
     /// Refresh dashboard data (pull-to-refresh)
     func refreshDashboard() async {
-        #if DebugBuild
-            print("[REFRESH] refreshDashboard started. Task.isCancelled=\(Task.isCancelled)")
-        #endif
         await withRefreshing {
             // Clear cache and force refresh
             await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
             await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
-            #if DebugBuild
-                print("[REFRESH] After cache clear. Task.isCancelled=\(Task.isCancelled)")
-            #endif
             // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
             // handles UI feedback. Calling setLoading(true) here would swap the
             // ScrollView for LoadingView, destroying the refreshable context and
             // cancelling the in-flight network request (NSURLErrorDomain Code=-999).
             await self.fetchDashboardData(forceRefresh: true, showLoadingIndicator: false)
         }
-        #if DebugBuild
-            print("[REFRESH] refreshDashboard finished. Task.isCancelled=\(Task.isCancelled)")
-        #endif
     }
 
     /// Abandon the active test session
     /// - Note: This will mark the test as abandoned and clear the active session state
     func abandonActiveTest() async {
         guard let sessionId = activeTestSession?.id else {
-            #if DebugBuild
-                print("[WARN] No active test session to abandon")
-            #endif
             return
         }
 
@@ -104,11 +84,6 @@ class DashboardViewModel: BaseViewModel {
 
         do {
             let response = try await apiService.abandonTest(sessionId: sessionId)
-
-            #if DebugBuild
-                print("[SUCCESS] Test abandoned: \(response.message)")
-                print("   Responses saved: \(response.responsesSaved)")
-            #endif
 
             // Track abandonment from dashboard
             analyticsService.trackTestAbandonedFromDashboard(
@@ -146,7 +121,8 @@ class DashboardViewModel: BaseViewModel {
 
         do {
             let paginatedResponse = try await apiService.getTestHistory(limit: 1, offset: nil)
-            testCount = paginatedResponse.totalCount
+            let newCount = paginatedResponse.totalCount
+            if testCount != newCount { testCount = newCount }
             return nil
 
         } catch is CancellationError {
@@ -228,8 +204,11 @@ class DashboardViewModel: BaseViewModel {
             // inflating session-detection counts with repeated reads of
             // already-known state.
         } else {
-            activeTestSession = nil
-            activeSessionQuestionsAnswered = nil
+            // Guard against nil→nil @Published assignments: every assignment fires
+            // objectWillChange regardless of whether the value changed, triggering a
+            // SwiftUI re-render that cancels the in-flight .refreshable task.
+            if activeTestSession != nil { activeTestSession = nil }
+            if activeSessionQuestionsAnswered != nil { activeSessionQuestionsAnswered = nil }
         }
     }
 

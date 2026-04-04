@@ -76,21 +76,10 @@ struct HistoryView: View {
             viewModel.applyFiltersAndSort()
         }
         .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentView)) { _ in
-            #if DebugBuild
-                print("[HistoryView] .refreshCurrentView notification received — vm: \(ObjectIdentifier(viewModel))")
-            #endif
             Task {
                 await viewModel.refreshHistory()
             }
         }
-        #if DebugBuild
-        .onAppear {
-                print("[HistoryView] onAppear — vm: \(ObjectIdentifier(viewModel))")
-            }
-            .onDisappear {
-                print("[HistoryView] onDisappear — vm: \(ObjectIdentifier(viewModel))")
-            }
-        #endif
     }
 
     private var historyList: some View {

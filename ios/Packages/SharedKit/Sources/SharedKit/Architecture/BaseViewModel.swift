@@ -4,8 +4,11 @@ import Foundation
 /// Base class for ViewModels providing common functionality
 open class BaseViewModel: ObservableObject {
     @Published public var isLoading: Bool = false
-    /// Indicates whether a pull-to-refresh operation is in progress
-    @Published public var isRefreshing: Bool = false
+    /// Indicates whether a pull-to-refresh operation is in progress.
+    /// Not `@Published` intentionally: publishing this change triggers a SwiftUI re-render that passes
+    /// a new closure to `.refreshable`, causing `UIKitRefreshControl.configuration.didset` to call
+    /// `swift_task_cancel` on the in-flight task — cancelling the very refresh it was meant to guard.
+    public var isRefreshing: Bool = false
     @Published public var error: Error?
     /// Indicates whether the last failed operation can be retried
     @Published public var canRetry: Bool = false
@@ -58,14 +61,19 @@ open class BaseViewModel: ObservableObject {
 
     /// Clear any existing error
     open func clearError() {
-        error = nil
-        canRetry = false
+        // Guard each assignment so @Published only fires objectWillChange when the value
+        // actually changes. Unconditional assignment (even to the same value) fires
+        // objectWillChange, which triggers a SwiftUI re-render that passes a new closure
+        // to .refreshable — causing UIKitRefreshControl.configuration.didset to call
+        // swift_task_cancel on the in-flight refresh task.
+        if error != nil { error = nil }
+        if canRetry { canRetry = false }
         lastFailedOperation = nil
     }
 
     /// Set loading state
     open func setLoading(_ loading: Bool) {
-        isLoading = loading
+        if isLoading != loading { isLoading = loading }
     }
 
     /// Runs `operation` guarded against concurrent calls, setting `isRefreshing` for the duration.

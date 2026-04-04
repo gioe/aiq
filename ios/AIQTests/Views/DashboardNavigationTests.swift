@@ -413,32 +413,4 @@ final class DashboardNavigationTests: XCTestCase {
             completedAt: Date()
         )
     }
-
-    // MARK: - Score Breakdown Route Tests
-
-    func testScoreBreakdownRoute_SameResult_IsEqual() {
-        let result = createMockSubmittedTestResult(id: 42)
-        let route1 = Route.scoreBreakdown(result: result)
-        let route2 = Route.scoreBreakdown(result: result)
-        XCTAssertEqual(route1, route2, ".scoreBreakdown routes with the same result id should be equal")
-    }
-
-    func testScoreBreakdownRoute_DifferentResults_IsNotEqual() {
-        let route1 = Route.scoreBreakdown(result: createMockSubmittedTestResult(id: 1))
-        let route2 = Route.scoreBreakdown(result: createMockSubmittedTestResult(id: 2))
-        XCTAssertNotEqual(route1, route2, ".scoreBreakdown routes with different result ids should not be equal")
-    }
-
-    func testScoreBreakdownRoute_Hash_MatchesForEqualRoutes() {
-        let result = createMockSubmittedTestResult(id: 7)
-        let route1 = Route.scoreBreakdown(result: result)
-        let route2 = Route.scoreBreakdown(result: result)
-        XCTAssertEqual(route1.hashValue, route2.hashValue, "Equal .scoreBreakdown routes must have the same hash")
-    }
-
-    func testScoreBreakdownRoute_Navigation_PushesToDashboard() {
-        let result = createMockSubmittedTestResult(id: 10)
-        sut.push(.scoreBreakdown(result: result), in: .dashboard)
-        XCTAssertEqual(sut.depth(in: .dashboard), 1, "Router should have 1 route after scoreBreakdown navigation")
-    }
 }

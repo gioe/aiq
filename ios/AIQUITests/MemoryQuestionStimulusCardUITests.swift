@@ -143,36 +143,28 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
     /// continue button reachable).
     private func assertStimulusPhaseReady() {
         let loadFailureOverlay = app.otherElements["testTakingView.loadFailureOverlay"]
-        let debugState = app.staticTexts["testTakingView.debugState"]
         let memoryContainer = app.descendants(matching: .any)["memoryQuestionView.container"]
         let questionCardAny = app.descendants(matching: .any)["testTakingView.questionCard"]
         let answerInput = app.descendants(matching: .any)["answerInput.container"]
 
         let hasLoadFailure = loadFailureOverlay.exists
-        let hasDebugState = debugState.waitForExistence(timeout: standardTimeout)
         let hasMemoryContainer = memoryContainer.waitForExistence(timeout: standardTimeout)
         let hasQuestionCard = questionCardAny.exists
         let hasAnswerInput = answerInput.exists
-        let debugLabel = hasDebugState ? debugState.label : "(not found)"
         let hasQuestionPhase = app.descendants(matching: .any)["memoryQuestionView.questionPhase"].exists
 
         takeScreenshot(named: "AfterExitButton_BeforeContinue")
 
         XCTAssertFalse(hasLoadFailure, "DIAG: load failure overlay IS showing — questions failed to load")
         XCTAssertTrue(
-            hasDebugState,
-            "DIAG: debugState=\(debugLabel) loadFailure=\(hasLoadFailure) " +
-                "memContainer=\(hasMemoryContainer) qCard=\(hasQuestionCard) answerInput=\(hasAnswerInput)"
-        )
-        XCTAssertTrue(
             hasMemoryContainer,
             "DIAG: memoryQuestionView.container not found. " +
-                "debugState=\(debugLabel) qCard=\(hasQuestionCard) answerInput=\(hasAnswerInput)"
+                "qCard=\(hasQuestionCard) answerInput=\(hasAnswerInput)"
         )
         XCTAssertFalse(
             hasQuestionPhase,
             "DIAG: questionPhase IS showing (showingStimulus=false). " +
-                "memContainer=\(hasMemoryContainer) debugState=\(debugLabel)"
+                "memContainer=\(hasMemoryContainer)"
         )
 
         let buttonIds = app.buttons.allElementsBoundByIndex.map(\.identifier).joined(separator: ", ")
@@ -180,7 +172,7 @@ final class MemoryQuestionStimulusCardUITests: BaseUITest {
         XCTAssertTrue(
             wait(for: continueButton, timeout: networkTimeout),
             "Continue button not found. Buttons present: [\(buttonIds)]. " +
-                "stimulusCard=\(stimulusCardExists) debugState=\(debugLabel)"
+                "stimulusCard=\(stimulusCardExists)"
         )
     }
 }

@@ -33,33 +33,58 @@ import Foundation
 /// let view = DashboardView(serviceContainer: mockContainer)
 /// ```
 enum ViewModelFactory {
+    // MARK: - Tab-Level ViewModel Cache
+
+    /// Cached tab-level ViewModels to prevent re-creation on tab switch.
+    /// SwiftUI's TabView can destroy and recreate child view state when switching tabs,
+    /// causing @StateObject to create new ViewModel instances. Caching here ensures the
+    /// same instance is returned regardless of how many times the factory is called.
+    @MainActor private static var cachedDashboardVM: DashboardViewModel?
+    @MainActor private static var cachedHistoryVM: HistoryViewModel?
+    @MainActor private static var cachedSettingsVM: SettingsViewModel?
+
+    /// Reset cached tab-level ViewModels. Call on logout or account deletion
+    /// so that re-login creates fresh instances with no stale state.
+    @MainActor
+    static func resetTabViewModels() {
+        cachedDashboardVM = nil
+        cachedHistoryVM = nil
+        cachedSettingsVM = nil
+    }
+
     // MARK: - Dashboard
 
-    /// Create a DashboardViewModel with resolved dependencies
+    /// Create or return a cached DashboardViewModel with resolved dependencies
     /// - Parameter container: ServiceContainer to resolve dependencies from
     /// - Returns: Configured DashboardViewModel instance
     @MainActor
     static func makeDashboardViewModel(container: ServiceContainer) -> DashboardViewModel {
+        if let cached = cachedDashboardVM { return cached }
         guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
             fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
         }
-        return DashboardViewModel(apiService: apiService)
+        let vm = DashboardViewModel(apiService: apiService)
+        cachedDashboardVM = vm
+        return vm
     }
 
     // MARK: - History
 
-    /// Create a HistoryViewModel with resolved dependencies
+    /// Create or return a cached HistoryViewModel with resolved dependencies
     /// - Parameter container: ServiceContainer to resolve dependencies from
     /// - Returns: Configured HistoryViewModel instance
     @MainActor
     static func makeHistoryViewModel(container: ServiceContainer) -> HistoryViewModel {
+        if let cached = cachedHistoryVM { return cached }
         guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
             fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
         }
         guard let preferencesStorage = container.resolve(HistoryPreferencesStorageProtocol.self) else {
             fatalError("HistoryPreferencesStorageProtocol not registered in ServiceContainer")
         }
-        return HistoryViewModel(apiService: apiService, preferencesStorage: preferencesStorage)
+        let vm = HistoryViewModel(apiService: apiService, preferencesStorage: preferencesStorage)
+        cachedHistoryVM = vm
+        return vm
     }
 
     // MARK: - Test Taking
@@ -139,11 +164,12 @@ enum ViewModelFactory {
 
     // MARK: - Settings
 
-    /// Create a SettingsViewModel with resolved dependencies
+    /// Create or return a cached SettingsViewModel with resolved dependencies
     /// - Parameter container: ServiceContainer to resolve dependencies from
     /// - Returns: Configured SettingsViewModel instance
     @MainActor
     static func makeSettingsViewModel(container: ServiceContainer) -> SettingsViewModel {
+        if let cached = cachedSettingsVM { return cached }
         guard let authManager = container.resolve(AuthManagerProtocol.self) else {
             fatalError("AuthManagerProtocol not registered in ServiceContainer")
         }
@@ -153,10 +179,12 @@ enum ViewModelFactory {
         guard let biometricPreferenceStorage = container.resolve(BiometricPreferenceStorageProtocol.self) else {
             fatalError("BiometricPreferenceStorageProtocol not registered in ServiceContainer")
         }
-        return SettingsViewModel(
+        let vm = SettingsViewModel(
             authManager: authManager,
             biometricAuthManager: biometricAuthManager,
             biometricPreferenceStorage: biometricPreferenceStorage
         )
+        cachedSettingsVM = vm
+        return vm
     }
 }

@@ -45,12 +45,9 @@ struct DashboardView: View {
             )
             .ignoresSafeArea()
 
-            // Guard both loading and error states with !isRefreshing: swapping DashboardScrollBody
-            // for LoadingView or ErrorView during a pull-to-refresh destroys the ScrollView
-            // context and cancels the .refreshable task (NSURLErrorDomain Code=-999).
-            if viewModel.isLoading && !viewModel.hasTests && !viewModel.isRefreshing {
+            if viewModel.isLoading && !viewModel.hasTests {
                 LoadingView(message: "Loading dashboard...")
-            } else if viewModel.error != nil && !viewModel.isRefreshing {
+            } else if viewModel.error != nil {
                 ErrorView(
                     error: viewModel.error!,
                     retryAction: {
@@ -67,23 +64,11 @@ struct DashboardView: View {
                 DashboardScrollBody(
                     userName: authManager.userFullName,
                     onRefresh: {
-                        #if DebugBuild
-                            // swiftlint:disable:next line_length
-                            print("[REFRESH-VIEW] .refreshable action invoked. isLoading=\(viewModel.isLoading) hasTests=\(viewModel.hasTests) isRefreshing=\(viewModel.isRefreshing) error=\(viewModel.error != nil)")
-                        #endif
                         await viewModel.refreshDashboard()
                     },
                     onboardingInfoCard: { onboardingInfoCardSection },
                     bottomContent: { dashboardBottomContent }
                 )
-                .onDisappear {
-                    #if DebugBuild
-                        if viewModel.isRefreshing {
-                            // swiftlint:disable:next line_length
-                            print("[REFRESH-VIEW] ⚠️ DashboardScrollBody disappeared while isRefreshing=true! isLoading=\(viewModel.isLoading) hasTests=\(viewModel.hasTests) error=\(viewModel.error != nil)")
-                        }
-                    #endif
-                }
             }
         }
         .navigationTitle("Dashboard")

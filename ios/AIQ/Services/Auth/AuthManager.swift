@@ -189,6 +189,9 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         isLoading = false
         authError = nil
 
+        // Clear cached tab-level ViewModels so re-login creates fresh instances
+        ViewModelFactory.resetTabViewModels()
+
         // Clear all cached data so re-login fetches fresh data
         await DataCache.shared.clearAll()
 
@@ -224,6 +227,9 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             currentUser = nil
             isLoading = false
             authError = nil
+
+            // Clear cached tab-level ViewModels so re-login creates fresh instances
+            ViewModelFactory.resetTabViewModels()
 
             // Track analytics
             AnalyticsService.shared.track(event: .accountDeleted)
