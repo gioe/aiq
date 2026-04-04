@@ -248,6 +248,119 @@ final class DashboardViewModelTests: XCTestCase {
         )
     }
 
+    // MARK: - Local Answer Count Merge Tests
+
+    func testFetchActiveSession_UsesLocalAnswerCount_WhenHigherThanBackend() async {
+        // Given - backend reports 0 but local storage has 3 answers
+        let mockAnswerStorage = MockLocalAnswerStorage()
+        sut = DashboardViewModel(
+            apiService: mockService,
+            analyticsService: mockAnalyticsService,
+            answerStorage: mockAnswerStorage
+        )
+
+        let mockSession = MockDataFactory.makeTestSession(
+            id: 123,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date()
+        )
+        let mockResponse = TestSessionStatusResponse(
+            questions: nil,
+            questionsCount: 0,
+            session: mockSession
+        )
+        await mockService.getActiveTestResponse = mockResponse
+
+        mockAnswerStorage.mockProgress = SavedTestProgress(
+            sessionId: 123,
+            userId: 1,
+            questionIds: [1, 2, 3],
+            userAnswers: [1: "answer1", 2: "answer2", 3: "answer3"],
+            currentQuestionIndex: 3,
+            savedAt: Date(),
+            sessionStartedAt: Date(),
+            stimulusSeen: []
+        )
+
+        // When
+        await sut.fetchActiveSession()
+
+        // Then
+        XCTAssertEqual(sut.activeSessionQuestionsAnswered, 3, "Should use local answer count when available")
+    }
+
+    func testFetchActiveSession_FallsBackToBackendCount_WhenNoLocalProgress() async {
+        // Given - no local progress, backend reports 5
+        let mockAnswerStorage = MockLocalAnswerStorage()
+        sut = DashboardViewModel(
+            apiService: mockService,
+            analyticsService: mockAnalyticsService,
+            answerStorage: mockAnswerStorage
+        )
+
+        let mockSession = MockDataFactory.makeTestSession(
+            id: 456,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date()
+        )
+        let mockResponse = TestSessionStatusResponse(
+            questions: nil,
+            questionsCount: 5,
+            session: mockSession
+        )
+        await mockService.getActiveTestResponse = mockResponse
+
+        // mockAnswerStorage.mockProgress is nil by default
+
+        // When
+        await sut.fetchActiveSession()
+
+        // Then
+        XCTAssertEqual(sut.activeSessionQuestionsAnswered, 5, "Should fall back to backend count when no local progress")
+    }
+
+    func testFetchActiveSession_FallsBackToBackendCount_WhenSessionIdMismatch() async {
+        // Given - local progress is for a different session
+        let mockAnswerStorage = MockLocalAnswerStorage()
+        sut = DashboardViewModel(
+            apiService: mockService,
+            analyticsService: mockAnalyticsService,
+            answerStorage: mockAnswerStorage
+        )
+
+        let mockSession = MockDataFactory.makeTestSession(
+            id: 789,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date()
+        )
+        let mockResponse = TestSessionStatusResponse(
+            questions: nil,
+            questionsCount: 2,
+            session: mockSession
+        )
+        await mockService.getActiveTestResponse = mockResponse
+
+        mockAnswerStorage.mockProgress = SavedTestProgress(
+            sessionId: 999, // Different session ID
+            userId: 1,
+            questionIds: [1, 2, 3],
+            userAnswers: [1: "a", 2: "b", 3: "c"],
+            currentQuestionIndex: 3,
+            savedAt: Date(),
+            sessionStartedAt: Date(),
+            stimulusSeen: []
+        )
+
+        // When
+        await sut.fetchActiveSession()
+
+        // Then
+        XCTAssertEqual(sut.activeSessionQuestionsAnswered, 2, "Should fall back to backend count when session IDs don't match")
+    }
+
     // MARK: - Computed Properties Tests
 
     func testHasActiveTest_ReturnsTrueWhenSessionExists() {

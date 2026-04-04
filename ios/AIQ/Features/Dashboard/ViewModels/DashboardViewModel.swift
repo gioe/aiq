@@ -16,12 +16,18 @@ class DashboardViewModel: BaseViewModel {
 
     private let apiService: OpenAPIServiceProtocol
     private let analyticsService: AnalyticsService
+    private let answerStorage: LocalAnswerStorageProtocol
 
     // MARK: - Initialization
 
-    init(apiService: OpenAPIServiceProtocol, analyticsService: AnalyticsService = .shared) {
+    init(
+        apiService: OpenAPIServiceProtocol,
+        analyticsService: AnalyticsService = .shared,
+        answerStorage: LocalAnswerStorageProtocol = LocalAnswerStorage()
+    ) {
         self.apiService = apiService
         self.analyticsService = analyticsService
+        self.answerStorage = answerStorage
         super.init()
     }
 
@@ -198,7 +204,8 @@ class DashboardViewModel: BaseViewModel {
     private func updateActiveSessionState(_ response: TestSessionStatusResponse?) {
         if let response {
             activeTestSession = response.session
-            activeSessionQuestionsAnswered = response.questionsCount
+            activeSessionQuestionsAnswered = localAnswerCount(for: response.session.id)
+                ?? response.questionsCount
             // Note: analytics tracking is the caller's responsibility;
             // cache-hit loads skip trackActiveSessionDetected to avoid
             // inflating session-detection counts with repeated reads of
@@ -243,5 +250,17 @@ class DashboardViewModel: BaseViewModel {
 
     func setActiveTestSession(_ session: TestSession) {
         activeTestSession = session
+    }
+
+    // MARK: - Private Helpers
+
+    /// Returns the number of non-empty locally-saved answers for the given session,
+    /// or nil if no matching local progress exists.
+    private func localAnswerCount(for sessionId: Int) -> Int? {
+        guard let saved = answerStorage.loadProgress(),
+              saved.sessionId == sessionId
+        else { return nil }
+        let count = saved.userAnswers.values.filter { !$0.isEmpty }.count
+        return count > 0 ? count : nil
     }
 }
