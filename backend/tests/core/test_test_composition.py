@@ -1353,3 +1353,73 @@ class TestAnchorItemInclusion:
 
         # Anchor should be in the selection
         assert anchor.id in [q.id for q in selected]
+
+
+class TestDomainCompositionTracking:
+    """Regression tests for domain composition metadata accuracy (TASK-293)."""
+
+    def test_domain_metadata_matches_actual_questions_with_fallback(
+        self, db_session, test_user
+    ):
+        """Domain composition metadata must reflect ALL selected questions,
+        including when the final fallback is triggered.
+
+        Before the fix, actual_composition["domain"] only counted fallback
+        questions when fallback was used, omitting anchors and stratified picks.
+        """
+        question_types = list(QuestionType)
+
+        # Create a sparse pool: only math questions available for most strata.
+        # This forces the final fallback to kick in and fill gaps with math.
+        for j in range(30):
+            q = Question(
+                question_text=f"Math-{j}",
+                question_type=QuestionType.MATH,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                source_llm="test-llm",
+                judge_score=0.95,
+                is_active=True,
+                quality_flag="normal",
+                discrimination=0.40,
+            )
+            db_session.add(q)
+
+        # Add 1 question per non-math domain so stratified selection can fill some
+        for qt in question_types:
+            if qt == QuestionType.MATH:
+                continue
+            q = Question(
+                question_text=f"Sparse-{qt.value}",
+                question_type=qt,
+                difficulty_level=DifficultyLevel.MEDIUM,
+                correct_answer="A",
+                answer_options={"A": "1", "B": "2", "C": "3", "D": "4"},
+                source_llm="test-llm",
+                judge_score=0.95,
+                is_active=True,
+                quality_flag="normal",
+                discrimination=0.30,
+            )
+            db_session.add(q)
+
+        db_session.commit()
+
+        selected, metadata = select_stratified_questions(db_session, test_user.id, 10)
+
+        # Count actual domain distribution from the selected questions
+        from collections import Counter
+
+        actual_domains = Counter(q.question_type.value for q in selected)
+
+        # Metadata domain counts must match actual question domains exactly
+        for domain, count in actual_domains.items():
+            assert metadata["domain"].get(domain, 0) == count, (
+                f"Domain '{domain}': metadata says {metadata['domain'].get(domain, 0)} "
+                f"but actual questions have {count}"
+            )
+
+        # And totals must match
+        assert sum(metadata["domain"].values()) == len(selected)
+        assert metadata["total"] == len(selected)
