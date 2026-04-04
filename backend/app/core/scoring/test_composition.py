@@ -381,24 +381,19 @@ def select_stratified_questions(
 
         selected_questions.extend(fallback_questions)
 
-        # Track fallback questions in actual composition
+        # Track fallback questions in difficulty composition
         for q in fallback_questions:
             diff_level = q.difficulty_level.value
-            domain = q.question_type.value
             actual_composition["difficulty"][diff_level] = (
                 actual_composition["difficulty"].get(diff_level, 0) + 1
             )
-            actual_composition["domain"][domain] = (
-                actual_composition["domain"].get(domain, 0) + 1
-            )
 
-    # Track domain distribution in actual composition
-    if not actual_composition["domain"]:  # If empty (from fallback only)
-        for question in selected_questions:
-            domain = question.question_type.value
-            actual_composition["domain"][domain] = (
-                actual_composition["domain"].get(domain, 0) + 1
-            )
+    # Track domain distribution from ALL selected questions (anchors + stratified + fallback)
+    for question in selected_questions:
+        domain = question.question_type.value
+        actual_composition["domain"][domain] = (
+            actual_composition["domain"].get(domain, 0) + 1
+        )
 
     actual_composition["total"] = len(selected_questions)
 
@@ -766,24 +761,19 @@ async def async_select_stratified_questions(
 
         selected_questions.extend(fallback_questions)
 
-        # Track fallback questions in actual composition
+        # Track fallback questions in difficulty composition
         for q in fallback_questions:
             diff_level = q.difficulty_level.value
-            domain = q.question_type.value
             actual_composition["difficulty"][diff_level] = (
                 actual_composition["difficulty"].get(diff_level, 0) + 1
             )
-            actual_composition["domain"][domain] = (
-                actual_composition["domain"].get(domain, 0) + 1
-            )
 
-    # Track domain distribution in actual composition
-    if not actual_composition["domain"]:  # If empty (from fallback only)
-        for question in selected_questions:
-            domain = question.question_type.value
-            actual_composition["domain"][domain] = (
-                actual_composition["domain"].get(domain, 0) + 1
-            )
+    # Track domain distribution from ALL selected questions (anchors + stratified + fallback)
+    for question in selected_questions:
+        domain = question.question_type.value
+        actual_composition["domain"][domain] = (
+            actual_composition["domain"].get(domain, 0) + 1
+        )
 
     actual_composition["total"] = len(selected_questions)
 
