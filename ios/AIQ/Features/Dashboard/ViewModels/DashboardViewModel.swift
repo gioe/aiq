@@ -101,6 +101,9 @@ class DashboardViewModel: BaseViewModel {
             activeTestSession = nil
             activeSessionQuestionsAnswered = nil
 
+            // Clear locally saved progress to prevent stale "Resume Test?" dialog
+            answerStorage.clearProgress()
+
             // Refresh dashboard to update test history (abandoned test might appear)
             await refreshDashboard()
 

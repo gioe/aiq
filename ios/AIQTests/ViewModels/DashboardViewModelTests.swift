@@ -7,12 +7,14 @@ final class DashboardViewModelTests: XCTestCase {
     var sut: DashboardViewModel!
     var mockService: MockOpenAPIService!
     var mockAnalyticsService: MockAnalyticsService!
+    var mockAnswerStorage: MockLocalAnswerStorage!
 
     override func setUp() async throws {
         try await super.setUp()
         mockService = MockOpenAPIService()
         mockAnalyticsService = MockAnalyticsService()
-        sut = DashboardViewModel(apiService: mockService, analyticsService: mockAnalyticsService)
+        mockAnswerStorage = MockLocalAnswerStorage()
+        sut = DashboardViewModel(apiService: mockService, analyticsService: mockAnalyticsService, answerStorage: mockAnswerStorage)
 
         await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
         await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
@@ -491,6 +493,7 @@ final class DashboardViewModelTests: XCTestCase {
         )
         XCTAssertEqual(mockAnalyticsService.lastAbandonedSessionId, 456, "Should track correct sessionId")
         XCTAssertEqual(mockAnalyticsService.lastAbandonedQuestionsAnswered, 5, "Should track correct questionsAnswered")
+        XCTAssertTrue(mockAnswerStorage.clearProgressCalled, "clearProgress should be called to prevent stale resume dialog")
     }
 
     func testAbandonActiveTest_NoActiveSession() async {
@@ -539,6 +542,7 @@ final class DashboardViewModelTests: XCTestCase {
             mockAnalyticsService.trackTestAbandonedFromDashboardCalled,
             "trackTestAbandonedFromDashboard should not be called when abandon fails"
         )
+        XCTAssertFalse(mockAnswerStorage.clearProgressCalled, "clearProgress should NOT be called when abandon API fails")
     }
 
     func testAbandonActiveTest_InvalidatesCache() async {
