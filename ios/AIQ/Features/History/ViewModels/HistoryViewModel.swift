@@ -88,7 +88,17 @@ class HistoryViewModel: BaseViewModel {
         // Load stored preferences after initialization
         sortOrder = preferencesStorage.sortOrder
         dateFilter = preferencesStorage.dateFilter
+
+        #if DebugBuild
+            print("[HistoryViewModel] init \(ObjectIdentifier(self))")
+        #endif
     }
+
+    #if DebugBuild
+        deinit {
+            print("[HistoryViewModel] deinit \(ObjectIdentifier(self))")
+        }
+    #endif
 
     // MARK: - Public Methods
 
@@ -257,6 +267,10 @@ class HistoryViewModel: BaseViewModel {
 
     /// Refresh history data (pull-to-refresh)
     func refreshHistory() async {
+        #if DebugBuild
+            let frames = Thread.callStackSymbols.prefix(4).joined(separator: "\n  ")
+            print("[refreshHistory] called — stack:\n  \(frames)")
+        #endif
         await withRefreshing {
             // Clear cache and force refresh
             await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
