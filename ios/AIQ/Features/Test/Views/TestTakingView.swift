@@ -448,21 +448,46 @@ struct TestTakingView: View {
     }
 
     private var submitButton: some View {
-        Button {
-            Task {
-                await viewModel.submitTest()
+        let isDisabled = !viewModel.allQuestionsAnswered || viewModel.shouldShowSubmitErrorBanner
+        let unansweredCount = viewModel.totalQuestionCount - viewModel.answeredCount
+
+        return VStack(spacing: 6) {
+            Button {
+                Task {
+                    await viewModel.submitTest()
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("Submit Test")
+                }
+                .frame(maxWidth: .infinity)
+                .fontWeight(.semibold)
             }
-        } label: {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                Text("Submit Test")
+            .buttonStyle(.borderedProminent)
+            .disabled(isDisabled)
+            .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.submitButton)
+            .accessibilityLabel(submitAccessibilityLabel(
+                isDisabled: isDisabled,
+                unansweredCount: unansweredCount
+            ))
+
+            if !viewModel.allQuestionsAnswered {
+                Text("Answer all \(viewModel.totalQuestionCount) questions to submit (\(unansweredCount) remaining)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.submitDisabledHint)
             }
-            .frame(maxWidth: .infinity)
-            .fontWeight(.semibold)
         }
-        .buttonStyle(.borderedProminent)
-        .disabled(!viewModel.allQuestionsAnswered || viewModel.shouldShowSubmitErrorBanner)
-        .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.submitButton)
+    }
+
+    private func submitAccessibilityLabel(
+        isDisabled: Bool,
+        unansweredCount: Int
+    ) -> String {
+        guard isDisabled, unansweredCount > 0 else { return "Submit Test" }
+        let plural = unansweredCount == 1 ? "" : "s"
+        return "Submit Test, disabled. Answer \(unansweredCount) more question\(plural) to submit."
     }
 }
 

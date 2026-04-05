@@ -103,6 +103,7 @@ enum AccessibilityIdentifiers {
         static let previousButton = "testTakingView.previousButton"
         static let nextButton = "testTakingView.nextButton"
         static let submitButton = "testTakingView.submitButton"
+        static let submitDisabledHint = "testTakingView.submitDisabledHint"
         static let exitButton = "testTakingView.exitButton"
         static let timerLabel = "testTakingView.timerLabel"
         static let timeWarningBanner = "testTakingView.timeWarningBanner"
