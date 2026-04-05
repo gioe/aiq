@@ -79,6 +79,14 @@ struct IQTrendChart: View {
                             Text("Avg (100)")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
+                                .fixedSize()
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Color(.systemBackground)
+                                        .opacity(0.8)
+                                )
+                                .cornerRadius(2)
                         }
                 }
                 .chartYScale(domain: chartYDomain)
