@@ -21,7 +21,7 @@ struct QuestionCardView: View {
         // empty label.  The inner screenshotPrevented Text retains its own
         // "questionText" identifier and is not affected by the overlay.
         VStack(alignment: .leading) {
-            Text(question.questionText)
+            Text(question.questionText.markdownAttributed)
                 .font(.title3)
                 .fontWeight(.medium)
                 .foregroundColor(.primary)

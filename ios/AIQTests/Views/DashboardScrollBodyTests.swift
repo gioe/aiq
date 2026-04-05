@@ -19,6 +19,7 @@ final class DashboardScrollBodyTests: XCTestCase {
             userName: "Test User",
             onRefresh: {},
             onboardingInfoCard: { EmptyView() },
+            scoreSummary: { EmptyView() },
             bottomContent: { EmptyView() }
         )
 
@@ -33,6 +34,7 @@ final class DashboardScrollBodyTests: XCTestCase {
             userName: nil,
             onRefresh: {},
             onboardingInfoCard: { EmptyView() },
+            scoreSummary: { EmptyView() },
             bottomContent: { EmptyView() }
         )
 

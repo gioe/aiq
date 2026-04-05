@@ -46,7 +46,7 @@ struct MemoryQuestionView: View {
 
                 // Stimulus content
                 if let stimulus = question.stimulus {
-                    Text(stimulus)
+                    Text(stimulus.markdownAttributed)
                         .font(.title3)
                         .fontWeight(.medium)
                         .fixedSize(horizontal: false, vertical: true)

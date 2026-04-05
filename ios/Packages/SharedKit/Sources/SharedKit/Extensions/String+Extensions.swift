@@ -10,4 +10,14 @@ public extension String {
     var trimmed: String {
         trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    /// Parses markdown bold markers (`**text**`) into an `AttributedString`.
+    /// Returns a plain `AttributedString` if parsing fails or no markdown is present.
+    var markdownAttributed: AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(
+            interpretedSyntax: .inlineOnlyPreservingWhitespace
+        )
+        return (try? AttributedString(markdown: self, options: options))
+            ?? AttributedString(self)
+    }
 }

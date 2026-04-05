@@ -39,7 +39,7 @@ struct AnswerInputView: View {
                         if reduceMotion {
                             userAnswer = option
                         } else {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 1.0)) {
                                 userAnswer = option
                             }
                         }
@@ -177,7 +177,7 @@ private struct OptionButton: View {
     var body: some View {
         Button(action: action) {
             HStack {
-                Text(option)
+                Text(option.markdownAttributed)
                     .font(.body)
                     .foregroundColor(foregroundColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
