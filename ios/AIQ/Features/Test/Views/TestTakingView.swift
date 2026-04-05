@@ -355,40 +355,42 @@ struct TestTakingView: View {
                 showQuestionGrid: $showQuestionGrid
             )
 
-            // Collapsible question navigation grid
-            if showQuestionGrid {
-                QuestionNavigationGrid(
-                    totalQuestions: viewModel.navigationState.questions.count,
-                    currentQuestionIndex: viewModel.navigationState.currentQuestionIndex,
-                    answeredQuestionIndices: viewModel.navigationState.answeredQuestionIndices,
-                    onQuestionTap: { index in
-                        withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
-                            viewModel.goToQuestion(at: index)
+            ZStack(alignment: .top) {
+                ScrollView {
+                    VStack(spacing: 24) {
+                        if let question = viewModel.currentQuestion {
+                            QuestionContentView(
+                                question: question,
+                                currentAnswer: Binding(
+                                    get: { viewModel.currentAnswer },
+                                    set: { viewModel.currentAnswer = $0 }
+                                ),
+                                isDisabled: viewModel.isLocked,
+                                questionNumber: viewModel.navigationState.currentQuestionIndex + 1,
+                                hasStimulusSeen: { viewModel.hasStimulusSeen(for: question.id) },
+                                markStimulusSeen: { viewModel.markStimulusSeen(for: question.id) }
+                            )
                         }
                     }
-                )
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .bannerSlideTransition(reduceMotion: reduceMotion)
-            }
-
-            ScrollView {
-                VStack(spacing: 24) {
-                    if let question = viewModel.currentQuestion {
-                        QuestionContentView(
-                            question: question,
-                            currentAnswer: Binding(
-                                get: { viewModel.currentAnswer },
-                                set: { viewModel.currentAnswer = $0 }
-                            ),
-                            isDisabled: viewModel.isLocked,
-                            questionNumber: viewModel.navigationState.currentQuestionIndex + 1,
-                            hasStimulusSeen: { viewModel.hasStimulusSeen(for: question.id) },
-                            markStimulusSeen: { viewModel.markStimulusSeen(for: question.id) }
-                        )
-                    }
+                    .padding()
                 }
-                .padding()
+
+                // Collapsible question navigation grid (overlay)
+                if showQuestionGrid {
+                    QuestionNavigationGrid(
+                        totalQuestions: viewModel.navigationState.questions.count,
+                        currentQuestionIndex: viewModel.navigationState.currentQuestionIndex,
+                        answeredQuestionIndices: viewModel.navigationState.answeredQuestionIndices,
+                        onQuestionTap: { index in
+                            withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
+                                viewModel.goToQuestion(at: index)
+                            }
+                        }
+                    )
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .bannerSlideTransition(reduceMotion: reduceMotion)
+                }
             }
 
             // Navigation controls
