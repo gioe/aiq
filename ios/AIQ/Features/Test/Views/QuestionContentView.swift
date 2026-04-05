@@ -10,7 +10,6 @@ struct QuestionContentView: View {
     @Binding var currentAnswer: String
     let isDisabled: Bool
     let questionNumber: Int
-    let totalQuestions: Int
     /// Returns whether the stimulus for the current question has already been seen.
     let hasStimulusSeen: () -> Bool
     /// Marks the stimulus for the current question as seen.
@@ -24,7 +23,6 @@ struct QuestionContentView: View {
             MemoryQuestionView(
                 question: question,
                 questionNumber: questionNumber,
-                totalQuestions: totalQuestions,
                 userAnswer: $currentAnswer,
                 showingStimulus: Binding(
                     get: { !hasStimulusSeen() },

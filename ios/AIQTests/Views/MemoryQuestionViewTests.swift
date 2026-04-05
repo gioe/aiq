@@ -20,7 +20,7 @@ final class MemoryQuestionViewTests: XCTestCase {
         let view = MemoryQuestionView(
             question: question,
             questionNumber: 1,
-            totalQuestions: 20,
+
             userAnswer: .constant(""),
             showingStimulus: .constant(true)
         )
@@ -42,7 +42,7 @@ final class MemoryQuestionViewTests: XCTestCase {
         let view = MemoryQuestionView(
             question: question,
             questionNumber: 5,
-            totalQuestions: 20,
+
             userAnswer: .constant(""),
             showingStimulus: .constant(true),
             isDisabled: true
@@ -65,7 +65,7 @@ final class MemoryQuestionViewTests: XCTestCase {
         let firstView = MemoryQuestionView(
             question: question,
             questionNumber: 1,
-            totalQuestions: 20,
+
             userAnswer: .constant(""),
             showingStimulus: .constant(true)
         )
@@ -75,7 +75,7 @@ final class MemoryQuestionViewTests: XCTestCase {
         let lastView = MemoryQuestionView(
             question: question,
             questionNumber: 20,
-            totalQuestions: 20,
+
             userAnswer: .constant(""),
             showingStimulus: .constant(true)
         )
@@ -98,7 +98,7 @@ final class MemoryQuestionViewTests: XCTestCase {
             let view = MemoryQuestionView(
                 question: question,
                 questionNumber: 1,
-                totalQuestions: 20,
+
                 userAnswer: .constant(""),
                 showingStimulus: .constant(true)
             )
@@ -280,7 +280,7 @@ final class MemoryQuestionViewTests: XCTestCase {
         let view = MemoryQuestionView(
             question: question,
             questionNumber: 1,
-            totalQuestions: 10,
+
             userAnswer: .constant(""),
             showingStimulus: .constant(true)
         )
@@ -317,7 +317,7 @@ final class MemoryQuestionViewTests: XCTestCase {
         let view = MemoryQuestionView(
             question: question,
             questionNumber: 15,
-            totalQuestions: 20,
+
             userAnswer: .constant(""),
             showingStimulus: .constant(true)
         )
@@ -340,7 +340,7 @@ final class MemoryQuestionViewTests: XCTestCase {
         let view = MemoryQuestionView(
             question: question,
             questionNumber: 8,
-            totalQuestions: 20,
+
             userAnswer: .constant(""),
             showingStimulus: .constant(true)
         )
@@ -364,7 +364,7 @@ final class MemoryQuestionViewTests: XCTestCase {
         let view = MemoryQuestionView(
             question: question,
             questionNumber: 1,
-            totalQuestions: 5,
+
             userAnswer: .constant(""),
             showingStimulus: .constant(true)
         )
@@ -387,7 +387,7 @@ final class MemoryQuestionViewTests: XCTestCase {
         let view = MemoryQuestionView(
             question: question,
             questionNumber: 1,
-            totalQuestions: 5,
+
             userAnswer: .constant("Apple"),
             showingStimulus: .constant(true)
         )

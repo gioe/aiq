@@ -172,7 +172,6 @@ struct AdaptiveTestView: View {
                             ),
                             isDisabled: viewModel.isLocked,
                             questionNumber: viewModel.itemsAdministered,
-                            totalQuestions: Constants.Test.maxAdaptiveItems,
                             hasStimulusSeen: { viewModel.hasStimulusSeen(for: question.id) },
                             markStimulusSeen: { viewModel.markStimulusSeen(for: question.id) }
                         )

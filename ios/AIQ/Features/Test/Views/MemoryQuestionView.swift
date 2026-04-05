@@ -9,7 +9,6 @@ import SwiftUI
 struct MemoryQuestionView: View {
     let question: Question
     let questionNumber: Int
-    let totalQuestions: Int
     @Binding var userAnswer: String
     /// Whether we're showing the stimulus (true) or the question (false)
     @Binding var showingStimulus: Bool
@@ -39,17 +38,6 @@ struct MemoryQuestionView: View {
         VStack(spacing: 24) {
             // Stimulus card
             VStack(alignment: .leading, spacing: 20) {
-                // Header
-                HStack {
-                    Text("question.card.question.of.format".localized(with: questionNumber, totalQuestions))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Spacer()
-                }
-
                 // Instruction
                 Text("memory.question.remember.content".localized)
                     .font(.headline)
@@ -147,7 +135,6 @@ struct MemoryQuestionView: View {
                     answerOptions: ["Apple", "Grape", "Mango", "Kiwi"]
                 ),
                 questionNumber: 5,
-                totalQuestions: 20,
                 userAnswer: .constant(""),
                 showingStimulus: .constant(true)
             )
