@@ -198,16 +198,9 @@ class NotificationSettingsViewModel: BaseViewModel {
 
     /// Observe app lifecycle events to check for permission changes
     private func observeAppLifecycle() {
-        // Check permission status when app becomes active (user may have changed it in Settings)
-        NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    await self?.checkSystemPermission()
-                }
-            }
-            .store(in: &viewCancellables)
-
-        // Also check when app enters foreground
+        // Check permission status when app enters foreground (user may have changed it in Settings).
+        // Only willEnterForeground is needed — didBecomeActive fires immediately after and would
+        // duplicate the check.
         NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
@@ -220,6 +213,7 @@ class NotificationSettingsViewModel: BaseViewModel {
     /// Observe authorization status changes from NotificationManager
     private func observeAuthorizationStatus() {
         notificationManager.authorizationStatusPublisher
+            .removeDuplicates()
             .sink { [weak self] status in
                 Task { @MainActor [weak self] in
                     guard let self else { return }

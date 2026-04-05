@@ -209,7 +209,10 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
 
     /// Check and update current authorization status
     func checkAuthorizationStatus() async {
-        authorizationStatus = await notificationCenter.getAuthorizationStatus()
+        let newStatus = await notificationCenter.getAuthorizationStatus()
+        if newStatus != authorizationStatus {
+            authorizationStatus = newStatus
+        }
     }
 
     /// Handle device token received from APNs
