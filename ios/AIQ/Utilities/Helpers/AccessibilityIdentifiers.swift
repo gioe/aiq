@@ -107,6 +107,7 @@ enum AccessibilityIdentifiers {
         static let timerLabel = "testTakingView.timerLabel"
         static let timeWarningBanner = "testTakingView.timeWarningBanner"
         static let questionNavigationGrid = "testTakingView.questionNavigationGrid"
+        static let questionNavigationGridToggle = "testTakingView.questionNavigationGridToggle"
         static let loadingOverlay = "testTakingView.loadingOverlay"
         static let loadFailureOverlay = "testTakingView.loadFailureOverlay"
         static let submitErrorBanner = "testTakingView.submitErrorBanner"
@@ -147,7 +148,6 @@ enum AccessibilityIdentifiers {
 
     enum TestResultsView {
         static let scoreLabel = "testResultsView.scoreLabel"
-        static let performanceLabel = "testResultsView.performanceLabel"
         static let domainScoresSection = "testResultsView.domainScoresSection"
         static let doneButton = "testResultsView.doneButton"
     }

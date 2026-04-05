@@ -40,7 +40,7 @@ struct TestProgressHeader: View {
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .accessibilityLabel(showQuestionGrid ? "Hide question grid" : "Show question grid")
-                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionNavigationGrid)
+                .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.questionNavigationGridToggle)
             }
 
             let allAnswered = answeredCount == totalQuestions && totalQuestions > 0
