@@ -4,6 +4,7 @@ This module defines the data structures used throughout the question
 generation pipeline, from generation to evaluation.
 """
 
+import re
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -86,6 +87,98 @@ class GeneratedQuestion(BaseModel):
                         f"answer_option '{option}' appears as a substring of "
                         "question_text — answer options must not appear in the question body"
                     )
+        return self
+
+    # Legitimate uppercase acronyms that should not be normalized
+    _LEGIT_UPPER = frozenset(
+        {
+            "DNA",
+            "RNA",
+            "IQ",
+            "AIQ",
+            "CEO",
+            "GDP",
+            "USA",
+            "UK",
+            "EU",
+            "NASA",
+            "HIV",
+            "AIDS",
+            "PDF",
+            "HTML",
+            "CSS",
+            "SQL",
+            "API",
+            "CPU",
+            "RAM",
+            "ROM",
+            "LED",
+            "UFO",
+            "PhD",
+            "MBA",
+            "GPA",
+            "SAT",
+            "ACT",
+            "GCD",
+            "LCM",
+            "PIN",
+            "SUV",
+            "BCE",
+            "ABC",
+            "AM",
+            "PM",
+            "AD",
+            "BC",
+            "II",
+            "III",
+            "IV",
+            "VI",
+            "VII",
+            "VIII",
+            "IX",
+            "XI",
+            "XII",
+            "XX",
+        }
+    )
+    _GRID_PATTERNS = frozenset({"XXX", "XXXX", "XXXXX"})
+
+    @model_validator(mode="after")
+    def normalize_all_caps_words(self) -> "GeneratedQuestion":
+        """Auto-normalize ALL CAPS words to bold lowercase in text fields.
+
+        Converts ALL CAPS emphasis to **bold** markdown in question_text
+        and stimulus, and to title case in answer fields.
+        """
+
+        def bold_caps(text: str) -> str:
+            text = re.sub(
+                r"MEMORIZE THIS SEQUENCE:", "**Memorize this sequence:**", text
+            )
+
+            def _replace(m: re.Match) -> str:
+                w = m.group(0)
+                if w in self._LEGIT_UPPER or w in self._GRID_PATTERNS:
+                    return w
+                return f"**{w.lower()}**"
+
+            return re.sub(r"\b[A-Z]{3,}\b", _replace, text)
+
+        def title_caps(text: str) -> str:
+            def _replace(m: re.Match) -> str:
+                w = m.group(0)
+                if w in self._LEGIT_UPPER or w in self._GRID_PATTERNS:
+                    return w
+                return w.capitalize()
+
+            return re.sub(r"\b[A-Z]{3,}\b", _replace, text)
+
+        self.question_text = bold_caps(self.question_text)
+        self.correct_answer = title_caps(self.correct_answer)
+        if self.answer_options:
+            self.answer_options = [title_caps(opt) for opt in self.answer_options]
+        if self.stimulus:
+            self.stimulus = bold_caps(self.stimulus)
         return self
 
     def to_dict(self) -> Dict[str, Any]:
