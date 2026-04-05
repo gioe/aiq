@@ -107,7 +107,7 @@
 "test.alert.resume.button" = "Resume";
 "test.alert.start.new.button" = "Start New";
 "test.alert.exit.title" = "Exit Test?";
-"test.alert.exit.message" = "You have %d unsaved answers. Are you sure you want to exit?";
+"test.alert.exit.message" = "You've answered %d of %d questions. Are you sure you want to exit?";
 "test.alert.exit.button" = "Exit";
 "test.alert.cancel.button" = "Cancel";
 "test.alert.in.progress.title" = "Test in Progress";
@@ -155,8 +155,6 @@
 "results.metric.correct" = "Correct";
 "results.metric.time" = "Time";
 "results.metric.completed" = "Completed";
-"results.view.breakdown.button" = "View Detailed Breakdown";
-"results.return.dashboard.button" = "Return to Dashboard";
 
 // MARK: - IQ Score Ranges
 "iq.range.extremely.low" = "Extremely Low";
@@ -373,10 +371,6 @@
 "accessibility.abandon.test.hint" = "Discard this test. It will not count toward your history.";
 "accessibility.take.test" = "Take Another Test";
 "accessibility.take.test.hint" = "Start a new cognitive performance test";
-"accessibility.view.breakdown" = "View Detailed Breakdown";
-"accessibility.view.breakdown.hint" = "See question-by-question analysis of your test performance";
-"accessibility.return.dashboard" = "Return to Dashboard";
-"accessibility.return.dashboard.hint" = "Go back to the main dashboard";
 "accessibility.load.more" = "Load more results";
 "accessibility.load.more.hint" = "Showing %d of %d tests. Double tap to load more.";
 
@@ -504,7 +498,7 @@
 "test.taking.resume" = "Resume";
 "test.taking.start.new" = "Start New";
 "test.taking.exit.test.title" = "Exit Test?";
-"test.taking.exit.test.message" = "You have %d unsaved answers. Are you sure you want to exit?";
+"test.taking.exit.test.message" = "You've answered %d of %d questions. Are you sure you want to exit?";
 "test.taking.in.progress.alert.title" = "Test in Progress";
 "test.taking.in.progress.alert.message" = "You have an in-progress test. Resume to continue where you left off, or abandon it to start a fresh test.";
 "test.taking.in.progress.abandon" = "Abandon & Start New";

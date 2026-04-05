@@ -365,8 +365,8 @@ final class TestAbandonmentTests: BaseUITest {
         let alert = app.alerts["Exit Test?"]
         wait(for: alert, timeout: standardTimeout)
 
-        // Verify alert message mentions unsaved answers
-        // The message should say something like "You have 2 unsaved answers"
+        // Verify alert message shows answered/total count
+        // The message should say something like "You've answered 2 of 25 questions"
         takeScreenshot(named: "ExitAlertWith2Answers")
 
         // Tap Exit button to confirm

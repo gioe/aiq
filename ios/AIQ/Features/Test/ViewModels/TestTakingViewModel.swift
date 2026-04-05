@@ -147,6 +147,10 @@ class TestTakingViewModel: BaseViewModel {
         navigationState.answeredCount
     }
 
+    var totalQuestionCount: Int {
+        navigationState.questions.count
+    }
+
     var allQuestionsAnswered: Bool {
         if isAdaptiveTest {
             // In adaptive mode, check if current question is answered
@@ -899,7 +903,7 @@ class TestTakingViewModel: BaseViewModel {
 
     // MARK: - Alert State Management
 
-    /// Called when the user taps the "Exit" toolbar button and has unsaved answers.
+    /// Called when the user taps the "Exit" toolbar button and has unanswered questions.
     func requestExit() {
         showExitConfirmation = true
     }

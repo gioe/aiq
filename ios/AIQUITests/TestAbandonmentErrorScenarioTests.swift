@@ -555,10 +555,9 @@ final class TestAbandonmentErrorScenarioTests: BaseUITest {
 
         takeScreenshot(named: "AbandonDialog_AlertContent")
 
-        // Document expected behavior: Alert should mention saved answers
-        // The alert message might say something like:
-        // "Your progress (7 answers) will be saved. You can resume later."
-        // or "You have 7 unsaved answers..."
+        // Document expected behavior: Alert should show answered/total count
+        // The alert message should say something like:
+        // "You've answered 7 of 25 questions. Are you sure you want to exit?"
 
         // Capture alert message for documentation
         let alertLabels = alert.staticTexts.allElementsBoundByIndex

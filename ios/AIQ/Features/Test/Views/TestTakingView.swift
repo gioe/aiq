@@ -156,7 +156,9 @@ struct TestTakingView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("You have \(viewModel.answeredCount) unsaved answers. Are you sure you want to exit?")
+            let answered = viewModel.answeredCount
+            let total = viewModel.totalQuestionCount
+            Text("You've answered \(answered) of \(total) questions. Are you sure you want to exit?")
         }
         .alert("Test in Progress", isPresented: .constant(viewModel.isActiveSessionConflict)) {
             if let sessionId = conflictingSessionId {
@@ -312,25 +314,6 @@ struct TestTakingView: View {
 
     private var testContentView: some View {
         VStack(spacing: 0) {
-            #if DebugBuild
-                // Debug indicator for test mode - shows question count and loading state
-                HStack {
-                    let qCount = viewModel.navigationState.questions.count
-                    let loadState = viewModel.isLoading ? "Y" : "N"
-                    let mockState = MockModeDetector.isMockMode ? "Y" : "N"
-                    let scenarioSuffix = MockModeDetector.isMockMode
-                        ? " S:\(MockModeDetector.currentScenario.rawValue)" : ""
-                    Text("Q:\(qCount) L:\(loadState) M:\(mockState)\(scenarioSuffix)")
-                        .font(.caption)
-                        .padding(DesignSystem.Spacing.xs)
-                        .background(
-                            viewModel.navigationState.questions.isEmpty
-                                ? Color.red.opacity(0.3) : Color.green.opacity(0.3)
-                        )
-                        .cornerRadius(DesignSystem.CornerRadius.xs)
-                        .accessibilityIdentifier("testTakingView.debugState")
-                }
-            #endif
             // Time warning banner (shown when 5 minutes remaining)
             if showTimeWarningBanner {
                 TimeWarningBanner(
