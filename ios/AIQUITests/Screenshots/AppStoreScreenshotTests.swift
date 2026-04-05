@@ -89,6 +89,9 @@ final class AppStoreScreenshotTests: BaseUITest {
         // so disabling consent would show PrivacyConsentView instead of OnboardingContainerView.
         app.launchArguments.append("-com.aiq.privacyConsentAccepted")
         app.launchArguments.append("1")
+
+        // Disable screenshot prevention so question content is visible in App Store screenshots
+        app.launchArguments.append("-DisableScreenshotPrevention")
     }
 
     override func tearDownWithError() throws {

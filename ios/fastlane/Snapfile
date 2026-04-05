@@ -1,0 +1,33 @@
+# Required: 6.9" iPhone + 12.9" iPad covers all mandatory App Store sizes.
+# App Store Connect auto-scales for smaller devices.
+devices([
+  "iPhone 16 Pro Max",
+  "iPad Pro 13-inch (M4)"
+])
+
+languages(["en-US"])
+
+ios_version("18.3")
+
+scheme("AIQ")
+
+output_directory("./fastlane/screenshots")
+
+clear_previous_screenshots(true)
+
+override_status_bar(true)
+
+only_testing(["AIQUITests/AppStoreScreenshotTests/testGenerateAllScreenshots"])
+
+launch_arguments(["-UITestMockMode"])
+
+stop_after_first_error(true)
+
+# Don't erase — avoids full SPM re-resolution
+erase_simulator(false)
+
+# Run devices sequentially to avoid resource contention
+concurrent_simulators(false)
+
+# Increase number of retries
+number_of_retries(1)

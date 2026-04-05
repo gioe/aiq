@@ -15,6 +15,8 @@ excluded:
   - DerivedData
   - AIQ.xcodeproj
   - AIQTests
+  - fastlane/SnapshotHelper.swift
+  - AIQUITests/Helpers/SnapshotHelper.swift
 
 line_length:
   warning: 120

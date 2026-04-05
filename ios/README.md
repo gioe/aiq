@@ -16,7 +16,8 @@ ios/
 ├── TestNotifications/    # APNs test payloads
 ├── .claude/              # Claude Code config for iOS
 ├── build/                # Xcode build artifacts (gitignored)
-└── Packages/             # Local Swift packages (AIQAPIClient, SharedKit)
+├── Packages/             # Local Swift packages (AIQAPIClient, SharedKit)
+└── fastlane/             # (new - needs description)
 ```
 
 ## Setup

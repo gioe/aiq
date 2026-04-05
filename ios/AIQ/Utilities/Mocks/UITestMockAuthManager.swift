@@ -228,10 +228,10 @@ import Foundation
         /// Standard mock user for authenticated scenarios
         static let mockUser = Components.Schemas.UserResponse(
             createdAt: Date().addingTimeInterval(-30 * 24 * 60 * 60), // 30 days ago
-            email: "test@example.com",
-            firstName: "Test",
+            email: "alex@example.com",
+            firstName: "Alex",
             id: 1,
-            lastName: "User",
+            lastName: "Morgan",
             notificationEnabled: true
         )
     }

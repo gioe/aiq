@@ -33,6 +33,9 @@ ios/fastlane/report.xml
 ios/fastlane/Preview.html
 ios/fastlane/screenshots/**/*.png
 ios/fastlane/test_output
+ios/fastlane/README.md
+ios/build/
+*.mobileprovision
 # Xcode user state files
 *.xcuserstate
 *.xcuserdata
@@ -115,6 +118,5 @@ tusk/aiq-dashboard.html
 .claude/tusk-manifest.json
 tusk/tasks.db
 .claude/bin/
-.claude/skills/
 tusk/tasks.db-wal
 tusk/tasks.db-shm

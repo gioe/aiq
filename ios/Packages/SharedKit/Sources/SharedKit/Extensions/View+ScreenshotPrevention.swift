@@ -34,16 +34,29 @@ public extension View {
     ///   underlying `ScreenshotContainerView` (iOS only; no-op on other platforms).
     /// - Parameter accessibilityLabel: VoiceOver label set directly on the underlying
     ///   `ScreenshotContainerView` (iOS only; no-op on other platforms).
+    /// - Parameter accessibilityIdentifier: XCUITest identifier set directly on the
+    ///   underlying `ScreenshotContainerView` (iOS only; no-op on other platforms).
+    /// - Parameter accessibilityLabel: VoiceOver label set directly on the underlying
+    ///   `ScreenshotContainerView` (iOS only; no-op on other platforms).
+    ///
+    /// > Note: Passing `-DisableScreenshotPrevention` as a launch argument bypasses
+    /// > the secure canvas entirely. Used by App Store screenshot automation only.
+    @ViewBuilder
     func screenshotPrevented(
         accessibilityIdentifier: String? = nil,
         accessibilityLabel: String? = nil
     ) -> some View {
         #if canImport(UIKit)
-            ScreenshotPreventedView(
-                content: self,
-                accessibilityIdentifier: accessibilityIdentifier,
-                accessibilityLabel: accessibilityLabel
-            )
+            if ProcessInfo.processInfo.arguments.contains("-DisableScreenshotPrevention") {
+                self
+                    .accessibilityIdentifier(accessibilityIdentifier ?? "")
+            } else {
+                ScreenshotPreventedView(
+                    content: self,
+                    accessibilityIdentifier: accessibilityIdentifier,
+                    accessibilityLabel: accessibilityLabel
+                )
+            }
         #else
             self
         #endif
@@ -177,24 +190,28 @@ public extension View {
         override func layoutSubviews() {
             super.layoutSubviews()
             if bounds.width > 0 {
+                let isFirstValidWidth = _lastValidWidth == 0
                 _lastValidWidth = bounds.width
+                // On the first layout with a real width, the hosting controller
+                // is now in the view hierarchy and can compute sizes accurately.
+                // Invalidate so SwiftUI re-queries sizeThatFits.
+                if isFirstValidWidth {
+                    invalidateIntrinsicContentSize()
+                }
             }
         }
 
         override var intrinsicContentSize: CGSize {
-            guard let provider = preferredSizeProvider else {
-                return super.intrinsicContentSize
-            }
-            let width: CGFloat
-            if bounds.width > 0 {
-                width = bounds.width
-            } else if _lastValidWidth > 0 {
-                width = _lastValidWidth
-            } else {
-                // No valid width yet — let external constraints size this view.
+            guard let provider = preferredSizeProvider, _lastValidWidth > 0 else {
                 return CGSize(width: UIView.noIntrinsicMetric, height: UIView.noIntrinsicMetric)
             }
-            return provider(CGSize(width: width, height: 10000))
+            // Only report height; leave width as noIntrinsicMetric so SwiftUI
+            // remains the sole authority on horizontal sizing. Reporting both
+            // dimensions caused a feedback loop where intrinsicContentSize
+            // width conflicted with SwiftUI's proposed width, producing
+            // cumulative layout drift in ScrollView parents.
+            let size = provider(CGSize(width: _lastValidWidth, height: 10000))
+            return CGSize(width: UIView.noIntrinsicMetric, height: size.height)
         }
 
         override func sizeThatFits(_ size: CGSize) -> CGSize {

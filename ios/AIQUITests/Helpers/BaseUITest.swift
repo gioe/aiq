@@ -74,6 +74,11 @@ class BaseUITest: XCTestCase {
         // Setup launch arguments and environment
         setupLaunchConfiguration()
 
+        // Configure Fastlane snapshot (no-op when not running via `fastlane snapshot`)
+        MainActor.assumeIsolated {
+            setupSnapshot(app, waitForAnimations: false)
+        }
+
         // Launch the app
         app.launch()
     }
@@ -284,9 +289,15 @@ class BaseUITest: XCTestCase {
         return result == .completed
     }
 
-    /// Take a screenshot and attach it to the test results
+    /// Take a screenshot and attach it to the test results.
+    /// Also calls Fastlane's `snapshot()` when running under `fastlane snapshot`.
     /// - Parameter name: Name for the screenshot
     func takeScreenshot(named name: String) {
+        // Fastlane snapshot integration
+        MainActor.assumeIsolated {
+            snapshot(name, timeWaitingForIdle: 0)
+        }
+
         let screenshot = app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name

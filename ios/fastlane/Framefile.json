@@ -1,0 +1,72 @@
+{
+  "default": {
+    "keyword": {
+      "font": "./fastlane/fonts/keyword.ttf",
+      "color": "#FFFFFF"
+    },
+    "title": {
+      "font": "./fastlane/fonts/title.ttf",
+      "color": "#FFFFFF"
+    },
+    "background": "#1A1A2E",
+    "padding": 50,
+    "show_complete_frame": false,
+    "title_min_height": 0
+  },
+  "data": [
+    {
+      "filter": "01_Dashboard",
+      "keyword": {
+        "text": "AIQ"
+      },
+      "title": {
+        "text": "Track your cognitive performance"
+      }
+    },
+    {
+      "filter": "02_TestQuestion",
+      "keyword": {
+        "text": "AIQ"
+      },
+      "title": {
+        "text": "AI-generated cognitive assessments"
+      }
+    },
+    {
+      "filter": "03_Results",
+      "keyword": {
+        "text": "AIQ"
+      },
+      "title": {
+        "text": "Detailed performance insights"
+      }
+    },
+    {
+      "filter": "04_History",
+      "keyword": {
+        "text": "AIQ"
+      },
+      "title": {
+        "text": "Monitor your trends over time"
+      }
+    },
+    {
+      "filter": "05_DomainScores",
+      "keyword": {
+        "text": "AIQ"
+      },
+      "title": {
+        "text": "Understand your strengths"
+      }
+    },
+    {
+      "filter": "06_Settings",
+      "keyword": {
+        "text": "AIQ"
+      },
+      "title": {
+        "text": "Privacy-first design"
+      }
+    }
+  ]
+}
