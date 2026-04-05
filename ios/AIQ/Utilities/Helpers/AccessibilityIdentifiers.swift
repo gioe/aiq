@@ -87,6 +87,11 @@ enum AccessibilityIdentifiers {
         static let onboardingInfoCardCTA = "dashboardView.onboardingInfoCard.cta"
         static let onboardingInfoCardDismiss = "dashboardView.onboardingInfoCard.dismiss"
         static let noCompletedTestsNote = "dashboardView.noCompletedTestsNote"
+        static let scoreSummaryCard = "dashboardView.scoreSummaryCard"
+        static let latestScoreValue = "dashboardView.latestScoreValue"
+        static let averageScoreStat = "dashboardView.averageScoreStat"
+        static let testCountStat = "dashboardView.testCountStat"
+        static let trendIndicator = "dashboardView.trendIndicator"
     }
 
     // MARK: - Test Taking View

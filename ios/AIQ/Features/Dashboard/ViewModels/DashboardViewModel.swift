@@ -7,6 +7,7 @@ class DashboardViewModel: BaseViewModel {
     // MARK: - Published Properties
 
     @Published var testCount: Int = 0
+    @Published var recentTestHistory: [TestResult] = []
 
     // Active session tracking
     @Published var activeTestSession: TestSession?
@@ -116,22 +117,29 @@ class DashboardViewModel: BaseViewModel {
         }
     }
 
-    /// Fetch test count using a lightweight single-item request
+    /// Fetch recent test history for dashboard summary stats
     /// - Parameter forceRefresh: If true, bypass cache and fetch from API
     /// - Returns: The error if one occurred, nil on success
     @discardableResult
     func fetchTestCount(forceRefresh: Bool = false) async -> Error? {
         if !forceRefresh {
             if let cached: [TestResult] = await DataCache.shared.get(forKey: DataCache.Key.testHistory) {
+                recentTestHistory = cached
                 testCount = cached.count
                 return nil
             }
         }
 
         do {
-            let paginatedResponse = try await apiService.getTestHistory(limit: 1, offset: nil)
+            let paginatedResponse = try await apiService.getTestHistory(limit: 50, offset: nil)
+            recentTestHistory = paginatedResponse.results
             let newCount = paginatedResponse.totalCount
             if testCount != newCount { testCount = newCount }
+            // Cache results so HistoryView can reuse them
+            await DataCache.shared.set(
+                paginatedResponse.results,
+                forKey: DataCache.Key.testHistory
+            )
             return nil
 
         } catch is CancellationError {
@@ -141,6 +149,7 @@ class DashboardViewModel: BaseViewModel {
             return nil // URLSession cancelled mid-flight; discard silently
         } catch {
             testCount = 0
+            recentTestHistory = []
             return error
         }
     }
@@ -249,6 +258,26 @@ class DashboardViewModel: BaseViewModel {
         guard let session = activeTestSession, session.isInProgress else { return false }
         let elapsed = Date().timeIntervalSince(session.startedAt)
         return elapsed < Double(TestTimerManager.totalTimeSeconds)
+    }
+
+    /// Latest AIQ score from the most recent test
+    var latestScore: Int? {
+        recentTestHistory
+            .sorted { $0.completedAt > $1.completedAt }
+            .first?.iqScore
+    }
+
+    /// Average AIQ score across all recent tests
+    var averageIQScore: Int? {
+        guard !recentTestHistory.isEmpty else { return nil }
+        let sum = recentTestHistory.reduce(0) { $0 + $1.iqScore }
+        return sum / recentTestHistory.count
+    }
+
+    /// Performance trend direction based on recent history
+    var trendDirection: PerformanceInsights.TrendDirection {
+        guard !recentTestHistory.isEmpty else { return .insufficient }
+        return PerformanceInsights(from: recentTestHistory).trendDirection
     }
 
     func setActiveTestSession(_ session: TestSession) {

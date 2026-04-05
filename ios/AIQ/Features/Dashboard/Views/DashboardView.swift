@@ -67,6 +67,7 @@ struct DashboardView: View {
                         await viewModel.refreshDashboard()
                     },
                     onboardingInfoCard: { onboardingInfoCardSection },
+                    scoreSummary: { scoreSummarySection },
                     bottomContent: { dashboardBottomContent }
                 )
             }
@@ -83,6 +84,20 @@ struct DashboardView: View {
             Task {
                 await viewModel.refreshDashboard()
             }
+        }
+    }
+
+    // MARK: - Score Summary
+
+    @ViewBuilder
+    private var scoreSummarySection: some View {
+        if viewModel.hasTests {
+            DashboardScoreSummary(
+                latestScore: viewModel.latestScore,
+                averageScore: viewModel.averageIQScore,
+                testCount: viewModel.testCount,
+                trendDirection: viewModel.trendDirection
+            )
         }
     }
 
@@ -212,10 +227,11 @@ struct DashboardView: View {
 /// Shared scroll container used by all four dashboard states.
 /// Renders the common preamble (header, onboarding card) followed by
 /// caller-supplied content via a @ViewBuilder closure.
-struct DashboardScrollBody<OnboardingCard: View, BottomContent: View>: View {
+struct DashboardScrollBody<OnboardingCard: View, ScoreSummary: View, BottomContent: View>: View {
     let userName: String?
     let onRefresh: () async -> Void
     @ViewBuilder let onboardingInfoCard: OnboardingCard
+    @ViewBuilder let scoreSummary: ScoreSummary
     @ViewBuilder let bottomContent: BottomContent
 
     var body: some View {
@@ -224,6 +240,8 @@ struct DashboardScrollBody<OnboardingCard: View, BottomContent: View>: View {
                 DashboardWelcomeHeader(userName: userName)
 
                 onboardingInfoCard
+
+                scoreSummary
 
                 bottomContent
 
@@ -265,6 +283,123 @@ private struct InProgressCardTransition: ViewModifier {
 private extension View {
     func inProgressCardTransition(sessionId: Int?) -> some View {
         modifier(InProgressCardTransition(sessionId: sessionId))
+    }
+}
+
+// MARK: - Dashboard Score Summary
+
+/// Compact score summary card showing latest score, average, test count, and trend
+struct DashboardScoreSummary: View {
+    let latestScore: Int?
+    let averageScore: Int?
+    let testCount: Int
+    let trendDirection: PerformanceInsights.TrendDirection
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            // Latest score — prominent display
+            if let latest = latestScore {
+                VStack(spacing: DesignSystem.Spacing.xs) {
+                    Text("\(latest)")
+                        .font(theme.typography.statValue)
+                        .foregroundStyle(theme.colors.primary)
+                        .accessibilityIdentifier(
+                            AccessibilityIdentifiers.DashboardView.latestScoreValue
+                        )
+
+                    Text("Latest AIQ")
+                        .font(theme.typography.captionMedium)
+                        .foregroundStyle(theme.colors.textSecondary)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Latest AIQ score: \(latest)")
+            }
+
+            // Stats row: average, tests taken, trend
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                if let avg = averageScore {
+                    dashboardStatItem(
+                        label: "Average",
+                        value: "\(avg)",
+                        icon: "chart.line.uptrend.xyaxis"
+                    )
+                    .accessibilityIdentifier(
+                        AccessibilityIdentifiers.DashboardView.averageScoreStat
+                    )
+                }
+
+                dashboardStatItem(
+                    label: "Tests",
+                    value: "\(testCount)",
+                    icon: "list.clipboard.fill"
+                )
+                .accessibilityIdentifier(
+                    AccessibilityIdentifiers.DashboardView.testCountStat
+                )
+
+                trendItem
+                    .accessibilityIdentifier(
+                        AccessibilityIdentifiers.DashboardView.trendIndicator
+                    )
+            }
+        }
+        .padding(DesignSystem.Spacing.lg)
+        .frame(maxWidth: .infinity)
+        .background(theme.colors.backgroundSecondary)
+        .cornerRadius(DesignSystem.CornerRadius.lg)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(
+            AccessibilityIdentifiers.DashboardView.scoreSummaryCard
+        )
+    }
+
+    private func dashboardStatItem(label: String, value: String, icon: String) -> some View {
+        VStack(spacing: DesignSystem.Spacing.xs) {
+            Image(systemName: icon)
+                .font(theme.typography.bodyMedium)
+                .foregroundStyle(theme.colors.primary)
+                .accessibilityHidden(true)
+
+            Text(value)
+                .font(theme.typography.h4)
+                .foregroundStyle(theme.colors.textPrimary)
+
+            Text(label)
+                .font(theme.typography.captionSmall)
+                .foregroundStyle(theme.colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
+    }
+
+    private var trendItem: some View {
+        let color: Color = switch trendDirection {
+        case .improving: theme.colors.success
+        case .declining: theme.colors.error
+        case .stable: theme.colors.info
+        case .insufficient: theme.colors.textSecondary
+        }
+
+        return VStack(spacing: DesignSystem.Spacing.xs) {
+            Image(systemName: trendDirection.icon)
+                .font(theme.typography.bodyMedium)
+                .foregroundStyle(color)
+                .accessibilityHidden(true)
+
+            Text(trendDirection.description)
+                .font(theme.typography.h4)
+                .foregroundStyle(theme.colors.textPrimary)
+
+            Text("Trend")
+                .font(theme.typography.captionSmall)
+                .foregroundStyle(theme.colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Trend: \(trendDirection.description)")
     }
 }
 
