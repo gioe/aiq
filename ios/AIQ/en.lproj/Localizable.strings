@@ -402,9 +402,9 @@
 
 // MARK: - Question Navigation Grid
 "question.navigator.title" = "Question Navigator";
-"question.navigator.legend.current" = "Current";
-"question.navigator.legend.answered" = "Answered";
-"question.navigator.legend.unanswered" = "Unanswered";
+"question.navigator.legend.current" = "Now";
+"question.navigator.legend.answered" = "Done";
+"question.navigator.legend.unanswered" = "Open";
 "question.navigator.accessibility.question" = "Question %d";
 "question.navigator.accessibility.current" = "Current question";
 "question.navigator.accessibility.answered" = "Answered. Tap to navigate";

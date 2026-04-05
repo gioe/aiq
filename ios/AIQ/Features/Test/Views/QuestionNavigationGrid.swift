@@ -26,7 +26,7 @@ struct QuestionNavigationGrid: View {
                 Spacer()
 
                 // Legend
-                HStack(spacing: 12) {
+                HStack(spacing: 8) {
                     legendItem(color: .accentColor, label: "question.navigator.legend.current".localized)
                     legendItem(color: .green, label: "question.navigator.legend.answered".localized)
                     legendItem(color: Color(.systemGray4), label: "question.navigator.legend.unanswered".localized)
@@ -137,6 +137,7 @@ struct QuestionNavigationGrid: View {
                 .frame(width: 8, height: 8)
             Text(label)
                 .foregroundColor(.secondary)
+                .fixedSize()
         }
     }
 }
