@@ -1,4 +1,5 @@
 @testable import AIQ
+import SharedKit
 import SwiftUI
 import XCTest
 
@@ -52,7 +53,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: {},
             onSignOut: {}
-        )
+        ) { EmptyView() }
 
         // Then — simply confirm the struct exists; any crash here fails the test
         XCTAssertNotNil(view)
@@ -75,7 +76,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: { authenticatedCalled = true },
             onSignOut: {}
-        )
+        ) { EmptyView() }
         XCTAssertNotNil(view)
 
         // When — simulate the .task that fires on appear by calling authenticate directly
@@ -109,7 +110,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: { onAuthenticatedCallCount += 1 },
             onSignOut: {}
-        )
+        ) { EmptyView() }
         XCTAssertNotNil(view)
 
         // When — simulate successful authentication (the path .task follows)
@@ -147,7 +148,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: { onAuthenticatedCallCount += 1 },
             onSignOut: { onSignOutCallCount += 1 }
-        )
+        ) { EmptyView() }
 
         // When — simulate the sign-out button action via reflection
         let mirror = Mirror(reflecting: view)
@@ -181,7 +182,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: {},
             onSignOut: { signOutCalled = true }
-        )
+        ) { EmptyView() }
 
         // When — sign out is tapped before any auth completes
         let mirror = Mirror(reflecting: view)
@@ -216,7 +217,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: { onAuthenticatedCallCount += 1 },
             onSignOut: {}
-        )
+        ) { EmptyView() }
         XCTAssertNotNil(view)
 
         // When — simulate the async authentication path
@@ -255,7 +256,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: { onAuthenticatedCallCount += 1 },
             onSignOut: {}
-        )
+        ) { EmptyView() }
         XCTAssertNotNil(view)
 
         // When
@@ -291,7 +292,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: {},
             onSignOut: {}
-        )
+        ) { EmptyView() }
         XCTAssertNotNil(view)
 
         // When — start authentication
@@ -320,7 +321,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: {},
             onSignOut: {}
-        )
+        ) { EmptyView() }
 
         // Verify via Mirror that the stored biometricType is correct
         let mirror = Mirror(reflecting: view)
@@ -340,7 +341,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: {},
             onSignOut: {}
-        )
+        ) { EmptyView() }
 
         let mirror = Mirror(reflecting: view)
         if let storedType = mirror.descendant("biometricType") as? BiometricType {
@@ -363,7 +364,7 @@ final class BiometricLockViewTests: XCTestCase {
             biometricAuthManager: mockAuthManager,
             onAuthenticated: {},
             onSignOut: { callCount += 1 }
-        )
+        ) { EmptyView() }
 
         // When
         let mirror = Mirror(reflecting: view)
