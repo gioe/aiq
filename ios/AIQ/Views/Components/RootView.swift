@@ -1,3 +1,4 @@
+import SharedKit
 import SwiftUI
 
 /// Root view that determines whether to show consent, auth flow, onboarding, or main app
@@ -159,7 +160,11 @@ struct RootView: View {
 
             // Network status banner
             VStack {
-                NetworkStatusBanner(isConnected: networkMonitor.isConnected)
+                NetworkStatusBanner(
+                    message: "network.no.connection".localized,
+                    backgroundColor: .orange,
+                    textColor: .white
+                )
                 Spacer()
             }
             .animation(reduceMotion ? nil : .easeInOut, value: networkMonitor.isConnected)
