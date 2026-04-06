@@ -201,6 +201,7 @@ struct RootView: View {
                 BiometricLockView(
                     biometricType: manager.biometricType,
                     biometricAuthManager: manager,
+                    authReason: "Verify your identity to access AIQ",
                     onAuthenticated: {
                         withAnimation(reduceMotion ? nil : theme.animations.smooth) {
                             isBiometricLocked = false
@@ -210,6 +211,16 @@ struct RootView: View {
                         isBiometricLocked = false
                         Task {
                             await authState.logout()
+                        }
+                    },
+                    branding: {
+                        VStack(spacing: theme.spacing.lg) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.system(size: 80))
+                                .foregroundStyle(.white)
+                            Text("AIQ")
+                                .displayMediumFont()
+                                .foregroundColor(.white)
                         }
                     }
                 )
