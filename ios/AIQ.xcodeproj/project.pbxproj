@@ -204,7 +204,7 @@
 		9F090B8D95F15D65C1010B7A /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8AF672AEEA94F072CB14ABF /* HapticManager.swift */; };
 		9FC23B7976AE4696C28C6E1C /* ActiveSessionFlowIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 667A2129A6669EA6AD0B280E /* ActiveSessionFlowIntegrationTests.swift */; };
 		A0719326721984567C906017 /* OpenAPIServiceMapToAPIErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11FC47CAFCC74AFAEFF03D41 /* OpenAPIServiceMapToAPIErrorTests.swift */; };
-		A1020D7FBE59F666D88A50D7 /* DataCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8584310DF575119FD30D7CD3 /* DataCache.swift */; };
+		A1020D7FBE59F666D88A50D7 /* CacheKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8584310DF575119FD30D7CD3 /* CacheKey.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* SharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = B3C4D5E6F7A8B9C0D1E2F3A4 /* SharedKit */; };
 		A23D5B36E3B68055A55BBEFC /* AppStateStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3024C5290E1AEBB243A5EDEA /* AppStateStorage.swift */; };
 		A2E372580E83FB91517EBEAB /* MockLocalAnswerStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2199668A3916B07E37543DDE /* MockLocalAnswerStorage.swift */; };
@@ -512,7 +512,7 @@
 		813A98545232002D09DFAF77 /* View+ScreenshotPrevention.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "View+ScreenshotPrevention.swift"; path = "Shared/Extensions/View+ScreenshotPrevention.swift"; sourceTree = "<group>"; };
 		82F108426CA2560D820236A0 /* ServiceContainerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DI/ServiceContainerTests.swift; sourceTree = "<group>"; };
 		84FF4A78B163436122D3A6B2 /* RegistrationErrorRecoveryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RegistrationErrorRecoveryTests.swift; sourceTree = "<group>"; };
-		8584310DF575119FD30D7CD3 /* DataCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataCache.swift; sourceTree = "<group>"; };
+		8584310DF575119FD30D7CD3 /* CacheKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheKey.swift; sourceTree = "<group>"; };
 		864D0C1119BD772731133D6D /* TabNavigationIsolationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TabNavigationIsolationTests.swift; sourceTree = "<group>"; };
 		86A53269857A08973A0D5568 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		87F696C48D7A8EAA4FD4FF57 /* MockAnalyticsService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockAnalyticsService.swift; sourceTree = "<group>"; };
@@ -1199,7 +1199,7 @@
 		94A6BBE329BBBA3C9A98A3F0 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
-				8584310DF575119FD30D7CD3 /* DataCache.swift */,
+				8584310DF575119FD30D7CD3 /* CacheKey.swift */,
 				D3F26BDAE0ABE57AD6F64015 /* LocalAnswerStorage.swift */,
 				ICG031002AAAA /* PrivacyConsentStorage.swift */,
 				F738194ED047979D34D51164 /* SecureStorageProtocol.swift */,
@@ -1834,7 +1834,7 @@
 				BD95485C0DD4CC5ED93E99A7 /* AuthServiceProtocol.swift in Sources */,
 				42F810187A0E40F1896555DE /* DeviceTokenManagerProtocol.swift in Sources */,
 				B0C490104F181E540407187C /* ContentView.swift in Sources */,
-				A1020D7FBE59F666D88A50D7 /* DataCache.swift in Sources */,
+				A1020D7FBE59F666D88A50D7 /* CacheKey.swift in Sources */,
 				143B95841D7522C7A4749370 /* LocalAnswerStorage.swift in Sources */,
 				0873C82BF579A8ED44C9313D /* MainTabView.swift in Sources */,
 				54A97B52762E3312F1938F15 /* NotificationManager.swift in Sources */,

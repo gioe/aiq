@@ -16,8 +16,8 @@ final class DashboardViewModelTests: XCTestCase {
         mockAnswerStorage = MockLocalAnswerStorage()
         sut = DashboardViewModel(apiService: mockService, analyticsService: mockAnalyticsService, answerStorage: mockAnswerStorage)
 
-        await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
-        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+        await AppCache.shared.remove(forKey: .activeTestSession)
+        await AppCache.shared.remove(forKey: .testHistory)
     }
 
     // MARK: - Initialization Tests
@@ -562,9 +562,9 @@ final class DashboardViewModelTests: XCTestCase {
             questionsCount: 10,
             session: mockSession
         )
-        await DataCache.shared.set(
+        await AppCache.shared.set(
             cachedResponse,
-            forKey: DataCache.Key.activeTestSession
+            forKey: .activeTestSession
         )
 
         let mockAbandonedSession = MockDataFactory.makeTestSession(
@@ -588,8 +588,8 @@ final class DashboardViewModelTests: XCTestCase {
         await sut.abandonActiveTest()
 
         // Then - Verify cache was invalidated
-        let cachedData: TestSessionStatusResponse? = await DataCache.shared.get(
-            forKey: DataCache.Key.activeTestSession
+        let cachedData: TestSessionStatusResponse? = await AppCache.shared.get(
+            forKey: .activeTestSession
         )
         XCTAssertNil(cachedData, "Cache should be invalidated after abandoning test")
     }
@@ -796,10 +796,10 @@ final class DashboardViewModelTests: XCTestCase {
             questionsCount: 0,
             session: staleSession
         )
-        await DataCache.shared.set(staleResponse, forKey: DataCache.Key.activeTestSession)
+        await AppCache.shared.set(staleResponse, forKey: .activeTestSession)
 
         let staleHistory: [TestResult] = []
-        await DataCache.shared.set(staleHistory, forKey: DataCache.Key.testHistory)
+        await AppCache.shared.set(staleHistory, forKey: .testHistory)
 
         // Configure mock to succeed with fresh (empty) data
         await mockService.setTestHistoryResponse([])
@@ -809,8 +809,8 @@ final class DashboardViewModelTests: XCTestCase {
         await sut.refreshDashboard()
 
         // Then - both cache keys should be nil (cleared before fetch; not re-populated with nil response)
-        let cachedHistory: [TestResult]? = await DataCache.shared.get(forKey: DataCache.Key.testHistory)
-        let cachedSession: TestSessionStatusResponse? = await DataCache.shared.get(forKey: DataCache.Key.activeTestSession)
+        let cachedHistory: [TestResult]? = await AppCache.shared.get(forKey: .testHistory)
+        let cachedSession: TestSessionStatusResponse? = await AppCache.shared.get(forKey: .activeTestSession)
         XCTAssertNil(cachedHistory, "testHistory cache should be cleared after refresh")
         XCTAssertNil(cachedSession, "activeTestSession cache should be cleared after refresh")
 

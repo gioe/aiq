@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import SharedKit
 
 /// Sort order for test history
 enum TestHistorySortOrder: String, CaseIterable, Identifiable {
@@ -132,7 +133,7 @@ class HistoryViewModel: BaseViewModel {
     // MARK: - Private Fetch Helpers
 
     private func loadFromCache() async -> [TestResult]? {
-        await DataCache.shared.get(forKey: DataCache.Key.testHistory)
+        await AppCache.shared.get(forKey: .testHistory)
     }
 
     private func fetchFromAPI() async throws -> PaginatedTestHistoryResponse {
@@ -140,7 +141,7 @@ class HistoryViewModel: BaseViewModel {
     }
 
     private func cacheResults(_ results: [TestResult]) async {
-        await DataCache.shared.set(results, forKey: DataCache.Key.testHistory)
+        await AppCache.shared.set(results, forKey: .testHistory)
     }
 
     private func updateState(with cached: [TestResult], fromCache _: Bool) {
@@ -187,7 +188,7 @@ class HistoryViewModel: BaseViewModel {
             currentOffset += newResults.count
 
             // Update cache with all results
-            await DataCache.shared.set(allTestHistory, forKey: DataCache.Key.testHistory)
+            await AppCache.shared.set(allTestHistory, forKey: .testHistory)
 
             cachedInsights = nil // Invalidate insights cache
             applyFiltersAndSort()
@@ -246,7 +247,7 @@ class HistoryViewModel: BaseViewModel {
     func refreshHistory() async {
         await withRefreshing {
             // Clear cache and force refresh
-            await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+            await AppCache.shared.remove(forKey: .testHistory)
             // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
             // handles UI feedback. Calling setLoading(true) here would swap the
             // ScrollView for LoadingView, destroying the refreshable context and

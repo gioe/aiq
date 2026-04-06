@@ -1,4 +1,5 @@
 @testable import AIQ
+import SharedKit
 import XCTest
 
 /// Unit tests for DataCache actor
@@ -10,19 +11,18 @@ import XCTest
 /// - Cache invalidation (single key, expired, all)
 /// - Edge cases (special characters, large values, concurrent access)
 ///
-/// Note: Tests use DataCache.shared since the actor is a singleton.
-/// Each test calls clearAll() in setUp to ensure isolation.
+/// Note: Tests create a local DataCache<String> instance per test
+/// to ensure isolation without shared singleton state.
 final class DataCacheTests: XCTestCase {
-    var sut: DataCache!
+    var sut: DataCache<String>!
 
     override func setUp() async throws {
         try await super.setUp()
-        sut = DataCache.shared
-        await sut.clearAll()
+        sut = DataCache<String>()
     }
 
     override func tearDown() async throws {
-        await sut.clearAll()
+        await sut.removeAll()
         try await super.tearDown()
     }
 
@@ -48,7 +48,7 @@ final class DataCacheTests: XCTestCase {
         let customExpiration: TimeInterval = 600 // 10 minutes
 
         // When
-        await sut.set(value, forKey: key, expiration: customExpiration)
+        await sut.set(value, forKey: key, ttl: customExpiration)
 
         // Then
         let retrieved: String? = await sut.get(forKey: key)
@@ -142,7 +142,7 @@ final class DataCacheTests: XCTestCase {
         let expiration: TimeInterval = 1.0 // 1 second
 
         // When
-        await sut.set(value, forKey: key, expiration: expiration)
+        await sut.set(value, forKey: key, ttl: expiration)
 
         // Wait a short time (well within expiration)
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
@@ -161,7 +161,7 @@ final class DataCacheTests: XCTestCase {
         let expiration: TimeInterval = 0.1 // 100ms
 
         // When
-        await sut.set(value, forKey: key, expiration: expiration)
+        await sut.set(value, forKey: key, ttl: expiration)
 
         // Wait for expiration + safe margin (200ms total)
         try? await Task.sleep(nanoseconds: 200_000_000)
@@ -178,7 +178,7 @@ final class DataCacheTests: XCTestCase {
         let value = "testValue"
         let expiration: TimeInterval = 0.1 // 100ms
 
-        await sut.set(value, forKey: key, expiration: expiration)
+        await sut.set(value, forKey: key, ttl: expiration)
 
         // When - Wait for expiration
         try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
@@ -241,16 +241,16 @@ final class DataCacheTests: XCTestCase {
         XCTAssertEqual(retrieved2, "value2")
     }
 
-    // MARK: - ClearAll Operation Tests
+    // MARK: - RemoveAll Operation Tests
 
-    func testClearAll_RemovesAllEntries() async {
+    func testRemoveAll_RemovesAllEntries() async {
         // Given
         await sut.set("value1", forKey: "key1")
         await sut.set(42, forKey: "key2")
         await sut.set(true, forKey: "key3")
 
         // When
-        await sut.clearAll()
+        await sut.removeAll()
 
         // Then
         let retrieved1: String? = await sut.get(forKey: "key1")
@@ -262,46 +262,46 @@ final class DataCacheTests: XCTestCase {
         XCTAssertNil(retrieved3, "All entries should be cleared")
     }
 
-    func testClearAll_HandlesEmptyCache() async {
+    func testRemoveAll_HandlesEmptyCache() async {
         // Given - empty cache
 
         // When/Then - Should not crash
-        await sut.clearAll()
+        await sut.removeAll()
 
         // Verify cache is still empty
         let retrieved: String? = await sut.get(forKey: "anyKey")
         XCTAssertNil(retrieved)
     }
 
-    func testClearAll_AfterAlreadyCleared() async {
+    func testRemoveAll_AfterAlreadyCleared() async {
         // Given
         await sut.set("value", forKey: "key")
-        await sut.clearAll()
+        await sut.removeAll()
 
         // When - Clear again
-        await sut.clearAll()
+        await sut.removeAll()
 
         // Then
         let retrieved: String? = await sut.get(forKey: "key")
         XCTAssertNil(retrieved, "Should handle multiple clears gracefully")
     }
 
-    // MARK: - ClearExpired Operation Tests
+    // MARK: - RemoveExpired Operation Tests
 
-    func testClearExpired_RemovesOnlyExpiredEntries() async {
+    func testRemoveExpired_RemovesOnlyExpiredEntries() async {
         // Given
         let expiredKey = "expiredKey"
         let validKey = "validKey"
         let shortExpiration: TimeInterval = 0.1 // 100ms
         let longExpiration: TimeInterval = 10.0 // 10 seconds
 
-        await sut.set("expiredValue", forKey: expiredKey, expiration: shortExpiration)
-        await sut.set("validValue", forKey: validKey, expiration: longExpiration)
+        await sut.set("expiredValue", forKey: expiredKey, ttl: shortExpiration)
+        await sut.set("validValue", forKey: validKey, ttl: longExpiration)
 
         // When - Wait for short expiration + margin
         try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
 
-        await sut.clearExpired()
+        await sut.removeExpired()
 
         // Then
         let expiredRetrieved: String? = await sut.get(forKey: expiredKey)
@@ -312,7 +312,7 @@ final class DataCacheTests: XCTestCase {
         XCTAssertEqual(validRetrieved, "validValue")
     }
 
-    func testClearExpired_RemovesMultipleExpiredEntries() async {
+    func testRemoveExpired_RemovesMultipleExpiredEntries() async {
         // Given
         let expiredKey1 = "expiredKey1"
         let expiredKey2 = "expiredKey2"
@@ -320,14 +320,14 @@ final class DataCacheTests: XCTestCase {
         let shortExpiration: TimeInterval = 0.1 // 100ms
         let longExpiration: TimeInterval = 10.0 // 10 seconds
 
-        await sut.set("expired1", forKey: expiredKey1, expiration: shortExpiration)
-        await sut.set("expired2", forKey: expiredKey2, expiration: shortExpiration)
-        await sut.set("valid", forKey: validKey, expiration: longExpiration)
+        await sut.set("expired1", forKey: expiredKey1, ttl: shortExpiration)
+        await sut.set("expired2", forKey: expiredKey2, ttl: shortExpiration)
+        await sut.set("valid", forKey: validKey, ttl: longExpiration)
 
         // When - Wait for short expiration + margin
         try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
 
-        await sut.clearExpired()
+        await sut.removeExpired()
 
         // Then
         let expired1Retrieved: String? = await sut.get(forKey: expiredKey1)
@@ -339,24 +339,24 @@ final class DataCacheTests: XCTestCase {
         XCTAssertNotNil(validRetrieved, "Valid entry should remain")
     }
 
-    func testClearExpired_HandlesEmptyCache() async {
+    func testRemoveExpired_HandlesEmptyCache() async {
         // Given - empty cache
 
         // When/Then - Should not crash
-        await sut.clearExpired()
+        await sut.removeExpired()
 
         // Verify cache is still empty
         let retrieved: String? = await sut.get(forKey: "anyKey")
         XCTAssertNil(retrieved)
     }
 
-    func testClearExpired_HandlesAllValidEntries() async {
+    func testRemoveExpired_HandlesAllValidEntries() async {
         // Given - all entries are valid
-        await sut.set("value1", forKey: "key1", expiration: 10.0)
-        await sut.set("value2", forKey: "key2", expiration: 10.0)
+        await sut.set("value1", forKey: "key1", ttl: 10.0)
+        await sut.set("value2", forKey: "key2", ttl: 10.0)
 
         // When
-        await sut.clearExpired()
+        await sut.removeExpired()
 
         // Then - all entries should remain
         let retrieved1: String? = await sut.get(forKey: "key1")
@@ -366,13 +366,13 @@ final class DataCacheTests: XCTestCase {
         XCTAssertNotNil(retrieved2, "Valid entries should not be removed")
     }
 
-    func testClearExpired_UsesDefaultExpiration() async {
+    func testRemoveExpired_UsesDefaultExpiration() async {
         // Given - entry with default expiration (5 minutes)
         let key = "testKey"
         await sut.set("value", forKey: key) // Uses default 300s expiration
 
         // When - Clear expired immediately (entry is still fresh)
-        await sut.clearExpired()
+        await sut.removeExpired()
 
         // Then
         let retrieved: String? = await sut.get(forKey: key)
@@ -405,7 +405,7 @@ final class DataCacheTests: XCTestCase {
         let customExpiration: TimeInterval = 2.0 // 2 seconds
 
         // When
-        await sut.set(value, forKey: key, expiration: customExpiration)
+        await sut.set(value, forKey: key, ttl: customExpiration)
 
         // Wait well within expiration (0.5 seconds)
         try? await Task.sleep(nanoseconds: 500_000_000)
@@ -423,7 +423,7 @@ final class DataCacheTests: XCTestCase {
         let veryShortExpiration: TimeInterval = 0.05 // 50ms
 
         // When
-        await sut.set(value, forKey: key, expiration: veryShortExpiration)
+        await sut.set(value, forKey: key, ttl: veryShortExpiration)
 
         // Wait for expiration + safe margin (150ms total)
         try? await Task.sleep(nanoseconds: 150_000_000)
@@ -441,7 +441,7 @@ final class DataCacheTests: XCTestCase {
         let zeroDuration: TimeInterval = 0.0
 
         // When
-        await sut.set(value, forKey: key, expiration: zeroDuration)
+        await sut.set(value, forKey: key, ttl: zeroDuration)
 
         // Even a tiny wait should expire it
         try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
@@ -636,7 +636,7 @@ final class DataCacheTests: XCTestCase {
 
             // Clear expired
             group.addTask {
-                await self.sut.clearExpired()
+                await self.sut.removeExpired()
             }
         }
 
@@ -666,7 +666,7 @@ final class DataCacheTests: XCTestCase {
         }
     }
 
-    func testConcurrentClearAll_ThreadSafety() async {
+    func testConcurrentRemoveAll_ThreadSafety() async {
         // Given
         let iterations = 50
 
@@ -679,7 +679,7 @@ final class DataCacheTests: XCTestCase {
         await withTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 10 {
                 group.addTask {
-                    await self.sut.clearAll()
+                    await self.sut.removeAll()
                 }
             }
         }
@@ -778,7 +778,7 @@ final class DataCacheTests: XCTestCase {
         let negativeExpiration: TimeInterval = -100.0
 
         // When
-        await sut.set(value, forKey: key, expiration: negativeExpiration)
+        await sut.set(value, forKey: key, ttl: negativeExpiration)
 
         // Then - Should be expired immediately (negative is already in the past)
         let retrieved: String? = await sut.get(forKey: key)
@@ -792,7 +792,7 @@ final class DataCacheTests: XCTestCase {
         let hugeExpiration: TimeInterval = 999_999_999.0 // ~31 years
 
         // When
-        await sut.set(value, forKey: key, expiration: hugeExpiration)
+        await sut.set(value, forKey: key, ttl: hugeExpiration)
 
         // Then
         let retrieved: String? = await sut.get(forKey: key)
@@ -825,23 +825,6 @@ final class DataCacheTests: XCTestCase {
         XCTAssertEqual(arrayValue, [1, 2, 3], "Should store multiple types")
     }
 
-    // MARK: - Cache Key Constants Tests
-
-    func testCacheKeys_Constants() {
-        // Verify key constants are stable for API compatibility
-        XCTAssertEqual(DataCache.Key.testHistory, "test_history")
-        XCTAssertEqual(DataCache.Key.userProfile, "user_profile")
-        XCTAssertEqual(DataCache.Key.dashboardData, "dashboard_data")
-        XCTAssertEqual(DataCache.Key.activeTestSession, "active_test_session")
-    }
-
-    func testCacheKeys_TestResultKey() {
-        // Verify dynamic key generation
-        XCTAssertEqual(DataCache.Key.testResult(id: 123), "test_result_123")
-        XCTAssertEqual(DataCache.Key.testResult(id: 0), "test_result_0")
-        XCTAssertEqual(DataCache.Key.testResult(id: -1), "test_result_-1")
-    }
-
     // MARK: - Integration Tests
 
     func testRealWorldScenario_CachingAPIResponses() async {
@@ -856,7 +839,7 @@ final class DataCacheTests: XCTestCase {
         let cacheDuration: TimeInterval = 300 // 5 minutes
 
         // When - Cache API response
-        await sut.set(apiResponse, forKey: cacheKey, expiration: cacheDuration)
+        await sut.set(apiResponse, forKey: cacheKey, ttl: cacheDuration)
 
         // Then - Should retrieve cached response
         let cached: TestHistory? = await sut.get(forKey: cacheKey)
@@ -878,7 +861,7 @@ final class DataCacheTests: XCTestCase {
         await sut.set("history_data", forKey: "test_history")
 
         // When - User logs out (invalidate all caches)
-        await sut.clearAll()
+        await sut.removeAll()
 
         // Then - All caches should be cleared
         let dashboard: String? = await sut.get(forKey: "dashboard")
@@ -895,13 +878,13 @@ final class DataCacheTests: XCTestCase {
         let shortLivedKey = "short_lived"
         let longLivedKey = "long_lived"
 
-        await sut.set("shortData", forKey: shortLivedKey, expiration: 0.1) // 100ms
-        await sut.set("longData", forKey: longLivedKey, expiration: 10.0) // 10 seconds
+        await sut.set("shortData", forKey: shortLivedKey, ttl: 0.1) // 100ms
+        await sut.set("longData", forKey: longLivedKey, ttl: 10.0) // 10 seconds
 
         // When - Wait for short-lived cache to expire
         try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
 
-        await sut.clearExpired()
+        await sut.removeExpired()
 
         // Then
         let shortData: String? = await sut.get(forKey: shortLivedKey)
@@ -917,11 +900,11 @@ final class DataCacheTests: XCTestCase {
         let key = "user_profile"
         let initialData = "version_1"
 
-        await sut.set(initialData, forKey: key, expiration: 300)
+        await sut.set(initialData, forKey: key, ttl: 300)
 
         // When - Update cache with new data
         let updatedData = "version_2"
-        await sut.set(updatedData, forKey: key, expiration: 300)
+        await sut.set(updatedData, forKey: key, ttl: 300)
 
         // Then
         let cached: String? = await sut.get(forKey: key)
@@ -936,7 +919,7 @@ final class DataCacheTests: XCTestCase {
         let staleData = "stale"
 
         // When - Cache fresh data with short expiration
-        await sut.set(staleData, forKey: key, expiration: 0.1) // 100ms
+        await sut.set(staleData, forKey: key, ttl: 0.1) // 100ms
 
         // Wait for it to become stale
         try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
@@ -946,7 +929,7 @@ final class DataCacheTests: XCTestCase {
 
         // If stale (nil), cache fresh data
         if cachedStale == nil {
-            await sut.set(freshData, forKey: key, expiration: 10.0)
+            await sut.set(freshData, forKey: key, ttl: 10.0)
         }
 
         // Then

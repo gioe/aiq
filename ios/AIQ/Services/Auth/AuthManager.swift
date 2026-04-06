@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import os
+import SharedKit
 
 /// Manages authentication state for the entire app
 @MainActor
@@ -193,7 +194,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         ViewModelFactory.resetTabViewModels()
 
         // Clear all cached data so re-login fetches fresh data
-        await DataCache.shared.clearAll()
+        await AppCache.shared.removeAll()
 
         // Track analytics
         AnalyticsService.shared.trackUserLogout()
@@ -235,7 +236,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             AnalyticsService.shared.track(event: .accountDeleted)
 
             // Clear all cached data
-            await DataCache.shared.clearAll()
+            await AppCache.shared.removeAll()
         } catch {
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval("Auth.DeleteAccount", state)

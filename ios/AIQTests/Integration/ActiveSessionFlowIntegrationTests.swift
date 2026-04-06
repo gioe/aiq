@@ -26,8 +26,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         cancellables = []
 
         // Clear all caches to ensure clean state
-        await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
-        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+        await AppCache.shared.remove(forKey: .activeTestSession)
+        await AppCache.shared.remove(forKey: .testHistory)
 
         // Initialize view models
         dashboardViewModel = DashboardViewModel(apiService: mockService)
@@ -339,8 +339,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertNil(dashboardViewModel.activeTestSession, "Active session should be cleared")
 
         // Verify cache was invalidated
-        let cachedData: TestSessionStatusResponse? = await DataCache.shared.get(
-            forKey: DataCache.Key.activeTestSession
+        let cachedData: TestSessionStatusResponse? = await AppCache.shared.get(
+            forKey: .activeTestSession
         )
         XCTAssertNil(cachedData, "Cache should be invalidated")
     }

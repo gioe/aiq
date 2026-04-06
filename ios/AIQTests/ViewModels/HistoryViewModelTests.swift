@@ -31,7 +31,7 @@ final class HistoryViewModelTests: XCTestCase {
         mockStorage = MockHistoryPreferencesStorage()
         sut = HistoryViewModel(apiService: mockService, preferencesStorage: mockStorage)
 
-        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+        await AppCache.shared.remove(forKey: .testHistory)
     }
 
     override func tearDown() {

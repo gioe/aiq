@@ -13,13 +13,13 @@ final class DashboardViewStateTests: XCTestCase {
         mockAnalyticsService = MockAnalyticsService()
         sut = DashboardViewModel(apiService: mockService, analyticsService: mockAnalyticsService)
 
-        await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
-        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+        await AppCache.shared.remove(forKey: .activeTestSession)
+        await AppCache.shared.remove(forKey: .testHistory)
     }
 
     override func tearDown() async throws {
-        await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
-        await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
+        await AppCache.shared.remove(forKey: .activeTestSession)
+        await AppCache.shared.remove(forKey: .testHistory)
         mockService.reset()
         try await super.tearDown()
     }

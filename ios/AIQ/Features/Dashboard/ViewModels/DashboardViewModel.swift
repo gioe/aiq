@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import SharedKit
 
 /// ViewModel for managing dashboard data and state
 @MainActor
@@ -67,8 +68,8 @@ class DashboardViewModel: BaseViewModel {
     func refreshDashboard() async {
         await withRefreshing {
             // Clear cache and force refresh
-            await DataCache.shared.remove(forKey: DataCache.Key.testHistory)
-            await DataCache.shared.remove(forKey: DataCache.Key.activeTestSession)
+            await AppCache.shared.remove(forKey: .testHistory)
+            await AppCache.shared.remove(forKey: .activeTestSession)
             // Pass showLoadingIndicator: false so the system pull-to-refresh spinner
             // handles UI feedback. Calling setLoading(true) here would swap the
             // ScrollView for LoadingView, destroying the refreshable context and
@@ -123,7 +124,7 @@ class DashboardViewModel: BaseViewModel {
     @discardableResult
     func fetchTestCount(forceRefresh: Bool = false) async -> Error? {
         if !forceRefresh {
-            if let cached: [TestResult] = await DataCache.shared.get(forKey: DataCache.Key.testHistory) {
+            if let cached: [TestResult] = await AppCache.shared.get(forKey: .testHistory) {
                 recentTestHistory = cached
                 testCount = cached.count
                 return nil
@@ -136,9 +137,9 @@ class DashboardViewModel: BaseViewModel {
             let newCount = paginatedResponse.totalCount
             if testCount != newCount { testCount = newCount }
             // Cache results so HistoryView can reuse them
-            await DataCache.shared.set(
+            await AppCache.shared.set(
                 paginatedResponse.results,
-                forKey: DataCache.Key.testHistory
+                forKey: .testHistory
             )
             return nil
 
@@ -162,8 +163,8 @@ class DashboardViewModel: BaseViewModel {
     func fetchActiveSession(forceRefresh: Bool = false) async -> Error? {
         // Check cache first if not forcing refresh
         if !forceRefresh {
-            if let cached: TestSessionStatusResponse = await DataCache.shared.get(
-                forKey: DataCache.Key.activeTestSession
+            if let cached: TestSessionStatusResponse = await AppCache.shared.get(
+                forKey: .activeTestSession
             ) {
                 updateActiveSessionState(cached)
                 // Cache hit: skip trackActiveSessionDetected — the session was
@@ -178,10 +179,10 @@ class DashboardViewModel: BaseViewModel {
 
             // Cache the response
             if let response {
-                await DataCache.shared.set(
+                await AppCache.shared.set(
                     response,
-                    forKey: DataCache.Key.activeTestSession,
-                    expiration: Constants.Cache.dashboardCacheDuration
+                    forKey: .activeTestSession,
+                    ttl: Constants.Cache.dashboardCacheDuration
                 )
             }
 
