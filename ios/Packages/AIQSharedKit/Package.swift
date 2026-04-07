@@ -10,6 +10,16 @@ let package = Package(
         .library(
             name: "AIQSharedKit",
             targets: ["AIQSharedKit"]
+        ),
+        .library(
+            name: "AIQOfflineQueue",
+            targets: ["AIQOfflineQueue"]
+        )
+    ],
+    dependencies: [
+        .package(
+            url: "https://github.com/gioe/ios-libs",
+            from: "1.4.0"
         )
     ],
     targets: [
@@ -18,6 +28,12 @@ let package = Package(
             dependencies: [],
             swiftSettings: [
                 .define("DebugBuild", .when(configuration: .debug))
+            ]
+        ),
+        .target(
+            name: "AIQOfflineQueue",
+            dependencies: [
+                .product(name: "SharedKit", package: "ios-libs")
             ]
         ),
         .testTarget(
