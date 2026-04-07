@@ -158,7 +158,10 @@ struct PerformanceInsights: Equatable {
         let recentTests = Array(tests.suffix(recentCount))
         let recentAverage = recentTests.map(\.iqScore).reduce(0, +) / recentTests.count
 
-        let latestScore = tests.last!.iqScore
+        guard let latestTest = tests.last else {
+            return "Complete more tests to see trends"
+        }
+        let latestScore = latestTest.iqScore
         let difference = latestScore - recentAverage
 
         if abs(difference) <= 2 {
@@ -184,8 +187,10 @@ struct PerformanceInsights: Equatable {
     private static func calculateImprovementSinceFirst(from tests: [TestResult]) -> Double? {
         guard tests.count >= 2 else { return nil }
 
-        let firstScore = Double(tests.first!.iqScore)
-        let latestScore = Double(tests.last!.iqScore)
+        guard let firstTest = tests.first, let latestTest = tests.last else { return nil }
+
+        let firstScore = Double(firstTest.iqScore)
+        let latestScore = Double(latestTest.iqScore)
 
         let change = latestScore - firstScore
         return (change / firstScore) * 100
@@ -195,8 +200,10 @@ struct PerformanceInsights: Equatable {
     private static func calculateAverageImprovement(from tests: [TestResult]) -> Double? {
         guard tests.count >= 2 else { return nil }
 
-        let firstScore = Double(tests.first!.iqScore)
-        let latestScore = Double(tests.last!.iqScore)
+        guard let firstTest = tests.first, let latestTest = tests.last else { return nil }
+
+        let firstScore = Double(firstTest.iqScore)
+        let latestScore = Double(latestTest.iqScore)
         let totalChange = latestScore - firstScore
 
         return totalChange / Double(tests.count - 1)
