@@ -246,7 +246,7 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
     /// The API returns 404 notFound, and the navigation should fail without pushing a route.
     func testTestResults_UserHasNoTestResults_ReturnsFailed_NoRoutePushed() async {
         // Given - mock API returns notFound error (user has no test results)
-        mockAPIService.getTestResultsError = APIError.notFound()
+        mockAPIService.getTestResultsError = APIError.api(.notFound())
 
         // Given - router starts on dashboard
         router.currentTab = .dashboard

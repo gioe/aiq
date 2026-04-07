@@ -491,7 +491,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
     func testErrorRecovery_SessionExpired_HandlesGracefully() async {
         // Given - User tries to resume expired session
         let sessionId = 1000
-        let expiredError = APIError.notFound(message: "Session has expired or been deleted")
+        let expiredError = APIError.api(.notFound(message: "Session has expired or been deleted"))
         await mockService.getTestSessionError = expiredError
 
         // When - User attempts to resume
@@ -504,7 +504,7 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         XCTAssertNil(testTakingViewModel.testSession, "Test session should be nil")
 
         if let contextualError = testTakingViewModel.error as? ContextualError,
-           case .notFound = contextualError.underlyingError {
+           case .api(.notFound) = contextualError.underlyingError {
             // Correct error type
         } else {
             XCTFail("Error should be notFound for expired session")

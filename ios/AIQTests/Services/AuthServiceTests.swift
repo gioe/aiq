@@ -175,9 +175,7 @@ final class AuthServiceTests: XCTestCase {
         // Given
         let email = "test@example.com"
         let password = "password123"
-        let networkError = APIError.networkError(
-            NSError(domain: "Test", code: -1, userInfo: [NSLocalizedDescriptionKey: "Network error"])
-        )
+        let networkError = APIError.api(.networkError("Network error"))
 
         await mockService.loginError = networkError
 
@@ -194,7 +192,7 @@ final class AuthServiceTests: XCTestCase {
         // Given
         let email = "test@example.com"
         let password = "wrongpassword"
-        let unauthorizedError = APIError.unauthorized(message: "Invalid credentials")
+        let unauthorizedError = APIError.api(.unauthorized(message: "Invalid credentials"))
 
         await mockService.loginError = unauthorizedError
 
@@ -593,7 +591,7 @@ final class AuthServiceTests: XCTestCase {
         let password = "password123"
         let firstName = "Test"
         let lastName = "User"
-        let conflictError = APIError.unprocessableEntity(message: "Email already exists")
+        let conflictError = APIError.api(.unprocessableEntity(message: "Email already exists"))
 
         await mockService.registerError = conflictError
 
@@ -617,7 +615,7 @@ final class AuthServiceTests: XCTestCase {
         let password = "weak"
         let firstName = "Test"
         let lastName = "User"
-        let validationError = APIError.badRequest(message: "Invalid email format")
+        let validationError = APIError.api(.badRequest(message: "Invalid email format"))
 
         await mockService.registerError = validationError
 
@@ -829,9 +827,7 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
 
         // Mock API error (e.g., network error)
-        let networkError = APIError.networkError(
-            NSError(domain: "Test", code: -1, userInfo: nil)
-        )
+        let networkError = APIError.api(.networkError("test network error"))
         await mockService.logoutError = networkError
 
         // When - Logout should succeed even if API call fails (best effort)
@@ -981,7 +977,7 @@ final class AuthServiceTests: XCTestCase {
         // Given
         try mockSecureStorage.save("expired_refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
 
-        let unauthorizedError = APIError.unauthorized(message: "Refresh token expired")
+        let unauthorizedError = APIError.api(.unauthorized(message: "Refresh token expired"))
         await mockService.refreshTokenError = unauthorizedError
 
         // When/Then - Using stronger error assertion (Critical Issue #3)
@@ -997,9 +993,7 @@ final class AuthServiceTests: XCTestCase {
         // Given
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
 
-        let networkError = APIError.networkError(
-            NSError(domain: "Test", code: -1, userInfo: nil)
-        )
+        let networkError = APIError.api(.networkError("test network error"))
         await mockService.refreshTokenError = networkError
 
         // When/Then - Using stronger error assertion (Critical Issue #3)
@@ -1235,7 +1229,7 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
         // Mock API error
-        let serverError = APIError.serverError(statusCode: 500, message: "Server error")
+        let serverError = APIError.api(.serverError(statusCode: 500, message: "Server error"))
         await mockService.deleteAccountError = serverError
 
         // When/Then - Delete account should throw error when API fails
@@ -1278,9 +1272,7 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
 
         // Mock network error
-        let networkError = APIError.networkError(
-            NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
-        )
+        let networkError = APIError.api(.networkError("The Internet connection appears to be offline."))
         await mockService.deleteAccountError = networkError
 
         // When/Then - Delete account should throw error when network fails

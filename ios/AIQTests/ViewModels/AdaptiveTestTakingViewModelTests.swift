@@ -115,7 +115,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
 
     func testStartAdaptiveTest_HandlesServerError() async {
         // Given
-        let serverError = APIError.serverError(statusCode: 500, message: "Internal error")
+        let serverError = APIError.api(.serverError(statusCode: 500, message: "Internal error"))
         mockService.startAdaptiveTestError = serverError
 
         // When
@@ -252,7 +252,7 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         await setupAdaptiveTestInProgress(sessionId: 5007, questionId: 1)
         sut.currentAnswer = "A"
 
-        let networkError = APIError.networkError(URLError(.notConnectedToInternet))
+        let networkError = APIError.api(.networkError(URLError(.notConnectedToInternet).localizedDescription))
         mockService.submitAdaptiveResponseError = networkError
 
         // When

@@ -120,7 +120,7 @@ class HistoryViewModel: BaseViewModel {
             return // view is gone; discard silently
         } catch {
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(message: error.localizedDescription),
+                error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
                 operation: .fetchHistory
             )
             let historyCtx = CrashlyticsErrorRecorder.ErrorContext.fetchHistory.rawValue
@@ -199,7 +199,7 @@ class HistoryViewModel: BaseViewModel {
         } catch {
             isLoadingMore = false
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(message: error.localizedDescription),
+                error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
                 operation: .fetchHistory
             )
             let historyCtx = CrashlyticsErrorRecorder.ErrorContext.fetchHistory.rawValue

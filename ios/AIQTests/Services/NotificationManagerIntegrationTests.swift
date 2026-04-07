@@ -416,7 +416,7 @@ final class NotificationManagerIntegrationTests: XCTestCase {
         UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey)
 
         // Configure mock to throw specific error
-        let apiError = APIError.unauthorized(message: "Invalid token")
+        let apiError = APIError.api(.unauthorized(message: "Invalid token"))
         await mockNotificationService.setRegisterError(apiError)
 
         // When - Attempt registration

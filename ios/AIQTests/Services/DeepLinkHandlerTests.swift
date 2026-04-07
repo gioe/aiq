@@ -1099,7 +1099,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let mockService = MockOpenAPIService()
 
         // Configure mock to throw an error (simulating test not found)
-        await mockService.getTestResultsError = APIError.notFound(message: "Test result not found")
+        await mockService.getTestResultsError = APIError.api(.notFound(message: "Test result not found"))
 
         // When
         let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
@@ -1123,7 +1123,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
         // Configure mock to throw a network error
         let networkError = URLError(.notConnectedToInternet)
-        await mockService.getTestResultsError = APIError.networkError(networkError)
+        await mockService.getTestResultsError = APIError.api(.networkError(networkError.localizedDescription))
 
         // When
         let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
@@ -1142,7 +1142,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let mockService = MockOpenAPIService()
 
         // Configure mock to throw a server error
-        await mockService.getTestResultsError = APIError.serverError(statusCode: 500, message: "Internal server error")
+        await mockService.getTestResultsError = APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
 
         // When
         let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)

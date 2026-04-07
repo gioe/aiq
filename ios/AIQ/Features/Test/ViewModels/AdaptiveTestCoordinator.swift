@@ -171,7 +171,7 @@ class AdaptiveTestCoordinator {
         isLoadingNextQuestion = false
 
         let contextualError = ContextualError(
-            error: error as? APIError ?? .unknown(message: error.localizedDescription),
+            error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
             operation: .submitTest
         )
 

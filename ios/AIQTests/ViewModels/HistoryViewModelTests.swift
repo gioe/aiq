@@ -307,7 +307,7 @@ final class HistoryViewModelTests: XCTestCase {
 
     func testFetchHistory_HandlesError() async {
         // Given
-        let apiError = APIError.serverError(statusCode: 500, message: "Server error")
+        let apiError = APIError.api(.serverError(statusCode: 500, message: "Server error"))
         await mockService.getTestHistoryError = apiError
 
         // When
@@ -325,7 +325,7 @@ final class HistoryViewModelTests: XCTestCase {
         await sut.fetchHistory(forceRefresh: true)
 
         // Set up error for loadMore
-        let apiError = APIError.serverError(statusCode: 500, message: "Server error")
+        let apiError = APIError.api(.serverError(statusCode: 500, message: "Server error"))
         await mockService.getTestHistoryError = apiError
 
         // When

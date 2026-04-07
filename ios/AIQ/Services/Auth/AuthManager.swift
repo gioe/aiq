@@ -107,7 +107,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             )
 
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(message: error.localizedDescription),
+                error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
                 operation: .register
             )
             authError = contextualError
@@ -146,7 +146,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             )
 
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(message: error.localizedDescription),
+                error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
                 operation: .login
             )
             authError = contextualError
@@ -202,7 +202,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
 
     func deleteAccount() async throws {
         guard !isLoading else {
-            throw APIError.badRequest(message: NSLocalizedString("error.auth.operation.in.progress", comment: ""))
+            throw APIError.api(.badRequest(message: NSLocalizedString("error.auth.operation.in.progress", comment: "")))
         }
 
         isLoading = true
@@ -246,7 +246,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             )
 
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(message: error.localizedDescription),
+                error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
                 operation: .deleteAccount
             )
             authError = contextualError

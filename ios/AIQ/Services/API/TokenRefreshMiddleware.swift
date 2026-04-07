@@ -58,7 +58,7 @@ actor TokenRefreshMiddleware: ClientMiddleware {
 
         // Guard: never attempt to refresh if the refresh endpoint itself returns 401.
         guard operationID != Self.refreshOperationID else {
-            throw APIError.unauthorized(message: "Refresh token expired or invalid")
+            throw APIError.api(.unauthorized(message: "Refresh token expired or invalid"))
         }
 
         try await performRefresh()

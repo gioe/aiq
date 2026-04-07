@@ -48,7 +48,7 @@ final class APIErrorParseBadRequestTests: XCTestCase {
 
     func testParseBadRequest_CooldownMessage_IsNotBadRequest() {
         let result = APIError.parseBadRequest(message: Self.sampleCooldownMessage)
-        if case .badRequest = result {
+        if case .api(.badRequest) = result {
             XCTFail("Cooldown response must not produce APIError.badRequest")
         }
     }
@@ -57,7 +57,7 @@ final class APIErrorParseBadRequestTests: XCTestCase {
 
     func testParseBadRequest_OtherMessage_ReturnsBadRequest() {
         let result = APIError.parseBadRequest(message: "Some unrelated error")
-        guard case .badRequest = result else {
+        guard case .api(.badRequest) = result else {
             XCTFail("Non-cooldown message should produce APIError.badRequest, got \(result)")
             return
         }
@@ -65,7 +65,7 @@ final class APIErrorParseBadRequestTests: XCTestCase {
 
     func testParseBadRequest_NilMessage_ReturnsBadRequest() {
         let result = APIError.parseBadRequest(message: nil)
-        guard case .badRequest = result else {
+        guard case .api(.badRequest) = result else {
             XCTFail("Nil message should produce APIError.badRequest, got \(result)")
             return
         }

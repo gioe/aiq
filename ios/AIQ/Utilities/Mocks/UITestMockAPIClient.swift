@@ -32,9 +32,7 @@ import Foundation
 
         private func throwIfNetworkError() throws {
             if shouldSimulateNetworkError {
-                throw APIError.networkError(
-                    NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
-                )
+                throw APIError.api(.noInternetConnection)
             }
         }
 
@@ -85,17 +83,13 @@ import Foundation
         func startTest() async throws -> StartTestResponse {
             switch scenario {
             case .startTestNetworkFailure:
-                throw APIError.networkError(
-                    NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
-                )
+                throw APIError.api(.noInternetConnection)
             case .startTestNonRetryableFailure:
-                throw APIError.badRequest(message: "Questions not available.")
+                throw APIError.api(.badRequest(message: "Questions not available."))
             case .startTestFailureThenSuccess:
                 startTestCallCount += 1
                 if startTestCallCount == 1 {
-                    throw APIError.networkError(
-                        NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
-                    )
+                    throw APIError.api(.noInternetConnection)
                 }
                 return StartTestResponse(
                     questions: UITestMockData.sampleQuestions,

@@ -92,7 +92,7 @@ final class DashboardViewModelTests: XCTestCase {
             code: 500,
             userInfo: [NSLocalizedDescriptionKey: "Server error"]
         )
-        let apiError = APIError.networkError(mockError)
+        let apiError = APIError.api(.networkError(mockError.localizedDescription))
         await mockService.getActiveTestError = apiError
 
         // When
@@ -117,7 +117,7 @@ final class DashboardViewModelTests: XCTestCase {
             code: 500,
             userInfo: [NSLocalizedDescriptionKey: "Server error"]
         )
-        let apiError = APIError.networkError(mockError)
+        let apiError = APIError.api(.networkError(mockError.localizedDescription))
         await mockService.getTestHistoryError = apiError
 
         // When - Fetch dashboard data (which includes test count)
@@ -157,7 +157,7 @@ final class DashboardViewModelTests: XCTestCase {
             code: 500,
             userInfo: [NSLocalizedDescriptionKey: "Server error"]
         )
-        let apiError = APIError.networkError(mockError)
+        let apiError = APIError.api(.networkError(mockError.localizedDescription))
         await mockService.getActiveTestError = apiError
 
         // When
@@ -524,7 +524,7 @@ final class DashboardViewModelTests: XCTestCase {
             code: 500,
             userInfo: [NSLocalizedDescriptionKey: "Server error"]
         )
-        let apiError = APIError.networkError(mockError)
+        let apiError = APIError.api(.networkError(mockError.localizedDescription))
         await mockService.abandonTestError = apiError
 
         // When

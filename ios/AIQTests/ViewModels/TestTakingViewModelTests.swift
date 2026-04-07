@@ -88,7 +88,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
     func testStartTest_DoesNotSetActiveSessionConflictForOtherErrors() async {
         // Given - Mock API returns a different error
-        let otherError = APIError.serverError(statusCode: 500, message: "Internal server error")
+        let otherError = APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
         mockService.startTestError = otherError
 
         // When
@@ -181,7 +181,7 @@ final class TestTakingViewModelTests: XCTestCase {
         mockService.startTestError = conflictError
 
         // getActiveTest() throws a network error
-        mockService.getActiveTestError = APIError.networkError(URLError(.notConnectedToInternet))
+        mockService.getActiveTestError = APIError.api(.networkError(URLError(.notConnectedToInternet).localizedDescription))
 
         // When
         await sut.startTest(questionCount: 20)
@@ -339,7 +339,7 @@ final class TestTakingViewModelTests: XCTestCase {
     func testResumeActiveSession_HandlesAPIError() async {
         // Given
         let sessionId = 333
-        let apiError = APIError.notFound(message: "Session not found")
+        let apiError = APIError.api(.notFound(message: "Session not found"))
         mockService.getTestSessionError = apiError
 
         // When
@@ -394,7 +394,7 @@ final class TestTakingViewModelTests: XCTestCase {
     func testAbandonAndStartNew_HandlesAbandonError() async {
         // Given
         let sessionId = 666
-        let abandonError = APIError.serverError(statusCode: 500, message: "Failed to abandon")
+        let abandonError = APIError.api(.serverError(statusCode: 500, message: "Failed to abandon"))
         mockService.abandonTestError = abandonError
 
         // When
@@ -451,7 +451,7 @@ final class TestTakingViewModelTests: XCTestCase {
     func testResumeActiveSession_HandlesSessionExpiredError() async {
         // Given
         let sessionId = 888
-        let expiredError = APIError.notFound(message: "Session has expired")
+        let expiredError = APIError.api(.notFound(message: "Session has expired"))
         mockService.getTestSessionError = expiredError
 
         // When
@@ -462,7 +462,7 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.error, "Error should be set")
 
         if let contextualError = sut.error as? ContextualError,
-           case .notFound = contextualError.underlyingError {
+           case .api(.notFound) = contextualError.underlyingError {
             // Correct error type
         } else {
             XCTFail("Error should be notFound for expired session")
@@ -472,9 +472,9 @@ final class TestTakingViewModelTests: XCTestCase {
     func testResumeActiveSession_HandlesNetworkError() async {
         // Given
         let sessionId = 999
-        let networkError = APIError.networkError(
-            URLError(.notConnectedToInternet)
-        )
+        let networkError = APIError.api(.networkError(
+            URLError(.notConnectedToInternet).localizedDescription
+        ))
         mockService.getTestSessionError = networkError
 
         // When
@@ -485,7 +485,7 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.error, "Error should be set")
 
         if let contextualError = sut.error as? ContextualError,
-           case .networkError = contextualError.underlyingError {
+           case .api(.networkError) = contextualError.underlyingError {
             // Correct error type
         } else {
             XCTFail("Error should be networkError")
@@ -495,7 +495,7 @@ final class TestTakingViewModelTests: XCTestCase {
     func testAbandonAndStartNew_HandlesUnauthorizedError() async {
         // Given
         let sessionId = 1010
-        let authError = APIError.unauthorized(message: "Session expired")
+        let authError = APIError.api(.unauthorized(message: "Session expired"))
         mockService.abandonTestError = authError
 
         // When
@@ -506,7 +506,7 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.error, "Error should be set")
 
         if let contextualError = sut.error as? ContextualError,
-           case .unauthorized = contextualError.underlyingError {
+           case .api(.unauthorized) = contextualError.underlyingError {
             // Correct error type
         } else {
             XCTFail("Error should be unauthorized")
@@ -1173,7 +1173,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
     func testFetchTestCountAtStart_HandlesFetchError_DefaultsToNotFirstTest() async {
         // Given - Set up API to return an error for test history
-        let historyError = APIError.serverError(statusCode: 500, message: "Server error")
+        let historyError = APIError.api(.serverError(statusCode: 500, message: "Server error"))
         mockService.getTestHistoryError = historyError
 
         let sessionId = 3005
@@ -1393,7 +1393,7 @@ final class TestTakingViewModelTests: XCTestCase {
         await sut.startTest(questionCount: 1)
         sut.currentAnswer = "A"
 
-        let submitError = APIError.serverError(statusCode: 500, message: "Internal error")
+        let submitError = APIError.api(.serverError(statusCode: 500, message: "Internal error"))
         mockService.submitTestError = submitError
 
         // When
@@ -1414,7 +1414,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Simulate a load-phase error (e.g., start-test failure before questions arrive)
         sut.error = ContextualError(
-            error: .serverError(statusCode: 500, message: "Service unavailable"),
+            error: .api(.serverError(statusCode: 500, message: "Service unavailable")),
             operation: .fetchQuestions
         )
 
@@ -1476,7 +1476,7 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertTrue(sut.allQuestionsAnswered, "Precondition: all questions answered")
         XCTAssertNil(sut.error, "Precondition: no error before submit")
 
-        let submitError = APIError.serverError(statusCode: 500, message: "Failed")
+        let submitError = APIError.api(.serverError(statusCode: 500, message: "Failed"))
         mockService.submitTestError = submitError
 
         // When
@@ -1501,7 +1501,7 @@ final class TestTakingViewModelTests: XCTestCase {
         await sut.startTest(questionCount: 1)
         sut.currentAnswer = "A"
 
-        let submitError = APIError.serverError(statusCode: 500, message: "Failed")
+        let submitError = APIError.api(.serverError(statusCode: 500, message: "Failed"))
         mockService.submitTestError = submitError
         await sut.submitTest()
 
@@ -1719,7 +1719,7 @@ final class TestTakingViewModelTests: XCTestCase {
         await startTestSessionWithZeroAnswers(sessionId: sessionId)
         XCTAssertEqual(sut.answeredCount, 0, "No answers given")
 
-        mockService.abandonTestError = APIError.serverError(statusCode: 500, message: "Internal server error")
+        mockService.abandonTestError = APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
 
         // When - should not crash
         await sut.submitTestForTimeout()

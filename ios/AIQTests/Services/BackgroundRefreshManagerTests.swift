@@ -206,7 +206,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         // Given
         mockAuthManager.isAuthenticated = true
         mockNetworkMonitor.isConnected = true
-        mockService.getTestHistoryError = APIError.unknown(message: "Test error")
+        mockService.getTestHistoryError = APIError.api(.unknown(message: "Test error"))
 
         // When
         let result = await sut.performRefresh()

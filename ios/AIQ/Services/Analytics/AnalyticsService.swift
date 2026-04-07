@@ -754,7 +754,7 @@ class AnalyticsService {
     /// Send batch to backend API
     private func sendToBackend(batch: AnalyticsEventsBatch) async throws {
         guard let url = URL(string: "\(AppConfig.apiBaseURL)/v1/analytics/events") else {
-            throw APIError.invalidURL
+            throw APIError.api(.invalidURL)
         }
 
         var request = URLRequest(url: url)
@@ -776,11 +776,11 @@ class AnalyticsService {
         let (data, response) = try await urlSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
+            throw APIError.api(.invalidResponse)
         }
 
         guard (200 ... 299).contains(httpResponse.statusCode) else {
-            throw APIError.serverError(statusCode: httpResponse.statusCode, message: nil)
+            throw APIError.api(.serverError(statusCode: httpResponse.statusCode, message: nil))
         }
 
         // Decode response (optional, for verification)

@@ -203,7 +203,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     // MARK: - recordError Method Tests - APIError Detection
 
     func testRecordError_WithAPIError_Unauthorized() {
-        let error = APIError.unauthorized(message: "Token expired")
+        let error = APIError.api(.unauthorized(message: "Token expired"))
 
         // Should not crash in DEBUG mode
         XCTAssertNoThrow(
@@ -215,7 +215,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_ServerError() {
-        let error = APIError.serverError(statusCode: 500, message: "Internal server error")
+        let error = APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -227,7 +227,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
 
     func testRecordError_WithAPIError_NetworkError() {
         let urlError = URLError(.notConnectedToInternet)
-        let error = APIError.networkError(urlError)
+        let error = APIError.api(.networkError(urlError.localizedDescription))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -238,7 +238,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_Timeout() {
-        let error = APIError.timeout
+        let error = APIError.api(.timeout)
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -249,7 +249,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_BadRequest() {
-        let error = APIError.badRequest(message: "Invalid request")
+        let error = APIError.api(.badRequest(message: "Invalid request"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -260,7 +260,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_NotFound() {
-        let error = APIError.notFound(message: "Resource not found")
+        let error = APIError.api(.notFound(message: "Resource not found"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -285,13 +285,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_DecodingError() {
-        let decodingError = DecodingError.dataCorrupted(
-            DecodingError.Context(
-                codingPath: [],
-                debugDescription: "Invalid JSON"
-            )
-        )
-        let error = APIError.decodingError(decodingError)
+        let error = APIError.api(.decodingError("test decoding error"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -302,7 +296,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_InvalidURL() {
-        let error = APIError.invalidURL
+        let error = APIError.api(.invalidURL)
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -313,7 +307,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_InvalidResponse() {
-        let error = APIError.invalidResponse
+        let error = APIError.api(.invalidResponse)
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -324,7 +318,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_Forbidden() {
-        let error = APIError.forbidden(message: "Access denied")
+        let error = APIError.api(.forbidden(message: "Access denied"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -335,7 +329,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_NoInternetConnection() {
-        let error = APIError.noInternetConnection
+        let error = APIError.api(.noInternetConnection)
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -346,7 +340,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_Unknown() {
-        let error = APIError.unknown(message: "Unknown error occurred")
+        let error = APIError.api(.unknown(message: "Unknown error occurred"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -357,7 +351,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAPIError_UnprocessableEntity() {
-        let error = APIError.unprocessableEntity(message: "Invalid data")
+        let error = APIError.api(.unprocessableEntity(message: "Invalid data"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -370,7 +364,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     // MARK: - recordError Method Tests - ContextualError Detection
 
     func testRecordError_WithContextualError_Login() {
-        let apiError = APIError.unauthorized(message: "Invalid credentials")
+        let apiError = APIError.api(.unauthorized(message: "Invalid credentials"))
         let error = ContextualError(error: apiError, operation: .login)
 
         XCTAssertNoThrow(
@@ -382,7 +376,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_Register() {
-        let apiError = APIError.badRequest(message: "Email already exists")
+        let apiError = APIError.api(.badRequest(message: "Email already exists"))
         let error = ContextualError(error: apiError, operation: .register)
 
         XCTAssertNoThrow(
@@ -394,7 +388,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_FetchQuestions() {
-        let apiError = APIError.networkError(URLError(.timedOut))
+        let apiError = APIError.api(.networkError(URLError(.timedOut).localizedDescription))
         let error = ContextualError(error: apiError, operation: .fetchQuestions)
 
         XCTAssertNoThrow(
@@ -406,7 +400,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_SubmitTest() {
-        let apiError = APIError.serverError(statusCode: 503, message: "Service unavailable")
+        let apiError = APIError.api(.serverError(statusCode: 503, message: "Service unavailable"))
         let error = ContextualError(error: apiError, operation: .submitTest)
 
         XCTAssertNoThrow(
@@ -418,7 +412,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_RefreshToken() {
-        let apiError = APIError.unauthorized(message: "Refresh token expired")
+        let apiError = APIError.api(.unauthorized(message: "Refresh token expired"))
         let error = ContextualError(error: apiError, operation: .refreshToken)
 
         XCTAssertNoThrow(
@@ -430,7 +424,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_FetchProfile() {
-        let apiError = APIError.notFound(message: "Profile not found")
+        let apiError = APIError.api(.notFound(message: "Profile not found"))
         let error = ContextualError(error: apiError, operation: .fetchProfile)
 
         XCTAssertNoThrow(
@@ -442,7 +436,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_UpdateProfile() {
-        let apiError = APIError.unprocessableEntity(message: "Invalid profile data")
+        let apiError = APIError.api(.unprocessableEntity(message: "Invalid profile data"))
         let error = ContextualError(error: apiError, operation: .updateProfile)
 
         XCTAssertNoThrow(
@@ -454,7 +448,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_FetchHistory() {
-        let apiError = APIError.forbidden(message: "Access denied")
+        let apiError = APIError.api(.forbidden(message: "Access denied"))
         let error = ContextualError(error: apiError, operation: .fetchHistory)
 
         XCTAssertNoThrow(
@@ -466,7 +460,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_Logout() {
-        let apiError = APIError.networkError(URLError(.notConnectedToInternet))
+        let apiError = APIError.api(.networkError(URLError(.notConnectedToInternet).localizedDescription))
         let error = ContextualError(error: apiError, operation: .logout)
 
         XCTAssertNoThrow(
@@ -478,7 +472,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_DeleteAccount() {
-        let apiError = APIError.unauthorized(message: "Session expired")
+        let apiError = APIError.api(.unauthorized(message: "Session expired"))
         let error = ContextualError(error: apiError, operation: .deleteAccount)
 
         XCTAssertNoThrow(
@@ -490,7 +484,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithContextualError_Generic() {
-        let apiError = APIError.unknown(message: "Unknown error")
+        let apiError = APIError.api(.unknown(message: "Unknown error"))
         let error = ContextualError(error: apiError, operation: .generic)
 
         XCTAssertNoThrow(
@@ -547,7 +541,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     // MARK: - recordError Method Tests - AdditionalInfo
 
     func testRecordError_WithAdditionalInfo_SingleValue() {
-        let error = APIError.networkError(URLError(.timedOut))
+        let error = APIError.api(.networkError(URLError(.timedOut).localizedDescription))
         let additionalInfo = ["retry_count": 3]
 
         XCTAssertNoThrow(
@@ -560,7 +554,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAdditionalInfo_MultipleValues() {
-        let error = APIError.serverError(statusCode: 500)
+        let error = APIError.api(.serverError(statusCode: 500))
         let additionalInfo: [String: Any] = [
             "endpoint": "/api/test/submit",
             "retry_count": 2,
@@ -578,7 +572,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithAdditionalInfo_EmptyDictionary() {
-        let error = APIError.unauthorized()
+        let error = APIError.api(.unauthorized())
         let additionalInfo: [String: Any] = [:]
 
         XCTAssertNoThrow(
@@ -591,7 +585,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithoutAdditionalInfo() {
-        let error = APIError.notFound()
+        let error = APIError.api(.notFound())
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -615,7 +609,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             .unknown
         ]
 
-        let error = APIError.networkError(URLError(.networkConnectionLost))
+        let error = APIError.api(.networkError(URLError(.networkConnectionLost).localizedDescription))
 
         for context in allContexts {
             XCTAssertNoThrow(
@@ -637,7 +631,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             .unknown
         ]
 
-        let apiError = APIError.timeout
+        let apiError = APIError.api(.timeout)
         let error = ContextualError(error: apiError, operation: .generic)
 
         for context in allContexts {
@@ -652,10 +646,10 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
 
     func testRecordError_WithRetryableAPIErrors() {
         let retryableErrors: [APIError] = [
-            .networkError(URLError(.timedOut)),
-            .timeout,
-            .noInternetConnection,
-            .serverError(statusCode: 503)
+            .api(.networkError(URLError(.timedOut).localizedDescription)),
+            .api(.timeout),
+            .api(.noInternetConnection),
+            .api(.serverError(statusCode: 503))
         ]
 
         for error in retryableErrors {
@@ -675,17 +669,15 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
 
     func testRecordError_WithNonRetryableAPIErrors() {
         let nonRetryableErrors: [APIError] = [
-            .badRequest(message: "Bad request"),
-            .unauthorized(message: "Unauthorized"),
-            .forbidden(message: "Forbidden"),
-            .invalidURL,
-            .invalidResponse,
-            .notFound(message: "Not found"),
+            .api(.badRequest(message: "Bad request")),
+            .api(.unauthorized(message: "Unauthorized")),
+            .api(.forbidden(message: "Forbidden")),
+            .api(.invalidURL),
+            .api(.invalidResponse),
+            .api(.notFound(message: "Not found")),
             .activeSessionConflict(sessionId: 1, message: "Conflict"),
-            .decodingError(DecodingError.dataCorrupted(
-                DecodingError.Context(codingPath: [], debugDescription: "Corrupt")
-            )),
-            .unknown(message: "Unknown")
+            .api(.decodingError("test decoding error")),
+            .api(.unknown(message: "Unknown"))
         ]
 
         for error in nonRetryableErrors {
@@ -704,7 +696,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithRetryableContextualError() {
-        let retryableAPIError = APIError.networkError(URLError(.networkConnectionLost))
+        let retryableAPIError = APIError.api(.networkError(URLError(.networkConnectionLost).localizedDescription))
         let error = ContextualError(error: retryableAPIError, operation: .fetchQuestions)
 
         XCTAssertTrue(error.isRetryable)
@@ -718,7 +710,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
     }
 
     func testRecordError_WithNonRetryableContextualError() {
-        let nonRetryableAPIError = APIError.unauthorized(message: "Unauthorized")
+        let nonRetryableAPIError = APIError.api(.unauthorized(message: "Unauthorized"))
         let error = ContextualError(error: nonRetryableAPIError, operation: .login)
 
         XCTAssertFalse(error.isRetryable)
@@ -903,7 +895,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             CrashlyticsErrorRecorder.logBreadcrumb("User entered credentials")
             CrashlyticsErrorRecorder.logBreadcrumb("User tapped login button")
 
-            let error = APIError.unauthorized(message: "Invalid credentials")
+            let error = APIError.api(.unauthorized(message: "Invalid credentials"))
             CrashlyticsErrorRecorder.recordError(
                 error,
                 context: .login,
@@ -920,7 +912,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             CrashlyticsErrorRecorder.logBreadcrumb("User answered 10 questions")
             CrashlyticsErrorRecorder.logBreadcrumb("User attempted to submit test")
 
-            let error = APIError.networkError(URLError(.timedOut))
+            let error = APIError.api(.networkError(URLError(.timedOut).localizedDescription))
             CrashlyticsErrorRecorder.recordError(
                 error,
                 context: .submitTest,
@@ -937,7 +929,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             CrashlyticsErrorRecorder.logBreadcrumb("User navigated to dashboard")
             CrashlyticsErrorRecorder.log(key: "previous_screen", value: "onboarding")
 
-            let apiError = APIError.serverError(statusCode: 503, message: "Service unavailable")
+            let apiError = APIError.api(.serverError(statusCode: 503, message: "Service unavailable"))
             let contextualError = ContextualError(error: apiError, operation: .fetchProfile)
 
             CrashlyticsErrorRecorder.recordError(
@@ -952,10 +944,10 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
 
     func testEdgeCase_RapidConsecutiveErrorRecording() {
         let errors: [Error] = [
-            APIError.networkError(URLError(.timedOut)),
-            APIError.unauthorized(message: "Session expired"),
-            APIError.serverError(statusCode: 500),
-            APIError.notFound(message: "Not found")
+            APIError.api(.networkError(URLError(.timedOut).localizedDescription)),
+            APIError.api(.unauthorized(message: "Session expired")),
+            APIError.api(.serverError(statusCode: 500)),
+            APIError.api(.notFound(message: "Not found"))
         ]
 
         XCTAssertNoThrow {
@@ -971,7 +963,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             largeInfo["key_\(i)"] = "value_\(i)"
         }
 
-        let error = APIError.unknown(message: "Test error")
+        let error = APIError.api(.unknown(message: "Test error"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -993,7 +985,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             "dict": ["nested": "value"]
         ]
 
-        let error = APIError.unknown(message: "Test")
+        let error = APIError.api(.unknown(message: "Test"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -1006,7 +998,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
 
     func testEdgeCase_VeryLongErrorMessage() {
         let longMessage = String(repeating: "a", count: 10000)
-        let error = APIError.badRequest(message: longMessage)
+        let error = APIError.api(.badRequest(message: longMessage))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -1022,7 +1014,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
 
         for i in 0 ..< 10 {
             DispatchQueue.global().async {
-                let error = APIError.serverError(statusCode: 500, message: "Error \(i)")
+                let error = APIError.api(.serverError(statusCode: 500, message: "Error \(i)"))
                 CrashlyticsErrorRecorder.recordError(error, context: .unknown)
                 expectation.fulfill()
             }
@@ -1042,7 +1034,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             "custom_key": "custom_value"
         ]
 
-        let error = APIError.unknown(message: "Test")
+        let error = APIError.api(.unknown(message: "Test"))
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -1060,7 +1052,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             "custom_field": "value"
         ]
 
-        let error = APIError.networkError(URLError(.timedOut)) // isRetryable = true
+        let error = APIError.api(.networkError(URLError(.timedOut).localizedDescription)) // isRetryable = true
 
         XCTAssertNoThrow(
             CrashlyticsErrorRecorder.recordError(
@@ -1078,7 +1070,7 @@ final class CrashlyticsErrorRecorderTests: XCTestCase {
             "isRetryable": true
         ]
 
-        let apiError = APIError.unauthorized(message: "Unauthorized")
+        let apiError = APIError.api(.unauthorized(message: "Unauthorized"))
         let error = ContextualError(error: apiError, operation: .login)
 
         XCTAssertNoThrow(

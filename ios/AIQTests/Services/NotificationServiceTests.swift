@@ -45,9 +45,7 @@ final class NotificationServiceTests: XCTestCase {
     func testRegisterDeviceToken_NetworkError() async throws {
         // Given
         let deviceToken = "test_device_token_123"
-        let networkError = APIError.networkError(
-            NSError(domain: "Test", code: -1, userInfo: [NSLocalizedDescriptionKey: "Network error"])
-        )
+        let networkError = APIError.api(.networkError("Network error"))
 
         mockService.registerDeviceError = networkError
 
@@ -63,7 +61,7 @@ final class NotificationServiceTests: XCTestCase {
     func testRegisterDeviceToken_UnauthorizedError() async throws {
         // Given
         let deviceToken = "test_device_token_123"
-        let unauthorizedError = APIError.unauthorized(message: "Invalid or expired token")
+        let unauthorizedError = APIError.api(.unauthorized(message: "Invalid or expired token"))
 
         mockService.registerDeviceError = unauthorizedError
 
@@ -79,7 +77,7 @@ final class NotificationServiceTests: XCTestCase {
     func testRegisterDeviceToken_ServerError() async throws {
         // Given
         let deviceToken = "test_device_token_123"
-        let serverError = APIError.serverError(statusCode: 500, message: "Internal server error")
+        let serverError = APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
 
         mockService.registerDeviceError = serverError
 
@@ -143,9 +141,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testUnregisterDeviceToken_NetworkError() async throws {
         // Given
-        let networkError = APIError.networkError(
-            NSError(domain: "Test", code: -1, userInfo: [NSLocalizedDescriptionKey: "Network error"])
-        )
+        let networkError = APIError.api(.networkError("Network error"))
 
         mockService.unregisterDeviceError = networkError
 
@@ -160,7 +156,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testUnregisterDeviceToken_UnauthorizedError() async throws {
         // Given
-        let unauthorizedError = APIError.unauthorized(message: "Invalid or expired token")
+        let unauthorizedError = APIError.api(.unauthorized(message: "Invalid or expired token"))
 
         mockService.unregisterDeviceError = unauthorizedError
 
@@ -175,7 +171,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testUnregisterDeviceToken_NotFoundError() async throws {
         // Given
-        let notFoundError = APIError.notFound(message: "Device token not found")
+        let notFoundError = APIError.api(.notFound(message: "Device token not found"))
 
         mockService.unregisterDeviceError = notFoundError
 
@@ -223,9 +219,7 @@ final class NotificationServiceTests: XCTestCase {
     func testUpdateNotificationPreferences_NetworkError() async throws {
         // Given
         let enabled = true
-        let networkError = APIError.networkError(
-            NSError(domain: "Test", code: -1, userInfo: [NSLocalizedDescriptionKey: "Network error"])
-        )
+        let networkError = APIError.api(.networkError("Network error"))
 
         mockService.updateNotificationPreferencesError = networkError
 
@@ -241,7 +235,7 @@ final class NotificationServiceTests: XCTestCase {
     func testUpdateNotificationPreferences_UnauthorizedError() async throws {
         // Given
         let enabled = true
-        let unauthorizedError = APIError.unauthorized(message: "Invalid or expired token")
+        let unauthorizedError = APIError.api(.unauthorized(message: "Invalid or expired token"))
 
         mockService.updateNotificationPreferencesError = unauthorizedError
 
@@ -257,7 +251,7 @@ final class NotificationServiceTests: XCTestCase {
     func testUpdateNotificationPreferences_ServerError() async throws {
         // Given
         let enabled = true
-        let serverError = APIError.serverError(statusCode: 500, message: "Internal server error")
+        let serverError = APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
 
         mockService.updateNotificationPreferencesError = serverError
 
@@ -302,9 +296,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testGetNotificationPreferences_NetworkError() async throws {
         // Given
-        let networkError = APIError.networkError(
-            NSError(domain: "Test", code: -1, userInfo: [NSLocalizedDescriptionKey: "Network error"])
-        )
+        let networkError = APIError.api(.networkError("Network error"))
 
         mockService.getNotificationPreferencesError = networkError
 
@@ -319,7 +311,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testGetNotificationPreferences_UnauthorizedError() async throws {
         // Given
-        let unauthorizedError = APIError.unauthorized(message: "Invalid or expired token")
+        let unauthorizedError = APIError.api(.unauthorized(message: "Invalid or expired token"))
 
         mockService.getNotificationPreferencesError = unauthorizedError
 
@@ -334,7 +326,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testGetNotificationPreferences_NotFoundError() async throws {
         // Given
-        let notFoundError = APIError.notFound(message: "Preferences not found")
+        let notFoundError = APIError.api(.notFound(message: "Preferences not found"))
 
         mockService.getNotificationPreferencesError = notFoundError
 

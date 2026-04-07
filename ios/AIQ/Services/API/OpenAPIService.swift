@@ -102,14 +102,14 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(ok):
                 guard case let .json(tokenRefresh) = ok.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 await factory.authMiddleware.setTokens(
                     accessToken: tokenRefresh.accessToken,
                     refreshToken: tokenRefresh.refreshToken
                 )
             case let .undocumented(statusCode, _):
-                throw APIError.unauthorized(message: "Refresh failed: HTTP \(statusCode)")
+                throw APIError.api(.unauthorized(message: "Refresh failed: HTTP \(statusCode)"))
             }
         }
 
@@ -138,12 +138,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(token) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return mapToAuthResponse(token)
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -198,12 +198,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .created(createdResponse):
                 guard case let .json(token) = createdResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return mapToAuthResponse(token)
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -222,7 +222,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(tokenRefresh) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 // TokenRefresh includes user data, so we can build a complete AuthResponse
                 return AuthResponse(
@@ -251,7 +251,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(tokenRefresh) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return (
                     accessToken: tokenRefresh.accessToken,
@@ -278,7 +278,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
                 await clearTokens()
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -299,7 +299,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(userResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return userResponse
 
@@ -340,12 +340,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(startResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return startResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -381,12 +381,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(submitResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return submitResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -407,12 +407,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(abandonResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return abandonResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -433,12 +433,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(sessionResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return sessionResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -459,12 +459,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(resultResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return resultResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -488,12 +488,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(paginatedResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return paginatedResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -512,7 +512,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(jsonPayload) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 // Response can be nil if no active session
                 // The JsonPayload wraps the actual TestSessionStatusResponse in value1
@@ -538,12 +538,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(startResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return startResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -572,12 +572,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(nextResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return nextResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -596,12 +596,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(progressResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return progressResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -630,7 +630,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
                 return
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -675,7 +675,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
                 return
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -694,7 +694,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .ok(okResponse):
                 guard case let .json(preferencesResponse) = okResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return preferencesResponse
 
@@ -740,12 +740,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             switch response {
             case let .created(createdResponse):
                 guard case let .json(feedbackResponse) = createdResponse.body else {
-                    throw APIError.invalidResponse
+                    throw APIError.api(.invalidResponse)
                 }
                 return feedbackResponse
 
             case .unprocessableContent:
-                throw APIError.unprocessableEntity(message: "Validation failed")
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
@@ -795,21 +795,21 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         let underlying = (error as NSError).userInfo[NSUnderlyingErrorKey] as? Error ?? error
 
         if underlying is DecodingError {
-            return .decodingError(underlying)
+            return .api(.decodingError(underlying.localizedDescription))
         }
 
         if let urlError = underlying as? URLError {
             switch urlError.code {
             case .notConnectedToInternet, .networkConnectionLost:
-                return .noInternetConnection
+                return .api(.noInternetConnection)
             case .timedOut:
-                return .timeout
+                return .api(.timeout)
             default:
-                return .networkError(urlError)
+                return .api(.networkError(urlError.localizedDescription))
             }
         }
 
-        return .unknown(message: error.localizedDescription)
+        return .api(.unknown(message: error.localizedDescription))
     }
 
     private func mapToAuthResponse(_ token: Components.Schemas.Token) -> AuthResponse {
@@ -832,21 +832,21 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         case 400:
             return APIError.parseBadRequest(message: message)
         case 401:
-            return APIError.unauthorized(message: message)
+            return .api(.unauthorized(message: message))
         case 403:
-            return APIError.forbidden(message: message)
+            return .api(.forbidden(message: message))
         case 404:
-            return APIError.notFound(message: message)
+            return .api(.notFound(message: message))
         case 408:
-            return APIError.timeout
+            return .api(.timeout)
         case 422:
-            return APIError.unprocessableEntity(message: message)
+            return .api(.unprocessableEntity(message: message))
         case 429:
-            return APIError.rateLimitExceeded(message: message)
+            return .api(.rateLimitExceeded(message: message))
         case 500 ... 599:
-            return APIError.serverError(statusCode: statusCode, message: message)
+            return .api(.serverError(statusCode: statusCode, message: message))
         default:
-            return APIError.unknown(message: message ?? "Unexpected status code: \(statusCode)")
+            return .api(.unknown(message: message ?? "Unexpected status code: \(statusCode)"))
         }
     }
 

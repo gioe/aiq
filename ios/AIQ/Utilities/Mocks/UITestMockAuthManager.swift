@@ -148,9 +148,9 @@ import Foundation
                     userInfo: [NSLocalizedDescriptionKey: "Registration failed"]
                 )
             case .timeout:
-                APIError.timeout
+                APIError.api(.timeout)
             case .serverError:
-                APIError.serverError(statusCode: 500, message: "Internal server error")
+                APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
             }
         }
 

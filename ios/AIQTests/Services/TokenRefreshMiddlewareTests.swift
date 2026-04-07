@@ -162,7 +162,7 @@ final class TokenRefreshMiddlewareTests: XCTestCase {
 
     // MARK: - Reentrancy Guard
 
-    /// A 401 from the refresh endpoint itself must throw `APIError.unauthorized` immediately
+    /// A 401 from the refresh endpoint itself must throw `APIError.api(.unauthorized)` immediately
     /// without invoking the refresh handler (to prevent an infinite refresh loop).
     func testIntercept_401FromRefreshEndpoint_ThrowsUnauthorizedWithoutRefreshing() async throws {
         // Arrange
@@ -183,12 +183,12 @@ final class TokenRefreshMiddlewareTests: XCTestCase {
                 operationID: refreshOperationID,
                 next: { _, _, _ in (HTTPResponse(status: .unauthorized), nil) }
             )
-            XCTFail("Expected APIError.unauthorized to be thrown")
+            XCTFail("Expected APIError.api(.unauthorized) to be thrown")
         } catch let error as APIError {
-            if case .unauthorized = error {
+            if case .api(.unauthorized) = error {
                 // Expected — reentrancy guard fired correctly.
             } else {
-                XCTFail("Expected APIError.unauthorized, got \(error)")
+                XCTFail("Expected APIError.api(.unauthorized), got \(error)")
             }
         }
 

@@ -346,7 +346,7 @@ class TestTakingViewModel: BaseViewModel {
 
     func handleGenericTestStartError(_ error: Error, questionCount: Int) {
         let contextualError = ContextualError(
-            error: .unknown(message: error.localizedDescription),
+            error: .api(.unknown(message: error.localizedDescription)),
             operation: .fetchQuestions
         )
         handleError(contextualError, context: CrashlyticsErrorRecorder.ErrorContext.startTest.rawValue) { [weak self] in
@@ -477,7 +477,7 @@ class TestTakingViewModel: BaseViewModel {
     private func handleResumeSessionError(_ error: Error, sessionId: Int) {
         setLoading(false)
         let contextualError = ContextualError(
-            error: error as? APIError ?? .unknown(message: error.localizedDescription),
+            error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
             operation: .fetchQuestions
         )
         handleError(contextualError, context: CrashlyticsErrorRecorder.ErrorContext.resumeTest.rawValue)
@@ -513,7 +513,7 @@ class TestTakingViewModel: BaseViewModel {
             setLoading(false)
 
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(message: error.localizedDescription),
+                error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
                 operation: .submitTest
             )
             handleError(contextualError, context: CrashlyticsErrorRecorder.ErrorContext.abandonTest.rawValue)
@@ -683,7 +683,7 @@ class TestTakingViewModel: BaseViewModel {
 
     private func handleSubmissionFailure(_ error: Error) {
         let contextualError = ContextualError(
-            error: error as? APIError ?? .unknown(message: error.localizedDescription),
+            error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
             operation: .submitTest
         )
 
@@ -732,7 +732,7 @@ class TestTakingViewModel: BaseViewModel {
             setLoading(false)
 
             let contextualError = ContextualError(
-                error: error as? APIError ?? .unknown(message: error.localizedDescription),
+                error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
                 operation: .submitTest // Reusing submitTest operation for consistency
             )
 

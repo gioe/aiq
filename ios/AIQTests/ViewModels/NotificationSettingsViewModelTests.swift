@@ -48,7 +48,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testLoadNotificationPreferences_Failure_SetsError() async {
         // Given
-        let expectedError = APIError.networkError(URLError(.notConnectedToInternet))
+        let expectedError = APIError.api(.networkError(URLError(.notConnectedToInternet).localizedDescription))
         await mockNotificationService.setGetPreferencesError(expectedError)
 
         // When
@@ -120,7 +120,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         sut.areNotificationsEnabled = false
         sut.systemPermissionGranted = true
 
-        let expectedError = APIError.serverError(statusCode: 500)
+        let expectedError = APIError.api(.serverError(statusCode: 500))
         await mockNotificationService.setUpdatePreferencesError(expectedError)
 
         // When
@@ -300,7 +300,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testLoadNotificationPreferences_NetworkError_SetsRetryableError() async {
         // Given
-        let networkError = APIError.networkError(URLError(.notConnectedToInternet))
+        let networkError = APIError.api(.networkError(URLError(.notConnectedToInternet).localizedDescription))
         await mockNotificationService.setGetPreferencesError(networkError)
 
         // When
@@ -316,7 +316,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
         sut.areNotificationsEnabled = false
         sut.systemPermissionGranted = true
 
-        let authError = APIError.unauthorized()
+        let authError = APIError.api(.unauthorized())
         await mockNotificationService.setUpdatePreferencesError(authError)
 
         // When
@@ -352,7 +352,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testRetry_AfterLoadFailure_Success() async {
         // Given - First attempt fails
-        let networkError = APIError.networkError(URLError(.notConnectedToInternet))
+        let networkError = APIError.api(.networkError(URLError(.notConnectedToInternet).localizedDescription))
         await mockNotificationService.setGetPreferencesError(networkError)
 
         await sut.loadNotificationPreferences()
@@ -414,7 +414,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testInheritsFromBaseViewModel_HasErrorHandling() async {
         // Given
-        let error = APIError.serverError(statusCode: 500)
+        let error = APIError.api(.serverError(statusCode: 500))
         await mockNotificationService.setGetPreferencesError(error)
 
         // When
@@ -427,7 +427,7 @@ final class NotificationSettingsViewModelTests: XCTestCase {
 
     func testInheritsFromBaseViewModel_ClearError() async {
         // Given
-        let error = APIError.serverError(statusCode: 500)
+        let error = APIError.api(.serverError(statusCode: 500))
         await mockNotificationService.setGetPreferencesError(error)
         await sut.loadNotificationPreferences()
         XCTAssertNotNil(sut.error)
