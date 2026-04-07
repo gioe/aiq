@@ -92,9 +92,8 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     // MARK: - Initialization
 
     init(
-        // swiftlint:disable:next line_length
-        notificationService: any NotificationServiceProtocol = ServiceContainer.shared.resolve(NotificationServiceProtocol.self)!,
-        authManager: any AuthManagerProtocol = ServiceContainer.shared.resolve(AuthManagerProtocol.self)!,
+        notificationService: any NotificationServiceProtocol = ServiceContainer.shared.resolve(),
+        authManager: any AuthManagerProtocol = ServiceContainer.shared.resolve(),
         notificationCenter: any UserNotificationCenterProtocol = UNUserNotificationCenter.current(),
         application: (any ApplicationProtocol)? = nil
     ) {
