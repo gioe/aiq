@@ -19,10 +19,6 @@ let package = Package(
     ],
     dependencies: [
         .package(
-            url: "https://github.com/apple/swift-openapi-generator",
-            from: "1.10.4"
-        ),
-        .package(
             url: "https://github.com/apple/swift-openapi-runtime",
             from: "1.9.0"
         ),
@@ -47,11 +43,12 @@ let package = Package(
                 .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
                 .product(name: "HTTPTypes", package: "swift-http-types")
             ],
+            exclude: [
+                "openapi.json",
+                "openapi-generator-config.yaml"
+            ],
             swiftSettings: [
                 .define("DebugBuild", .when(configuration: .debug))
-            ],
-            plugins: [
-                .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator")
             ]
         ),
         .target(
