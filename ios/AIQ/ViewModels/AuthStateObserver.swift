@@ -1,3 +1,4 @@
+import AIQSharedKit
 import Combine
 import Foundation
 import SwiftUI
@@ -52,10 +53,10 @@ final class AuthStateObserver: ObservableObject {
         authManager = container.resolve(AuthManagerProtocol.self)
 
         // Set initial state
-        isAuthenticated = manager.isAuthenticated
-        isLoading = manager.isLoading
-        authError = manager.authError
-        currentUser = manager.currentUser
+        isAuthenticated = authManager.isAuthenticated
+        isLoading = authManager.isLoading
+        authError = authManager.authError
+        currentUser = authManager.currentUser
 
         // Subscribe to publishers
         setupSubscriptions()
