@@ -14,7 +14,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     private let toastManager: any ToastManagerProtocol =
         ServiceContainer.shared.resolve((any ToastManagerProtocol).self)
 
-    private let deepLinkHandler = DeepLinkHandler()
+    private let deepLinkParser = AIQDeepLinkParser()
     private let analyticsManager: AnalyticsManagerProtocol =
         ServiceContainer.shared.resolve(AnalyticsManagerProtocol.self)
     private let backgroundRefreshManager = BackgroundRefreshManager.shared
@@ -277,8 +277,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     /// - Returns: true if the URL was parsed successfully, false otherwise
     @MainActor
     private func handleDeepLink(_ url: URL, source: DeepLinkSource) -> Bool {
-        // Parse the deep link
-        let deepLink = deepLinkHandler.parse(url)
+        // Parse the deep link using the AIQDeepLinkParser
+        let deepLink = deepLinkParser.parseDeepLink(url)
 
         // Sanitize URL for analytics (remove query parameters that might contain sensitive data)
         let sanitizedURL = sanitizeURLForAnalytics(url)
@@ -287,13 +287,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         guard deepLink != .invalid else {
             Self.logger.warning("Invalid deep link: \(url.absoluteString, privacy: .public)")
             // Track the parse failure in analytics
-            deepLinkHandler.trackParseFailed(
-                error: .unrecognizedRoute(route: url.path, url: sanitizedURL),
-                source: source,
-                originalURL: sanitizedURL
+            analyticsManager.trackDeepLinkNavigationFailed(
+                errorType: deepLinkErrorTypeString(from: .unrecognizedRoute(route: url.path, url: sanitizedURL)),
+                source: source.rawValue,
+                url: sanitizedURL
             )
             // Show user-friendly error toast
-            // The detailed error has already been logged and sent to Crashlytics by DeepLinkHandler
+            // The detailed error has already been logged and sent to Crashlytics by the parser
             Task { @MainActor in
                 toastManager.show("toast.deeplink.invalid".localized, type: .error)
             }

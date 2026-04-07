@@ -288,6 +288,7 @@
 		FE4E97DD6D013577F04589A7 /* TestProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE8BBE439EDEA46900F6A608 /* TestProgressView.swift */; };
 		FF71F632823D6199E2EC7C1A /* TestTakingViewModelCooldownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254B4CBC6C147AF6D1ED6A33 /* TestTakingViewModelCooldownTests.swift */; };
 		ICG005001A0CA1845CAED4FB5 /* CrashlyticsErrorRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG005002B4712FCE75F777B76 /* CrashlyticsErrorRecorder.swift */; };
+		T56A0001AAAA /* AIQDeepLinkParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = T56A0002AAAA /* AIQDeepLinkParser.swift */; };
 		ICG007001AAAA /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG007002AAAA /* AppRouter.swift */; };
 		ICG007003AAAA /* AppRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG007004AAAA /* AppRouterTests.swift */; };
 		ICG018002AAAA /* PushNotificationDeepLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ICG018001AAAA /* PushNotificationDeepLinkTests.swift */; };
@@ -596,6 +597,7 @@
 		FF19826FA656E86E01346326 /* Question+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "Question+Extensions.swift"; sourceTree = "<group>"; };
 		FF79A94D39F411F8116D6256 /* HelpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HelpView.swift; path = Features/Settings/Views/HelpView.swift; sourceTree = "<group>"; };
 		ICG005002B4712FCE75F777B76 /* CrashlyticsErrorRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashlyticsErrorRecorder.swift; sourceTree = "<group>"; };
+		T56A0002AAAA /* AIQDeepLinkParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIQDeepLinkParser.swift; sourceTree = "<group>"; };
 		ICG007002AAAA /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		ICG007004AAAA /* AppRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouterTests.swift; sourceTree = "<group>"; };
 		ICG018001AAAA /* PushNotificationDeepLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationDeepLinkTests.swift; sourceTree = "<group>"; };
@@ -1322,6 +1324,7 @@
 		ICG007005AAAA /* Navigation */ = {
 			isa = PBXGroup;
 			children = (
+				T56A0002AAAA /* AIQDeepLinkParser.swift */,
 				ICG007002AAAA /* AppRouter.swift */,
 				9199B6EC9CFA22EECE6ECC98 /* DeepLinkHandler.swift */,
 				401DD7DDFF93046681F7F97A /* DeepLinkNavigationService.swift */,
@@ -1662,6 +1665,7 @@
 				45E9C4DEC6D27065EB786C01 /* APIError.swift in Sources */,
 				364A1095E19013479FF24683 /* AnalyticsService.swift in Sources */,
 				A1B2C3D4E5F6071829304150 /* FirebaseAnalyticsProvider.swift in Sources */,
+				T56A0001AAAA /* AIQDeepLinkParser.swift in Sources */,
 				ICG007001AAAA /* AppRouter.swift in Sources */,
 				BC77B3CA6DF041F7FD00BE25 /* AppConfig.swift in Sources */,
 				32577626946B0CC120F09709 /* AppDelegate.swift in Sources */,
