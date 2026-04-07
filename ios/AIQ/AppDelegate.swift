@@ -166,7 +166,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
         // Handle received push notification when app is in background
-        print("Received remote notification: \(userInfo)")
+        Self.logger.debug("Received remote notification: \(userInfo, privacy: .private)")
 
         // Handle notification data
         handleNotificationData(userInfo)
@@ -181,24 +181,24 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     private func handleNotificationData(_ userInfo: [AnyHashable: Any]) {
         // Extract notification type and data
         guard let notificationType = userInfo["type"] as? String else {
-            print("No notification type found in payload")
+            Self.logger.debug("No notification type found in payload")
             return
         }
 
-        print("Handling notification of type: \(notificationType)")
+        Self.logger.info("Handling notification of type: \(notificationType, privacy: .public)")
 
         // Handle different notification types
         switch notificationType {
         case "test_reminder":
             // Test reminder notification - user should take a new test (90-day cadence)
-            print("Test reminder notification received")
+            Self.logger.debug("Test reminder notification received")
             // Navigation will be handled when user taps the notification
             // (see userNotificationCenter(_:didReceive:withCompletionHandler:))
 
         case "day_30_reminder":
             // Day 30 reminder - early engagement notification sent 30 days after first test
             // Part of Phase 2.2 provisional notification testing
-            print("Day 30 reminder notification received")
+            Self.logger.debug("Day 30 reminder notification received")
             // This notification is designed to be silent for provisional authorization users
             // Navigation will be handled when user taps the notification
 
@@ -209,10 +209,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             // the welcome/login screen via the auth flow. The notification tap handler in
             // MainTabView will attempt to parse the deep link and show an error toast, but the
             // user will already be on the login screen by then.
-            print("Logout-all security notification received")
+            Self.logger.info("Logout-all security notification received")
 
         default:
-            print("Unknown notification type: \(notificationType)")
+            Self.logger.warning("Unknown notification type: \(notificationType, privacy: .public)")
         }
     }
 
@@ -341,7 +341,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         // Show notification banner, sound, and badge even when app is in foreground
-        print("Received notification in foreground: \(notification.request.content.userInfo)")
+        let userInfo = notification.request.content.userInfo
+        Self.logger.debug("Received notification in foreground: \(userInfo, privacy: .private)")
 
         // Handle notification data
         handleNotificationData(notification.request.content.userInfo)
@@ -360,10 +361,10 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        print("User tapped notification: \(response.notification.request.content.userInfo)")
+        let userInfo = response.notification.request.content.userInfo
+        Self.logger.debug("User tapped notification: \(userInfo, privacy: .private)")
 
         // Handle notification data
-        let userInfo = response.notification.request.content.userInfo
         handleNotificationData(userInfo)
 
         // Get notification type
