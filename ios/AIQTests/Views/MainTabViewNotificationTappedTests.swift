@@ -69,13 +69,13 @@ import XCTest
 final class MainTabViewNotificationTappedTests: XCTestCase {
     // MARK: - Properties
 
-    private var deepLinkHandler: DeepLinkHandler!
+    private var deepLinkParser: AIQDeepLinkParser!
 
     // MARK: - Setup/Teardown
 
     override func setUp() {
         super.setUp()
-        deepLinkHandler = DeepLinkHandler()
+        deepLinkParser = AIQDeepLinkParser()
     }
 
     // MARK: - Payload Structure Validation Tests
@@ -159,7 +159,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
 
         // URL(string:) is permissive, so if it succeeds, verify it parses to .invalid
         if let url {
-            let deepLink = deepLinkHandler.parse(url)
+            let deepLink = deepLinkParser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .invalid, "invalid URL should parse to .invalid")
         }
         // If URL(string:) returns nil, that's also acceptable for invalid URLs
@@ -241,7 +241,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         // Then - should parse to testResults with correct ID
         XCTAssertNotNil(url, "should create valid URL")
         if let url {
-            let deepLink = deepLinkHandler.parse(url)
+            let deepLink = deepLinkParser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .testResults(id: 456), "should parse to testResults with id 456")
         } else {
             XCTFail("Should create valid URL from deep_link string")
@@ -266,7 +266,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         // Then - should parse to resumeTest with correct session ID
         XCTAssertNotNil(url, "should create valid URL")
         if let url {
-            let deepLink = deepLinkHandler.parse(url)
+            let deepLink = deepLinkParser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .resumeTest(sessionId: 789), "should parse to resumeTest with sessionId 789")
         } else {
             XCTFail("Should create valid URL from deep_link string")
@@ -291,7 +291,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         // Then - should parse to settings
         XCTAssertNotNil(url, "should create valid URL")
         if let url {
-            let deepLink = deepLinkHandler.parse(url)
+            let deepLink = deepLinkParser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .settings, "should parse to settings deep link")
         } else {
             XCTFail("Should create valid URL from deep_link string")
@@ -316,7 +316,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         // Then - should create URL but parse to .invalid
         XCTAssertNotNil(url, "should create valid URL")
         if let url {
-            let deepLink = deepLinkHandler.parse(url)
+            let deepLink = deepLinkParser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .invalid, "unrecognized deep link should parse to .invalid")
         } else {
             XCTFail("Should create valid URL from deep_link string")
@@ -341,7 +341,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         // Then - should parse universal link
         XCTAssertNotNil(url, "should create valid URL")
         if let url {
-            let deepLink = deepLinkHandler.parse(url)
+            let deepLink = deepLinkParser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .testResults(id: 999), "should parse universal link to testResults")
         } else {
             XCTFail("Should create valid URL from deep_link string")
@@ -380,7 +380,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
             return
         }
 
-        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        let deepLink = deepLinkParser.parseDeepLink(deepLinkURL)
 
         // Then - should parse to correct deep link
         XCTAssertEqual(deepLink, .testResults(id: 123), "should parse to testResults with id 123")
@@ -415,7 +415,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
             return
         }
 
-        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        let deepLink = deepLinkParser.parseDeepLink(deepLinkURL)
 
         // Then - should parse to resumeTest
         XCTAssertEqual(deepLink, .resumeTest(sessionId: 555), "should parse to resumeTest with sessionId 555")
@@ -449,7 +449,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
             return
         }
 
-        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        let deepLink = deepLinkParser.parseDeepLink(deepLinkURL)
 
         // Then - should parse to settings
         XCTAssertEqual(deepLink, .settings, "should parse to settings deep link")
@@ -544,7 +544,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         // Then - should parse correctly (query params typically ignored)
         XCTAssertNotNil(url, "should create valid URL with query params")
         if let url {
-            let deepLink = deepLinkHandler.parse(url)
+            let deepLink = deepLinkParser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .testResults(id: 123), "should parse ignoring query params")
         }
     }
@@ -567,7 +567,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         // Then - should parse correctly (fragment typically ignored)
         XCTAssertNotNil(url, "should create valid URL with fragment")
         if let url {
-            let deepLink = deepLinkHandler.parse(url)
+            let deepLink = deepLinkParser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .testResults(id: 456), "should parse ignoring fragment")
         }
     }
@@ -632,7 +632,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     // MARK: - Properties
 
     private var router: AppRouter!
-    private var deepLinkHandler: DeepLinkHandler!
+    private var deepLinkParser: AIQDeepLinkParser!
     private var navigationService: DeepLinkNavigationService!
     private var selectedTab: TabDestination!
 
@@ -641,7 +641,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
     override func setUp() {
         super.setUp()
         router = AppRouter()
-        deepLinkHandler = DeepLinkHandler()
+        deepLinkParser = AIQDeepLinkParser()
         selectedTab = .dashboard
         navigationService = DeepLinkNavigationService(
             router: router,
@@ -714,7 +714,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             return
         }
 
-        let deepLink = deepLinkHandler.parse(url)
+        let deepLink = deepLinkParser.parseDeepLink(url)
         XCTAssertEqual(deepLink, .settings, "should parse to .settings")
 
         let result = await navigationService.navigate(to: deepLink, source: .universalLink, originalURL: url.absoluteString)
@@ -784,7 +784,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             return
         }
 
-        let deepLink = deepLinkHandler.parse(url)
+        let deepLink = deepLinkParser.parseDeepLink(url)
         XCTAssertEqual(deepLink, .testResults(id: 999), "should parse to .testResults with id 999")
 
         _ = await navigationService.navigate(to: deepLink, source: .universalLink, originalURL: url.absoluteString)
@@ -834,7 +834,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             return
         }
 
-        let deepLink = deepLinkHandler.parse(url)
+        let deepLink = deepLinkParser.parseDeepLink(url)
         XCTAssertEqual(deepLink, .resumeTest(sessionId: 777), "should parse to .resumeTest with sessionId 777")
 
         _ = await navigationService.navigate(to: deepLink, source: .universalLink, originalURL: url.absoluteString)
@@ -906,7 +906,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             return
         }
 
-        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        let deepLink = deepLinkParser.parseDeepLink(deepLinkURL)
         XCTAssertEqual(deepLink, .settings, "should parse to .settings")
 
         // Navigate through the service (the actual implementation, not replicated logic)
@@ -942,7 +942,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             return
         }
 
-        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        let deepLink = deepLinkParser.parseDeepLink(deepLinkURL)
         XCTAssertEqual(deepLink, .testResults(id: 123), "should parse to .testResults with id 123")
 
         // Navigate through the service
@@ -975,7 +975,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
             return
         }
 
-        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        let deepLink = deepLinkParser.parseDeepLink(deepLinkURL)
         XCTAssertEqual(deepLink, .resumeTest(sessionId: 456), "should parse to .resumeTest with sessionId 456")
 
         // Navigate through the service
@@ -1053,7 +1053,7 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
     // MARK: - Properties
 
     private var router: AppRouter!
-    private var deepLinkHandler: DeepLinkHandler!
+    private var deepLinkParser: AIQDeepLinkParser!
     private var navigationService: DeepLinkNavigationService!
     private var selectedTab: TabDestination!
 
@@ -1062,7 +1062,7 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
     override func setUp() {
         super.setUp()
         router = AppRouter()
-        deepLinkHandler = DeepLinkHandler()
+        deepLinkParser = AIQDeepLinkParser()
         selectedTab = .dashboard
         navigationService = DeepLinkNavigationService(
             router: router,

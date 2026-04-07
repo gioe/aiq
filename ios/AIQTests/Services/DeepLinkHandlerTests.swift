@@ -1,15 +1,15 @@
 @testable import AIQ
 import XCTest
 
-/// Tests for DeepLinkHandler URL parsing functionality
+/// Tests for AIQDeepLinkParser URL parsing functionality
 final class DeepLinkHandlerTests: XCTestCase {
-    var sut: DeepLinkHandler!
+    var sut: AIQDeepLinkParser!
     var mockAnalytics: MockAnalyticsManager!
 
     override func setUp() {
         super.setUp()
         mockAnalytics = MockAnalyticsManager()
-        sut = DeepLinkHandler(analyticsManager: mockAnalytics)
+        sut = AIQDeepLinkParser(analyticsManager: mockAnalytics)
     }
 
     // MARK: - URL Scheme Tests - Test Results
@@ -19,7 +19,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .testResults(id: 123), "should parse test results with valid ID")
@@ -30,7 +30,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/999999"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .testResults(id: 999_999), "should handle large IDs")
@@ -41,7 +41,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/abc"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for non-numeric ID")
@@ -52,7 +52,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid when ID is missing")
@@ -63,7 +63,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/123/extra"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Extra path components are tolerated but logged as warnings.
@@ -77,7 +77,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/456/extra/path/components"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Multiple extra components should also be tolerated with a warning logged
@@ -89,7 +89,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/resume/789/extra"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Extra path components on resume test should also be tolerated with warning
@@ -103,7 +103,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/resume/456"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .resumeTest(sessionId: 456), "should parse resume test with valid session ID")
@@ -114,7 +114,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/resume/888888"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .resumeTest(sessionId: 888_888), "should handle large session IDs")
@@ -125,7 +125,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/resume/xyz"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for non-numeric session ID")
@@ -136,7 +136,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/resume"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid when session ID is missing")
@@ -149,7 +149,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://settings"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .settings, "should parse settings route")
@@ -160,7 +160,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://settings/"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .settings, "should parse settings with trailing slash")
@@ -171,7 +171,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://settings/notifications"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Extra path components are tolerated but logged as warnings.
@@ -185,7 +185,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://settings/notifications/email/preferences"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Multiple extra components should also be tolerated with a warning logged
@@ -199,7 +199,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for empty path")
@@ -210,7 +210,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://unknown/path"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for unrecognized host")
@@ -221,7 +221,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for test without action")
@@ -232,7 +232,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/invalid/123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for unrecognized test action")
@@ -245,7 +245,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/789"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .testResults(id: 789), "should parse universal link test results with valid ID")
@@ -256,7 +256,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/111111"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .testResults(id: 111_111), "should handle large IDs in universal links")
@@ -267,7 +267,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/def"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for non-numeric ID in universal link")
@@ -278,7 +278,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid when ID is missing in universal link")
@@ -289,7 +289,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/123/extra/path"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Extra path components on universal links should also be tolerated with warning
@@ -303,7 +303,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/321"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .resumeTest(sessionId: 321), "should parse universal link resume test with valid session ID")
@@ -314,7 +314,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/777777"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .resumeTest(sessionId: 777_777), "should handle large session IDs in universal links")
@@ -325,7 +325,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/invalid"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for non-numeric session ID in universal link")
@@ -336,7 +336,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid when session ID is missing in universal link")
@@ -347,7 +347,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/456/extra"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Extra path components on universal link resume should also be tolerated with warning
@@ -361,7 +361,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/settings"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .settings, "should parse settings from universal link")
@@ -372,7 +372,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/settings/"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .settings, "should parse settings with trailing slash in universal link")
@@ -383,7 +383,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/settings/extra"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Extra path components on universal links should also be tolerated with warning
@@ -395,7 +395,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/settings/notifications/email"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Multiple extra components on universal links should also be tolerated with warning
@@ -409,7 +409,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for empty path in universal link")
@@ -420,7 +420,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for root path in universal link")
@@ -431,7 +431,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/unknown"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for unrecognized path in universal link")
@@ -442,7 +442,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for test without action in universal link")
@@ -453,7 +453,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/unknown/123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for unrecognized test action in universal link")
@@ -466,7 +466,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/test/results/123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .testResults(id: 123), "should parse test results from dev domain")
@@ -477,7 +477,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/test/resume/456"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .resumeTest(sessionId: 456), "should parse resume test from dev domain")
@@ -488,7 +488,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/settings"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .settings, "should parse settings from dev domain")
@@ -499,7 +499,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/unknown"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for unrecognized route on dev domain")
@@ -510,7 +510,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for empty path on dev domain")
@@ -521,7 +521,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/test/results/abc"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for non-numeric ID on dev domain")
@@ -533,8 +533,8 @@ final class DeepLinkHandlerTests: XCTestCase {
         let devURL = try XCTUnwrap(URL(string: "https://dev.aiq.app/test/results/789"))
 
         // When
-        let prodResult = sut.parse(prodURL)
-        let devResult = sut.parse(devURL)
+        let prodResult = sut.parseDeepLink(prodURL)
+        let devResult = sut.parseDeepLink(devURL)
 
         // Then
         XCTAssertEqual(prodResult, devResult, "dev and prod domains should produce equivalent results")
@@ -548,7 +548,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "http://aiq.app/test/results/123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for http scheme")
@@ -559,7 +559,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "custom://test/results/123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for custom scheme")
@@ -570,7 +570,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://other.app/test/results/123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for wrong host in universal link")
@@ -581,7 +581,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://www.aiq.app/test/results/123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should return invalid for www subdomain")
@@ -594,7 +594,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/123?source=notification"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Query parameters should be ignored
@@ -606,7 +606,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/456?utm_source=email"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Query parameters should be ignored
@@ -618,7 +618,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/789#section"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Fragments should be ignored
@@ -630,7 +630,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/settings#notifications"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Fragments should be ignored
@@ -642,7 +642,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/00123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Leading zeros should be handled by Int parsing
@@ -654,7 +654,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/-123"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Negative IDs are invalid - database IDs must be positive
@@ -666,7 +666,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/0"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Zero is invalid - database IDs must be positive
@@ -678,7 +678,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/resume/-456"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Negative session IDs are invalid
@@ -690,7 +690,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/resume/0"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Zero is invalid - database IDs must be positive
@@ -704,7 +704,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/99999999999999999999999999999"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Integer overflow should return invalid (Int parsing fails)
@@ -716,7 +716,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/99999999999999999999999999999"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should reject integer overflow values in universal links")
@@ -729,7 +729,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/123.456"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // Decimal values should return invalid (Int parsing fails)
@@ -741,7 +741,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/resume/456.789"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should reject decimal session IDs")
@@ -752,7 +752,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/123.456"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should reject decimal IDs in universal links")
@@ -765,7 +765,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/123%20456"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // URL-encoded spaces should fail Int parsing
@@ -782,7 +782,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/123%2F456"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then - behavior depends on iOS version
         let osVersion = ProcessInfo.processInfo.operatingSystemVersion
@@ -800,7 +800,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/123%00456"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         // URL with null byte should be handled gracefully
@@ -812,7 +812,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://test/results/123+456"))
 
         // When
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then
         XCTAssertEqual(result, .invalid, "should reject IDs with plus signs")
@@ -894,8 +894,8 @@ final class DeepLinkHandlerTests: XCTestCase {
         let urlUpper = try XCTUnwrap(URL(string: "aiq://TEST/results/123"))
 
         // When
-        let resultLower = sut.parse(urlLower)
-        let resultUpper = sut.parse(urlUpper)
+        let resultLower = sut.parseDeepLink(urlLower)
+        let resultUpper = sut.parseDeepLink(urlUpper)
 
         // Then
         XCTAssertEqual(resultLower, .testResults(id: 123), "lowercase should work")
@@ -908,8 +908,8 @@ final class DeepLinkHandlerTests: XCTestCase {
         let urlMixed = try XCTUnwrap(URL(string: "aiq://test/Results/123"))
 
         // When
-        let resultLower = sut.parse(urlLower)
-        let resultMixed = sut.parse(urlMixed)
+        let resultLower = sut.parseDeepLink(urlLower)
+        let resultMixed = sut.parseDeepLink(urlMixed)
 
         // Then
         XCTAssertEqual(resultLower, .testResults(id: 123), "lowercase path should work")
@@ -922,8 +922,8 @@ final class DeepLinkHandlerTests: XCTestCase {
         let urlMixed = try XCTUnwrap(URL(string: "https://aiq.app/Test/Results/123"))
 
         // When
-        let resultLower = sut.parse(urlLower)
-        let resultMixed = sut.parse(urlMixed)
+        let resultLower = sut.parseDeepLink(urlLower)
+        let resultMixed = sut.parseDeepLink(urlMixed)
 
         // Then
         XCTAssertEqual(resultLower, .testResults(id: 123), "lowercase path should work")
@@ -948,7 +948,7 @@ final class DeepLinkHandlerTests: XCTestCase {
                 continue
             }
 
-            let result = sut.parse(url)
+            let result = sut.parseDeepLink(url)
             XCTAssertEqual(result, expected, "Failed to parse \(urlString)")
         }
     }
@@ -969,7 +969,7 @@ final class DeepLinkHandlerTests: XCTestCase {
                 continue
             }
 
-            let result = sut.parse(url)
+            let result = sut.parseDeepLink(url)
             XCTAssertEqual(result, expected, "Failed to parse \(urlString)")
         }
     }
@@ -990,7 +990,7 @@ final class DeepLinkHandlerTests: XCTestCase {
                 continue
             }
 
-            let result = sut.parse(url)
+            let result = sut.parseDeepLink(url)
             XCTAssertEqual(result, expected, "Failed to parse dev domain URL: \(urlString)")
         }
     }
@@ -1010,211 +1010,65 @@ final class DeepLinkHandlerTests: XCTestCase {
                 continue
             }
 
-            let result1 = sut.parse(url1)
-            let result2 = sut.parse(url2)
+            let result1 = sut.parseDeepLink(url1)
+            let result2 = sut.parseDeepLink(url2)
 
             XCTAssertEqual(result1, result2, "URL scheme \(urlScheme) and universal link \(universalLink) should produce same result")
         }
     }
 
-    // MARK: - Deep Link Navigation Tests
+    // MARK: - DeepLinkParser Protocol Conformance Tests
 
-    // Note: testHandleNavigation_Settings is intentionally not tested here because
-    // settings deep links are handled at the tab level in MainTabView, not via
-    // handleNavigation(). Calling handleNavigation() with .settings is a programming
-    // error and results in fatalError.
-
-    @MainActor
-    func testHandleNavigation_ResumeTest_NavigatesToTestTakingWithSessionId() async {
+    /// Test that the DeepLinkParser.parse(url:) method returns correct actions for resume test
+    func testParseAction_ResumeTest_ReturnsPopToRootThenPush() throws {
         // Given
-        let deepLink = DeepLink.resumeTest(sessionId: 123)
-        let mockRouter = AppRouter()
+        let url = try XCTUnwrap(URL(string: "aiq://test/resume/123"))
 
         // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter)
+        let action = sut.parse(url: url)
 
         // Then
-        // Session resumption navigates to testTaking with the sessionId
-        XCTAssertTrue(result, "Resume test navigation should return true")
-        XCTAssertEqual(mockRouter.depth, 1, "Should have navigated to testTaking")
+        if case let .popToRootThenPush(route) = action {
+            XCTAssertEqual(route, .testTaking(sessionId: 123), "should return testTaking route with sessionId")
+        } else {
+            XCTFail("Expected .popToRootThenPush action, got \(String(describing: action))")
+        }
     }
 
-    @MainActor
-    func testHandleNavigation_Invalid_ReturnsFalse() async {
+    /// Test that the DeepLinkParser.parse(url:) returns nil for settings (handled at tab level)
+    func testParseAction_Settings_ReturnsNil() throws {
         // Given
-        let deepLink = DeepLink.invalid
-        let mockRouter = AppRouter()
+        let url = try XCTUnwrap(URL(string: "aiq://settings"))
 
         // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter)
+        let action = sut.parse(url: url)
 
         // Then
-        XCTAssertFalse(result, "Invalid navigation should return false")
-        XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
+        XCTAssertNil(action, "settings should return nil (handled at tab level)")
     }
 
-    // MARK: - Test Results Deep Link Navigation Tests (with Mock API)
-
-    @MainActor
-    func testHandleNavigation_TestResults_Success_NavigatesToTestDetail() async {
+    /// Test that the DeepLinkParser.parse(url:) returns nil for test results (needs async API call)
+    func testParseAction_TestResults_ReturnsNil() throws {
         // Given
-        let testId = 123
-        let deepLink = DeepLink.testResults(id: testId)
-        let mockRouter = AppRouter()
-        let mockService = MockOpenAPIService()
-
-        // Create a mock test result that will be returned by the API
-        let mockTestResult = MockDataFactory.makeTestResult(
-            id: testId,
-            testSessionId: 456,
-            userId: 1,
-            iqScore: 110,
-            totalQuestions: 20,
-            correctAnswers: 15,
-            accuracyPercentage: 75.0,
-            completedAt: Date()
-        )
-
-        // Configure mock to return the test result
-        await mockService.getTestResultsResponse = mockTestResult
+        let url = try XCTUnwrap(URL(string: "aiq://test/results/123"))
 
         // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
+        let action = sut.parse(url: url)
 
         // Then
-        XCTAssertTrue(result, "Navigation should return true on successful API call")
-        XCTAssertEqual(mockRouter.depth, 1, "Should have navigated to testDetail")
-
-        // Verify the API was called
-        let getTestResultsCalled = await mockService.getTestResultsCalled
-        XCTAssertTrue(getTestResultsCalled, "API service should have been called")
+        XCTAssertNil(action, "test results should return nil (needs async API call)")
     }
 
-    @MainActor
-    func testHandleNavigation_TestResults_APIError_ReturnsFalse() async {
+    /// Test that the DeepLinkParser.parse(url:) returns nil for invalid URLs
+    func testParseAction_Invalid_ReturnsNil() throws {
         // Given
-        let testId = 999
-        let deepLink = DeepLink.testResults(id: testId)
-        let mockRouter = AppRouter()
-        let mockService = MockOpenAPIService()
-
-        // Configure mock to throw an error (simulating test not found)
-        await mockService.getTestResultsError = APIError.api(.notFound(message: "Test result not found"))
+        let url = try XCTUnwrap(URL(string: "custom://unknown"))
 
         // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
+        let action = sut.parse(url: url)
 
         // Then
-        XCTAssertFalse(result, "Navigation should return false on API error")
-        XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
-
-        // Verify the API was called
-        let getTestResultsCalled = await mockService.getTestResultsCalled
-        XCTAssertTrue(getTestResultsCalled, "API service should have been called")
-    }
-
-    @MainActor
-    func testHandleNavigation_TestResults_NetworkError_ReturnsFalse() async {
-        // Given
-        let testId = 456
-        let deepLink = DeepLink.testResults(id: testId)
-        let mockRouter = AppRouter()
-        let mockService = MockOpenAPIService()
-
-        // Configure mock to throw a network error
-        let networkError = URLError(.notConnectedToInternet)
-        await mockService.getTestResultsError = APIError.api(.networkError(networkError.localizedDescription))
-
-        // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
-
-        // Then
-        XCTAssertFalse(result, "Navigation should return false on network error")
-        XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
-    }
-
-    @MainActor
-    func testHandleNavigation_TestResults_ServerError_ReturnsFalse() async {
-        // Given
-        let testId = 789
-        let deepLink = DeepLink.testResults(id: testId)
-        let mockRouter = AppRouter()
-        let mockService = MockOpenAPIService()
-
-        // Configure mock to throw a server error
-        await mockService.getTestResultsError = APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
-
-        // When
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
-
-        // Then
-        XCTAssertFalse(result, "Navigation should return false on server error")
-        XCTAssertEqual(mockRouter.depth, 0, "Should not have navigated")
-    }
-
-    @MainActor
-    func testHandleNavigation_TestResults_NavigatesToSpecifiedTab() async {
-        // Given
-        let testId = 123
-        let deepLink = DeepLink.testResults(id: testId)
-        let mockRouter = AppRouter()
-        let mockService = MockOpenAPIService()
-
-        // Create a mock test result
-        let mockTestResult = MockDataFactory.makeTestResult(
-            id: testId,
-            testSessionId: 456,
-            userId: 1,
-            iqScore: 105,
-            totalQuestions: 20,
-            correctAnswers: 14,
-            accuracyPercentage: 70.0,
-            completedAt: Date()
-        )
-
-        await mockService.getTestResultsResponse = mockTestResult
-
-        // When - navigate to history tab explicitly
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, tab: .history, apiService: mockService)
-
-        // Then
-        XCTAssertTrue(result, "Navigation should return true")
-        XCTAssertEqual(mockRouter.depth(in: .history), 1, "Should have navigated in history tab")
-        XCTAssertEqual(mockRouter.depth(in: .dashboard), 0, "Dashboard should remain at root")
-    }
-
-    @MainActor
-    func testHandleNavigation_TestResults_UsesCurrentTabWhenTabNotSpecified() async {
-        // Given
-        let testId = 123
-        let deepLink = DeepLink.testResults(id: testId)
-        let mockRouter = AppRouter()
-        let mockService = MockOpenAPIService()
-
-        // Set current tab to history
-        mockRouter.currentTab = .history
-
-        // Create a mock test result
-        let mockTestResult = MockDataFactory.makeTestResult(
-            id: testId,
-            testSessionId: 456,
-            userId: 1,
-            iqScore: 115,
-            totalQuestions: 20,
-            correctAnswers: 16,
-            accuracyPercentage: 80.0,
-            completedAt: Date()
-        )
-
-        await mockService.getTestResultsResponse = mockTestResult
-
-        // When - don't specify tab, should use router's currentTab
-        let result = await sut.handleNavigation(deepLink, router: mockRouter, apiService: mockService)
-
-        // Then
-        XCTAssertTrue(result, "Navigation should return true")
-        XCTAssertEqual(mockRouter.depth(in: .history), 1, "Should have navigated in current tab (history)")
-        XCTAssertEqual(mockRouter.depth(in: .dashboard), 0, "Dashboard should remain at root")
+        XCTAssertNil(action, "invalid URLs should return nil")
     }
 
     // MARK: - DeepLink Analytics Destination Type Tests
@@ -1271,7 +1125,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://settings/notifications"))
 
         // When - parsing the URL
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then - should parse as .settings (lenient behavior)
         XCTAssertEqual(result, .settings, "should parse as settings despite extra components")
@@ -1293,7 +1147,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://aiq.app/settings/notifications/push/detail"))
 
         // When - parsing the URL
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then - should parse as .settings
         XCTAssertEqual(result, .settings, "should parse as settings despite multiple extra components")
@@ -1313,7 +1167,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://settings"))
 
         // When - parsing the URL
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then - should parse as .settings
         XCTAssertEqual(result, .settings, "should parse as settings")
@@ -1331,7 +1185,7 @@ final class DeepLinkHandlerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "aiq://settings/"))
 
         // When - parsing the URL
-        let result = sut.parse(url)
+        let result = sut.parseDeepLink(url)
 
         // Then - should parse as .settings
         XCTAssertEqual(result, .settings, "should parse as settings")

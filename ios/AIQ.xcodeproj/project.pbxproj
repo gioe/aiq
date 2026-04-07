@@ -12,7 +12,6 @@
 		059902F264BEAA5E3A8218B2 /* NotificationEngagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C92DFD433134807D93604B68 /* NotificationEngagementTests.swift */; };
 		05B972B5035EF251D9BE7842 /* AIQAPIClient in Frameworks */ = {isa = PBXBuildFile; productRef = 13ECAB6546FFCEF192E7F317 /* AIQAPIClient */; };
 		05E1A06BAD57398B16C03F79 /* TestResult+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48FCBD9EA44E9A3B5CB1544 /* TestResult+Extensions.swift */; };
-		06D0B80EA19118F877CE5B54 /* MockDeepLinkHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */; };
 		071051FE0B55D6E6FFF9386C /* BiometricLockViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E76CB8FC47B1D9F5FE6FB50 /* BiometricLockViewTests.swift */; };
 		07FC12F439A01176E5EEE4C0 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3156B81FE7350FE04530E5C /* NetworkMonitorTests.swift */; };
 		0873C82BF579A8ED44C9313D /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51623070CE8C611C11EC441 /* MainTabView.swift */; };
@@ -371,7 +370,6 @@
 		247F5B9C39704D69F72F4210 /* OnboardingContainerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingContainerView.swift; path = Features/Onboarding/Views/OnboardingContainerView.swift; sourceTree = "<group>"; };
 		254B4CBC6C147AF6D1ED6A33 /* TestTakingViewModelCooldownTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestTakingViewModelCooldownTests.swift; sourceTree = "<group>"; };
 		2568A14B397E594297C83044 /* InsightsCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InsightsCardView.swift; path = Features/History/Views/InsightsCardView.swift; sourceTree = "<group>"; };
-		2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockDeepLinkHandler.swift; sourceTree = "<group>"; };
 		2670020229BCBF0B4E7F4BA4 /* OnboardingPage4View.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingPage4View.swift; path = Features/Onboarding/Views/Pages/OnboardingPage4View.swift; sourceTree = "<group>"; };
 		284313B81892FFA1AE606BC6 /* NotificationSettingsAccessibilityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationSettingsAccessibilityTests.swift; sourceTree = "<group>"; };
 		285552C8C6133F2BE7F80248 /* BiometricLockViewUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricLockViewUITests.swift; sourceTree = "<group>"; };
@@ -986,7 +984,6 @@
 				A47ACE1EEA18190DCF565292 /* MockUserNotificationCenter.swift */,
 				A1DA3C6605F4AD495B2FDD3B /* MockApplication.swift */,
 				F9B7AAAF658F273016A6A08D /* MockOpenAPIService.swift */,
-				2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */,
 				87F696C48D7A8EAA4FD4FF57 /* MockAnalyticsService.swift */,
 				A1B2C3D4E5F6071829304153 /* MockAnalyticsManager.swift */,
 				8DF1D43C1237D5117457A636 /* MockBiometricAuthManager.swift */,
@@ -1636,7 +1633,6 @@
 				B7B6DD5EAC718D8EA6D96B99 /* DifficultyBadgeTests.swift in Sources */,
 				2E850740035B22AA3D5CCF72 /* MockOpenAPIService.swift in Sources */,
 				7570040A0B34C412374133EF /* DeepLinkNavigationServiceTests.swift in Sources */,
-				06D0B80EA19118F877CE5B54 /* MockDeepLinkHandler.swift in Sources */,
 				CF1450DC01D4A2844B320030 /* DeepLinkNavigationIntegrationTests.swift in Sources */,
 				B7623286D50D88B5F00934E8 /* AdaptiveTestTakingViewModelTests.swift in Sources */,
 				237CFF2C7A42B1C86CCF0A09 /* MockAnalyticsService.swift in Sources */,

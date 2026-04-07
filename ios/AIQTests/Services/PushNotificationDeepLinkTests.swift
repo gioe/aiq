@@ -33,8 +33,8 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         XCTAssertNotNil(url, "should create valid URL from deep_link")
 
         // And - should parse to correct DeepLink
-        let handler = DeepLinkHandler()
-        let deepLink = try handler.parse(XCTUnwrap(url))
+        let parser = AIQDeepLinkParser()
+        let deepLink = try parser.parseDeepLink(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .testResults(id: 123), "should parse to correct deep link")
     }
 
@@ -54,8 +54,8 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         let url = try URL(string: XCTUnwrap(deepLinkString))
         XCTAssertNotNil(url)
 
-        let handler = DeepLinkHandler()
-        let deepLink = try handler.parse(XCTUnwrap(url))
+        let parser = AIQDeepLinkParser()
+        let deepLink = try parser.parseDeepLink(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .resumeTest(sessionId: 789), "should parse to resume test deep link")
     }
 
@@ -74,8 +74,8 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         let url = try URL(string: XCTUnwrap(deepLinkString))
         XCTAssertNotNil(url)
 
-        let handler = DeepLinkHandler()
-        let deepLink = try handler.parse(XCTUnwrap(url))
+        let parser = AIQDeepLinkParser()
+        let deepLink = try parser.parseDeepLink(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .settings, "should parse to settings deep link")
     }
 
@@ -94,8 +94,8 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         let url = try URL(string: XCTUnwrap(deepLinkString))
         XCTAssertNotNil(url)
 
-        let handler = DeepLinkHandler()
-        let deepLink = try handler.parse(XCTUnwrap(url))
+        let parser = AIQDeepLinkParser()
+        let deepLink = try parser.parseDeepLink(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .testResults(id: 999), "should parse universal link")
     }
 
@@ -129,8 +129,8 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         // Note: URL(string:) is permissive, so this might succeed
         // The important test is that DeepLinkHandler.parse returns .invalid
         if let url {
-            let handler = DeepLinkHandler()
-            let deepLink = handler.parse(url)
+            let parser = AIQDeepLinkParser()
+            let deepLink = parser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .invalid, "invalid URL should parse to .invalid")
         }
     }
@@ -226,8 +226,8 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         let url = try URL(string: XCTUnwrap(deepLinkString))
 
         // Then - should still parse correctly (query params ignored)
-        let handler = DeepLinkHandler()
-        let deepLink = try handler.parse(XCTUnwrap(url))
+        let parser = AIQDeepLinkParser()
+        let deepLink = try parser.parseDeepLink(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .testResults(id: 123), "should parse with query params")
     }
 
@@ -243,8 +243,8 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         let url = try URL(string: XCTUnwrap(deepLinkString))
 
         // Then - should still parse correctly (fragment ignored)
-        let handler = DeepLinkHandler()
-        let deepLink = try handler.parse(XCTUnwrap(url))
+        let parser = AIQDeepLinkParser()
+        let deepLink = try parser.parseDeepLink(XCTUnwrap(url))
         XCTAssertEqual(deepLink, .testResults(id: 123), "should parse with fragment")
     }
 
@@ -308,8 +308,8 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
         // And - should parse correctly
         if let urlString = deepLinkString, let url = URL(string: urlString) {
-            let handler = DeepLinkHandler()
-            let deepLink = handler.parse(url)
+            let parser = AIQDeepLinkParser()
+            let deepLink = parser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .testResults(id: 555))
         } else {
             XCTFail("Should create valid URL")
@@ -371,8 +371,8 @@ final class PushNotificationDeepLinkTests: XCTestCase {
 
         // And - should be parseable
         if let urlString = deepLinkString, let url = URL(string: urlString) {
-            let handler = DeepLinkHandler()
-            let deepLink = handler.parse(url)
+            let parser = AIQDeepLinkParser()
+            let deepLink = parser.parseDeepLink(url)
             XCTAssertEqual(deepLink, .testResults(id: 123))
         }
     }

@@ -49,6 +49,7 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
     private let tabSelectionHandler: TabSelectionHandler
     private let toastManager: any ToastManagerProtocol
     private let analyticsManager: AnalyticsManagerProtocol
+    private let apiServiceProvider: () -> OpenAPIServiceProtocol
 
     /// Tracks whether a deep link is currently being processed to prevent concurrent handling
     private var isProcessingDeepLink = false
@@ -60,13 +61,15 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
         parser: AIQDeepLinkParser = AIQDeepLinkParser(),
         tabSelectionHandler: @escaping TabSelectionHandler,
         toastManager: any ToastManagerProtocol,
-        analyticsManager: AnalyticsManagerProtocol = ServiceContainer.shared.resolve()
+        analyticsManager: AnalyticsManagerProtocol = ServiceContainer.shared.resolve(),
+        apiServiceProvider: @escaping () -> OpenAPIServiceProtocol = { ServiceContainer.shared.resolve() }
     ) {
         self.router = router
         self.parser = parser
         self.tabSelectionHandler = tabSelectionHandler
         self.toastManager = toastManager
         self.analyticsManager = analyticsManager
+        self.apiServiceProvider = apiServiceProvider
     }
 
     // MARK: - Public API
@@ -174,7 +177,7 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
         router.popToRoot(in: .dashboard)
 
         // Fetch test result from API
-        let apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve()
+        let apiService = apiServiceProvider()
         do {
             let result = try await apiService.getTestResults(resultId: id)
             // Navigate via the dashboard coordinator directly

@@ -528,30 +528,28 @@ final class AppRouterTests: XCTestCase {
         XCTAssertEqual(sut.depth(in: .dashboard), 2, "Dashboard should still have 2 routes")
     }
 
-    func testBinding_ReturnsCorrectPathForTab() {
+    func testCoordinator_ReturnsCorrectCoordinatorForTab() {
         // Given - Push routes to different tabs
         sut.push(.testTaking(), in: .dashboard)
         sut.push(.help, in: .settings)
 
-        // When - Get bindings
-        let dashboardBinding = sut.binding(for: .dashboard)
-        let historyBinding = sut.binding(for: .history)
-        let settingsBinding = sut.binding(for: .settings)
+        // When - Get coordinators
+        let dashboardCoord = sut.coordinator(for: .dashboard)
+        let historyCoord = sut.coordinator(for: .history)
+        let settingsCoord = sut.coordinator(for: .settings)
 
-        // Then - Bindings reflect correct state
-        XCTAssertEqual(dashboardBinding.wrappedValue.count, 1, "Dashboard binding should have 1 route")
-        XCTAssertEqual(historyBinding.wrappedValue.count, 0, "History binding should be empty")
-        XCTAssertEqual(settingsBinding.wrappedValue.count, 1, "Settings binding should have 1 route")
+        // Then - Coordinators reflect correct state
+        XCTAssertEqual(dashboardCoord.path.count, 1, "Dashboard coordinator should have 1 route")
+        XCTAssertEqual(historyCoord.path.count, 0, "History coordinator should be empty")
+        XCTAssertEqual(settingsCoord.path.count, 1, "Settings coordinator should have 1 route")
     }
 
-    func testBinding_ModifiesCorrectPath() {
-        // Given - Get binding for dashboard
-        let dashboardBinding = sut.binding(for: .dashboard)
+    func testCoordinator_DirectPathModification() {
+        // Given - Get coordinator for dashboard
+        let dashboardCoord = sut.coordinator(for: .dashboard)
 
-        // When - Modify binding by appending a route
-        var modifiedPath = dashboardBinding.wrappedValue
-        modifiedPath.append(Route.testTaking())
-        dashboardBinding.wrappedValue = modifiedPath
+        // When - Modify path directly via coordinator
+        dashboardCoord.push(.testTaking())
 
         // Then - Dashboard path should be updated
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "Dashboard should have 1 route")
