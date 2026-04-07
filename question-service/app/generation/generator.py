@@ -601,7 +601,9 @@ class QuestionGenerator:
                 distribute_across_providers)
             temperature: Sampling temperature for generation
             max_tokens: Maximum tokens to generate
-            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
+            provider_tier: Which tier to use - "primary", "fallback", or "balanced"
+                (None = "primary"). "balanced" alternates between primary and fallback
+                providers per question to distribute load.
 
         Returns:
             Batch of generated questions
@@ -614,7 +616,61 @@ class QuestionGenerator:
         specialist_model: Optional[str] = None
         question_type_str = question_type.value
 
-        if use_specialist_routing:
+        # Handle balanced mode: resolve both providers upfront and alternate
+        is_balanced = provider_tier == "balanced" and use_specialist_routing
+        if is_balanced:
+            primary_provider, primary_model = self._get_specialist_provider(
+                question_type, provider_tier="primary"
+            )
+            fallback_provider, fallback_model = self._get_specialist_provider(
+                question_type, provider_tier="fallback"
+            )
+
+            # If both resolve to the same provider, fall back to normal specialist mode
+            if (
+                primary_provider
+                and fallback_provider
+                and primary_provider == fallback_provider
+            ):
+                logger.warning(
+                    f"Balanced mode: primary and fallback resolve to same provider "
+                    f"'{primary_provider}' for {question_type.value}, "
+                    f"falling back to normal specialist routing"
+                )
+                is_balanced = False
+                specialist_provider = primary_provider
+                specialist_model = primary_model
+            elif primary_provider and fallback_provider:
+                logger.info(
+                    f"Balanced mode: alternating between '{primary_provider}' and "
+                    f"'{fallback_provider}' for {question_type.value} questions"
+                )
+                _safe_record_metric(
+                    "question.routing.decision",
+                    value=1,
+                    labels={
+                        "question_type": question_type_str,
+                        "provider": f"{primary_provider}+{fallback_provider}",
+                        "is_specialist": "true",
+                        "mode": "balanced",
+                    },
+                    metric_type="counter",
+                )
+            elif primary_provider:
+                logger.warning(
+                    f"Balanced mode: no fallback provider available for "
+                    f"{question_type.value}, using primary only"
+                )
+                is_balanced = False
+                specialist_provider = primary_provider
+                specialist_model = primary_model
+            else:
+                logger.warning(
+                    f"Balanced mode: no providers available for {question_type.value}"
+                )
+                is_balanced = False
+
+        if not is_balanced and use_specialist_routing and specialist_provider is None:
             specialist_provider, specialist_model = self._get_specialist_provider(
                 question_type, provider_tier=provider_tier
             )
@@ -644,8 +700,102 @@ class QuestionGenerator:
         skipped_providers: Dict[str, int] = {}
         failed_questions: int = 0  # Track questions that couldn't be generated
 
+        # Balanced mode: alternate between primary and fallback providers
+        if is_balanced:
+            # Both providers are guaranteed non-None by the is_balanced guard above
+            if primary_provider is None or fallback_provider is None:
+                raise ValueError(
+                    "Balanced mode requires both primary and fallback providers"
+                )
+            provider_sequence: list[tuple[str, Optional[str]]] = [
+                (primary_provider, primary_model),
+                (fallback_provider, fallback_model),
+            ]
+            # Track which providers are still healthy
+            failed_providers: set[str] = set()
+
+            for i in range(count):
+                # Pick provider based on alternation
+                idx = i % 2
+                bal_provider, bal_model = provider_sequence[idx]
+
+                # If this provider has failed, use the other one
+                if bal_provider in failed_providers:
+                    alt_idx = 1 - idx
+                    alt_provider, alt_model = provider_sequence[alt_idx]
+                    if alt_provider in failed_providers:
+                        logger.warning(
+                            "No more providers available in balanced mode, "
+                            f"stopping batch ({len(questions)}/{count} completed)"
+                        )
+                        failed_questions += count - i
+                        break
+                    bal_provider, bal_model = alt_provider, alt_model
+
+                try:
+                    question = self.generate_question(
+                        question_type=question_type,
+                        difficulty=difficulty,
+                        provider_name=bal_provider,
+                        model_override=bal_model,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+                    questions.append(question)
+                except CircuitBreakerOpen:
+                    logger.warning(
+                        f"Circuit opened for {bal_provider} during balanced batch "
+                        f"generation ({len(questions)}/{count} completed), "
+                        f"routing remaining to healthy provider"
+                    )
+                    skipped_providers[bal_provider] = (
+                        skipped_providers.get(bal_provider, 0) + 1
+                    )
+                    failed_providers.add(bal_provider)
+                    # Retry this question with the other provider
+                    alt_idx = 1 - idx
+                    alt_provider, alt_model = provider_sequence[alt_idx]
+                    if alt_provider not in failed_providers:
+                        try:
+                            question = self.generate_question(
+                                question_type=question_type,
+                                difficulty=difficulty,
+                                provider_name=alt_provider,
+                                model_override=alt_model,
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                            )
+                            questions.append(question)
+                        except Exception as e:
+                            logger.warning(
+                                "generation.failure provider=%s type=%s difficulty=%s "
+                                "question=%d/%d reason=%s",
+                                alt_provider,
+                                question_type.value,
+                                difficulty.value,
+                                i + 1,
+                                count,
+                                type(e).__name__,
+                            )
+                            failed_questions += 1
+                    else:
+                        failed_questions += 1
+                except Exception as e:
+                    logger.warning(
+                        "generation.failure provider=%s type=%s difficulty=%s "
+                        "question=%d/%d reason=%s",
+                        bal_provider,
+                        question_type.value,
+                        difficulty.value,
+                        i + 1,
+                        count,
+                        type(e).__name__,
+                    )
+                    failed_questions += 1
+                    continue
+
         # If specialist routing is enabled and we have a specialist, use it exclusively
-        if specialist_provider:
+        elif specialist_provider:
             current_provider: Optional[str] = specialist_provider
             current_model: Optional[str] = specialist_model
             original_provider: str = specialist_provider  # Track for fallback metrics
@@ -856,8 +1006,13 @@ class QuestionGenerator:
                     name: stats["state"]
                     for name, stats in circuit_breaker_stats.items()
                 },
-                "specialist_routing": specialist_provider is not None,
-                "specialist_provider": specialist_provider,
+                "specialist_routing": specialist_provider is not None or is_balanced,
+                "specialist_provider": (
+                    f"{primary_provider}+{fallback_provider}"
+                    if is_balanced
+                    else specialist_provider
+                ),
+                "provider_tier": provider_tier or "primary",
             },
         )
 

@@ -356,11 +356,13 @@ Examples:
     parser.add_argument(
         "--provider-tier",
         type=str,
-        choices=["primary", "fallback"],
+        choices=["primary", "fallback", "balanced"],
         default="primary",
         help="Provider tier to use for question generation. "
         "'primary' uses the primary provider from generators.yaml (default). "
-        "'fallback' forces use of fallback provider to test fallback configuration.",
+        "'fallback' forces use of fallback provider to test fallback configuration. "
+        "'balanced' alternates between primary and fallback providers per question "
+        "to distribute load and reduce rate-limit pressure.",
     )
 
     return parser.parse_args()
