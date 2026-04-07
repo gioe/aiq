@@ -1,3 +1,4 @@
+import APIClient
 import Foundation
 
 /// Operation context for better error messages
@@ -58,110 +59,43 @@ enum NetworkOperation {
     }
 }
 
-enum APIError: Error, LocalizedError {
-    /// The URL is invalid or malformed
-    case invalidURL
-    /// The server response is invalid or unexpected
-    case invalidResponse
-    /// Authentication failed or token expired
-    case unauthorized(message: String? = nil)
-    /// Access to the resource is forbidden
-    case forbidden(message: String? = nil)
-    /// The requested resource was not found
-    case notFound(message: String? = nil)
-    /// Bad request - client error
-    case badRequest(message: String? = nil)
+/// App-level API error that wraps ios-libs generic HTTP errors with domain-specific cases.
+///
+/// Generic HTTP/network error cases (unauthorized, notFound, timeout, etc.) are delegated
+/// to `APIClient.APIError` from ios-libs. App-specific cases remain here.
+enum AppError: Error, LocalizedError, Equatable {
+    /// Generic HTTP/network error from ios-libs APIClient
+    case api(APIClient.APIError)
     /// User already has an active test session
     case activeSessionConflict(sessionId: Int, message: String)
-    /// Server error occurred
-    case serverError(statusCode: Int, message: String? = nil)
-    /// Failed to decode the server response
-    case decodingError(Error)
-    /// Network connectivity error
-    case networkError(Error)
-    /// Request timed out
-    case timeout
-    /// No internet connection available
-    case noInternetConnection
-    /// Unknown error occurred
-    case unknown(message: String? = nil)
-    /// Unprocessable entity
-    case unprocessableEntity(message: String? = nil)
-    /// Rate limit exceeded
-    case rateLimitExceeded(message: String? = nil)
     /// User must wait before taking another test
     case testCooldown(nextEligibleDate: Date, daysRemaining: Int)
 
     /// User-friendly error description with clear guidance
     var errorDescription: String? {
         switch self {
-        case .invalidURL:
-            "There was a problem with the request. Please try again or contact support if the issue persists."
-        case .invalidResponse:
-            "We received an unexpected response from the server. Please try again."
-        case let .unauthorized(message):
-            message ?? "Your session has expired. Please log in again to continue."
-        case let .forbidden(message):
-            message ?? "Access denied. You don't have permission to perform this action."
-        case let .notFound(message):
-            message ?? "We couldn't find what you're looking for. It may have been removed or is no longer available."
-        case let .unprocessableEntity(message):
-            message ?? "We couldn't process your request. Please check your information and try again."
-        case let .badRequest(message):
-            message ?? "There was a problem with your request. Please check your information and try again."
+        case let .api(apiError):
+            apiError.errorDescription
         case let .activeSessionConflict(_, message):
             message
-        case let .serverError(statusCode, message):
-            if let message {
-                "Server error: \(message). Please try again in a few moments."
-            } else {
-                "Our servers are experiencing issues (code: \(statusCode)). Please try again in a few moments."
-            }
-        case let .decodingError(error):
-            """
-            We couldn't understand the server's response. Please try again or contact support if this continues. \
-            Technical details: \(error.localizedDescription)
-            """
-        case let .networkError(error):
-            if let urlError = error as? URLError {
-                switch urlError.code {
-                case .notConnectedToInternet, .networkConnectionLost:
-                    "No internet connection detected. Please check your Wi-Fi or cellular data and try again."
-                case .timedOut:
-                    "The connection timed out. Please check your internet connection and try again."
-                case .cannotFindHost, .cannotConnectToHost:
-                    "Unable to reach the server. Please check your internet connection and try again later."
-                default:
-                    "A network error occurred. Please check your connection and try again."
-                }
-            } else {
-                "A network error occurred. Please check your connection and try again."
-            }
-        case .timeout:
-            "The request took too long to complete. Please check your internet connection and try again."
-        case .noInternetConnection:
-            "No internet connection detected. Please check your Wi-Fi or cellular data settings and try again."
-        case let .rateLimitExceeded(message):
-            message ?? "You've made too many requests. Please wait a moment and try again."
         case let .testCooldown(_, daysRemaining):
             "You must wait \(daysRemaining) more day\(daysRemaining == 1 ? "" : "s") before taking another test."
-        case let .unknown(message):
-            message ?? "Something unexpected happened. Please try again or contact support if the issue continues."
         }
     }
 
     /// Whether this error is retryable (e.g., network errors, timeouts, server errors)
     var isRetryable: Bool {
         switch self {
-        case .networkError, .timeout, .noInternetConnection, .serverError, .rateLimitExceeded:
-            true
-        case .badRequest, .unprocessableEntity, .unauthorized, .forbidden,
-             .invalidURL, .invalidResponse, .notFound,
-             .activeSessionConflict, .decodingError, .unknown, .testCooldown:
+        case let .api(apiError):
+            apiError.isRetryable
+        case .activeSessionConflict, .testCooldown:
             false
         }
     }
 }
+
+/// Backward-compatible typealias — most code refers to `APIError`.
+typealias APIError = AppError
 
 /// Wrapper for API errors with operation context
 struct ContextualError: Error, LocalizedError {
@@ -173,20 +107,24 @@ struct ContextualError: Error, LocalizedError {
     var errorDescription: String? {
         // For some errors, just show the base error without repetitive context
         switch error {
-        case .unauthorized, .noInternetConnection, .networkError, .timeout:
-            // These errors already have clear messaging, no need to repeat operation
-            return error.errorDescription
+        case let .api(apiError):
+            switch apiError {
+            case .unauthorized, .noInternetConnection, .networkError, .timeout:
+                return error.errorDescription
+            default:
+                break
+            }
         default:
-            // For other errors, add context about what we were trying to do
-            guard let baseError = error.errorDescription else {
-                return "An error occurred while \(operation.userFacingName). Please try again."
-            }
-            // Check if the base error already mentions the operation to avoid redundancy
-            if baseError.lowercased().contains(operation.userFacingName.lowercased()) {
-                return baseError
-            }
+            break
+        }
+
+        guard let baseError = error.errorDescription else {
+            return "An error occurred while \(operation.userFacingName). Please try again."
+        }
+        if baseError.lowercased().contains(operation.userFacingName.lowercased()) {
             return baseError
         }
+        return baseError
     }
 
     /// The underlying API error for detailed handling
@@ -208,13 +146,13 @@ struct ErrorResponse: Codable {
 
 // MARK: - Active Session Error Parsing
 
-extension APIError {
+extension AppError {
     /// Parse a 400 error to detect typed error cases (active session conflicts, test cooldown).
     /// - Parameter message: The error message from the server
-    /// - Returns: A typed APIError case if detected, otherwise a badRequest error
-    static func parseBadRequest(message: String?) -> APIError {
+    /// - Returns: A typed AppError case if detected, otherwise a badRequest error
+    static func parseBadRequest(message: String?) -> AppError {
         guard let message else {
-            return .badRequest(message: nil)
+            return .api(.badRequest(message: nil))
         }
 
         // Check if this is an active session conflict
@@ -244,12 +182,12 @@ extension APIError {
         }
 
         // Not a typed error - return generic bad request
-        return .badRequest(message: message)
+        return .api(.badRequest(message: message))
     }
 
     /// Extract next-eligible date and days-remaining from a cooldown message.
     /// Returns nil if either value cannot be parsed.
-    private static func parseCooldownMessage(_ message: String) -> APIError? {
+    private static func parseCooldownMessage(_ message: String) -> AppError? {
         let datePattern = #"You can take your next test on (\d{4}-\d{2}-\d{2})"#
         let daysPattern = #"\((\d+) days remaining\)"#
 

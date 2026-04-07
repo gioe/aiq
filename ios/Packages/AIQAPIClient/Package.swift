@@ -33,6 +33,10 @@ let package = Package(
         .package(
             url: "https://github.com/apple/swift-http-types",
             from: "1.0.0"
+        ),
+        .package(
+            url: "https://github.com/gioe/ios-libs",
+            from: "1.4.0"
         )
     ],
     targets: [
@@ -53,7 +57,8 @@ let package = Package(
         .target(
             name: "AIQAPIClient",
             dependencies: [
-                "AIQAPIClientCore"
+                "AIQAPIClientCore",
+                .product(name: "APIClient", package: "ios-libs")
             ]
         ),
         .testTarget(
