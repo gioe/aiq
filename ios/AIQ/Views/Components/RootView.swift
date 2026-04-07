@@ -93,8 +93,8 @@ struct RootView: View {
         // Initialize toast manager observer from the container
         _toastObserver = StateObject(wrappedValue: ToastManagerObserver(container: serviceContainer))
         // Resolve biometric services — optional so the app degrades gracefully if absent
-        biometricAuthManager = serviceContainer.resolve(BiometricAuthManagerProtocol.self)
-        biometricPreferenceStorage = serviceContainer.resolve(BiometricPreferenceStorageProtocol.self)
+        biometricAuthManager = serviceContainer.resolveOptional(BiometricAuthManagerProtocol.self)
+        biometricPreferenceStorage = serviceContainer.resolveOptional(BiometricPreferenceStorageProtocol.self)
     }
 
     var body: some View {

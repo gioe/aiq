@@ -59,45 +59,49 @@ enum ServiceConfiguration {
         // MARK: - Layer 1: Services with no dependencies
 
         let networkMonitor = NetworkMonitor()
-        container.register(NetworkMonitorProtocol.self, instance: networkMonitor)
+        container.register(NetworkMonitorProtocol.self, scope: .appLevel, instance: networkMonitor)
 
         let toastManager = ToastManager()
-        container.register((any ToastManagerProtocol).self, instance: toastManager)
+        container.register((any ToastManagerProtocol).self, scope: .appLevel, instance: toastManager)
 
         let hapticManager = HapticManager()
-        container.register(HapticManagerProtocol.self, instance: hapticManager)
+        container.register(HapticManagerProtocol.self, scope: .appLevel, instance: hapticManager)
 
         let biometricAuthManager = BiometricAuthManager()
-        container.register(BiometricAuthManagerProtocol.self, instance: biometricAuthManager)
+        container.register(BiometricAuthManagerProtocol.self, scope: .appLevel, instance: biometricAuthManager)
 
         let historyPreferencesStorage = HistoryPreferencesStorage()
-        container.register(HistoryPreferencesStorageProtocol.self, instance: historyPreferencesStorage)
+        container.register(
+            HistoryPreferencesStorageProtocol.self, scope: .appLevel, instance: historyPreferencesStorage
+        )
 
         let onboardingStorage = OnboardingStorage()
-        container.register(OnboardingStorageProtocol.self, instance: onboardingStorage)
+        container.register(OnboardingStorageProtocol.self, scope: .appLevel, instance: onboardingStorage)
 
         guard let serverURL = URL(string: AppConfig.apiBaseURL) else {
             fatalError("Invalid API base URL: \(AppConfig.apiBaseURL)")
         }
         let openAPIService = OpenAPIService(serverURL: serverURL)
-        container.register(OpenAPIServiceProtocol.self, instance: openAPIService)
+        container.register(OpenAPIServiceProtocol.self, scope: .appLevel, instance: openAPIService)
 
         let localAnswerStorage = LocalAnswerStorage()
-        container.register(LocalAnswerStorageProtocol.self, instance: localAnswerStorage)
+        container.register(LocalAnswerStorageProtocol.self, scope: .appLevel, instance: localAnswerStorage)
 
         // MARK: - Layer 2: Services depending on Layer 1
 
         let keychainStorage = KeychainStorage()
-        container.register(SecureStorageProtocol.self, instance: keychainStorage)
+        container.register(SecureStorageProtocol.self, scope: .appLevel, instance: keychainStorage)
 
         let biometricPreferenceStorage = BiometricPreferenceStorage(secureStorage: keychainStorage)
-        container.register(BiometricPreferenceStorageProtocol.self, instance: biometricPreferenceStorage)
+        container.register(
+            BiometricPreferenceStorageProtocol.self, scope: .appLevel, instance: biometricPreferenceStorage
+        )
 
         let authService = AuthService(apiService: openAPIService, secureStorage: keychainStorage)
-        container.register(AuthServiceProtocol.self, instance: authService)
+        container.register(AuthServiceProtocol.self, scope: .appLevel, instance: authService)
 
         let notificationService = NotificationService(apiService: openAPIService)
-        container.register(NotificationServiceProtocol.self, instance: notificationService)
+        container.register(NotificationServiceProtocol.self, scope: .appLevel, instance: notificationService)
 
         // MARK: - Layer 3: AuthManager with lazy NotificationManager dependency
 
@@ -107,14 +111,14 @@ enum ServiceConfiguration {
             authService: authService,
             deviceTokenManagerFactory: {
                 // Lazily resolve NotificationManager from container (breaks circular dependency)
-                guard let manager = container.resolve(NotificationManagerProtocol.self),
-                      let tokenManager = manager as? DeviceTokenManagerProtocol else {
-                    fatalError("NotificationManagerProtocol must be registered before AuthManager uses it")
+                let manager: NotificationManagerProtocol = container.resolve()
+                guard let tokenManager = manager as? DeviceTokenManagerProtocol else {
+                    fatalError("NotificationManagerProtocol must conform to DeviceTokenManagerProtocol")
                 }
                 return tokenManager
             }
         )
-        container.register(AuthManagerProtocol.self, instance: authManager)
+        container.register(AuthManagerProtocol.self, scope: .appLevel, instance: authManager)
 
         // MARK: - Layer 4: NotificationManager (now AuthManager is available)
 
@@ -122,6 +126,6 @@ enum ServiceConfiguration {
             notificationService: notificationService,
             authManager: authManager
         )
-        container.register(NotificationManagerProtocol.self, instance: notificationManager)
+        container.register(NotificationManagerProtocol.self, scope: .appLevel, instance: notificationManager)
     }
 }

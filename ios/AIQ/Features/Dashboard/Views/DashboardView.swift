@@ -27,10 +27,7 @@ struct DashboardView: View {
     init(serviceContainer: ServiceContainer = .shared) {
         let vm = ViewModelFactory.makeDashboardViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
-        guard let resolved = serviceContainer.resolve(AuthManagerProtocol.self) else {
-            fatalError("AuthManagerProtocol not registered in ServiceContainer")
-        }
-        authManager = resolved
+        authManager = serviceContainer.resolve(AuthManagerProtocol.self)
     }
 
     var body: some View {

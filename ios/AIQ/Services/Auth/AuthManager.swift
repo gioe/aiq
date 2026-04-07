@@ -40,11 +40,11 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     private lazy var deviceTokenManager: DeviceTokenManagerProtocol = deviceTokenManagerFactory()
 
     init(
-        authService: AuthServiceProtocol = ServiceContainer.shared.resolve(AuthServiceProtocol.self)!,
+        authService: AuthServiceProtocol = ServiceContainer.shared.resolve(),
         deviceTokenManagerFactory: @escaping @MainActor () -> DeviceTokenManagerProtocol = {
-            guard let manager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self),
-                  let tokenManager = manager as? DeviceTokenManagerProtocol else {
-                fatalError("NotificationManagerProtocol not registered in ServiceContainer")
+            let manager: NotificationManagerProtocol = ServiceContainer.shared.resolve()
+            guard let tokenManager = manager as? DeviceTokenManagerProtocol else {
+                fatalError("NotificationManagerProtocol must conform to DeviceTokenManagerProtocol")
             }
             return tokenManager
         }

@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQSharedKit
 import XCTest
 
 /// Tests for ViewModelFactory to ensure all factory methods work with production configuration

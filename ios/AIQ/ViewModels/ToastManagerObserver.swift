@@ -53,10 +53,7 @@ final class ToastManagerObserver: ObservableObject {
     /// - Parameter container: The service container to resolve the ToastManager from.
     ///                        Defaults to the shared container.
     init(container: ServiceContainer = .shared) {
-        guard let resolvedManager = container.resolve((any ToastManagerProtocol).self) else {
-            fatalError("ToastManagerProtocol not registered in ServiceContainer")
-        }
-        manager = resolvedManager
+        manager = container.resolve((any ToastManagerProtocol).self)
 
         // Set initial state
         currentToast = manager.currentToast

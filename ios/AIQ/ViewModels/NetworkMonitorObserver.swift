@@ -55,10 +55,7 @@ final class NetworkMonitorObserver: ObservableObject {
     /// - Parameter container: The service container to resolve the NetworkMonitor from.
     ///                        Defaults to the shared container.
     init(container: ServiceContainer = .shared) {
-        guard let resolvedMonitor = container.resolve(NetworkMonitorProtocol.self) else {
-            fatalError("NetworkMonitorProtocol not registered in ServiceContainer")
-        }
-        monitor = resolvedMonitor
+        monitor = container.resolve(NetworkMonitorProtocol.self)
 
         // Set initial state
         isConnected = monitor.isConnected

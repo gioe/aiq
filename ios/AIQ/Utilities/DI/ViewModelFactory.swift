@@ -1,3 +1,4 @@
+import AIQSharedKit
 import Foundation
 
 /// Factory for creating ViewModels with resolved dependencies
@@ -60,9 +61,7 @@ enum ViewModelFactory {
     @MainActor
     static func makeDashboardViewModel(container: ServiceContainer) -> DashboardViewModel {
         if let cached = cachedDashboardVM { return cached }
-        guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
-            fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
-        }
+        let apiService: OpenAPIServiceProtocol = container.resolve()
         let vm = DashboardViewModel(apiService: apiService)
         cachedDashboardVM = vm
         return vm
@@ -76,12 +75,8 @@ enum ViewModelFactory {
     @MainActor
     static func makeHistoryViewModel(container: ServiceContainer) -> HistoryViewModel {
         if let cached = cachedHistoryVM { return cached }
-        guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
-            fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
-        }
-        guard let preferencesStorage = container.resolve(HistoryPreferencesStorageProtocol.self) else {
-            fatalError("HistoryPreferencesStorageProtocol not registered in ServiceContainer")
-        }
+        let apiService: OpenAPIServiceProtocol = container.resolve()
+        let preferencesStorage: HistoryPreferencesStorageProtocol = container.resolve()
         let vm = HistoryViewModel(apiService: apiService, preferencesStorage: preferencesStorage)
         cachedHistoryVM = vm
         return vm
@@ -94,12 +89,8 @@ enum ViewModelFactory {
     /// - Returns: Configured TestTakingViewModel instance
     @MainActor
     static func makeTestTakingViewModel(container: ServiceContainer) -> TestTakingViewModel {
-        guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
-            fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
-        }
-        guard let answerStorage = container.resolve(LocalAnswerStorageProtocol.self) else {
-            fatalError("LocalAnswerStorageProtocol not registered in ServiceContainer")
-        }
+        let apiService: OpenAPIServiceProtocol = container.resolve()
+        let answerStorage: LocalAnswerStorageProtocol = container.resolve()
         return TestTakingViewModel(apiService: apiService, answerStorage: answerStorage)
     }
 
@@ -110,10 +101,8 @@ enum ViewModelFactory {
     /// - Returns: Configured FeedbackViewModel instance
     @MainActor
     static func makeFeedbackViewModel(container: ServiceContainer) -> FeedbackViewModel {
-        guard let apiService = container.resolve(OpenAPIServiceProtocol.self) else {
-            fatalError("OpenAPIServiceProtocol not registered in ServiceContainer")
-        }
-        let authManager = container.resolve(AuthManagerProtocol.self)
+        let apiService: OpenAPIServiceProtocol = container.resolve()
+        let authManager: AuthManagerProtocol? = container.resolveOptional()
         return FeedbackViewModel(apiService: apiService, authManager: authManager)
     }
 
@@ -124,12 +113,8 @@ enum ViewModelFactory {
     /// - Returns: Configured NotificationSettingsViewModel instance
     @MainActor
     static func makeNotificationSettingsViewModel(container: ServiceContainer) -> NotificationSettingsViewModel {
-        guard let notificationService = container.resolve(NotificationServiceProtocol.self) else {
-            fatalError("NotificationServiceProtocol not registered in ServiceContainer")
-        }
-        guard let notificationManager = container.resolve(NotificationManagerProtocol.self) else {
-            fatalError("NotificationManagerProtocol not registered in ServiceContainer")
-        }
+        let notificationService: NotificationServiceProtocol = container.resolve()
+        let notificationManager: NotificationManagerProtocol = container.resolve()
         return NotificationSettingsViewModel(
             notificationService: notificationService,
             notificationManager: notificationManager
@@ -143,9 +128,7 @@ enum ViewModelFactory {
     /// - Returns: Configured LoginViewModel instance
     @MainActor
     static func makeLoginViewModel(container: ServiceContainer) -> LoginViewModel {
-        guard let authManager = container.resolve(AuthManagerProtocol.self) else {
-            fatalError("AuthManagerProtocol not registered in ServiceContainer")
-        }
+        let authManager: AuthManagerProtocol = container.resolve()
         return LoginViewModel(authManager: authManager)
     }
 
@@ -156,9 +139,7 @@ enum ViewModelFactory {
     /// - Returns: Configured RegistrationViewModel instance
     @MainActor
     static func makeRegistrationViewModel(container: ServiceContainer) -> RegistrationViewModel {
-        guard let authManager = container.resolve(AuthManagerProtocol.self) else {
-            fatalError("AuthManagerProtocol not registered in ServiceContainer")
-        }
+        let authManager: AuthManagerProtocol = container.resolve()
         return RegistrationViewModel(authManager: authManager)
     }
 
@@ -170,15 +151,9 @@ enum ViewModelFactory {
     @MainActor
     static func makeSettingsViewModel(container: ServiceContainer) -> SettingsViewModel {
         if let cached = cachedSettingsVM { return cached }
-        guard let authManager = container.resolve(AuthManagerProtocol.self) else {
-            fatalError("AuthManagerProtocol not registered in ServiceContainer")
-        }
-        guard let biometricAuthManager = container.resolve(BiometricAuthManagerProtocol.self) else {
-            fatalError("BiometricAuthManagerProtocol not registered in ServiceContainer")
-        }
-        guard let biometricPreferenceStorage = container.resolve(BiometricPreferenceStorageProtocol.self) else {
-            fatalError("BiometricPreferenceStorageProtocol not registered in ServiceContainer")
-        }
+        let authManager: AuthManagerProtocol = container.resolve()
+        let biometricAuthManager: BiometricAuthManagerProtocol = container.resolve()
+        let biometricPreferenceStorage: BiometricPreferenceStorageProtocol = container.resolve()
         let vm = SettingsViewModel(
             authManager: authManager,
             biometricAuthManager: biometricAuthManager,

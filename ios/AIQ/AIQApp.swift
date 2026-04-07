@@ -29,9 +29,6 @@ struct AIQApp: App {
         #else
             ServiceConfiguration.configureServices(container: ServiceContainer.shared)
         #endif
-
-        // Mark configuration complete to enable DEBUG assertions for late registrations
-        ServiceContainer.shared.markConfigurationComplete()
     }
 
     var body: some Scene {

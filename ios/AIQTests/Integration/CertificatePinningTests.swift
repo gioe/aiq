@@ -81,7 +81,7 @@ final class CertificatePinningTests: XCTestCase {
     func testAPIClientUsesSharedSession() {
         // Verify the OpenAPIService instance is registered in ServiceContainer
         // This is important because TrustKit swizzles URLSession.shared
-        let apiService = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)
+        let apiService: OpenAPIServiceProtocol? = ServiceContainer.shared.resolveOptional()
 
         // The OpenAPIService should be registered in ServiceContainer
         // We verify this indirectly by checking the resolved instance exists

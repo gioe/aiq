@@ -14,7 +14,7 @@ struct TestResultsView: View {
     @State private var showNotificationSoftPrompt = false
     @State private var hasDismissed = false
     @ObservedObject private var notificationManager: NotificationManager = {
-        let resolved = ServiceContainer.shared.resolve(NotificationManagerProtocol.self)
+        let resolved: NotificationManagerProtocol = ServiceContainer.shared.resolve()
         guard let manager = resolved as? NotificationManager else {
             // In mock/test environments the registered type may not be NotificationManager.
             // Fall back to a fresh instance that uses whatever services are in the container.
@@ -72,7 +72,7 @@ struct TestResultsView: View {
         }
         .onAppear {
             // Trigger success haptic when results are displayed
-            ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.success)
+            ServiceContainer.shared.resolve(HapticManagerProtocol.self).trigger(.success)
 
             if reduceMotion {
                 showScore = true

@@ -47,7 +47,7 @@ class NotificationService: NotificationServiceProtocol {
 
     private let apiService: OpenAPIServiceProtocol
 
-    init(apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!) {
+    init(apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve()) {
         self.apiService = apiService
     }
 

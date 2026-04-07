@@ -27,7 +27,7 @@ class AuthService: AuthServiceProtocol {
     }
 
     init(
-        apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!,
+        apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(),
         secureStorage: SecureStorageProtocol = KeychainStorage()
     ) {
         self.apiService = apiService

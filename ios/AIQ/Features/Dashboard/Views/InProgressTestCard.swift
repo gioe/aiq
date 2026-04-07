@@ -30,7 +30,7 @@ struct InProgressTestCard: View {
         }
         .padding(DesignSystem.Spacing.lg)
         .onAppear {
-            ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.prepare()
+            ServiceContainer.shared.resolve(HapticManagerProtocol.self).prepare()
         }
         .background(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
@@ -164,7 +164,7 @@ struct InProgressTestCard: View {
             // Resume Button (Primary)
             Button {
                 // Haptic feedback for button tap
-                ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.medium)
+                ServiceContainer.shared.resolve(HapticManagerProtocol.self).trigger(.medium)
                 onResume()
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {
@@ -200,7 +200,7 @@ struct InProgressTestCard: View {
             // Abandon Button (Secondary, Destructive)
             Button {
                 // Haptic feedback for destructive action
-                ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.warning)
+                ServiceContainer.shared.resolve(HapticManagerProtocol.self).trigger(.warning)
                 showAbandonConfirmation = true
             } label: {
                 HStack(spacing: DesignSystem.Spacing.sm) {

@@ -49,10 +49,7 @@ final class AuthStateObserver: ObservableObject {
     /// - Parameter container: The service container to resolve the AuthManager from.
     ///                        Defaults to the shared container.
     init(container: ServiceContainer = .shared) {
-        guard let manager = container.resolve(AuthManagerProtocol.self) else {
-            fatalError("AuthManagerProtocol not registered in ServiceContainer")
-        }
-        authManager = manager
+        authManager = container.resolve(AuthManagerProtocol.self)
 
         // Set initial state
         isAuthenticated = manager.isAuthenticated

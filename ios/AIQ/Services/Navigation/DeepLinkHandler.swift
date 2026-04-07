@@ -430,7 +430,7 @@ extension DeepLinkHandler {
             deepLink,
             router: router,
             tab: tab,
-            apiService: ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!,
+            apiService: ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self),
             source: source,
             originalURL: originalURL
         )
@@ -454,7 +454,7 @@ extension DeepLinkHandler {
         _ deepLink: DeepLink,
         router: AppRouter,
         tab: TabDestination? = nil,
-        apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!,
+        apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(),
         source: DeepLinkSource = .unknown,
         originalURL: String = ""
     ) async -> Bool {

@@ -29,19 +29,9 @@ struct MainTabView: View {
     // MARK: - Initialization
 
     init() {
-        guard let manager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self) else {
-            preconditionFailure(
-                "NotificationManager must be registered in ServiceContainer before MainTabView initialization"
-            )
-        }
-        notificationManager = manager
+        notificationManager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self)
         analyticsService = AnalyticsService.shared
-        guard let toast = ServiceContainer.shared.resolve((any ToastManagerProtocol).self) else {
-            preconditionFailure(
-                "ToastManagerProtocol must be registered in ServiceContainer before MainTabView initialization"
-            )
-        }
-        toastManager = toast
+        toastManager = ServiceContainer.shared.resolve((any ToastManagerProtocol).self)
     }
 
     var body: some View {

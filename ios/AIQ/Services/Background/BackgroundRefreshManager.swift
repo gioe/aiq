@@ -40,8 +40,8 @@ class BackgroundRefreshManager: ObservableObject {
     // MARK: - Initialization
 
     init(
-        apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(OpenAPIServiceProtocol.self)!,
-        authManager: AuthManagerProtocol = ServiceContainer.shared.resolve(AuthManagerProtocol.self)!,
+        apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(),
+        authManager: AuthManagerProtocol = ServiceContainer.shared.resolve(),
         analyticsService: AnalyticsService = AnalyticsService.shared,
         networkMonitor: NetworkMonitorProtocol = NetworkMonitor.shared,
         notificationCenter: UserNotificationCenterProtocol = UNUserNotificationCenter.current()

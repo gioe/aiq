@@ -8,19 +8,11 @@ import UIKit
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-    private let notificationManager: any NotificationManagerProtocol = {
-        guard let manager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self) else {
-            fatalError("NotificationManagerProtocol not registered in ServiceContainer")
-        }
-        return manager
-    }()
+    private let notificationManager: any NotificationManagerProtocol =
+        ServiceContainer.shared.resolve(NotificationManagerProtocol.self)
 
-    private let toastManager: any ToastManagerProtocol = {
-        guard let manager = ServiceContainer.shared.resolve((any ToastManagerProtocol).self) else {
-            fatalError("ToastManagerProtocol not registered in ServiceContainer")
-        }
-        return manager
-    }()
+    private let toastManager: any ToastManagerProtocol =
+        ServiceContainer.shared.resolve((any ToastManagerProtocol).self)
 
     private let deepLinkHandler = DeepLinkHandler()
     private let analyticsService = AnalyticsService.shared

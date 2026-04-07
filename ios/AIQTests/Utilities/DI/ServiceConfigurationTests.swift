@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQSharedKit
 import XCTest
 
 /// Tests for ServiceConfiguration to ensure all services are properly registered
@@ -21,97 +22,90 @@ final class ServiceConfigurationTests: XCTestCase {
 
     func testOpenAPIServiceProtocolIsRegistered() {
         // Given & When
-        let apiService = container.resolve(OpenAPIServiceProtocol.self)
+        let apiService: OpenAPIServiceProtocol = container.resolve()
 
         // Then
-        XCTAssertNotNil(apiService, "OpenAPIServiceProtocol should be registered")
         XCTAssertTrue(apiService is OpenAPIService, "Resolved instance should be OpenAPIService")
     }
 
     func testAuthManagerProtocolIsRegistered() {
         // Given & When
-        let authManager = container.resolve(AuthManagerProtocol.self)
+        let authManager: AuthManagerProtocol = container.resolve()
 
         // Then
-        XCTAssertNotNil(authManager, "AuthManagerProtocol should be registered")
         XCTAssertTrue(authManager is AuthManager, "Resolved instance should be AuthManager")
     }
 
     func testNotificationServiceProtocolIsRegistered() {
         // Given & When
-        let notificationService = container.resolve(NotificationServiceProtocol.self)
+        let notificationService: NotificationServiceProtocol = container.resolve()
 
         // Then
-        XCTAssertNotNil(notificationService, "NotificationServiceProtocol should be registered")
         XCTAssertTrue(notificationService is NotificationService, "Resolved instance should be NotificationService")
     }
 
     func testNotificationManagerProtocolIsRegistered() {
         // Given & When
-        let notificationManager = container.resolve(NotificationManagerProtocol.self)
+        let notificationManager: NotificationManagerProtocol = container.resolve()
 
         // Then
-        XCTAssertNotNil(notificationManager, "NotificationManagerProtocol should be registered")
         XCTAssertTrue(notificationManager is NotificationManager, "Resolved instance should be NotificationManager")
     }
 
     func testLocalAnswerStorageProtocolIsRegistered() {
         // Given & When
-        let answerStorage = container.resolve(LocalAnswerStorageProtocol.self)
+        let answerStorage: LocalAnswerStorageProtocol = container.resolve()
 
         // Then
-        XCTAssertNotNil(answerStorage, "LocalAnswerStorageProtocol should be registered")
         XCTAssertTrue(answerStorage is LocalAnswerStorage, "Resolved instance should be LocalAnswerStorage")
     }
 
     func testHapticManagerProtocolIsRegistered() {
         // Given & When
-        let hapticManager = container.resolve(HapticManagerProtocol.self)
+        let hapticManager: HapticManagerProtocol = container.resolve()
 
         // Then
-        XCTAssertNotNil(hapticManager, "HapticManagerProtocol should be registered")
         XCTAssertTrue(hapticManager is HapticManager, "Resolved instance should be HapticManager")
     }
 
     func testToastManagerProtocolIsRegistered() {
         // Given & When
-        let toastManager = container.resolve((any ToastManagerProtocol).self)
+        let toastManager: any ToastManagerProtocol = container.resolve()
 
         // Then
-        XCTAssertNotNil(toastManager, "ToastManagerProtocol should be registered")
         XCTAssertTrue(toastManager is ToastManager, "Resolved instance should be ToastManager")
     }
 
     // MARK: - Integration Tests
 
     func testAllServicesAreRegistered() {
-        // Verify each expected service is registered
-        XCTAssertTrue(
-            container.isRegistered(OpenAPIServiceProtocol.self),
+        // Verify each expected service resolves without fatal error
+        XCTAssertNotNil(
+            container.resolveOptional(OpenAPIServiceProtocol.self),
             "OpenAPIServiceProtocol should be registered in ServiceContainer"
         )
-        XCTAssertTrue(
-            container.isRegistered(AuthManagerProtocol.self),
+        XCTAssertNotNil(
+            container.resolveOptional(AuthManagerProtocol.self),
             "AuthManagerProtocol should be registered in ServiceContainer"
         )
-        XCTAssertTrue(
-            container.isRegistered(NotificationServiceProtocol.self),
+        XCTAssertNotNil(
+            container.resolveOptional(NotificationServiceProtocol.self),
             "NotificationServiceProtocol should be registered in ServiceContainer"
         )
-        XCTAssertTrue(
-            container.isRegistered(NotificationManagerProtocol.self),
+        XCTAssertNotNil(
+            container.resolveOptional(NotificationManagerProtocol.self),
             "NotificationManagerProtocol should be registered in ServiceContainer"
         )
-        XCTAssertTrue(
-            container.isRegistered(LocalAnswerStorageProtocol.self),
+        XCTAssertNotNil(
+            container.resolveOptional(LocalAnswerStorageProtocol.self),
             "LocalAnswerStorageProtocol should be registered in ServiceContainer"
         )
     }
 
     func testServiceResolutionReturnsSameInstance() {
-        // Given: Services registered as singletons
-        let apiService1 = container.resolve(OpenAPIServiceProtocol.self)
-        let apiService2 = container.resolve(OpenAPIServiceProtocol.self)
+        // Given: Services registered as singletons (appLevel scope)
+        let apiService1: OpenAPIServiceProtocol = container.resolve()
+        let apiService2: OpenAPIServiceProtocol = container.resolve()
 
         // Then: Should return the same singleton instance
         XCTAssertTrue(
@@ -122,19 +116,15 @@ final class ServiceConfigurationTests: XCTestCase {
 
     func testContainerResetClearsRegistrations() {
         // Given: Container with registered services
-        XCTAssertTrue(container.isRegistered(OpenAPIServiceProtocol.self))
+        XCTAssertNotNil(container.resolveOptional(OpenAPIServiceProtocol.self))
 
         // When: Reset is called
         container.reset()
 
         // Then: Services should no longer be registered
-        XCTAssertFalse(
-            container.isRegistered(OpenAPIServiceProtocol.self),
-            "Services should be cleared after reset"
-        )
         XCTAssertNil(
-            container.resolve(OpenAPIServiceProtocol.self),
-            "Resolving after reset should return nil"
+            container.resolveOptional(OpenAPIServiceProtocol.self),
+            "Services should be cleared after reset"
         )
     }
 
@@ -142,11 +132,11 @@ final class ServiceConfigurationTests: XCTestCase {
 
     func testConfigurationCanBeCalledMultipleTimes() {
         // Given: Already configured container
-        let apiService1 = container.resolve(OpenAPIServiceProtocol.self)
+        let apiService1: OpenAPIServiceProtocol = container.resolve()
 
         // When: Configuration is called again (should overwrite)
         ServiceConfiguration.configureServices(container: container)
-        let apiService2 = container.resolve(OpenAPIServiceProtocol.self)
+        let apiService2: OpenAPIServiceProtocol = container.resolve()
 
         // Then: Should still resolve successfully
         XCTAssertNotNil(apiService1, "First resolution should succeed")

@@ -67,7 +67,7 @@ struct OnboardingContainerView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .onChange(of: viewModel.currentPage) { _ in
                     // Haptic feedback on page change (respects Reduce Motion via HapticManager)
-                    ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.light)
+                    ServiceContainer.shared.resolve(HapticManagerProtocol.self).trigger(.light)
                 }
 
                 // Custom page indicator (scoped styling, no global UIPageControl modifications)
@@ -100,7 +100,7 @@ struct OnboardingContainerView: View {
         .accessibilityIdentifier(AccessibilityIdentifiers.OnboardingView.containerView)
         .onAppear {
             // Prepare haptic generators for reduced latency on first use
-            ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.prepare()
+            ServiceContainer.shared.resolve(HapticManagerProtocol.self).prepare()
         }
     }
 
@@ -109,7 +109,7 @@ struct OnboardingContainerView: View {
     /// Handle Continue button tap
     private func handleContinue() {
         // Haptic feedback (respects Reduce Motion via HapticManager)
-        ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.medium)
+        ServiceContainer.shared.resolve(HapticManagerProtocol.self).trigger(.medium)
 
         // Navigate to next page
         if reduceMotion {
@@ -124,7 +124,7 @@ struct OnboardingContainerView: View {
     /// Handle Skip button tap
     private func handleSkip() {
         // Haptic feedback (respects Reduce Motion via HapticManager)
-        ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.medium)
+        ServiceContainer.shared.resolve(HapticManagerProtocol.self).trigger(.medium)
 
         // Skip onboarding
         if reduceMotion {
@@ -142,7 +142,7 @@ struct OnboardingContainerView: View {
     /// Handle Get Started button tap
     private func handleGetStarted() {
         // Haptic feedback (respects Reduce Motion via HapticManager)
-        ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.success)
+        ServiceContainer.shared.resolve(HapticManagerProtocol.self).trigger(.success)
 
         // Complete onboarding
         if reduceMotion {
