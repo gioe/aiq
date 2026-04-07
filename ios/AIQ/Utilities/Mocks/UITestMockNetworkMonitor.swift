@@ -5,6 +5,7 @@
 //  Created by Claude Code on 1/19/26.
 //
 
+import Combine
 import Foundation
 
 #if DebugBuild
@@ -17,6 +18,11 @@ import Foundation
     final class UITestMockNetworkMonitor: NetworkMonitorProtocol {
         /// Always returns true for UI tests (network is "connected")
         var isConnected: Bool = true
+
+        /// Always-connected publisher for UI tests
+        var connectivityPublisher: AnyPublisher<Bool, Never> {
+            Just(true).eraseToAnyPublisher()
+        }
 
         init() {}
     }
