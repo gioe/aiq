@@ -1297,7 +1297,9 @@ class QuestionGenerator:
             max_tokens: Maximum tokens to generate (auto-increased for memory questions)
             use_single_call: If True and using single provider, request all questions
                 in one API call for better diversity (default: True)
-            provider_tier: Which tier to use - "primary" or "fallback" (None = "primary")
+            provider_tier: Which tier to use - "primary", "fallback", or "balanced"
+                (None = "primary"). "balanced" alternates between primary and
+                fallback providers per question with circuit breaker failover.
 
         Returns:
             Batch of generated questions
@@ -1316,7 +1318,66 @@ class QuestionGenerator:
         specialist_model: Optional[str] = None
         question_type_str = question_type.value
 
-        if use_specialist_routing:
+        # Handle balanced mode: resolve both providers upfront and alternate
+        is_balanced = provider_tier == "balanced" and use_specialist_routing
+        primary_provider: Optional[str] = None
+        primary_model: Optional[str] = None
+        fallback_provider: Optional[str] = None
+        fallback_model: Optional[str] = None
+
+        if is_balanced:
+            primary_provider, primary_model = self._get_specialist_provider(
+                question_type, provider_tier="primary"
+            )
+            fallback_provider, fallback_model = self._get_specialist_provider(
+                question_type, provider_tier="fallback"
+            )
+
+            # If both resolve to the same provider, fall back to normal specialist mode
+            if (
+                primary_provider
+                and fallback_provider
+                and primary_provider == fallback_provider
+            ):
+                logger.warning(
+                    f"Balanced mode: primary and fallback resolve to same provider "
+                    f"'{primary_provider}' for {question_type.value}, "
+                    f"falling back to normal specialist routing"
+                )
+                is_balanced = False
+                specialist_provider = primary_provider
+                specialist_model = primary_model
+            elif primary_provider and fallback_provider:
+                logger.info(
+                    f"Balanced mode: alternating between '{primary_provider}' and "
+                    f"'{fallback_provider}' for {question_type.value} questions (async)"
+                )
+                _safe_record_metric(
+                    "question.routing.decision",
+                    value=1,
+                    labels={
+                        "question_type": question_type_str,
+                        "provider": f"{primary_provider}+{fallback_provider}",
+                        "is_specialist": "true",
+                        "mode": "balanced",
+                    },
+                    metric_type="counter",
+                )
+            elif primary_provider:
+                logger.warning(
+                    f"Balanced mode: no fallback provider available for "
+                    f"{question_type.value}, using primary only"
+                )
+                is_balanced = False
+                specialist_provider = primary_provider
+                specialist_model = primary_model
+            else:
+                logger.warning(
+                    f"Balanced mode: no providers available for {question_type.value}"
+                )
+                is_balanced = False
+
+        if not is_balanced and use_specialist_routing and specialist_provider is None:
             specialist_provider, specialist_model = self._get_specialist_provider(
                 question_type, provider_tier=provider_tier
             )
@@ -1337,13 +1398,14 @@ class QuestionGenerator:
                     metric_type="counter",
                 )
 
+        # Balanced mode skips single-call — it needs per-question provider alternation
         # Determine if we should use single-call batch generation
         # This is more efficient when all questions go to the same provider
         use_single_call_batch = False
         single_call_provider = None
         single_call_model = None
 
-        if use_single_call:
+        if use_single_call and not is_balanced:
             if specialist_provider:
                 use_single_call_batch = True
                 single_call_provider = specialist_provider
@@ -1579,7 +1641,20 @@ class QuestionGenerator:
         tasks = []
         provider_assignments: List[tuple[str, Optional[str]]] = []
 
-        if specialist_provider:
+        if is_balanced:
+            # Both providers guaranteed non-None by the is_balanced guard above
+            if primary_provider is None or fallback_provider is None:
+                raise ValueError(
+                    "Balanced mode requires both primary and fallback providers"
+                )
+            provider_sequence: list[tuple[str, Optional[str]]] = [
+                (primary_provider, primary_model),
+                (fallback_provider, fallback_model),
+            ]
+            for i in range(count):
+                idx = i % 2
+                provider_assignments.append(provider_sequence[idx])
+        elif specialist_provider:
             # Use specialist provider and model for all questions
             provider_assignments = [(specialist_provider, specialist_model)] * count
         elif distribute_across_providers and len(self.providers) > 1:
@@ -1622,31 +1697,90 @@ class QuestionGenerator:
         failed_questions: int = 0
         skipped_providers: Dict[str, int] = {}
 
-        for i, result in enumerate(results):
-            provider_name, _ = provider_assignments[i]
-            if isinstance(result, CircuitBreakerOpen):
-                # Track skipped due to circuit breaker
-                skipped_providers[provider_name] = (
-                    skipped_providers.get(provider_name, 0) + 1
-                )
-                failed_questions += 1
-                logger.warning(
-                    f"Skipped question {i+1}/{count} with {provider_name} (circuit breaker open)"
-                )
-            elif isinstance(result, BaseException):
-                failed_questions += 1
-                logger.warning(
-                    "generation.failure provider=%s type=%s difficulty=%s "
-                    "question=%d/%d reason=%s",
-                    provider_name,
-                    question_type.value,
-                    difficulty.value,
-                    i + 1,
-                    count,
-                    type(result).__name__,
-                )
-            elif isinstance(result, GeneratedQuestion):
-                questions.append(result)
+        if is_balanced:
+            # Balanced mode: retry circuit breaker failures with alternate provider
+            failed_providers: set[str] = set()
+            for i, result in enumerate(results):
+                provider_name, _ = provider_assignments[i]
+                if isinstance(result, CircuitBreakerOpen):
+                    skipped_providers[provider_name] = (
+                        skipped_providers.get(provider_name, 0) + 1
+                    )
+                    failed_providers.add(provider_name)
+                    logger.warning(
+                        f"Circuit opened for {provider_name} during balanced batch "
+                        f"(async), retrying question {i+1}/{count} with alternate"
+                    )
+                    # Retry with alternate provider
+                    idx = i % 2
+                    alt_idx = 1 - idx
+                    alt_provider, alt_model = provider_sequence[alt_idx]
+                    if alt_provider not in failed_providers:
+                        try:
+                            retry_result = await self._generate_question_task(
+                                task_index=i,
+                                question_type=question_type,
+                                difficulty=difficulty,
+                                provider_name=alt_provider,
+                                model_override=alt_model,
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                            )
+                            questions.append(retry_result)
+                        except Exception as e:
+                            logger.warning(
+                                "generation.failure provider=%s type=%s difficulty=%s "
+                                "question=%d/%d reason=%s",
+                                alt_provider,
+                                question_type.value,
+                                difficulty.value,
+                                i + 1,
+                                count,
+                                type(e).__name__,
+                            )
+                            failed_questions += 1
+                    else:
+                        failed_questions += 1
+                elif isinstance(result, BaseException):
+                    failed_questions += 1
+                    logger.warning(
+                        "generation.failure provider=%s type=%s difficulty=%s "
+                        "question=%d/%d reason=%s",
+                        provider_name,
+                        question_type.value,
+                        difficulty.value,
+                        i + 1,
+                        count,
+                        type(result).__name__,
+                    )
+                elif isinstance(result, GeneratedQuestion):
+                    questions.append(result)
+        else:
+            for i, result in enumerate(results):
+                provider_name, _ = provider_assignments[i]
+                if isinstance(result, CircuitBreakerOpen):
+                    # Track skipped due to circuit breaker
+                    skipped_providers[provider_name] = (
+                        skipped_providers.get(provider_name, 0) + 1
+                    )
+                    failed_questions += 1
+                    logger.warning(
+                        f"Skipped question {i+1}/{count} with {provider_name} (circuit breaker open)"
+                    )
+                elif isinstance(result, BaseException):
+                    failed_questions += 1
+                    logger.warning(
+                        "generation.failure provider=%s type=%s difficulty=%s "
+                        "question=%d/%d reason=%s",
+                        provider_name,
+                        question_type.value,
+                        difficulty.value,
+                        i + 1,
+                        count,
+                        type(result).__name__,
+                    )
+                elif isinstance(result, GeneratedQuestion):
+                    questions.append(result)
 
         # Get circuit breaker states for metadata
         circuit_breaker_stats = self._circuit_breaker_registry.get_all_stats()
@@ -1668,8 +1802,13 @@ class QuestionGenerator:
                     for name, stats in circuit_breaker_stats.items()
                 },
                 "async": True,
-                "specialist_routing": specialist_provider is not None,
-                "specialist_provider": specialist_provider,
+                "specialist_routing": specialist_provider is not None or is_balanced,
+                "specialist_provider": (
+                    f"{primary_provider}+{fallback_provider}"
+                    if is_balanced
+                    else specialist_provider
+                ),
+                "provider_tier": provider_tier or "primary",
             },
         )
 
