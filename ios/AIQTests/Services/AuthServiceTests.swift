@@ -1636,8 +1636,8 @@ extension MockSecureStorage {
 
 // MARK: - Error Assertion Helpers
 
-/// Helper to assert specific APIError cases with stronger type checking
-/// Fails the test if the error is not exactly the expected APIError case
+/// Helper to assert specific APIError cases with stronger type checking.
+/// Unwraps through AppError.api(...) before matching APIClient.APIError cases.
 extension XCTestCase {
     func assertAPIError(
         _ error: Error,
@@ -1645,7 +1645,7 @@ extension XCTestCase {
         file: StaticString = #file,
         line: UInt = #line
     ) {
-        guard let apiError = error as? APIError else {
+        guard let appError = error as? APIError else {
             XCTFail(
                 "Expected APIError but got \(type(of: error)): \(error)",
                 file: file,
@@ -1654,7 +1654,26 @@ extension XCTestCase {
             return
         }
 
-        switch (apiError, expectedCase) {
+        // Unwrap through .api(...) to get the inner APIClient.APIError
+        guard case let .api(actualInner) = appError else {
+            XCTFail(
+                "Expected .api(...) case but got \(appError)",
+                file: file,
+                line: line
+            )
+            return
+        }
+
+        guard case let .api(expectedInner) = expectedCase else {
+            XCTFail(
+                "Expected case must be .api(...) but got \(expectedCase)",
+                file: file,
+                line: line
+            )
+            return
+        }
+
+        switch (actualInner, expectedInner) {
         case let (.networkError(actualError), .networkError(expectedError)):
             // For network errors, just verify it's a network error (underlying error may differ)
             XCTAssertNotNil(actualError, "Network error should have underlying error", file: file, line: line)
@@ -1672,7 +1691,7 @@ extension XCTestCase {
             XCTAssertEqual(actualMsg, expectedMsg, "Not found message mismatch", file: file, line: line)
         default:
             XCTFail(
-                "APIError case mismatch: expected \(expectedCase), got \(apiError)",
+                "APIClient.APIError case mismatch: expected \(expectedInner), got \(actualInner)",
                 file: file,
                 line: line
             )
