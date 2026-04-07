@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Registration screen - User's first entry into the app

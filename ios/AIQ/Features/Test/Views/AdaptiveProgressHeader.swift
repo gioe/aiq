@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Compact progress header for adaptive (CAT) testing

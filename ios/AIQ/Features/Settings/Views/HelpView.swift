@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Help and FAQ view for user guidance

@@ -1,3 +1,4 @@
+import AIQSharedKit
 import Foundation
 
 /// Configuration for registering all services with the ServiceContainer

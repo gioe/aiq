@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Main onboarding container view with page navigation

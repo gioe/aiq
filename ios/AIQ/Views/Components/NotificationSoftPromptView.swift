@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// A soft prompt view that educates users about notification value before requesting system permission

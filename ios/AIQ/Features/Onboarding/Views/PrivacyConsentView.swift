@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Privacy consent screen shown on first app launch

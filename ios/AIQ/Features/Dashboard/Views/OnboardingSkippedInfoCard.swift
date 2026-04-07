@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Info card displayed on the dashboard for users who skipped onboarding

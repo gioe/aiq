@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// A prompt view shown to provisional notification users when they tap a notification

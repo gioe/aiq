@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Main view for taking an adaptive (CAT) test

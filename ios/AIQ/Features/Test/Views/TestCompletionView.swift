@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Celebration view shown after a test is completed.

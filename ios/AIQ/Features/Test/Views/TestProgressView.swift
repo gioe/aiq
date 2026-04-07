@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Enhanced progress indicator showing test completion status with detailed stats

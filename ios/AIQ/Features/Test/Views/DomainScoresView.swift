@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 // MARK: - Domain Score Bar View

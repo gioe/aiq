@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// An informational banner that guides users to enable notification permissions in iOS Settings

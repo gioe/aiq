@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Feedback form view for user feedback submissions

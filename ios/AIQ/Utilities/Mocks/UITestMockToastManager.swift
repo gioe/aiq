@@ -5,6 +5,7 @@
 //  Created by Claude Code on 1/19/26.
 //
 
+import AIQSharedKit
 import Foundation
 
 #if DebugBuild

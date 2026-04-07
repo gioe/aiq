@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Welcome/Login screen with delightful animations and gamification

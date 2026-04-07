@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Compact header bar displayed during test-taking: timer, question position,

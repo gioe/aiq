@@ -5,6 +5,7 @@
 //  Created by Claude Code on 12/25/24.
 //
 
+import AIQSharedKit
 import Foundation
 
 /// Centralized accessibility identifiers for UI testing

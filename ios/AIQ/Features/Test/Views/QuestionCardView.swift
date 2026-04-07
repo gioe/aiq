@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// A card view that displays a single question with appropriate styling

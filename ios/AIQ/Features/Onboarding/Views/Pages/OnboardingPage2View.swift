@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Onboarding Page 2: How Tests Work

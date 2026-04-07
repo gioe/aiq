@@ -1,4 +1,5 @@
 import AIQAPIClientCore
+import AIQSharedKit
 import Combine
 import Foundation
 import UIKit

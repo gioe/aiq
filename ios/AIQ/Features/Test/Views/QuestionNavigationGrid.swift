@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Compact grid showing all questions with their status, allowing tap-to-navigate

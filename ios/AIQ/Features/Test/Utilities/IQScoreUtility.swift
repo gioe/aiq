@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Utility for classifying IQ scores and providing consistent visual styling

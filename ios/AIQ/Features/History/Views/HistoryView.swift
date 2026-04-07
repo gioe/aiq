@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// History view showing past test results

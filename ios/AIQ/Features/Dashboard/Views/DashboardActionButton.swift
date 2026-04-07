@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Action button for the Dashboard — starts a new test or resumes an in-progress one.

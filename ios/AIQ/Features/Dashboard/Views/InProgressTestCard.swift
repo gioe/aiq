@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Card component displaying in-progress test session details with resume and abandon options

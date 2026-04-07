@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Percentile ranking display card for test results

@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Card view displaying performance insights and analytics

@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Settings view for user preferences and account management

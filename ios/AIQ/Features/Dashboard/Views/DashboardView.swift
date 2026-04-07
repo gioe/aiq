@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Dashboard/Home view showing user stats and test availability

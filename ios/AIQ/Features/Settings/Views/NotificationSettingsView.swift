@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// View for managing notification preferences

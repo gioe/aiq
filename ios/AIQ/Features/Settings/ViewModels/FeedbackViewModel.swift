@@ -1,3 +1,4 @@
+import AIQSharedKit
 import Foundation
 
 /// ViewModel for managing feedback form state and validation

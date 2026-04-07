@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// A view for memory questions that implements two-phase rendering:

@@ -1,4 +1,5 @@
 import AIQAPIClientCore
+import AIQSharedKit
 import Foundation
 import os
 

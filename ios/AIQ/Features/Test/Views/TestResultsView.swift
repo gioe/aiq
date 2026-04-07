@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 struct TestResultsView: View {
@@ -5,7 +6,10 @@ struct TestResultsView: View {
     let onDismiss: () -> Void
     let isFirstTest: Bool
 
-    @State private var showAnimation = false
+    @State private var showScore = false
+    @State private var showPercentile = false
+    @State private var showMetrics = false
+    @State private var showDomains = false
     @State private var showConfidenceIntervalInfo = false
     @State private var showNotificationSoftPrompt = false
     @State private var hasDismissed = false
@@ -33,34 +37,29 @@ struct TestResultsView: View {
                 if result.percentileRank != nil {
                     PercentileCard(
                         percentileRank: result.percentileRank,
-                        showAnimation: showAnimation
-                    )
-                }
-
-                // Domain scores breakdown
-                if result.domainScoresConverted != nil {
-                    DomainScoresBreakdownView(
-                        domainScores: result.domainScoresConverted,
-                        showAnimation: showAnimation,
-                        strongestDomain: result.strongestDomain,
-                        weakestDomain: result.weakestDomain
+                        showAnimation: showPercentile
                     )
                 }
 
                 // Performance metrics
                 metricsGrid
 
-                // Performance message
-                performanceMessage
-
-                // Action buttons
-                actionButtons
+                // Domain scores breakdown (at bottom for detailed review)
+                if result.domainScoresConverted != nil {
+                    DomainScoresBreakdownView(
+                        domainScores: result.domainScoresConverted,
+                        showAnimation: showDomains,
+                        strongestDomain: result.strongestDomain,
+                        weakestDomain: result.weakestDomain
+                    )
+                }
             }
             .padding(DesignSystem.Spacing.lg)
         }
         .background(theme.colors.backgroundGrouped)
         .navigationTitle("Test Results")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Done") {
@@ -76,10 +75,22 @@ struct TestResultsView: View {
             ServiceContainer.shared.resolve(HapticManagerProtocol.self)?.trigger(.success)
 
             if reduceMotion {
-                showAnimation = true
+                showScore = true
+                showPercentile = true
+                showMetrics = true
+                showDomains = true
             } else {
                 withAnimation(theme.animations.smooth.delay(0.1)) {
-                    showAnimation = true
+                    showScore = true
+                }
+                withAnimation(theme.animations.smooth.delay(0.4)) {
+                    showPercentile = true
+                }
+                withAnimation(theme.animations.smooth.delay(0.7)) {
+                    showMetrics = true
+                }
+                withAnimation(theme.animations.smooth.delay(1.0)) {
+                    showDomains = true
                 }
             }
         }
@@ -144,8 +155,8 @@ struct TestResultsView: View {
             Image(systemName: "trophy.fill")
                 .font(.system(size: theme.iconSizes.xl))
                 .foregroundStyle(theme.gradients.trophyGradient)
-                .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.5))
-                .opacity(showAnimation ? 1.0 : 0.0)
+                .scaleEffect(reduceMotion ? 1.0 : (showScore ? 1.0 : 0.5))
+                .opacity(showScore ? 1.0 : 0.0)
                 .accessibilityHidden(true) // Decorative icon
 
             // IQ Score
@@ -158,8 +169,8 @@ struct TestResultsView: View {
                 Text("\(result.iqScore)")
                     .scoreDisplayFont()
                     .foregroundStyle(theme.gradients.scoreGradient)
-                    .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.8))
-                    .opacity(showAnimation ? 1.0 : 0.0)
+                    .scaleEffect(reduceMotion ? 1.0 : (showScore ? 1.0 : 0.8))
+                    .opacity(showScore ? 1.0 : 0.0)
                     .accessibilityLabel(result.scoreAccessibilityDescription)
                     .accessibilityHint(iqRangeDescription)
 
@@ -175,7 +186,7 @@ struct TestResultsView: View {
                 .foregroundColor(theme.colors.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DesignSystem.Spacing.lg)
-                .opacity(showAnimation ? 1.0 : 0.0)
+                .opacity(showScore ? 1.0 : 0.0)
                 .accessibilityHidden(true) // Already included in hint above
 
             // Disclaimer
@@ -185,7 +196,7 @@ struct TestResultsView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DesignSystem.Spacing.lg)
                 .padding(.top, DesignSystem.Spacing.sm)
-                .opacity(showAnimation ? 1.0 : 0.0)
+                .opacity(showScore ? 1.0 : 0.0)
         }
         .padding(DesignSystem.Spacing.xxl)
         .cardStyle(
@@ -220,8 +231,8 @@ struct TestResultsView: View {
                 .accessibilityLabel("Learn about score range")
                 .accessibilityHint("Shows explanation of confidence interval")
             }
-            .scaleEffect(reduceMotion ? 1.0 : (showAnimation ? 1.0 : 0.9))
-            .opacity(showAnimation ? 1.0 : 0.0)
+            .scaleEffect(reduceMotion ? 1.0 : (showScore ? 1.0 : 0.9))
+            .opacity(showScore ? 1.0 : 0.0)
         }
         .alert("Understanding Your Score Range", isPresented: $showConfidenceIntervalInfo) {
             Button("Got it", role: .cancel) {}
@@ -284,8 +295,8 @@ struct TestResultsView: View {
                 )
             }
         }
-        .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: reduceMotion ? 0 : (showAnimation ? 0 : 20))
+        .opacity(showMetrics ? 1.0 : 0.0)
+        .offset(y: reduceMotion ? 0 : (showMetrics ? 0 : 20))
     }
 
     private func metricCard(icon: String, title: String, value: String, color: Color) -> some View {
@@ -318,117 +329,10 @@ struct TestResultsView: View {
         .accessibilityLabel("\(title): \(value)")
     }
 
-    // MARK: - Performance Message
-
-    private var performanceMessage: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            Text(performanceTitle)
-                .font(theme.typography.h3)
-
-            Text(performanceDescription)
-                .font(theme.typography.bodyMedium)
-                .foregroundColor(theme.colors.textSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(DesignSystem.Spacing.lg)
-        .frame(maxWidth: .infinity)
-        .background(performanceBackgroundColor.opacity(0.1))
-        .cornerRadius(DesignSystem.CornerRadius.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .stroke(performanceBackgroundColor.opacity(0.3), lineWidth: 1)
-        )
-        .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: reduceMotion ? 0 : (showAnimation ? 0 : 20))
-        .accessibilityIdentifier(AccessibilityIdentifiers.TestResultsView.performanceLabel)
-    }
-
-    // MARK: - Action Buttons
-
-    private var actionButtons: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            Button {
-                router.push(.scoreBreakdown(result: result))
-            } label: {
-                HStack {
-                    Image(systemName: "chart.bar.fill")
-                    Text("View Detailed Breakdown")
-                }
-                .frame(maxWidth: .infinity)
-                .font(theme.typography.button)
-            }
-            .buttonStyle(.bordered)
-            .accessibilityLabel("View Detailed Breakdown")
-            .accessibilityHint("See question-by-question analysis of your test performance")
-
-            Button {
-                handleDismiss()
-            } label: {
-                Text("Return to Dashboard")
-                    .font(theme.typography.button)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .accessibilityLabel("Return to Dashboard")
-            .accessibilityHint("Go back to the main dashboard")
-        }
-        .opacity(showAnimation ? 1.0 : 0.0)
-        .offset(y: reduceMotion ? 0 : (showAnimation ? 0 : 20))
-    }
-
     // MARK: - Computed Properties
 
     private var iqRangeDescription: String {
         IQScoreUtility.classify(result.iqScore).description
-    }
-
-    private var performanceTitle: String {
-        let accuracy = result.accuracyPercentage
-
-        switch accuracy {
-        case 90...:
-            return "Outstanding Performance! 🌟"
-        case 75 ..< 90:
-            return "Great Job! 👏"
-        case 60 ..< 75:
-            return "Good Effort! 👍"
-        case 50 ..< 60:
-            return "Keep Practicing! 💪"
-        default:
-            return "Room for Improvement! 📚"
-        }
-    }
-
-    private var performanceDescription: String {
-        let accuracy = result.accuracyPercentage
-
-        switch accuracy {
-        case 90...:
-            return "You've demonstrated excellent problem-solving abilities. Keep challenging yourself!"
-        case 75 ..< 90:
-            return "Your performance shows strong analytical skills. You're doing well!"
-        case 60 ..< 75:
-            return "You're making good progress. Consider reviewing the areas you found challenging."
-        case 50 ..< 60:
-            return "You're building your skills. Regular practice will help you improve."
-        default:
-            return "Everyone starts somewhere. Focus on understanding the patterns and keep practicing."
-        }
-    }
-
-    private var performanceBackgroundColor: Color {
-        let accuracy = result.accuracyPercentage
-
-        switch accuracy {
-        case 90...:
-            return .green
-        case 75 ..< 90:
-            return .blue
-        case 60 ..< 75:
-            return .orange
-        default:
-            return .red
-        }
     }
 
     private func formatDate(_ date: Date) -> String {

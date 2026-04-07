@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Onboarding Page 3: Testing Frequency

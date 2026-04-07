@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// List item component for displaying a single test result in history
