@@ -7,7 +7,8 @@ import pytest
 
 from app.observability.cost_tracking import CompletionResult
 from app.generation.generator import QuestionGenerator
-from app.data.models import DifficultyLevel, QuestionType
+from app.infrastructure.circuit_breaker import CircuitBreakerOpen
+from app.data.models import DifficultyLevel, GeneratedQuestion, QuestionType
 
 
 def make_completion_result(content):
@@ -1518,3 +1519,270 @@ class TestGenerateBatchAsyncTopUpChunked:
         )
         assert len(batch.questions) == 6
         assert mock_topup.call_count == 0
+
+
+class TestBalancedProviderTierMode:
+    """Tests for balanced provider-tier mode in generate_batch."""
+
+    @pytest.fixture
+    def balanced_generator(self):
+        """Create a generator with two providers and mocked specialist routing."""
+        with (
+            patch("app.generation.generator.OpenAIProvider") as mock_openai,
+            patch("app.generation.generator.AnthropicProvider") as mock_anthropic,
+        ):
+            openai_provider = Mock()
+            openai_provider.model = "gpt-4"
+            mock_openai.return_value = openai_provider
+
+            anthropic_provider = Mock()
+            anthropic_provider.model = "claude-3-5-sonnet"
+            mock_anthropic.return_value = anthropic_provider
+
+            generator = QuestionGenerator(
+                openai_api_key="test-key",
+                anthropic_api_key="test-key",
+            )
+            yield generator
+
+    def _make_question(self, provider: str) -> GeneratedQuestion:
+        """Create a real GeneratedQuestion with the given provider."""
+        return GeneratedQuestion(
+            question_text=f"What is the value of x if 2x equals 10 from {provider}?",
+            question_type=QuestionType.MATH,
+            difficulty_level=DifficultyLevel.EASY,
+            correct_answer="5",
+            answer_options=["3", "4", "5", "6"],
+            explanation="2x = 10, so x = 5",
+            sub_type="arithmetic",
+            source_llm=provider,
+            source_model=f"{provider}-model",
+        )
+
+    def _patch_specialist(self, primary, fallback):
+        """Return a context manager that patches _get_specialist_provider.
+
+        Args:
+            primary: (provider_name, model) tuple for primary tier
+            fallback: (provider_name, model) tuple for fallback tier
+        """
+
+        def side_effect(question_type, provider_tier="primary"):
+            if provider_tier == "primary":
+                return primary
+            elif provider_tier == "fallback":
+                return fallback
+            return (None, None)
+
+        return patch.object(
+            QuestionGenerator,
+            "_get_specialist_provider",
+            side_effect=side_effect,
+        )
+
+    def test_alternates_between_primary_and_fallback(self, balanced_generator):
+        """Questions alternate between primary and fallback providers."""
+        call_providers = []
+
+        def mock_generate(**kwargs):
+            provider = kwargs["provider_name"]
+            call_providers.append(provider)
+            return self._make_question(provider)
+
+        balanced_generator.generate_question = Mock(side_effect=mock_generate)
+
+        with self._patch_specialist(
+            primary=("openai", "gpt-4"),
+            fallback=("anthropic", "claude-3-5-sonnet"),
+        ):
+            batch = balanced_generator.generate_batch(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                count=6,
+                provider_tier="balanced",
+            )
+
+        assert len(batch.questions) == 6
+        # Even indices (0, 2, 4) should use primary (openai)
+        # Odd indices (1, 3, 5) should use fallback (anthropic)
+        assert call_providers == [
+            "openai",
+            "anthropic",
+            "openai",
+            "anthropic",
+            "openai",
+            "anthropic",
+        ]
+
+    def test_same_provider_guard_falls_back_to_specialist(self, balanced_generator):
+        """When primary and fallback resolve to same provider, uses normal specialist mode."""
+        call_providers = []
+
+        def mock_generate(**kwargs):
+            provider = kwargs["provider_name"]
+            call_providers.append(provider)
+            return self._make_question(provider)
+
+        balanced_generator.generate_question = Mock(side_effect=mock_generate)
+
+        with self._patch_specialist(
+            primary=("openai", "gpt-4"),
+            fallback=("openai", "gpt-4o"),
+        ):
+            batch = balanced_generator.generate_batch(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                count=4,
+                provider_tier="balanced",
+            )
+
+        assert len(batch.questions) == 4
+        # All should use the same provider (specialist mode, not alternating)
+        assert all(p == "openai" for p in call_providers)
+
+    def test_circuit_breaker_routes_to_healthy_provider(self, balanced_generator):
+        """When one provider's circuit opens, remaining questions route to the healthy one."""
+        call_count = 0
+        call_providers = []
+
+        def mock_generate(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            provider = kwargs["provider_name"]
+            # First call to openai (question 0) succeeds, second call (question 2) fails
+            if provider == "openai" and call_count > 2:
+                raise CircuitBreakerOpen(provider_name="openai", time_until_retry=60.0)
+            call_providers.append(provider)
+            return self._make_question(provider)
+
+        balanced_generator.generate_question = Mock(side_effect=mock_generate)
+
+        with self._patch_specialist(
+            primary=("openai", "gpt-4"),
+            fallback=("anthropic", "claude-3-5-sonnet"),
+        ):
+            batch = balanced_generator.generate_batch(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                count=6,
+                provider_tier="balanced",
+            )
+
+        # All 6 questions should be generated successfully
+        assert len(batch.questions) == 6
+        # After openai's circuit opens, remaining questions route to anthropic
+        # Question 0: openai (success), 1: anthropic (success),
+        # 2: openai (circuit opens) -> anthropic retry (success),
+        # 3: anthropic (scheduled) stays anthropic,
+        # 4: openai failed -> anthropic, 5: anthropic stays anthropic
+        assert "openai" in call_providers
+        assert "anthropic" in call_providers
+        # After circuit opens, no more openai calls should succeed
+        openai_idx = [i for i, p in enumerate(call_providers) if p == "openai"]
+        anthropic_idx = [i for i, p in enumerate(call_providers) if p == "anthropic"]
+        # At least the later calls should all be anthropic
+        assert len(anthropic_idx) > len(openai_idx)
+
+    def test_no_fallback_guard_uses_primary_only(self, balanced_generator):
+        """When no fallback is configured, falls back to primary-only specialist mode."""
+        call_providers = []
+
+        def mock_generate(**kwargs):
+            provider = kwargs["provider_name"]
+            call_providers.append(provider)
+            return self._make_question(provider)
+
+        balanced_generator.generate_question = Mock(side_effect=mock_generate)
+
+        with self._patch_specialist(
+            primary=("openai", "gpt-4"),
+            fallback=(None, None),
+        ):
+            batch = balanced_generator.generate_batch(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                count=4,
+                provider_tier="balanced",
+            )
+
+        assert len(batch.questions) == 4
+        # All should use primary since no fallback available
+        assert all(p == "openai" for p in call_providers)
+
+    def test_both_providers_fail_stops_batch(self, balanced_generator):
+        """When both providers fail, batch stops early with partial results."""
+        call_count = 0
+
+        def mock_generate(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            provider = kwargs["provider_name"]
+            if call_count <= 2:
+                return self._make_question(provider)
+            raise CircuitBreakerOpen(provider_name=provider, time_until_retry=60.0)
+
+        balanced_generator.generate_question = Mock(side_effect=mock_generate)
+
+        with self._patch_specialist(
+            primary=("openai", "gpt-4"),
+            fallback=("anthropic", "claude-3-5-sonnet"),
+        ):
+            batch = balanced_generator.generate_batch(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                count=6,
+                provider_tier="balanced",
+            )
+
+        # Only the first 2 succeed before both circuits open
+        assert len(batch.questions) < 6
+        assert len(batch.questions) >= 2
+
+    def test_balanced_mode_passes_model_overrides(self, balanced_generator):
+        """Model overrides from primary and fallback are passed to generate_question."""
+        calls = []
+
+        def mock_generate(**kwargs):
+            calls.append((kwargs["provider_name"], kwargs.get("model_override")))
+            return self._make_question(kwargs["provider_name"])
+
+        balanced_generator.generate_question = Mock(side_effect=mock_generate)
+
+        with self._patch_specialist(
+            primary=("openai", "gpt-4-turbo"),
+            fallback=("anthropic", "claude-3-opus"),
+        ):
+            balanced_generator.generate_batch(
+                question_type=QuestionType.MATH,
+                difficulty=DifficultyLevel.EASY,
+                count=4,
+                provider_tier="balanced",
+            )
+
+        assert calls[0] == ("openai", "gpt-4-turbo")
+        assert calls[1] == ("anthropic", "claude-3-opus")
+        assert calls[2] == ("openai", "gpt-4-turbo")
+        assert calls[3] == ("anthropic", "claude-3-opus")
+
+    def test_balanced_mode_requires_specialist_routing(self, balanced_generator):
+        """Balanced mode is only active when use_specialist_routing=True."""
+        call_providers = []
+
+        def mock_generate(**kwargs):
+            provider = kwargs.get("provider_name", "unknown")
+            call_providers.append(provider)
+            return self._make_question(provider)
+
+        balanced_generator.generate_question = Mock(side_effect=mock_generate)
+
+        # With specialist routing disabled, balanced should not engage
+        batch = balanced_generator.generate_batch(
+            question_type=QuestionType.MATH,
+            difficulty=DifficultyLevel.EASY,
+            count=4,
+            provider_tier="balanced",
+            use_specialist_routing=False,
+        )
+
+        assert len(batch.questions) == 4
+        # Should NOT have alternated — just used round-robin or default routing
