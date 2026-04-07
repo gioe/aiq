@@ -141,6 +141,22 @@ struct SettingsView: View {
                     .accessibilityHint("Opens feedback form")
                     .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.feedbackButton)
 
+                    Link(destination: URL(string: "mailto:\(AppConfig.supportEmail)")!) {
+                        HStack {
+                            Image(systemName: "envelope.fill")
+                                .foregroundColor(.accentColor)
+                            Text("Contact Us")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(theme.typography.labelSmall)
+                                .foregroundColor(theme.colors.textSecondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                    .accessibilityLabel("Contact Us")
+                    .accessibilityHint("Opens email to \(AppConfig.supportEmail)")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.contactUsButton)
+
                     Button {
                         viewModel.showOnboardingFlow()
                     } label: {

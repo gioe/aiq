@@ -188,6 +188,7 @@ enum AccessibilityIdentifiers {
         static let deleteAccountConfirmationModal = "settingsView.deleteAccountConfirmationModal"
         static let deleteAccountConfirmButton = "settingsView.deleteAccountConfirmButton"
         static let deleteAccountCancelButton = "settingsView.deleteAccountCancelButton"
+        static let contactUsButton = "settingsView.contactUsButton"
     }
 
     // MARK: - History View

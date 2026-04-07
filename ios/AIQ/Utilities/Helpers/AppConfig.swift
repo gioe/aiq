@@ -25,6 +25,9 @@ enum AppConfig {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
 
+    /// Support email address
+    static let supportEmail = "support@aiq.app"
+
     // MARK: - External URLs
 
     /// Privacy policy URL
