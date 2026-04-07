@@ -33,13 +33,13 @@
 
             <!-- Public Key Hashes (SPKI SHA256) -->
             <!-- Railway's current certificate public key hash -->
-            <!-- Generated: 2025-12-28 -->
+            <!-- Generated: 2026-04-07 -->
             <!-- Command: openssl s_client -servername aiq-backend-production.up.railway.app -showcerts -connect aiq-backend-production.up.railway.app:443 | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64 -->
             <key>TSKPublicKeyHashes</key>
             <array>
                 <!-- Railway backend certificate (*.up.railway.app) -->
-                <!-- Valid until: 2026-03-06 -->
-                <string>i+fyVetXyACCzW7mWtTNzuYIjv0JpKqW00eIiiuLp1o=</string>
+                <!-- Valid until: 2026-07-04 -->
+                <string>VYxe9LAwK2QozwAdcQXon+QWur/Wn6o01PdWoMq1jiw=</string>
 
                 <!-- Let's Encrypt R12 Intermediate Certificate (Backup Pin) -->
                 <!-- Valid until: 2027-03-12 -->
@@ -62,7 +62,7 @@
     </dict>
 
     <!-- Note: Certificate hashes need to be updated before expiration -->
-    <!-- Railway certificate expires: 2026-03-06 -->
+    <!-- Railway certificate expires: 2026-07-04 -->
     <!-- R12 intermediate certificate expires: 2027-03-12 -->
     <!--
     To update certificate hashes:
