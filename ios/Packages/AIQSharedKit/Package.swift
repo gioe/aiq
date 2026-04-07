@@ -18,14 +18,15 @@ let package = Package(
     ],
     dependencies: [
         .package(
-            url: "https://github.com/gioe/ios-libs",
-            from: "1.4.0"
+            path: "/Users/mattgioe/Desktop/projects/ios-libs"
         )
     ],
     targets: [
         .target(
             name: "AIQSharedKit",
-            dependencies: [],
+            dependencies: [
+                .product(name: "SharedKit", package: "ios-libs")
+            ],
             swiftSettings: [
                 .define("DebugBuild", .when(configuration: .debug))
             ]
