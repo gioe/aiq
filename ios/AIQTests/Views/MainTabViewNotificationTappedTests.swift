@@ -646,7 +646,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         selectedTab = .dashboard
         navigationService = DeepLinkNavigationService(
             router: router,
-            deepLinkHandler: deepLinkHandler,
+            parser: deepLinkParser,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
             },
@@ -1067,7 +1067,7 @@ final class MainTabViewConcurrentDeepLinkTests: XCTestCase {
         selectedTab = .dashboard
         navigationService = DeepLinkNavigationService(
             router: router,
-            deepLinkHandler: deepLinkHandler,
+            parser: deepLinkParser,
             tabSelectionHandler: { [self] newTab in
                 selectedTab = newTab
             },
