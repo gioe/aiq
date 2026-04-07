@@ -10,7 +10,7 @@ struct MainTabView: View {
     /// Selected tab with persistence across app launches.
     /// On first launch or after upgrading from versions without persistence, defaults to .dashboard.
     @AppStorage("com.aiq.selectedTab") private var selectedTab: TabDestination = .dashboard
-    @State private var deepLinkHandler = DeepLinkHandler()
+    @State private var deepLinkParser = AIQDeepLinkParser()
     /// Service that handles deep link navigation logic (tab switching, routing, error handling).
     /// Lazily initialized on first use via `getNavigationService()` since it depends on `router`.
     @State private var navigationService: DeepLinkNavigationService?
@@ -148,7 +148,7 @@ struct MainTabView: View {
         }
 
         // Parse and handle the deep link
-        let deepLink = deepLinkHandler.parse(deepLinkURL)
+        let deepLink = deepLinkParser.parseDeepLink(deepLinkURL)
         Self.logger.info("Parsed deep link from notification: \(String(describing: deepLink), privacy: .public)")
 
         // Sanitize URL for analytics (remove query parameters)
@@ -215,7 +215,7 @@ struct MainTabView: View {
         }
         let service = DeepLinkNavigationService(
             router: router,
-            deepLinkHandler: deepLinkHandler,
+            parser: deepLinkParser,
             tabSelectionHandler: { newTab in
                 selectedTab = newTab
             },
@@ -278,16 +278,15 @@ struct MainTabView: View {
 
 // MARK: - Dashboard Tab Navigation
 
-/// Wrapper view for Dashboard tab with router-based navigation
+/// Wrapper view for Dashboard tab with coordinator-based navigation
 private struct DashboardTabNavigationView: View {
     @EnvironmentObject private var router: AppRouter
 
     var body: some View {
-        NavigationStack(path: $router.dashboardPath) {
+        CoordinatedNavigationStack(coordinator: router.dashboardCoordinator) { route in
+            destinationView(for: route)
+        } root: {
             DashboardView()
-                .navigationDestination(for: Route.self) { route in
-                    destinationView(for: route)
-                }
         }
     }
 
@@ -334,16 +333,15 @@ private struct DashboardTabNavigationView: View {
 
 // MARK: - History Tab Navigation
 
-/// Wrapper view for History tab with router-based navigation
+/// Wrapper view for History tab with coordinator-based navigation
 private struct HistoryTabNavigationView: View {
     @EnvironmentObject private var router: AppRouter
 
     var body: some View {
-        NavigationStack(path: $router.historyPath) {
+        CoordinatedNavigationStack(coordinator: router.historyCoordinator) { route in
+            destinationView(for: route)
+        } root: {
             HistoryView()
-                .navigationDestination(for: Route.self) { route in
-                    destinationView(for: route)
-                }
         }
     }
 
@@ -374,16 +372,15 @@ private struct HistoryTabNavigationView: View {
 
 // MARK: - Settings Tab Navigation
 
-/// Wrapper view for Settings tab with router-based navigation
+/// Wrapper view for Settings tab with coordinator-based navigation
 private struct SettingsTabNavigationView: View {
     @EnvironmentObject private var router: AppRouter
 
     var body: some View {
-        NavigationStack(path: $router.settingsPath) {
+        CoordinatedNavigationStack(coordinator: router.settingsCoordinator) { route in
+            destinationView(for: route)
+        } root: {
             SettingsView()
-                .navigationDestination(for: Route.self) { route in
-                    destinationView(for: route)
-                }
         }
     }
 
