@@ -204,33 +204,6 @@ class GeneratorConfigLoader(BaseConfigLoader[GeneratorConfig]):
             preferred, alternate, question_type, available_providers, provider_tier
         )
 
-    def get_both_providers_for_question_type(
-        self,
-        question_type: str,
-        available_providers: list[str],
-    ) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
-        """Get both primary and fallback provider/model for a question type.
-
-        Used by the "balanced" provider tier to alternate between both providers.
-
-        Args:
-            question_type: Type of question (e.g., "math", "logic", "pattern")
-            available_providers: List of currently available provider names
-
-        Returns:
-            Tuple of (primary_provider, primary_model, fallback_provider, fallback_model).
-            Any element may be None if not configured or not available.
-        """
-        primary_provider, primary_model = self.get_provider_and_model_for_question_type(
-            question_type, available_providers, provider_tier="primary"
-        )
-        fallback_provider, fallback_model = (
-            self.get_provider_and_model_for_question_type(
-                question_type, available_providers, provider_tier="fallback"
-            )
-        )
-        return (primary_provider, primary_model, fallback_provider, fallback_model)
-
     def get_max_batch_size(self, question_type: str) -> Optional[int]:
         """Get the max_batch_size for a given question type.
 
