@@ -1,5 +1,6 @@
 @testable import AIQ
 import AIQAPIClientCore
+import AIQSharedKit
 import XCTest
 
 final class TestSessionTests: XCTestCase {

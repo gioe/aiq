@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQSharedKit
 import XCTest
 
 /// Unit tests for the cooldown state introduced by TASK-1347.

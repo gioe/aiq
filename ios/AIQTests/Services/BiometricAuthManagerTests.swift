@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQSharedKit
 import LocalAuthentication
 import XCTest
 

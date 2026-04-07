@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQSharedKit
 import XCTest
 
 /// Tests for APIError.parseBadRequest(_:) — covers active-session detection and the new

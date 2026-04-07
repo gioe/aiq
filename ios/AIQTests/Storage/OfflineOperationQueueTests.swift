@@ -1,5 +1,6 @@
 @testable import AIQ
 import AIQOfflineQueue
+import AIQSharedKit
 import Combine
 import XCTest
 

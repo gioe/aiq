@@ -1,5 +1,6 @@
 @testable import AIQ
 import AIQAPIClientCore
+import AIQSharedKit
 import XCTest
 
 /// Tests for the UI extension computed properties on OpenAPI-generated types.

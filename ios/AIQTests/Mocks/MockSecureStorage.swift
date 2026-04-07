@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQSharedKit
 import Foundation
 
 /// Mock implementation of SecureStorageProtocol for testing

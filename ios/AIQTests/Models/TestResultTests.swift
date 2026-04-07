@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQSharedKit
 import XCTest
 
 /// Tests for TestResult model and related types

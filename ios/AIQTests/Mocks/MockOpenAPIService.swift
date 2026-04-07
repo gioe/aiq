@@ -1,5 +1,6 @@
 @testable import AIQ
 import AIQAPIClientCore
+import AIQSharedKit
 import Foundation
 
 /// Mock implementation of OpenAPIServiceProtocol for testing

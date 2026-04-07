@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQSharedKit
 import XCTest
 
 final class KeychainStorageTests: XCTestCase {

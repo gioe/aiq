@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQSharedKit
 
 @MainActor
 final class MockBiometricPreferenceStorage: BiometricPreferenceStorageProtocol {
