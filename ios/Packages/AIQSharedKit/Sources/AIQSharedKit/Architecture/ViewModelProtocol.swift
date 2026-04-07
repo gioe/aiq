@@ -18,6 +18,8 @@ public protocol ViewModelProtocol: ObservableObject {
 
 /// Default implementations
 public extension ViewModelProtocol {
+    /// No-op default for view appearance lifecycle
     func onAppear() {}
+    /// No-op default for view disappearance lifecycle
     func onDisappear() {}
 }

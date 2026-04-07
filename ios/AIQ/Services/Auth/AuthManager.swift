@@ -1,7 +1,7 @@
+import AIQSharedKit
 import Combine
 import Foundation
 import os
-import SharedKit
 
 /// Manages authentication state for the entire app
 @MainActor

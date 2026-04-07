@@ -35,7 +35,7 @@
 		1A57DF962EFE222F009F9E9D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1A57DF952EFE222F009F9E9D /* PrivacyInfo.xcprivacy */; };
 		1A66E85D14DF3026B9616C56 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DB1F74E4C42D4EDE293DC7 /* User.swift */; };
 		1A9B817B2F2EDE3900403187 /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */; };
-		1A9B817C2F2EDE3900403187 /* APIClient in Frameworks */ = {isa = PBXBuildFile; productRef = DA4FCB7C2F404E6197A1C048 /* APIClient */; };
+		1A9B817C2F2EDE3900403187 /* AIQAPIClientCore in Frameworks */ = {isa = PBXBuildFile; productRef = DA4FCB7C2F404E6197A1C048 /* AIQAPIClientCore */; };
 		1AB0686C93E844A7881DB7E9 /* KeychainStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C333BE1267F47B99054F76A /* KeychainStorageTests.swift */; };
 		1AD58AF22F03115D00ED0517 /* TrustKit in Frameworks */ = {isa = PBXBuildFile; productRef = 611BDFC8D2A24A669AF6D722 /* TrustKit */; };
 		1AD58AF42F0311B700ED0517 /* MockNetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD58AF32F0311B700ED0517 /* MockNetworkMonitor.swift */; };
@@ -205,7 +205,8 @@
 		9FC23B7976AE4696C28C6E1C /* ActiveSessionFlowIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 667A2129A6669EA6AD0B280E /* ActiveSessionFlowIntegrationTests.swift */; };
 		A0719326721984567C906017 /* OpenAPIServiceMapToAPIErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11FC47CAFCC74AFAEFF03D41 /* OpenAPIServiceMapToAPIErrorTests.swift */; };
 		A1020D7FBE59F666D88A50D7 /* CacheKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8584310DF575119FD30D7CD3 /* CacheKey.swift */; };
-		A1B2C3D4E5F6A7B8C9D0E1F2 /* SharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = B3C4D5E6F7A8B9C0D1E2F3A4 /* SharedKit */; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* AIQSharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = B3C4D5E6F7A8B9C0D1E2F3A4 /* AIQSharedKit */; };
+		F3A4B5C6D7E8F9A0B1C2D3E4 /* SharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = E2F3A4B5C6D7E8F9A0B1C2D3 /* SharedKit */; };
 		A23D5B36E3B68055A55BBEFC /* AppStateStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3024C5290E1AEBB243A5EDEA /* AppStateStorage.swift */; };
 		A2E372580E83FB91517EBEAB /* MockLocalAnswerStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2199668A3916B07E37543DDE /* MockLocalAnswerStorage.swift */; };
 		A34479C983ADE8AE59302135 /* TestCompletionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC01A88DFF06E36580FC9675 /* TestCompletionView.swift */; };
@@ -294,7 +295,7 @@
 		E5909B5E7CA1D71194803586 /* TestSessionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF3DD9397AACDA7CDAC43ECE /* TestSessionStatus.swift */; };
 		E904B381E22BD76186DF144C /* NotificationPermissionBannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B794E1EC683537C5661C9A8F /* NotificationPermissionBannerTests.swift */; };
 		EA7BFC6FBEC499DF5F8D0891 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27D5F7D5011005CA8EF6841 /* OnboardingViewModel.swift */; };
-		ECA2EEC6F3D845FEADEB9015 /* SharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 666F2CD1B6D44CB2B4FCB894 /* SharedKit */; };
+		ECA2EEC6F3D845FEADEB9015 /* AIQSharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 666F2CD1B6D44CB2B4FCB894 /* AIQSharedKit */; };
 		ECDA0D0C31E2C4202F2B2443 /* Validators.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D440CD2F851D3AB2C60A6F /* Validators.swift */; };
 		ED8AACC1354B34EDA90CBCF0 /* UITestMockNetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5A66CEDB6C4EBE047F1AF /* UITestMockNetworkMonitor.swift */; };
 		EF41B8640185CE579F347B7D /* TestTimerModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3DE625363E7D923EC1A875 /* TestTimerModifier.swift */; };
@@ -523,7 +524,7 @@
 		8DF1D43C1237D5117457A636 /* MockBiometricAuthManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockBiometricAuthManager.swift; sourceTree = "<group>"; };
 		9052490BE7650C64C9605041 /* QuestionContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = QuestionContentView.swift; path = Features/Test/Views/QuestionContentView.swift; sourceTree = "<group>"; };
 		90C8EF5EF41131B45870E857 /* ToastView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ToastView.swift; path = Shared/Components/ToastView.swift; sourceTree = "<group>"; };
-		90F3935D84D246D8821EFC9C /* ConfirmationModalTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ConfirmationModalTests.swift; path = Packages/SharedKit/Tests/SharedKitTests/Components/ConfirmationModalTests.swift; sourceTree = SOURCE_ROOT; };
+		90F3935D84D246D8821EFC9C /* ConfirmationModalTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ConfirmationModalTests.swift; path = Packages/AIQSharedKit/Tests/AIQSharedKitTests/Components/ConfirmationModalTests.swift; sourceTree = SOURCE_ROOT; };
 		915618D2F348FB1C641A85D3 /* TestDetailView+Helpers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "TestDetailView+Helpers.swift"; path = "Features/History/Views/TestDetailView+Helpers.swift"; sourceTree = "<group>"; };
 		9199B6EC9CFA22EECE6ECC98 /* DeepLinkHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkHandler.swift; sourceTree = "<group>"; };
 		91D5F11FBCAD9F51A50ED9F6 /* OnboardingStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingStorage.swift; sourceTree = "<group>"; };
@@ -628,7 +629,7 @@
 		E294BF06EFF3C44AE3D9A7DA /* ServiceConfigurationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceConfigurationTests.swift; sourceTree = "<group>"; };
 		E32836E4C5FF9CA1853060FC /* NumberExtensionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NumberExtensionsTests.swift; sourceTree = "<group>"; };
 		E576AE3894BDE712C0916ACB /* NotificationSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NotificationSettingsView.swift; path = Features/Settings/Views/NotificationSettingsView.swift; sourceTree = "<group>"; };
-		E655241675A745929054AEC9 /* ScreenshotContainerViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScreenshotContainerViewTests.swift; path = Packages/SharedKit/Tests/SharedKitTests/Extensions/ScreenshotContainerViewTests.swift; sourceTree = SOURCE_ROOT; };
+		E655241675A745929054AEC9 /* ScreenshotContainerViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScreenshotContainerViewTests.swift; path = Packages/AIQSharedKit/Tests/AIQSharedKitTests/Extensions/ScreenshotContainerViewTests.swift; sourceTree = SOURCE_ROOT; };
 		E676AB96E42CF5A5F8F0231C /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		E79F3FE3360E815E6F0AFD91 /* ServiceConfigurationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceConfigurationTests.swift; sourceTree = "<group>"; };
 		E87142052655D9F1ACD9637B /* RegistrationViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RegistrationViewModel.swift; path = Features/Auth/ViewModels/RegistrationViewModel.swift; sourceTree = "<group>"; };
@@ -654,7 +655,7 @@
 		FC5B6E1198423753B6964A51 /* CrashlyticsRecorderAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CrashlyticsRecorderAdapter.swift; sourceTree = "<group>"; };
 		FCB3411E15408A2854475065 /* HistoryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HistoryView.swift; path = Features/History/Views/HistoryView.swift; sourceTree = "<group>"; };
 		FCBEB7A4DC5D8CBA08283D20 /* String+Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Localization.swift"; sourceTree = "<group>"; };
-		FD01E1F52B9748658718D7DA /* SharedKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SharedKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD01E1F52B9748658718D7DA /* AIQSharedKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AIQSharedKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD06AD9370E6A160F5546A00 /* ServiceConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceConfiguration.swift; sourceTree = "<group>"; };
 		FD6EB3193E45966F81982468 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		FD8BC8C3CF37AE7A0F9831FE /* Question.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Question.swift; sourceTree = "<group>"; };
@@ -677,8 +678,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				05B972B5035EF251D9BE7842 /* AIQAPIClient in Frameworks */,
-				1A9B817C2F2EDE3900403187 /* APIClient in Frameworks */,
-				A1B2C3D4E5F6A7B8C9D0E1F2 /* SharedKit in Frameworks */,
+				1A9B817C2F2EDE3900403187 /* AIQAPIClientCore in Frameworks */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* AIQSharedKit in Frameworks */,
+				F3A4B5C6D7E8F9A0B1C2D3E4 /* SharedKit in Frameworks */,
 				1A9B817B2F2EDE3900403187 /* OpenAPIRuntime in Frameworks */,
 				1AD58AF22F03115D00ED0517 /* TrustKit in Frameworks */,
 				B2313C5B760D0E7C05315E20 /* SwiftUI.framework in Frameworks */,
@@ -691,7 +693,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ECA2EEC6F3D845FEADEB9015 /* SharedKit in Frameworks */,
+				ECA2EEC6F3D845FEADEB9015 /* AIQSharedKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -940,7 +942,7 @@
 				43C82CA7CE076639CEF7A3EF /* AIQ.app */,
 				F2851219836D6EDDBDB78A8E /* AIQTests.xctest */,
 				20569FF92112452385F4C5BA /* AIQUITests.xctest */,
-				FD01E1F52B9748658718D7DA /* SharedKitTests.xctest */,
+				FD01E1F52B9748658718D7DA /* AIQSharedKitTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1549,9 +1551,9 @@
 			productReference = F2851219836D6EDDBDB78A8E /* AIQTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		45D24137818645FD8732ADFC /* SharedKitTests */ = {
+		45D24137818645FD8732ADFC /* AIQSharedKitTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 4C0A6664AA2041D5B6C8055B /* Build configuration list for PBXNativeTarget "SharedKitTests" */;
+			buildConfigurationList = 4C0A6664AA2041D5B6C8055B /* Build configuration list for PBXNativeTarget "AIQSharedKitTests" */;
 			buildPhases = (
 				BC4358C46A0F4CD7B56E2B40 /* Sources */,
 				E5AAD968B0B740348DA6FB2F /* Frameworks */,
@@ -1560,12 +1562,12 @@
 			);
 			dependencies = (
 			);
-			name = SharedKitTests;
+			name = AIQSharedKitTests;
 			packageProductDependencies = (
-				666F2CD1B6D44CB2B4FCB894 /* SharedKit */,
+				666F2CD1B6D44CB2B4FCB894 /* AIQSharedKit */,
 			);
-			productName = SharedKitTests;
-			productReference = FD01E1F52B9748658718D7DA /* SharedKitTests.xctest */;
+			productName = AIQSharedKitTests;
+			productReference = FD01E1F52B9748658718D7DA /* AIQSharedKitTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		7F81DE23637148F8AD9EB84E /* AIQUITests */ = {
@@ -1599,9 +1601,10 @@
 			name = AIQ;
 			packageProductDependencies = (
 				C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */,
-				DA4FCB7C2F404E6197A1C048 /* APIClient */,
+				DA4FCB7C2F404E6197A1C048 /* AIQAPIClientCore */,
 				13ECAB6546FFCEF192E7F317 /* AIQAPIClient */,
-				B3C4D5E6F7A8B9C0D1E2F3A4 /* SharedKit */,
+				B3C4D5E6F7A8B9C0D1E2F3A4 /* AIQSharedKit */,
+				E2F3A4B5C6D7E8F9A0B1C2D3 /* SharedKit */,
 				611BDFC8D2A24A669AF6D722 /* TrustKit */,
 				5F67568DF35617BE6981320E /* FirebaseAnalytics */,
 				F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */,
@@ -1633,8 +1636,9 @@
 				4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */,
-				A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */,
-				15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */,
+				A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "AIQAPIClient" */,
+				15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "AIQSharedKit" */,
+				D1E2F3A4B5C6D7E8F9A0B1C2 /* XCRemoteSwiftPackageReference "ios-libs" */,
 			);
 			productRefGroup = 428258610120552FEA09E4AC /* Products */;
 			projectDirPath = "";
@@ -1643,7 +1647,7 @@
 				B58C1107D351E09C806FEED4 /* AIQ */,
 				2ACB0FA2211ACF7BC8FBFB28 /* AIQTests */,
 				7F81DE23637148F8AD9EB84E /* AIQUITests */,
-				45D24137818645FD8732ADFC /* SharedKitTests */,
+				45D24137818645FD8732ADFC /* AIQSharedKitTests */,
 			);
 		};
 /* End PBXProject section */
@@ -2314,7 +2318,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		4C0A6664AA2041D5B6C8055B /* Build configuration list for PBXNativeTarget "SharedKitTests" */ = {
+		4C0A6664AA2041D5B6C8055B /* Build configuration list for PBXNativeTarget "AIQSharedKitTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				78DBC694038443519AF7718F /* Debug */,
@@ -2353,17 +2357,25 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */ = {
+		15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "AIQSharedKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/SharedKit;
+			relativePath = Packages/AIQSharedKit;
 		};
-		A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */ = {
+		A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "AIQAPIClient" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/APIClient;
+			relativePath = Packages/AIQAPIClient;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		D1E2F3A4B5C6D7E8F9A0B1C2 /* XCRemoteSwiftPackageReference "ios-libs" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gioe/ios-libs";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
 		4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -2393,7 +2405,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		13ECAB6546FFCEF192E7F317 /* AIQAPIClient */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */;
+			package = A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "AIQAPIClient" */;
 			productName = AIQAPIClient;
 		};
 		5F67568DF35617BE6981320E /* FirebaseAnalytics */ = {
@@ -2406,30 +2418,35 @@
 			package = 9FB346E3CB9C4765BF9FE01E /* XCRemoteSwiftPackageReference "TrustKit" */;
 			productName = TrustKit;
 		};
-		666F2CD1B6D44CB2B4FCB894 /* SharedKit */ = {
+		666F2CD1B6D44CB2B4FCB894 /* AIQSharedKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */;
-			productName = SharedKit;
+			package = 15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "AIQSharedKit" */;
+			productName = AIQSharedKit;
 		};
-		B3C4D5E6F7A8B9C0D1E2F3A4 /* SharedKit */ = {
+		B3C4D5E6F7A8B9C0D1E2F3A4 /* AIQSharedKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "SharedKit" */;
-			productName = SharedKit;
+			package = 15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "AIQSharedKit" */;
+			productName = AIQSharedKit;
 		};
 		C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = B2C3D4E5F6A7B8C9D0E1F2A3 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */;
 			productName = OpenAPIRuntime;
 		};
-		DA4FCB7C2F404E6197A1C048 /* APIClient */ = {
+		DA4FCB7C2F404E6197A1C048 /* AIQAPIClientCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "APIClient" */;
-			productName = APIClient;
+			package = A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "AIQAPIClient" */;
+			productName = AIQAPIClientCore;
 		};
 		F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseCrashlytics;
+		};
+		E2F3A4B5C6D7E8F9A0B1C2D3 /* SharedKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D1E2F3A4B5C6D7E8F9A0B1C2 /* XCRemoteSwiftPackageReference "ios-libs" */;
+			productName = SharedKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

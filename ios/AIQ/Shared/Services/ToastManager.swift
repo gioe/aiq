@@ -1,7 +1,7 @@
+import AIQSharedKit
 import Foundation
-import SharedKit
 
 // Re-export SharedKit's ToastManager types for the AIQ app.
-typealias ToastData = SharedKit.ToastData
-typealias ToastManagerProtocol = SharedKit.ToastManagerProtocol
-typealias ToastManager = SharedKit.ToastManager
+typealias ToastData = AIQSharedKit.ToastData
+typealias ToastManagerProtocol = AIQSharedKit.ToastManagerProtocol
+typealias ToastManager = AIQSharedKit.ToastManager

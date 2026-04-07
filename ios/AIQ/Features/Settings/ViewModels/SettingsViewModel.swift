@@ -45,7 +45,7 @@ class SettingsViewModel: BaseViewModel {
     // MARK: - Type Aliases
 
     /// Closure type for error recording. Used for dependency injection to enable testing.
-    /// Named CrashlyticsErrorRecorderClosure to avoid conflict with SharedKit.ErrorRecorder protocol.
+    /// Named CrashlyticsErrorRecorderClosure to avoid conflict with AIQSharedKit.ErrorRecorder protocol.
     typealias CrashlyticsErrorRecorderClosure = (Error, CrashlyticsErrorRecorder.ErrorContext) -> Void
 
     // MARK: - Biometric State (reactive — updated via publisher subscriptions in init)

@@ -1,5 +1,5 @@
 @testable import AIQ
-import APIClient
+import AIQAPIClientCore
 import Combine
 import XCTest
 

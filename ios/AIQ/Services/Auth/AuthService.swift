@@ -1,4 +1,4 @@
-import APIClient
+import AIQAPIClientCore
 import Foundation
 import os
 

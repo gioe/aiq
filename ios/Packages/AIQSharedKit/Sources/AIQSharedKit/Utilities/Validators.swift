@@ -66,7 +66,11 @@ public enum Validators {
     ///   - fieldName: The display name for the field (used in error messages)
     ///   - minLength: Minimum required name length (default: 2)
     /// - Returns: `.valid` if name meets all requirements, `.invalid(message)` otherwise
-    public static func validateName(_ name: String, fieldName: String = "Name", minLength: Int = 2) -> ValidationResult {
+    public static func validateName(
+        _ name: String,
+        fieldName: String = "Name",
+        minLength: Int = 2
+    ) -> ValidationResult {
         guard name.isNotEmpty else {
             return .invalid("\(fieldName) is required")
         }
@@ -126,7 +130,11 @@ public enum Validators {
     ///   - fieldName: Display name for the field used in error messages (default: "Description")
     ///   - min: Minimum required character count (default: 10)
     /// - Returns: `.valid` if text meets all requirements, `.invalid(message)` otherwise
-    public static func validateMinLength(_ text: String, fieldName: String = "Description", min: Int = 10) -> ValidationResult {
+    public static func validateMinLength(
+        _ text: String,
+        fieldName: String = "Description",
+        min: Int = 10
+    ) -> ValidationResult {
         guard text.isNotEmpty else {
             return .invalid("\(fieldName) is required")
         }
@@ -195,9 +203,12 @@ public enum Validators {
 
 /// Result of validation
 public enum ValidationResult {
+    /// The input passed validation
     case valid
+    /// The input failed validation with an error message
     case invalid(String)
 
+    /// Whether the validation passed
     public var isValid: Bool {
         if case .valid = self {
             return true
@@ -205,6 +216,7 @@ public enum ValidationResult {
         return false
     }
 
+    /// The error message if validation failed, or `nil` if valid
     public var errorMessage: String? {
         if case let .invalid(message) = self {
             return message

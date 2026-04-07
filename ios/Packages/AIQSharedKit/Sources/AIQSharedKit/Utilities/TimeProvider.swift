@@ -2,6 +2,7 @@ import Foundation
 
 /// Abstraction over wall-clock time, enabling deterministic testing.
 public protocol TimeProvider {
+    /// The current date and time
     var now: Date { get }
 }
 

@@ -1,5 +1,5 @@
 // swiftlint:disable file_length
-import APIClient
+import AIQAPIClientCore
 import Foundation
 import HTTPTypes
 import OpenAPIRuntime

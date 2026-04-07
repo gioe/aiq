@@ -1,5 +1,5 @@
-import SharedKit
+import AIQSharedKit
 import SwiftUI
 
 /// Re-export SharedKit's ConfirmationModal for the AIQ app.
-typealias ConfirmationModal = SharedKit.ConfirmationModal
+typealias ConfirmationModal = AIQSharedKit.ConfirmationModal

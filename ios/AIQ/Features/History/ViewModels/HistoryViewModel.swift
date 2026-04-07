@@ -1,6 +1,6 @@
+import AIQSharedKit
 import Combine
 import Foundation
-import SharedKit
 
 /// Sort order for test history
 enum TestHistorySortOrder: String, CaseIterable, Identifiable {

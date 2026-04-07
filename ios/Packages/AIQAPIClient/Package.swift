@@ -2,15 +2,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "APIClient",
+    name: "AIQAPIClient",
     platforms: [
         .iOS(.v16),
         .macOS(.v13)
     ],
     products: [
         .library(
-            name: "APIClient",
-            targets: ["APIClient"]
+            name: "AIQAPIClientCore",
+            targets: ["AIQAPIClientCore"]
         ),
         .library(
             name: "AIQAPIClient",
@@ -37,7 +37,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "APIClient",
+            name: "AIQAPIClientCore",
             dependencies: [
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
@@ -53,17 +53,17 @@ let package = Package(
         .target(
             name: "AIQAPIClient",
             dependencies: [
-                "APIClient"
+                "AIQAPIClientCore"
             ]
         ),
         .testTarget(
-            name: "APIClientTests",
+            name: "AIQAPIClientCoreTests",
             dependencies: [
-                "APIClient",
+                "AIQAPIClientCore",
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "HTTPTypes", package: "swift-http-types")
             ],
-            path: "Tests/APIClientTests"
+            path: "Tests/AIQAPIClientCoreTests"
         )
     ]
 )

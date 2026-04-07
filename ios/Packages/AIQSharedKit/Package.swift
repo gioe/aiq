@@ -2,27 +2,27 @@
 import PackageDescription
 
 let package = Package(
-    name: "SharedKit",
+    name: "AIQSharedKit",
     platforms: [
         .iOS(.v16)
     ],
     products: [
         .library(
-            name: "SharedKit",
-            targets: ["SharedKit"]
+            name: "AIQSharedKit",
+            targets: ["AIQSharedKit"]
         )
     ],
     targets: [
         .target(
-            name: "SharedKit",
+            name: "AIQSharedKit",
             dependencies: [],
             swiftSettings: [
                 .define("DebugBuild", .when(configuration: .debug))
             ]
         ),
         .testTarget(
-            name: "SharedKitTests",
-            dependencies: ["SharedKit"],
+            name: "AIQSharedKitTests",
+            dependencies: ["AIQSharedKit"],
             swiftSettings: [
                 .define("DebugBuild", .when(configuration: .debug))
             ]

@@ -1,4 +1,4 @@
-import APIClient
+import AIQAPIClientCore
 import Foundation
 
 /// A value type encapsulating test navigation state: current position, answers, and stimulus tracking.

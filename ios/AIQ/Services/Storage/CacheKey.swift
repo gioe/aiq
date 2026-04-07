@@ -1,4 +1,4 @@
-import SharedKit
+import AIQSharedKit
 
 /// App-specific cache keys for AIQ
 enum CacheKey: Hashable, Sendable {

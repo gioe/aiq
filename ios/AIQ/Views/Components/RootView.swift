@@ -1,4 +1,4 @@
-import SharedKit
+import AIQSharedKit
 import SwiftUI
 
 /// Root view that determines whether to show consent, auth flow, onboarding, or main app

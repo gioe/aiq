@@ -1,4 +1,4 @@
-@testable import APIClient
+@testable import AIQAPIClientCore
 import Foundation
 import XCTest
 

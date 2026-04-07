@@ -1,5 +1,5 @@
 @testable import AIQ
-import APIClient
+import AIQAPIClientCore
 import XCTest
 
 /// Tests for the UI extension computed properties on OpenAPI-generated types.
@@ -77,27 +77,27 @@ final class APIClientExtensionsTests: XCTestCase {
     // MARK: - ConfidenceIntervalSchema Extension Tests
 
     func testConfidenceInterval_rangeFormatted() {
-        let ci: APIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
+        let ci: AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
         XCTAssertEqual(ci.rangeFormatted, "101-115")
     }
 
     func testConfidenceInterval_confidencePercentage() {
-        let ci: APIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 95, standardError: 5.0, upper: 105)
+        let ci: AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 95, standardError: 5.0, upper: 105)
         XCTAssertEqual(ci.confidencePercentage, 95)
     }
 
     func testConfidenceInterval_confidencePercentage_rounds() {
-        let ci: APIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.956, lower: 95, standardError: 5.0, upper: 105)
+        let ci: AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.956, lower: 95, standardError: 5.0, upper: 105)
         XCTAssertEqual(ci.confidencePercentage, 96)
     }
 
     func testConfidenceInterval_fullDescription() {
-        let ci: APIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
+        let ci: AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
         XCTAssertEqual(ci.fullDescription, "95% confidence interval: 101-115")
     }
 
     func testConfidenceInterval_accessibilityDescription() {
-        let ci: APIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
+        let ci: AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
         let description = ci.accessibilityDescription
 
         XCTAssertTrue(description.contains("101"), "Should contain lower bound")
@@ -106,22 +106,22 @@ final class APIClientExtensionsTests: XCTestCase {
     }
 
     func testConfidenceInterval_intervalWidth() {
-        let ci: APIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
+        let ci: AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 5.0, upper: 115)
         XCTAssertEqual(ci.intervalWidth, 14)
     }
 
     func testConfidenceInterval_intervalWidth_narrowInterval() {
-        let ci: APIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 108, standardError: 5.0, upper: 112)
+        let ci: AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 108, standardError: 5.0, upper: 112)
         XCTAssertEqual(ci.intervalWidth, 4)
     }
 
     func testConfidenceInterval_standardErrorFormatted() {
-        let ci: APIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 95, standardError: 4.5678, upper: 105)
+        let ci: AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 95, standardError: 4.5678, upper: 105)
         XCTAssertEqual(ci.standardErrorFormatted, "4.57")
     }
 
     func testConfidenceInterval_standardErrorFormatted_roundsCorrectly() {
-        let ci: APIClient.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 95, standardError: 4.556, upper: 105)
+        let ci: AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema = createConfidenceInterval(confidenceLevel: 0.95, lower: 95, standardError: 4.556, upper: 105)
         XCTAssertEqual(ci.standardErrorFormatted, "4.56")
     }
 
@@ -464,8 +464,8 @@ final class APIClientExtensionsTests: XCTestCase {
         lower: Int = 95,
         standardError: Double = 5.0,
         upper: Int = 105
-    ) -> APIClient.Components.Schemas.ConfidenceIntervalSchema {
-        APIClient.Components.Schemas.ConfidenceIntervalSchema(
+    ) -> AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema {
+        AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema(
             confidenceLevel: confidenceLevel,
             lower: lower,
             standardError: standardError,

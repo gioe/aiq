@@ -1,5 +1,5 @@
-import SharedKit
+import AIQSharedKit
 import SwiftUI
 
 /// Re-export SharedKit's ErrorView for the AIQ app.
-typealias ErrorView = SharedKit.ErrorView
+typealias ErrorView = AIQSharedKit.ErrorView

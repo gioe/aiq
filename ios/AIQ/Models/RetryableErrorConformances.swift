@@ -1,5 +1,5 @@
+import AIQSharedKit
 import Foundation
-import SharedKit
 
 // Declare conformance of AIQ error types to SharedKit's RetryableError protocol.
 // Both APIError and ContextualError already have isRetryable: Bool, so no

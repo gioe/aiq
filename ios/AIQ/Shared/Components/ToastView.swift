@@ -1,6 +1,6 @@
-import SharedKit
+import AIQSharedKit
 import SwiftUI
 
 // Re-export SharedKit's ToastView types for the AIQ app.
-typealias ToastType = SharedKit.ToastType
-typealias ToastView = SharedKit.ToastView
+typealias ToastType = AIQSharedKit.ToastType
+typealias ToastView = AIQSharedKit.ToastView

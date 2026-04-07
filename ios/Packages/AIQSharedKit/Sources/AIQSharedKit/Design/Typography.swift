@@ -106,18 +106,22 @@ public extension View {
             .foregroundColor(color)
     }
 
+    /// Apply a scaled large display font (48pt base, rounded, bold)
     func displayLargeFont() -> some View {
         modifier(ScaledDisplayLargeFont())
     }
 
+    /// Apply a scaled medium display font (42pt base, bold)
     func displayMediumFont() -> some View {
         modifier(ScaledDisplayMediumFont())
     }
 
+    /// Apply a scaled small display font (36pt base, bold)
     func displaySmallFont() -> some View {
         modifier(ScaledDisplaySmallFont())
     }
 
+    /// Apply a scaled score display font (72pt base, rounded, bold)
     func scoreDisplayFont() -> some View {
         modifier(ScaledScoreDisplayFont())
     }

@@ -1,4 +1,4 @@
-import SharedKit
+import AIQSharedKit
 import SwiftUI
 import XCTest
 

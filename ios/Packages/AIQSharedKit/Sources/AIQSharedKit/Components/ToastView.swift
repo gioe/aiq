@@ -2,10 +2,14 @@ import SwiftUI
 
 /// Type of toast message to display
 public enum ToastType {
+    /// Error toast style
     case error
+    /// Warning toast style
     case warning
+    /// Informational toast style
     case info
 
+    /// SF Symbol name for this toast type
     public var icon: String {
         switch self {
         case .error: "exclamationmark.circle.fill"
@@ -14,6 +18,7 @@ public enum ToastType {
         }
     }
 
+    /// Background color for this toast type
     public var backgroundColor: Color {
         switch self {
         case .error: Color.red

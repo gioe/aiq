@@ -1,5 +1,5 @@
 @testable import AIQ
-import SharedKit
+import AIQSharedKit
 import XCTest
 
 /// Unit tests for DataCache actor

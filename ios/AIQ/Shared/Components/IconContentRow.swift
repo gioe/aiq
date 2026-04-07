@@ -1,5 +1,5 @@
-import SharedKit
+import AIQSharedKit
 import SwiftUI
 
 /// Re-export SharedKit's IconContentRow for the AIQ app.
-typealias IconContentRow = SharedKit.IconContentRow
+typealias IconContentRow = AIQSharedKit.IconContentRow

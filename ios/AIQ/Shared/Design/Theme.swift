@@ -1,13 +1,13 @@
-import SharedKit
+import AIQSharedKit
 import SwiftUI
 
 // Re-export SharedKit's Theme types for the AIQ app.
-typealias ColorTokens = SharedKit.ColorTokens
-typealias TypographyTokens = SharedKit.TypographyTokens
-typealias SpacingTokens = SharedKit.SpacingTokens
-typealias CornerRadiusTokens = SharedKit.CornerRadiusTokens
-typealias ShadowTokens = SharedKit.ShadowTokens
-typealias IconSizeTokens = SharedKit.IconSizeTokens
-typealias AnimationTokens = SharedKit.AnimationTokens
-typealias AppThemeProtocol = SharedKit.AppThemeProtocol
-typealias DefaultTheme = SharedKit.DefaultTheme
+typealias ColorTokens = AIQSharedKit.ColorTokens
+typealias TypographyTokens = AIQSharedKit.TypographyTokens
+typealias SpacingTokens = AIQSharedKit.SpacingTokens
+typealias CornerRadiusTokens = AIQSharedKit.CornerRadiusTokens
+typealias ShadowTokens = AIQSharedKit.ShadowTokens
+typealias IconSizeTokens = AIQSharedKit.IconSizeTokens
+typealias AnimationTokens = AIQSharedKit.AnimationTokens
+typealias AppThemeProtocol = AIQSharedKit.AppThemeProtocol
+typealias DefaultTheme = AIQSharedKit.DefaultTheme

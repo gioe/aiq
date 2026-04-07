@@ -1,6 +1,6 @@
+import AIQSharedKit
 import Combine
 import Foundation
-import SharedKit
 
 /// ViewModel for managing dashboard data and state
 @MainActor

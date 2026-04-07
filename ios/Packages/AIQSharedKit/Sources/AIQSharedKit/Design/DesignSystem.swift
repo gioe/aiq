@@ -5,6 +5,7 @@ import SwiftUI
 public enum DesignSystem {
     // MARK: - Spacing
 
+    /// Standard spacing tokens for consistent layout throughout the app
     public enum Spacing {
         /// 2X extra small spacing (2pt)
         public static let xxs: CGFloat = 2
@@ -39,6 +40,7 @@ public enum DesignSystem {
 
     // MARK: - Corner Radius
 
+    /// Corner radius tokens for rounded UI elements
     public enum CornerRadius {
         /// Extra small corner radius (4pt)
         public static let xs: CGFloat = 4
@@ -61,6 +63,7 @@ public enum DesignSystem {
 
     // MARK: - Shadows
 
+    /// Shadow tokens for elevation and depth effects
     public enum Shadow {
         /// Small shadow for subtle elevation
         public static let sm = ShadowStyle(
@@ -97,6 +100,7 @@ public enum DesignSystem {
 
     // MARK: - Animation
 
+    /// Spring animation presets for interactive UI transitions
     public enum Animation {
         /// Quick spring animation for small UI changes
         public static let quick = SwiftUI.Animation.spring(response: 0.3, dampingFraction: 0.7)
@@ -113,6 +117,7 @@ public enum DesignSystem {
 
     // MARK: - Animation Delay
 
+    /// Delay tokens for staggered animation sequences
     public enum AnimationDelay {
         /// Short delay (0.2s) for staggered element entrance
         public static let short: Double = 0.2
@@ -132,6 +137,7 @@ public enum DesignSystem {
 
     // MARK: - Icon Sizes
 
+    /// Standard icon size tokens for SF Symbols and custom icons
     public enum IconSize {
         /// Small icon size (16pt)
         public static let sm: CGFloat = 16
@@ -151,6 +157,7 @@ public enum DesignSystem {
 
     // MARK: - Adaptive Layout
 
+    /// Layout constraint tokens for adaptive screen sizing
     public enum Layout {
         /// Maximum readable content width for iPad and large displays (700pt)
         public static let readableContentWidth: CGFloat = 700
@@ -177,11 +184,16 @@ public struct ScaleButtonStyle: ButtonStyle {
 
 /// A custom shadow configuration
 public struct ShadowStyle {
+    /// The shadow color including opacity
     public let color: Color
+    /// The blur radius of the shadow
     public let radius: CGFloat
+    /// The horizontal offset of the shadow
     public let x: CGFloat
+    /// The vertical offset of the shadow
     public let y: CGFloat
 
+    /// Creates a shadow style with the given color, radius, and offset
     public init(color: Color, radius: CGFloat, x: CGFloat, y: CGFloat) {
         self.color = color
         self.radius = radius

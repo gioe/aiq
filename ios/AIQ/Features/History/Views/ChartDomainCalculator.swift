@@ -1,4 +1,4 @@
-import APIClient
+import AIQAPIClientCore
 import Foundation
 
 /// Utility struct for calculating chart domain and filtering chart data.

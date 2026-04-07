@@ -1,9 +1,9 @@
+import AIQSharedKit
 import Foundation
-import SharedKit
 
-/// SecureStorageProtocol is now defined in SharedKit.
+/// SecureStorageProtocol is now defined in AIQSharedKit.
 /// Re-export for the AIQ app target.
-typealias SecureStorageProtocol = SharedKit.SecureStorageProtocol
+typealias SecureStorageProtocol = AIQSharedKit.SecureStorageProtocol
 
 /// Common keys used for secure storage
 enum SecureStorageKey: String {

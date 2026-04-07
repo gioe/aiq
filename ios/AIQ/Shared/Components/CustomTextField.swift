@@ -1,5 +1,5 @@
-import SharedKit
+import AIQSharedKit
 import SwiftUI
 
 /// Re-export SharedKit's CustomTextField for the AIQ app.
-typealias CustomTextField = SharedKit.CustomTextField
+typealias CustomTextField = AIQSharedKit.CustomTextField

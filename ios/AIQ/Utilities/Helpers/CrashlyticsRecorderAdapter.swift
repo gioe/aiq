@@ -1,5 +1,5 @@
+import AIQSharedKit
 import Foundation
-import SharedKit
 
 /// Adapts CrashlyticsErrorRecorder to the SharedKit ErrorRecorder protocol
 ///

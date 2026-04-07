@@ -1,8 +1,8 @@
+import AIQSharedKit
 import Combine
 import Foundation
-import SharedKit
 
-// ScrollPositionStorageProtocol and ScrollPositionData are now defined in SharedKit.
+// ScrollPositionStorageProtocol and ScrollPositionData are now defined in AIQSharedKit.
 // This file re-exports the types and provides the AIQ-specific implementation.
 
 /// Service for persisting scroll positions across app launches
@@ -17,7 +17,7 @@ import SharedKit
 /// - Each view maintains independent debouncing state
 ///
 /// Thread Safety: Uses a serial DispatchQueue for thread-safe access to internal state
-class ScrollPositionStorage: SharedKit.ScrollPositionStorageProtocol {
+class ScrollPositionStorage: AIQSharedKit.ScrollPositionStorageProtocol {
     static let shared = ScrollPositionStorage()
 
     private let appStateStorage: AppStateStorageProtocol
@@ -26,7 +26,7 @@ class ScrollPositionStorage: SharedKit.ScrollPositionStorageProtocol {
     private let debounceInterval: TimeInterval = 0.5
 
     /// Per-view subjects for independent debouncing
-    private var viewSubjects: [String: PassthroughSubject<SharedKit.ScrollPositionData, Never>] = [:]
+    private var viewSubjects: [String: PassthroughSubject<AIQSharedKit.ScrollPositionData, Never>] = [:]
 
     /// Per-view cancellables for debounced saves
     private var viewCancellables: [String: AnyCancellable] = [:]
@@ -41,15 +41,15 @@ class ScrollPositionStorage: SharedKit.ScrollPositionStorageProtocol {
     // MARK: - Public Methods
 
     /// Save scroll position for a view (debounced)
-    func savePosition(_ position: SharedKit.ScrollPositionData, forView viewId: String) {
+    func savePosition(_ position: AIQSharedKit.ScrollPositionData, forView viewId: String) {
         queue.async { [weak self] in
             guard let self else { return }
 
-            let subject: PassthroughSubject<SharedKit.ScrollPositionData, Never>
+            let subject: PassthroughSubject<AIQSharedKit.ScrollPositionData, Never>
             if let existingSubject = viewSubjects[viewId] {
                 subject = existingSubject
             } else {
-                let newSubject = PassthroughSubject<SharedKit.ScrollPositionData, Never>()
+                let newSubject = PassthroughSubject<AIQSharedKit.ScrollPositionData, Never>()
                 viewSubjects[viewId] = newSubject
                 setupDebouncing(for: viewId, subject: newSubject)
                 subject = newSubject
@@ -60,9 +60,9 @@ class ScrollPositionStorage: SharedKit.ScrollPositionStorageProtocol {
     }
 
     /// Retrieve scroll position for a view
-    func getPosition(forView viewId: String) -> SharedKit.ScrollPositionData? {
+    func getPosition(forView viewId: String) -> AIQSharedKit.ScrollPositionData? {
         let key = storageKey(for: viewId)
-        return appStateStorage.getValue(forKey: key, as: SharedKit.ScrollPositionData.self)
+        return appStateStorage.getValue(forKey: key, as: AIQSharedKit.ScrollPositionData.self)
     }
 
     /// Clear scroll position for a view
@@ -75,7 +75,7 @@ class ScrollPositionStorage: SharedKit.ScrollPositionStorageProtocol {
 
     private func setupDebouncing(
         for viewId: String,
-        subject: PassthroughSubject<SharedKit.ScrollPositionData, Never>
+        subject: PassthroughSubject<AIQSharedKit.ScrollPositionData, Never>
     ) {
         let cancellable = subject
             .debounce(for: .seconds(debounceInterval), scheduler: DispatchQueue.main)
@@ -86,7 +86,7 @@ class ScrollPositionStorage: SharedKit.ScrollPositionStorageProtocol {
         viewCancellables[viewId] = cancellable
     }
 
-    private func performSave(_ position: SharedKit.ScrollPositionData, forView viewId: String) {
+    private func performSave(_ position: AIQSharedKit.ScrollPositionData, forView viewId: String) {
         let key = storageKey(for: viewId)
         appStateStorage.setValue(position, forKey: key)
 
