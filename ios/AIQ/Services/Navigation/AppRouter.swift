@@ -1,3 +1,4 @@
+import AIQSharedKit
 import Foundation
 import SwiftUI
 
@@ -147,250 +148,122 @@ enum Route: Hashable, Equatable {
 
 /// Router for managing navigation state in the AIQ app
 ///
-/// Provides centralized navigation control using SwiftUI's NavigationPath with
-/// per-tab navigation isolation. Each tab (Dashboard, History, Settings) maintains
-/// its own independent navigation stack.
+/// Wraps per-tab ``NavigationCoordinator`` instances from SharedKit, providing
+/// centralized navigation control with per-tab isolation. Each tab (Dashboard,
+/// History, Settings) maintains its own independent coordinator and navigation stack.
 ///
 /// Usage:
 /// ```swift
-/// // In MainTabView
-/// @StateObject private var router = AppRouter()
-/// @State private var selectedTab: TabDestination = .dashboard
-///
-/// var body: some View {
-///     TabView(selection: $selectedTab) {
-///         NavigationStack(path: $router.dashboardPath) {
-///             DashboardView()
-///         }
-///         .tag(TabDestination.dashboard)
-///     }
-///     .environment(\.appRouter, router)
+/// // In MainTabView — each tab uses CoordinatedNavigationStack
+/// CoordinatedNavigationStack(coordinator: router.dashboardCoordinator) { route in
+///     destinationView(for: route)
+/// } root: {
+///     DashboardView()
 /// }
 ///
 /// // Navigate from child views (uses currently selected tab)
-/// @Environment(\.appRouter) var router
-/// router.push(.testTaking)  // Pushes to current tab's path
+/// @EnvironmentObject var router: AppRouter
+/// router.push(.testTaking)  // Pushes to current tab's coordinator
 /// ```
 @MainActor
 final class AppRouter: ObservableObject {
-    /// Navigation path for Dashboard tab
-    @Published var dashboardPath = NavigationPath()
-
-    /// Navigation path for History tab
-    @Published var historyPath = NavigationPath()
-
-    /// Navigation path for Settings tab
-    @Published var settingsPath = NavigationPath()
+    /// Per-tab navigation coordinators backed by SharedKit's NavigationCoordinator
+    let dashboardCoordinator = NavigationCoordinator<Route>(loggerSubsystem: "com.aiq.app")
+    let historyCoordinator = NavigationCoordinator<Route>(loggerSubsystem: "com.aiq.app")
+    let settingsCoordinator = NavigationCoordinator<Route>(loggerSubsystem: "com.aiq.app")
 
     /// The currently selected tab (set by MainTabView)
     @Published var currentTab: TabDestination = .dashboard
 
-    // MARK: - Initialization
+    // MARK: - Coordinator Access
 
-    init() {}
-
-    // MARK: - Path Access
-
-    /// Get the navigation path for a specific tab
-    ///
-    /// - Parameter tab: The tab destination
-    /// - Returns: The navigation path for the specified tab
-    func path(for tab: TabDestination) -> NavigationPath {
+    /// Get the navigation coordinator for a specific tab
+    func coordinator(for tab: TabDestination) -> NavigationCoordinator<Route> {
         switch tab {
-        case .dashboard: dashboardPath
-        case .history: historyPath
-        case .settings: settingsPath
+        case .dashboard: dashboardCoordinator
+        case .history: historyCoordinator
+        case .settings: settingsCoordinator
         }
     }
 
-    /// Set the navigation path for a specific tab
-    ///
-    /// - Parameters:
-    ///   - path: The new navigation path
-    ///   - tab: The tab destination
-    func setPath(_ path: NavigationPath, for tab: TabDestination) {
-        switch tab {
-        case .dashboard: dashboardPath = path
-        case .history: historyPath = path
-        case .settings: settingsPath = path
-        }
-    }
+    // MARK: - Navigation Methods (delegate to coordinators)
 
-    /// Get a binding to the navigation path for a specific tab
-    ///
-    /// This is used by NavigationStack in MainTabView to bind to the correct path.
-    ///
-    /// - Parameter tab: The tab destination
-    /// - Returns: A binding to the navigation path for the specified tab
-    func binding(for tab: TabDestination) -> Binding<NavigationPath> {
-        switch tab {
-        case .dashboard:
-            Binding(
-                get: { self.dashboardPath },
-                set: { self.dashboardPath = $0 }
-            )
-        case .history:
-            Binding(
-                get: { self.historyPath },
-                set: { self.historyPath = $0 }
-            )
-        case .settings:
-            Binding(
-                get: { self.settingsPath },
-                set: { self.settingsPath = $0 }
-            )
-        }
-    }
-
-    // MARK: - Navigation Methods
-
-    /// Push a new route onto the navigation stack
-    ///
-    /// This operates on the currently selected tab's navigation stack.
-    ///
-    /// - Parameter route: The route to navigate to
+    /// Push a new route onto the current tab's navigation stack
     func push(_ route: Route) {
-        push(route, in: currentTab)
+        coordinator(for: currentTab).push(route)
     }
 
-    /// Push a new route onto the navigation stack for a specific tab
-    ///
-    /// - Parameters:
-    ///   - route: The route to navigate to
-    ///   - tab: The tab to push the route in
+    /// Push a new route onto a specific tab's navigation stack
     func push(_ route: Route, in tab: TabDestination) {
-        switch tab {
-        case .dashboard:
-            dashboardPath.append(route)
-        case .history:
-            historyPath.append(route)
-        case .settings:
-            settingsPath.append(route)
-        }
+        coordinator(for: tab).push(route)
     }
 
-    /// Pop the last route from the navigation stack
-    ///
-    /// This operates on the currently selected tab's navigation stack.
-    /// If the stack is empty, this method does nothing.
+    /// Pop the last route from the current tab's navigation stack
     func pop() {
-        pop(from: currentTab)
+        coordinator(for: currentTab).pop()
     }
 
-    /// Pop the last route from the navigation stack for a specific tab
-    ///
-    /// - Parameter tab: The tab to pop from
+    /// Pop the last route from a specific tab's navigation stack
     func pop(from tab: TabDestination) {
-        switch tab {
-        case .dashboard:
-            guard !dashboardPath.isEmpty else { return }
-            dashboardPath.removeLast()
-        case .history:
-            guard !historyPath.isEmpty else { return }
-            historyPath.removeLast()
-        case .settings:
-            guard !settingsPath.isEmpty else { return }
-            settingsPath.removeLast()
-        }
+        coordinator(for: tab).pop()
     }
 
-    /// Pop all routes and return to the root view
-    ///
-    /// This operates on the currently selected tab's navigation stack.
+    /// Pop all routes and return to root in the current tab
     func popToRoot() {
-        popToRoot(in: currentTab)
+        coordinator(for: currentTab).popToRoot()
     }
 
-    /// Pop all routes and return to the root view for a specific tab
-    ///
-    /// - Parameter tab: The tab to pop to root in
+    /// Pop all routes and return to root in a specific tab
     func popToRoot(in tab: TabDestination) {
-        switch tab {
-        case .dashboard: dashboardPath = NavigationPath()
-        case .history: historyPath = NavigationPath()
-        case .settings: settingsPath = NavigationPath()
-        }
+        coordinator(for: tab).popToRoot()
     }
 
-    /// Navigate directly to a specific route, replacing the current stack
-    ///
-    /// This is useful for deep linking or handling notifications.
-    /// The new route becomes the only item in the navigation stack.
-    /// This operates on the currently selected tab's navigation stack.
-    ///
-    /// - Parameter route: The route to navigate to
+    /// Navigate directly to a route, replacing the current stack
     func navigateTo(_ route: Route) {
         navigateTo(route, in: currentTab)
     }
 
-    /// Navigate directly to a specific route in a specific tab
-    ///
-    /// - Parameters:
-    ///   - route: The route to navigate to
-    ///   - tab: The tab to navigate in
+    /// Navigate directly to a route in a specific tab
     func navigateTo(_ route: Route, in tab: TabDestination) {
-        popToRoot(in: tab)
-        push(route, in: tab)
+        let coord = coordinator(for: tab)
+        coord.popToRoot()
+        coord.push(route)
     }
 
     /// Navigate to multiple routes in sequence
-    ///
-    /// This is useful for deep linking where you need to establish
-    /// a specific navigation hierarchy (e.g., Dashboard -> TestTaking -> TestResults).
-    /// This operates on the currently selected tab's navigation stack.
-    ///
-    /// - Parameter routes: The routes to navigate to, in order
     func navigateTo(_ routes: [Route]) {
         navigateTo(routes, in: currentTab)
     }
 
     /// Navigate to multiple routes in sequence for a specific tab
-    ///
-    /// - Parameters:
-    ///   - routes: The routes to navigate to, in order
-    ///   - tab: The tab to navigate in
     func navigateTo(_ routes: [Route], in tab: TabDestination) {
-        var newPath = NavigationPath()
+        let coord = coordinator(for: tab)
+        coord.popToRoot()
         for route in routes {
-            newPath.append(route)
-        }
-        switch tab {
-        case .dashboard: dashboardPath = newPath
-        case .history: historyPath = newPath
-        case .settings: settingsPath = newPath
+            coord.push(route)
         }
     }
 
     // MARK: - State Query Methods
 
-    /// Check if the navigation stack is empty (at root)
-    ///
-    /// This checks the currently selected tab's navigation stack.
+    /// Check if the current tab's navigation stack is at root
     var isAtRoot: Bool {
         isAtRoot(in: currentTab)
     }
 
-    /// Check if a specific tab's navigation stack is empty (at root)
-    ///
-    /// - Parameter tab: The tab to check
-    /// - Returns: True if the tab is at root, false otherwise
+    /// Check if a specific tab's navigation stack is at root
     func isAtRoot(in tab: TabDestination) -> Bool {
-        path(for: tab).isEmpty
+        coordinator(for: tab).path.isEmpty
     }
 
-    /// Get the current depth of the navigation stack
-    ///
-    /// This returns the depth of the currently selected tab's navigation stack.
+    /// Get the current tab's navigation stack depth
     var depth: Int {
         depth(in: currentTab)
     }
 
-    /// Get the depth of a specific tab's navigation stack
-    ///
-    /// - Parameter tab: The tab to check
-    /// - Returns: The depth of the tab's navigation stack
+    /// Get a specific tab's navigation stack depth
     func depth(in tab: TabDestination) -> Int {
-        path(for: tab).count
+        coordinator(for: tab).path.count
     }
 }
 
