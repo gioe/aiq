@@ -1,5 +1,5 @@
 @testable import AIQ
-import AIQSharedKit
+import AIQSharedKit // AppStateStorage + AppStateStorageProtocol from ios-libs SharedKit
 import XCTest
 
 final class AppStateStorageTests: XCTestCase {

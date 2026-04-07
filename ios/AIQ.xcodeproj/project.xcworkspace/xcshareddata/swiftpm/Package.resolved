@@ -87,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/gioe/ios-libs",
       "state" : {
-        "revision" : "3158dc56a6d6b2185e0a9b7303b3638228977176",
-        "version" : "1.8.0"
+        "revision" : "3a274ba808e282091ae77a6239f1f3ef8ce2d7ae",
+        "version" : "1.9.0"
       }
     },
     {
