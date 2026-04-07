@@ -56,8 +56,19 @@ enum ServiceConfiguration {
     /// ServiceConfiguration.configureServices(container: ServiceContainer.shared)
     /// ```
     static func configureServices(container: ServiceContainer) {
-        // MARK: - Layer 1: Services with no dependencies
+        let foundationServices = registerFoundationServices(container: container)
+        registerDependentServices(container: container, foundation: foundationServices)
+    }
 
+    // MARK: - Foundation Services (no dependencies)
+
+    private struct FoundationServices {
+        let networkMonitor: NetworkMonitor
+        let openAPIService: OpenAPIService
+        let keychainStorage: KeychainStorage
+    }
+
+    private static func registerFoundationServices(container: ServiceContainer) -> FoundationServices {
         let networkMonitor = NetworkMonitor()
         container.register(NetworkMonitorProtocol.self, scope: .appLevel, instance: networkMonitor)
 
@@ -87,30 +98,47 @@ enum ServiceConfiguration {
         let localAnswerStorage = LocalAnswerStorage()
         container.register(LocalAnswerStorageProtocol.self, scope: .appLevel, instance: localAnswerStorage)
 
-        // MARK: - Layer 2: Services depending on Layer 1
-
         let keychainStorage = KeychainStorage()
         container.register(SecureStorageProtocol.self, scope: .appLevel, instance: keychainStorage)
 
-        let biometricPreferenceStorage = BiometricPreferenceStorage(secureStorage: keychainStorage)
+        return FoundationServices(
+            networkMonitor: networkMonitor,
+            openAPIService: openAPIService,
+            keychainStorage: keychainStorage
+        )
+    }
+
+    // MARK: - Dependent Services
+
+    private static func registerDependentServices(
+        container: ServiceContainer,
+        foundation: FoundationServices
+    ) {
+        let analyticsProvider = FirebaseAnalyticsProvider(
+            networkMonitor: foundation.networkMonitor,
+            secureStorage: foundation.keychainStorage
+        )
+        let analyticsManager = AnalyticsManager()
+        analyticsManager.addProvider(analyticsProvider)
+        container.register(AnalyticsManagerProtocol.self, scope: .appLevel, instance: analyticsManager)
+
+        let biometricPreferenceStorage = BiometricPreferenceStorage(secureStorage: foundation.keychainStorage)
         container.register(
             BiometricPreferenceStorageProtocol.self, scope: .appLevel, instance: biometricPreferenceStorage
         )
 
-        let authService = AuthService(apiService: openAPIService, secureStorage: keychainStorage)
+        let authService = AuthService(
+            apiService: foundation.openAPIService,
+            secureStorage: foundation.keychainStorage
+        )
         container.register(AuthServiceProtocol.self, scope: .appLevel, instance: authService)
 
-        let notificationService = NotificationService(apiService: openAPIService)
+        let notificationService = NotificationService(apiService: foundation.openAPIService)
         container.register(NotificationServiceProtocol.self, scope: .appLevel, instance: notificationService)
 
-        // MARK: - Layer 3: AuthManager with lazy NotificationManager dependency
-
-        // Create AuthManager with a factory closure that will resolve NotificationManager
-        // from the container after it's registered (breaking the circular dependency)
         let authManager = AuthManager(
             authService: authService,
             deviceTokenManagerFactory: {
-                // Lazily resolve NotificationManager from container (breaks circular dependency)
                 let manager: NotificationManagerProtocol = container.resolve()
                 guard let tokenManager = manager as? DeviceTokenManagerProtocol else {
                     fatalError("NotificationManagerProtocol must conform to DeviceTokenManagerProtocol")
@@ -119,8 +147,6 @@ enum ServiceConfiguration {
             }
         )
         container.register(AuthManagerProtocol.self, scope: .appLevel, instance: authManager)
-
-        // MARK: - Layer 4: NotificationManager (now AuthManager is available)
 
         let notificationManager = NotificationManager(
             notificationService: notificationService,

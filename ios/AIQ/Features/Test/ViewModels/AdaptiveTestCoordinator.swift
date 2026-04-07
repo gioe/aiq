@@ -1,4 +1,5 @@
 import AIQAPIClientCore
+import AIQSharedKit
 import Combine
 import Foundation
 
@@ -54,12 +55,17 @@ class AdaptiveTestCoordinator {
     // MARK: - Private Properties
 
     private let apiService: OpenAPIServiceProtocol
+    private let analyticsManager: AnalyticsManagerProtocol
     weak var delegate: AdaptiveTestCoordinatorDelegate?
 
     // MARK: - Init
 
-    init(apiService: OpenAPIServiceProtocol) {
+    init(
+        apiService: OpenAPIServiceProtocol,
+        analyticsManager: AnalyticsManagerProtocol = ServiceContainer.shared.resolve()
+    ) {
         self.apiService = apiService
+        self.analyticsManager = analyticsManager
     }
 
     // MARK: - Public Methods
@@ -125,7 +131,7 @@ class AdaptiveTestCoordinator {
 
         delegate?.prepareForAdaptiveStart(session: response.session, questions: response.questions)
 
-        AnalyticsService.shared.trackTestStarted(
+        analyticsManager.trackTestStarted(
             sessionId: response.session.id,
             questionCount: response.questions.count
         )
@@ -153,7 +159,7 @@ class AdaptiveTestCoordinator {
         isLoadingNextQuestion = false
 
         if let session = delegate?.testSession {
-            AnalyticsService.shared.trackTestCompleted(
+            analyticsManager.trackTestCompleted(
                 sessionId: session.id,
                 iqScore: 0,
                 durationSeconds: 0,

@@ -15,7 +15,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         ServiceContainer.shared.resolve((any ToastManagerProtocol).self)
 
     private let deepLinkHandler = DeepLinkHandler()
-    private let analyticsService = AnalyticsService.shared
+    private let analyticsManager: AnalyticsManagerProtocol =
+        ServiceContainer.shared.resolve(AnalyticsManagerProtocol.self)
     private let backgroundRefreshManager = BackgroundRefreshManager.shared
     private static let logger = Logger(subsystem: "com.aiq.app", category: "AppDelegate")
 
@@ -86,7 +87,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
               let trustKitConfig = NSDictionary(contentsOfFile: trustKitConfigPath) as? [String: Any]
         else {
             Self.logger.error("TrustKit.plist missing or invalid format - cannot load config")
-            analyticsService.trackCertificatePinningInitializationFailed(
+            analyticsManager.trackCertificatePinningInitializationFailed(
                 reason: "TrustKit.plist missing or invalid format"
             )
             // Certificate pinning is critical for security - fail hard in production
@@ -95,27 +96,27 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
         // Verify minimum required pins are configured before initializing
         guard let pinnedDomains = trustKitConfig["TSKPinnedDomains"] as? [String: Any] else {
-            analyticsService.trackCertificatePinningInitializationFailed(
+            analyticsManager.trackCertificatePinningInitializationFailed(
                 reason: "TSKPinnedDomains missing from config"
             )
             fatalError("TrustKit config missing TSKPinnedDomains")
         }
         guard let railwayConfig = pinnedDomains[AppConfig.productionDomain] as? [String: Any] else {
-            analyticsService.trackCertificatePinningInitializationFailed(
+            analyticsManager.trackCertificatePinningInitializationFailed(
                 reason: "Domain config missing",
                 domain: AppConfig.productionDomain
             )
             fatalError("TrustKit config missing pinning for \(AppConfig.productionDomain)")
         }
         guard let hashes = railwayConfig["TSKPublicKeyHashes"] as? [String] else {
-            analyticsService.trackCertificatePinningInitializationFailed(
+            analyticsManager.trackCertificatePinningInitializationFailed(
                 reason: "TSKPublicKeyHashes missing",
                 domain: AppConfig.productionDomain
             )
             fatalError("TrustKit config missing TSKPublicKeyHashes")
         }
         guard hashes.count >= Constants.Security.minRequiredPins else {
-            analyticsService.trackCertificatePinningInitializationFailed(
+            analyticsManager.trackCertificatePinningInitializationFailed(
                 reason: "Insufficient pins (found \(hashes.count), need \(Constants.Security.minRequiredPins))",
                 domain: AppConfig.productionDomain
             )
@@ -129,7 +130,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         Self.logger.info("TrustKit initialized with certificate pinning for Railway backend")
 
         // Track successful initialization
-        analyticsService.trackCertificatePinningInitialized(
+        analyticsManager.trackCertificatePinningInitialized(
             domain: AppConfig.productionDomain,
             pinCount: hashes.count
         )
@@ -374,7 +375,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         Task { @MainActor in
             await notificationManager.checkAuthorizationStatus()
             let authStatusString = authorizationStatusDescription(notificationManager.authorizationStatus)
-            analyticsService.trackNotificationTapped(
+            analyticsManager.trackNotificationTapped(
                 notificationType: notificationType,
                 authorizationStatus: authStatusString
             )

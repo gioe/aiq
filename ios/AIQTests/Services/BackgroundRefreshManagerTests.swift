@@ -31,7 +31,7 @@ final class BackgroundRefreshManagerTests: XCTestCase {
         sut = BackgroundRefreshManager(
             apiService: mockService,
             authManager: mockAuthManager,
-            analyticsService: AnalyticsService.shared,
+            analyticsManager: MockAnalyticsManager(),
             networkMonitor: mockNetworkMonitor,
             notificationCenter: mockNotificationCenter
         )

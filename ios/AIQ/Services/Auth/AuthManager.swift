@@ -37,10 +37,13 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     /// Factory closure for creating DeviceTokenManager - using lazy initialization
     /// to break circular dependency with NotificationManager
     private let deviceTokenManagerFactory: () -> DeviceTokenManagerProtocol
+    private let analyticsManager: AnalyticsManagerProtocol
+
     private lazy var deviceTokenManager: DeviceTokenManagerProtocol = deviceTokenManagerFactory()
 
     init(
         authService: AuthServiceProtocol = ServiceContainer.shared.resolve(),
+        analyticsManager: AnalyticsManagerProtocol = ServiceContainer.shared.resolve(),
         deviceTokenManagerFactory: @escaping @MainActor () -> DeviceTokenManagerProtocol = {
             let manager: NotificationManagerProtocol = ServiceContainer.shared.resolve()
             guard let tokenManager = manager as? DeviceTokenManagerProtocol else {
@@ -50,6 +53,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         }
     ) {
         self.authService = authService
+        self.analyticsManager = analyticsManager
         self.deviceTokenManagerFactory = deviceTokenManagerFactory
 
         // Initialize state from existing session
@@ -97,7 +101,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             isLoading = false
 
             // Track analytics
-            AnalyticsService.shared.trackUserRegistered(email: email)
+            analyticsManager.trackUserRegistered(email: email)
         } catch {
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval("Auth.Register", state)
@@ -136,7 +140,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             isLoading = false
 
             // Track analytics
-            AnalyticsService.shared.trackUserLogin(email: email)
+            analyticsManager.trackUserLogin(email: email)
         } catch {
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval("Auth.Login", state)
@@ -153,7 +157,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             isLoading = false
 
             // Track failed authentication
-            AnalyticsService.shared.trackAuthFailed(reason: error.localizedDescription)
+            analyticsManager.trackAuthFailed(reason: error.localizedDescription)
             throw contextualError
         }
     }
@@ -197,7 +201,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         await AppCache.shared.removeAll()
 
         // Track analytics
-        AnalyticsService.shared.trackUserLogout()
+        analyticsManager.trackUserLogout()
     }
 
     func deleteAccount() async throws {
@@ -233,7 +237,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             ViewModelFactory.resetTabViewModels()
 
             // Track analytics
-            AnalyticsService.shared.track(event: .accountDeleted)
+            analyticsManager.trackAccountDeleted()
 
             // Clear all cached data
             await AppCache.shared.removeAll()

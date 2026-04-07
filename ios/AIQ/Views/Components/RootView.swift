@@ -51,7 +51,7 @@ import SwiftUI
 ///
 /// - SeeAlso: `PrivacyConsentView` - First screen for new users
 /// - SeeAlso: `OnboardingContainerView` - Zero analytics tracking
-/// - SeeAlso: `AnalyticsService` - Privacy-compliant event tracking
+/// - SeeAlso: `AnalyticsManager` / `FirebaseAnalyticsProvider` - Privacy-compliant event tracking
 /// - SeeAlso: `BiometricLockView` - Full-screen biometric authentication overlay
 struct RootView: View {
     /// Auth state observer that works with any AuthManagerProtocol from the DI container

@@ -27,7 +27,7 @@ class BackgroundRefreshManager: ObservableObject {
     private let logger = Logger(subsystem: "com.aiq.app", category: "BackgroundRefresh")
     private let apiService: OpenAPIServiceProtocol
     private let authManager: AuthManagerProtocol
-    private let analyticsService: AnalyticsService
+    private let analyticsManager: AnalyticsManagerProtocol
     private let networkMonitor: NetworkMonitorProtocol
     private let notificationCenter: UserNotificationCenterProtocol
 
@@ -42,13 +42,13 @@ class BackgroundRefreshManager: ObservableObject {
     init(
         apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve(),
         authManager: AuthManagerProtocol = ServiceContainer.shared.resolve(),
-        analyticsService: AnalyticsService = AnalyticsService.shared,
+        analyticsManager: AnalyticsManagerProtocol = ServiceContainer.shared.resolve(),
         networkMonitor: NetworkMonitorProtocol = NetworkMonitor.shared,
         notificationCenter: UserNotificationCenterProtocol = UNUserNotificationCenter.current()
     ) {
         self.apiService = apiService
         self.authManager = authManager
-        self.analyticsService = analyticsService
+        self.analyticsManager = analyticsManager
         self.networkMonitor = networkMonitor
         self.notificationCenter = notificationCenter
     }
@@ -89,7 +89,7 @@ class BackgroundRefreshManager: ObservableObject {
             logger.info("Scheduled background refresh for \(hours, privacy: .public) hours from now")
         } catch {
             logger.error("Failed to schedule background refresh: \(error.localizedDescription, privacy: .public)")
-            analyticsService.track(event: .backgroundRefreshScheduleFailed, properties: [
+            analyticsManager.track(event: .backgroundRefreshScheduleFailed, properties: [
                 "error": error.localizedDescription
             ])
         }
@@ -117,7 +117,7 @@ class BackgroundRefreshManager: ObservableObject {
                 guard !self.taskCompleted else { return }
                 self.taskCompleted = true
                 self.logger.warning("Background refresh task expired before completion")
-                self.analyticsService.track(event: .backgroundRefreshExpired)
+                self.analyticsManager.track(event: .backgroundRefreshExpired)
                 task.setTaskCompleted(success: false)
             }
         }
@@ -136,7 +136,7 @@ class BackgroundRefreshManager: ObservableObject {
         logger.info("Background refresh completed in \(duration, privacy: .public)s with success: \(success)")
 
         // Track completion analytics
-        analyticsService.track(event: .backgroundRefreshCompleted, properties: [
+        analyticsManager.track(event: .backgroundRefreshCompleted, properties: [
             "success": success,
             "duration_seconds": duration
         ])
@@ -189,7 +189,7 @@ class BackgroundRefreshManager: ObservableObject {
 
         } catch {
             logger.error("Background refresh failed: \(error.localizedDescription, privacy: .public)")
-            analyticsService.track(event: .backgroundRefreshFailed, properties: [
+            analyticsManager.track(event: .backgroundRefreshFailed, properties: [
                 "error": error.localizedDescription
             ])
             return false
@@ -275,11 +275,11 @@ class BackgroundRefreshManager: ObservableObject {
             saveLastNotificationDate()
 
             logger.info("Sent test available notification")
-            analyticsService.track(event: .backgroundRefreshNotificationSent)
+            analyticsManager.track(event: .backgroundRefreshNotificationSent)
 
         } catch {
             logger.error("Failed to send notification: \(error.localizedDescription, privacy: .public)")
-            analyticsService.track(event: .backgroundRefreshNotificationFailed, properties: [
+            analyticsManager.track(event: .backgroundRefreshNotificationFailed, properties: [
                 "error": error.localizedDescription
             ])
         }

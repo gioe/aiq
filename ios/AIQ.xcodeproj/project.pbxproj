@@ -81,6 +81,8 @@
 		33B55DFD3E71E8BD7E62234F /* HistoryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A839FCC317A5FF03CFAD3F /* HistoryViewModelTests.swift */; };
 		348743FFE1A458DEE4D1CD3C /* ToastManagerObserverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5967D9C64B6BBDFB1D3C205F /* ToastManagerObserverTests.swift */; };
 		364A1095E19013479FF24683 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7585F7DE65C589585935EB9 /* AnalyticsService.swift */; };
+		A1B2C3D4E5F6071829304150 /* FirebaseAnalyticsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304151 /* FirebaseAnalyticsProvider.swift */; };
+		A1B2C3D4E5F6071829304152 /* MockAnalyticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304153 /* MockAnalyticsManager.swift */; };
 		36BF1A734D0A529378F6B325 /* NotificationSoftPromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58DDCD8AB4B174FB7181123B /* NotificationSoftPromptView.swift */; };
 		37A1DB09F0053414B6DCD9F4 /* IQTrendChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38491F8843EF65B7D7DB86BB /* IQTrendChart.swift */; };
 		37B7684F257261E7FD38A1DB /* ViewModelFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50DF8CAA3E236F47AF772D01 /* ViewModelFactoryTests.swift */; };
@@ -534,6 +536,8 @@
 		C48FCBD9EA44E9A3B5CB1544 /* TestResult+Extensions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "TestResult+Extensions.swift"; sourceTree = "<group>"; };
 		C60195BDAE48679057583973 /* AIQAPIClientExtensionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AIQAPIClientExtensionsTests.swift; sourceTree = "<group>"; };
 		C7585F7DE65C589585935EB9 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829304151 /* FirebaseAnalyticsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseAnalyticsProvider.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829304153 /* MockAnalyticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAnalyticsManager.swift; sourceTree = "<group>"; };
 		C77E73EC2849F54556FC3556 /* LoginViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LoginViewModel.swift; path = Features/Auth/ViewModels/LoginViewModel.swift; sourceTree = "<group>"; };
 		C92DFD433134807D93604B68 /* NotificationEngagementTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationEngagementTests.swift; sourceTree = "<group>"; };
 		CB7CB297B401BB40A27456F0 /* Constants.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
@@ -982,6 +986,7 @@
 				F9B7AAAF658F273016A6A08D /* MockOpenAPIService.swift */,
 				2654BD70D17C7A0E3AF48CD9 /* MockDeepLinkHandler.swift */,
 				87F696C48D7A8EAA4FD4FF57 /* MockAnalyticsService.swift */,
+				A1B2C3D4E5F6071829304153 /* MockAnalyticsManager.swift */,
 				8DF1D43C1237D5117457A636 /* MockBiometricAuthManager.swift */,
 				DD287379F45DD5ECDF4516B5 /* MockBiometricPreferenceStorage.swift */,
 				BD32262541906580A625CFEC /* MockTimeProvider.swift */,
@@ -1237,6 +1242,7 @@
 			isa = PBXGroup;
 			children = (
 				C7585F7DE65C589585935EB9 /* AnalyticsService.swift */,
+				A1B2C3D4E5F6071829304151 /* FirebaseAnalyticsProvider.swift */,
 			);
 			path = Analytics;
 			sourceTree = "<group>";
@@ -1631,6 +1637,7 @@
 				CF1450DC01D4A2844B320030 /* DeepLinkNavigationIntegrationTests.swift in Sources */,
 				B7623286D50D88B5F00934E8 /* AdaptiveTestTakingViewModelTests.swift in Sources */,
 				237CFF2C7A42B1C86CCF0A09 /* MockAnalyticsService.swift in Sources */,
+				A1B2C3D4E5F6071829304152 /* MockAnalyticsManager.swift in Sources */,
 				B5611F5C7375F251E6555E7B /* MockBiometricAuthManager.swift in Sources */,
 				BBA3938C76B2C591C45EC21F /* MockBiometricPreferenceStorage.swift in Sources */,
 				071051FE0B55D6E6FFF9386C /* BiometricLockViewTests.swift in Sources */,
@@ -1654,6 +1661,7 @@
 				943DE3B36FA4BDF9A177F017 /* AIQApp.swift in Sources */,
 				45E9C4DEC6D27065EB786C01 /* APIError.swift in Sources */,
 				364A1095E19013479FF24683 /* AnalyticsService.swift in Sources */,
+				A1B2C3D4E5F6071829304150 /* FirebaseAnalyticsProvider.swift in Sources */,
 				ICG007001AAAA /* AppRouter.swift in Sources */,
 				BC77B3CA6DF041F7FD00BE25 /* AppConfig.swift in Sources */,
 				32577626946B0CC120F09709 /* AppDelegate.swift in Sources */,

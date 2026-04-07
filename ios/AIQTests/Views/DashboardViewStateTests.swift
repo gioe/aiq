@@ -5,13 +5,13 @@ import XCTest
 final class DashboardViewStateTests: XCTestCase {
     var sut: DashboardViewModel!
     var mockService: MockOpenAPIService!
-    var mockAnalyticsService: MockAnalyticsService!
+    var mockAnalyticsService: MockAnalyticsManager!
 
     override func setUp() async throws {
         try await super.setUp()
         mockService = MockOpenAPIService()
-        mockAnalyticsService = MockAnalyticsService()
-        sut = DashboardViewModel(apiService: mockService, analyticsService: mockAnalyticsService)
+        mockAnalyticsService = MockAnalyticsManager()
+        sut = DashboardViewModel(apiService: mockService, analyticsManager: mockAnalyticsService)
 
         await AppCache.shared.remove(forKey: .activeTestSession)
         await AppCache.shared.remove(forKey: .testHistory)

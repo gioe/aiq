@@ -4,12 +4,12 @@ import XCTest
 /// Tests for DeepLinkHandler URL parsing functionality
 final class DeepLinkHandlerTests: XCTestCase {
     var sut: DeepLinkHandler!
-    var mockAnalytics: MockAnalyticsService!
+    var mockAnalytics: MockAnalyticsManager!
 
     override func setUp() {
         super.setUp()
-        mockAnalytics = MockAnalyticsService()
-        sut = DeepLinkHandler(analyticsService: mockAnalytics)
+        mockAnalytics = MockAnalyticsManager()
+        sut = DeepLinkHandler(analyticsManager: mockAnalytics)
     }
 
     // MARK: - URL Scheme Tests - Test Results

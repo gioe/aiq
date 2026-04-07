@@ -1,8 +1,9 @@
 @testable import AIQ
+import AIQSharedKit
 import XCTest
 
-final class AnalyticsServiceTests: XCTestCase {
-    var sut: AnalyticsService!
+final class FirebaseAnalyticsProviderTests: XCTestCase {
+    var sut: FirebaseAnalyticsProvider!
     var mockNetworkMonitor: MockNetworkMonitor!
     var mockUserDefaults: UserDefaults!
     var mockURLSession: URLSession!
@@ -11,25 +12,22 @@ final class AnalyticsServiceTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
-        // Create mock dependencies
         mockNetworkMonitor = MockNetworkMonitor(isConnected: true)
         mockUserDefaults = UserDefaults(suiteName: "com.aiq.tests")!
         mockUserDefaults.removePersistentDomain(forName: "com.aiq.tests")
         mockSecureStorage = MockSecureStorage()
 
-        // Configure MockURLProtocol for network requests
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
         mockURLSession = URLSession(configuration: config)
 
-        // Create SUT with injected dependencies
-        sut = AnalyticsService(
+        sut = FirebaseAnalyticsProvider(
             userDefaults: mockUserDefaults,
             networkMonitor: mockNetworkMonitor,
             urlSession: mockURLSession,
             secureStorage: mockSecureStorage,
-            batchInterval: 1000.0, // Long interval to prevent automatic submission during tests
-            startTimer: false // Don't start timer during tests
+            batchInterval: 1000.0,
+            startTimer: false
         )
     }
 
@@ -39,91 +37,65 @@ final class AnalyticsServiceTests: XCTestCase {
         super.tearDown()
     }
 
+    // MARK: - Helpers
+
+    private func event(_ type: AIQAnalyticsEvent, parameters: [String: Any]? = nil) -> AnalyticsEvent {
+        AnalyticsEvent(name: type.rawValue, parameters: parameters)
+    }
+
     // MARK: - Event Tracking Tests
 
     func testTrackEvent_AddsEventToQueue() {
-        // Given
-        let event = AnalyticsEvent.userLogin
-        let properties: [String: Any] = ["email_domain": "example.com"]
-
-        // When
-        sut.track(event: event, properties: properties)
-
-        // Then
+        sut.track(event(.userLogin, parameters: ["email_domain": "example.com"]))
         XCTAssertEqual(sut.eventQueueCount, 1, "Event should be added to queue")
     }
 
     func testTrackEvent_WithoutProperties() {
-        // Given
-        let event = AnalyticsEvent.userLogout
-
-        // When
-        sut.track(event: event)
-
-        // Then
+        sut.track(event(.userLogout))
         XCTAssertEqual(sut.eventQueueCount, 1)
     }
 
     func testTrackEvent_MultipleEvents() {
-        // When
-        sut.track(event: .userLogin)
-        sut.track(event: .testStarted, properties: ["session_id": 123])
-        sut.track(event: .testCompleted, properties: ["session_id": 123, "iq_score": 120])
-
-        // Then
+        sut.track(event(.userLogin))
+        sut.track(event(.testStarted, parameters: ["session_id": 123]))
+        sut.track(event(.testCompleted, parameters: ["session_id": 123, "iq_score": 120]))
         XCTAssertEqual(sut.eventQueueCount, 3)
     }
 
     func testTrackEvent_EnforcesMaxQueueSize() {
-        // Given - Max queue size is 500
         let maxQueueSize = sut.maxQueueSize
-
-        // Disable network to prevent auto-submission when queue reaches batch size
         mockNetworkMonitor.isConnected = false
 
-        // When - Add more than max events
         for i in 0 ..< (maxQueueSize + 10) {
-            sut.track(event: .userLogin, properties: ["index": i])
+            sut.track(event(.userLogin, parameters: ["index": i]))
         }
 
-        // Then - Queue should be capped at max size
         XCTAssertEqual(sut.eventQueueCount, maxQueueSize, "Queue should be capped at max size")
     }
 
     func testTrackEvent_DropsOldestEventsWhenQueueFull() {
-        // Given
         let maxQueueSize = sut.maxQueueSize
-
-        // Disable network to prevent auto-submission when queue reaches batch size
         mockNetworkMonitor.isConnected = false
 
-        // Add max events
         for i in 0 ..< maxQueueSize {
-            sut.track(event: .userLogin, properties: ["index": i])
+            sut.track(event(.userLogin, parameters: ["index": i]))
         }
 
-        // When - Add one more event
-        sut.track(event: .userLogout, properties: ["index": maxQueueSize])
-
-        // Then - Queue should still be at max size
+        sut.track(event(.userLogout, parameters: ["index": maxQueueSize]))
         XCTAssertEqual(sut.eventQueueCount, maxQueueSize)
     }
 
     // MARK: - Event Persistence Tests
 
     func testPersistEvents_SavesEventsToUserDefaults() {
-        // Given
-        sut.track(event: .userLogin, properties: ["email_domain": "test.com"])
-        sut.track(event: .testStarted, properties: ["session_id": 123])
+        sut.track(event(.userLogin, parameters: ["email_domain": "test.com"]))
+        sut.track(event(.testStarted, parameters: ["session_id": 123]))
 
-        // When
         sut.testPersistEvents()
 
-        // Then - Events should be persisted
-        let data = mockUserDefaults.data(forKey: AnalyticsService.storageKey)
+        let data = mockUserDefaults.data(forKey: FirebaseAnalyticsProvider.storageKey)
         XCTAssertNotNil(data, "Events should be persisted to UserDefaults")
 
-        // Verify we can decode the events
         guard let persistedData = data else {
             XCTFail("Data should not be nil")
             return
@@ -135,21 +107,17 @@ final class AnalyticsServiceTests: XCTestCase {
     }
 
     func testPersistEvents_RemovesKeyWhenQueueEmpty() {
-        // Given - Add and then remove all events
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
         sut.testPersistEvents()
-        XCTAssertNotNil(mockUserDefaults.data(forKey: AnalyticsService.storageKey))
+        XCTAssertNotNil(mockUserDefaults.data(forKey: FirebaseAnalyticsProvider.storageKey))
 
-        // When - Clear queue and persist
         sut.testClearQueue()
         sut.testPersistEvents()
 
-        // Then - Key should be removed
-        XCTAssertNil(mockUserDefaults.data(forKey: AnalyticsService.storageKey))
+        XCTAssertNil(mockUserDefaults.data(forKey: FirebaseAnalyticsProvider.storageKey))
     }
 
     func testLoadPersistedEvents_RestoresEventsFromUserDefaults() throws {
-        // Given - Persist some events manually
         let events = [
             AnalyticsEventData(
                 eventName: "user.login",
@@ -166,10 +134,9 @@ final class AnalyticsServiceTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(events)
-        mockUserDefaults.set(data, forKey: AnalyticsService.storageKey)
+        mockUserDefaults.set(data, forKey: FirebaseAnalyticsProvider.storageKey)
 
-        // When - Create a new service that will load persisted events
-        let newService = AnalyticsService(
+        let newProvider = FirebaseAnalyticsProvider(
             userDefaults: mockUserDefaults,
             networkMonitor: mockNetworkMonitor,
             urlSession: mockURLSession,
@@ -178,17 +145,14 @@ final class AnalyticsServiceTests: XCTestCase {
             startTimer: false
         )
 
-        // Then - Events should be loaded
-        XCTAssertEqual(newService.eventQueueCount, 2, "Should load 2 persisted events")
+        XCTAssertEqual(newProvider.eventQueueCount, 2, "Should load 2 persisted events")
     }
 
     func testLoadPersistedEvents_HandlesMalformedData() throws {
-        // Given - Store malformed data
         let malformedData = try XCTUnwrap("not valid json".data(using: .utf8))
-        mockUserDefaults.set(malformedData, forKey: AnalyticsService.storageKey)
+        mockUserDefaults.set(malformedData, forKey: FirebaseAnalyticsProvider.storageKey)
 
-        // When - Create a new service that will try to load persisted events
-        let newService = AnalyticsService(
+        let newProvider = FirebaseAnalyticsProvider(
             userDefaults: mockUserDefaults,
             networkMonitor: mockNetworkMonitor,
             urlSession: mockURLSession,
@@ -197,28 +161,22 @@ final class AnalyticsServiceTests: XCTestCase {
             startTimer: false
         )
 
-        // Then - Should handle gracefully (empty queue)
-        XCTAssertEqual(newService.eventQueueCount, 0, "Should have empty queue after malformed data")
-        // Malformed data should be cleared
-        XCTAssertNil(mockUserDefaults.data(forKey: AnalyticsService.storageKey))
+        XCTAssertEqual(newProvider.eventQueueCount, 0, "Should have empty queue after malformed data")
+        XCTAssertNil(mockUserDefaults.data(forKey: FirebaseAnalyticsProvider.storageKey))
     }
 
     // MARK: - Network Connectivity Tests
 
     func testSubmitBatch_SkipsWhenOffline() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
         mockNetworkMonitor.isConnected = false
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then - Events should remain in queue
         XCTAssertEqual(sut.eventQueueCount, 1, "Events should remain when offline")
     }
 
     func testSubmitBatch_SkipsRequestWhenQueueEmpty() async {
-        // Given - empty queue (no events tracked)
         var requestMade = false
         MockURLProtocol.requestHandler = { _ in
             requestMade = true
@@ -234,17 +192,14 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then
         XCTAssertFalse(requestMade, "Should not make network request for empty queue")
         XCTAssertEqual(sut.eventQueueCount, 0, "Queue should remain empty")
     }
 
     func testSubmitBatch_SubmitsWhenOnline() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
         mockNetworkMonitor.isConnected = true
 
         MockURLProtocol.requestHandler = { _ in
@@ -260,18 +215,15 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then - Events should be submitted and removed
         XCTAssertEqual(sut.eventQueueCount, 0, "Events should be removed after submission")
     }
 
     // MARK: - Batch Submission Tests
 
     func testSubmitBatch_BatchesEventsCorrectly() async {
-        // Create a separate SUT with autoSubmitWhenFull disabled to prevent race conditions
-        let testSut = AnalyticsService(
+        let testSut = FirebaseAnalyticsProvider(
             userDefaults: mockUserDefaults,
             networkMonitor: mockNetworkMonitor,
             urlSession: mockURLSession,
@@ -281,13 +233,11 @@ final class AnalyticsServiceTests: XCTestCase {
             autoSubmitWhenFull: false
         )
 
-        // Given - Add more events than max batch size
         let maxBatchSize = testSut.maxBatchSize
         for i in 0 ..< (maxBatchSize + 10) {
-            testSut.track(event: .userLogin, properties: ["index": i])
+            testSut.track(event(.userLogin, parameters: ["index": i]))
         }
 
-        // Set up mock handler
         var requestCount = 0
         MockURLProtocol.requestHandler = { request in
             requestCount += 1
@@ -303,17 +253,14 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When - Submit batch (should only submit maxBatchSize events)
         await testSut.testSubmitBatch()
 
-        // Then
         XCTAssertEqual(requestCount, 1, "Should make exactly one request")
         XCTAssertEqual(testSut.eventQueueCount, 10, "Should have 10 events remaining")
     }
 
     func testAutoSubmitWhenFull_SubmitsWhenBufferReachesCapacity() async {
-        // Create a separate SUT with autoSubmitWhenFull enabled
-        let testSut = AnalyticsService(
+        let testSut = FirebaseAnalyticsProvider(
             userDefaults: mockUserDefaults,
             networkMonitor: mockNetworkMonitor,
             urlSession: mockURLSession,
@@ -323,7 +270,6 @@ final class AnalyticsServiceTests: XCTestCase {
             autoSubmitWhenFull: true
         )
 
-        // Given - Set up mock handler to track submissions with expectation
         let submissionExpectation = expectation(description: "Auto-submission occurs")
         var requestCount = 0
         MockURLProtocol.requestHandler = { request in
@@ -341,20 +287,17 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When - Add events up to max batch size
         let maxBatchSize = testSut.maxBatchSize
         for i in 0 ..< maxBatchSize {
-            testSut.track(event: .userLogin, properties: ["index": i])
+            testSut.track(event(.userLogin, parameters: ["index": i]))
         }
 
-        // Then - Wait for auto-submission with timeout
         await fulfillment(of: [submissionExpectation], timeout: 2.0)
         XCTAssertGreaterThanOrEqual(requestCount, 1, "Should auto-submit when buffer reaches capacity")
     }
 
     func testSubmitBatch_IncludesCorrectMetadata() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
 
         var capturedRequest: URLRequest?
         MockURLProtocol.requestHandler = { request in
@@ -371,10 +314,8 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then
         XCTAssertNotNil(capturedRequest)
         XCTAssertEqual(capturedRequest?.value(forHTTPHeaderField: "X-Platform"), "iOS")
         XCTAssertNotNil(capturedRequest?.value(forHTTPHeaderField: "X-App-Version"))
@@ -382,15 +323,13 @@ final class AnalyticsServiceTests: XCTestCase {
     }
 
     func testSubmitBatch_PreventsRaceConditions() async {
-        // Given
         for i in 0 ..< 10 {
-            sut.track(event: .userLogin, properties: ["index": i])
+            sut.track(event(.userLogin, parameters: ["index": i]))
         }
 
         var requestCount = 0
         MockURLProtocol.requestHandler = { request in
             requestCount += 1
-            // Add a small delay to simulate network latency
             Thread.sleep(forTimeInterval: 0.1)
             let response = HTTPURLResponse(
                 url: request.url!,
@@ -404,21 +343,18 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When - Try to submit multiple times concurrently
         async let submission1: Void = sut.testSubmitBatch()
         async let submission2: Void = sut.testSubmitBatch()
         async let submission3: Void = sut.testSubmitBatch()
         _ = await (submission1, submission2, submission3)
 
-        // Then - Only one request should go through due to isSubmitting flag
         XCTAssertEqual(requestCount, 1, "Only one submission should proceed")
     }
 
     // MARK: - Retry Logic Tests
 
     func testSubmitWithRetry_RetriesOnFailure() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
 
         var attemptCount = 0
         MockURLProtocol.requestHandler = { _ in
@@ -438,17 +374,14 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then - Should have retried and eventually succeeded
         XCTAssertEqual(attemptCount, 3, "Should retry until success")
         XCTAssertEqual(sut.eventQueueCount, 0, "Events should be removed after successful retry")
     }
 
     func testSubmitWithRetry_GivesUpAfterMaxRetries() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
         let maxRetries = sut.maxRetries
 
         var attemptCount = 0
@@ -457,17 +390,14 @@ final class AnalyticsServiceTests: XCTestCase {
             throw NSError(domain: "TestError", code: -1, userInfo: nil)
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then - Should give up after max retries
         XCTAssertEqual(attemptCount, maxRetries, "Should attempt exactly maxRetries times")
         XCTAssertEqual(sut.eventQueueCount, 1, "Events should remain in queue after all retries fail")
     }
 
     func testSubmitWithRetry_ExponentialBackoff() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
 
         var attemptTimes: [Date] = []
         MockURLProtocol.requestHandler = { _ in
@@ -487,17 +417,14 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then - Verify exponential backoff timing (1s, 2s)
         XCTAssertEqual(attemptTimes.count, 3, "Should have 3 attempts")
 
         if attemptTimes.count >= 3 {
             let firstDelay = attemptTimes[1].timeIntervalSince(attemptTimes[0])
             let secondDelay = attemptTimes[2].timeIntervalSince(attemptTimes[1])
 
-            // Allow wide tolerance for timing to handle slow CI/CD runners
             XCTAssertGreaterThan(firstDelay, 0.5, "First delay should be ~1s")
             XCTAssertLessThan(firstDelay, 2.0, "First delay should be ~1s")
             XCTAssertGreaterThan(secondDelay, 1.5, "Second delay should be ~2s")
@@ -508,8 +435,7 @@ final class AnalyticsServiceTests: XCTestCase {
     // MARK: - HTTP Error Handling Tests
 
     func testSubmitBatch_Handles401Unauthorized() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
 
         var attemptCount = 0
         MockURLProtocol.requestHandler = { _ in
@@ -523,17 +449,14 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, Data())
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then - Should retry on 401
         XCTAssertEqual(attemptCount, sut.maxRetries, "Should retry on 401")
         XCTAssertEqual(sut.eventQueueCount, 1, "Events should remain in queue")
     }
 
     func testSubmitBatch_Handles500ServerError() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
 
         var attemptCount = 0
         MockURLProtocol.requestHandler = { _ in
@@ -547,10 +470,8 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, Data())
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then - Should retry on 500
         XCTAssertEqual(attemptCount, sut.maxRetries, "Should retry on 500")
         XCTAssertEqual(sut.eventQueueCount, 1, "Events should remain in queue")
     }
@@ -558,8 +479,7 @@ final class AnalyticsServiceTests: XCTestCase {
     // MARK: - Auth Token Tests
 
     func testSubmitBatch_IncludesAuthTokenWhenAvailable() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
         try? mockSecureStorage.save("test_token_123", forKey: SecureStorageKey.accessToken.rawValue)
 
         var authorizationHeader: String?
@@ -577,17 +497,13 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then
         XCTAssertEqual(authorizationHeader, "Bearer test_token_123")
     }
 
     func testSubmitBatch_WorksWithoutAuthToken() async {
-        // Given
-        sut.track(event: .userLogin)
-        // No auth token set in secure storage
+        sut.track(event(.userLogin))
 
         var authorizationHeader: String?
         MockURLProtocol.requestHandler = { request in
@@ -604,17 +520,14 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then
         XCTAssertNil(authorizationHeader, "Should not include Authorization header when no token")
         XCTAssertEqual(sut.eventQueueCount, 0, "Events should be submitted successfully")
     }
 
     func testSubmitBatch_HandlesSecureStorageRetrievalError() async {
-        // Given
-        sut.track(event: .userLogin)
+        sut.track(event(.userLogin))
         mockSecureStorage.shouldThrowOnRetrieve = true
 
         var authorizationHeader: String?
@@ -634,10 +547,8 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When
         await sut.testSubmitBatch()
 
-        // Then
         XCTAssertTrue(requestMade, "Request should be made even when secure storage throws")
         XCTAssertNil(authorizationHeader, "Should not include Authorization header when retrieval throws")
         XCTAssertEqual(sut.eventQueueCount, 0, "Events should be submitted successfully without auth token")
@@ -646,9 +557,7 @@ final class AnalyticsServiceTests: XCTestCase {
     // MARK: - Thread Safety Tests
 
     func testConcurrentEventTracking_ThreadSafety() async {
-        // Given - Use a dedicated SUT with autoSubmitWhenFull disabled to prevent
-        // auto-submission from clearing the queue during concurrent tracking
-        let testSut = AnalyticsService(
+        let testSut = FirebaseAnalyticsProvider(
             userDefaults: mockUserDefaults,
             networkMonitor: mockNetworkMonitor,
             urlSession: mockURLSession,
@@ -662,32 +571,28 @@ final class AnalyticsServiceTests: XCTestCase {
         let expectation = expectation(description: "All events tracked")
         expectation.expectedFulfillmentCount = iterations
 
-        // When - Track events concurrently
         for i in 0 ..< iterations {
             DispatchQueue.global().async {
-                testSut.track(event: .userLogin, properties: ["index": i])
+                testSut.track(self.event(.userLogin, parameters: ["index": i]))
                 expectation.fulfill()
             }
         }
 
-        // Then
         await fulfillment(of: [expectation], timeout: 5.0)
         XCTAssertEqual(testSut.eventQueueCount, iterations, "All events should be tracked")
     }
 
     func testConcurrentPersistence_ThreadSafety() async {
-        // Given - Disable network to prevent auto-batch submission from clearing the queue
         mockNetworkMonitor.isConnected = false
 
         for i in 0 ..< 50 {
-            sut.track(event: .userLogin, properties: ["index": i])
+            sut.track(event(.userLogin, parameters: ["index": i]))
         }
 
         let iterations = 10
         let expectation = expectation(description: "All persistence operations complete")
         expectation.expectedFulfillmentCount = iterations
 
-        // When - Call persist concurrently
         for _ in 0 ..< iterations {
             DispatchQueue.global().async {
                 self.sut.testPersistEvents()
@@ -695,11 +600,9 @@ final class AnalyticsServiceTests: XCTestCase {
             }
         }
 
-        // Then
         await fulfillment(of: [expectation], timeout: 5.0)
 
-        // Verify data is still consistent
-        let data = mockUserDefaults.data(forKey: AnalyticsService.storageKey)
+        let data = mockUserDefaults.data(forKey: FirebaseAnalyticsProvider.storageKey)
         XCTAssertNotNil(data)
 
         guard let persistedData = data else {
@@ -715,9 +618,8 @@ final class AnalyticsServiceTests: XCTestCase {
     // MARK: - Flush Tests
 
     func testFlush_SubmitsAllPendingEvents() async {
-        // Given
         for i in 0 ..< 10 {
-            sut.track(event: .userLogin, properties: ["index": i])
+            sut.track(event(.userLogin, parameters: ["index": i]))
         }
 
         MockURLProtocol.requestHandler = { _ in
@@ -733,80 +635,56 @@ final class AnalyticsServiceTests: XCTestCase {
             return (response, responseData)
         }
 
-        // When
         await sut.flush()
 
-        // Then
         XCTAssertEqual(sut.eventQueueCount, 0, "Flush should submit all events")
     }
 
     // MARK: - Certificate Pinning Analytics Tests
 
     func testTrackCertificatePinningInitialized_TracksSuccessWithDomainAndPinCount() {
-        // Given
-        let domain = "aiq-backend-production.up.railway.app"
-        let pinCount = 2
+        sut.track(event(.certificatePinningInitialized, parameters: [
+            "domain": "aiq-backend-production.up.railway.app",
+            "pin_count": 2
+        ]))
 
-        // When
-        sut.trackCertificatePinningInitialized(domain: domain, pinCount: pinCount)
-
-        // Then
         XCTAssertEqual(sut.eventQueueCount, 1, "Should track certificate pinning initialized event")
     }
 
     func testTrackCertificatePinningInitializationFailed_TracksFailureWithReason() {
-        // Given
-        let reason = "TrustKit.plist missing or invalid format"
+        sut.track(event(.certificatePinningInitializationFailed, parameters: [
+            "reason": "TrustKit.plist missing or invalid format"
+        ]))
 
-        // When
-        sut.trackCertificatePinningInitializationFailed(reason: reason)
-
-        // Then
         XCTAssertEqual(sut.eventQueueCount, 1, "Should track certificate pinning initialization failure")
     }
 
-    func testTrackCertificatePinningInitializationFailed_TracksFailureWithReasonAndDomain() {
-        // Given
-        let reason = "TSKPublicKeyHashes missing"
-        let domain = "aiq-backend-production.up.railway.app"
-
-        // When
-        sut.trackCertificatePinningInitializationFailed(reason: reason, domain: domain)
-
-        // Then
-        XCTAssertEqual(sut.eventQueueCount, 1, "Should track certificate pinning initialization failure with domain")
-    }
-
-    func testTrackCertificatePinningInitializationFailed_TracksInsufficientPins() {
-        // Given
-        let reason = "Insufficient pins (found 1, need 2)"
-        let domain = "aiq-backend-production.up.railway.app"
-
-        // When
-        sut.trackCertificatePinningInitializationFailed(reason: reason, domain: domain)
-
-        // Then
-        XCTAssertEqual(sut.eventQueueCount, 1, "Should track insufficient pins error")
-    }
-
     func testCertificatePinningEvents_HaveCorrectEventNames() {
-        // Given/When
-        sut.trackCertificatePinningInitialized(domain: "test.com", pinCount: 2)
-        sut.trackCertificatePinningInitializationFailed(reason: "test failure")
-
-        // Then
-        XCTAssertEqual(sut.eventQueueCount, 2, "Should track both events")
-
-        // Verify event names by checking if they're defined in AnalyticsEvent enum
         XCTAssertEqual(
-            AnalyticsEvent.certificatePinningInitialized.rawValue,
+            AIQAnalyticsEvent.certificatePinningInitialized.rawValue,
             "security.certificate_pinning.initialized",
             "Event name should match expected format"
         )
         XCTAssertEqual(
-            AnalyticsEvent.certificatePinningInitializationFailed.rawValue,
+            AIQAnalyticsEvent.certificatePinningInitializationFailed.rawValue,
             "security.certificate_pinning.initialization_failed",
             "Event name should match expected format"
         )
+    }
+
+    // MARK: - Reset Tests
+
+    func testReset_ClearsQueueAndPersistedData() {
+        sut.track(event(.userLogin))
+        sut.track(event(.testStarted))
+        sut.testPersistEvents()
+
+        XCTAssertEqual(sut.eventQueueCount, 2)
+        XCTAssertNotNil(mockUserDefaults.data(forKey: FirebaseAnalyticsProvider.storageKey))
+
+        sut.reset()
+
+        XCTAssertEqual(sut.eventQueueCount, 0, "Queue should be cleared")
+        XCTAssertNil(mockUserDefaults.data(forKey: FirebaseAnalyticsProvider.storageKey), "Persisted data should be cleared")
     }
 }

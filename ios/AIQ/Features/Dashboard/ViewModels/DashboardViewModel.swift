@@ -17,18 +17,18 @@ class DashboardViewModel: BaseViewModel {
     // MARK: - Private Properties
 
     private let apiService: OpenAPIServiceProtocol
-    private let analyticsService: AnalyticsService
+    private let analyticsManager: AnalyticsManagerProtocol
     private let answerStorage: LocalAnswerStorageProtocol
 
     // MARK: - Initialization
 
     init(
         apiService: OpenAPIServiceProtocol,
-        analyticsService: AnalyticsService = .shared,
+        analyticsManager: AnalyticsManagerProtocol = ServiceContainer.shared.resolve(),
         answerStorage: LocalAnswerStorageProtocol = LocalAnswerStorage()
     ) {
         self.apiService = apiService
-        self.analyticsService = analyticsService
+        self.analyticsManager = analyticsManager
         self.answerStorage = answerStorage
         super.init()
     }
@@ -94,7 +94,7 @@ class DashboardViewModel: BaseViewModel {
             let response = try await apiService.abandonTest(sessionId: sessionId)
 
             // Track abandonment from dashboard
-            analyticsService.trackTestAbandonedFromDashboard(
+            analyticsManager.trackTestAbandonedFromDashboard(
                 sessionId: sessionId,
                 questionsAnswered: questionsAnswered
             )
@@ -191,7 +191,7 @@ class DashboardViewModel: BaseViewModel {
 
             // Track first detection on fresh API fetch (not on cache-hit reloads)
             if let response {
-                analyticsService.trackActiveSessionDetected(
+                analyticsManager.trackActiveSessionDetected(
                     sessionId: response.session.id,
                     questionsAnswered: response.questionsCount
                 )
@@ -241,7 +241,7 @@ class DashboardViewModel: BaseViewModel {
             return
         }
 
-        analyticsService.trackTestResumedFromDashboard(
+        analyticsManager.trackTestResumedFromDashboard(
             sessionId: sessionId,
             questionsAnswered: questionsAnswered
         )

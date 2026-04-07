@@ -6,15 +6,15 @@ import XCTest
 final class DashboardViewModelTests: XCTestCase {
     var sut: DashboardViewModel!
     var mockService: MockOpenAPIService!
-    var mockAnalyticsService: MockAnalyticsService!
+    var mockAnalyticsService: MockAnalyticsManager!
     var mockAnswerStorage: MockLocalAnswerStorage!
 
     override func setUp() async throws {
         try await super.setUp()
         mockService = MockOpenAPIService()
-        mockAnalyticsService = MockAnalyticsService()
+        mockAnalyticsService = MockAnalyticsManager()
         mockAnswerStorage = MockLocalAnswerStorage()
-        sut = DashboardViewModel(apiService: mockService, analyticsService: mockAnalyticsService, answerStorage: mockAnswerStorage)
+        sut = DashboardViewModel(apiService: mockService, analyticsManager: mockAnalyticsService, answerStorage: mockAnswerStorage)
 
         await AppCache.shared.remove(forKey: .activeTestSession)
         await AppCache.shared.remove(forKey: .testHistory)
@@ -257,7 +257,7 @@ final class DashboardViewModelTests: XCTestCase {
         let mockAnswerStorage = MockLocalAnswerStorage()
         sut = DashboardViewModel(
             apiService: mockService,
-            analyticsService: mockAnalyticsService,
+            analyticsManager: mockAnalyticsService,
             answerStorage: mockAnswerStorage
         )
 
@@ -297,7 +297,7 @@ final class DashboardViewModelTests: XCTestCase {
         let mockAnswerStorage = MockLocalAnswerStorage()
         sut = DashboardViewModel(
             apiService: mockService,
-            analyticsService: mockAnalyticsService,
+            analyticsManager: mockAnalyticsService,
             answerStorage: mockAnswerStorage
         )
 
@@ -328,7 +328,7 @@ final class DashboardViewModelTests: XCTestCase {
         let mockAnswerStorage = MockLocalAnswerStorage()
         sut = DashboardViewModel(
             apiService: mockService,
-            analyticsService: mockAnalyticsService,
+            analyticsManager: mockAnalyticsService,
             answerStorage: mockAnswerStorage
         )
 

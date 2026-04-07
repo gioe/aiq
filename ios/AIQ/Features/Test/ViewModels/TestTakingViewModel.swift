@@ -67,6 +67,7 @@ class TestTakingViewModel: BaseViewModel {
     private let timeTracker = QuestionTimeTracker()
     private let apiService: OpenAPIServiceProtocol
     private let answerStorage: LocalAnswerStorageProtocol
+    private let analyticsManager: AnalyticsManagerProtocol
     let coordinator: AdaptiveTestCoordinator
     private var saveWorkItem: DispatchWorkItem?
     private var startErrorTask: Task<Void, Never>?
@@ -83,10 +84,12 @@ class TestTakingViewModel: BaseViewModel {
     init(
         apiService: OpenAPIServiceProtocol,
         answerStorage: LocalAnswerStorageProtocol,
+        analyticsManager: AnalyticsManagerProtocol = ServiceContainer.shared.resolve(),
         coordinator: AdaptiveTestCoordinator? = nil
     ) {
         self.apiService = apiService
         self.answerStorage = answerStorage
+        self.analyticsManager = analyticsManager
         self.coordinator = coordinator ?? AdaptiveTestCoordinator(apiService: apiService)
         super.init()
         self.coordinator.delegate = self
@@ -279,7 +282,7 @@ class TestTakingViewModel: BaseViewModel {
         resetTimeTracking()
         startQuestionTiming()
 
-        AnalyticsService.shared.trackTestStarted(
+        analyticsManager.trackTestStarted(
             sessionId: response.session.id,
             questionCount: response.questions.count
         )
@@ -316,7 +319,7 @@ class TestTakingViewModel: BaseViewModel {
             }
 
             // Track analytics only when the conflict alert is actually shown
-            AnalyticsService.shared.trackActiveSessionConflict(sessionId: sessionId)
+            analyticsManager.trackActiveSessionConflict(sessionId: sessionId)
 
             // Set the error so UI can react appropriately
             let contextualError = ContextualError(
@@ -424,7 +427,7 @@ class TestTakingViewModel: BaseViewModel {
             startQuestionTiming()
 
             // Track successful error recovery via resume
-            AnalyticsService.shared.trackActiveSessionErrorRecovered(
+            analyticsManager.trackActiveSessionErrorRecovered(
                 sessionId: sessionId,
                 recoveryAction: "resume"
             )
@@ -503,7 +506,7 @@ class TestTakingViewModel: BaseViewModel {
             #endif
 
             // Track successful error recovery via abandon
-            AnalyticsService.shared.trackActiveSessionErrorRecovered(
+            analyticsManager.trackActiveSessionErrorRecovered(
                 sessionId: sessionId,
                 recoveryAction: "abandon"
             )
@@ -664,7 +667,7 @@ class TestTakingViewModel: BaseViewModel {
 
         // Track analytics
         let durationSeconds = response.result.completionTimeSeconds ?? 0
-        AnalyticsService.shared.trackTestCompleted(
+        analyticsManager.trackTestCompleted(
             sessionId: response.session.id,
             iqScore: response.result.iqScore,
             durationSeconds: durationSeconds,
@@ -719,7 +722,7 @@ class TestTakingViewModel: BaseViewModel {
             clearSavedProgress()
 
             // Track analytics
-            AnalyticsService.shared.trackTestAbandoned(
+            analyticsManager.trackTestAbandoned(
                 sessionId: session.id,
                 answeredCount: response.responsesSaved
             )

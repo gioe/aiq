@@ -1,3 +1,4 @@
+import AIQSharedKit
 import Foundation
 import os
 
@@ -219,14 +220,14 @@ struct DeepLinkHandler: DeepLinkHandlerProtocol {
 
     // MARK: - Dependencies
 
-    /// Analytics service for tracking deep link events
-    private let analyticsService: AnalyticsService
+    /// Analytics manager for tracking deep link events
+    private let analyticsManager: AnalyticsManagerProtocol
 
     // MARK: - Initialization
 
-    /// Initialize with default analytics service
-    init(analyticsService: AnalyticsService = .shared) {
-        self.analyticsService = analyticsService
+    /// Initialize with default analytics manager
+    init(analyticsManager: AnalyticsManagerProtocol = ServiceContainer.shared.resolve()) {
+        self.analyticsManager = analyticsManager
     }
 
     // MARK: - Public API
@@ -400,7 +401,7 @@ struct DeepLinkHandler: DeepLinkHandlerProtocol {
             // Track analytics for malformed settings deep links
             // This helps identify if users are receiving incorrect deep link formats
             // or if we need to support additional settings sub-paths in the future
-            analyticsService.trackDeepLinkNavigationFailed(
+            analyticsManager.trackDeepLinkNavigationFailed(
                 errorType: "malformed_settings_extra_components",
                 source: "unknown",
                 url: originalURL.absoluteString
@@ -517,7 +518,7 @@ extension DeepLinkHandler {
 
     /// Track successful deep link navigation
     private func trackSuccess(deepLink: DeepLink, source: DeepLinkSource, originalURL: String) {
-        analyticsService.trackDeepLinkNavigationSuccess(
+        analyticsManager.trackDeepLinkNavigationSuccess(
             destinationType: deepLink.analyticsDestinationType,
             source: source.rawValue,
             url: originalURL
@@ -526,7 +527,7 @@ extension DeepLinkHandler {
 
     /// Track failed deep link navigation
     private func trackFailure(errorType: String, source: DeepLinkSource, originalURL: String) {
-        analyticsService.trackDeepLinkNavigationFailed(
+        analyticsManager.trackDeepLinkNavigationFailed(
             errorType: errorType,
             source: source.rawValue,
             url: originalURL
@@ -545,7 +546,7 @@ extension DeepLinkHandler {
         source: DeepLinkSource,
         originalURL: String
     ) {
-        analyticsService.trackDeepLinkNavigationSuccess(
+        analyticsManager.trackDeepLinkNavigationSuccess(
             destinationType: deepLink.analyticsDestinationType,
             source: source.rawValue,
             url: originalURL
@@ -564,7 +565,7 @@ extension DeepLinkHandler {
         source: DeepLinkSource,
         originalURL: String
     ) {
-        analyticsService.trackDeepLinkNavigationFailed(
+        analyticsManager.trackDeepLinkNavigationFailed(
             errorType: errorTypeString(from: error),
             source: source.rawValue,
             url: originalURL

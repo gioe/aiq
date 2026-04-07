@@ -21,8 +21,8 @@ struct MainTabView: View {
     @State private var showUpgradePrompt = false
     /// Notification manager for checking authorization status and requesting permission
     private let notificationManager: NotificationManagerProtocol
-    /// Analytics service for tracking engagement
-    private let analyticsService: AnalyticsService
+    /// Analytics manager for tracking engagement
+    private let analyticsManager: AnalyticsManagerProtocol
     /// Toast manager for showing error notifications from deep link navigation
     private let toastManager: any ToastManagerProtocol
 
@@ -30,7 +30,7 @@ struct MainTabView: View {
 
     init() {
         notificationManager = ServiceContainer.shared.resolve(NotificationManagerProtocol.self)
-        analyticsService = AnalyticsService.shared
+        analyticsManager = ServiceContainer.shared.resolve(AnalyticsManagerProtocol.self)
         toastManager = ServiceContainer.shared.resolve((any ToastManagerProtocol).self)
     }
 
@@ -98,7 +98,7 @@ struct MainTabView: View {
                     handleUpgradePromptAccepted()
                 },
                 onDismiss: {
-                    analyticsService.trackNotificationUpgradePromptDismissed()
+                    analyticsManager.trackNotificationUpgradePromptDismissed()
                 }
             )
         }
@@ -123,7 +123,7 @@ struct MainTabView: View {
 
         // Check if we should show upgrade prompt for provisional users
         if shouldShowUpgradePrompt(authorizationStatus: authStatus) {
-            analyticsService.trackNotificationUpgradePromptShown(notificationType: notificationType)
+            analyticsManager.trackNotificationUpgradePromptShown(notificationType: notificationType)
             notificationManager.hasShownUpgradePrompt = true
             showUpgradePrompt = true
             // Note: We still process the notification navigation below
@@ -189,15 +189,15 @@ struct MainTabView: View {
 
     /// Handle user accepting the upgrade prompt
     private func handleUpgradePromptAccepted() {
-        analyticsService.trackNotificationUpgradePromptAccepted()
+        analyticsManager.trackNotificationUpgradePromptAccepted()
 
         Task {
             let granted = await notificationManager.requestAuthorization()
             if granted {
-                analyticsService.trackNotificationFullPermissionGranted()
+                analyticsManager.trackNotificationFullPermissionGranted()
                 Self.logger.info("User upgraded from provisional to full notification authorization")
             } else {
-                analyticsService.trackNotificationFullPermissionDenied()
+                analyticsManager.trackNotificationFullPermissionDenied()
                 Self.logger.info("User denied full notification authorization upgrade")
             }
         }
