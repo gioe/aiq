@@ -18,7 +18,8 @@ let package = Package(
     ],
     dependencies: [
         .package(
-            path: "/Users/mattgioe/Desktop/projects/ios-libs"
+            url: "https://github.com/gioe/ios-libs",
+            from: "1.5.0"
         )
     ],
     targets: [
