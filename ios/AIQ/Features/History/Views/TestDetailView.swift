@@ -71,7 +71,7 @@ struct TestDetailView: View {
 
             // IQ Score
             VStack(spacing: 8) {
-                Text("AIQ Score")
+                Text("results.your.score".localized)
                     .font(.headline)
                     .foregroundColor(.secondary)
                     .accessibilityHidden(true)
@@ -107,6 +107,15 @@ struct TestDetailView: View {
                 .opacity(showAnimation ? 1.0 : 0.0)
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestDetailView.dateLabel)
                 .accessibilityLabel("Test completed on \(formatFullDate(testResult.completedAt))")
+
+            // Disclaimer
+            Text("results.disclaimer".localized)
+                .font(theme.typography.captionMedium)
+                .foregroundColor(theme.colors.textTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+                .padding(.top, DesignSystem.Spacing.sm)
+                .opacity(showAnimation ? 1.0 : 0.0)
         }
         .padding(DesignSystem.Spacing.xxl)
         .frame(maxWidth: .infinity)
@@ -153,7 +162,7 @@ struct TestDetailView: View {
         }
         let confidenceText = "\(ci.confidencePercentage)% confidence"
         return """
-        Your score of \(testResult.iqScore) represents our best estimate of your cognitive ability.
+        Your estimated score of \(testResult.iqScore) reflects your performance on this assessment.
 
         Due to the nature of measurement, your true ability likely falls between \
         \(ci.lower) and \(ci.upper) (\(confidenceText)).
