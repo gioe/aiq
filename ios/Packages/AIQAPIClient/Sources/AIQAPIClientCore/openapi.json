@@ -623,6 +623,17 @@
         "title": "AnomalySummary",
         "type": "object"
       },
+      "AsyncRunStatus": {
+        "description": "Status for any async job or processing run.",
+        "enum": [
+          "running",
+          "success",
+          "partial_failure",
+          "failed"
+        ],
+        "title": "AsyncRunStatus",
+        "type": "string"
+      },
       "AutoSelectResult": {
         "description": "Per-domain auto-selection result.",
         "properties": {
@@ -1393,6 +1404,39 @@
           "standard_error"
         ],
         "title": "ConfidenceIntervalSchema",
+        "type": "object"
+      },
+      "CooldownBypassStatus": {
+        "description": "Current cooldown bypass flag status for a user.",
+        "properties": {
+          "bypass_cooldown": {
+            "title": "Bypass Cooldown",
+            "type": "boolean"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "bypass_cooldown"
+        ],
+        "title": "CooldownBypassStatus",
+        "type": "object"
+      },
+      "CooldownBypassUpdate": {
+        "description": "Request body for updating the cooldown bypass flag.",
+        "properties": {
+          "bypass_cooldown": {
+            "title": "Bypass Cooldown",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bypass_cooldown"
+        ],
+        "title": "CooldownBypassUpdate",
         "type": "object"
       },
       "CriterionResultResponse": {
@@ -2604,8 +2648,8 @@
         "title": "DomainWeightsResponse",
         "type": "object"
       },
-      "EducationLevelSchema": {
-        "description": "Education level enumeration for API schemas.",
+      "EducationLevel": {
+        "description": "Education level for demographic data.",
         "enum": [
           "high_school",
           "some_college",
@@ -2615,7 +2659,7 @@
           "doctorate",
           "prefer_not_to_say"
         ],
-        "title": "EducationLevelSchema",
+        "title": "EducationLevel",
         "type": "string"
       },
       "ExitCriteria": {
@@ -2788,8 +2832,8 @@
         "title": "FactorAnalysisResponse",
         "type": "object"
       },
-      "FeedbackCategorySchema": {
-        "description": "Feedback category enumeration for API schemas.",
+      "FeedbackCategory": {
+        "description": "Feedback category.",
         "enum": [
           "bug_report",
           "feature_request",
@@ -2797,14 +2841,14 @@
           "question_help",
           "other"
         ],
-        "title": "FeedbackCategorySchema",
+        "title": "FeedbackCategory",
         "type": "string"
       },
       "FeedbackSubmitRequest": {
         "description": "Schema for feedback submission request.",
         "properties": {
           "category": {
-            "$ref": "#/components/schemas/FeedbackCategorySchema",
+            "$ref": "#/components/schemas/FeedbackCategory",
             "description": "Feedback category"
           },
           "description": {
@@ -2941,17 +2985,6 @@
         },
         "title": "FlagTypeBreakdown",
         "type": "object"
-      },
-      "GenerationRunStatusSchema": {
-        "description": "Status enumeration for question generation runs.",
-        "enum": [
-          "running",
-          "success",
-          "partial_failure",
-          "failed"
-        ],
-        "title": "GenerationRunStatusSchema",
-        "type": "string"
       },
       "GuttmanCheckDetails": {
         "description": "Detailed results from Guttman error detection.",
@@ -3427,6 +3460,70 @@
         "title": "ItemCalibrationStats",
         "type": "object"
       },
+      "LogoutAllStatsResponse": {
+        "description": "Response model for logout-all monitoring statistics.",
+        "properties": {
+          "error": {
+            "description": "Error message if the query failed",
+            "nullable": true,
+            "title": "Error",
+            "type": "string"
+          },
+          "events": {
+            "description": "Per-user logout-all event details (paginated)",
+            "items": {
+              "$ref": "#/components/schemas/UserLogoutAllSummary"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "page": {
+            "description": "Current page number (1-indexed)",
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "description": "Number of events per page",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "time_range": {
+            "$ref": "#/components/schemas/TimeRange",
+            "description": "The queried time range"
+          },
+          "total_events": {
+            "description": "Total number of logout-all events in the time range (before pagination)",
+            "minimum": 0.0,
+            "title": "Total Events",
+            "type": "integer"
+          },
+          "unique_users": {
+            "description": "Number of distinct users who triggered logout-all",
+            "minimum": 0.0,
+            "title": "Unique Users",
+            "type": "integer"
+          },
+          "users_with_correlated_resets": {
+            "description": "Users on this page whose logout-all was within 24h of a password reset",
+            "minimum": 0.0,
+            "title": "Users With Correlated Resets",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_events",
+          "unique_users",
+          "users_with_correlated_resets",
+          "time_range",
+          "page",
+          "page_size"
+        ],
+        "title": "LogoutAllStatsResponse",
+        "type": "object"
+      },
       "LogoutRequest": {
         "description": "Schema for logout request with optional refresh token revocation (TASK-525).",
         "properties": {
@@ -3508,6 +3605,88 @@
           "severity"
         ],
         "title": "MiscalibratedQuestion",
+        "type": "object"
+      },
+      "ModelAccuracyRow": {
+        "description": "Accuracy breakdown for a single model within a vendor.\n\nQuestions with a NULL source_model are reported under the sentinel\nvalue \"Unknown Model\" so they are never silently dropped.",
+        "properties": {
+          "accuracy_pct": {
+            "description": "Accuracy as a percentage (0.0 \u2013 100.0).",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Accuracy Pct",
+            "type": "number"
+          },
+          "correct": {
+            "description": "Number of correct responses.",
+            "minimum": 0.0,
+            "title": "Correct",
+            "type": "integer"
+          },
+          "model": {
+            "description": "Model identifier (e.g. 'gpt-4-turbo'). NULL source_model values are surfaced as 'Unknown Model'.",
+            "title": "Model",
+            "type": "string"
+          },
+          "total": {
+            "description": "Total number of responses.",
+            "minimum": 1.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "correct",
+          "total",
+          "accuracy_pct"
+        ],
+        "title": "ModelAccuracyRow",
+        "type": "object"
+      },
+      "ModelPerformanceResponse": {
+        "description": "Paginated response for GET /v1/analytics/model-performance.\n\nPagination applies to the vendor list for historical (all-sessions)\nqueries.  When a test_session_id is provided, all vendors for that\nsingle session are returned without pagination (total_count reflects\nthe full set; limit/offset are echoed back at their request values).",
+        "properties": {
+          "has_more": {
+            "description": "True when there are additional vendor rows beyond this page.",
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "limit": {
+            "description": "Page size used for this response.",
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Offset used for this response.",
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "results": {
+            "description": "List of vendor accuracy rows, each with per-model drill-down.",
+            "items": {
+              "$ref": "#/components/schemas/VendorAccuracyRow"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "total_count": {
+            "description": "Total number of vendors across all pages.",
+            "minimum": 0.0,
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "total_count",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "ModelPerformanceResponse",
         "type": "object"
       },
       "NonFunctioningCountBreakdown": {
@@ -3703,6 +3882,35 @@
           "message"
         ],
         "title": "PasswordResetConfirmResponse",
+        "type": "object"
+      },
+      "PasswordResetCorrelation": {
+        "description": "A correlated password reset event near a logout-all action.",
+        "properties": {
+          "logout_all_at": {
+            "description": "When the logout-all action occurred",
+            "format": "date-time",
+            "title": "Logout All At",
+            "type": "string"
+          },
+          "reset_created_at": {
+            "description": "When the password reset was initiated",
+            "format": "date-time",
+            "title": "Reset Created At",
+            "type": "string"
+          },
+          "time_difference_minutes": {
+            "description": "Minutes between logout-all and password reset. Negative means reset was before logout-all.",
+            "title": "Time Difference Minutes",
+            "type": "number"
+          }
+        },
+        "required": [
+          "reset_created_at",
+          "logout_all_at",
+          "time_difference_minutes"
+        ],
+        "title": "PasswordResetCorrelation",
         "type": "object"
       },
       "PasswordResetRequest": {
@@ -4035,6 +4243,13 @@
             "title": "Avg Judge Score",
             "type": "number"
           },
+          "client_run_id": {
+            "description": "Correlation ID generated at script start (e.g. run-20260329-143022-abc123)",
+            "maxLength": 100,
+            "nullable": true,
+            "title": "Client Run Id",
+            "type": "string"
+          },
           "completed_at": {
             "description": "When the generation run completed (null if still running)",
             "format": "date-time",
@@ -4207,7 +4422,7 @@
             "type": "string"
           },
           "status": {
-            "$ref": "#/components/schemas/GenerationRunStatusSchema",
+            "$ref": "#/components/schemas/AsyncRunStatus",
             "description": "Run status: running, success, partial_failure, or failed"
           },
           "total_api_calls": {
@@ -4261,7 +4476,7 @@
             "type": "string"
           },
           "status": {
-            "$ref": "#/components/schemas/GenerationRunStatusSchema",
+            "$ref": "#/components/schemas/AsyncRunStatus",
             "description": "Status of the created run"
           }
         },
@@ -4462,7 +4677,7 @@
             "type": "string"
           },
           "status": {
-            "$ref": "#/components/schemas/GenerationRunStatusSchema",
+            "$ref": "#/components/schemas/AsyncRunStatus",
             "description": "Run status"
           },
           "total_api_calls": {
@@ -4770,7 +4985,7 @@
             "type": "string"
           },
           "status": {
-            "$ref": "#/components/schemas/GenerationRunStatusSchema",
+            "$ref": "#/components/schemas/AsyncRunStatus",
             "description": "Run status"
           },
           "total_errors": {
@@ -6609,6 +6824,15 @@
             "title": "Iq Score",
             "type": "integer"
           },
+          "model_scores": {
+            "additionalProperties": {
+              "type": "object"
+            },
+            "description": "Per-model (LLM source) performance breakdown with correct, total, and pct for each model that generated questions in this test",
+            "nullable": true,
+            "title": "Model Scores",
+            "type": "object"
+          },
           "percentile_rank": {
             "description": "Percentile rank (0-100, what % of population scores below)",
             "nullable": true,
@@ -6920,6 +7144,40 @@
         "title": "TimeCheckStatistics",
         "type": "object"
       },
+      "TimeRange": {
+        "description": "Time range for the query.",
+        "properties": {
+          "end": {
+            "description": "End of the query window (now)",
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "description": "Start of the query window",
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "TimeRange",
+        "type": "object"
+      },
+      "TimeRangeOption": {
+        "description": "Supported time range options for security monitoring queries.",
+        "enum": [
+          "7d",
+          "30d",
+          "90d",
+          "all"
+        ],
+        "title": "TimeRangeOption",
+        "type": "string"
+      },
       "Token": {
         "description": "Schema for token response (login only).",
         "properties": {
@@ -6950,6 +7208,76 @@
           "user"
         ],
         "title": "Token",
+        "type": "object"
+      },
+      "TokenBlacklistStatsResponse": {
+        "description": "Response model for token blacklist statistics.",
+        "properties": {
+          "active_keys": {
+            "description": "Number of active (non-expired) keys (in-memory only)",
+            "nullable": true,
+            "title": "Active Keys",
+            "type": "integer"
+          },
+          "connected": {
+            "description": "Whether Redis is connected (Redis only)",
+            "nullable": true,
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "error": {
+            "description": "Error message if stats retrieval failed",
+            "nullable": true,
+            "title": "Error",
+            "type": "string"
+          },
+          "expired_keys": {
+            "description": "Number of expired keys pending cleanup (in-memory only)",
+            "nullable": true,
+            "title": "Expired Keys",
+            "type": "integer"
+          },
+          "lru_enabled": {
+            "description": "Whether LRU eviction is enabled (in-memory only)",
+            "nullable": true,
+            "title": "Lru Enabled",
+            "type": "boolean"
+          },
+          "max_keys": {
+            "description": "Maximum key limit for LRU eviction (in-memory only)",
+            "nullable": true,
+            "title": "Max Keys",
+            "type": "integer"
+          },
+          "storage_type": {
+            "description": "Type of storage backend ('redis' or 'memory')",
+            "title": "Storage Type",
+            "type": "string"
+          },
+          "total_keys": {
+            "description": "Total number of keys in the blacklist",
+            "minimum": 0.0,
+            "title": "Total Keys",
+            "type": "integer"
+          },
+          "used_memory": {
+            "description": "Redis memory usage in bytes (Redis only)",
+            "nullable": true,
+            "title": "Used Memory",
+            "type": "integer"
+          },
+          "used_memory_human": {
+            "description": "Human-readable Redis memory usage (Redis only)",
+            "nullable": true,
+            "title": "Used Memory Human",
+            "type": "string"
+          }
+        },
+        "required": [
+          "storage_type",
+          "total_keys"
+        ],
+        "title": "TokenBlacklistStatsResponse",
         "type": "object"
       },
       "TokenRefresh": {
@@ -7200,6 +7528,43 @@
         "title": "UserLogin",
         "type": "object"
       },
+      "UserLogoutAllSummary": {
+        "description": "Logout-all activity summary for a single user.",
+        "properties": {
+          "correlated_resets": {
+            "description": "Details of password resets correlated with the logout-all event",
+            "items": {
+              "$ref": "#/components/schemas/PasswordResetCorrelation"
+            },
+            "title": "Correlated Resets",
+            "type": "array"
+          },
+          "logout_all_at": {
+            "description": "When the user last triggered logout-all",
+            "format": "date-time",
+            "title": "Logout All At",
+            "type": "string"
+          },
+          "password_resets_in_window": {
+            "description": "Number of password resets within 24h of the logout-all event",
+            "minimum": 0.0,
+            "title": "Password Resets In Window",
+            "type": "integer"
+          },
+          "user_id": {
+            "description": "User ID (no PII exposed)",
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "logout_all_at",
+          "password_resets_in_window"
+        ],
+        "title": "UserLogoutAllSummary",
+        "type": "object"
+      },
       "UserProfileUpdate": {
         "description": "Schema for updating user profile.",
         "properties": {
@@ -7250,7 +7615,7 @@
           "education_level": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/EducationLevelSchema"
+                "$ref": "#/components/schemas/EducationLevel"
               }
             ],
             "description": "Highest education level attained (optional)",
@@ -7325,7 +7690,7 @@
           "education_level": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/EducationLevelSchema"
+                "$ref": "#/components/schemas/EducationLevel"
               }
             ],
             "description": "Highest education level attained",
@@ -7759,6 +8124,52 @@
           "trend"
         ],
         "title": "ValidityTrend",
+        "type": "object"
+      },
+      "VendorAccuracyRow": {
+        "description": "Accuracy breakdown for a single LLM vendor (source_llm), with a\nnested list of per-model breakdowns.\n\nQuestions with a NULL source_llm are excluded entirely \u2014 there is no\nvendor to group them under.",
+        "properties": {
+          "accuracy_pct": {
+            "description": "Vendor-level accuracy as a percentage (0.0 \u2013 100.0).",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Accuracy Pct",
+            "type": "number"
+          },
+          "correct": {
+            "description": "Aggregate correct responses for this vendor.",
+            "minimum": 0.0,
+            "title": "Correct",
+            "type": "integer"
+          },
+          "models": {
+            "description": "Per-model drill-down within this vendor.",
+            "items": {
+              "$ref": "#/components/schemas/ModelAccuracyRow"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "total": {
+            "description": "Aggregate total responses for this vendor.",
+            "minimum": 1.0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "vendor": {
+            "description": "LLM vendor identifier (e.g. 'openai', 'anthropic', 'google').",
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "correct",
+          "total",
+          "accuracy_pct",
+          "models"
+        ],
+        "title": "VendorAccuracyRow",
         "type": "object"
       },
       "WeightedScoringStatus": {
@@ -9144,7 +9555,7 @@
             "schema": {
               "allOf": [
                 {
-                  "$ref": "#/components/schemas/GenerationRunStatusSchema"
+                  "$ref": "#/components/schemas/AsyncRunStatus"
                 }
               ],
               "description": "Filter by run status",
@@ -10322,6 +10733,152 @@
         ]
       }
     },
+    "/v1/admin/security/logout-all-events": {
+      "get": {
+        "description": "Get logout-all event statistics for security monitoring.\n\nReturns aggregate statistics and per-user breakdowns of logout-all events,\nincluding correlation with password reset activity within a 24-hour window.\n\nSupports pagination to access all events beyond the default page size.\n\nNote: Only the most recent logout-all event per user is tracked (the\n``token_revoked_before`` column is overwritten on each invocation).\n\nRequires X-Admin-Token header with valid admin token.",
+        "operationId": "get_logout_all_events_v1_admin_security_logout_all_events_get",
+        "parameters": [
+          {
+            "description": "Time range for the query: 7d, 30d, 90d, or all",
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/TimeRangeOption",
+              "default": "30d",
+              "description": "Time range for the query: 7d, 30d, 90d, or all"
+            }
+          },
+          {
+            "description": "Page number (1-indexed)",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Page number (1-indexed)",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of events per page (max 500)",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Number of events per page (max 500)",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutAllStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Logout All Events",
+        "tags": [
+          "admin",
+          "Admin - Security"
+        ]
+      }
+    },
+    "/v1/admin/sessions/{session_id}": {
+      "delete": {
+        "description": "Hard-delete a test session and all associated data.\n\nCascades automatically to responses, test results, and user questions.\nReturns 204 on success, 404 if session not found.\n\nUse ?dry_run=true to preview what would be deleted without committing.\n\nRequires X-Admin-Token header with valid admin token.\n\nArgs:\n    session_id: ID of the test session to delete\n    dry_run: If True, return a preview without deleting anything\n    db: Database session\n    _: Admin token validation dependency\n\nReturns:\n    204 No Content on successful deletion, or SessionDeletionPreview on dry run\n\nRaises:\n    404: If the session does not exist",
+        "operationId": "delete_session_v1_admin_sessions__session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Preview what would be deleted without committing",
+            "in": "query",
+            "name": "dry_run",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Preview what would be deleted without committing",
+              "title": "Dry Run",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dry-run preview (when ?dry_run=true)"
+          },
+          "204": {
+            "description": "Session deleted successfully"
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Session",
+        "tags": [
+          "admin",
+          "Admin - Sessions"
+        ]
+      }
+    },
     "/v1/admin/sessions/{session_id}/validity": {
       "get": {
         "description": "Get detailed validity analysis for a single test session.\n\nReturns the validity assessment for a specific test session, including\nthe overall validity status, severity score, confidence level, and\ndetailed breakdown of each validity check component.\n\nRequires X-Admin-Token header with valid admin token.\n\n**Validity Status:**\n- `valid`: No significant concerns, session is valid\n- `suspect`: Moderate concerns, may need manual review\n- `invalid`: Strong concerns, requires admin review\n\n**Severity Score:**\nCombined score from all validity checks:\n- Aberrant person-fit: +2 points\n- High-severity time flags: +2 points each\n- High Guttman errors: +2 points\n- Elevated Guttman errors: +1 point\n\n**Confidence:**\nInverse of severity (1.0 = fully confident, decreases by 0.15 per severity point)\n\n**On-Demand Analysis:**\nIf the session has not been validity-checked yet (sessions from before CD-007),\nvalidity analysis will be performed on-demand and the result will be returned\n(but not stored).\n\nArgs:\n    session_id: The test session ID to analyze\n    db: Database session\n    _: Admin token validation dependency\n\nReturns:\n    SessionValidityResponse with full validity breakdown\n\nRaises:\n    HTTPException 404: If the test session is not found\n\nExample:\n    ```\n    curl \"https://api.example.com/v1/admin/sessions/123/validity\" \\\n      -H \"X-Admin-Token: your-admin-token\"\n    ```",
@@ -10806,6 +11363,50 @@
         ]
       }
     },
+    "/v1/admin/token-blacklist/stats": {
+      "get": {
+        "description": "Get token blacklist statistics for monitoring.\n\nReturns storage statistics including key counts and backend type.\nUseful for monitoring token revocation health and storage usage.\n\nRequires X-Admin-Token header with valid admin token.",
+        "operationId": "get_token_blacklist_stats_v1_admin_token_blacklist_stats_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenBlacklistStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Token Blacklist Stats",
+        "tags": [
+          "admin",
+          "Admin - Security"
+        ]
+      }
+    },
     "/v1/admin/trigger-question-generation": {
       "post": {
         "description": "Manually trigger the question generation job.\n\nThis endpoint allows administrators to trigger the question generation\nprocess on-demand instead of waiting for the scheduled cron job.\n\nThe job is registered in the process registry for tracking. Use\nGET /v1/admin/background-jobs to list all registered jobs and\nGET /v1/admin/background-jobs/{job_id} to check status.\n\nRequires X-Admin-Token header with valid admin token.\n\nArgs:\n    request: Question generation parameters\n    _: Admin token validation dependency\n\nReturns:\n    TriggerQuestionGenerationResponse with job_id for tracking\n\nExample:\n    ```\n    curl -X POST https://api.example.com/v1/admin/trigger-question-generation           -H \"X-Admin-Token: your-admin-token\"           -H \"Content-Type: application/json\"           -d '{\"count\": 50, \"dry_run\": false}'\n    ```",
@@ -10857,6 +11458,183 @@
         "tags": [
           "admin",
           "Admin - Generation"
+        ]
+      }
+    },
+    "/v1/admin/user-flags/by-email/cooldown-bypass": {
+      "patch": {
+        "description": "Set or unset cooldown bypass by email. Requires X-Admin-Token header.",
+        "operationId": "set_cooldown_bypass_by_email_v1_admin_user_flags_by_email_cooldown_bypass_patch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "email",
+            "required": true,
+            "schema": {
+              "title": "Email",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CooldownBypassUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CooldownBypassStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Cooldown Bypass By Email",
+        "tags": [
+          "admin",
+          "Admin - Users"
+        ]
+      }
+    },
+    "/v1/admin/user-flags/{user_id}/cooldown-bypass": {
+      "get": {
+        "description": "Get the cooldown bypass flag status for a user.\n\nReturns whether the specified user is exempt from the standard test cadence\ncooldown restriction.\n\nRequires X-Admin-Token header with valid admin token.\n\nArgs:\n    user_id: ID of the user to query\n    db: Database session\n    _: Admin token validation dependency\n\nReturns:\n    CooldownBypassStatus with user_id and bypass_cooldown flag\n\nRaises:\n    404: If the user does not exist",
+        "operationId": "get_cooldown_bypass_v1_admin_user_flags__user_id__cooldown_bypass_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CooldownBypassStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Cooldown Bypass",
+        "tags": [
+          "admin",
+          "Admin - Users"
+        ]
+      },
+      "patch": {
+        "description": "Set or unset the cooldown bypass flag for a user.\n\nWhen bypass_cooldown is True, the user can start a new test regardless of\nthe standard cadence restriction (TEST_CADENCE_DAYS). Set to False to\nrestore normal cooldown enforcement.\n\nRequires X-Admin-Token header with valid admin token.\n\nArgs:\n    user_id: ID of the user to update\n    body: Request body with desired bypass_cooldown value\n    db: Database session\n    _: Admin token validation dependency\n\nReturns:\n    CooldownBypassStatus with updated flag\n\nRaises:\n    404: If the user does not exist",
+        "operationId": "set_cooldown_bypass_v1_admin_user_flags__user_id__cooldown_bypass_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CooldownBypassUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CooldownBypassStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Cooldown Bypass",
+        "tags": [
+          "admin",
+          "Admin - Users"
         ]
       }
     },
@@ -10936,7 +11714,7 @@
     },
     "/v1/analytics/events": {
       "post": {
-        "description": "Submit a batch of analytics events from the client.\n\nThis endpoint accepts analytics events from iOS and other clients.\nEvents are stored for product analytics, debugging, and user\nexperience insights.\n\nAuthentication is optional - pre-auth events (like app launch)\ncan be submitted without a token.\n\nArgs:\n    batch: Batch of analytics events to submit\n    current_user: Current authenticated user (optional)\n    db: Database session\n\nReturns:\n    Response indicating how many events were received\n\nExample:\n    POST /api/v1/analytics/events\n    {\n        \"events\": [\n            {\n                \"event_name\": \"user.login\",\n                \"timestamp\": \"2024-01-15T10:30:00Z\",\n                \"properties\": {\"email_domain\": \"gmail.com\"}\n            }\n        ],\n        \"client_platform\": \"ios\",\n        \"app_version\": \"1.2.0\"\n    }",
+        "description": "Submit a batch of analytics events from the client.\n\nThis endpoint accepts analytics events from iOS and other clients.\nEvents are stored for product analytics, debugging, and user\nexperience insights.\n\nAuthentication is optional - pre-auth events (like app launch)\ncan be submitted without a token.\n\nArgs:\n    batch: Batch of analytics events to submit\n    current_user: Current authenticated user (optional)\n    db: Async database session\n\nReturns:\n    Response indicating how many events were received\n\nExample:\n    POST /api/v1/analytics/events\n    {\n        \"events\": [\n            {\n                \"event_name\": \"user.login\",\n                \"timestamp\": \"2024-01-15T10:30:00Z\",\n                \"properties\": {\"email_domain\": \"gmail.com\"}\n            }\n        ],\n        \"client_platform\": \"ios\",\n        \"app_version\": \"1.2.0\"\n    }",
         "operationId": "submit_analytics_events_v1_analytics_events_post",
         "requestBody": {
           "content": {
@@ -10976,6 +11754,84 @@
           }
         ],
         "summary": "Submit Analytics Events",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/analytics/model-performance": {
+      "get": {
+        "description": "Return per-vendor accuracy breakdown for the authenticated user.\n\n**Historical mode** (no test_session_id): aggregates all responses\nfrom completed test sessions owned by the user.  The vendor list is\npaginated via `limit` / `offset`.\n\n**Per-test mode** (test_session_id provided): returns all vendor rows\nfor that single session; pagination params are echoed back but the\nentire vendor list for one session is always returned.\n\nQuestions with `NULL source_llm` are excluded.\nQuestions with `NULL source_model` appear as \"Unknown Model\".\n\nRaises:\n    404: If `test_session_id` is provided but does not exist or does not\n         belong to the authenticated user.",
+        "operationId": "get_model_performance_v1_analytics_model_performance_get",
+        "parameters": [
+          {
+            "description": "If provided, return the accuracy breakdown for this specific test session. Must belong to the authenticated user.",
+            "in": "query",
+            "name": "test_session_id",
+            "required": false,
+            "schema": {
+              "description": "If provided, return the accuracy breakdown for this specific test session. Must belong to the authenticated user.",
+              "nullable": true,
+              "title": "Test Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of vendor rows to return (historical mode only).",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Maximum number of vendor rows to return (historical mode only).",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of vendor rows to skip (historical mode only).",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Number of vendor rows to skip (historical mode only).",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelPerformanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Model Performance",
         "tags": [
           "analytics"
         ]
@@ -11213,6 +12069,26 @@
         ]
       }
     },
+    "/v1/auth/logout-all": {
+      "post": {
+        "description": "Logout from all devices by invalidating all existing tokens.\n\nSets a user-level revocation epoch that invalidates all tokens issued before\nthis moment. Also blacklists the current access token for immediate effect.\n\nThis is useful when:\n- User suspects their account has been compromised\n- User loses a device\n- User wants to force logout from all active sessions\n- User changes password (optional policy)\n\nArgs:\n    request: FastAPI request object for IP extraction\n    current_user: Current authenticated user\n    credentials: Token credentials for blacklisting current token\n    db: Database session\n\nReturns:\n    No content (204)",
+        "operationId": "logout_all_devices_v1_auth_logout_all_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Logout All Devices",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v1/auth/refresh": {
       "post": {
         "description": "Refresh access token using refresh token.\n\nArgs:\n    current_user: Current authenticated user from refresh token\n    db: Database session\n\nReturns:\n    New access and refresh tokens with user information\n\nRaises:\n    HTTPException: 401 if refresh token is invalid",
@@ -11415,7 +12291,7 @@
     },
     "/v1/health": {
       "get": {
-        "description": "Health check endpoint.\nReturns basic health status of the API.",
+        "description": "Health check endpoint.\nReturns basic health status of the API, including database connectivity.\nDatabase check is non-fatal: the endpoint always returns 200 but reports\nthe database status so outages are immediately visible in the response body.\nTimes out after 3 seconds to avoid hanging Railway's health check.",
         "operationId": "health_check_v1_health_get",
         "responses": {
           "200": {
@@ -11460,7 +12336,7 @@
         ]
       },
       "put": {
-        "description": "Update notification preferences for the current user.\n\nThis endpoint allows users to enable or disable push notifications\nwithout removing their device token.\n\nArgs:\n    preferences: Notification preferences\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    Updated notification preferences",
+        "description": "Update notification preferences for the current user.\n\nThis endpoint allows users to enable or disable push notifications\nwithout removing their device token.\n\nArgs:\n    preferences: Notification preferences\n    current_user: Current authenticated user\n    db: Async database session\n\nReturns:\n    Updated notification preferences",
         "operationId": "update_notification_preferences_v1_notifications_preferences_put",
         "requestBody": {
           "content": {
@@ -11507,7 +12383,7 @@
     },
     "/v1/notifications/register-device": {
       "delete": {
-        "description": "Unregister the APNs device token for the current user.\n\nThis endpoint allows users to remove their device token, typically\nwhen logging out or when they no longer want to receive notifications.\n\nArgs:\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    Success response with confirmation message",
+        "description": "Unregister the APNs device token for the current user.\n\nThis endpoint allows users to remove their device token, typically\nwhen logging out or when they no longer want to receive notifications.\n\nArgs:\n    current_user: Current authenticated user\n    db: Async database session\n\nReturns:\n    Success response with confirmation message",
         "operationId": "unregister_device_token_v1_notifications_register_device_delete",
         "responses": {
           "200": {
@@ -11532,7 +12408,7 @@
         ]
       },
       "post": {
-        "description": "Register or update the APNs device token for the current user.\n\nThis endpoint allows iOS devices to register their APNs device token\nso the backend can send push notifications. The token is stored in\nthe user's profile and will be updated if the device token changes.\n\nArgs:\n    token_data: Device token registration data\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    Success response with confirmation message",
+        "description": "Register or update the APNs device token for the current user.\n\nThis endpoint allows iOS devices to register their APNs device token\nso the backend can send push notifications. The token is stored in\nthe user's profile and will be updated if the device token changes.\n\nArgs:\n    token_data: Device token registration data\n    current_user: Current authenticated user\n    db: Async database session\n\nReturns:\n    Success response with confirmation message",
         "operationId": "register_device_token_v1_notifications_register_device_post",
         "requestBody": {
           "content": {
@@ -12104,7 +12980,7 @@
     },
     "/v1/user/delete-account": {
       "delete": {
-        "description": "Delete user account and all associated data (GDPR right to erasure).\n\nThis endpoint permanently deletes:\n- User profile and credentials\n- All test sessions\n- All test responses\n- All test results\n- All user-question associations\n\nThis action is irreversible and complies with GDPR Article 17\n(Right to Erasure).\n\nArgs:\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    No content (204) on successful deletion\n\nRaises:\n    HTTPException: 500 if database error occurs during deletion",
+        "description": "Delete user account and all associated data (GDPR right to erasure).\n\nThis endpoint permanently deletes:\n- User profile and credentials\n- All test sessions\n- All test responses\n- All test results\n- All user-question associations\n\nThis action is irreversible and complies with GDPR Article 17\n(Right to Erasure).\n\nArgs:\n    current_user: Current authenticated user\n    db: Async database session\n\nReturns:\n    No content (204) on successful deletion\n\nRaises:\n    HTTPException: 500 if database error occurs during deletion",
         "operationId": "delete_user_account_v1_user_delete_account_delete",
         "responses": {
           "204": {
@@ -12149,7 +13025,7 @@
         ]
       },
       "put": {
-        "description": "Update current user's profile information.\n\nOnly provided fields will be updated. Fields not included in the\nrequest body will remain unchanged.\n\nArgs:\n    profile_update: Profile fields to update\n    current_user: Current authenticated user\n    db: Database session\n\nReturns:\n    Updated user profile information",
+        "description": "Update current user's profile information.\n\nOnly provided fields will be updated. Fields not included in the\nrequest body will remain unchanged.\n\nArgs:\n    profile_update: Profile fields to update\n    current_user: Current authenticated user\n    db: Async database session\n\nReturns:\n    Updated user profile information",
         "operationId": "update_user_profile_v1_user_profile_put",
         "requestBody": {
           "content": {
