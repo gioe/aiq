@@ -186,6 +186,20 @@ class Settings(BaseSettings):
         description="Webhook URL for Slack/Discord alert notifications (leave empty to disable)",
     )
 
+    # LLM Benchmark
+    LLM_OPENAI_API_KEY: str | None = Field(
+        default=None, description="OpenAI API key for LLM benchmarking"
+    )
+    LLM_ANTHROPIC_API_KEY: str | None = Field(
+        default=None, description="Anthropic API key for LLM benchmarking"
+    )
+    LLM_GOOGLE_API_KEY: str | None = Field(
+        default=None, description="Google API key for LLM benchmarking"
+    )
+    LLM_BENCHMARK_COST_CAP_USD: float = Field(
+        default=5.0, ge=0.0, description="Maximum spend per benchmark run in USD"
+    )
+
     # Email/SMTP Settings (for password reset and feedback notifications)
     SMTP_HOST: str = Field(
         default="smtp.gmail.com",
