@@ -237,7 +237,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         return handleDeepLink(url, source: .urlScheme)
     }
 
-    /// Handle universal links (https://aiq.app/...)
+    /// Handle universal links (https://a-iq-test.com/...)
     ///
     /// This method is called when the app is opened via a universal link.
     /// Universal links provide a seamless experience when opening web links in the app.

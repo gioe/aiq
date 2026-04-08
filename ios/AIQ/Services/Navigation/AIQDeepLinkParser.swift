@@ -4,14 +4,14 @@ import os
 
 /// Parses AIQ deep link URLs into navigation actions using SharedKit's ``DeepLinkParser`` protocol.
 ///
-/// Supports both URL schemes (aiq://) and universal links (https://aiq.app/..., https://dev.aiq.app/...).
+/// Supports both URL schemes (aiq://) and universal links (https://a-iq-test.com/..., https://dev.a-iq-test.com/...).
 /// Returns a ``DeepLinkAction`` describing the navigation to perform, or `nil` for unrecognized URLs.
 ///
 /// Supported URL patterns:
 /// - `aiq://test/results/{id}` - View specific test results
 /// - `aiq://test/resume/{sessionId}` - Resume a test session
 /// - `aiq://settings` - Open settings (returns nil — handled at tab level by DeepLinkNavigationService)
-/// - `https://aiq.app/...` and `https://dev.aiq.app/...` - Same patterns as universal links
+/// - `https://a-iq-test.com/...` and `https://dev.a-iq-test.com/...` - Same patterns as universal links
 ///
 /// ## Async Routes
 /// Some deep link destinations require async data fetching before navigation (e.g., test results

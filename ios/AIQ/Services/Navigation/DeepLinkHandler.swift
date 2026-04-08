@@ -40,7 +40,7 @@ enum DeepLinkError: LocalizedError {
 
 /// Represents a parsed deep link destination with associated data
 ///
-/// Deep links can come from URL schemes (aiq://) or universal links (https://aiq.app/...).
+/// Deep links can come from URL schemes (aiq://) or universal links (https://a-iq-test.com/...).
 /// This enum represents the structured navigation destination after parsing.
 enum DeepLink: Equatable {
     /// View specific test results by result ID
@@ -84,7 +84,7 @@ enum DeepLinkSource: String {
     case safari
     /// Custom URL scheme (aiq://)
     case urlScheme = "url_scheme"
-    /// Universal link (https://aiq.app or https://dev.aiq.app)
+    /// Universal link (https://a-iq-test.com or https://dev.a-iq-test.com)
     case universalLink = "universal_link"
     /// Unknown source
     case unknown
