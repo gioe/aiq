@@ -10,7 +10,7 @@
 #
 # Environment Variables:
 #   APNS_TEAM_ID  - Apple Developer Team ID (10 characters)
-#   BUNDLE_ID     - App bundle identifier (defaults to com.a-iq-test.com)
+#   BUNDLE_ID     - App bundle identifier (defaults to com.aiq.app)
 #   DOMAIN        - Domain to check (defaults to a-iq-test.com)
 #
 # Exit codes:
@@ -27,7 +27,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default values
-DEFAULT_BUNDLE_ID="com.a-iq-test.com"
+DEFAULT_BUNDLE_ID="com.aiq.app"
 DEFAULT_DOMAIN="a-iq-test.com"
 DEV_DOMAIN="dev.a-iq-test.com"
 

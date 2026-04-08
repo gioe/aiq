@@ -245,7 +245,7 @@ To enable Universal Links for a new app or team:
 
 1. Sign in to [Apple Developer Portal](https://developer.apple.com/account)
 2. Go to **Certificates, Identifiers & Profiles** → **Identifiers**
-3. Select the App ID (`com.a-iq-test.com`)
+3. Select the App ID (`com.aiq.app`)
 4. Under **Capabilities**, enable **Associated Domains**
 5. Click **Save**
 
@@ -265,7 +265,7 @@ The server must host an `apple-app-site-association` file that tells iOS which a
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.com.a-iq-test.com"],
+        "appIDs": ["TEAMID.com.aiq.app"],
         "components": [
           { "/": "/test/results/*" },
           { "/": "/test/resume/*" },
