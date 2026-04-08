@@ -46,7 +46,7 @@ AIQ does NOT track users for advertising purposes. All data collection is for ap
 |---------|-------|
 | **Does your app collect data?** | Yes |
 | **Does your app track users?** | No |
-| **Privacy Policy URL** | https://aiq.app/privacy-policy |
+| **Privacy Policy URL** | https://a-iq-test.com/privacy-policy |
 
 ---
 
@@ -332,10 +332,10 @@ Screenshots should highlight the following screens in order:
 
 | URL Type | URL |
 |----------|-----|
-| **Privacy Policy URL** | https://aiq.app/privacy-policy |
-| **Terms of Service URL** | https://aiq.app/terms-of-service |
-| **Support URL** | https://aiq.app/support |
-| **Marketing URL** | https://aiq.app |
+| **Privacy Policy URL** | https://a-iq-test.com/privacy-policy |
+| **Terms of Service URL** | https://a-iq-test.com/terms-of-service |
+| **Support URL** | https://a-iq-test.com/support |
+| **Marketing URL** | https://a-iq-test.com |
 | **Support Email** | support@a-iq-test.com |
 | **Privacy Email** | privacy@a-iq-test.com |
 

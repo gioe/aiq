@@ -216,14 +216,14 @@ struct PrivacyConsentView: View {
     private var privacyPolicyURL: URL {
         // In production, this would be a web URL
         // For now, we'll use a placeholder that can be updated
-        URL(string: "https://aiq.app/privacy-policy")!
+        URL(string: "https://a-iq-test.com/privacy-policy")!
     }
 
     /// URL to the terms of service document
     private var termsOfServiceURL: URL {
         // In production, this would be a web URL
         // For now, we'll use a placeholder that can be updated
-        URL(string: "https://aiq.app/terms-of-service")!
+        URL(string: "https://a-iq-test.com/terms-of-service")!
     }
 }
 

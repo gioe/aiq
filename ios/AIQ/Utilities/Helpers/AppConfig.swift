@@ -36,6 +36,6 @@ enum AppConfig {
     ///   with valid syntax. URL validation is covered by AppConfigTests.
     static var privacyPolicyURL: URL {
         // swiftlint:disable:next force_unwrapping
-        URL(string: "https://aiq.app/privacy-policy")!
+        URL(string: "https://a-iq-test.com/privacy-policy")!
     }
 }
