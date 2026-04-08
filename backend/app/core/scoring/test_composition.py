@@ -88,7 +88,7 @@ def _select_anchor_items(
 
 
 def select_stratified_questions(
-    db: Session, user_id: int, total_count: int
+    db: Session, user_id: int, total_count: int, *, skip_seen_filter: bool = False
 ) -> tuple[list[Question], dict]:
     """
     Select questions using stratified sampling to ensure balanced test composition.
@@ -130,15 +130,21 @@ def select_stratified_questions(
     2. For each difficulty, distribute across cognitive domains according to configured weights
     3. Fall back gracefully if insufficient questions in specific strata
     """
-    # Get list of seen question IDs for this user
-    seen_question_ids_query = select(UserQuestion.question_id).where(
-        UserQuestion.user_id == user_id
-    )
-    seen_question_ids = db.execute(seen_question_ids_query).scalars().all()
+    if skip_seen_filter:
+        # LLM benchmarks use user_id=0 as a sentinel and need access to all
+        # active questions regardless of prior exposure.
+        seen_question_ids: list[int] = []
+        anchor_items_by_type = {qt: [] for qt in QuestionType}
+    else:
+        # Get list of seen question IDs for this user
+        seen_question_ids_query = select(UserQuestion.question_id).where(
+            UserQuestion.user_id == user_id
+        )
+        seen_question_ids = list(db.execute(seen_question_ids_query).scalars().all())
 
-    # Pre-select anchor items for IRT calibration (TASK-850)
-    # Each domain should have at least MIN_ANCHORS_PER_DOMAIN anchor items
-    anchor_items_by_type = _select_anchor_items(db, user_id, seen_question_ids)
+        # Pre-select anchor items for IRT calibration (TASK-850)
+        # Each domain should have at least MIN_ANCHORS_PER_DOMAIN anchor items
+        anchor_items_by_type = _select_anchor_items(db, user_id, seen_question_ids)
     selected_questions: list[Question] = []
 
     # Count anchors per difficulty level so we can reduce difficulty targets
@@ -472,7 +478,7 @@ async def _async_select_anchor_items(
 
 
 async def async_select_stratified_questions(
-    db: AsyncSession, user_id: int, total_count: int
+    db: AsyncSession, user_id: int, total_count: int, *, skip_seen_filter: bool = False
 ) -> tuple[list[Question], dict]:
     """
     Select questions using stratified sampling (async version).
@@ -514,18 +520,24 @@ async def async_select_stratified_questions(
     2. For each difficulty, distribute across cognitive domains according to configured weights
     3. Fall back gracefully if insufficient questions in specific strata
     """
-    # Get list of seen question IDs for this user
-    seen_question_ids_query = select(UserQuestion.question_id).where(
-        UserQuestion.user_id == user_id
-    )
-    result = await db.execute(seen_question_ids_query)
-    seen_question_ids = result.scalars().all()
+    if skip_seen_filter:
+        # LLM benchmarks use user_id=0 as a sentinel and need access to all
+        # active questions regardless of prior exposure.
+        seen_question_ids: list[int] = []
+        anchor_items_by_type = {qt: [] for qt in QuestionType}
+    else:
+        # Get list of seen question IDs for this user
+        seen_question_ids_query = select(UserQuestion.question_id).where(
+            UserQuestion.user_id == user_id
+        )
+        result = await db.execute(seen_question_ids_query)
+        seen_question_ids = list(result.scalars().all())
 
-    # Pre-select anchor items for IRT calibration (TASK-850)
-    # Each domain should have at least MIN_ANCHORS_PER_DOMAIN anchor items
-    anchor_items_by_type = await _async_select_anchor_items(
-        db, user_id, seen_question_ids
-    )
+        # Pre-select anchor items for IRT calibration (TASK-850)
+        # Each domain should have at least MIN_ANCHORS_PER_DOMAIN anchor items
+        anchor_items_by_type = await _async_select_anchor_items(
+            db, user_id, seen_question_ids
+        )
     selected_questions: list[Question] = []
 
     # Count anchors per difficulty level so we can reduce difficulty targets
