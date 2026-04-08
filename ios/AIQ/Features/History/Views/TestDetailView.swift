@@ -31,6 +31,14 @@ struct TestDetailView: View {
 
                 // Detailed statistics
                 statisticsSection
+
+                // Model performance breakdown
+                if testResult.modelScoresConverted != nil {
+                    ModelPerformanceBreakdownView(
+                        modelScores: testResult.modelScoresConverted,
+                        showAnimation: showAnimation
+                    )
+                }
             }
             .padding()
         }

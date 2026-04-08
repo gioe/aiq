@@ -53,6 +53,14 @@ struct TestResultsView: View {
                         weakestDomain: result.weakestDomain
                     )
                 }
+
+                // Model performance breakdown
+                if result.modelScoresConverted != nil {
+                    ModelPerformanceBreakdownView(
+                        modelScores: result.modelScoresConverted,
+                        showAnimation: showDomains
+                    )
+                }
             }
             .padding(DesignSystem.Spacing.lg)
         }
