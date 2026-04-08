@@ -809,11 +809,12 @@ final class DashboardViewModelTests: XCTestCase {
         // When
         await sut.refreshDashboard()
 
-        // Then - both cache keys should be nil (cleared before fetch; not re-populated with nil response)
+        // Then - activeTestSession cache should be nil (API returned nil, so it's not re-cached).
+        // testHistory cache will be [] because fetchTestCount always re-caches the API result.
         let cachedHistory: [TestResult]? = await AppCache.shared.get(forKey: .testHistory)
         let cachedSession: TestSessionStatusResponse? = await AppCache.shared.get(forKey: .activeTestSession)
-        XCTAssertNil(cachedHistory, "testHistory cache should be cleared after refresh")
-        XCTAssertNil(cachedSession, "activeTestSession cache should be cleared after refresh")
+        XCTAssertEqual(cachedHistory, [], "testHistory cache should contain fresh (empty) API result")
+        XCTAssertNil(cachedSession, "activeTestSession cache should be nil when API returns nil")
 
         // Confirm a real API call was made (not served from cache)
         let getTestHistoryCalled = await mockService.getTestHistoryCalled
