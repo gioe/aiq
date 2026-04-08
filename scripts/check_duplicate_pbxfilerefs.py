@@ -16,7 +16,6 @@ Usage:
 
 import re
 import sys
-from collections import Counter
 from pathlib import Path
 
 # Matches: HASH /* Name */ = {isa = PBXFileReference; ... path = SomeName; ...};
