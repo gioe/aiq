@@ -32,6 +32,11 @@ from .models import (
     FeedbackCategory,
     FeedbackStatus,
 )
+from .llm_benchmark import (
+    LLMTestSession,
+    LLMResponse,
+    LLMTestResult,
+)
 
 __all__ = [
     "Base",
@@ -60,4 +65,7 @@ __all__ = [
     "FeedbackSubmission",
     "FeedbackCategory",
     "FeedbackStatus",
+    "LLMTestSession",
+    "LLMResponse",
+    "LLMTestResult",
 ]
