@@ -159,3 +159,24 @@ enum PerformanceLevel {
         }
     }
 }
+
+// MARK: - Model Score
+
+/// Represents performance breakdown for a single AI model that generated questions.
+struct ModelScore: Codable, Equatable {
+    let correct: Int
+    let total: Int
+    let pct: Double?
+
+    /// Formatted percentage string (e.g., "75%")
+    var percentageFormatted: String {
+        guard let percentage = pct else { return "N/A" }
+        return "\(Int(round(percentage)))%"
+    }
+
+    /// Accuracy as a decimal (0.0-1.0)
+    var accuracy: Double? {
+        guard let percentage = pct else { return nil }
+        return percentage / 100.0
+    }
+}

@@ -238,3 +238,90 @@ extension Components.Schemas.TestResultResponse {
             .min { ($0.score.pct ?? 0) < ($1.score.pct ?? 0) }
     }
 }
+
+// MARK: - Model Score Helpers
+
+extension Components.Schemas.TestResultResponse {
+    /// Known LLM vendor prefixes for grouping models by provider
+    enum ModelVendor: String, CaseIterable {
+        case openai
+        case anthropic
+        case google
+        case meta
+        case unknown
+
+        var displayName: String {
+            switch self {
+            case .openai: "OpenAI"
+            case .anthropic: "Anthropic"
+            case .google: "Google"
+            case .meta: "Meta"
+            case .unknown: "Unknown"
+            }
+        }
+
+        /// Determine vendor from a model name string
+        static func from(modelName: String) -> ModelVendor {
+            let lowered = modelName.lowercased()
+            if lowered.contains("gpt") || lowered.contains("o1") || lowered.contains("o3") || lowered.contains("o4") {
+                return .openai
+            } else if lowered.contains("claude") {
+                return .anthropic
+            } else if lowered.contains("gemini") || lowered.contains("gemma") {
+                return .google
+            } else if lowered.contains("llama") {
+                return .meta
+            }
+            return .unknown
+        }
+    }
+
+    /// Converts the OpenAPI model scores payload to a typed dictionary.
+    ///
+    /// Same pattern as `domainScoresConverted` — round-trips each `OpenAPIObjectContainer`
+    /// through JSON to produce a typed `ModelScore`.
+    var modelScoresConverted: [String: ModelScore]? {
+        guard let payload = modelScores else { return nil }
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+        var result: [String: ModelScore] = [:]
+        for (key, value) in payload.additionalProperties {
+            guard let data = try? encoder.encode(value),
+                  let score = try? decoder.decode(ModelScore.self, from: data)
+            else { continue }
+            result[key] = score
+        }
+        return result.isEmpty ? nil : result
+    }
+
+    /// Model scores sorted alphabetically by model name.
+    var sortedModelScores: [(model: String, score: ModelScore)]? {
+        guard let scores = modelScoresConverted, !scores.isEmpty else { return nil }
+        return scores.sorted { $0.key < $1.key }.map { (model: $0.key, score: $0.value) }
+    }
+
+    /// Model scores grouped by vendor with aggregate stats per vendor.
+    var vendorGroupedScores: [(
+        vendor: ModelVendor,
+        models: [(model: String, score: ModelScore)],
+        aggregate: ModelScore
+    )]? {
+        guard let scores = modelScoresConverted, !scores.isEmpty else { return nil }
+
+        var groups: [ModelVendor: [(model: String, score: ModelScore)]] = [:]
+        for (model, score) in scores {
+            let vendor = ModelVendor.from(modelName: model)
+            groups[vendor, default: []].append((model: model, score: score))
+        }
+
+        return groups.map { vendor, models in
+            let sortedModels = models.sorted { $0.model < $1.model }
+            let totalCorrect = models.reduce(0) { $0 + $1.score.correct }
+            let totalQuestions = models.reduce(0) { $0 + $1.score.total }
+            let pct = totalQuestions > 0 ? (Double(totalCorrect) / Double(totalQuestions)) * 100.0 : nil
+            let aggregate = ModelScore(correct: totalCorrect, total: totalQuestions, pct: pct)
+            return (vendor: vendor, models: sortedModels, aggregate: aggregate)
+        }
+        .sorted { ($0.aggregate.pct ?? 0) > ($1.aggregate.pct ?? 0) }
+    }
+}

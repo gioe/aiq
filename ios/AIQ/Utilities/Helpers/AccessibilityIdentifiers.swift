@@ -293,6 +293,12 @@ enum AccessibilityIdentifiers {
         static let submitButton = "feedbackView.submitButton"
     }
 
+    // MARK: - Model Performance View
+
+    enum ModelPerformanceView {
+        static let container = "modelPerformanceView.container"
+    }
+
     // MARK: - Adaptive Test View
 
     enum AdaptiveTestView {
