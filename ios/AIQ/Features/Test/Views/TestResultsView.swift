@@ -169,7 +169,7 @@ struct TestResultsView: View {
 
             // IQ Score
             VStack(spacing: DesignSystem.Spacing.xs) {
-                Text("Estimated AIQ Score")
+                Text("results.your.score".localized)
                     .font(theme.typography.h3)
                     .foregroundColor(theme.colors.textSecondary)
                     .accessibilityHidden(true) // Redundant with full label below
@@ -198,7 +198,7 @@ struct TestResultsView: View {
                 .accessibilityHidden(true) // Already included in hint above
 
             // Disclaimer
-            Text("Scores are estimates based on a brief assessment and may vary between sessions.")
+            Text("results.disclaimer".localized)
                 .font(theme.typography.captionMedium)
                 .foregroundColor(theme.colors.textTertiary)
                 .multilineTextAlignment(.center)
