@@ -247,6 +247,21 @@ def two_provider_data(db_session, test_user):
         question_id=q_no_vendor.id,
         is_correct=True,
     )
+    # Add a response with a valid source_llm to session C so the test
+    # validates session-status filtering, not just the source_llm IS NOT NULL filter.
+    q_google_in_progress = _make_question(
+        db_session,
+        question_text="Google in-progress",
+        source_llm="google",
+        source_model="gemini-pro",
+    )
+    _make_response(
+        db_session,
+        session_id=session_c.id,
+        user_id=uid,
+        question_id=q_google_in_progress.id,
+        is_correct=True,
+    )
 
     db_session.commit()
 
@@ -393,15 +408,15 @@ class TestModelPerformance:
         self, client, auth_headers, two_provider_data
     ):
         """Responses from IN_PROGRESS sessions must not be included."""
-        # session_c is IN_PROGRESS with a no-vendor question; total_count stays 2
+        # session_c is IN_PROGRESS and contains a google/gemini-pro response.
+        # If the status filter is broken, "google" would appear in the results.
         response = client.get(
             "/v1/analytics/model-performance",
             headers=auth_headers,
         )
         assert response.status_code == 200
-        # The IN_PROGRESS session only had a no-vendor question, so even if it
-        # leaked it would be excluded by the source_llm IS NOT NULL filter.
-        # The key assertion is that the total_count is exactly 2 (openai + anthropic).
+        vendor_names = {row["vendor"] for row in response.json()["results"]}
+        assert "google" not in vendor_names
         assert response.json()["total_count"] == 2
 
     def test_historical_empty_when_no_responses(self, client, auth_headers, test_user):
