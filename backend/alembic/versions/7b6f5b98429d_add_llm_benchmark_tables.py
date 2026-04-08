@@ -1,6 +1,6 @@
 """Add LLM benchmark tables
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 7b6f5b98429d
 Revises: 78e241a4fbf8
 Create Date: 2026-04-08
 
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSON
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"  # pragma: allowlist secret
+revision: str = "7b6f5b98429d"  # pragma: allowlist secret
 down_revision: Union[str, None] = "78e241a4fbf8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -89,6 +89,11 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("now()"),
         ),
+    )
+    op.create_unique_constraint(
+        "uq_llm_response_session_question",
+        "llm_responses",
+        ["session_id", "question_id"],
     )
     op.create_index(
         "ix_llm_responses_session_question",

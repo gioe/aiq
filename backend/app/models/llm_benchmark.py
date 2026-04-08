@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import ForeignKey, String, Text, Index, DateTime
+from sqlalchemy import ForeignKey, String, Text, Index, DateTime, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -84,6 +84,9 @@ class LLMResponse(Base):
     question: Mapped["Question"] = relationship()
 
     __table_args__ = (
+        UniqueConstraint(
+            "session_id", "question_id", name="uq_llm_response_session_question"
+        ),
         Index("ix_llm_responses_session_question", "session_id", "question_id"),
     )
 
