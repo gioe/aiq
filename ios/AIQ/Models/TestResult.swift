@@ -179,4 +179,21 @@ struct ModelScore: Codable, Equatable {
         guard let percentage = pct else { return nil }
         return percentage / 100.0
     }
+
+    /// Performance color based on accuracy percentage
+    var performanceColor: Color {
+        let percentage = pct ?? 0
+        switch percentage {
+        case 80...:
+            return ColorPalette.performanceExcellent
+        case 60 ..< 80:
+            return ColorPalette.performanceGood
+        case 40 ..< 60:
+            return ColorPalette.performanceAverage
+        case 20 ..< 40:
+            return ColorPalette.performanceBelowAverage
+        default:
+            return ColorPalette.performanceNeedsWork
+        }
+    }
 }

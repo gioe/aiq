@@ -20,22 +20,6 @@ struct ModelScoreBarView: View {
         percentage / 100.0
     }
 
-    /// Bar color based on accuracy percentage
-    private var barColor: Color {
-        switch percentage {
-        case 80...:
-            ColorPalette.performanceExcellent
-        case 60 ..< 80:
-            ColorPalette.performanceGood
-        case 40 ..< 60:
-            ColorPalette.performanceAverage
-        case 20 ..< 40:
-            ColorPalette.performanceBelowAverage
-        default:
-            ColorPalette.performanceNeedsWork
-        }
-    }
-
     /// Display name: use "Unknown Model" for empty/null model names
     private var displayName: String {
         modelName.isEmpty ? "Unknown Model" : modelName
@@ -67,7 +51,7 @@ struct ModelScoreBarView: View {
                         .frame(height: 8)
 
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(barColor)
+                        .fill(score.performanceColor)
                         .frame(width: geometry.size.width * animatedProgress, height: 8)
                 }
             }
@@ -115,22 +99,6 @@ struct VendorSectionView: View {
         percentage / 100.0
     }
 
-    /// Bar color based on accuracy percentage
-    private var barColor: Color {
-        switch percentage {
-        case 80...:
-            ColorPalette.performanceExcellent
-        case 60 ..< 80:
-            ColorPalette.performanceGood
-        case 40 ..< 60:
-            ColorPalette.performanceAverage
-        case 20 ..< 40:
-            ColorPalette.performanceBelowAverage
-        default:
-            ColorPalette.performanceNeedsWork
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
             // Vendor header (tappable to expand)
@@ -167,7 +135,7 @@ struct VendorSectionView: View {
                                 .frame(height: 8)
 
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(barColor)
+                                .fill(aggregate.performanceColor)
                                 .frame(width: geometry.size.width * animatedProgress, height: 8)
                         }
                     }
@@ -222,35 +190,14 @@ struct VendorSectionView: View {
 
 /// Container view displaying AI model performance grouped by vendor.
 struct ModelPerformanceBreakdownView: View {
-    let modelScores: [String: ModelScore]?
-    let showAnimation: Bool
-
-    @Environment(\.appTheme) private var theme
-
-    /// Vendor-grouped scores computed from raw model scores
-    private var vendorGroups: [(
+    let vendorGroups: [(
         vendor: TestResult.ModelVendor,
         models: [(model: String, score: ModelScore)],
         aggregate: ModelScore
-    )] {
-        guard let scores = modelScores, !scores.isEmpty else { return [] }
+    )]
+    let showAnimation: Bool
 
-        var groups: [TestResult.ModelVendor: [(model: String, score: ModelScore)]] = [:]
-        for (model, score) in scores {
-            let vendor = TestResult.ModelVendor.from(modelName: model)
-            groups[vendor, default: []].append((model: model, score: score))
-        }
-
-        return groups.map { vendor, models in
-            let sortedModels = models.sorted { $0.model < $1.model }
-            let totalCorrect = models.reduce(0) { $0 + $1.score.correct }
-            let totalQuestions = models.reduce(0) { $0 + $1.score.total }
-            let pct = totalQuestions > 0 ? (Double(totalCorrect) / Double(totalQuestions)) * 100.0 : nil
-            let aggregate = ModelScore(correct: totalCorrect, total: totalQuestions, pct: pct)
-            return (vendor: vendor, models: sortedModels, aggregate: aggregate)
-        }
-        .sorted { ($0.aggregate.pct ?? 0) > ($1.aggregate.pct ?? 0) }
-    }
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
@@ -318,12 +265,30 @@ struct ModelPerformanceBreakdownView: View {
     #Preview("Multiple Vendors") {
         ScrollView {
             ModelPerformanceBreakdownView(
-                modelScores: [
-                    "gpt-4o": ModelScore(correct: 5, total: 7, pct: 71.4),
-                    "gpt-4o-mini": ModelScore(correct: 3, total: 4, pct: 75.0),
-                    "claude-3-opus": ModelScore(correct: 3, total: 4, pct: 75.0),
-                    "claude-3-5-sonnet": ModelScore(correct: 4, total: 5, pct: 80.0),
-                    "gemini-1.5-pro": ModelScore(correct: 2, total: 3, pct: 66.7)
+                vendorGroups: [
+                    (
+                        vendor: .openai,
+                        models: [
+                            (model: "gpt-4o", score: ModelScore(correct: 5, total: 7, pct: 71.4)),
+                            (model: "gpt-4o-mini", score: ModelScore(correct: 3, total: 4, pct: 75.0))
+                        ],
+                        aggregate: ModelScore(correct: 8, total: 11, pct: 72.7)
+                    ),
+                    (
+                        vendor: .anthropic,
+                        models: [
+                            (model: "claude-3-opus", score: ModelScore(correct: 3, total: 4, pct: 75.0)),
+                            (model: "claude-3-5-sonnet", score: ModelScore(correct: 4, total: 5, pct: 80.0))
+                        ],
+                        aggregate: ModelScore(correct: 7, total: 9, pct: 77.8)
+                    ),
+                    (
+                        vendor: .google,
+                        models: [
+                            (model: "gemini-1.5-pro", score: ModelScore(correct: 2, total: 3, pct: 66.7))
+                        ],
+                        aggregate: ModelScore(correct: 2, total: 3, pct: 66.7)
+                    )
                 ],
                 showAnimation: true
             )
@@ -335,8 +300,14 @@ struct ModelPerformanceBreakdownView: View {
     #Preview("Single Vendor") {
         ScrollView {
             ModelPerformanceBreakdownView(
-                modelScores: [
-                    "gpt-4o": ModelScore(correct: 8, total: 10, pct: 80.0)
+                vendorGroups: [
+                    (
+                        vendor: .openai,
+                        models: [
+                            (model: "gpt-4o", score: ModelScore(correct: 8, total: 10, pct: 80.0))
+                        ],
+                        aggregate: ModelScore(correct: 8, total: 10, pct: 80.0)
+                    )
                 ],
                 showAnimation: true
             )
@@ -348,7 +319,7 @@ struct ModelPerformanceBreakdownView: View {
     #Preview("No Data") {
         ScrollView {
             ModelPerformanceBreakdownView(
-                modelScores: nil,
+                vendorGroups: [],
                 showAnimation: true
             )
             .padding()

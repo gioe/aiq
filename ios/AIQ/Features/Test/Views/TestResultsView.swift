@@ -55,9 +55,9 @@ struct TestResultsView: View {
                 }
 
                 // Model performance breakdown
-                if result.modelScoresConverted != nil {
+                if let vendorGroups = result.vendorGroupedScores {
                     ModelPerformanceBreakdownView(
-                        modelScores: result.modelScoresConverted,
+                        vendorGroups: vendorGroups,
                         showAnimation: showDomains
                     )
                 }

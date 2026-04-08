@@ -294,12 +294,6 @@ extension Components.Schemas.TestResultResponse {
         return result.isEmpty ? nil : result
     }
 
-    /// Model scores sorted alphabetically by model name.
-    var sortedModelScores: [(model: String, score: ModelScore)]? {
-        guard let scores = modelScoresConverted, !scores.isEmpty else { return nil }
-        return scores.sorted { $0.key < $1.key }.map { (model: $0.key, score: $0.value) }
-    }
-
     /// Model scores grouped by vendor with aggregate stats per vendor.
     var vendorGroupedScores: [(
         vendor: ModelVendor,
