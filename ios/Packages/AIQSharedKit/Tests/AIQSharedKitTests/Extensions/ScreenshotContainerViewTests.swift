@@ -71,12 +71,13 @@ final class ScreenshotContainerViewTests: XCTestCase {
         // When
         let size = view.intrinsicContentSize
 
-        // Then: provider was called and returned a real size, not noIntrinsicMetric
+        // Then: provider was called and returned a real height; width stays noIntrinsicMetric
+        // because intrinsicContentSize defers horizontal sizing to SwiftUI.
         XCTAssertEqual(providerCallCount, 1, "preferredSizeProvider should be called when a cached width is available")
-        XCTAssertNotEqual(
+        XCTAssertEqual(
             size.width,
             UIView.noIntrinsicMetric,
-            "width should not be noIntrinsicMetric when a cached width exists"
+            "width should be noIntrinsicMetric (SwiftUI controls horizontal sizing)"
         )
         XCTAssertNotEqual(
             size.height,
@@ -119,8 +120,9 @@ final class ScreenshotContainerViewTests: XCTestCase {
         )
     }
 
-    /// Supplementary: when `bounds.width > 0`, `preferredSizeProvider` is called with
-    /// `bounds.width` directly (the straightforward path, no cache needed).
+    /// Supplementary: when `bounds.width > 0` AND `layoutSubviews` has cached the width,
+    /// `preferredSizeProvider` is called with the cached width and `intrinsicContentSize`
+    /// reports only the height (width stays `noIntrinsicMetric` so SwiftUI controls horizontal sizing).
     func testIntrinsicContentSize_usesBoundsWidth_whenBoundsWidthIsPositive() {
         // Given
         let boundsWidth: CGFloat = 375
@@ -132,6 +134,7 @@ final class ScreenshotContainerViewTests: XCTestCase {
         }
 
         view.frame = CGRect(x: 0, y: 0, width: boundsWidth, height: 100)
+        view.layoutSubviews() // Cache _lastValidWidth so intrinsicContentSize uses it
 
         // When
         let size = view.intrinsicContentSize
@@ -140,9 +143,10 @@ final class ScreenshotContainerViewTests: XCTestCase {
         XCTAssertEqual(
             recordedWidths.first,
             boundsWidth,
-            "preferredSizeProvider should receive the current bounds.width when it is positive"
+            "preferredSizeProvider should receive the cached bounds.width"
         )
-        XCTAssertEqual(size.width, boundsWidth, "intrinsicContentSize.width should equal bounds.width")
+        // intrinsicContentSize returns noIntrinsicMetric for width (SwiftUI controls horizontal sizing)
+        XCTAssertEqual(size.width, UIView.noIntrinsicMetric, "intrinsicContentSize.width should be noIntrinsicMetric")
         XCTAssertEqual(size.height, 44)
     }
 
