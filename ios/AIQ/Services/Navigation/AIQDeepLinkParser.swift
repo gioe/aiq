@@ -32,7 +32,7 @@ struct AIQDeepLinkParser: DeepLinkParser {
     private static let urlScheme = "aiq"
 
     /// Universal link hosts (production and development)
-    private static let universalLinkHosts = ["aiq.app", "dev.aiq.app"]
+    private static let universalLinkHosts = ["a-iq-test.com", "dev.a-iq-test.com"]
 
     /// Analytics manager for tracking malformed deep link events
     private let analyticsManager: AnalyticsManagerProtocol

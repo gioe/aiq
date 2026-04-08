@@ -579,7 +579,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParse_InvalidHost_WWW() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://www.aiq.app/test/results/123"))
+        let url = try XCTUnwrap(URL(string: "https://www.a-iq-test.com/test/results/123"))
 
         // When
         let result = sut.parseDeepLink(url)
