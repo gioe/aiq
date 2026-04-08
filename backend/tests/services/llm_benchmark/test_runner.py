@@ -205,6 +205,7 @@ class TestRunLlmBenchmark:
                 "app.services.llm_benchmark.runner._PROVIDER_DISPATCH",
                 {"openai": mock_provider},
             ),
+            patch("app.services.llm_benchmark.runner.settings") as mock_settings,
             patch("app.services.llm_benchmark.runner.calculate_iq_score") as mock_iq,
             patch("app.services.llm_benchmark.runner.iq_to_percentile") as mock_pctile,
             patch(
@@ -212,6 +213,8 @@ class TestRunLlmBenchmark:
                 return_value={"logic": 0.5},
             ),
         ):
+            mock_settings.LLM_BENCHMARK_COST_CAP_USD = 5.0
+            mock_settings.TEST_TOTAL_QUESTIONS = 25
             mock_iq.return_value = MagicMock(iq_score=110)
             mock_pctile.return_value = 75.0
 
@@ -319,23 +322,25 @@ class TestRunLlmBenchmark:
             ),
             patch(
                 "app.services.llm_benchmark.runner.calculate_iq_score",
-                return_value=None,
-            ),
+            ) as mock_iq,
             patch(
                 "app.services.llm_benchmark.runner.iq_to_percentile",
-                return_value=None,
+                return_value=25.0,
             ),
             patch(
                 "app.services.llm_benchmark.runner.calculate_domain_scores",
                 return_value={},
             ),
         ):
+            mock_iq.return_value = MagicMock(iq_score=85)
+
             session_id = await run_llm_benchmark(
                 db, "openai", "test-model", total_questions=1
             )
 
         assert session_id == 77
-        # Should complete without raising
+        # Should complete without raising; 0 correct out of 1 answered
+        mock_iq.assert_called_once_with(0, 1)
         db.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
