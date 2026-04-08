@@ -195,7 +195,7 @@ You have choices regarding your personal information:
 ### Account Information
 
 - **Access and Update** - You can view and update your profile information (name, email) within the App settings
-- **Delete Account** - You can request deletion of your account and all associated data by contacting us at privacy@aiq.app
+- **Delete Account** - You can request deletion of your account and all associated data by contacting us at privacy@a-iq-test.com
 
 ### Test Data
 
@@ -232,7 +232,7 @@ If you are located in the European Economic Area (EEA), United Kingdom, or Switz
 
 ## Children's Privacy
 
-AIQ is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe your child has provided us with personal information, please contact us at privacy@aiq.app. If we learn we have collected personal information from a child under 13, we will delete that information promptly.
+AIQ is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe your child has provided us with personal information, please contact us at privacy@a-iq-test.com. If we learn we have collected personal information from a child under 13, we will delete that information promptly.
 
 ## California Privacy Rights (CCPA)
 
@@ -261,7 +261,7 @@ You have the right not to receive discriminatory treatment for exercising your C
 
 ### How to Exercise Your Rights
 
-To exercise your rights, contact us at privacy@aiq.app with the subject line "CCPA Request." We will verify your identity before processing your request. You may designate an authorized agent to make requests on your behalf; we will require proof of authorization.
+To exercise your rights, contact us at privacy@a-iq-test.com with the subject line "CCPA Request." We will verify your identity before processing your request. You may designate an authorized agent to make requests on your behalf; we will require proof of authorization.
 
 ### Response Timing
 
@@ -309,7 +309,7 @@ You have the right to:
 
 ### How to Exercise Your Rights
 
-To exercise your GDPR rights, contact us at privacy@aiq.app. We will respond within 30 days (extendable by 60 days for complex requests).
+To exercise your GDPR rights, contact us at privacy@a-iq-test.com. We will respond within 30 days (extendable by 60 days for complex requests).
 
 ### Data Protection Authority
 
@@ -332,7 +332,7 @@ Your continued use of the App after the effective date of an updated Privacy Pol
 
 If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us:
 
-**Email:** privacy@aiq.app
+**Email:** privacy@a-iq-test.com
 
 **Subject Line for Requests:**
 - "GDPR Request" - For EU data subject rights

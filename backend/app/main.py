@@ -311,7 +311,7 @@ def create_application() -> FastAPI:
         ),
         contact={
             "name": "AIQ Support",
-            "email": "support@aiq.app",
+            "email": "support@a-iq-test.com",
         },
         license_info={
             "name": "MIT",

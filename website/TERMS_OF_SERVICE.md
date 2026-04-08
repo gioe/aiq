@@ -2,8 +2,6 @@
 
 **Effective Date:** January 23, 2026
 
-**IMPORTANT LEGAL NOTICE:** This is a draft Terms of Service document. Legal review by a qualified attorney is strongly recommended before publication or use.
-
 These Terms of Service ("Terms") govern your access to and use of the AIQ mobile application (the "App") provided by AIQ ("we," "us," or "our"). By downloading, installing, or using the App, you agree to be bound by these Terms. If you do not agree to these Terms, do not use the App.
 
 ## Table of Contents
@@ -177,7 +175,7 @@ We will only use identifiable data as described in our [Privacy Policy](https://
 
 ### Data Retention
 
-Your test data will be retained as described in our Privacy Policy. You may request deletion of your account and associated data at any time by contacting privacy@aiq.app.
+Your test data will be retained as described in our Privacy Policy. You may request deletion of your account and associated data at any time by contacting privacy@a-iq-test.com.
 
 ### Ownership of Your Data
 
@@ -447,7 +445,7 @@ We reserve the right to assume exclusive defense and control of any matter subje
 You may terminate your account at any time by:
 
 - Deleting the App from your device
-- Requesting account deletion by contacting privacy@aiq.app
+- Requesting account deletion by contacting privacy@a-iq-test.com
 
 Upon termination, your data will be deleted as described in our Privacy Policy.
 
@@ -485,7 +483,7 @@ These Terms are governed by and construed in accordance with the laws of the Sta
 
 ### Informal Resolution
 
-Before filing a claim, you agree to try to resolve the dispute informally by contacting us at legal@aiq.app. We will try to resolve the dispute informally by contacting you via email. If a dispute is not resolved within 60 days of submission, you or AIQ may bring a formal proceeding.
+Before filing a claim, you agree to try to resolve the dispute informally by contacting us at legal@a-iq-test.com. We will try to resolve the dispute informally by contacting you via email. If a dispute is not resolved within 60 days of submission, you or AIQ may bring a formal proceeding.
 
 ### Arbitration Agreement
 
@@ -519,7 +517,7 @@ If you initiate arbitration, AIQ will reimburse your arbitration filing fee if y
 
 **Opt-Out:**
 
-You may opt out of this arbitration agreement by sending written notice to legal@aiq.app within 30 days of first accepting these Terms. Your notice must include your name, email, and a clear statement that you wish to opt out of the arbitration agreement. Opting out of arbitration does not affect any other terms.
+You may opt out of this arbitration agreement by sending written notice to legal@a-iq-test.com within 30 days of first accepting these Terms. Your notice must include your name, email, and a clear statement that you wish to opt out of the arbitration agreement. Opting out of arbitration does not affect any other terms.
 
 **Severability:**
 
@@ -653,13 +651,13 @@ Apple and Apple's subsidiaries are third-party beneficiaries of these Terms. Upo
 
 ### Contact for Legal Inquiries
 
-For questions about these Terms, contact us at legal@aiq.app.
+For questions about these Terms, contact us at legal@a-iq-test.com.
 
 ## Contact Information
 
 If you have questions, concerns, or requests regarding these Terms of Service:
 
-**Email:** legal@aiq.app
+**Email:** legal@a-iq-test.com
 
 **Subject Line for Requests:**
 - "Terms Question" - For general inquiries about these Terms
@@ -669,7 +667,7 @@ If you have questions, concerns, or requests regarding these Terms of Service:
 
 We will respond to all legitimate inquiries as promptly as possible.
 
-For privacy-related requests, please contact privacy@aiq.app (see our Privacy Policy).
+For privacy-related requests, please contact privacy@a-iq-test.com (see our Privacy Policy).
 
 ---
 

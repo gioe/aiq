@@ -204,7 +204,7 @@ class Settings(BaseSettings):
         description="SMTP authentication password",
     )
     SMTP_FROM_EMAIL: str = Field(
-        default="noreply@aiq.app",
+        default="noreply@a-iq-test.com",
         description="Email address to send from",
     )
     SMTP_FROM_NAME: str = Field(
@@ -212,7 +212,7 @@ class Settings(BaseSettings):
         description="Display name for sent emails",
     )
     ADMIN_EMAIL: str = Field(
-        default="admin@aiq.app",
+        default="admin@a-iq-test.com",
         description="Admin email address for feedback notifications",
     )
 

@@ -250,7 +250,7 @@ AIQ uses psychometric principles for reliable, valid assessments:
 START YOUR COGNITIVE JOURNEY
 Download AIQ today and begin understanding your mind like never before. Track your IQ, identify trends, and take charge of your cognitive health.
 
-Questions? Contact us at support@aiq.app
+Questions? Contact us at support@a-iq-test.com
 ```
 
 ### Promotional Text (170 characters)
@@ -336,8 +336,8 @@ Screenshots should highlight the following screens in order:
 | **Terms of Service URL** | https://aiq.app/terms-of-service |
 | **Support URL** | https://aiq.app/support |
 | **Marketing URL** | https://aiq.app |
-| **Support Email** | support@aiq.app |
-| **Privacy Email** | privacy@aiq.app |
+| **Support Email** | support@a-iq-test.com |
+| **Privacy Email** | privacy@a-iq-test.com |
 
 ---
 
@@ -374,7 +374,7 @@ Screenshots should highlight the following screens in order:
 ### Demo Account Credentials
 
 ```
-Email: demo@aiq.app
+Email: demo@a-iq-test.com
 Password: [Provide to App Review team only]
 ```
 
@@ -408,7 +408,7 @@ Notes:
 
 ```
 Name: [App Owner Name]
-Email: review@aiq.app
+Email: review@a-iq-test.com
 Phone: [Phone Number]
 ```
 

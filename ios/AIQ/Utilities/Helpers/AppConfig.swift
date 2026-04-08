@@ -26,7 +26,7 @@ enum AppConfig {
     }
 
     /// Support email address
-    static let supportEmail = "support@aiq.app"
+    static let supportEmail = "support@a-iq-test.com"
 
     // MARK: - External URLs
 

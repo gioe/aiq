@@ -13,9 +13,9 @@ SMTP_SETTINGS = {
     "SMTP_PORT": 587,
     "SMTP_USERNAME": "user@example.com",
     "SMTP_PASSWORD": "test-smtp-password",  # pragma: allowlist secret
-    "SMTP_FROM_EMAIL": "noreply@aiq.app",
+    "SMTP_FROM_EMAIL": "noreply@a-iq-test.com",
     "SMTP_FROM_NAME": "AIQ Support",
-    "ADMIN_EMAIL": "admin@aiq.app",
+    "ADMIN_EMAIL": "admin@a-iq-test.com",
 }
 
 
@@ -116,7 +116,7 @@ class TestSendFeedbackNotificationEmail:
                 submission_id=42,
             )
 
-        assert "admin@aiq.app" in captured["msg"]["To"]
+        assert "admin@a-iq-test.com" in captured["msg"]["To"]
 
     def test_html_body_escapes_user_input(self):
         """HTML-escapes user-supplied values to prevent injection."""

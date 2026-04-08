@@ -7938,7 +7938,7 @@
   },
   "info": {
     "contact": {
-      "email": "support@aiq.app",
+      "email": "support@a-iq-test.com",
       "name": "AIQ Support"
     },
     "description": "**AIQ API** - A backend service for AI-generated cognitive assessments.\n\nThis API provides:\n* User authentication and profile management\n* Periodic cognitive testing with AI-generated questions\n* Test session management and response submission\n* Historical test results and trend analysis\n\n## Authentication\n\nMost endpoints require authentication using JWT Bearer tokens. Obtain tokens via the `/v1/auth/login` endpoint.\n\n## Testing Cadence\n\nUsers are recommended to take tests every 3 months for optimal cognitive tracking.",
