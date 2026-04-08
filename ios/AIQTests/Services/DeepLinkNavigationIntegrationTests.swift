@@ -154,7 +154,7 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
         let result = await sut.navigate(
             to: .testResults(id: 123),
             source: .universalLink,
-            originalURL: "https://aiq.app/test/results/123"
+            originalURL: "https://a-iq-test.com/test/results/123"
         )
 
         XCTAssertEqual(result, .failed(.testResults(id: 123)))
@@ -234,7 +234,7 @@ final class DeepLinkNavigationIntegrationTests: XCTestCase {
     // MARK: - Universal link full flow
 
     func testUniversalLink_FullFlow_APISuccess_PushesRoute() async {
-        guard let url = URL(string: "https://aiq.app/test/results/789") else {
+        guard let url = URL(string: "https://a-iq-test.com/test/results/789") else {
             XCTFail("Should create valid URL")
             return
         }

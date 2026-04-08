@@ -13,7 +13,7 @@ import XCTest
 /// - Deep link navigation from app terminated state
 /// - Deep link navigation from app backgrounded state
 /// - URL scheme deep links (aiq://...)
-/// - Universal links (https://aiq.app/...)
+/// - Universal links (https://a-iq-test.com/...)
 /// - All supported deep link routes (results, resume, settings)
 /// - Invalid deep link handling
 /// - Navigation state verification after deep link
@@ -28,9 +28,9 @@ import XCTest
 /// - `aiq://test/results/{id}` - View specific test results by ID
 /// - `aiq://test/resume/{sessionId}` - Resume a test session by session ID
 /// - `aiq://settings` - Navigate to settings screen
-/// - `https://aiq.app/test/results/{id}` - Universal link to test results
-/// - `https://aiq.app/test/resume/{sessionId}` - Universal link to resume test
-/// - `https://aiq.app/settings` - Universal link to settings
+/// - `https://a-iq-test.com/test/results/{id}` - Universal link to test results
+/// - `https://a-iq-test.com/test/resume/{sessionId}` - Universal link to resume test
+/// - `https://a-iq-test.com/settings` - Universal link to settings
 final class DeepLinkTests: BaseUITest {
     // MARK: - Helper Properties
 
@@ -295,7 +295,7 @@ final class DeepLinkTests: BaseUITest {
         Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch app with universal link
-        let deepLinkURL = "https://aiq.app/test/results/\(validTestResultID)"
+        let deepLinkURL = "https://a-iq-test.com/test/results/\(validTestResultID)"
         app.launchArguments = ["-deepLink", deepLinkURL]
         app.launch()
 
@@ -333,7 +333,7 @@ final class DeepLinkTests: BaseUITest {
         Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch app with universal link to settings
-        let deepLinkURL = "https://aiq.app/settings"
+        let deepLinkURL = "https://a-iq-test.com/settings"
         app.launchArguments = ["-deepLink", deepLinkURL]
         app.launch()
 
@@ -370,7 +370,7 @@ final class DeepLinkTests: BaseUITest {
         Thread.sleep(forTimeInterval: appTerminationDelay)
 
         // Launch app with universal link to resume test
-        let deepLinkURL = "https://aiq.app/test/resume/\(validSessionID)"
+        let deepLinkURL = "https://a-iq-test.com/test/resume/\(validSessionID)"
         app.launchArguments = ["-deepLink", deepLinkURL]
         app.launch()
 

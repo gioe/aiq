@@ -97,7 +97,7 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
     func testSettingsUniversalLink_SwitchesToSettingsTab() async {
         router.currentTab = .history
 
-        guard let url = URL(string: "https://aiq.app/settings") else {
+        guard let url = URL(string: "https://a-iq-test.com/settings") else {
             XCTFail("Should create valid URL")
             return
         }
@@ -151,7 +151,7 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
     func testResumeTestUniversalLink_SwitchesToDashboardTab() async {
         router.currentTab = .settings
 
-        guard let url = URL(string: "https://aiq.app/test/resume/777") else {
+        guard let url = URL(string: "https://a-iq-test.com/test/resume/777") else {
             XCTFail("Should create valid URL")
             return
         }
@@ -237,7 +237,7 @@ final class DeepLinkNavigationServiceTests: XCTestCase {
     func testTestResultsUniversalLink_SwitchesToDashboardTab() async {
         router.currentTab = .history
 
-        guard let url = URL(string: "https://aiq.app/test/results/999") else {
+        guard let url = URL(string: "https://a-iq-test.com/test/results/999") else {
             XCTFail("Should create valid URL")
             return
         }

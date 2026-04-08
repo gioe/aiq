@@ -17,7 +17,7 @@ final class AppConfigTests: XCTestCase {
 
     func testPrivacyPolicyURLHasCorrectHost() {
         let url = AppConfig.privacyPolicyURL
-        XCTAssertEqual(url.host, "aiq.app", "Privacy policy URL should point to aiq.app")
+        XCTAssertEqual(url.host, "a-iq-test.com", "Privacy policy URL should point to a-iq-test.com")
     }
 
     func testPrivacyPolicyURLHasCorrectPath() {

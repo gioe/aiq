@@ -33,7 +33,7 @@ import XCTest
 /// ## Supported URL Schemes
 ///
 /// - **`aiq://`**: Custom URL scheme for deep links (e.g., `aiq://test/results/123`)
-/// - **`https://aiq.app`**: Universal links (e.g., `https://aiq.app/test/results/123`)
+/// - **`https://a-iq-test.com`**: Universal links (e.g., `https://a-iq-test.com/test/results/123`)
 ///
 /// Any other scheme or host parses to `.invalid` and logs an error to Crashlytics.
 ///
@@ -330,7 +330,7 @@ final class MainTabViewNotificationTappedTests: XCTestCase {
         let notificationUserInfo: [AnyHashable: Any] = [
             "payload": [
                 "type": "test_reminder",
-                "deep_link": "https://aiq.app/test/results/999"
+                "deep_link": "https://a-iq-test.com/test/results/999"
             ]
         ]
 
@@ -710,7 +710,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         router.currentTab = .history
 
         // When - parsing universal link and navigating through service
-        guard let url = URL(string: "https://aiq.app/settings") else {
+        guard let url = URL(string: "https://a-iq-test.com/settings") else {
             XCTFail("Should create valid URL")
             return
         }
@@ -780,7 +780,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         router.currentTab = .history
 
         // When - parsing universal link and navigating through service
-        guard let url = URL(string: "https://aiq.app/test/results/999") else {
+        guard let url = URL(string: "https://a-iq-test.com/test/results/999") else {
             XCTFail("Should create valid URL")
             return
         }
@@ -830,7 +830,7 @@ final class MainTabViewNotificationTappedNavigationTests: XCTestCase {
         router.currentTab = .settings
 
         // When - parsing universal link and navigating through service
-        guard let url = URL(string: "https://aiq.app/test/resume/777") else {
+        guard let url = URL(string: "https://a-iq-test.com/test/resume/777") else {
             XCTFail("Should create valid URL")
             return
         }

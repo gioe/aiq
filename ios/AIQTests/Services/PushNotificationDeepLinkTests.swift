@@ -84,7 +84,7 @@ final class PushNotificationDeepLinkTests: XCTestCase {
         // Given - notification payload with universal link
         let userInfo: [AnyHashable: Any] = [
             "type": "test_reminder",
-            "deep_link": "https://aiq.app/test/results/999"
+            "deep_link": "https://a-iq-test.com/test/results/999"
         ]
 
         // When

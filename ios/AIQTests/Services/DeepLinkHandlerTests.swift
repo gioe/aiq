@@ -243,7 +243,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_TestResults_ValidID() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/789"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results/789"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -254,7 +254,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_TestResults_LargeID() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/111111"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results/111111"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -265,7 +265,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_TestResults_InvalidID_NonNumeric() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/def"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results/def"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -276,7 +276,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_TestResults_MissingID() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -287,7 +287,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_TestResults_ExtraPathComponents() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/123/extra/path"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results/123/extra/path"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -301,7 +301,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_ResumeTest_ValidSessionID() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/321"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/resume/321"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -312,7 +312,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_ResumeTest_LargeSessionID() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/777777"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/resume/777777"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -323,7 +323,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_ResumeTest_InvalidSessionID_NonNumeric() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/invalid"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/resume/invalid"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -334,7 +334,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_ResumeTest_MissingSessionID() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/resume"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -345,7 +345,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_ResumeTest_ExtraPathComponents() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/456/extra"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/resume/456/extra"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -359,7 +359,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_Settings_Valid() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/settings"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/settings"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -370,7 +370,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_Settings_WithTrailingSlash() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/settings/"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/settings/"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -381,7 +381,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_Settings_WithExtraPath() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/settings/extra"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/settings/extra"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -393,7 +393,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_Settings_MultipleExtraPathComponents() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/settings/notifications/email"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/settings/notifications/email"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -407,7 +407,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_EmptyPath() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -418,7 +418,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_RootPath() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -429,7 +429,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_UnrecognizedPath() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/unknown"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/unknown"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -440,7 +440,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_TestWithoutAction() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -451,7 +451,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_TestWithInvalidAction() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/unknown/123"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/unknown/123"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -464,7 +464,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_DevDomain_TestResults_ValidID() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/test/results/123"))
+        let url = try XCTUnwrap(URL(string: "https://dev.a-iq-test.com/test/results/123"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -475,7 +475,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_DevDomain_ResumeTest_ValidSessionID() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/test/resume/456"))
+        let url = try XCTUnwrap(URL(string: "https://dev.a-iq-test.com/test/resume/456"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -486,7 +486,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_DevDomain_Settings() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/settings"))
+        let url = try XCTUnwrap(URL(string: "https://dev.a-iq-test.com/settings"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -497,7 +497,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_DevDomain_InvalidRoute() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/unknown"))
+        let url = try XCTUnwrap(URL(string: "https://dev.a-iq-test.com/unknown"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -508,7 +508,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_DevDomain_EmptyPath() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/"))
+        let url = try XCTUnwrap(URL(string: "https://dev.a-iq-test.com/"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -519,7 +519,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_DevDomain_TestResults_InvalidID() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://dev.aiq.app/test/results/abc"))
+        let url = try XCTUnwrap(URL(string: "https://dev.a-iq-test.com/test/results/abc"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -530,8 +530,8 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParseUniversalLink_DevDomain_EquivalentToProd() throws {
         // Given - same path on prod and dev domains
-        let prodURL = try XCTUnwrap(URL(string: "https://aiq.app/test/results/789"))
-        let devURL = try XCTUnwrap(URL(string: "https://dev.aiq.app/test/results/789"))
+        let prodURL = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results/789"))
+        let devURL = try XCTUnwrap(URL(string: "https://dev.a-iq-test.com/test/results/789"))
 
         // When
         let prodResult = sut.parseDeepLink(prodURL)
@@ -546,7 +546,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParse_InvalidScheme_HTTP() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "http://aiq.app/test/results/123"))
+        let url = try XCTUnwrap(URL(string: "http://a-iq-test.com/test/results/123"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -604,7 +604,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParse_URLWithQueryParameters_UniversalLink() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/456?utm_source=email"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results/456?utm_source=email"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -628,7 +628,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParse_URLWithFragment_UniversalLink() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/settings#notifications"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/settings#notifications"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -714,7 +714,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParse_URLWithIntegerOverflow_UniversalLink() throws {
         // Given - value exceeding Int.max
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/resume/99999999999999999999999999999"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/resume/99999999999999999999999999999"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -750,7 +750,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParse_URLWithDecimalID_UniversalLink() throws {
         // Given
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/123.456"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results/123.456"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -798,7 +798,7 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParse_URLWithEncodedPath_UniversalLink() throws {
         // Given - path with URL-encoded characters
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/test/results/123%00456"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results/123%00456"))
 
         // When
         let result = sut.parseDeepLink(url)
@@ -919,8 +919,8 @@ final class DeepLinkHandlerTests: XCTestCase {
 
     func testParse_CaseSensitive_UniversalLink() throws {
         // Given
-        let urlLower = try XCTUnwrap(URL(string: "https://aiq.app/test/results/123"))
-        let urlMixed = try XCTUnwrap(URL(string: "https://aiq.app/Test/Results/123"))
+        let urlLower = try XCTUnwrap(URL(string: "https://a-iq-test.com/test/results/123"))
+        let urlMixed = try XCTUnwrap(URL(string: "https://a-iq-test.com/Test/Results/123"))
 
         // When
         let resultLower = sut.parseDeepLink(urlLower)
@@ -957,11 +957,11 @@ final class DeepLinkHandlerTests: XCTestCase {
     func testParse_AllSupportedRoutes_UniversalLink() {
         // Test all supported universal link routes (production domain)
         let testCases: [(String, DeepLink)] = [
-            ("https://aiq.app/test/results/1", .testResults(id: 1)),
-            ("https://aiq.app/test/results/999", .testResults(id: 999)),
-            ("https://aiq.app/test/resume/50", .resumeTest(sessionId: 50)),
-            ("https://aiq.app/test/resume/123", .resumeTest(sessionId: 123)),
-            ("https://aiq.app/settings", .settings)
+            ("https://a-iq-test.com/test/results/1", .testResults(id: 1)),
+            ("https://a-iq-test.com/test/results/999", .testResults(id: 999)),
+            ("https://a-iq-test.com/test/resume/50", .resumeTest(sessionId: 50)),
+            ("https://a-iq-test.com/test/resume/123", .resumeTest(sessionId: 123)),
+            ("https://a-iq-test.com/settings", .settings)
         ]
 
         for (urlString, expected) in testCases {
@@ -978,11 +978,11 @@ final class DeepLinkHandlerTests: XCTestCase {
     func testParse_AllSupportedRoutes_UniversalLink_DevDomain() {
         // Test all supported universal link routes (development domain)
         let testCases: [(String, DeepLink)] = [
-            ("https://dev.aiq.app/test/results/1", .testResults(id: 1)),
-            ("https://dev.aiq.app/test/results/999", .testResults(id: 999)),
-            ("https://dev.aiq.app/test/resume/50", .resumeTest(sessionId: 50)),
-            ("https://dev.aiq.app/test/resume/123", .resumeTest(sessionId: 123)),
-            ("https://dev.aiq.app/settings", .settings)
+            ("https://dev.a-iq-test.com/test/results/1", .testResults(id: 1)),
+            ("https://dev.a-iq-test.com/test/results/999", .testResults(id: 999)),
+            ("https://dev.a-iq-test.com/test/resume/50", .resumeTest(sessionId: 50)),
+            ("https://dev.a-iq-test.com/test/resume/123", .resumeTest(sessionId: 123)),
+            ("https://dev.a-iq-test.com/settings", .settings)
         ]
 
         for (urlString, expected) in testCases {
@@ -999,9 +999,9 @@ final class DeepLinkHandlerTests: XCTestCase {
     func testParse_URLSchemeAndUniversalLink_Equivalence() {
         // Verify that URL scheme and universal link produce same result
         let equivalentPairs: [(String, String)] = [
-            ("aiq://test/results/123", "https://aiq.app/test/results/123"),
-            ("aiq://test/resume/456", "https://aiq.app/test/resume/456"),
-            ("aiq://settings", "https://aiq.app/settings")
+            ("aiq://test/results/123", "https://a-iq-test.com/test/results/123"),
+            ("aiq://test/resume/456", "https://a-iq-test.com/test/resume/456"),
+            ("aiq://settings", "https://a-iq-test.com/settings")
         ]
 
         for (urlScheme, universalLink) in equivalentPairs {
@@ -1145,7 +1145,7 @@ final class DeepLinkHandlerTests: XCTestCase {
     /// Test that malformed settings deep links with multiple extra components track analytics
     func testParseSettings_WithMultipleExtraComponents_TracksAnalytics() throws {
         // Given - URL with multiple extra path components
-        let url = try XCTUnwrap(URL(string: "https://aiq.app/settings/notifications/push/detail"))
+        let url = try XCTUnwrap(URL(string: "https://a-iq-test.com/settings/notifications/push/detail"))
 
         // When - parsing the URL
         let result = sut.parseDeepLink(url)
