@@ -145,8 +145,8 @@
 // MARK: - Test Results View
 "results.title" = "Test Results";
 "results.done.button" = "Done";
-"results.your.score" = "Your AIQ Score";
-"results.disclaimer" = "This is a cognitive performance assessment for personal insight, not a clinical assessment.";
+"results.your.score" = "Estimated AIQ Score";
+"results.disclaimer" = "Scores are estimates based on a brief assessment and may vary between sessions.";
 "results.confidence.range" = "Range: %@";
 "results.confidence.info.title" = "Understanding Your Score Range";
 "results.confidence.info.button" = "Learn about score range";
@@ -433,6 +433,7 @@
 "percentile.card.top.format" = "Top %d%%";
 "percentile.card.percentile.format" = "%@ percentile";
 "percentile.card.description" = "You scored higher than %@ of test takers";
+"percentile.card.reference.note" = "Based on a standard population model, not AIQ user data";
 "percentile.card.many" = "many";
 
 // MARK: - Test Detail View

@@ -169,7 +169,7 @@ struct TestResultsView: View {
 
             // IQ Score
             VStack(spacing: DesignSystem.Spacing.xs) {
-                Text("Your AIQ Score")
+                Text("Estimated AIQ Score")
                     .font(theme.typography.h3)
                     .foregroundColor(theme.colors.textSecondary)
                     .accessibilityHidden(true) // Redundant with full label below
@@ -198,7 +198,7 @@ struct TestResultsView: View {
                 .accessibilityHidden(true) // Already included in hint above
 
             // Disclaimer
-            Text("This is a cognitive performance assessment for personal insight, not a clinical assessment.")
+            Text("Scores are estimates based on a brief assessment and may vary between sessions.")
                 .font(theme.typography.captionMedium)
                 .foregroundColor(theme.colors.textTertiary)
                 .multilineTextAlignment(.center)
@@ -258,7 +258,7 @@ struct TestResultsView: View {
         }
         let confidenceText = "\(ci.confidencePercentage)% confidence"
         return """
-        Your score of \(result.iqScore) represents our best estimate of your cognitive ability.
+        Your estimated score of \(result.iqScore) reflects your performance on this assessment.
 
         Due to the nature of measurement, your true ability likely falls between \
         \(ci.lower) and \(ci.upper) (\(confidenceText)).
