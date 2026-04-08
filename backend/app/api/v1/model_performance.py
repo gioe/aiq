@@ -208,32 +208,69 @@ async def get_model_performance(
         )
 
     # Historical mode: aggregate across all completed sessions for this user.
-    stmt = (
-        select(
-            Question.source_llm,
-            Question.source_model,
-            func.sum(case((Response.is_correct, 1), else_=0)).label("correct_count"),
-            func.count(Response.id).label("total_count"),
-        )
+    # Base filters shared by the count, vendor-page, and detail queries.
+    base_filters = (
+        Response.user_id == user_id,
+        TestSession.status == TestStatus.COMPLETED,
+        Question.source_llm.isnot(None),
+    )
+
+    # 1) Count distinct vendors (single scalar, no full scan needed).
+    count_stmt = (
+        select(func.count(func.distinct(Question.source_llm)))
+        .select_from(Response)
         .join(Question, Response.question_id == Question.id)
         .join(TestSession, Response.test_session_id == TestSession.id)
-        .where(
-            Response.user_id == user_id,
-            TestSession.status == TestStatus.COMPLETED,
-            Question.source_llm.isnot(None),
-        )
-        .group_by(Question.source_llm, Question.source_model)
+        .where(*base_filters)
     )
-    result = await db.execute(stmt)
-    raw_rows = [
-        (row.source_llm, row.source_model, int(row.correct_count), int(row.total_count))
-        for row in result.all()
+    total_count: int = (await db.execute(count_stmt)).scalar_one()
+
+    # 2) Fetch the paginated page of vendor names, ordered alphabetically.
+    vendor_page_stmt = (
+        select(Question.source_llm)
+        .select_from(Response)
+        .join(Question, Response.question_id == Question.id)
+        .join(TestSession, Response.test_session_id == TestSession.id)
+        .where(*base_filters)
+        .group_by(Question.source_llm)
+        .order_by(Question.source_llm)
+        .limit(limit)
+        .offset(offset)
+    )
+    vendor_names: List[str] = [
+        row[0] for row in (await db.execute(vendor_page_stmt)).all()
     ]
 
-    all_vendor_rows = _build_vendor_rows(raw_rows)
-    total_count = len(all_vendor_rows)
+    # 3) Fetch aggregated (vendor, model) rows only for the current page of vendors.
+    if vendor_names:
+        detail_stmt = (
+            select(
+                Question.source_llm,
+                Question.source_model,
+                func.sum(case((Response.is_correct, 1), else_=0)).label(
+                    "correct_count"
+                ),
+                func.count(Response.id).label("total_count"),
+            )
+            .join(Question, Response.question_id == Question.id)
+            .join(TestSession, Response.test_session_id == TestSession.id)
+            .where(*base_filters, Question.source_llm.in_(vendor_names))
+            .group_by(Question.source_llm, Question.source_model)
+        )
+        result = await db.execute(detail_stmt)
+        raw_rows = [
+            (
+                row.source_llm,
+                row.source_model,
+                int(row.correct_count),
+                int(row.total_count),
+            )
+            for row in result.all()
+        ]
+        paginated_rows = _build_vendor_rows(raw_rows)
+    else:
+        paginated_rows = []
 
-    paginated_rows = all_vendor_rows[offset : offset + limit]
     has_more = (offset + limit) < total_count
 
     return ModelPerformanceResponse(
