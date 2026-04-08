@@ -9,9 +9,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from fastapi.testclient import TestClient
+
 from app.core.config import settings
+from app.models import get_db
 from app.models.llm_benchmark import LLMResponse, LLMTestResult, LLMTestSession
 from app.models.models import TestResult, TestSession, TestStatus
+from tests.conftest import AsyncTestingSessionLocal, create_test_app
 
 
 @pytest.fixture
@@ -31,7 +35,6 @@ def _create_session(
     model_id="gpt-4o",
     status="completed",
     cost=0.05,
-    started_minutes_ago=10,
 ):
     ts = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     session = LLMTestSession(
@@ -164,6 +167,26 @@ class TestTriggerBenchmarkRun:
         )
 
         assert resp.status_code == 401
+
+    @patch("app.api.v1.admin.llm_benchmark.run_llm_benchmark", new_callable=AsyncMock)
+    def test_trigger_runner_error(self, mock_run, db_session, admin_headers):
+        mock_run.side_effect = RuntimeError("LLM API unavailable")
+
+        test_app = create_test_app()
+
+        async def override_get_db():
+            async with AsyncTestingSessionLocal() as session:
+                yield session
+
+        test_app.dependency_overrides[get_db] = override_get_db
+        with TestClient(test_app, raise_server_exceptions=False) as c:
+            resp = c.post(
+                "/v1/admin/llm-benchmark/run",
+                json={"vendor": "openai", "model_id": "gpt-4o"},
+                headers=admin_headers,
+            )
+
+        assert resp.status_code == 500
 
 
 # ---------------------------------------------------------------------------
