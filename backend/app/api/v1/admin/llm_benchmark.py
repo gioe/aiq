@@ -83,15 +83,7 @@ async def list_benchmark_results(
     db: AsyncSession = Depends(get_db),
 ) -> BenchmarkResultsListResponse:
     """Return a paginated list of benchmark sessions with scores."""
-    # Base query: left-join sessions with results to get scores.
-    base = (
-        select(LLMTestSession)
-        .outerjoin(
-            LLMTestResult,
-            LLMTestSession.id == LLMTestResult.session_id,
-        )
-        .options(selectinload(LLMTestSession.test_result))
-    )
+    base = select(LLMTestSession).options(selectinload(LLMTestSession.test_result))
 
     if vendor:
         base = base.where(LLMTestSession.vendor == vendor)

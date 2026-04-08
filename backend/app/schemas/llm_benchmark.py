@@ -41,15 +41,6 @@ class RunBenchmarkRequest(BaseModel):
             "Omit to use the runner's configured default."
         ),
     )
-    temperature: Optional[float] = Field(
-        None,
-        ge=0.0,
-        le=2.0,
-        description=(
-            "Sampling temperature passed to the model. "
-            "Omit to use the runner's configured default."
-        ),
-    )
 
 
 # ---------------------------------------------------------------------------
