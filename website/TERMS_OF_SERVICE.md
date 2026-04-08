@@ -30,7 +30,7 @@ These Terms of Service ("Terms") govern your access to and use of the AIQ mobile
 By creating an account, accessing, or using the AIQ mobile application, you:
 
 - Acknowledge that you have read and understood these Terms
-- Agree to be legally bound by these Terms and our [Privacy Policy](https://aiq.app/privacy-policy)
+- Agree to be legally bound by these Terms and our [Privacy Policy](https://a-iq-test.com/privacy-policy)
 - Represent that you have the legal capacity to enter into a binding contract
 - Accept responsibility for your use of the App and any consequences that may arise
 
@@ -171,7 +171,7 @@ By using the App, you grant AIQ a worldwide, non-exclusive, royalty-free license
 - Analyze test performance data to validate and improve question quality
 - Use de-identified data for research and statistical purposes
 
-We will only use identifiable data as described in our [Privacy Policy](https://aiq.app/privacy-policy).
+We will only use identifiable data as described in our [Privacy Policy](https://a-iq-test.com/privacy-policy).
 
 ### Data Retention
 

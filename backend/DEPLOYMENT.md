@@ -53,7 +53,7 @@ REFRESH_TOKEN_EXPIRE_DAYS=7
 # API Settings
 API_V1_PREFIX=/v1
 # IMPORTANT: In production, set to specific domains (not *)
-# Example: CORS_ORIGINS=https://aiq.app,https://app.aiq.app
+# Example: CORS_ORIGINS=https://a-iq-test.com,https://app.aiq.app
 CORS_ORIGINS=https://your-domain.com
 
 # Rate Limiting (REQUIRED for production security)
@@ -381,7 +381,7 @@ railway connect postgres
 CORS_ORIGINS=http://localhost:3000,http://localhost:8080
 
 # For production (specific domains - NEVER use * in production)
-CORS_ORIGINS=https://aiq.app,https://app.aiq.app
+CORS_ORIGINS=https://a-iq-test.com,https://app.aiq.app
 ```
 
 **Note**: The backend restricts CORS to specific HTTP methods (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`) and headers (`Authorization`, `Content-Type`, `X-Platform`, `X-App-Version`) for security.

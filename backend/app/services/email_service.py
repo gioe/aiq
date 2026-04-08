@@ -182,7 +182,7 @@ def send_password_reset_email(
     # Universal links allow the iOS app to handle the URL natively
     # Requires Associated Domains entitlement configured in Xcode
     if reset_url_base is None:
-        reset_url_base = "https://aiq.app"
+        reset_url_base = "https://a-iq-test.com"
 
     # Construct the reset URL with proper URL encoding
     query_params = urlencode({"token": reset_token})
