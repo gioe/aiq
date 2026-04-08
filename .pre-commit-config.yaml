@@ -171,6 +171,16 @@ repos:
         exclude: GeneratedSources/
         types: [file, swift]
 
+  # Detect duplicate PBXFileReference entries in Xcode project
+  - repo: local
+    hooks:
+      - id: check-duplicate-pbxfilerefs
+        name: check-duplicate-pbxfilerefs
+        entry: python3 scripts/check_duplicate_pbxfilerefs.py
+        language: python
+        files: project\.pbxproj$
+        pass_filenames: false
+
   # Catch stale Views/Common references in iOS documentation
   - repo: local
     hooks:
