@@ -108,7 +108,11 @@ async def complete_anthropic(
     payload = {
         "model": model,
         "max_tokens": 1024,
-        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0,
+        "messages": [
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": "{"},
+        ],
     }
     headers = {
         "x-api-key": api_key,
@@ -125,6 +129,8 @@ async def complete_anthropic(
         usage = data.get("usage", {})
         content_blocks = data.get("content", [])
         text = "".join(b["text"] for b in content_blocks if b.get("type") == "text")
+        # Prepend the "{" consumed by the assistant prefill to reconstruct valid JSON
+        text = "{" + text
         return LLMResponse(
             answer=text,
             input_tokens=usage.get("input_tokens", 0),
@@ -148,7 +154,7 @@ async def complete_anthropic(
 # ---------------------------------------------------------------------------
 
 _GOOGLE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-_GOOGLE_MODEL = "gemini-2.0-flash"
+_GOOGLE_MODEL = "gemini-2.5-flash"
 
 
 async def complete_google(prompt: str, *, model: str = _GOOGLE_MODEL) -> LLMResponse:
