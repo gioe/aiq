@@ -39,6 +39,7 @@ from . import (
     generation,
     inventory,
     irt_calibration,
+    llm_benchmark,
     notifications,
     reliability,
     security_monitoring,
@@ -147,4 +148,9 @@ router.include_router(
 router.include_router(
     users.router,
     tags=["Admin - Users"],
+)
+
+router.include_router(
+    llm_benchmark.router,
+    tags=["Admin - LLM Benchmark"],
 )
