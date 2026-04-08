@@ -55,6 +55,14 @@ struct PercentileCard: View {
                 .padding(.horizontal, DesignSystem.Spacing.lg)
                 .padding(.top, DesignSystem.Spacing.xs)
                 .opacity(showAnimation ? 1.0 : 0.0)
+
+            // Reference distribution note
+            Text("percentile.card.reference.note".localized)
+                .font(theme.typography.captionMedium)
+                .foregroundColor(theme.colors.textTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+                .opacity(showAnimation ? 1.0 : 0.0)
         }
         .padding(DesignSystem.Spacing.xl)
         .cardStyle(
