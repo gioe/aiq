@@ -6,8 +6,8 @@
 	<string>production</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:aiq.app</string>
-		<string>applinks:dev.aiq.app</string>
+		<string>applinks:a-iq-test.com</string>
+		<string>applinks:dev.a-iq-test.com</string>
 	</array>
 </dict>
 </plist>
