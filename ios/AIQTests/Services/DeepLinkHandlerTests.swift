@@ -1139,7 +1139,7 @@ final class DeepLinkHandlerTests: XCTestCase {
             "should use correct error type"
         )
         XCTAssertEqual(mockAnalytics.lastFailedSource, "unknown", "should use unknown source for parsing errors")
-        XCTAssertEqual(mockAnalytics.lastFailedURL, url.absoluteString, "should track original URL")
+        XCTAssertEqual(mockAnalytics.lastFailedURLScheme, url.scheme, "should track URL scheme")
     }
 
     /// Test that malformed settings deep links with multiple extra components track analytics

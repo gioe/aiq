@@ -128,7 +128,7 @@ final class MockAnalyticsManager: AnalyticsManagerProtocol {
         lastEvent(ofType: .deepLinkNavigationFailed)?.parameters?["source"] as? String
     }
 
-    var lastFailedURL: String? {
+    var lastFailedURLScheme: String? {
         lastEvent(ofType: .deepLinkNavigationFailed)?.parameters?["url_scheme"] as? String
     }
 
