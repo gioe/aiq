@@ -28,119 +28,48 @@ _MULTIPLE_CHOICE_NOTE = (
     "(not the option letter or number)."
 )
 
+# Human-readable labels for each question type
+_TYPE_LABELS: dict[str, str] = {
+    "pattern": "Pattern Recognition",
+    "logic": "Logical Reasoning",
+    "spatial": "Spatial Reasoning",
+    "math": "Mathematical Reasoning",
+    "verbal": "Verbal Reasoning",
+    "memory": "Working Memory",
+}
+
 
 def _format_options(answer_options: list[str]) -> str:
     """Return a numbered list of answer options as a string."""
     return "\n".join(f"{i + 1}. {opt}" for i, opt in enumerate(answer_options))
 
 
-def _build_pattern_prompt(question: "Question") -> str:
+def _append_options(lines: list[str], question: "Question") -> None:
+    """Append formatted multiple-choice options to the prompt lines if present."""
+    if not question.answer_options:
+        return
+    options = (
+        question.answer_options
+        if isinstance(question.answer_options, list)
+        else json.loads(question.answer_options)
+    )
+    lines.append("")
+    lines.append("Options:")
+    lines.append(_format_options(options))
+    lines.append("")
+    lines.append(_MULTIPLE_CHOICE_NOTE)
+
+
+def _build_standard_prompt(question: "Question", label: str) -> str:
+    """Build a prompt for a standard (non-memory) question type."""
     lines = [
         _SYSTEM_PREAMBLE,
         "",
-        "QUESTION TYPE: Pattern Recognition",
+        f"QUESTION TYPE: {label}",
         "",
         f"Question: {question.question_text}",
     ]
-    if question.answer_options:
-        options = (
-            question.answer_options
-            if isinstance(question.answer_options, list)
-            else json.loads(question.answer_options)
-        )
-        lines.append("")
-        lines.append("Options:")
-        lines.append(_format_options(options))
-        lines.append("")
-        lines.append(_MULTIPLE_CHOICE_NOTE)
-    return "\n".join(lines)
-
-
-def _build_logic_prompt(question: "Question") -> str:
-    lines = [
-        _SYSTEM_PREAMBLE,
-        "",
-        "QUESTION TYPE: Logical Reasoning",
-        "",
-        f"Question: {question.question_text}",
-    ]
-    if question.answer_options:
-        options = (
-            question.answer_options
-            if isinstance(question.answer_options, list)
-            else json.loads(question.answer_options)
-        )
-        lines.append("")
-        lines.append("Options:")
-        lines.append(_format_options(options))
-        lines.append("")
-        lines.append(_MULTIPLE_CHOICE_NOTE)
-    return "\n".join(lines)
-
-
-def _build_spatial_prompt(question: "Question") -> str:
-    lines = [
-        _SYSTEM_PREAMBLE,
-        "",
-        "QUESTION TYPE: Spatial Reasoning",
-        "",
-        f"Question: {question.question_text}",
-    ]
-    if question.answer_options:
-        options = (
-            question.answer_options
-            if isinstance(question.answer_options, list)
-            else json.loads(question.answer_options)
-        )
-        lines.append("")
-        lines.append("Options:")
-        lines.append(_format_options(options))
-        lines.append("")
-        lines.append(_MULTIPLE_CHOICE_NOTE)
-    return "\n".join(lines)
-
-
-def _build_math_prompt(question: "Question") -> str:
-    lines = [
-        _SYSTEM_PREAMBLE,
-        "",
-        "QUESTION TYPE: Mathematical Reasoning",
-        "",
-        f"Question: {question.question_text}",
-    ]
-    if question.answer_options:
-        options = (
-            question.answer_options
-            if isinstance(question.answer_options, list)
-            else json.loads(question.answer_options)
-        )
-        lines.append("")
-        lines.append("Options:")
-        lines.append(_format_options(options))
-        lines.append("")
-        lines.append(_MULTIPLE_CHOICE_NOTE)
-    return "\n".join(lines)
-
-
-def _build_verbal_prompt(question: "Question") -> str:
-    lines = [
-        _SYSTEM_PREAMBLE,
-        "",
-        "QUESTION TYPE: Verbal Reasoning",
-        "",
-        f"Question: {question.question_text}",
-    ]
-    if question.answer_options:
-        options = (
-            question.answer_options
-            if isinstance(question.answer_options, list)
-            else json.loads(question.answer_options)
-        )
-        lines.append("")
-        lines.append("Options:")
-        lines.append(_format_options(options))
-        lines.append("")
-        lines.append(_MULTIPLE_CHOICE_NOTE)
+    _append_options(lines, question)
     return "\n".join(lines)
 
 
@@ -156,31 +85,9 @@ def _build_memory_prompt(question: "Question") -> str:
         lines.append("")
 
     lines.append(f"Question: {question.question_text}")
-
-    if question.answer_options:
-        options = (
-            question.answer_options
-            if isinstance(question.answer_options, list)
-            else json.loads(question.answer_options)
-        )
-        lines.append("")
-        lines.append("Options:")
-        lines.append(_format_options(options))
-        lines.append("")
-        lines.append(_MULTIPLE_CHOICE_NOTE)
+    _append_options(lines, question)
 
     return "\n".join(lines)
-
-
-# Map question type values to builder functions
-_BUILDERS = {
-    "pattern": _build_pattern_prompt,
-    "logic": _build_logic_prompt,
-    "spatial": _build_spatial_prompt,
-    "math": _build_math_prompt,
-    "verbal": _build_verbal_prompt,
-    "memory": _build_memory_prompt,
-}
 
 
 def build_prompt(question: "Question") -> str:
@@ -195,12 +102,17 @@ def build_prompt(question: "Question") -> str:
         a JSON object: {"answer": "..."}.
     """
     question_type_value = question.question_type.value
-    builder = _BUILDERS.get(question_type_value)
-    if builder is None:
+
+    # Memory questions have unique stimulus-handling logic
+    if question_type_value == "memory":
+        return _build_memory_prompt(question)
+
+    label = _TYPE_LABELS.get(question_type_value)
+    if label is None:
         logger.warning(
             "No prompt builder for question type %r; falling back to generic prompt.",
             question_type_value,
         )
-        # Generic fallback
         return f"{_SYSTEM_PREAMBLE}\n\nQuestion: {question.question_text}"
-    return builder(question)
+
+    return _build_standard_prompt(question, label)

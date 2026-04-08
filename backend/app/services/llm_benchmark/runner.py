@@ -47,6 +47,21 @@ _PROVIDER_DISPATCH: dict[str, Callable[..., Awaitable[ProviderResponse]]] = {
     "google": complete_google,
 }
 
+# Approximate cost per 1M tokens (USD) for default models.
+# Used for cost-cap enforcement only — not billing-grade.
+_COST_PER_M_TOKENS: dict[str, tuple[float, float]] = {
+    # (input_cost, output_cost) per 1M tokens
+    "openai": (0.15, 0.60),  # gpt-4o-mini
+    "anthropic": (3.00, 15.00),  # claude-sonnet-4
+    "google": (0.075, 0.30),  # gemini-2.0-flash
+}
+
+
+def _estimate_cost(vendor: str, input_tokens: int, output_tokens: int) -> float:
+    """Estimate cost in USD from token counts using approximate pricing."""
+    rates = _COST_PER_M_TOKENS.get(vendor, (1.0, 3.0))
+    return (input_tokens * rates[0] + output_tokens * rates[1]) / 1_000_000
+
 
 def _normalize_answer(raw: str) -> str:
     """Strip whitespace, lowercase, and remove leading option prefixes."""
@@ -65,7 +80,8 @@ def _parse_answer_from_response(raw_text: str) -> str:
         return str(data.get("answer", ""))
     except (json.JSONDecodeError, AttributeError):
         # Some providers may return the answer wrapped in markdown fences
-        stripped = raw_text.strip().strip("```json").strip("```").strip()
+        stripped = re.sub(r"^```\w*\n?", "", raw_text.strip())
+        stripped = re.sub(r"\n?```$", "", stripped).strip()
         try:
             data = json.loads(stripped)
             return str(data.get("answer", ""))
@@ -168,7 +184,23 @@ async def run_llm_benchmark(
         prompt = build_prompt(question)
         t_start = time.monotonic()
 
-        provider_result: ProviderResponse = await provider_fn(prompt, model=model_id)
+        try:
+            provider_result: ProviderResponse = await provider_fn(
+                prompt, model=model_id
+            )
+        except Exception:
+            logger.exception(
+                "Session %d question %d: unhandled provider exception",
+                session_id,
+                question.id,
+            )
+            provider_result = ProviderResponse(
+                answer="",
+                input_tokens=0,
+                output_tokens=0,
+                model=model_id,
+                error="Unhandled provider exception",
+            )
 
         latency_ms = int((time.monotonic() - t_start) * 1000)
 
@@ -190,12 +222,12 @@ async def run_llm_benchmark(
         is_correct = normalized == correct_normalized and normalized != ""
 
         # --- 5. Cost tracking ------------------------------------------------
-        # Cost is not calculated from token counts here since we don't have
-        # per-model pricing tables; cost_usd on the record is left None and
-        # the cumulative cost stays 0 unless providers surface cost directly.
-        # Total token counts are tracked for informational purposes.
         total_prompt_tokens += provider_result.input_tokens
         total_completion_tokens += provider_result.output_tokens
+        estimated_cost = _estimate_cost(
+            vendor, provider_result.input_tokens, provider_result.output_tokens
+        )
+        cumulative_cost += estimated_cost
 
         if is_correct:
             correct_count += 1
@@ -209,7 +241,7 @@ async def run_llm_benchmark(
             is_correct=is_correct,
             prompt_tokens=provider_result.input_tokens,
             completion_tokens=provider_result.output_tokens,
-            cost_usd=None,
+            cost_usd=estimated_cost,
             latency_ms=latency_ms,
             error=provider_result.error,
         )
