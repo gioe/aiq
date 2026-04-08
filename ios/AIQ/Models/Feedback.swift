@@ -10,13 +10,13 @@ import Foundation
 /// **Generated Properties:**
 /// - name: String
 /// - email: String
-/// - category: FeedbackCategorySchema
+/// - category: FeedbackCategory
 /// - description: String
 public typealias Feedback = Components.Schemas.FeedbackSubmitRequest
 
 /// Feedback category enumeration re-exported from OpenAPI generated types
 ///
-/// This typealias provides a clean interface to the generated `Components.Schemas.FeedbackCategorySchema` type.
+/// This typealias provides a clean interface to the generated `Components.Schemas.FeedbackCategory` type.
 /// UI-specific computed properties are provided via an extension below.
 ///
 /// **Available Cases:**
@@ -25,7 +25,7 @@ public typealias Feedback = Components.Schemas.FeedbackSubmitRequest
 /// - general_feedback
 /// - question_help
 /// - other
-public typealias FeedbackCategory = Components.Schemas.FeedbackCategorySchema
+public typealias FeedbackCategory = Components.Schemas.FeedbackCategory
 
 /// Response from feedback submission endpoint re-exported from OpenAPI generated types
 ///
@@ -40,7 +40,7 @@ public typealias FeedbackSubmitResponse = Components.Schemas.FeedbackSubmitRespo
 // MARK: - FeedbackCategory Extension
 
 /// UI-specific extension for FeedbackCategory
-public extension Components.Schemas.FeedbackCategorySchema {
+public extension Components.Schemas.FeedbackCategory {
     /// User-friendly display name for the feedback category
     var displayName: String {
         switch self {

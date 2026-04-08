@@ -484,7 +484,7 @@ final class APIClientExtensionsTests: XCTestCase {
         birthYear: Int? = nil,
         country: String? = nil,
         region: String? = nil,
-        educationLevel: Components.Schemas.EducationLevelSchema? = nil
+        educationLevel: Components.Schemas.EducationLevel? = nil
     ) -> Components.Schemas.UserResponse {
         var educationPayload: Components.Schemas.UserResponse.EducationLevelPayload?
         if let level = educationLevel {

@@ -170,7 +170,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         // swiftlint:disable opening_brace
         let educationPayload: Components.Schemas.UserRegister.EducationLevelPayload?
         if let level = educationLevel,
-           let schema = Components.Schemas.EducationLevelSchema(rawValue: level.rawValue)
+           let schema = Components.Schemas.EducationLevel(rawValue: level.rawValue)
         {
             educationPayload = .init(value1: schema)
         } else {
@@ -712,7 +712,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     // swiftlint:disable:next cyclomatic_complexity
     func submitFeedback(_ feedback: Feedback) async throws -> FeedbackSubmitResponse {
-        let categorySchema: Components.Schemas.FeedbackCategorySchema = switch feedback.category {
+        let categorySchema: Components.Schemas.FeedbackCategory = switch feedback.category {
         case .bugReport:
             .bugReport
         case .featureRequest:

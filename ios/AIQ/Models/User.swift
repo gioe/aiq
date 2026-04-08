@@ -16,7 +16,7 @@ typealias User = Components.Schemas.UserResponse
 
 /// Education level enumeration re-exported from OpenAPI generated types
 ///
-/// This typealias provides a clean interface to the generated `Components.Schemas.EducationLevelSchema` type.
+/// This typealias provides a clean interface to the generated `Components.Schemas.EducationLevel` type.
 /// UI-specific computed properties are provided via an extension below.
 ///
 /// **Available Cases:**
@@ -27,10 +27,10 @@ typealias User = Components.Schemas.UserResponse
 /// - masters
 /// - doctorate
 /// - prefer_not_to_say
-public typealias EducationLevel = Components.Schemas.EducationLevelSchema
+public typealias EducationLevel = Components.Schemas.EducationLevel
 
 /// UI-specific extension for EducationLevel
-public extension Components.Schemas.EducationLevelSchema {
+public extension Components.Schemas.EducationLevel {
     /// User-friendly display name for the education level
     var displayName: String {
         switch self {
