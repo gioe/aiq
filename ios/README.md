@@ -202,7 +202,7 @@ The app supports Universal Links for seamless deep linking from web URLs to app 
 
 ### How It Works
 
-Universal Links allow URLs like `https://aiq.app/test/results/123` to open directly in the app instead of Safari. This requires coordination between:
+Universal Links allow URLs like `https://a-iq-test.com/test/results/123` to open directly in the app instead of Safari. This requires coordination between:
 1. **iOS app** - Declares which domains it handles via Associated Domains entitlement
 2. **Apple Developer Portal** - Enables Associated Domains capability for the app
 3. **Web server** - Hosts an `apple-app-site-association` (AASA) file proving domain ownership
@@ -211,9 +211,9 @@ Universal Links allow URLs like `https://aiq.app/test/results/123` to open direc
 
 | URL Pattern | Action |
 |------------|--------|
-| `https://aiq.app/test/results/{id}` | View specific test results |
-| `https://aiq.app/test/resume/{sessionId}` | Resume a test session |
-| `https://aiq.app/settings` | Open settings |
+| `https://a-iq-test.com/test/results/{id}` | View specific test results |
+| `https://a-iq-test.com/test/resume/{sessionId}` | Resume a test session |
+| `https://a-iq-test.com/settings` | Open settings |
 
 Custom URL scheme equivalents (`aiq://...`) are also supported.
 
@@ -225,15 +225,15 @@ The Associated Domains entitlement declares which domains the app handles:
 ```xml
 <key>com.apple.developer.associated-domains</key>
 <array>
-    <string>applinks:aiq.app</string>
-    <string>applinks:dev.aiq.app</string>
+    <string>applinks:a-iq-test.com</string>
+    <string>applinks:dev.a-iq-test.com</string>
 </array>
 ```
 
 | Domain | Purpose |
 |--------|---------|
-| `aiq.app` | Production domain |
-| `dev.aiq.app` | Development/staging domain for testing Universal Links |
+| `a-iq-test.com` | Production domain |
+| `dev.a-iq-test.com` | Development/staging domain for testing Universal Links |
 
 **Code implementation:**
 - `DeepLinkHandler.swift` - Parses URLs into structured navigation commands
@@ -245,7 +245,7 @@ To enable Universal Links for a new app or team:
 
 1. Sign in to [Apple Developer Portal](https://developer.apple.com/account)
 2. Go to **Certificates, Identifiers & Profiles** → **Identifiers**
-3. Select the App ID (`com.aiq.app`)
+3. Select the App ID (`com.a-iq-test.com`)
 4. Under **Capabilities**, enable **Associated Domains**
 5. Click **Save**
 
@@ -257,7 +257,7 @@ When building with Xcode:
 
 The server must host an `apple-app-site-association` file that tells iOS which apps can handle URLs for the domain.
 
-**Required location:** `https://aiq.app/.well-known/apple-app-site-association`
+**Required location:** `https://a-iq-test.com/.well-known/apple-app-site-association`
 
 **File format (iOS 14+ recommended):**
 ```json
@@ -265,7 +265,7 @@ The server must host an `apple-app-site-association` file that tells iOS which a
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.com.aiq.app"],
+        "appIDs": ["TEAMID.com.a-iq-test.com"],
         "components": [
           { "/": "/test/results/*" },
           { "/": "/test/resume/*" },
@@ -285,10 +285,10 @@ The server must host an `apple-app-site-association` file that tells iOS which a
 - File must be accessible without redirects (except HTTPS upgrade)
 - No authentication required to access the file
 
-**Development domain (`dev.aiq.app`):**
+**Development domain (`dev.a-iq-test.com`):**
 
 For Universal Links to work in staging environments, the dev domain needs its own AASA file:
-- **Required location:** `https://dev.aiq.app/.well-known/apple-app-site-association`
+- **Required location:** `https://dev.a-iq-test.com/.well-known/apple-app-site-association`
 - **Content:** Same format as production, with the same Team ID and Bundle ID
 
 **Validate deployment:**
@@ -300,13 +300,13 @@ For Universal Links to work in staging environments, the dev domain needs its ow
 ./ios/scripts/validate-universal-links.sh --team-id ABCD123456 --dev
 
 # Or with explicit domain
-./ios/scripts/validate-universal-links.sh --team-id ABCD123456 --domain aiq.app
+./ios/scripts/validate-universal-links.sh --team-id ABCD123456 --domain a-iq-test.com
 ```
 
 ### Troubleshooting
 
 **Links open in Safari instead of the app:**
-1. Verify the AASA file is accessible: `curl https://aiq.app/.well-known/apple-app-site-association`
+1. Verify the AASA file is accessible: `curl https://a-iq-test.com/.well-known/apple-app-site-association`
 2. Check the Team ID + Bundle ID combination matches exactly
 3. Delete and reinstall the app (iOS caches AASA on first install)
 4. Check device console for "swcd" (Site Association Daemon) errors

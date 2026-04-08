@@ -281,7 +281,7 @@ This document provides comprehensive testing procedures for validating that push
   {
     "data": {
       "type": "test_reminder",
-      "deep_link": "https://aiq.app/test/results/456"
+      "deep_link": "https://a-iq-test.com/test/results/456"
     }
   }
   ```

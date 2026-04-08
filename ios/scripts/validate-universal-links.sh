@@ -10,8 +10,8 @@
 #
 # Environment Variables:
 #   APNS_TEAM_ID  - Apple Developer Team ID (10 characters)
-#   BUNDLE_ID     - App bundle identifier (defaults to com.aiq.app)
-#   DOMAIN        - Domain to check (defaults to aiq.app)
+#   BUNDLE_ID     - App bundle identifier (defaults to com.a-iq-test.com)
+#   DOMAIN        - Domain to check (defaults to a-iq-test.com)
 #
 # Exit codes:
 #   0 - All validations passed
@@ -27,9 +27,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default values
-DEFAULT_BUNDLE_ID="com.aiq.app"
-DEFAULT_DOMAIN="aiq.app"
-DEV_DOMAIN="dev.aiq.app"
+DEFAULT_BUNDLE_ID="com.a-iq-test.com"
+DEFAULT_DOMAIN="a-iq-test.com"
+DEV_DOMAIN="dev.a-iq-test.com"
 
 # Parse arguments
 TEAM_ID="${APNS_TEAM_ID:-}"
@@ -74,7 +74,7 @@ while [[ $# -gt 0 ]]; do
             echo "Examples:"
             echo "  $0 --team-id ABCD123456                    # Validate production domain"
             echo "  $0 --team-id ABCD123456 --dev              # Validate dev domain"
-            echo "  $0 --team-id ABCD123456 --domain staging.aiq.app  # Validate custom domain"
+            echo "  $0 --team-id ABCD123456 --domain staging.a-iq-test.com  # Validate custom domain"
             exit 0
             ;;
         *)
@@ -102,7 +102,7 @@ fi
 # Validate domain format (alphanumeric with dots and hyphens, no path or protocol)
 if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$ ]]; then
     echo -e "${RED}[ERROR]${NC} Invalid domain format: '$DOMAIN'"
-    echo "Expected format: domain name only (e.g., aiq.app, www.example.com)"
+    echo "Expected format: domain name only (e.g., a-iq-test.com, www.example.com)"
     echo "Do not include protocol (https://) or path"
     exit 1
 fi
