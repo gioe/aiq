@@ -155,6 +155,10 @@ class TestResultResponse(BaseModel):
         None,
         description="Name of the lowest-scoring cognitive domain",
     )
+    model_scores: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None,
+        description="Per-model (LLM source) performance breakdown with correct, total, and pct for each model that generated questions in this test",
+    )
     confidence_interval: Optional[ConfidenceIntervalSchema] = Field(
         None,
         description="Confidence interval for the IQ score. Null when reliability data is insufficient (< 0.60).",

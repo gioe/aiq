@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, case, func
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
-from typing import Optional, TypedDict, TYPE_CHECKING
+from typing import Any, Dict, Optional, TypedDict, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.models import Response as ResponseModel
@@ -49,6 +49,7 @@ from app.core.scoring.engine import (
     calculate_weighted_iq_score,
     iq_to_percentile,
     calculate_domain_scores,
+    calculate_model_scores,
     calculate_all_domain_percentiles,
     get_strongest_weakest_domains,
     async_get_cached_reliability,
@@ -267,6 +268,24 @@ async def build_test_result_response(
                 if domain in domain_scores:
                     domain_scores[domain]["percentile"] = percentile
 
+    # Compute model_scores from responses joined to questions
+    model_scores: Optional[Dict[str, Dict[str, Any]]] = None
+    if db is not None:
+        from app.models.models import Response
+
+        resp_stmt = select(Response).where(
+            Response.test_session_id == test_result.test_session_id
+        )
+        resp_result = await db.execute(resp_stmt)
+        response_objects = list(resp_result.scalars().all())
+
+        if response_objects:
+            q_ids = [r.question_id for r in response_objects]
+            q_stmt = select(Question).where(Question.id.in_(q_ids))
+            q_result = await db.execute(q_stmt)
+            questions_dict = {q.id: q for q in q_result.scalars().all()}
+            model_scores = calculate_model_scores(response_objects, questions_dict)
+
     # SEM-005: Build confidence interval from stored SEM and CI bounds
     # CI is only populated when reliability data was sufficient (>= 0.60)
     confidence_interval: Optional[ConfidenceIntervalSchema] = None
@@ -297,6 +316,7 @@ async def build_test_result_response(
         domain_scores=domain_scores,
         strongest_domain=strongest_domain,
         weakest_domain=weakest_domain,
+        model_scores=model_scores,
         confidence_interval=confidence_interval,
     )
 

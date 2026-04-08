@@ -1094,6 +1094,58 @@ def calculate_domain_scores(
     return result
 
 
+def calculate_model_scores(
+    responses: List["Response"], questions: Dict[int, "Question"]
+) -> Optional[Dict[str, Dict[str, Any]]]:
+    """
+    Calculate per-model performance breakdown from test responses.
+
+    Groups responses by the source model (source_model field) of their
+    associated question and calculates correctness statistics for each model.
+
+    Args:
+        responses: List of Response objects from a completed test session.
+        questions: Dictionary mapping question_id to Question objects.
+
+    Returns:
+        Dictionary with model identifiers as keys, or None if no questions
+        have source_model set. Each model entry contains:
+        - correct (int): Number of questions answered correctly
+        - total (int): Total number of questions from this model
+        - pct (float): Percentage score (correct/total * 100), rounded to 1 decimal
+    """
+    model_stats: Dict[str, Dict[str, int]] = {}
+
+    for response in responses:
+        question_id: int = response.question_id
+        question = questions.get(question_id)
+        if question is None or not question.source_model:
+            continue
+
+        model_name = question.source_model
+        if model_name not in model_stats:
+            model_stats[model_name] = {"correct": 0, "total": 0}
+
+        model_stats[model_name]["total"] += 1
+        if response.is_correct:
+            model_stats[model_name]["correct"] += 1
+
+    if not model_stats:
+        return None
+
+    result: Dict[str, Dict[str, Any]] = {}
+    for model_key, stats in model_stats.items():
+        correct = stats["correct"]
+        total = stats["total"]
+        result[model_key] = {
+            "correct": correct,
+            "total": total,
+            "pct": round((correct / total) * 100, 1),
+        }
+
+    return result
+
+
 # =============================================================================
 # Historical Backfill Utilities (SEM-012)
 # =============================================================================
