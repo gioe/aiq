@@ -9,7 +9,7 @@ they can be constructed directly from SQLAlchemy model instances.
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +41,24 @@ class RunBenchmarkRequest(BaseModel):
             "Omit to use the runner's configured default."
         ),
     )
+    question_ids: Optional[List[int]] = Field(
+        None,
+        min_length=1,
+        description=(
+            "Fixed list of question IDs to use instead of stratified sampling. "
+            "Questions are presented in the given order. "
+            "Mutually exclusive with question_count."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check_mutual_exclusion(self) -> "RunBenchmarkRequest":
+        if self.question_ids is not None and self.question_count is not None:
+            raise ValueError(
+                "question_ids and question_count are mutually exclusive — "
+                "provide one or neither, not both."
+            )
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -325,4 +343,31 @@ class CompareResponse(BaseModel):
     models: List[ModelComparison] = Field(
         ...,
         description="Performance summary for each (vendor, model_id) pair with completed runs.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Question set generation
+# ---------------------------------------------------------------------------
+
+
+class GenerateQuestionSetResponse(BaseModel):
+    """Response for GET /v1/admin/llm-benchmark/question-set."""
+
+    question_ids: List[int] = Field(
+        ...,
+        description="Ordered list of question IDs forming a balanced benchmark set.",
+    )
+    total_questions: int = Field(
+        ...,
+        ge=0,
+        description="Number of questions in the set.",
+    )
+    domain_distribution: Dict[str, int] = Field(
+        ...,
+        description="Number of questions per domain (question_type).",
+    )
+    difficulty_distribution: Dict[str, int] = Field(
+        ...,
+        description="Number of questions per difficulty level.",
     )
