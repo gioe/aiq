@@ -115,3 +115,54 @@ class LLMTestResult(Base):
     session: Mapped["LLMTestSession"] = relationship(back_populates="test_result")
 
     __table_args__ = (Index("ix_llm_test_results_vendor_model", "vendor", "model_id"),)
+
+
+class BenchmarkSet(Base):
+    """A named, frozen set of questions for standardized benchmarking."""
+
+    __tablename__ = "benchmark_sets"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), unique=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+    questions: Mapped[list["BenchmarkSetQuestion"]] = relationship(
+        back_populates="benchmark_set",
+        cascade="all, delete-orphan",
+        order_by="BenchmarkSetQuestion.position",
+    )
+
+
+class BenchmarkSetQuestion(Base):
+    """A question within a benchmark set, with ordering."""
+
+    __tablename__ = "benchmark_set_questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    benchmark_set_id: Mapped[int] = mapped_column(
+        ForeignKey("benchmark_sets.id", ondelete="CASCADE"), index=True
+    )
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("questions.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int] = mapped_column()
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    benchmark_set: Mapped["BenchmarkSet"] = relationship(back_populates="questions")
+    question: Mapped["Question"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint(
+            "benchmark_set_id", "question_id", name="uq_benchmark_set_question"
+        ),
+        Index(
+            "ix_benchmark_set_questions_set_position", "benchmark_set_id", "position"
+        ),
+    )

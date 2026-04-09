@@ -36,6 +36,8 @@ from .llm_benchmark import (
     LLMTestSession,
     LLMResponse,
     LLMTestResult,
+    BenchmarkSet,
+    BenchmarkSetQuestion,
 )
 
 __all__ = [
@@ -68,4 +70,6 @@ __all__ = [
     "LLMTestSession",
     "LLMResponse",
     "LLMTestResult",
+    "BenchmarkSet",
+    "BenchmarkSetQuestion",
 ]
