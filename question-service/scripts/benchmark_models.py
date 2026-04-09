@@ -37,8 +37,14 @@ DEFAULT_API_URL = "https://aiq-backend-production.up.railway.app"
 BENCHMARK_ENDPOINT = "/v1/admin/llm-benchmark/run"
 
 
-def load_models_from_configs() -> List[Tuple[str, str]]:
-    """Extract unique (vendor, model) pairs from generators.yaml and judges.yaml."""
+def load_models_from_configs(
+    include_fallbacks: bool = False,
+) -> List[Tuple[str, str]]:
+    """Extract unique (vendor, model) pairs from generators.yaml and judges.yaml.
+
+    By default only primary generator and judge models are included.
+    Pass include_fallbacks=True to also include fallback and default models.
+    """
     seen: Set[Tuple[str, str]] = set()
     models: List[Tuple[str, str]] = []
 
@@ -58,55 +64,36 @@ def load_models_from_configs() -> List[Tuple[str, str]]:
     with open(judges_path) as f:
         judge_config = yaml.safe_load(f)
 
-    # Extract from generators (primary + fallback)
+    def _add(provider: str, model: str) -> None:
+        pair = (provider, model)
+        if pair not in seen:
+            seen.add(pair)
+            models.append(pair)
+
+    # Primary generators
     for _type, cfg in gen_config.get("generators", {}).items():
-        pair = (cfg["provider"], cfg["model"])
-        if pair not in seen:
-            seen.add(pair)
-            models.append(pair)
-        if "fallback" in cfg and "fallback_model" in cfg:
-            fb = (cfg["fallback"], cfg["fallback_model"])
-            if fb not in seen:
-                seen.add(fb)
-                models.append(fb)
+        _add(cfg["provider"], cfg["model"])
+        if include_fallbacks and "fallback" in cfg and "fallback_model" in cfg:
+            _add(cfg["fallback"], cfg["fallback_model"])
 
-    # Extract from default generator
-    if "default_generator" in gen_config:
-        dg = gen_config["default_generator"]
-        pair = (dg["provider"], dg["model"])
-        if pair not in seen:
-            seen.add(pair)
-            models.append(pair)
-        if "fallback" in dg and "fallback_model" in dg:
-            fb = (dg["fallback"], dg["fallback_model"])
-            if fb not in seen:
-                seen.add(fb)
-                models.append(fb)
-
-    # Extract from judges (primary + fallback)
+    # Primary judges
     for _type, cfg in judge_config.get("judges", {}).items():
-        pair = (cfg["provider"], cfg["model"])
-        if pair not in seen:
-            seen.add(pair)
-            models.append(pair)
-        if "fallback" in cfg and "fallback_model" in cfg:
-            fb = (cfg["fallback"], cfg["fallback_model"])
-            if fb not in seen:
-                seen.add(fb)
-                models.append(fb)
+        _add(cfg["provider"], cfg["model"])
+        if include_fallbacks and "fallback" in cfg and "fallback_model" in cfg:
+            _add(cfg["fallback"], cfg["fallback_model"])
 
-    # Extract from default judge
-    if "default_judge" in judge_config:
-        dj = judge_config["default_judge"]
-        pair = (dj["provider"], dj["model"])
-        if pair not in seen:
-            seen.add(pair)
-            models.append(pair)
-        if "fallback" in dj and "fallback_model" in dj:
-            fb = (dj["fallback"], dj["fallback_model"])
-            if fb not in seen:
-                seen.add(fb)
-                models.append(fb)
+    # Default generator/judge (only with --include-fallbacks)
+    if include_fallbacks:
+        if "default_generator" in gen_config:
+            dg = gen_config["default_generator"]
+            _add(dg["provider"], dg["model"])
+            if "fallback" in dg and "fallback_model" in dg:
+                _add(dg["fallback"], dg["fallback_model"])
+        if "default_judge" in judge_config:
+            dj = judge_config["default_judge"]
+            _add(dj["provider"], dj["model"])
+            if "fallback" in dj and "fallback_model" in dj:
+                _add(dj["fallback"], dj["fallback_model"])
 
     return models
 
@@ -192,6 +179,11 @@ def main() -> None:
         help="Comma-separated list of question IDs for a fixed question set",
     )
     parser.add_argument(
+        "--include-fallbacks",
+        action="store_true",
+        help="Also benchmark fallback and default models (off by default)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Preview which models would be benchmarked without triggering runs",
@@ -222,7 +214,7 @@ def main() -> None:
             )
             sys.exit(2)
 
-    models = load_models_from_configs()
+    models = load_models_from_configs(include_fallbacks=args.include_fallbacks)
     if not models:
         print("Error: no models found in config files", file=sys.stderr)
         sys.exit(2)
