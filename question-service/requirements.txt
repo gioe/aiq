@@ -15,7 +15,7 @@ anthropic==0.42.0
 google-genai>=1.15.0
 
 # Utilities
-requests==2.32.5
+requests==2.33.0
 numpy==2.4.1
 httpx>=0.28.1
 
