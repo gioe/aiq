@@ -96,6 +96,9 @@ async def complete_openai(prompt: str, *, model: str = _OPENAI_MODEL) -> LLMResp
 _ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 _ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929"
 
+# Models that do not support assistant-message prefill (e.g. Opus).
+_NO_PREFILL_MODELS = {"claude-opus-4-6", "claude-opus-4-20250514"}
+
 
 async def complete_anthropic(
     prompt: str, *, model: str = _ANTHROPIC_MODEL
@@ -105,14 +108,17 @@ async def complete_anthropic(
     if not api_key:
         return _error_response(model, "LLM_ANTHROPIC_API_KEY not configured")
 
+    use_prefill = model not in _NO_PREFILL_MODELS
+
+    messages: list[dict[str, str]] = [{"role": "user", "content": prompt}]
+    if use_prefill:
+        messages.append({"role": "assistant", "content": "{"})
+
     payload = {
         "model": model,
         "max_tokens": 1024,
         "temperature": 0,
-        "messages": [
-            {"role": "user", "content": prompt},
-            {"role": "assistant", "content": "{"},
-        ],
+        "messages": messages,
     }
     headers = {
         "x-api-key": api_key,
@@ -129,8 +135,9 @@ async def complete_anthropic(
         usage = data.get("usage", {})
         content_blocks = data.get("content", [])
         text = "".join(b["text"] for b in content_blocks if b.get("type") == "text")
-        # Prepend the "{" consumed by the assistant prefill to reconstruct valid JSON
-        text = "{" + text
+        if use_prefill:
+            # Prepend the "{" consumed by the assistant prefill
+            text = "{" + text
         return LLMResponse(
             answer=text,
             input_tokens=usage.get("input_tokens", 0),
