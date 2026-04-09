@@ -162,18 +162,33 @@ class TestExtractJsonFromProse:
 
 
 class TestEstimateCost:
-    def test_openai_cost(self):
-        # 1M input tokens @ $0.15 + 1M output tokens @ $0.60 = $0.75
-        cost = _estimate_cost("openai", 1_000_000, 1_000_000)
+    def test_gpt4o_mini_cost(self):
+        # 1M input @ $0.15 + 1M output @ $0.60 = $0.75
+        cost = _estimate_cost("gpt-4o-mini", 1_000_000, 1_000_000)
         assert cost == pytest.approx(0.75)
 
-    def test_unknown_vendor_uses_defaults(self):
-        # Unknown vendor falls back to (1.0, 3.0) per 1M tokens
-        cost = _estimate_cost("unknown", 1_000_000, 1_000_000)
-        assert cost == pytest.approx(4.0)
+    def test_opus_cost(self):
+        # 1M input @ $15.00 + 1M output @ $75.00 = $90.00
+        cost = _estimate_cost("claude-opus-4-6", 1_000_000, 1_000_000)
+        assert cost == pytest.approx(90.0)
+
+    def test_sonnet_cost(self):
+        # 1M input @ $3.00 + 1M output @ $15.00 = $18.00
+        cost = _estimate_cost("claude-sonnet-4-5-20250929", 1_000_000, 1_000_000)
+        assert cost == pytest.approx(18.0)
+
+    def test_gemini_cost(self):
+        # 1M input @ $1.25 + 1M output @ $10.00 = $11.25
+        cost = _estimate_cost("gemini-2.5-pro", 1_000_000, 1_000_000)
+        assert cost == pytest.approx(11.25)
+
+    def test_unknown_model_uses_conservative_fallback(self):
+        # Unknown model falls back to (10.0, 30.0) per 1M tokens
+        cost = _estimate_cost("unknown-model-xyz", 1_000_000, 1_000_000)
+        assert cost == pytest.approx(40.0)
 
     def test_zero_tokens(self):
-        assert _estimate_cost("openai", 0, 0) == pytest.approx(0.0)
+        assert _estimate_cost("gpt-4o-mini", 0, 0) == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------

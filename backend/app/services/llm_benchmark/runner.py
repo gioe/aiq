@@ -47,20 +47,44 @@ _PROVIDER_DISPATCH: dict[str, Callable[..., Awaitable[ProviderResponse]]] = {
     "google": complete_google,
 }
 
-# Approximate cost per 1M tokens (USD) for default models.
+# Per-model cost per 1M tokens (USD): (input, output).
 # Used for cost-cap enforcement only — not billing-grade.
-_COST_PER_M_TOKENS: dict[str, tuple[float, float]] = {
-    # (input_cost, output_cost) per 1M tokens
-    # Prices from question-service/config/models.yaml
-    "openai": (5.00, 15.00),  # gpt-5.2
-    "anthropic": (3.00, 15.00),  # claude-sonnet-4.5
-    "google": (1.25, 10.00),  # gemini-3.1-pro-preview
+# Source: question-service/config/models.yaml
+_MODEL_COST_PER_M_TOKENS: dict[str, tuple[float, float]] = {
+    # Anthropic
+    "claude-opus-4-6": (15.00, 75.00),
+    "claude-sonnet-4-5-20250929": (3.00, 15.00),
+    "claude-haiku-4-5-20251001": (1.00, 5.00),
+    "claude-sonnet-4-20250514": (3.00, 15.00),
+    "claude-opus-4-1-20250805": (15.00, 75.00),
+    "claude-opus-4-20250514": (15.00, 75.00),
+    "claude-3-7-sonnet-20250219": (3.00, 15.00),
+    "claude-3-haiku-20240307": (0.25, 1.25),
+    # OpenAI
+    "gpt-5.2": (5.00, 15.00),
+    "gpt-5.1": (5.00, 15.00),
+    "gpt-5": (5.00, 15.00),
+    "o4-mini": (1.10, 4.40),
+    "o3": (10.00, 40.00),
+    "o3-mini": (1.10, 4.40),
+    "o1": (15.00, 60.00),
+    "gpt-4o": (2.50, 10.00),
+    "gpt-4o-mini": (0.15, 0.60),
+    # Google
+    "gemini-3.1-pro-preview": (1.25, 10.00),
+    "gemini-2.5-pro": (1.25, 10.00),
+    "gemini-2.5-flash": (0.15, 0.60),
+    # xAI
+    "grok-4": (5.00, 15.00),
 }
 
+# Conservative fallback for unknown models (per 1M tokens).
+_DEFAULT_COST_PER_M_TOKENS: tuple[float, float] = (10.00, 30.00)
 
-def _estimate_cost(vendor: str, input_tokens: int, output_tokens: int) -> float:
-    """Estimate cost in USD from token counts using approximate pricing."""
-    rates = _COST_PER_M_TOKENS.get(vendor, (1.0, 3.0))
+
+def _estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Estimate cost in USD from token counts using per-model pricing."""
+    rates = _MODEL_COST_PER_M_TOKENS.get(model, _DEFAULT_COST_PER_M_TOKENS)
     return (input_tokens * rates[0] + output_tokens * rates[1]) / 1_000_000
 
 
@@ -255,7 +279,7 @@ async def run_llm_benchmark(
         total_prompt_tokens += provider_result.input_tokens
         total_completion_tokens += provider_result.output_tokens
         estimated_cost = _estimate_cost(
-            vendor, provider_result.input_tokens, provider_result.output_tokens
+            model_id, provider_result.input_tokens, provider_result.output_tokens
         )
         cumulative_cost += estimated_cost
 
