@@ -285,6 +285,17 @@ import Foundation
             )
         }
 
+        // MARK: - Benchmarks
+
+        func getBenchmarkSummary() async throws -> Components.Schemas.BenchmarkSummaryResponse {
+            try throwIfNetworkError()
+            return Components.Schemas.BenchmarkSummaryResponse(
+                cacheTtl: 600,
+                minRuns: 3,
+                models: []
+            )
+        }
+
         // MARK: - Feedback
 
         func submitFeedback(_: Feedback) async throws -> FeedbackSubmitResponse {

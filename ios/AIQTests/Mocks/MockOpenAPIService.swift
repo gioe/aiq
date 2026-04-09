@@ -347,6 +347,25 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         return response
     }
 
+    // MARK: - Benchmarks
+
+    var getBenchmarkSummaryCalled = false
+    var getBenchmarkSummaryResponse: Components.Schemas.BenchmarkSummaryResponse?
+    var getBenchmarkSummaryError: Error?
+
+    func getBenchmarkSummary() async throws -> Components.Schemas.BenchmarkSummaryResponse {
+        getBenchmarkSummaryCalled = true
+        if let error = getBenchmarkSummaryError { throw error }
+        guard let response = getBenchmarkSummaryResponse else {
+            return Components.Schemas.BenchmarkSummaryResponse(
+                cacheTtl: 600,
+                minRuns: 3,
+                models: []
+            )
+        }
+        return response
+    }
+
     // MARK: - Feedback
 
     func submitFeedback(_ feedback: Feedback) async throws -> FeedbackSubmitResponse {

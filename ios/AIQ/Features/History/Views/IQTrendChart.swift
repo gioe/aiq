@@ -1,3 +1,4 @@
+import AIQAPIClientCore
 import AIQSharedKit
 import Charts
 import SwiftUI
@@ -5,6 +6,12 @@ import SwiftUI
 /// Chart component displaying IQ score trends over time
 struct IQTrendChart: View {
     let testHistory: [TestResult]
+    let benchmarkModels: [Components.Schemas.ModelSummary]
+
+    init(testHistory: [TestResult], benchmarkModels: [Components.Schemas.ModelSummary] = []) {
+        self.testHistory = testHistory
+        self.benchmarkModels = benchmarkModels
+    }
 
     /// Maximum number of data points to render for performance
     private let maxDataPoints = 50
@@ -34,6 +41,18 @@ struct IQTrendChart: View {
                             .foregroundColor(.secondary)
                     }
                     .accessibilityLabel("Shaded area shows 95% confidence interval")
+                }
+
+                if !benchmarkModels.isEmpty {
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .stroke(ColorPalette.info, style: StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                            .frame(width: 12, height: 1)
+                        Text("AI")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .accessibilityLabel("Dashed lines show AI model benchmark scores")
                 }
             }
 
@@ -89,6 +108,26 @@ struct IQTrendChart: View {
                                 )
                                 .cornerRadius(2)
                         }
+
+                    // AI model benchmark reference lines
+                    ForEach(Array(benchmarkModels.prefix(3).enumerated()), id: \.offset) { index, model in
+                        RuleMark(y: .value(model.displayName, model.meanIq))
+                            .foregroundStyle(benchmarkLineColor(for: index).opacity(0.5))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                            .annotation(position: .bottom, alignment: .leading) {
+                                Text("\(model.displayName): \(Int(model.meanIq))")
+                                    .font(.caption2)
+                                    .foregroundColor(benchmarkLineColor(for: index))
+                                    .fixedSize()
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        Color(.systemBackground)
+                                            .opacity(0.8)
+                                    )
+                                    .cornerRadius(2)
+                            }
+                    }
                 }
                 .chartYScale(domain: chartYDomain)
                 .chartXAxis {
@@ -141,7 +180,19 @@ struct IQTrendChart: View {
 
     /// Calculate appropriate Y-axis domain based on score range (including CI bounds)
     private var chartYDomain: ClosedRange<Int> {
-        ChartDomainCalculator.calculateYDomain(for: testHistory)
+        ChartDomainCalculator.calculateYDomain(
+            for: testHistory,
+            benchmarkIQs: benchmarkModels.map(\.meanIq)
+        )
+    }
+
+    /// Returns a distinct color for each benchmark reference line
+    private func benchmarkLineColor(for index: Int) -> Color {
+        switch index {
+        case 0: ColorPalette.info
+        case 1: ColorPalette.secondary
+        default: ColorPalette.warning
+        }
     }
 
     /// Accessibility label describing the chart content

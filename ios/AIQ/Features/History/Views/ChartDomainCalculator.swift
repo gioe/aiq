@@ -55,6 +55,43 @@ enum ChartDomainCalculator {
         return lowerBound ... upperBound
     }
 
+    /// Calculates Y-axis domain incorporating both user scores and benchmark reference values.
+    ///
+    /// - Parameters:
+    ///   - history: Array of test results to calculate domain for
+    ///   - benchmarkIQs: Additional IQ values from benchmark reference lines
+    /// - Returns: A closed range representing the Y-axis domain
+    static func calculateYDomain(
+        for history: [TestResult],
+        benchmarkIQs: [Double] = []
+    ) -> ClosedRange<Int> {
+        guard !history.isEmpty else { return defaultRange }
+
+        var allValues: [Int] = []
+        allValues.reserveCapacity(history.count * 3 + benchmarkIQs.count)
+
+        for result in history {
+            allValues.append(result.iqScore)
+            if let ciPayload = result.confidenceInterval {
+                allValues.append(ciPayload.value1.lower)
+                allValues.append(ciPayload.value1.upper)
+            }
+        }
+
+        // Include benchmark IQ values so reference lines are visible
+        for iq in benchmarkIQs {
+            allValues.append(Int(iq))
+        }
+
+        let minValue = allValues.min() ?? 100
+        let maxValue = allValues.max() ?? 100
+
+        let lowerBound = max(minYAxis, minValue - axisPadding)
+        let upperBound = min(maxYAxis, maxValue + axisPadding)
+
+        return lowerBound ... upperBound
+    }
+
     // MARK: - Confidence Interval Detection
 
     /// Checks if any results in the history have confidence interval data.

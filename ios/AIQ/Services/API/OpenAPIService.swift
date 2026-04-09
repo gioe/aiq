@@ -62,6 +62,10 @@ protocol OpenAPIServiceProtocol: Sendable {
     func updateNotificationPreferences(enabled: Bool) async throws
     func getNotificationPreferences() async throws -> Components.Schemas.NotificationPreferencesResponse
 
+    // MARK: - Benchmarks
+
+    func getBenchmarkSummary() async throws -> Components.Schemas.BenchmarkSummaryResponse
+
     // MARK: - Feedback
 
     func submitFeedback(_ feedback: Feedback) async throws -> FeedbackSubmitResponse
@@ -698,6 +702,29 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
                 }
                 return preferencesResponse
 
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    // MARK: - Benchmarks
+
+    func getBenchmarkSummary() async throws -> Components.Schemas.BenchmarkSummaryResponse {
+        do {
+            let response = try await client.getBenchmarkSummaryV1BenchmarkSummaryGet()
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(summary) = okResponse.body else {
+                    throw APIError.api(.invalidResponse)
+                }
+                return summary
+            case .unprocessableContent:
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
