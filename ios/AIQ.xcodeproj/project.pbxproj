@@ -60,6 +60,7 @@
 		224C51D2124BA600BBDD40DE /* ServiceConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD06AD9370E6A160F5546A00 /* ServiceConfiguration.swift */; };
 		237CFF2C7A42B1C86CCF0A09 /* MockAnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87F696C48D7A8EAA4FD4FF57 /* MockAnalyticsService.swift */; };
 		248003712C3A515D545EAA46 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 586A504E0C0CADB555FED995 /* SettingsView.swift */; };
+		24B5CC6B706BC4AC4A48C7FE /* AIComparisonCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86D65C43AD376A9FD7ED5C2E /* AIComparisonCard.swift */; };
 		24BD646379E4121DD1DEFC82 /* ApplicationProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDABCC8F273B8E73C566B74 /* ApplicationProtocol.swift */; };
 		24E15231306FC8A7CEBC07C0 /* StringLocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F8C9F55B117C21CD8CDF7 /* StringLocalizationTests.swift */; };
 		25F8149AA5AD3B8B578234D6 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 5F67568DF35617BE6981320E /* FirebaseAnalytics */; };
@@ -466,6 +467,7 @@
 		8584310DF575119FD30D7CD3 /* CacheKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheKey.swift; sourceTree = "<group>"; };
 		864D0C1119BD772731133D6D /* TabNavigationIsolationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TabNavigationIsolationTests.swift; sourceTree = "<group>"; };
 		86A53269857A08973A0D5568 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		86D65C43AD376A9FD7ED5C2E /* AIComparisonCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AIComparisonCard.swift; path = Features/Test/Views/AIComparisonCard.swift; sourceTree = "<group>"; };
 		87F696C48D7A8EAA4FD4FF57 /* MockAnalyticsService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MockAnalyticsService.swift; sourceTree = "<group>"; };
 		89105259A915501A4E00260B /* TestSessionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestSessionTests.swift; sourceTree = "<group>"; };
 		8A6615D675A2B7E22F3F96CF /* UITestMockNotificationManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UITestMockNotificationManager.swift; sourceTree = "<group>"; };
@@ -1155,6 +1157,7 @@
 				B5DDCF4046E6E9C20EE7C4FD /* TestTimerView.swift */,
 				9EDCAD695C094EB03F39B9B8 /* TimeWarningBanner.swift */,
 				294A8D9F2E9EE269073317FF /* ModelPerformanceView.swift */,
+				86D65C43AD376A9FD7ED5C2E /* AIComparisonCard.swift */,
 			);
 			name = Views;
 			sourceTree = "<group>";
@@ -1792,6 +1795,7 @@
 				8B1CBD6AD5BF68F3CA970AA9 /* CrashlyticsRecorderAdapter.swift in Sources */,
 				A68E4B21733288F6BB3D6B15 /* RetryableErrorConformances.swift in Sources */,
 				540E8FBB3E26DCC030D8DDE8 /* ModelPerformanceView.swift in Sources */,
+				24B5CC6B706BC4AC4A48C7FE /* AIComparisonCard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,3 +1,4 @@
+import AIQAPIClientCore
 import AIQSharedKit
 import SwiftUI
 
@@ -13,6 +14,8 @@ struct TestResultsView: View {
     @State private var showConfidenceIntervalInfo = false
     @State private var showNotificationSoftPrompt = false
     @State private var hasDismissed = false
+    @State private var benchmarkModels: [Components.Schemas.ModelSummary] = []
+    @State private var showAIComparison = false
     @ObservedObject private var notificationManager: NotificationManager = {
         let resolved: NotificationManagerProtocol = ServiceContainer.shared.resolve()
         guard let manager = resolved as? NotificationManager else {
@@ -54,6 +57,14 @@ struct TestResultsView: View {
                     )
                 }
 
+                // AI comparison card
+                AIComparisonCard(
+                    userIQScore: result.iqScore,
+                    userDomainScores: result.domainScoresConverted,
+                    benchmarkModels: benchmarkModels,
+                    showAnimation: showAIComparison
+                )
+
                 // Model performance breakdown
                 if let vendorGroups = result.vendorGroupedScores {
                     ModelPerformanceBreakdownView(
@@ -87,6 +98,7 @@ struct TestResultsView: View {
                 showPercentile = true
                 showMetrics = true
                 showDomains = true
+                showAIComparison = true
             } else {
                 withAnimation(theme.animations.smooth.delay(0.1)) {
                     showScore = true
@@ -100,7 +112,13 @@ struct TestResultsView: View {
                 withAnimation(theme.animations.smooth.delay(1.0)) {
                     showDomains = true
                 }
+                withAnimation(theme.animations.smooth.delay(1.3)) {
+                    showAIComparison = true
+                }
             }
+        }
+        .task {
+            await fetchBenchmarks()
         }
         .sheet(isPresented: $showNotificationSoftPrompt) {
             NotificationSoftPromptView(
@@ -153,6 +171,17 @@ struct TestResultsView: View {
         guard notificationManager.authorizationStatus != .authorized else { return false }
 
         return true
+    }
+
+    /// Fetches AI benchmark data; failures are silently ignored since benchmarks are supplemental.
+    private func fetchBenchmarks() async {
+        let apiService: OpenAPIServiceProtocol = ServiceContainer.shared.resolve()
+        do {
+            let summary = try await apiService.getBenchmarkSummary()
+            benchmarkModels = summary.models
+        } catch {
+            benchmarkModels = []
+        }
     }
 
     // MARK: - IQ Score Card
