@@ -817,6 +817,472 @@
         "title": "BackgroundJobStatsResponse",
         "type": "object"
       },
+      "BenchmarkDetailResponse": {
+        "description": "Full detail for a single benchmark session, including per-question breakdown.\n\nReturned by GET /v1/admin/llm-benchmark/results/{session_id}.\nScore and token fields are nullable because the session may be in progress.",
+        "properties": {
+          "completed_at": {
+            "description": "UTC timestamp when the run finished.",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Completed At",
+            "type": "string"
+          },
+          "correct_answers": {
+            "description": "Number of questions answered correctly.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Correct Answers",
+            "type": "integer"
+          },
+          "domain_scores": {
+            "description": "Per-domain breakdown of scores, keyed by domain name. Structure mirrors the human TestResult domain_scores JSON field.",
+            "nullable": true,
+            "title": "Domain Scores",
+            "type": "object"
+          },
+          "id": {
+            "description": "LLMTestSession primary key.",
+            "title": "Id",
+            "type": "integer"
+          },
+          "iq_score": {
+            "description": "Derived IQ score. Null until the session completes successfully.",
+            "nullable": true,
+            "title": "Iq Score",
+            "type": "integer"
+          },
+          "model_id": {
+            "description": "Model identifier.",
+            "title": "Model Id",
+            "type": "string"
+          },
+          "percentile_rank": {
+            "description": "Percentile rank relative to human norming sample.",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Percentile Rank",
+            "type": "number"
+          },
+          "questions": {
+            "description": "Per-question detail for every question in the session.",
+            "items": {
+              "$ref": "#/components/schemas/QuestionBreakdown"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "started_at": {
+            "description": "UTC timestamp when the run started.",
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "description": "Session status.",
+            "title": "Status",
+            "type": "string"
+          },
+          "temperature": {
+            "description": "Sampling temperature used for this run.",
+            "nullable": true,
+            "title": "Temperature",
+            "type": "number"
+          },
+          "total_completion_tokens": {
+            "description": "Total completion tokens generated across all questions.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Total Completion Tokens",
+            "type": "integer"
+          },
+          "total_cost_usd": {
+            "description": "Cumulative API cost for the session in USD.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Total Cost Usd",
+            "type": "number"
+          },
+          "total_prompt_tokens": {
+            "description": "Total prompt tokens consumed across all questions.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Total Prompt Tokens",
+            "type": "integer"
+          },
+          "total_questions": {
+            "description": "Total number of questions attempted.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Total Questions",
+            "type": "integer"
+          },
+          "triggered_by": {
+            "description": "Who or what initiated the run (e.g. 'manual', 'cron').",
+            "nullable": true,
+            "title": "Triggered By",
+            "type": "string"
+          },
+          "vendor": {
+            "description": "LLM vendor.",
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vendor",
+          "model_id",
+          "status",
+          "started_at",
+          "questions"
+        ],
+        "title": "BenchmarkDetailResponse",
+        "type": "object"
+      },
+      "BenchmarkResultsListResponse": {
+        "description": "Paginated response for GET /v1/admin/llm-benchmark/results.",
+        "properties": {
+          "has_more": {
+            "description": "True when additional sessions exist beyond this page.",
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "limit": {
+            "description": "Page size used for this response.",
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Offset used for this response.",
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "results": {
+            "description": "Page of benchmark session summaries.",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkSessionSummary"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "total_count": {
+            "description": "Total number of sessions across all pages.",
+            "minimum": 0.0,
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "total_count",
+          "limit",
+          "offset",
+          "has_more"
+        ],
+        "title": "BenchmarkResultsListResponse",
+        "type": "object"
+      },
+      "BenchmarkSessionSummary": {
+        "description": "Summary row for a single benchmark session returned by the list endpoint.\n\nScore fields are nullable because a session may still be in progress or\nmay have failed before a result record was written.",
+        "properties": {
+          "completed_at": {
+            "description": "UTC timestamp when the run finished. Null if still in progress.",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Completed At",
+            "type": "string"
+          },
+          "correct_answers": {
+            "description": "Number of questions answered correctly.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Correct Answers",
+            "type": "integer"
+          },
+          "id": {
+            "description": "LLMTestSession primary key.",
+            "title": "Id",
+            "type": "integer"
+          },
+          "iq_score": {
+            "description": "Derived IQ score. Null until the session completes successfully.",
+            "nullable": true,
+            "title": "Iq Score",
+            "type": "integer"
+          },
+          "model_id": {
+            "description": "Model identifier.",
+            "title": "Model Id",
+            "type": "string"
+          },
+          "percentile_rank": {
+            "description": "Percentile rank relative to human norming sample. Null if not yet scored.",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Percentile Rank",
+            "type": "number"
+          },
+          "started_at": {
+            "description": "UTC timestamp when the run started.",
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "description": "Session status: 'in_progress', 'completed', or 'failed'.",
+            "title": "Status",
+            "type": "string"
+          },
+          "total_cost_usd": {
+            "description": "Cumulative API cost for the session in USD.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Total Cost Usd",
+            "type": "number"
+          },
+          "total_questions": {
+            "description": "Total number of questions attempted in this session.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Total Questions",
+            "type": "integer"
+          },
+          "vendor": {
+            "description": "LLM vendor (e.g. 'openai').",
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vendor",
+          "model_id",
+          "status",
+          "started_at"
+        ],
+        "title": "BenchmarkSessionSummary",
+        "type": "object"
+      },
+      "BenchmarkSetDetailResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "title": "Description",
+            "type": "string"
+          },
+          "difficulty_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Difficulty Distribution",
+            "type": "object"
+          },
+          "domain_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Domain Distribution",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkSetQuestionDetail"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "total_questions": {
+            "title": "Total Questions",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "is_active",
+          "total_questions",
+          "domain_distribution",
+          "difficulty_distribution",
+          "created_at",
+          "updated_at",
+          "questions"
+        ],
+        "title": "BenchmarkSetDetailResponse",
+        "type": "object"
+      },
+      "BenchmarkSetListResponse": {
+        "properties": {
+          "sets": {
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkSetResponse"
+            },
+            "title": "Sets",
+            "type": "array"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sets",
+          "total_count"
+        ],
+        "title": "BenchmarkSetListResponse",
+        "type": "object"
+      },
+      "BenchmarkSetQuestionDetail": {
+        "properties": {
+          "difficulty_level": {
+            "title": "Difficulty Level",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "integer"
+          },
+          "question_text": {
+            "title": "Question Text",
+            "type": "string"
+          },
+          "question_type": {
+            "title": "Question Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "question_id",
+          "question_type",
+          "difficulty_level",
+          "question_text"
+        ],
+        "title": "BenchmarkSetQuestionDetail",
+        "type": "object"
+      },
+      "BenchmarkSetResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "title": "Description",
+            "type": "string"
+          },
+          "difficulty_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Difficulty Distribution",
+            "type": "object"
+          },
+          "domain_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Domain Distribution",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "total_questions": {
+            "title": "Total Questions",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "is_active",
+          "total_questions",
+          "domain_distribution",
+          "difficulty_distribution",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BenchmarkSetResponse",
+        "type": "object"
+      },
+      "BenchmarkSummaryResponse": {
+        "description": "Response for GET /v1/benchmark/summary.",
+        "properties": {
+          "cache_ttl": {
+            "description": "Cache TTL in seconds for this response.",
+            "title": "Cache Ttl",
+            "type": "integer"
+          },
+          "min_runs": {
+            "description": "Minimum completed runs threshold used for this response.",
+            "title": "Min Runs",
+            "type": "integer"
+          },
+          "models": {
+            "description": "Per-model performance summaries, sorted by mean IQ descending.",
+            "items": {
+              "$ref": "#/components/schemas/ModelSummary"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "models",
+          "min_runs",
+          "cache_ttl"
+        ],
+        "title": "BenchmarkSummaryResponse",
+        "type": "object"
+      },
       "BlandAltmanMetrics": {
         "description": "Bland-Altman agreement analysis between shadow CAT and CTT IQ.",
         "properties": {
@@ -1366,6 +1832,87 @@
         "title": "CalibrationSummary",
         "type": "object"
       },
+      "CompareResponse": {
+        "description": "Response for GET /v1/admin/llm-benchmark/compare.\n\nPresents the human average IQ alongside a per-model performance table\nso callers can directly compare LLM and human cognitive performance.",
+        "properties": {
+          "domain_breakdown": {
+            "description": "Per-domain accuracy comparison between humans and models.",
+            "items": {
+              "$ref": "#/components/schemas/DomainAccuracy"
+            },
+            "title": "Domain Breakdown",
+            "type": "array"
+          },
+          "effect_size": {
+            "description": "Cohen's d effect size between human and model IQ distributions. Null when either group has < 2 observations.",
+            "nullable": true,
+            "title": "Effect Size",
+            "type": "number"
+          },
+          "human_avg_iq": {
+            "description": "Mean IQ score across all human TestResult records. Null when no human results exist.",
+            "nullable": true,
+            "title": "Human Avg Iq",
+            "type": "number"
+          },
+          "human_ci": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfidenceInterval"
+              }
+            ],
+            "description": "95% CI for the human mean IQ. Null when fewer than 2 results.",
+            "nullable": true
+          },
+          "human_test_count": {
+            "description": "Total number of completed human test results used to compute the average.",
+            "minimum": 0.0,
+            "title": "Human Test Count",
+            "type": "integer"
+          },
+          "low_sample_warning": {
+            "description": "Warning when human_test_count < 30, indicating insufficient sample size for reliable statistics.",
+            "nullable": true,
+            "title": "Low Sample Warning",
+            "type": "string"
+          },
+          "models": {
+            "description": "Performance summary for each (vendor, model_id) pair with completed runs.",
+            "items": {
+              "$ref": "#/components/schemas/ModelComparison"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "human_test_count",
+          "models"
+        ],
+        "title": "CompareResponse",
+        "type": "object"
+      },
+      "ConfidenceInterval": {
+        "description": "95% confidence interval for a mean.",
+        "properties": {
+          "lower": {
+            "description": "Lower bound of the 95% CI.",
+            "title": "Lower",
+            "type": "number"
+          },
+          "upper": {
+            "description": "Upper bound of the 95% CI.",
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lower",
+          "upper"
+        ],
+        "title": "ConfidenceInterval",
+        "type": "object"
+      },
       "ConfidenceIntervalSchema": {
         "description": "Schema for confidence interval data around an IQ score.\n\nConfidence intervals quantify the uncertainty in score measurement,\nproviding a range within which the true score is likely to fall.\nThis is calculated using the Standard Error of Measurement (SEM)\nderived from the test's reliability coefficient.\n\nExample: A score of 108 with CI [101, 115] at 95% confidence means\nthere is a 95% probability the true score falls between 101 and 115.",
         "properties": {
@@ -1437,6 +1984,37 @@
           "bypass_cooldown"
         ],
         "title": "CooldownBypassUpdate",
+        "type": "object"
+      },
+      "CreateBenchmarkSetRequest": {
+        "properties": {
+          "description": {
+            "description": "Optional description.",
+            "nullable": true,
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "description": "Unique name for the benchmark set.",
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          },
+          "question_ids": {
+            "description": "Ordered list of question IDs to include.",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Question Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "question_ids"
+        ],
+        "title": "CreateBenchmarkSetRequest",
         "type": "object"
       },
       "CriterionResultResponse": {
@@ -2452,6 +3030,77 @@
         "title": "DistractorSummaryResponse",
         "type": "object"
       },
+      "DomainAccuracy": {
+        "description": "Per-domain accuracy comparison between humans and models.",
+        "properties": {
+          "domain": {
+            "description": "Question domain (e.g. 'pattern', 'logic').",
+            "title": "Domain",
+            "type": "string"
+          },
+          "human_n": {
+            "default": 0,
+            "description": "Number of human answers in this domain.",
+            "minimum": 0.0,
+            "title": "Human N",
+            "type": "integer"
+          },
+          "human_pct": {
+            "description": "Human accuracy % in this domain. Null if no human data.",
+            "nullable": true,
+            "title": "Human Pct",
+            "type": "number"
+          },
+          "model_n": {
+            "default": 0,
+            "description": "Number of model answers in this domain.",
+            "minimum": 0.0,
+            "title": "Model N",
+            "type": "integer"
+          },
+          "model_pct": {
+            "description": "Model accuracy % in this domain. Null if no model data.",
+            "nullable": true,
+            "title": "Model Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "title": "DomainAccuracy",
+        "type": "object"
+      },
+      "DomainAccuracySummary": {
+        "description": "Per-domain accuracy for a single model.",
+        "properties": {
+          "accuracy_pct": {
+            "description": "Accuracy percentage in this domain.",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Accuracy Pct",
+            "type": "number"
+          },
+          "domain": {
+            "description": "Question domain (e.g. 'pattern', 'logic').",
+            "title": "Domain",
+            "type": "string"
+          },
+          "total_questions": {
+            "description": "Number of questions answered in this domain.",
+            "minimum": 0.0,
+            "title": "Total Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "accuracy_pct",
+          "total_questions"
+        ],
+        "title": "DomainAccuracySummary",
+        "type": "object"
+      },
       "DomainCalibrationStats": {
         "description": "Per-domain (question_type) aggregate statistics.",
         "example": {
@@ -2984,6 +3633,49 @@
           }
         },
         "title": "FlagTypeBreakdown",
+        "type": "object"
+      },
+      "GenerateQuestionSetResponse": {
+        "description": "Response for GET /v1/admin/llm-benchmark/question-set.",
+        "properties": {
+          "difficulty_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Number of questions per difficulty level.",
+            "title": "Difficulty Distribution",
+            "type": "object"
+          },
+          "domain_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Number of questions per domain (question_type).",
+            "title": "Domain Distribution",
+            "type": "object"
+          },
+          "question_ids": {
+            "description": "Ordered list of question IDs forming a balanced benchmark set.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Question Ids",
+            "type": "array"
+          },
+          "total_questions": {
+            "description": "Number of questions in the set.",
+            "minimum": 0.0,
+            "title": "Total Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question_ids",
+          "total_questions",
+          "domain_distribution",
+          "difficulty_distribution"
+        ],
+        "title": "GenerateQuestionSetResponse",
         "type": "object"
       },
       "GuttmanCheckDetails": {
@@ -3644,6 +4336,84 @@
         "title": "ModelAccuracyRow",
         "type": "object"
       },
+      "ModelComparison": {
+        "description": "Aggregate performance row for a single (vendor, model_id) pair,\nused by the human-vs-model comparison endpoint.",
+        "properties": {
+          "correct_answers": {
+            "description": "Total correct answers across all completed sessions for this model.",
+            "minimum": 0.0,
+            "title": "Correct Answers",
+            "type": "integer"
+          },
+          "iq_ci": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfidenceInterval"
+              }
+            ],
+            "description": "95% CI for the mean IQ score. Null when sessions_count < 2.",
+            "nullable": true
+          },
+          "iq_score": {
+            "description": "Most-recent IQ score for this model. Null if no completed run exists.",
+            "nullable": true,
+            "title": "Iq Score",
+            "type": "integer"
+          },
+          "latest_run": {
+            "description": "UTC timestamp of the most-recent completed benchmark session.",
+            "format": "date-time",
+            "title": "Latest Run",
+            "type": "string"
+          },
+          "mean_iq": {
+            "description": "Mean IQ score across all completed sessions. Null if no completed run.",
+            "nullable": true,
+            "title": "Mean Iq",
+            "type": "number"
+          },
+          "model_id": {
+            "description": "Model identifier.",
+            "title": "Model Id",
+            "type": "string"
+          },
+          "percentile_rank": {
+            "description": "Percentile rank of the most-recent completed run.",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Percentile Rank",
+            "type": "number"
+          },
+          "sessions_count": {
+            "description": "Number of completed benchmark sessions for this model.",
+            "minimum": 1.0,
+            "title": "Sessions Count",
+            "type": "integer"
+          },
+          "total_questions": {
+            "description": "Total questions answered across all completed sessions for this model.",
+            "minimum": 0.0,
+            "title": "Total Questions",
+            "type": "integer"
+          },
+          "vendor": {
+            "description": "LLM vendor.",
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "model_id",
+          "total_questions",
+          "correct_answers",
+          "sessions_count",
+          "latest_run"
+        ],
+        "title": "ModelComparison",
+        "type": "object"
+      },
       "ModelPerformanceResponse": {
         "description": "Paginated response for GET /v1/analytics/model-performance.\n\nPagination applies to the vendor list for historical (all-sessions)\nqueries.  When a test_session_id is provided, all vendors for that\nsingle session are returned without pagination (total_count reflects\nthe full set; limit/offset are echoed back at their request values).",
         "properties": {
@@ -3687,6 +4457,56 @@
           "has_more"
         ],
         "title": "ModelPerformanceResponse",
+        "type": "object"
+      },
+      "ModelSummary": {
+        "description": "Public performance summary for a single model.",
+        "properties": {
+          "accuracy_pct": {
+            "description": "Overall accuracy percentage across all runs.",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Accuracy Pct",
+            "type": "number"
+          },
+          "display_name": {
+            "description": "Human-friendly model name.",
+            "title": "Display Name",
+            "type": "string"
+          },
+          "domain_accuracy": {
+            "description": "Per-domain accuracy breakdown.",
+            "items": {
+              "$ref": "#/components/schemas/DomainAccuracySummary"
+            },
+            "title": "Domain Accuracy",
+            "type": "array"
+          },
+          "mean_iq": {
+            "description": "Mean IQ score across completed runs.",
+            "title": "Mean Iq",
+            "type": "number"
+          },
+          "runs": {
+            "description": "Number of completed benchmark runs.",
+            "minimum": 1.0,
+            "title": "Runs",
+            "type": "integer"
+          },
+          "vendor": {
+            "description": "LLM vendor (e.g. 'anthropic', 'openai').",
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "vendor",
+          "mean_iq",
+          "accuracy_pct",
+          "runs"
+        ],
+        "title": "ModelSummary",
         "type": "object"
       },
       "NonFunctioningCountBreakdown": {
@@ -4227,6 +5047,53 @@
         ],
         "title": "QualityTier",
         "type": "string"
+      },
+      "QuestionBreakdown": {
+        "description": "Per-question detail within a benchmark session detail response.",
+        "properties": {
+          "cost_usd": {
+            "description": "API cost for this individual question in USD.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "error": {
+            "description": "Error message if the LLM call failed for this question.",
+            "nullable": true,
+            "title": "Error",
+            "type": "string"
+          },
+          "is_correct": {
+            "description": "Whether the model answered correctly. Null if the question errored.",
+            "nullable": true,
+            "title": "Is Correct",
+            "type": "boolean"
+          },
+          "latency_ms": {
+            "description": "Round-trip latency for the LLM call in milliseconds.",
+            "minimum": 0.0,
+            "nullable": true,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "normalized_answer": {
+            "description": "Normalised form of the model's answer.",
+            "nullable": true,
+            "title": "Normalized Answer",
+            "type": "string"
+          },
+          "question_id": {
+            "description": "Question primary key.",
+            "title": "Question Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question_id"
+        ],
+        "title": "QuestionBreakdown",
+        "type": "object"
       },
       "QuestionGenerationRunCreate": {
         "description": "Schema for creating a question generation run record.\n\nUsed by the question-service to report execution metrics to the backend.\nSupports both initial \"running\" status reports and final completion reports.",
@@ -5682,6 +6549,71 @@
           "total_responses_analyzed"
         ],
         "title": "ResponseTimeAnalyticsResponse",
+        "type": "object"
+      },
+      "RunBenchmarkRequest": {
+        "description": "Request body for POST /v1/admin/llm-benchmark/run.",
+        "properties": {
+          "model_id": {
+            "description": "Vendor-specific model identifier (e.g. 'gpt-5.2', 'claude-sonnet-4-5-20250929', 'gemini-3.1-pro-preview').",
+            "title": "Model Id",
+            "type": "string"
+          },
+          "question_count": {
+            "description": "Number of questions to include in the benchmark run. Omit to use the runner's configured default.",
+            "minimum": 1.0,
+            "nullable": true,
+            "title": "Question Count",
+            "type": "integer"
+          },
+          "question_ids": {
+            "description": "Fixed list of question IDs to use instead of stratified sampling. Questions are presented in the given order. Mutually exclusive with question_count.",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "nullable": true,
+            "title": "Question Ids",
+            "type": "array"
+          },
+          "vendor": {
+            "description": "LLM vendor to benchmark. Accepted values: 'openai', 'anthropic', 'google'.",
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "model_id"
+        ],
+        "title": "RunBenchmarkRequest",
+        "type": "object"
+      },
+      "RunBenchmarkResponse": {
+        "description": "Response body for a successfully enqueued benchmark run.",
+        "properties": {
+          "message": {
+            "description": "Human-readable confirmation message.",
+            "title": "Message",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "ID of the newly created LLMTestSession.",
+            "title": "Session Id",
+            "type": "integer"
+          },
+          "status": {
+            "default": "in_progress",
+            "description": "Initial status of the benchmark session.",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "message"
+        ],
+        "title": "RunBenchmarkResponse",
         "type": "object"
       },
       "SessionNeedingReview": {
@@ -8957,6 +9889,155 @@
         ]
       }
     },
+    "/v1/admin/benchmark-sets": {
+      "get": {
+        "description": "Return all benchmark sets with domain and difficulty distribution summaries.",
+        "operationId": "list_benchmark_sets_v1_admin_benchmark_sets_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkSetListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Benchmark Sets",
+        "tags": [
+          "admin",
+          "Admin - Benchmark Sets"
+        ]
+      },
+      "post": {
+        "description": "Create a new benchmark set.\n\nValidates that all supplied question IDs exist and are active, then\ncreates the set with positions matching the order of question_ids.",
+        "operationId": "create_benchmark_set_v1_admin_benchmark_sets_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBenchmarkSetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkSetDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Benchmark Set",
+        "tags": [
+          "admin",
+          "Admin - Benchmark Sets"
+        ]
+      }
+    },
+    "/v1/admin/benchmark-sets/{name}": {
+      "get": {
+        "description": "Return a benchmark set by name, including its full ordered question list.",
+        "operationId": "get_benchmark_set_v1_admin_benchmark_sets__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkSetDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Benchmark Set",
+        "tags": [
+          "admin",
+          "Admin - Benchmark Sets"
+        ]
+      }
+    },
     "/v1/admin/calibration-status": {
       "get": {
         "description": "Get IRT calibration readiness dashboard with comprehensive metrics.\n\nReturns detailed calibration statistics to help monitor progress toward\nIRT parameter estimation. Tracks response counts per item, per-domain\naggregates, and progress toward the 500-test threshold.\n\nRequires X-Admin-Token header with valid admin token.\n\n**Calibration Requirements:**\n- **Per-item threshold**: >= 50 responses (configurable via query param)\n- **Target tests**: 500 completed test sessions for stable IRT parameters\n- **Domain coverage**: All question types should have sufficient data\n\n**Response Count Buckets:**\n- `0`: Items with no responses yet\n- `1-9`: Very low response count\n- `10-24`: Low response count\n- `25-49`: Approaching threshold\n- `50-99`: Ready for calibration\n- `100+`: Well-calibrated\n\n**Readiness Levels:**\n- `ready`: >= 80% of items ready for calibration\n- `approaching`: >= 40% of items ready for calibration\n- `not_ready`: < 40% of items ready for calibration\n\nArgs:\n    min_responses_threshold: Minimum responses per item for calibration readiness\n    db: Database session\n    _: Admin token validation dependency\n\nReturns:\n    CalibrationMonitoringResponse with complete calibration dashboard\n\nExample:\n    ```\n    curl \"https://api.example.com/v1/admin/calibration-status\" \\\\\n      -H \"X-Admin-Token: your-admin-token\"\n\n    # Use custom threshold\n    curl \"https://api.example.com/v1/admin/calibration-status?min_responses_threshold=100\" \\\\\n      -H \"X-Admin-Token: your-admin-token\"\n    ```",
@@ -9955,6 +11036,310 @@
         "tags": [
           "admin",
           "Admin - Inventory"
+        ]
+      }
+    },
+    "/v1/admin/llm-benchmark/compare": {
+      "get": {
+        "description": "Compare human average IQ against all tested LLM models.",
+        "operationId": "compare_human_vs_models_v1_admin_llm_benchmark_compare_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Compare Human Vs Models",
+        "tags": [
+          "admin",
+          "Admin - LLM Benchmark"
+        ]
+      }
+    },
+    "/v1/admin/llm-benchmark/question-set": {
+      "get": {
+        "description": "Generate a balanced set of question IDs across all domains and difficulties.\n\nSelects questions evenly across each (domain, difficulty) cell, preferring\nquestions with higher discrimination.  The resulting IDs can be passed to\nthe ``POST /run`` endpoint via the ``question_ids`` field or used to create\na named BenchmarkSet via ``POST /v1/admin/benchmark-sets``.",
+        "operationId": "generate_question_set_v1_admin_llm_benchmark_question_set_get",
+        "parameters": [
+          {
+            "description": "Target number of questions. Distributed evenly across domains and difficulties.",
+            "in": "query",
+            "name": "total",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Target number of questions. Distributed evenly across domains and difficulties.",
+              "maximum": 500,
+              "minimum": 6,
+              "title": "Total",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateQuestionSetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Question Set",
+        "tags": [
+          "admin",
+          "Admin - LLM Benchmark"
+        ]
+      }
+    },
+    "/v1/admin/llm-benchmark/results": {
+      "get": {
+        "description": "Return a paginated list of benchmark sessions with scores.",
+        "operationId": "list_benchmark_results_v1_admin_llm_benchmark_results_get",
+        "parameters": [
+          {
+            "description": "Filter by vendor.",
+            "in": "query",
+            "name": "vendor",
+            "required": false,
+            "schema": {
+              "description": "Filter by vendor.",
+              "nullable": true,
+              "title": "Vendor",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by model identifier.",
+            "in": "query",
+            "name": "model_id",
+            "required": false,
+            "schema": {
+              "description": "Filter by model identifier.",
+              "nullable": true,
+              "title": "Model Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Page size.",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Page offset.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Page offset.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkResultsListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Benchmark Results",
+        "tags": [
+          "admin",
+          "Admin - LLM Benchmark"
+        ]
+      }
+    },
+    "/v1/admin/llm-benchmark/results/{session_id}": {
+      "get": {
+        "description": "Return detailed results for a single benchmark session.",
+        "operationId": "get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Benchmark Detail",
+        "tags": [
+          "admin",
+          "Admin - LLM Benchmark"
+        ]
+      }
+    },
+    "/v1/admin/llm-benchmark/run": {
+      "post": {
+        "description": "Trigger a new LLM benchmark run.\n\nRuns the benchmark synchronously and returns the session ID on completion.",
+        "operationId": "trigger_benchmark_run_v1_admin_llm_benchmark_run_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunBenchmarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunBenchmarkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trigger Benchmark Run",
+        "tags": [
+          "admin",
+          "Admin - LLM Benchmark"
         ]
       }
     },
@@ -12239,6 +13624,58 @@
         "summary": "Reset Password",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/v1/benchmark/summary": {
+      "get": {
+        "description": "Return curated model performance data for authenticated users.",
+        "operationId": "get_benchmark_summary_v1_benchmark_summary_get",
+        "parameters": [
+          {
+            "description": "Minimum completed benchmark runs to include a model.",
+            "in": "query",
+            "name": "min_runs",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "description": "Minimum completed benchmark runs to include a model.",
+              "minimum": 1,
+              "title": "Min Runs",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Benchmark Summary",
+        "tags": [
+          "benchmark"
         ]
       }
     },
