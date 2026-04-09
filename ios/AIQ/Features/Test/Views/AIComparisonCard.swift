@@ -191,6 +191,9 @@ struct AIComparisonCard: View {
                 .accessibilityHidden(true)
 
             GeometryReader { geometry in
+                let markerInset: CGFloat = 9
+                let usableWidth = geometry.size.width - markerInset * 2
+
                 ZStack(alignment: .leading) {
                     // Track
                     RoundedRectangle(cornerRadius: 4)
@@ -202,7 +205,8 @@ struct AIComparisonCard: View {
                         iqScore: Double(userIQScore),
                         color: theme.colors.primary,
                         shape: .circle,
-                        barWidth: geometry.size.width
+                        barWidth: usableWidth,
+                        inset: markerInset
                     )
 
                     // Average AI marker
@@ -210,7 +214,8 @@ struct AIComparisonCard: View {
                         iqScore: averageAIIQ,
                         color: theme.colors.statOrange,
                         shape: .diamond,
-                        barWidth: geometry.size.width
+                        barWidth: usableWidth,
+                        inset: markerInset
                     )
 
                     // Best AI marker
@@ -218,7 +223,8 @@ struct AIComparisonCard: View {
                         iqScore: bestAIIQ,
                         color: theme.colors.statBlue,
                         shape: .diamond,
-                        barWidth: geometry.size.width
+                        barWidth: usableWidth,
+                        inset: markerInset
                     )
                 }
             }
@@ -249,9 +255,13 @@ struct AIComparisonCard: View {
         iqScore: Double,
         color: Color,
         shape: GaugeMarkerShape,
-        barWidth: CGFloat
+        barWidth: CGFloat,
+        inset: CGFloat
     ) -> some View {
-        let position = showGauge ? gaugePosition(for: iqScore, barWidth: barWidth) : barWidth / 2
+        let position = showGauge
+            ? inset + gaugePosition(for: iqScore, barWidth: barWidth)
+            : inset + barWidth / 2
+        let markerRadius: CGFloat = shape == .circle ? 9 : 6
 
         Group {
             switch shape {
@@ -275,7 +285,7 @@ struct AIComparisonCard: View {
                     )
             }
         }
-        .offset(x: position - (shape == .circle ? 9 : 6), y: 0)
+        .offset(x: position - markerRadius, y: 0)
     }
 
     private var gaugeLegendView: some View {
