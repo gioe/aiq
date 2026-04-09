@@ -263,6 +263,7 @@
 		DD934B2B6D554D42BB9988EB /* QuestionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC898E586394C0795196D51 /* QuestionTests.swift */; };
 		DE26C7951AAB60EB5CD6CC38 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6EB3193E45966F81982468 /* AuthManager.swift */; };
 		DF74B1F9E96C0CC76B5CBDA5 /* MockAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A16988A601D72DDA897C6605 /* MockAuthManager.swift */; };
+		E0AC6258EC827804E036B3DF /* AIComparisonCardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5169502BD744EB44262DF9D5 /* AIComparisonCardUITests.swift */; };
 		E22045BF2DEC6A933D130442 /* TabNavigationIsolationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 864D0C1119BD772731133D6D /* TabNavigationIsolationTests.swift */; };
 		E311311A5DB43E3067D9F958 /* SettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1060D68A34C714AEE7BAB31E /* SettingsViewModelTests.swift */; };
 		E429319C32F379F1384D7F03 /* OnboardingPage3View.swift in Sources */ = {isa = PBXBuildFile; fileRef = 203AFDF4E765DE94A977F371 /* OnboardingPage3View.swift */; };
@@ -415,6 +416,7 @@
 		4DD364FDF0483DE20906256C /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		4FD63B88EF24591E02630005 /* FeedbackView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FeedbackView.swift; path = Features/Settings/Views/FeedbackView.swift; sourceTree = "<group>"; };
 		50DF8CAA3E236F47AF772D01 /* ViewModelFactoryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ViewModelFactoryTests.swift; sourceTree = "<group>"; };
+		5169502BD744EB44262DF9D5 /* AIComparisonCardUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AIComparisonCardUITests.swift; sourceTree = "<group>"; };
 		5313369593EDDB0AD20AF99A /* DashboardViewStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardViewStateTests.swift; sourceTree = "<group>"; };
 		53D457A020ADE6E1ACD55F8D /* PercentileCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PercentileCard.swift; path = Features/Test/Views/PercentileCard.swift; sourceTree = "<group>"; };
 		567AB0D6DFB36FE87A73FCEE /* ChartDomainCalculator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ChartDomainCalculator.swift; path = Features/History/Views/ChartDomainCalculator.swift; sourceTree = "<group>"; };
@@ -772,6 +774,7 @@
 				79737965E793EB94A872DBE8 /* MemoryQuestionStimulusCardUITests.swift */,
 				9A52C6D6CC7071D806BC4AD2 /* TestTakingAbandonmentFlowTests.swift */,
 				41569A8DB49D0ABEF0542DC2 /* DashboardPullToRefreshUITests.swift */,
+				5169502BD744EB44262DF9D5 /* AIComparisonCardUITests.swift */,
 			);
 			path = AIQUITests;
 			sourceTree = "<group>";
@@ -1546,6 +1549,7 @@
 				4C6CD5465C854C02F63922A6 /* TestTakingAbandonmentFlowTests.swift in Sources */,
 				8565688270FD11942FD2FC10 /* DashboardPullToRefreshUITests.swift in Sources */,
 				17223A4D42D0C5CFCBE96BA6 /* SnapshotHelper.swift in Sources */,
+				E0AC6258EC827804E036B3DF /* AIComparisonCardUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
