@@ -151,6 +151,43 @@ class TestTriggerBenchmarkRun:
         assert resp.status_code == 400
         assert "Unknown vendor" in resp.json()["detail"]
 
+    @patch("app.api.v1.admin.llm_benchmark.run_llm_benchmark", new_callable=AsyncMock)
+    def test_trigger_with_question_ids(
+        self, mock_run, client, db_session, admin_headers
+    ):
+        mock_run.return_value = 99
+
+        resp = client.post(
+            "/v1/admin/llm-benchmark/run",
+            json={
+                "vendor": "openai",
+                "model_id": "gpt-4o",
+                "question_ids": [1, 2, 3],
+            },
+            headers=admin_headers,
+        )
+
+        assert resp.status_code == 200
+        _, kwargs = mock_run.call_args
+        assert kwargs["question_ids"] == [1, 2, 3]
+        assert kwargs["total_questions"] is None
+
+    def test_trigger_question_ids_and_count_mutually_exclusive(
+        self, client, db_session, admin_headers
+    ):
+        resp = client.post(
+            "/v1/admin/llm-benchmark/run",
+            json={
+                "vendor": "openai",
+                "model_id": "gpt-4o",
+                "question_ids": [1, 2],
+                "question_count": 5,
+            },
+            headers=admin_headers,
+        )
+
+        assert resp.status_code == 422
+
     def test_trigger_missing_token(self, client, db_session):
         resp = client.post(
             "/v1/admin/llm-benchmark/run",
@@ -449,3 +486,95 @@ class TestCompareHumanVsModels:
             headers={"X-Admin-Token": "wrong"},
         )
         assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# GET /question-set
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateQuestionSet:
+    """Tests for GET /v1/admin/llm-benchmark/question-set."""
+
+    def test_question_set_returns_ids(
+        self, client, db_session, admin_headers, test_questions
+    ):
+        resp = client.get(
+            "/v1/admin/llm-benchmark/question-set",
+            params={"total": 10},
+            headers=admin_headers,
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "question_ids" in data
+        assert data["total_questions"] == len(data["question_ids"])
+        # Only active questions should be returned (test_questions has 4 active, 1 inactive)
+        for qid in data["question_ids"]:
+            assert qid != test_questions[4].id  # the inactive one
+
+    def test_question_set_has_distributions(
+        self, client, db_session, admin_headers, test_questions
+    ):
+        resp = client.get(
+            "/v1/admin/llm-benchmark/question-set",
+            params={"total": 10},
+            headers=admin_headers,
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "domain_distribution" in data
+        assert "difficulty_distribution" in data
+
+    def test_question_set_unauthorized(self, client, db_session):
+        resp = client.get(
+            "/v1/admin/llm-benchmark/question-set",
+            headers={"X-Admin-Token": "wrong"},
+        )
+        assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Runner: fixed question set path
+# ---------------------------------------------------------------------------
+
+
+class TestRunnerFixedQuestionSet:
+    """Tests for the fixed question_ids path in run_llm_benchmark."""
+
+    @patch("app.api.v1.admin.llm_benchmark.run_llm_benchmark", new_callable=AsyncMock)
+    def test_fixed_set_preserves_order(
+        self, mock_run, client, db_session, admin_headers
+    ):
+        """question_ids should be forwarded to the runner in exact order."""
+        mock_run.return_value = 50
+        ids = [10, 5, 20, 1]
+
+        resp = client.post(
+            "/v1/admin/llm-benchmark/run",
+            json={"vendor": "openai", "model_id": "gpt-4o", "question_ids": ids},
+            headers=admin_headers,
+        )
+
+        assert resp.status_code == 200
+        _, kwargs = mock_run.call_args
+        assert kwargs["question_ids"] == ids
+
+    @patch("app.api.v1.admin.llm_benchmark.run_llm_benchmark", new_callable=AsyncMock)
+    def test_omitting_question_ids_uses_stratified(
+        self, mock_run, client, db_session, admin_headers
+    ):
+        """When question_ids is omitted, question_ids kwarg should be None."""
+        mock_run.return_value = 51
+
+        resp = client.post(
+            "/v1/admin/llm-benchmark/run",
+            json={"vendor": "anthropic", "model_id": "claude-3"},
+            headers=admin_headers,
+        )
+
+        assert resp.status_code == 200
+        _, kwargs = mock_run.call_args
+        assert kwargs["question_ids"] is None
+        assert kwargs["total_questions"] is None
