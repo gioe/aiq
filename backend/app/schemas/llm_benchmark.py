@@ -58,6 +58,10 @@ class RunBenchmarkRequest(BaseModel):
                 "question_ids and question_count are mutually exclusive — "
                 "provide one or neither, not both."
             )
+        if self.question_ids is not None and len(self.question_ids) != len(
+            set(self.question_ids)
+        ):
+            raise ValueError("question_ids must not contain duplicates.")
         return self
 
 

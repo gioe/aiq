@@ -119,14 +119,17 @@ async def trigger_benchmark_run(
             f"Must be one of: {', '.join(sorted(_VALID_VENDORS))}."
         )
 
-    session_id = await run_llm_benchmark(
-        db,
-        body.vendor,
-        body.model_id,
-        total_questions=body.question_count,
-        question_ids=body.question_ids,
-        triggered_by="admin_api",
-    )
+    try:
+        session_id = await run_llm_benchmark(
+            db,
+            body.vendor,
+            body.model_id,
+            total_questions=body.question_count,
+            question_ids=body.question_ids,
+            triggered_by="admin_api",
+        )
+    except ValueError as exc:
+        raise_bad_request(str(exc))
 
     return RunBenchmarkResponse(
         session_id=session_id,
