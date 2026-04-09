@@ -1275,6 +1275,287 @@ public struct Client: APIProtocol {
             }
         )
     }
+    /// List Benchmark Sets
+    ///
+    /// Return all benchmark sets with domain and difficulty distribution summaries.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/get(list_benchmark_sets_v1_admin_benchmark_sets_get)`.
+    public func listBenchmarkSetsV1AdminBenchmarkSetsGet(_ input: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Input) async throws -> Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/benchmark-sets",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.BenchmarkSetListResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Create Benchmark Set
+    ///
+    /// Create a new benchmark set.
+    ///
+    /// Validates that all supplied question IDs exist and are active, then
+    /// creates the set with positions matching the order of question_ids.
+    ///
+    /// - Remark: HTTP `POST /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/post(create_benchmark_set_v1_admin_benchmark_sets_post)`.
+    public func createBenchmarkSetV1AdminBenchmarkSetsPost(_ input: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input) async throws -> Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/benchmark-sets",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 201:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.Created.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.BenchmarkSetDetailResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .created(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Benchmark Set
+    ///
+    /// Return a benchmark set by name, including its full ordered question list.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets/{name}`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/{name}/get(get_benchmark_set_v1_admin_benchmark_sets__name__get)`.
+    public func getBenchmarkSetV1AdminBenchmarkSetsNameGet(_ input: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input) async throws -> Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/benchmark-sets/{}",
+                    parameters: [
+                        input.path.name
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.BenchmarkSetDetailResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Get Calibration Status
     ///
     /// Get IRT calibration readiness dashboard with comprehensive metrics.
@@ -3176,6 +3457,504 @@ public struct Client: APIProtocol {
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
                     let body: Operations.GetInventoryHealthV1AdminInventoryHealthGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Compare Human Vs Models
+    ///
+    /// Compare human average IQ against all tested LLM models.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/compare`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/compare/get(compare_human_vs_models_v1_admin_llm_benchmark_compare_get)`.
+    public func compareHumanVsModelsV1AdminLlmBenchmarkCompareGet(_ input: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Input) async throws -> Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/llm-benchmark/compare",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.CompareResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Generate Question Set
+    ///
+    /// Generate a balanced set of question IDs across all domains and difficulties.
+    ///
+    /// Selects questions evenly across each (domain, difficulty) cell, preferring
+    /// questions with higher discrimination.  The resulting IDs can be passed to
+    /// the ``POST /run`` endpoint via the ``question_ids`` field or used to create
+    /// a named BenchmarkSet via ``POST /v1/admin/benchmark-sets``.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/question-set`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/question-set/get(generate_question_set_v1_admin_llm_benchmark_question_set_get)`.
+    public func generateQuestionSetV1AdminLlmBenchmarkQuestionSetGet(_ input: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input) async throws -> Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/llm-benchmark/question-set",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "total",
+                    value: input.query.total
+                )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.GenerateQuestionSetResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// List Benchmark Results
+    ///
+    /// Return a paginated list of benchmark sessions with scores.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/get(list_benchmark_results_v1_admin_llm_benchmark_results_get)`.
+    public func listBenchmarkResultsV1AdminLlmBenchmarkResultsGet(_ input: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input) async throws -> Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/llm-benchmark/results",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "vendor",
+                    value: input.query.vendor
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "model_id",
+                    value: input.query.modelId
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "limit",
+                    value: input.query.limit
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "offset",
+                    value: input.query.offset
+                )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.BenchmarkResultsListResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Benchmark Detail
+    ///
+    /// Return detailed results for a single benchmark session.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results/{session_id}`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/{session_id}/get(get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get)`.
+    public func getBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet(_ input: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input) async throws -> Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/llm-benchmark/results/{}",
+                    parameters: [
+                        input.path.sessionId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.BenchmarkDetailResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Trigger Benchmark Run
+    ///
+    /// Trigger a new LLM benchmark run.
+    ///
+    /// Runs the benchmark synchronously and returns the session ID on completion.
+    ///
+    /// - Remark: HTTP `POST /v1/admin/llm-benchmark/run`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/run/post(trigger_benchmark_run_v1_admin_llm_benchmark_run_post)`.
+    public func triggerBenchmarkRunV1AdminLlmBenchmarkRunPost(_ input: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input) async throws -> Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/llm-benchmark/run",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.RunBenchmarkResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7889,6 +8668,97 @@ public struct Client: APIProtocol {
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
                     let body: Operations.ResetPasswordV1AuthResetPasswordPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Benchmark Summary
+    ///
+    /// Return curated model performance data for authenticated users.
+    ///
+    /// - Remark: HTTP `GET /v1/benchmark/summary`.
+    /// - Remark: Generated from `#/paths//v1/benchmark/summary/get(get_benchmark_summary_v1_benchmark_summary_get)`.
+    public func getBenchmarkSummaryV1BenchmarkSummaryGet(_ input: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Input) async throws -> Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/benchmark/summary",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "min_runs",
+                    value: input.query.minRuns
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.BenchmarkSummaryResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [

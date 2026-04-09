@@ -268,6 +268,30 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `DELETE /v1/admin/background-jobs/{job_id}`.
     /// - Remark: Generated from `#/paths//v1/admin/background-jobs/{job_id}/delete(terminate_background_job_v1_admin_background_jobs__job_id__delete)`.
     func terminateBackgroundJobV1AdminBackgroundJobsJobIdDelete(_ input: Operations.TerminateBackgroundJobV1AdminBackgroundJobsJobIdDelete.Input) async throws -> Operations.TerminateBackgroundJobV1AdminBackgroundJobsJobIdDelete.Output
+    /// List Benchmark Sets
+    ///
+    /// Return all benchmark sets with domain and difficulty distribution summaries.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/get(list_benchmark_sets_v1_admin_benchmark_sets_get)`.
+    func listBenchmarkSetsV1AdminBenchmarkSetsGet(_ input: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Input) async throws -> Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output
+    /// Create Benchmark Set
+    ///
+    /// Create a new benchmark set.
+    ///
+    /// Validates that all supplied question IDs exist and are active, then
+    /// creates the set with positions matching the order of question_ids.
+    ///
+    /// - Remark: HTTP `POST /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/post(create_benchmark_set_v1_admin_benchmark_sets_post)`.
+    func createBenchmarkSetV1AdminBenchmarkSetsPost(_ input: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input) async throws -> Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output
+    /// Get Benchmark Set
+    ///
+    /// Return a benchmark set by name, including its full ordered question list.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets/{name}`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/{name}/get(get_benchmark_set_v1_admin_benchmark_sets__name__get)`.
+    func getBenchmarkSetV1AdminBenchmarkSetsNameGet(_ input: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input) async throws -> Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output
     /// Get Calibration Status
     ///
     /// Get IRT calibration readiness dashboard with comprehensive metrics.
@@ -727,6 +751,48 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `GET /v1/admin/inventory-health`.
     /// - Remark: Generated from `#/paths//v1/admin/inventory-health/get(get_inventory_health_v1_admin_inventory_health_get)`.
     func getInventoryHealthV1AdminInventoryHealthGet(_ input: Operations.GetInventoryHealthV1AdminInventoryHealthGet.Input) async throws -> Operations.GetInventoryHealthV1AdminInventoryHealthGet.Output
+    /// Compare Human Vs Models
+    ///
+    /// Compare human average IQ against all tested LLM models.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/compare`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/compare/get(compare_human_vs_models_v1_admin_llm_benchmark_compare_get)`.
+    func compareHumanVsModelsV1AdminLlmBenchmarkCompareGet(_ input: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Input) async throws -> Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output
+    /// Generate Question Set
+    ///
+    /// Generate a balanced set of question IDs across all domains and difficulties.
+    ///
+    /// Selects questions evenly across each (domain, difficulty) cell, preferring
+    /// questions with higher discrimination.  The resulting IDs can be passed to
+    /// the ``POST /run`` endpoint via the ``question_ids`` field or used to create
+    /// a named BenchmarkSet via ``POST /v1/admin/benchmark-sets``.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/question-set`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/question-set/get(generate_question_set_v1_admin_llm_benchmark_question_set_get)`.
+    func generateQuestionSetV1AdminLlmBenchmarkQuestionSetGet(_ input: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input) async throws -> Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output
+    /// List Benchmark Results
+    ///
+    /// Return a paginated list of benchmark sessions with scores.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/get(list_benchmark_results_v1_admin_llm_benchmark_results_get)`.
+    func listBenchmarkResultsV1AdminLlmBenchmarkResultsGet(_ input: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input) async throws -> Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output
+    /// Get Benchmark Detail
+    ///
+    /// Return detailed results for a single benchmark session.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results/{session_id}`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/{session_id}/get(get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get)`.
+    func getBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet(_ input: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input) async throws -> Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output
+    /// Trigger Benchmark Run
+    ///
+    /// Trigger a new LLM benchmark run.
+    ///
+    /// Runs the benchmark synchronously and returns the session ID on completion.
+    ///
+    /// - Remark: HTTP `POST /v1/admin/llm-benchmark/run`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/run/post(trigger_benchmark_run_v1_admin_llm_benchmark_run_post)`.
+    func triggerBenchmarkRunV1AdminLlmBenchmarkRunPost(_ input: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input) async throws -> Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output
     /// Get Question Generation Status
     ///
     /// Check the status of a question generation job by job ID.
@@ -1910,6 +1976,13 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `POST /v1/auth/reset-password`.
     /// - Remark: Generated from `#/paths//v1/auth/reset-password/post(reset_password_v1_auth_reset_password_post)`.
     func resetPasswordV1AuthResetPasswordPost(_ input: Operations.ResetPasswordV1AuthResetPasswordPost.Input) async throws -> Operations.ResetPasswordV1AuthResetPasswordPost.Output
+    /// Get Benchmark Summary
+    ///
+    /// Return curated model performance data for authenticated users.
+    ///
+    /// - Remark: HTTP `GET /v1/benchmark/summary`.
+    /// - Remark: Generated from `#/paths//v1/benchmark/summary/get(get_benchmark_summary_v1_benchmark_summary_get)`.
+    func getBenchmarkSummaryV1BenchmarkSummaryGet(_ input: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Input) async throws -> Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output
     /// Submit Feedback
     ///
     /// Submit user feedback, bug report, or feature request.
@@ -2616,6 +2689,48 @@ extension APIProtocol {
             headers: headers
         ))
     }
+    /// List Benchmark Sets
+    ///
+    /// Return all benchmark sets with domain and difficulty distribution summaries.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/get(list_benchmark_sets_v1_admin_benchmark_sets_get)`.
+    public func listBenchmarkSetsV1AdminBenchmarkSetsGet(headers: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Input.Headers) async throws -> Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output {
+        try await listBenchmarkSetsV1AdminBenchmarkSetsGet(Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Input(headers: headers))
+    }
+    /// Create Benchmark Set
+    ///
+    /// Create a new benchmark set.
+    ///
+    /// Validates that all supplied question IDs exist and are active, then
+    /// creates the set with positions matching the order of question_ids.
+    ///
+    /// - Remark: HTTP `POST /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/post(create_benchmark_set_v1_admin_benchmark_sets_post)`.
+    public func createBenchmarkSetV1AdminBenchmarkSetsPost(
+        headers: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input.Headers,
+        body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input.Body
+    ) async throws -> Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output {
+        try await createBenchmarkSetV1AdminBenchmarkSetsPost(Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input(
+            headers: headers,
+            body: body
+        ))
+    }
+    /// Get Benchmark Set
+    ///
+    /// Return a benchmark set by name, including its full ordered question list.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets/{name}`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/{name}/get(get_benchmark_set_v1_admin_benchmark_sets__name__get)`.
+    public func getBenchmarkSetV1AdminBenchmarkSetsNameGet(
+        path: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input.Path,
+        headers: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input.Headers
+    ) async throws -> Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output {
+        try await getBenchmarkSetV1AdminBenchmarkSetsNameGet(Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input(
+            path: path,
+            headers: headers
+        ))
+    }
     /// Get Calibration Status
     ///
     /// Get IRT calibration readiness dashboard with comprehensive metrics.
@@ -3171,6 +3286,82 @@ extension APIProtocol {
         try await getInventoryHealthV1AdminInventoryHealthGet(Operations.GetInventoryHealthV1AdminInventoryHealthGet.Input(
             query: query,
             headers: headers
+        ))
+    }
+    /// Compare Human Vs Models
+    ///
+    /// Compare human average IQ against all tested LLM models.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/compare`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/compare/get(compare_human_vs_models_v1_admin_llm_benchmark_compare_get)`.
+    public func compareHumanVsModelsV1AdminLlmBenchmarkCompareGet(headers: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Input.Headers) async throws -> Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output {
+        try await compareHumanVsModelsV1AdminLlmBenchmarkCompareGet(Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Input(headers: headers))
+    }
+    /// Generate Question Set
+    ///
+    /// Generate a balanced set of question IDs across all domains and difficulties.
+    ///
+    /// Selects questions evenly across each (domain, difficulty) cell, preferring
+    /// questions with higher discrimination.  The resulting IDs can be passed to
+    /// the ``POST /run`` endpoint via the ``question_ids`` field or used to create
+    /// a named BenchmarkSet via ``POST /v1/admin/benchmark-sets``.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/question-set`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/question-set/get(generate_question_set_v1_admin_llm_benchmark_question_set_get)`.
+    public func generateQuestionSetV1AdminLlmBenchmarkQuestionSetGet(
+        query: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input.Query = .init(),
+        headers: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input.Headers
+    ) async throws -> Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output {
+        try await generateQuestionSetV1AdminLlmBenchmarkQuestionSetGet(Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input(
+            query: query,
+            headers: headers
+        ))
+    }
+    /// List Benchmark Results
+    ///
+    /// Return a paginated list of benchmark sessions with scores.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/get(list_benchmark_results_v1_admin_llm_benchmark_results_get)`.
+    public func listBenchmarkResultsV1AdminLlmBenchmarkResultsGet(
+        query: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input.Query = .init(),
+        headers: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input.Headers
+    ) async throws -> Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output {
+        try await listBenchmarkResultsV1AdminLlmBenchmarkResultsGet(Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input(
+            query: query,
+            headers: headers
+        ))
+    }
+    /// Get Benchmark Detail
+    ///
+    /// Return detailed results for a single benchmark session.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results/{session_id}`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/{session_id}/get(get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get)`.
+    public func getBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet(
+        path: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input.Path,
+        headers: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input.Headers
+    ) async throws -> Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output {
+        try await getBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet(Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input(
+            path: path,
+            headers: headers
+        ))
+    }
+    /// Trigger Benchmark Run
+    ///
+    /// Trigger a new LLM benchmark run.
+    ///
+    /// Runs the benchmark synchronously and returns the session ID on completion.
+    ///
+    /// - Remark: HTTP `POST /v1/admin/llm-benchmark/run`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/run/post(trigger_benchmark_run_v1_admin_llm_benchmark_run_post)`.
+    public func triggerBenchmarkRunV1AdminLlmBenchmarkRunPost(
+        headers: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input.Headers,
+        body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input.Body
+    ) async throws -> Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output {
+        try await triggerBenchmarkRunV1AdminLlmBenchmarkRunPost(Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input(
+            headers: headers,
+            body: body
         ))
     }
     /// Get Question Generation Status
@@ -4650,6 +4841,21 @@ extension APIProtocol {
             body: body
         ))
     }
+    /// Get Benchmark Summary
+    ///
+    /// Return curated model performance data for authenticated users.
+    ///
+    /// - Remark: HTTP `GET /v1/benchmark/summary`.
+    /// - Remark: Generated from `#/paths//v1/benchmark/summary/get(get_benchmark_summary_v1_benchmark_summary_get)`.
+    public func getBenchmarkSummaryV1BenchmarkSummaryGet(
+        query: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Input.Query = .init(),
+        headers: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Input.Headers = .init()
+    ) async throws -> Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output {
+        try await getBenchmarkSummaryV1BenchmarkSummaryGet(Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Input(
+            query: query,
+            headers: headers
+        ))
+    }
     /// Submit Feedback
     ///
     /// Submit user feedback, bug report, or feature request.
@@ -5179,10 +5385,10 @@ public enum Components {
                 public init(additionalProperties: [String: OpenAPIRuntime.OpenAPIObjectContainer] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -5215,10 +5421,10 @@ public enum Components {
                 public init(value1: Components.Schemas.ABComparisonScore) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try .init(from: decoder)
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try self.value1.encode(to: encoder)
                 }
             }
@@ -5239,10 +5445,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Double] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -5405,10 +5611,10 @@ public enum Components {
                 public init(value1: Components.Schemas.QuestionResponse) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try .init(from: decoder)
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try self.value1.encode(to: encoder)
                 }
             }
@@ -6256,6 +6462,624 @@ public enum Components {
                 case totalRegistered = "total_registered"
             }
         }
+        /// Full detail for a single benchmark session, including per-question breakdown.
+        ///
+        /// Returned by GET /v1/admin/llm-benchmark/results/{session_id}.
+        /// Score and token fields are nullable because the session may be in progress.
+        ///
+        /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse`.
+        public struct BenchmarkDetailResponse: Codable, Hashable, Sendable {
+            /// UTC timestamp when the run finished.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/completed_at`.
+            public var completedAt: Foundation.Date?
+            /// Number of questions answered correctly.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/correct_answers`.
+            public var correctAnswers: Swift.Int?
+            /// Per-domain breakdown of scores, keyed by domain name. Structure mirrors the human TestResult domain_scores JSON field.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/domain_scores`.
+            public var domainScores: OpenAPIRuntime.OpenAPIObjectContainer?
+            /// LLMTestSession primary key.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/id`.
+            public var id: Swift.Int
+            /// Derived IQ score. Null until the session completes successfully.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/iq_score`.
+            public var iqScore: Swift.Int?
+            /// Model identifier.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/model_id`.
+            public var modelId: Swift.String
+            /// Percentile rank relative to human norming sample.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/percentile_rank`.
+            public var percentileRank: Swift.Double?
+            /// Per-question detail for every question in the session.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/questions`.
+            public var questions: [Components.Schemas.QuestionBreakdown]
+            /// UTC timestamp when the run started.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/started_at`.
+            public var startedAt: Foundation.Date
+            /// Session status.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/status`.
+            public var status: Swift.String
+            /// Sampling temperature used for this run.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/temperature`.
+            public var temperature: Swift.Double?
+            /// Total completion tokens generated across all questions.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/total_completion_tokens`.
+            public var totalCompletionTokens: Swift.Int?
+            /// Cumulative API cost for the session in USD.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/total_cost_usd`.
+            public var totalCostUsd: Swift.Double?
+            /// Total prompt tokens consumed across all questions.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/total_prompt_tokens`.
+            public var totalPromptTokens: Swift.Int?
+            /// Total number of questions attempted.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/total_questions`.
+            public var totalQuestions: Swift.Int?
+            /// Who or what initiated the run (e.g. 'manual', 'cron').
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/triggered_by`.
+            public var triggeredBy: Swift.String?
+            /// LLM vendor.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkDetailResponse/vendor`.
+            public var vendor: Swift.String
+            /// Creates a new `BenchmarkDetailResponse`.
+            ///
+            /// - Parameters:
+            ///   - completedAt: UTC timestamp when the run finished.
+            ///   - correctAnswers: Number of questions answered correctly.
+            ///   - domainScores: Per-domain breakdown of scores, keyed by domain name. Structure mirrors the human TestResult domain_scores JSON field.
+            ///   - id: LLMTestSession primary key.
+            ///   - iqScore: Derived IQ score. Null until the session completes successfully.
+            ///   - modelId: Model identifier.
+            ///   - percentileRank: Percentile rank relative to human norming sample.
+            ///   - questions: Per-question detail for every question in the session.
+            ///   - startedAt: UTC timestamp when the run started.
+            ///   - status: Session status.
+            ///   - temperature: Sampling temperature used for this run.
+            ///   - totalCompletionTokens: Total completion tokens generated across all questions.
+            ///   - totalCostUsd: Cumulative API cost for the session in USD.
+            ///   - totalPromptTokens: Total prompt tokens consumed across all questions.
+            ///   - totalQuestions: Total number of questions attempted.
+            ///   - triggeredBy: Who or what initiated the run (e.g. 'manual', 'cron').
+            ///   - vendor: LLM vendor.
+            public init(
+                completedAt: Foundation.Date? = nil,
+                correctAnswers: Swift.Int? = nil,
+                domainScores: OpenAPIRuntime.OpenAPIObjectContainer? = nil,
+                id: Swift.Int,
+                iqScore: Swift.Int? = nil,
+                modelId: Swift.String,
+                percentileRank: Swift.Double? = nil,
+                questions: [Components.Schemas.QuestionBreakdown],
+                startedAt: Foundation.Date,
+                status: Swift.String,
+                temperature: Swift.Double? = nil,
+                totalCompletionTokens: Swift.Int? = nil,
+                totalCostUsd: Swift.Double? = nil,
+                totalPromptTokens: Swift.Int? = nil,
+                totalQuestions: Swift.Int? = nil,
+                triggeredBy: Swift.String? = nil,
+                vendor: Swift.String
+            ) {
+                self.completedAt = completedAt
+                self.correctAnswers = correctAnswers
+                self.domainScores = domainScores
+                self.id = id
+                self.iqScore = iqScore
+                self.modelId = modelId
+                self.percentileRank = percentileRank
+                self.questions = questions
+                self.startedAt = startedAt
+                self.status = status
+                self.temperature = temperature
+                self.totalCompletionTokens = totalCompletionTokens
+                self.totalCostUsd = totalCostUsd
+                self.totalPromptTokens = totalPromptTokens
+                self.totalQuestions = totalQuestions
+                self.triggeredBy = triggeredBy
+                self.vendor = vendor
+            }
+            public enum CodingKeys: String, CodingKey {
+                case completedAt = "completed_at"
+                case correctAnswers = "correct_answers"
+                case domainScores = "domain_scores"
+                case id
+                case iqScore = "iq_score"
+                case modelId = "model_id"
+                case percentileRank = "percentile_rank"
+                case questions
+                case startedAt = "started_at"
+                case status
+                case temperature
+                case totalCompletionTokens = "total_completion_tokens"
+                case totalCostUsd = "total_cost_usd"
+                case totalPromptTokens = "total_prompt_tokens"
+                case totalQuestions = "total_questions"
+                case triggeredBy = "triggered_by"
+                case vendor
+            }
+        }
+        /// Paginated response for GET /v1/admin/llm-benchmark/results.
+        ///
+        /// - Remark: Generated from `#/components/schemas/BenchmarkResultsListResponse`.
+        public struct BenchmarkResultsListResponse: Codable, Hashable, Sendable {
+            /// True when additional sessions exist beyond this page.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkResultsListResponse/has_more`.
+            public var hasMore: Swift.Bool
+            /// Page size used for this response.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkResultsListResponse/limit`.
+            public var limit: Swift.Int
+            /// Offset used for this response.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkResultsListResponse/offset`.
+            public var offset: Swift.Int
+            /// Page of benchmark session summaries.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkResultsListResponse/results`.
+            public var results: [Components.Schemas.BenchmarkSessionSummary]
+            /// Total number of sessions across all pages.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkResultsListResponse/total_count`.
+            public var totalCount: Swift.Int
+            /// Creates a new `BenchmarkResultsListResponse`.
+            ///
+            /// - Parameters:
+            ///   - hasMore: True when additional sessions exist beyond this page.
+            ///   - limit: Page size used for this response.
+            ///   - offset: Offset used for this response.
+            ///   - results: Page of benchmark session summaries.
+            ///   - totalCount: Total number of sessions across all pages.
+            public init(
+                hasMore: Swift.Bool,
+                limit: Swift.Int,
+                offset: Swift.Int,
+                results: [Components.Schemas.BenchmarkSessionSummary],
+                totalCount: Swift.Int
+            ) {
+                self.hasMore = hasMore
+                self.limit = limit
+                self.offset = offset
+                self.results = results
+                self.totalCount = totalCount
+            }
+            public enum CodingKeys: String, CodingKey {
+                case hasMore = "has_more"
+                case limit
+                case offset
+                case results
+                case totalCount = "total_count"
+            }
+        }
+        /// Summary row for a single benchmark session returned by the list endpoint.
+        ///
+        /// Score fields are nullable because a session may still be in progress or
+        /// may have failed before a result record was written.
+        ///
+        /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary`.
+        public struct BenchmarkSessionSummary: Codable, Hashable, Sendable {
+            /// UTC timestamp when the run finished. Null if still in progress.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/completed_at`.
+            public var completedAt: Foundation.Date?
+            /// Number of questions answered correctly.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/correct_answers`.
+            public var correctAnswers: Swift.Int?
+            /// LLMTestSession primary key.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/id`.
+            public var id: Swift.Int
+            /// Derived IQ score. Null until the session completes successfully.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/iq_score`.
+            public var iqScore: Swift.Int?
+            /// Model identifier.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/model_id`.
+            public var modelId: Swift.String
+            /// Percentile rank relative to human norming sample. Null if not yet scored.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/percentile_rank`.
+            public var percentileRank: Swift.Double?
+            /// UTC timestamp when the run started.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/started_at`.
+            public var startedAt: Foundation.Date
+            /// Session status: 'in_progress', 'completed', or 'failed'.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/status`.
+            public var status: Swift.String
+            /// Cumulative API cost for the session in USD.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/total_cost_usd`.
+            public var totalCostUsd: Swift.Double?
+            /// Total number of questions attempted in this session.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/total_questions`.
+            public var totalQuestions: Swift.Int?
+            /// LLM vendor (e.g. 'openai').
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSessionSummary/vendor`.
+            public var vendor: Swift.String
+            /// Creates a new `BenchmarkSessionSummary`.
+            ///
+            /// - Parameters:
+            ///   - completedAt: UTC timestamp when the run finished. Null if still in progress.
+            ///   - correctAnswers: Number of questions answered correctly.
+            ///   - id: LLMTestSession primary key.
+            ///   - iqScore: Derived IQ score. Null until the session completes successfully.
+            ///   - modelId: Model identifier.
+            ///   - percentileRank: Percentile rank relative to human norming sample. Null if not yet scored.
+            ///   - startedAt: UTC timestamp when the run started.
+            ///   - status: Session status: 'in_progress', 'completed', or 'failed'.
+            ///   - totalCostUsd: Cumulative API cost for the session in USD.
+            ///   - totalQuestions: Total number of questions attempted in this session.
+            ///   - vendor: LLM vendor (e.g. 'openai').
+            public init(
+                completedAt: Foundation.Date? = nil,
+                correctAnswers: Swift.Int? = nil,
+                id: Swift.Int,
+                iqScore: Swift.Int? = nil,
+                modelId: Swift.String,
+                percentileRank: Swift.Double? = nil,
+                startedAt: Foundation.Date,
+                status: Swift.String,
+                totalCostUsd: Swift.Double? = nil,
+                totalQuestions: Swift.Int? = nil,
+                vendor: Swift.String
+            ) {
+                self.completedAt = completedAt
+                self.correctAnswers = correctAnswers
+                self.id = id
+                self.iqScore = iqScore
+                self.modelId = modelId
+                self.percentileRank = percentileRank
+                self.startedAt = startedAt
+                self.status = status
+                self.totalCostUsd = totalCostUsd
+                self.totalQuestions = totalQuestions
+                self.vendor = vendor
+            }
+            public enum CodingKeys: String, CodingKey {
+                case completedAt = "completed_at"
+                case correctAnswers = "correct_answers"
+                case id
+                case iqScore = "iq_score"
+                case modelId = "model_id"
+                case percentileRank = "percentile_rank"
+                case startedAt = "started_at"
+                case status
+                case totalCostUsd = "total_cost_usd"
+                case totalQuestions = "total_questions"
+                case vendor
+            }
+        }
+        /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse`.
+        public struct BenchmarkSetDetailResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/description`.
+            public var description: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/difficulty_distribution`.
+            public struct DifficultyDistributionPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                public var additionalProperties: [String: Swift.Int]
+                /// Creates a new `DifficultyDistributionPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                public init(additionalProperties: [String: Swift.Int] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                public init(from decoder: any Swift.Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                public func encode(to encoder: any Swift.Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/difficulty_distribution`.
+            public var difficultyDistribution: Components.Schemas.BenchmarkSetDetailResponse.DifficultyDistributionPayload
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/domain_distribution`.
+            public struct DomainDistributionPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                public var additionalProperties: [String: Swift.Int]
+                /// Creates a new `DomainDistributionPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                public init(additionalProperties: [String: Swift.Int] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                public init(from decoder: any Swift.Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                public func encode(to encoder: any Swift.Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/domain_distribution`.
+            public var domainDistribution: Components.Schemas.BenchmarkSetDetailResponse.DomainDistributionPayload
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/id`.
+            public var id: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/is_active`.
+            public var isActive: Swift.Bool
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/name`.
+            public var name: Swift.String
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/questions`.
+            public var questions: [Components.Schemas.BenchmarkSetQuestionDetail]
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/total_questions`.
+            public var totalQuestions: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetDetailResponse/updated_at`.
+            public var updatedAt: Foundation.Date
+            /// Creates a new `BenchmarkSetDetailResponse`.
+            ///
+            /// - Parameters:
+            ///   - createdAt:
+            ///   - description:
+            ///   - difficultyDistribution:
+            ///   - domainDistribution:
+            ///   - id:
+            ///   - isActive:
+            ///   - name:
+            ///   - questions:
+            ///   - totalQuestions:
+            ///   - updatedAt:
+            public init(
+                createdAt: Foundation.Date,
+                description: Swift.String? = nil,
+                difficultyDistribution: Components.Schemas.BenchmarkSetDetailResponse.DifficultyDistributionPayload,
+                domainDistribution: Components.Schemas.BenchmarkSetDetailResponse.DomainDistributionPayload,
+                id: Swift.Int,
+                isActive: Swift.Bool,
+                name: Swift.String,
+                questions: [Components.Schemas.BenchmarkSetQuestionDetail],
+                totalQuestions: Swift.Int,
+                updatedAt: Foundation.Date
+            ) {
+                self.createdAt = createdAt
+                self.description = description
+                self.difficultyDistribution = difficultyDistribution
+                self.domainDistribution = domainDistribution
+                self.id = id
+                self.isActive = isActive
+                self.name = name
+                self.questions = questions
+                self.totalQuestions = totalQuestions
+                self.updatedAt = updatedAt
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case description
+                case difficultyDistribution = "difficulty_distribution"
+                case domainDistribution = "domain_distribution"
+                case id
+                case isActive = "is_active"
+                case name
+                case questions
+                case totalQuestions = "total_questions"
+                case updatedAt = "updated_at"
+            }
+        }
+        /// - Remark: Generated from `#/components/schemas/BenchmarkSetListResponse`.
+        public struct BenchmarkSetListResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetListResponse/sets`.
+            public var sets: [Components.Schemas.BenchmarkSetResponse]
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetListResponse/total_count`.
+            public var totalCount: Swift.Int
+            /// Creates a new `BenchmarkSetListResponse`.
+            ///
+            /// - Parameters:
+            ///   - sets:
+            ///   - totalCount:
+            public init(
+                sets: [Components.Schemas.BenchmarkSetResponse],
+                totalCount: Swift.Int
+            ) {
+                self.sets = sets
+                self.totalCount = totalCount
+            }
+            public enum CodingKeys: String, CodingKey {
+                case sets
+                case totalCount = "total_count"
+            }
+        }
+        /// - Remark: Generated from `#/components/schemas/BenchmarkSetQuestionDetail`.
+        public struct BenchmarkSetQuestionDetail: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetQuestionDetail/difficulty_level`.
+            public var difficultyLevel: Swift.String
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetQuestionDetail/position`.
+            public var position: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetQuestionDetail/question_id`.
+            public var questionId: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetQuestionDetail/question_text`.
+            public var questionText: Swift.String
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetQuestionDetail/question_type`.
+            public var questionType: Swift.String
+            /// Creates a new `BenchmarkSetQuestionDetail`.
+            ///
+            /// - Parameters:
+            ///   - difficultyLevel:
+            ///   - position:
+            ///   - questionId:
+            ///   - questionText:
+            ///   - questionType:
+            public init(
+                difficultyLevel: Swift.String,
+                position: Swift.Int,
+                questionId: Swift.Int,
+                questionText: Swift.String,
+                questionType: Swift.String
+            ) {
+                self.difficultyLevel = difficultyLevel
+                self.position = position
+                self.questionId = questionId
+                self.questionText = questionText
+                self.questionType = questionType
+            }
+            public enum CodingKeys: String, CodingKey {
+                case difficultyLevel = "difficulty_level"
+                case position
+                case questionId = "question_id"
+                case questionText = "question_text"
+                case questionType = "question_type"
+            }
+        }
+        /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse`.
+        public struct BenchmarkSetResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/description`.
+            public var description: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/difficulty_distribution`.
+            public struct DifficultyDistributionPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                public var additionalProperties: [String: Swift.Int]
+                /// Creates a new `DifficultyDistributionPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                public init(additionalProperties: [String: Swift.Int] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                public init(from decoder: any Swift.Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                public func encode(to encoder: any Swift.Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/difficulty_distribution`.
+            public var difficultyDistribution: Components.Schemas.BenchmarkSetResponse.DifficultyDistributionPayload
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/domain_distribution`.
+            public struct DomainDistributionPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                public var additionalProperties: [String: Swift.Int]
+                /// Creates a new `DomainDistributionPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                public init(additionalProperties: [String: Swift.Int] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                public init(from decoder: any Swift.Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                public func encode(to encoder: any Swift.Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/domain_distribution`.
+            public var domainDistribution: Components.Schemas.BenchmarkSetResponse.DomainDistributionPayload
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/id`.
+            public var id: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/is_active`.
+            public var isActive: Swift.Bool
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/name`.
+            public var name: Swift.String
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/total_questions`.
+            public var totalQuestions: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSetResponse/updated_at`.
+            public var updatedAt: Foundation.Date
+            /// Creates a new `BenchmarkSetResponse`.
+            ///
+            /// - Parameters:
+            ///   - createdAt:
+            ///   - description:
+            ///   - difficultyDistribution:
+            ///   - domainDistribution:
+            ///   - id:
+            ///   - isActive:
+            ///   - name:
+            ///   - totalQuestions:
+            ///   - updatedAt:
+            public init(
+                createdAt: Foundation.Date,
+                description: Swift.String? = nil,
+                difficultyDistribution: Components.Schemas.BenchmarkSetResponse.DifficultyDistributionPayload,
+                domainDistribution: Components.Schemas.BenchmarkSetResponse.DomainDistributionPayload,
+                id: Swift.Int,
+                isActive: Swift.Bool,
+                name: Swift.String,
+                totalQuestions: Swift.Int,
+                updatedAt: Foundation.Date
+            ) {
+                self.createdAt = createdAt
+                self.description = description
+                self.difficultyDistribution = difficultyDistribution
+                self.domainDistribution = domainDistribution
+                self.id = id
+                self.isActive = isActive
+                self.name = name
+                self.totalQuestions = totalQuestions
+                self.updatedAt = updatedAt
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case description
+                case difficultyDistribution = "difficulty_distribution"
+                case domainDistribution = "domain_distribution"
+                case id
+                case isActive = "is_active"
+                case name
+                case totalQuestions = "total_questions"
+                case updatedAt = "updated_at"
+            }
+        }
+        /// Response for GET /v1/benchmark/summary.
+        ///
+        /// - Remark: Generated from `#/components/schemas/BenchmarkSummaryResponse`.
+        public struct BenchmarkSummaryResponse: Codable, Hashable, Sendable {
+            /// Cache TTL in seconds for this response.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSummaryResponse/cache_ttl`.
+            public var cacheTtl: Swift.Int
+            /// Minimum completed runs threshold used for this response.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSummaryResponse/min_runs`.
+            public var minRuns: Swift.Int
+            /// Per-model performance summaries, sorted by mean IQ descending.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BenchmarkSummaryResponse/models`.
+            public var models: [Components.Schemas.ModelSummary]
+            /// Creates a new `BenchmarkSummaryResponse`.
+            ///
+            /// - Parameters:
+            ///   - cacheTtl: Cache TTL in seconds for this response.
+            ///   - minRuns: Minimum completed runs threshold used for this response.
+            ///   - models: Per-model performance summaries, sorted by mean IQ descending.
+            public init(
+                cacheTtl: Swift.Int,
+                minRuns: Swift.Int,
+                models: [Components.Schemas.ModelSummary]
+            ) {
+                self.cacheTtl = cacheTtl
+                self.minRuns = minRuns
+                self.models = models
+            }
+            public enum CodingKeys: String, CodingKey {
+                case cacheTtl = "cache_ttl"
+                case minRuns = "min_runs"
+                case models
+            }
+        }
         /// Bland-Altman agreement analysis between shadow CAT and CTT IQ.
         ///
         /// - Remark: Generated from `#/components/schemas/BlandAltmanMetrics`.
@@ -6709,10 +7533,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -6842,6 +7666,127 @@ public enum Components {
                 case totalQuestionsWithData = "total_questions_with_data"
             }
         }
+        /// Response for GET /v1/admin/llm-benchmark/compare.
+        ///
+        /// Presents the human average IQ alongside a per-model performance table
+        /// so callers can directly compare LLM and human cognitive performance.
+        ///
+        /// - Remark: Generated from `#/components/schemas/CompareResponse`.
+        public struct CompareResponse: Codable, Hashable, Sendable {
+            /// Per-domain accuracy comparison between humans and models.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CompareResponse/domain_breakdown`.
+            public var domainBreakdown: [Components.Schemas.DomainAccuracy]?
+            /// Cohen's d effect size between human and model IQ distributions. Null when either group has < 2 observations.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CompareResponse/effect_size`.
+            public var effectSize: Swift.Double?
+            /// Mean IQ score across all human TestResult records. Null when no human results exist.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CompareResponse/human_avg_iq`.
+            public var humanAvgIq: Swift.Double?
+            /// 95% CI for the human mean IQ. Null when fewer than 2 results.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CompareResponse/human_ci`.
+            public struct HumanCiPayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/CompareResponse/human_ci/value1`.
+                public var value1: Components.Schemas.ConfidenceInterval
+                /// Creates a new `HumanCiPayload`.
+                ///
+                /// - Parameters:
+                ///   - value1:
+                public init(value1: Components.Schemas.ConfidenceInterval) {
+                    self.value1 = value1
+                }
+                public init(from decoder: any Swift.Decoder) throws {
+                    self.value1 = try .init(from: decoder)
+                }
+                public func encode(to encoder: any Swift.Encoder) throws {
+                    try self.value1.encode(to: encoder)
+                }
+            }
+            /// 95% CI for the human mean IQ. Null when fewer than 2 results.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CompareResponse/human_ci`.
+            public var humanCi: Components.Schemas.CompareResponse.HumanCiPayload?
+            /// Total number of completed human test results used to compute the average.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CompareResponse/human_test_count`.
+            public var humanTestCount: Swift.Int
+            /// Warning when human_test_count < 30, indicating insufficient sample size for reliable statistics.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CompareResponse/low_sample_warning`.
+            public var lowSampleWarning: Swift.String?
+            /// Performance summary for each (vendor, model_id) pair with completed runs.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CompareResponse/models`.
+            public var models: [Components.Schemas.ModelComparison]
+            /// Creates a new `CompareResponse`.
+            ///
+            /// - Parameters:
+            ///   - domainBreakdown: Per-domain accuracy comparison between humans and models.
+            ///   - effectSize: Cohen's d effect size between human and model IQ distributions. Null when either group has < 2 observations.
+            ///   - humanAvgIq: Mean IQ score across all human TestResult records. Null when no human results exist.
+            ///   - humanCi: 95% CI for the human mean IQ. Null when fewer than 2 results.
+            ///   - humanTestCount: Total number of completed human test results used to compute the average.
+            ///   - lowSampleWarning: Warning when human_test_count < 30, indicating insufficient sample size for reliable statistics.
+            ///   - models: Performance summary for each (vendor, model_id) pair with completed runs.
+            public init(
+                domainBreakdown: [Components.Schemas.DomainAccuracy]? = nil,
+                effectSize: Swift.Double? = nil,
+                humanAvgIq: Swift.Double? = nil,
+                humanCi: Components.Schemas.CompareResponse.HumanCiPayload? = nil,
+                humanTestCount: Swift.Int,
+                lowSampleWarning: Swift.String? = nil,
+                models: [Components.Schemas.ModelComparison]
+            ) {
+                self.domainBreakdown = domainBreakdown
+                self.effectSize = effectSize
+                self.humanAvgIq = humanAvgIq
+                self.humanCi = humanCi
+                self.humanTestCount = humanTestCount
+                self.lowSampleWarning = lowSampleWarning
+                self.models = models
+            }
+            public enum CodingKeys: String, CodingKey {
+                case domainBreakdown = "domain_breakdown"
+                case effectSize = "effect_size"
+                case humanAvgIq = "human_avg_iq"
+                case humanCi = "human_ci"
+                case humanTestCount = "human_test_count"
+                case lowSampleWarning = "low_sample_warning"
+                case models
+            }
+        }
+        /// 95% confidence interval for a mean.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ConfidenceInterval`.
+        public struct ConfidenceInterval: Codable, Hashable, Sendable {
+            /// Lower bound of the 95% CI.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ConfidenceInterval/lower`.
+            public var lower: Swift.Double
+            /// Upper bound of the 95% CI.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ConfidenceInterval/upper`.
+            public var upper: Swift.Double
+            /// Creates a new `ConfidenceInterval`.
+            ///
+            /// - Parameters:
+            ///   - lower: Lower bound of the 95% CI.
+            ///   - upper: Upper bound of the 95% CI.
+            public init(
+                lower: Swift.Double,
+                upper: Swift.Double
+            ) {
+                self.lower = lower
+                self.upper = upper
+            }
+            public enum CodingKeys: String, CodingKey {
+                case lower
+                case upper
+            }
+        }
         /// Schema for confidence interval data around an IQ score.
         ///
         /// Confidence intervals quantify the uncertainty in score measurement,
@@ -6935,6 +7880,41 @@ public enum Components {
             }
             public enum CodingKeys: String, CodingKey {
                 case bypassCooldown = "bypass_cooldown"
+            }
+        }
+        /// - Remark: Generated from `#/components/schemas/CreateBenchmarkSetRequest`.
+        public struct CreateBenchmarkSetRequest: Codable, Hashable, Sendable {
+            /// Optional description.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CreateBenchmarkSetRequest/description`.
+            public var description: Swift.String?
+            /// Unique name for the benchmark set.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CreateBenchmarkSetRequest/name`.
+            public var name: Swift.String
+            /// Ordered list of question IDs to include.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CreateBenchmarkSetRequest/question_ids`.
+            public var questionIds: [Swift.Int]
+            /// Creates a new `CreateBenchmarkSetRequest`.
+            ///
+            /// - Parameters:
+            ///   - description: Optional description.
+            ///   - name: Unique name for the benchmark set.
+            ///   - questionIds: Ordered list of question IDs to include.
+            public init(
+                description: Swift.String? = nil,
+                name: Swift.String,
+                questionIds: [Swift.Int]
+            ) {
+                self.description = description
+                self.name = name
+                self.questionIds = questionIds
+            }
+            public enum CodingKeys: String, CodingKey {
+                case description
+                case name
+                case questionIds = "question_ids"
             }
         }
         /// Result for a single acceptance criterion.
@@ -7075,10 +8055,10 @@ public enum Components {
                 public init(additionalProperties: [String: Components.Schemas.PercentileStats] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -7099,10 +8079,10 @@ public enum Components {
                 public init(additionalProperties: [String: Components.Schemas.PercentileStats] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -7403,10 +8383,10 @@ public enum Components {
                 public init(value1: Components.Schemas.QualityTier) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try decoder.decodeFromSingleValueContainer()
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeToSingleValueContainer(self.value1)
                 }
             }
@@ -7486,10 +8466,10 @@ public enum Components {
                 public init(additionalProperties: [String: [Components.Schemas.ActionNeededQuestion]] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -7510,10 +8490,10 @@ public enum Components {
                 public init(additionalProperties: [String: Components.Schemas.DifficultyDiscrimination] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -7534,10 +8514,10 @@ public enum Components {
                 public init(additionalProperties: [String: Components.Schemas.TypeDiscrimination] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -8009,6 +8989,96 @@ public enum Components {
                 case worstOffenders = "worst_offenders"
             }
         }
+        /// Per-domain accuracy comparison between humans and models.
+        ///
+        /// - Remark: Generated from `#/components/schemas/DomainAccuracy`.
+        public struct DomainAccuracy: Codable, Hashable, Sendable {
+            /// Question domain (e.g. 'pattern', 'logic').
+            ///
+            /// - Remark: Generated from `#/components/schemas/DomainAccuracy/domain`.
+            public var domain: Swift.String
+            /// Number of human answers in this domain.
+            ///
+            /// - Remark: Generated from `#/components/schemas/DomainAccuracy/human_n`.
+            public var humanN: Swift.Int?
+            /// Human accuracy % in this domain. Null if no human data.
+            ///
+            /// - Remark: Generated from `#/components/schemas/DomainAccuracy/human_pct`.
+            public var humanPct: Swift.Double?
+            /// Number of model answers in this domain.
+            ///
+            /// - Remark: Generated from `#/components/schemas/DomainAccuracy/model_n`.
+            public var modelN: Swift.Int?
+            /// Model accuracy % in this domain. Null if no model data.
+            ///
+            /// - Remark: Generated from `#/components/schemas/DomainAccuracy/model_pct`.
+            public var modelPct: Swift.Double?
+            /// Creates a new `DomainAccuracy`.
+            ///
+            /// - Parameters:
+            ///   - domain: Question domain (e.g. 'pattern', 'logic').
+            ///   - humanN: Number of human answers in this domain.
+            ///   - humanPct: Human accuracy % in this domain. Null if no human data.
+            ///   - modelN: Number of model answers in this domain.
+            ///   - modelPct: Model accuracy % in this domain. Null if no model data.
+            public init(
+                domain: Swift.String,
+                humanN: Swift.Int? = nil,
+                humanPct: Swift.Double? = nil,
+                modelN: Swift.Int? = nil,
+                modelPct: Swift.Double? = nil
+            ) {
+                self.domain = domain
+                self.humanN = humanN
+                self.humanPct = humanPct
+                self.modelN = modelN
+                self.modelPct = modelPct
+            }
+            public enum CodingKeys: String, CodingKey {
+                case domain
+                case humanN = "human_n"
+                case humanPct = "human_pct"
+                case modelN = "model_n"
+                case modelPct = "model_pct"
+            }
+        }
+        /// Per-domain accuracy for a single model.
+        ///
+        /// - Remark: Generated from `#/components/schemas/DomainAccuracySummary`.
+        public struct DomainAccuracySummary: Codable, Hashable, Sendable {
+            /// Accuracy percentage in this domain.
+            ///
+            /// - Remark: Generated from `#/components/schemas/DomainAccuracySummary/accuracy_pct`.
+            public var accuracyPct: Swift.Double
+            /// Question domain (e.g. 'pattern', 'logic').
+            ///
+            /// - Remark: Generated from `#/components/schemas/DomainAccuracySummary/domain`.
+            public var domain: Swift.String
+            /// Number of questions answered in this domain.
+            ///
+            /// - Remark: Generated from `#/components/schemas/DomainAccuracySummary/total_questions`.
+            public var totalQuestions: Swift.Int
+            /// Creates a new `DomainAccuracySummary`.
+            ///
+            /// - Parameters:
+            ///   - accuracyPct: Accuracy percentage in this domain.
+            ///   - domain: Question domain (e.g. 'pattern', 'logic').
+            ///   - totalQuestions: Number of questions answered in this domain.
+            public init(
+                accuracyPct: Swift.Double,
+                domain: Swift.String,
+                totalQuestions: Swift.Int
+            ) {
+                self.accuracyPct = accuracyPct
+                self.domain = domain
+                self.totalQuestions = totalQuestions
+            }
+            public enum CodingKeys: String, CodingKey {
+                case accuracyPct = "accuracy_pct"
+                case domain
+                case totalQuestions = "total_questions"
+            }
+        }
         /// Per-domain (question_type) aggregate statistics.
         ///
         /// - Remark: Generated from `#/components/schemas/DomainCalibrationStats`.
@@ -8180,10 +9250,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Double] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -8227,10 +9297,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Double] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -8385,10 +9455,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Double] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -8638,6 +9708,91 @@ public enum Components {
                 case totalTimeTooFast = "total_time_too_fast"
             }
         }
+        /// Response for GET /v1/admin/llm-benchmark/question-set.
+        ///
+        /// - Remark: Generated from `#/components/schemas/GenerateQuestionSetResponse`.
+        public struct GenerateQuestionSetResponse: Codable, Hashable, Sendable {
+            /// Number of questions per difficulty level.
+            ///
+            /// - Remark: Generated from `#/components/schemas/GenerateQuestionSetResponse/difficulty_distribution`.
+            public struct DifficultyDistributionPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                public var additionalProperties: [String: Swift.Int]
+                /// Creates a new `DifficultyDistributionPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                public init(additionalProperties: [String: Swift.Int] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                public init(from decoder: any Swift.Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                public func encode(to encoder: any Swift.Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// Number of questions per difficulty level.
+            ///
+            /// - Remark: Generated from `#/components/schemas/GenerateQuestionSetResponse/difficulty_distribution`.
+            public var difficultyDistribution: Components.Schemas.GenerateQuestionSetResponse.DifficultyDistributionPayload
+            /// Number of questions per domain (question_type).
+            ///
+            /// - Remark: Generated from `#/components/schemas/GenerateQuestionSetResponse/domain_distribution`.
+            public struct DomainDistributionPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                public var additionalProperties: [String: Swift.Int]
+                /// Creates a new `DomainDistributionPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                public init(additionalProperties: [String: Swift.Int] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                public init(from decoder: any Swift.Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                public func encode(to encoder: any Swift.Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// Number of questions per domain (question_type).
+            ///
+            /// - Remark: Generated from `#/components/schemas/GenerateQuestionSetResponse/domain_distribution`.
+            public var domainDistribution: Components.Schemas.GenerateQuestionSetResponse.DomainDistributionPayload
+            /// Ordered list of question IDs forming a balanced benchmark set.
+            ///
+            /// - Remark: Generated from `#/components/schemas/GenerateQuestionSetResponse/question_ids`.
+            public var questionIds: [Swift.Int]
+            /// Number of questions in the set.
+            ///
+            /// - Remark: Generated from `#/components/schemas/GenerateQuestionSetResponse/total_questions`.
+            public var totalQuestions: Swift.Int
+            /// Creates a new `GenerateQuestionSetResponse`.
+            ///
+            /// - Parameters:
+            ///   - difficultyDistribution: Number of questions per difficulty level.
+            ///   - domainDistribution: Number of questions per domain (question_type).
+            ///   - questionIds: Ordered list of question IDs forming a balanced benchmark set.
+            ///   - totalQuestions: Number of questions in the set.
+            public init(
+                difficultyDistribution: Components.Schemas.GenerateQuestionSetResponse.DifficultyDistributionPayload,
+                domainDistribution: Components.Schemas.GenerateQuestionSetResponse.DomainDistributionPayload,
+                questionIds: [Swift.Int],
+                totalQuestions: Swift.Int
+            ) {
+                self.difficultyDistribution = difficultyDistribution
+                self.domainDistribution = domainDistribution
+                self.questionIds = questionIds
+                self.totalQuestions = totalQuestions
+            }
+            public enum CodingKeys: String, CodingKey {
+                case difficultyDistribution = "difficulty_distribution"
+                case domainDistribution = "domain_distribution"
+                case questionIds = "question_ids"
+                case totalQuestions = "total_questions"
+            }
+        }
         /// Detailed results from Guttman error detection.
         ///
         /// - Remark: Generated from `#/components/schemas/GuttmanCheckDetails`.
@@ -8807,10 +9962,10 @@ public enum Components {
                 public init(value1: Components.Schemas.ReliabilityInterpretation) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try decoder.decodeFromSingleValueContainer()
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeToSingleValueContainer(self.value1)
                 }
             }
@@ -8831,10 +9986,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Double] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -8984,10 +10139,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -9404,6 +10559,120 @@ public enum Components {
                 case total
             }
         }
+        /// Aggregate performance row for a single (vendor, model_id) pair,
+        /// used by the human-vs-model comparison endpoint.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ModelComparison`.
+        public struct ModelComparison: Codable, Hashable, Sendable {
+            /// Total correct answers across all completed sessions for this model.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/correct_answers`.
+            public var correctAnswers: Swift.Int
+            /// 95% CI for the mean IQ score. Null when sessions_count < 2.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/iq_ci`.
+            public struct IqCiPayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/ModelComparison/iq_ci/value1`.
+                public var value1: Components.Schemas.ConfidenceInterval
+                /// Creates a new `IqCiPayload`.
+                ///
+                /// - Parameters:
+                ///   - value1:
+                public init(value1: Components.Schemas.ConfidenceInterval) {
+                    self.value1 = value1
+                }
+                public init(from decoder: any Swift.Decoder) throws {
+                    self.value1 = try .init(from: decoder)
+                }
+                public func encode(to encoder: any Swift.Encoder) throws {
+                    try self.value1.encode(to: encoder)
+                }
+            }
+            /// 95% CI for the mean IQ score. Null when sessions_count < 2.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/iq_ci`.
+            public var iqCi: Components.Schemas.ModelComparison.IqCiPayload?
+            /// Most-recent IQ score for this model. Null if no completed run exists.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/iq_score`.
+            public var iqScore: Swift.Int?
+            /// UTC timestamp of the most-recent completed benchmark session.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/latest_run`.
+            public var latestRun: Foundation.Date
+            /// Mean IQ score across all completed sessions. Null if no completed run.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/mean_iq`.
+            public var meanIq: Swift.Double?
+            /// Model identifier.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/model_id`.
+            public var modelId: Swift.String
+            /// Percentile rank of the most-recent completed run.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/percentile_rank`.
+            public var percentileRank: Swift.Double?
+            /// Number of completed benchmark sessions for this model.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/sessions_count`.
+            public var sessionsCount: Swift.Int
+            /// Total questions answered across all completed sessions for this model.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/total_questions`.
+            public var totalQuestions: Swift.Int
+            /// LLM vendor.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelComparison/vendor`.
+            public var vendor: Swift.String
+            /// Creates a new `ModelComparison`.
+            ///
+            /// - Parameters:
+            ///   - correctAnswers: Total correct answers across all completed sessions for this model.
+            ///   - iqCi: 95% CI for the mean IQ score. Null when sessions_count < 2.
+            ///   - iqScore: Most-recent IQ score for this model. Null if no completed run exists.
+            ///   - latestRun: UTC timestamp of the most-recent completed benchmark session.
+            ///   - meanIq: Mean IQ score across all completed sessions. Null if no completed run.
+            ///   - modelId: Model identifier.
+            ///   - percentileRank: Percentile rank of the most-recent completed run.
+            ///   - sessionsCount: Number of completed benchmark sessions for this model.
+            ///   - totalQuestions: Total questions answered across all completed sessions for this model.
+            ///   - vendor: LLM vendor.
+            public init(
+                correctAnswers: Swift.Int,
+                iqCi: Components.Schemas.ModelComparison.IqCiPayload? = nil,
+                iqScore: Swift.Int? = nil,
+                latestRun: Foundation.Date,
+                meanIq: Swift.Double? = nil,
+                modelId: Swift.String,
+                percentileRank: Swift.Double? = nil,
+                sessionsCount: Swift.Int,
+                totalQuestions: Swift.Int,
+                vendor: Swift.String
+            ) {
+                self.correctAnswers = correctAnswers
+                self.iqCi = iqCi
+                self.iqScore = iqScore
+                self.latestRun = latestRun
+                self.meanIq = meanIq
+                self.modelId = modelId
+                self.percentileRank = percentileRank
+                self.sessionsCount = sessionsCount
+                self.totalQuestions = totalQuestions
+                self.vendor = vendor
+            }
+            public enum CodingKeys: String, CodingKey {
+                case correctAnswers = "correct_answers"
+                case iqCi = "iq_ci"
+                case iqScore = "iq_score"
+                case latestRun = "latest_run"
+                case meanIq = "mean_iq"
+                case modelId = "model_id"
+                case percentileRank = "percentile_rank"
+                case sessionsCount = "sessions_count"
+                case totalQuestions = "total_questions"
+                case vendor
+            }
+        }
         /// Paginated response for GET /v1/analytics/model-performance.
         ///
         /// Pagination applies to the vendor list for historical (all-sessions)
@@ -9460,6 +10729,67 @@ public enum Components {
                 case offset
                 case results
                 case totalCount = "total_count"
+            }
+        }
+        /// Public performance summary for a single model.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ModelSummary`.
+        public struct ModelSummary: Codable, Hashable, Sendable {
+            /// Overall accuracy percentage across all runs.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelSummary/accuracy_pct`.
+            public var accuracyPct: Swift.Double
+            /// Human-friendly model name.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelSummary/display_name`.
+            public var displayName: Swift.String
+            /// Per-domain accuracy breakdown.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelSummary/domain_accuracy`.
+            public var domainAccuracy: [Components.Schemas.DomainAccuracySummary]?
+            /// Mean IQ score across completed runs.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelSummary/mean_iq`.
+            public var meanIq: Swift.Double
+            /// Number of completed benchmark runs.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelSummary/runs`.
+            public var runs: Swift.Int
+            /// LLM vendor (e.g. 'anthropic', 'openai').
+            ///
+            /// - Remark: Generated from `#/components/schemas/ModelSummary/vendor`.
+            public var vendor: Swift.String
+            /// Creates a new `ModelSummary`.
+            ///
+            /// - Parameters:
+            ///   - accuracyPct: Overall accuracy percentage across all runs.
+            ///   - displayName: Human-friendly model name.
+            ///   - domainAccuracy: Per-domain accuracy breakdown.
+            ///   - meanIq: Mean IQ score across completed runs.
+            ///   - runs: Number of completed benchmark runs.
+            ///   - vendor: LLM vendor (e.g. 'anthropic', 'openai').
+            public init(
+                accuracyPct: Swift.Double,
+                displayName: Swift.String,
+                domainAccuracy: [Components.Schemas.DomainAccuracySummary]? = nil,
+                meanIq: Swift.Double,
+                runs: Swift.Int,
+                vendor: Swift.String
+            ) {
+                self.accuracyPct = accuracyPct
+                self.displayName = displayName
+                self.domainAccuracy = domainAccuracy
+                self.meanIq = meanIq
+                self.runs = runs
+                self.vendor = vendor
+            }
+            public enum CodingKeys: String, CodingKey {
+                case accuracyPct = "accuracy_pct"
+                case displayName = "display_name"
+                case domainAccuracy = "domain_accuracy"
+                case meanIq = "mean_iq"
+                case runs
+                case vendor
             }
         }
         /// Breakdown of questions by number of non-functioning distractors.
@@ -10135,6 +11465,67 @@ public enum Components {
             case veryPoor = "very_poor"
             case negative = "negative"
         }
+        /// Per-question detail within a benchmark session detail response.
+        ///
+        /// - Remark: Generated from `#/components/schemas/QuestionBreakdown`.
+        public struct QuestionBreakdown: Codable, Hashable, Sendable {
+            /// API cost for this individual question in USD.
+            ///
+            /// - Remark: Generated from `#/components/schemas/QuestionBreakdown/cost_usd`.
+            public var costUsd: Swift.Double?
+            /// Error message if the LLM call failed for this question.
+            ///
+            /// - Remark: Generated from `#/components/schemas/QuestionBreakdown/error`.
+            public var error: Swift.String?
+            /// Whether the model answered correctly. Null if the question errored.
+            ///
+            /// - Remark: Generated from `#/components/schemas/QuestionBreakdown/is_correct`.
+            public var isCorrect: Swift.Bool?
+            /// Round-trip latency for the LLM call in milliseconds.
+            ///
+            /// - Remark: Generated from `#/components/schemas/QuestionBreakdown/latency_ms`.
+            public var latencyMs: Swift.Int?
+            /// Normalised form of the model's answer.
+            ///
+            /// - Remark: Generated from `#/components/schemas/QuestionBreakdown/normalized_answer`.
+            public var normalizedAnswer: Swift.String?
+            /// Question primary key.
+            ///
+            /// - Remark: Generated from `#/components/schemas/QuestionBreakdown/question_id`.
+            public var questionId: Swift.Int
+            /// Creates a new `QuestionBreakdown`.
+            ///
+            /// - Parameters:
+            ///   - costUsd: API cost for this individual question in USD.
+            ///   - error: Error message if the LLM call failed for this question.
+            ///   - isCorrect: Whether the model answered correctly. Null if the question errored.
+            ///   - latencyMs: Round-trip latency for the LLM call in milliseconds.
+            ///   - normalizedAnswer: Normalised form of the model's answer.
+            ///   - questionId: Question primary key.
+            public init(
+                costUsd: Swift.Double? = nil,
+                error: Swift.String? = nil,
+                isCorrect: Swift.Bool? = nil,
+                latencyMs: Swift.Int? = nil,
+                normalizedAnswer: Swift.String? = nil,
+                questionId: Swift.Int
+            ) {
+                self.costUsd = costUsd
+                self.error = error
+                self.isCorrect = isCorrect
+                self.latencyMs = latencyMs
+                self.normalizedAnswer = normalizedAnswer
+                self.questionId = questionId
+            }
+            public enum CodingKeys: String, CodingKey {
+                case costUsd = "cost_usd"
+                case error
+                case isCorrect = "is_correct"
+                case latencyMs = "latency_ms"
+                case normalizedAnswer = "normalized_answer"
+                case questionId = "question_id"
+            }
+        }
         /// Schema for creating a question generation run record.
         ///
         /// Used by the question-service to report execution metrics to the backend.
@@ -10171,10 +11562,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -10259,10 +11650,10 @@ public enum Components {
                 public init(additionalProperties: [String: OpenAPIRuntime.OpenAPIObjectContainer] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -10331,10 +11722,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -10566,10 +11957,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -10662,10 +12053,10 @@ public enum Components {
                 public init(additionalProperties: [String: OpenAPIRuntime.OpenAPIObjectContainer] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -10734,10 +12125,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -11027,10 +12418,10 @@ public enum Components {
                 public init(additionalProperties: [String: OpenAPIRuntime.OpenAPIObjectContainer] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -11994,6 +13385,88 @@ public enum Components {
                 case totalSessionsAnalyzed = "total_sessions_analyzed"
             }
         }
+        /// Request body for POST /v1/admin/llm-benchmark/run.
+        ///
+        /// - Remark: Generated from `#/components/schemas/RunBenchmarkRequest`.
+        public struct RunBenchmarkRequest: Codable, Hashable, Sendable {
+            /// Vendor-specific model identifier (e.g. 'gpt-5.2', 'claude-sonnet-4-5-20250929', 'gemini-3.1-pro-preview').
+            ///
+            /// - Remark: Generated from `#/components/schemas/RunBenchmarkRequest/model_id`.
+            public var modelId: Swift.String
+            /// Number of questions to include in the benchmark run. Omit to use the runner's configured default.
+            ///
+            /// - Remark: Generated from `#/components/schemas/RunBenchmarkRequest/question_count`.
+            public var questionCount: Swift.Int?
+            /// Fixed list of question IDs to use instead of stratified sampling. Questions are presented in the given order. Mutually exclusive with question_count.
+            ///
+            /// - Remark: Generated from `#/components/schemas/RunBenchmarkRequest/question_ids`.
+            public var questionIds: [Swift.Int]?
+            /// LLM vendor to benchmark. Accepted values: 'openai', 'anthropic', 'google'.
+            ///
+            /// - Remark: Generated from `#/components/schemas/RunBenchmarkRequest/vendor`.
+            public var vendor: Swift.String
+            /// Creates a new `RunBenchmarkRequest`.
+            ///
+            /// - Parameters:
+            ///   - modelId: Vendor-specific model identifier (e.g. 'gpt-5.2', 'claude-sonnet-4-5-20250929', 'gemini-3.1-pro-preview').
+            ///   - questionCount: Number of questions to include in the benchmark run. Omit to use the runner's configured default.
+            ///   - questionIds: Fixed list of question IDs to use instead of stratified sampling. Questions are presented in the given order. Mutually exclusive with question_count.
+            ///   - vendor: LLM vendor to benchmark. Accepted values: 'openai', 'anthropic', 'google'.
+            public init(
+                modelId: Swift.String,
+                questionCount: Swift.Int? = nil,
+                questionIds: [Swift.Int]? = nil,
+                vendor: Swift.String
+            ) {
+                self.modelId = modelId
+                self.questionCount = questionCount
+                self.questionIds = questionIds
+                self.vendor = vendor
+            }
+            public enum CodingKeys: String, CodingKey {
+                case modelId = "model_id"
+                case questionCount = "question_count"
+                case questionIds = "question_ids"
+                case vendor
+            }
+        }
+        /// Response body for a successfully enqueued benchmark run.
+        ///
+        /// - Remark: Generated from `#/components/schemas/RunBenchmarkResponse`.
+        public struct RunBenchmarkResponse: Codable, Hashable, Sendable {
+            /// Human-readable confirmation message.
+            ///
+            /// - Remark: Generated from `#/components/schemas/RunBenchmarkResponse/message`.
+            public var message: Swift.String
+            /// ID of the newly created LLMTestSession.
+            ///
+            /// - Remark: Generated from `#/components/schemas/RunBenchmarkResponse/session_id`.
+            public var sessionId: Swift.Int
+            /// Initial status of the benchmark session.
+            ///
+            /// - Remark: Generated from `#/components/schemas/RunBenchmarkResponse/status`.
+            public var status: Swift.String?
+            /// Creates a new `RunBenchmarkResponse`.
+            ///
+            /// - Parameters:
+            ///   - message: Human-readable confirmation message.
+            ///   - sessionId: ID of the newly created LLMTestSession.
+            ///   - status: Initial status of the benchmark session.
+            public init(
+                message: Swift.String,
+                sessionId: Swift.Int,
+                status: Swift.String? = nil
+            ) {
+                self.message = message
+                self.sessionId = sessionId
+                self.status = status
+            }
+            public enum CodingKeys: String, CodingKey {
+                case message
+                case sessionId = "session_id"
+                case status
+            }
+        }
         /// Summary of a session that needs admin review.
         ///
         /// - Remark: Generated from `#/components/schemas/SessionNeedingReview`.
@@ -12082,10 +13555,10 @@ public enum Components {
                 public init(value1: Components.Schemas.ValidityDetails) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try .init(from: decoder)
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try self.value1.encode(to: encoder)
                 }
             }
@@ -12234,10 +13707,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Double] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -12276,10 +13749,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -12501,10 +13974,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -12748,10 +14221,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -12855,10 +14328,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Double] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -12899,10 +14372,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -13092,10 +14565,10 @@ public enum Components {
                 public init(value1: Components.Schemas.AppSchemasCalibrationSeverityLevel) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try decoder.decodeFromSingleValueContainer()
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeToSingleValueContainer(self.value1)
                 }
             }
@@ -13306,10 +14779,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Int] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -13411,10 +14884,10 @@ public enum Components {
                 public init(value1: Components.Schemas.ConfidenceIntervalSchema) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try .init(from: decoder)
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try self.value1.encode(to: encoder)
                 }
             }
@@ -13439,10 +14912,10 @@ public enum Components {
                 public init(additionalProperties: [String: OpenAPIRuntime.OpenAPIObjectContainer] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -13471,10 +14944,10 @@ public enum Components {
                 public init(additionalProperties: [String: OpenAPIRuntime.OpenAPIObjectContainer] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -13607,10 +15080,10 @@ public enum Components {
                 public init(value1: Components.Schemas.ReliabilityInterpretation) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try decoder.decodeFromSingleValueContainer()
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeToSingleValueContainer(self.value1)
                 }
             }
@@ -14547,10 +16020,10 @@ public enum Components {
                 public init(value1: Components.Schemas.EducationLevel) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try decoder.decodeFromSingleValueContainer()
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeToSingleValueContainer(self.value1)
                 }
             }
@@ -14648,10 +16121,10 @@ public enum Components {
                 public init(value1: Components.Schemas.EducationLevel) {
                     self.value1 = value1
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     self.value1 = try decoder.decodeFromSingleValueContainer()
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeToSingleValueContainer(self.value1)
                 }
             }
@@ -14760,8 +16233,8 @@ public enum Components {
                     self.value1 = value1
                     self.value2 = value2
                 }
-                public init(from decoder: any Decoder) throws {
-                    var errors: [any Error] = []
+                public init(from decoder: any Swift.Decoder) throws {
+                    var errors: [any Swift.Error] = []
                     do {
                         self.value1 = try decoder.decodeFromSingleValueContainer()
                     } catch {
@@ -14782,7 +16255,7 @@ public enum Components {
                         errors: errors
                     )
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeFirstNonNilValueToSingleValueContainer([
                         self.value1,
                         self.value2
@@ -15258,10 +16731,10 @@ public enum Components {
                 public init(additionalProperties: [String: Swift.Double] = .init()) {
                     self.additionalProperties = additionalProperties
                 }
-                public init(from decoder: any Decoder) throws {
+                public init(from decoder: any Swift.Decoder) throws {
                     additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                 }
-                public func encode(to encoder: any Encoder) throws {
+                public func encode(to encoder: any Swift.Encoder) throws {
                     try encoder.encodeAdditionalProperties(additionalProperties)
                 }
             }
@@ -17712,6 +19185,548 @@ public enum Operations {
             }
         }
     }
+    /// List Benchmark Sets
+    ///
+    /// Return all benchmark sets with domain and difficulty distribution summaries.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/get(list_benchmark_sets_v1_admin_benchmark_sets_get)`.
+    public enum ListBenchmarkSetsV1AdminBenchmarkSetsGet {
+        public static let id: Swift.String = "list_benchmark_sets_v1_admin_benchmark_sets_get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/GET/header/x-admin-token`.
+                public var xAdminToken: Swift.String
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xAdminToken:
+                ///   - accept:
+                public init(
+                    xAdminToken: Swift.String,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xAdminToken = xAdminToken
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            public init(headers: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Input.Headers) {
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.BenchmarkSetListResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.BenchmarkSetListResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/get(list_benchmark_sets_v1_admin_benchmark_sets_get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/GET/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/get(list_benchmark_sets_v1_admin_benchmark_sets_get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Create Benchmark Set
+    ///
+    /// Create a new benchmark set.
+    ///
+    /// Validates that all supplied question IDs exist and are active, then
+    /// creates the set with positions matching the order of question_ids.
+    ///
+    /// - Remark: HTTP `POST /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/post(create_benchmark_set_v1_admin_benchmark_sets_post)`.
+    public enum CreateBenchmarkSetV1AdminBenchmarkSetsPost {
+        public static let id: Swift.String = "create_benchmark_set_v1_admin_benchmark_sets_post"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/POST/header`.
+            public struct Headers: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/POST/header/x-admin-token`.
+                public var xAdminToken: Swift.String
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xAdminToken:
+                ///   - accept:
+                public init(
+                    xAdminToken: Swift.String,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xAdminToken = xAdminToken
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input.Headers
+            /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/POST/requestBody/content/application\/json`.
+                case json(Components.Schemas.CreateBenchmarkSetRequest)
+            }
+            public var body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input.Body
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            public init(
+                headers: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input.Headers,
+                body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input.Body
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Created: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/POST/responses/201/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/POST/responses/201/content/application\/json`.
+                    case json(Components.Schemas.BenchmarkSetDetailResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.BenchmarkSetDetailResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.Created.Body
+                /// Creates a new `Created`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.Created.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/post(create_benchmark_set_v1_admin_benchmark_sets_post)/responses/201`.
+            ///
+            /// HTTP response code: `201 created`.
+            case created(Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.Created)
+            /// The associated value of the enum case if `self` is `.created`.
+            ///
+            /// - Throws: An error if `self` is not `.created`.
+            /// - SeeAlso: `.created`.
+            public var created: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.Created {
+                get throws {
+                    switch self {
+                    case let .created(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "created",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/POST/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/POST/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/post(create_benchmark_set_v1_admin_benchmark_sets_post)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Get Benchmark Set
+    ///
+    /// Return a benchmark set by name, including its full ordered question list.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets/{name}`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/{name}/get(get_benchmark_set_v1_admin_benchmark_sets__name__get)`.
+    public enum GetBenchmarkSetV1AdminBenchmarkSetsNameGet {
+        public static let id: Swift.String = "get_benchmark_set_v1_admin_benchmark_sets__name__get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/{name}/GET/path`.
+            public struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/{name}/GET/path/name`.
+                public var name: Swift.String
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - name:
+                public init(name: Swift.String) {
+                    self.name = name
+                }
+            }
+            public var path: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input.Path
+            /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/{name}/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/{name}/GET/header/x-admin-token`.
+                public var xAdminToken: Swift.String
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xAdminToken:
+                ///   - accept:
+                public init(
+                    xAdminToken: Swift.String,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xAdminToken = xAdminToken
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            public init(
+                path: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input.Path,
+                headers: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input.Headers
+            ) {
+                self.path = path
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/{name}/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/{name}/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.BenchmarkSetDetailResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.BenchmarkSetDetailResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/{name}/get(get_benchmark_set_v1_admin_benchmark_sets__name__get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/{name}/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/benchmark-sets/{name}/GET/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/{name}/get(get_benchmark_set_v1_admin_benchmark_sets__name__get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
     /// Get Calibration Status
     ///
     /// Get IRT calibration readiness dashboard with comprehensive metrics.
@@ -17985,10 +20000,10 @@ public enum Operations {
                     public init(value1: Components.Schemas.TriggerCalibrationRequest) {
                         self.value1 = value1
                     }
-                    public init(from decoder: any Decoder) throws {
+                    public init(from decoder: any Swift.Decoder) throws {
                         self.value1 = try .init(from: decoder)
                     }
-                    public func encode(to encoder: any Encoder) throws {
+                    public func encode(to encoder: any Swift.Encoder) throws {
                         try self.value1.encode(to: encoder)
                     }
                 }
@@ -18758,10 +20773,10 @@ public enum Operations {
                         public init(value1: Components.Schemas.DomainWeightsResponse) {
                             self.value1 = value1
                         }
-                        public init(from decoder: any Decoder) throws {
+                        public init(from decoder: any Swift.Decoder) throws {
                             self.value1 = try .init(from: decoder)
                         }
-                        public func encode(to encoder: any Encoder) throws {
+                        public func encode(to encoder: any Swift.Encoder) throws {
                             try self.value1.encode(to: encoder)
                         }
                     }
@@ -19945,10 +21960,10 @@ public enum Operations {
                     public init(value1: Components.Schemas.AsyncRunStatus) {
                         self.value1 = value1
                     }
-                    public init(from decoder: any Decoder) throws {
+                    public init(from decoder: any Swift.Decoder) throws {
                         self.value1 = try decoder.decodeFromSingleValueContainer()
                     }
-                    public func encode(to encoder: any Encoder) throws {
+                    public func encode(to encoder: any Swift.Encoder) throws {
                         try encoder.encodeToSingleValueContainer(self.value1)
                     }
                 }
@@ -21077,6 +23092,955 @@ public enum Operations {
             /// - Throws: An error if `self` is not `.unprocessableContent`.
             /// - SeeAlso: `.unprocessableContent`.
             public var unprocessableContent: Operations.GetInventoryHealthV1AdminInventoryHealthGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Compare Human Vs Models
+    ///
+    /// Compare human average IQ against all tested LLM models.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/compare`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/compare/get(compare_human_vs_models_v1_admin_llm_benchmark_compare_get)`.
+    public enum CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet {
+        public static let id: Swift.String = "compare_human_vs_models_v1_admin_llm_benchmark_compare_get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/compare/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/compare/GET/header/x-admin-token`.
+                public var xAdminToken: Swift.String
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xAdminToken:
+                ///   - accept:
+                public init(
+                    xAdminToken: Swift.String,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xAdminToken = xAdminToken
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            public init(headers: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Input.Headers) {
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/compare/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/compare/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.CompareResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.CompareResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/compare/get(compare_human_vs_models_v1_admin_llm_benchmark_compare_get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/compare/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/compare/GET/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/compare/get(compare_human_vs_models_v1_admin_llm_benchmark_compare_get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Generate Question Set
+    ///
+    /// Generate a balanced set of question IDs across all domains and difficulties.
+    ///
+    /// Selects questions evenly across each (domain, difficulty) cell, preferring
+    /// questions with higher discrimination.  The resulting IDs can be passed to
+    /// the ``POST /run`` endpoint via the ``question_ids`` field or used to create
+    /// a named BenchmarkSet via ``POST /v1/admin/benchmark-sets``.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/question-set`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/question-set/get(generate_question_set_v1_admin_llm_benchmark_question_set_get)`.
+    public enum GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet {
+        public static let id: Swift.String = "generate_question_set_v1_admin_llm_benchmark_question_set_get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/question-set/GET/query`.
+            public struct Query: Sendable, Hashable {
+                /// Target number of questions. Distributed evenly across domains and difficulties.
+                ///
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/question-set/GET/query/total`.
+                public var total: Swift.Int?
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - total: Target number of questions. Distributed evenly across domains and difficulties.
+                public init(total: Swift.Int? = nil) {
+                    self.total = total
+                }
+            }
+            public var query: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input.Query
+            /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/question-set/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/question-set/GET/header/x-admin-token`.
+                public var xAdminToken: Swift.String
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xAdminToken:
+                ///   - accept:
+                public init(
+                    xAdminToken: Swift.String,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xAdminToken = xAdminToken
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - query:
+            ///   - headers:
+            public init(
+                query: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input.Query = .init(),
+                headers: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input.Headers
+            ) {
+                self.query = query
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/question-set/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/question-set/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.GenerateQuestionSetResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.GenerateQuestionSetResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/question-set/get(generate_question_set_v1_admin_llm_benchmark_question_set_get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/question-set/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/question-set/GET/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/question-set/get(generate_question_set_v1_admin_llm_benchmark_question_set_get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// List Benchmark Results
+    ///
+    /// Return a paginated list of benchmark sessions with scores.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/get(list_benchmark_results_v1_admin_llm_benchmark_results_get)`.
+    public enum ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet {
+        public static let id: Swift.String = "list_benchmark_results_v1_admin_llm_benchmark_results_get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/query`.
+            public struct Query: Sendable, Hashable {
+                /// Filter by vendor.
+                ///
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/query/vendor`.
+                public var vendor: Swift.String?
+                /// Filter by model identifier.
+                ///
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/query/model_id`.
+                public var modelId: Swift.String?
+                /// Page size.
+                ///
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/query/limit`.
+                public var limit: Swift.Int?
+                /// Page offset.
+                ///
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/query/offset`.
+                public var offset: Swift.Int?
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - vendor: Filter by vendor.
+                ///   - modelId: Filter by model identifier.
+                ///   - limit: Page size.
+                ///   - offset: Page offset.
+                public init(
+                    vendor: Swift.String? = nil,
+                    modelId: Swift.String? = nil,
+                    limit: Swift.Int? = nil,
+                    offset: Swift.Int? = nil
+                ) {
+                    self.vendor = vendor
+                    self.modelId = modelId
+                    self.limit = limit
+                    self.offset = offset
+                }
+            }
+            public var query: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input.Query
+            /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/header/x-admin-token`.
+                public var xAdminToken: Swift.String
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xAdminToken:
+                ///   - accept:
+                public init(
+                    xAdminToken: Swift.String,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xAdminToken = xAdminToken
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - query:
+            ///   - headers:
+            public init(
+                query: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input.Query = .init(),
+                headers: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input.Headers
+            ) {
+                self.query = query
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.BenchmarkResultsListResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.BenchmarkResultsListResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/get(list_benchmark_results_v1_admin_llm_benchmark_results_get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/GET/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/get(list_benchmark_results_v1_admin_llm_benchmark_results_get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Get Benchmark Detail
+    ///
+    /// Return detailed results for a single benchmark session.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results/{session_id}`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/{session_id}/get(get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get)`.
+    public enum GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet {
+        public static let id: Swift.String = "get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/{session_id}/GET/path`.
+            public struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/{session_id}/GET/path/session_id`.
+                public var sessionId: Swift.Int
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - sessionId:
+                public init(sessionId: Swift.Int) {
+                    self.sessionId = sessionId
+                }
+            }
+            public var path: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input.Path
+            /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/{session_id}/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/{session_id}/GET/header/x-admin-token`.
+                public var xAdminToken: Swift.String
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xAdminToken:
+                ///   - accept:
+                public init(
+                    xAdminToken: Swift.String,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xAdminToken = xAdminToken
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            public init(
+                path: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input.Path,
+                headers: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input.Headers
+            ) {
+                self.path = path
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/{session_id}/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/{session_id}/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.BenchmarkDetailResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.BenchmarkDetailResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/{session_id}/get(get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/{session_id}/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/results/{session_id}/GET/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/{session_id}/get(get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Trigger Benchmark Run
+    ///
+    /// Trigger a new LLM benchmark run.
+    ///
+    /// Runs the benchmark synchronously and returns the session ID on completion.
+    ///
+    /// - Remark: HTTP `POST /v1/admin/llm-benchmark/run`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/run/post(trigger_benchmark_run_v1_admin_llm_benchmark_run_post)`.
+    public enum TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost {
+        public static let id: Swift.String = "trigger_benchmark_run_v1_admin_llm_benchmark_run_post"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/run/POST/header`.
+            public struct Headers: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/run/POST/header/x-admin-token`.
+                public var xAdminToken: Swift.String
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xAdminToken:
+                ///   - accept:
+                public init(
+                    xAdminToken: Swift.String,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xAdminToken = xAdminToken
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input.Headers
+            /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/run/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/run/POST/requestBody/content/application\/json`.
+                case json(Components.Schemas.RunBenchmarkRequest)
+            }
+            public var body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input.Body
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            public init(
+                headers: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input.Headers,
+                body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input.Body
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/run/POST/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/run/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.RunBenchmarkResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.RunBenchmarkResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/run/post(trigger_benchmark_run_v1_admin_llm_benchmark_run_post)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/run/POST/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/admin/llm-benchmark/run/POST/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/run/post(trigger_benchmark_run_v1_admin_llm_benchmark_run_post)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.UnprocessableContent {
                 get throws {
                     switch self {
                     case let .unprocessableContent(response):
@@ -27450,10 +30414,10 @@ public enum Operations {
                     public init(value1: Components.Schemas.ValidityStatus) {
                         self.value1 = value1
                     }
-                    public init(from decoder: any Decoder) throws {
+                    public init(from decoder: any Swift.Decoder) throws {
                         self.value1 = try decoder.decodeFromSingleValueContainer()
                     }
-                    public func encode(to encoder: any Encoder) throws {
+                    public func encode(to encoder: any Swift.Encoder) throws {
                         try encoder.encodeToSingleValueContainer(self.value1)
                     }
                 }
@@ -28171,10 +31135,10 @@ public enum Operations {
                         public init(additionalProperties: [String: [OpenAPIRuntime.OpenAPIObjectContainer]] = .init()) {
                             self.additionalProperties = additionalProperties
                         }
-                        public init(from decoder: any Decoder) throws {
+                        public init(from decoder: any Swift.Decoder) throws {
                             additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
                         }
-                        public func encode(to encoder: any Encoder) throws {
+                        public func encode(to encoder: any Swift.Encoder) throws {
                             try encoder.encodeAdditionalProperties(additionalProperties)
                         }
                     }
@@ -29869,6 +32833,189 @@ public enum Operations {
             }
         }
     }
+    /// Get Benchmark Summary
+    ///
+    /// Return curated model performance data for authenticated users.
+    ///
+    /// - Remark: HTTP `GET /v1/benchmark/summary`.
+    /// - Remark: Generated from `#/paths//v1/benchmark/summary/get(get_benchmark_summary_v1_benchmark_summary_get)`.
+    public enum GetBenchmarkSummaryV1BenchmarkSummaryGet {
+        public static let id: Swift.String = "get_benchmark_summary_v1_benchmark_summary_get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/benchmark/summary/GET/query`.
+            public struct Query: Sendable, Hashable {
+                /// Minimum completed benchmark runs to include a model.
+                ///
+                /// - Remark: Generated from `#/paths/v1/benchmark/summary/GET/query/min_runs`.
+                public var minRuns: Swift.Int?
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - minRuns: Minimum completed benchmark runs to include a model.
+                public init(minRuns: Swift.Int? = nil) {
+                    self.minRuns = minRuns
+                }
+            }
+            public var query: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Input.Query
+            /// - Remark: Generated from `#/paths/v1/benchmark/summary/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - query:
+            ///   - headers:
+            public init(
+                query: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Input.Query = .init(),
+                headers: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Input.Headers = .init()
+            ) {
+                self.query = query
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/benchmark/summary/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/benchmark/summary/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.BenchmarkSummaryResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.BenchmarkSummaryResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/benchmark/summary/get(get_benchmark_summary_v1_benchmark_summary_get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/benchmark/summary/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/benchmark/summary/GET/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/benchmark/summary/get(get_benchmark_summary_v1_benchmark_summary_get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.GetBenchmarkSummaryV1BenchmarkSummaryGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
     /// Submit Feedback
     ///
     /// Submit user feedback, bug report, or feature request.
@@ -31149,10 +34296,10 @@ public enum Operations {
                         public init(value1: Components.Schemas.TestSessionStatusResponse) {
                             self.value1 = value1
                         }
-                        public init(from decoder: any Decoder) throws {
+                        public init(from decoder: any Swift.Decoder) throws {
                             self.value1 = try .init(from: decoder)
                         }
-                        public func encode(to encoder: any Encoder) throws {
+                        public func encode(to encoder: any Swift.Encoder) throws {
                             try self.value1.encode(to: encoder)
                         }
                     }
