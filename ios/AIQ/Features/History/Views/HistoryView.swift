@@ -68,7 +68,9 @@ struct HistoryView: View {
             }
         }
         .task {
-            await viewModel.fetchHistory()
+            async let historyTask: () = viewModel.fetchHistory()
+            async let benchmarkTask: () = viewModel.fetchBenchmarks()
+            _ = await (historyTask, benchmarkTask)
         }
         .onChange(of: viewModel.sortOrder) { _ in
             viewModel.applyFiltersAndSort()
@@ -124,9 +126,12 @@ struct HistoryView: View {
                 }
 
                 // Trend Chart
-                IQTrendChart(testHistory: viewModel.testHistory)
-                    .padding(.horizontal)
-                    .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.chartView)
+                IQTrendChart(
+                    testHistory: viewModel.testHistory,
+                    benchmarkModels: viewModel.benchmarkModels
+                )
+                .padding(.horizontal)
+                .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.chartView)
 
                 Divider()
                     .padding(.horizontal)

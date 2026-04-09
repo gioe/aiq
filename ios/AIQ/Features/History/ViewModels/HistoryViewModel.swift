@@ -1,3 +1,4 @@
+import AIQAPIClientCore
 import AIQSharedKit
 import Combine
 import Foundation
@@ -55,6 +56,9 @@ class HistoryViewModel: BaseViewModel {
     /// Date filter with persistence across app launches.
     /// Defaults to .all on first launch or if stored value is invalid.
     @Published var dateFilter: TestHistoryDateFilter = .all
+
+    /// AI model benchmark data for chart reference lines
+    @Published private(set) var benchmarkModels: [Components.Schemas.ModelSummary] = []
 
     // MARK: - Pagination State
 
@@ -127,6 +131,18 @@ class HistoryViewModel: BaseViewModel {
             handleError(contextualError, context: historyCtx) { [weak self] in
                 await self?.fetchHistory(forceRefresh: forceRefresh, showLoadingIndicator: showLoadingIndicator)
             }
+        }
+    }
+
+    /// Fetch AI benchmark summary for chart reference lines.
+    /// Failures are silently ignored — reference lines are supplemental.
+    func fetchBenchmarks() async {
+        do {
+            let summary = try await apiService.getBenchmarkSummary()
+            // Take top 3 models by mean IQ (already sorted descending from API)
+            benchmarkModels = Array(summary.models.prefix(3))
+        } catch {
+            benchmarkModels = []
         }
     }
 
