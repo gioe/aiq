@@ -5,6 +5,8 @@ Provides run triggering, result browsing, and human-vs-model comparison.
 """
 
 import logging
+import math
+import statistics
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Query
@@ -22,6 +24,8 @@ from app.schemas.llm_benchmark import (
     BenchmarkResultsListResponse,
     BenchmarkSessionSummary,
     CompareResponse,
+    ConfidenceInterval,
+    DomainAccuracy,
     GenerateQuestionSetResponse,
     ModelComparison,
     QuestionBreakdown,
@@ -37,6 +41,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/llm-benchmark")
 
 _VALID_VENDORS = {"openai", "anthropic", "google"}
+
+# Minimum human test results for statistically reliable comparisons
+_MIN_HUMAN_SAMPLE_SIZE = 30
 
 
 _DOMAINS = list(settings.TEST_DOMAIN_WEIGHTS.keys())
@@ -248,6 +255,38 @@ async def get_benchmark_detail(
     )
 
 
+def _cohens_d(group1: list[float], group2: list[float]) -> float | None:
+    """Compute Cohen's d effect size between two groups.
+
+    Returns None when either group has fewer than 2 observations (pooled
+    standard deviation is undefined).  Returns 0.0 when the pooled variance
+    is zero (both groups are constant and identical).
+    """
+    if len(group1) < 2 or len(group2) < 2:
+        return None
+    m1, m2 = statistics.mean(group1), statistics.mean(group2)
+    v1, v2 = statistics.variance(group1), statistics.variance(group2)
+    n1, n2 = len(group1), len(group2)
+    pooled_var = ((n1 - 1) * v1 + (n2 - 1) * v2) / (n1 + n2 - 2)
+    if pooled_var == 0:
+        return 0.0
+    return (m1 - m2) / math.sqrt(pooled_var)
+
+
+def _build_ci(scores: list[float]) -> ConfidenceInterval | None:
+    """Return a 95% CI for the mean, or None when n < 2."""
+    n = len(scores)
+    if n < 2:
+        return None
+    mean = statistics.mean(scores)
+    std = statistics.stdev(scores)
+    margin = 1.96 * std / math.sqrt(n)
+    return ConfidenceInterval(
+        lower=round(mean - margin, 2),
+        upper=round(mean + margin, 2),
+    )
+
+
 @router.get(
     "/compare",
     response_model=CompareResponse,
@@ -257,16 +296,34 @@ async def compare_human_vs_models(
     db: AsyncSession = Depends(get_db),
 ) -> CompareResponse:
     """Compare human average IQ against all tested LLM models."""
-    # Human average IQ.
-    human_q = select(
-        func.avg(TestResult.iq_score),
-        func.count(TestResult.id),
-    )
-    human_row = (await db.execute(human_q)).one()
-    human_avg_iq = float(human_row[0]) if human_row[0] is not None else None
-    human_test_count = human_row[1]
+    # --- Human IQ scores (all rows, not just avg) ---------------------------
+    human_iq_q = select(TestResult.iq_score).where(TestResult.iq_score.isnot(None))
+    human_scores: list[float] = [
+        float(s)
+        for s in (await db.execute(human_iq_q)).scalars().all()
+        if s is not None
+    ]
+    human_test_count = len(human_scores)
+    human_avg_iq = round(statistics.mean(human_scores), 2) if human_scores else None
+    human_ci = _build_ci(human_scores)
 
-    # Per-model aggregation from completed results.
+    # --- Human domain scores (aggregate correct/total per domain) -----------
+    human_domain_q = select(TestResult.domain_scores).where(
+        TestResult.domain_scores.isnot(None)
+    )
+    human_domain_rows = (await db.execute(human_domain_q)).scalars().all()
+
+    human_domain_correct: dict[str, int] = defaultdict(int)
+    human_domain_total: dict[str, int] = defaultdict(int)
+    for ds in human_domain_rows:
+        if not isinstance(ds, dict):
+            continue
+        for domain, stats in ds.items():
+            if isinstance(stats, dict):
+                human_domain_correct[domain] += stats.get("correct", 0)
+                human_domain_total[domain] += stats.get("total", 0)
+
+    # --- Per-model aggregation from completed results -----------------------
     model_q = (
         select(
             LLMTestResult.vendor,
@@ -282,9 +339,10 @@ async def compare_human_vs_models(
     )
     model_rows = (await db.execute(model_q)).all()
 
+    all_model_scores: list[float] = []
     models = []
     for row in model_rows:
-        # Fetch most-recent IQ score and percentile for this model.
+        # Most-recent IQ score and percentile for this model.
         latest_q = (
             select(LLMTestResult.iq_score, LLMTestResult.percentile_rank)
             .where(
@@ -297,6 +355,24 @@ async def compare_human_vs_models(
         )
         latest = (await db.execute(latest_q)).one_or_none()
 
+        # All IQ scores for this model (for mean_iq / iq_ci).
+        all_iq_q = select(LLMTestResult.iq_score).where(
+            LLMTestResult.vendor == row.vendor,
+            LLMTestResult.model_id == row.model_id,
+            LLMTestResult.iq_score.isnot(None),
+        )
+        model_iq_scores = [
+            float(s)
+            for s in (await db.execute(all_iq_q)).scalars().all()
+            if s is not None
+        ]
+        all_model_scores.extend(model_iq_scores)
+
+        mean_iq = (
+            round(statistics.mean(model_iq_scores), 2) if model_iq_scores else None
+        )
+        iq_ci = _build_ci(model_iq_scores)
+
         models.append(
             ModelComparison(
                 vendor=row.vendor,
@@ -307,11 +383,64 @@ async def compare_human_vs_models(
                 correct_answers=row.correct_answers,
                 sessions_count=row.sessions_count,
                 latest_run=row.latest_run,
+                mean_iq=mean_iq,
+                iq_ci=iq_ci,
             )
+        )
+
+    # --- Model domain scores (aggregated across all models) ----------------
+    model_domain_q = select(LLMTestResult.domain_scores).where(
+        LLMTestResult.domain_scores.isnot(None)
+    )
+    model_domain_rows = (await db.execute(model_domain_q)).scalars().all()
+
+    model_domain_correct: dict[str, int] = defaultdict(int)
+    model_domain_total: dict[str, int] = defaultdict(int)
+    for ds in model_domain_rows:
+        if not isinstance(ds, dict):
+            continue
+        for domain, stats in ds.items():
+            if isinstance(stats, dict):
+                model_domain_correct[domain] += stats.get("correct", 0)
+                model_domain_total[domain] += stats.get("total", 0)
+
+    # --- Build domain breakdown --------------------------------------------
+    all_domains = sorted(
+        set(human_domain_total.keys()) | set(model_domain_total.keys())
+    )
+    domain_breakdown: list[DomainAccuracy] = []
+    for domain in all_domains:
+        h_total = human_domain_total.get(domain, 0)
+        h_correct = human_domain_correct.get(domain, 0)
+        m_total = model_domain_total.get(domain, 0)
+        m_correct = model_domain_correct.get(domain, 0)
+        domain_breakdown.append(
+            DomainAccuracy(
+                domain=domain,
+                human_pct=round(h_correct / h_total * 100, 2) if h_total > 0 else None,
+                human_n=h_total,
+                model_pct=round(m_correct / m_total * 100, 2) if m_total > 0 else None,
+                model_n=m_total,
+            )
+        )
+
+    # --- Cohen's d and low-sample warning ----------------------------------
+    raw_d = _cohens_d(human_scores, all_model_scores)
+    effect_size = round(raw_d, 2) if raw_d is not None else None
+
+    low_sample_warning: str | None = None
+    if human_test_count < _MIN_HUMAN_SAMPLE_SIZE:
+        low_sample_warning = (
+            f"Only {human_test_count} human test results available; "
+            "at least 30 recommended for reliable statistics."
         )
 
     return CompareResponse(
         human_avg_iq=human_avg_iq,
         human_test_count=human_test_count,
+        human_ci=human_ci,
         models=models,
+        domain_breakdown=domain_breakdown,
+        low_sample_warning=low_sample_warning,
+        effect_size=effect_size,
     )

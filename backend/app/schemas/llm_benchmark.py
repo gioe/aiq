@@ -285,6 +285,27 @@ class BenchmarkDetailResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class ConfidenceInterval(BaseModel):
+    """95% confidence interval for a mean."""
+
+    lower: float = Field(..., description="Lower bound of the 95% CI.")
+    upper: float = Field(..., description="Upper bound of the 95% CI.")
+
+
+class DomainAccuracy(BaseModel):
+    """Per-domain accuracy comparison between humans and models."""
+
+    domain: str = Field(..., description="Question domain (e.g. 'pattern', 'logic').")
+    human_pct: Optional[float] = Field(
+        None, description="Human accuracy % in this domain. Null if no human data."
+    )
+    human_n: int = Field(0, ge=0, description="Number of human answers in this domain.")
+    model_pct: Optional[float] = Field(
+        None, description="Model accuracy % in this domain. Null if no model data."
+    )
+    model_n: int = Field(0, ge=0, description="Number of model answers in this domain.")
+
+
 class ModelComparison(BaseModel):
     """
     Aggregate performance row for a single (vendor, model_id) pair,
@@ -322,6 +343,14 @@ class ModelComparison(BaseModel):
         ...,
         description="UTC timestamp of the most-recent completed benchmark session.",
     )
+    mean_iq: Optional[float] = Field(
+        None,
+        description="Mean IQ score across all completed sessions. Null if no completed run.",
+    )
+    iq_ci: Optional[ConfidenceInterval] = Field(
+        None,
+        description="95% CI for the mean IQ score. Null when sessions_count < 2.",
+    )
 
 
 class CompareResponse(BaseModel):
@@ -347,6 +376,28 @@ class CompareResponse(BaseModel):
     models: List[ModelComparison] = Field(
         ...,
         description="Performance summary for each (vendor, model_id) pair with completed runs.",
+    )
+    human_ci: Optional[ConfidenceInterval] = Field(
+        None,
+        description="95% CI for the human mean IQ. Null when fewer than 2 results.",
+    )
+    domain_breakdown: List[DomainAccuracy] = Field(
+        default_factory=list,
+        description="Per-domain accuracy comparison between humans and models.",
+    )
+    low_sample_warning: Optional[str] = Field(
+        None,
+        description=(
+            "Warning when human_test_count < 30, indicating insufficient sample size "
+            "for reliable statistics."
+        ),
+    )
+    effect_size: Optional[float] = Field(
+        None,
+        description=(
+            "Cohen's d effect size between human and model IQ distributions. "
+            "Null when either group has < 2 observations."
+        ),
     )
 
 
