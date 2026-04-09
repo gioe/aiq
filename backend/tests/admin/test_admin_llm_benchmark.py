@@ -518,9 +518,12 @@ class TestCompareHumanVsModels:
         assert ci is not None
         assert ci["lower"] < 105.0
         assert ci["upper"] > 105.0
-        # sample stdev([95,100,105,110,115]) = sqrt(250/4) ≈ 7.906; margin ≈ 6.93
+        # n=5 < 30 → uses t-distribution: t(0.975, df=4) ≈ 2.776
+        from scipy.stats import t as t_dist
+
+        t_crit = t_dist.ppf(0.975, df=4)
         assert ci["lower"] == pytest.approx(
-            105.0 - 1.96 * math.sqrt(250 / 4) / math.sqrt(5), abs=0.05
+            105.0 - t_crit * math.sqrt(250 / 4) / math.sqrt(5), abs=0.05
         )
 
     def test_compare_low_sample_warning(

@@ -9,6 +9,8 @@ import math
 import statistics
 from collections import defaultdict
 
+from scipy.stats import t as t_dist
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -280,7 +282,8 @@ def _build_ci(scores: list[float]) -> ConfidenceInterval | None:
         return None
     mean = statistics.mean(scores)
     std = statistics.stdev(scores)
-    margin = 1.96 * std / math.sqrt(n)
+    z = t_dist.ppf(0.975, df=n - 1) if n < _MIN_HUMAN_SAMPLE_SIZE else 1.96
+    margin = z * std / math.sqrt(n)
     return ConfidenceInterval(
         lower=round(mean - margin, 2),
         upper=round(mean + margin, 2),
