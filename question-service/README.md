@@ -25,9 +25,6 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your API keys
 
-# Test setup (no database writes)
-python run_generation.py --dry-run --count 5 --async --async-judge --verbose
-
 # Generate questions (async parallel generation + evaluation)
 python run_generation.py --count 50 --async --async-judge --verbose
 ```
@@ -61,7 +58,6 @@ python run_generation.py [OPTIONS]
   --types TYPE [TYPE...]     Question types to generate (default: all)
   --difficulties D [D...]    Difficulty levels (default: all)
   --provider-tier TIER       primary (default) or fallback
-  --dry-run                  Generate without database insertion
   --async                    Use parallel async generation
   --async-judge              Use parallel async judge evaluation
   --auto-balance             Balance generation based on inventory gaps
@@ -80,8 +76,6 @@ python run_generation.py --types mathematical logical_reasoning --async --async-
 # Auto-balance generation based on inventory gaps
 python run_generation.py --auto-balance --async --async-judge --verbose
 
-# Dry run with verbose output
-python run_generation.py --dry-run --count 10 --async --async-judge --verbose
 ```
 
 ### Exit Codes

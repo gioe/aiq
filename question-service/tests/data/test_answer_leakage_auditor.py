@@ -62,17 +62,6 @@ class TestRunAnswerLeakageAudit:
         assert result["deactivated_count"] == 1
         session.commit.assert_called_once()
 
-    def test_dry_run_does_not_commit(self):
-        q = _make_question(
-            question_text="The answer is Paris. What is the capital of France?",
-            correct_answer="Paris",
-        )
-        factory, session = _build_factory([q])
-        result = run_answer_leakage_audit(factory, dry_run=True)
-        assert result["leaking_count"] == 1
-        assert result["deactivated_count"] == 0
-        session.commit.assert_not_called()
-
     def test_short_answer_not_flagged(self):
         """Answers shorter than MIN_ANSWER_LENGTH_FOR_LEAKAGE_CHECK must not trigger."""
         short = "A" * (MIN_ANSWER_LENGTH_FOR_LEAKAGE_CHECK - 1)

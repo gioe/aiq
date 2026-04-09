@@ -46,14 +46,14 @@ class TestTriggerServer:
         with patch.object(self.module, "run_generation_job", return_value=None):
             response = self.client.post(
                 "/trigger",
-                json={"count": 10, "dry_run": True},
+                json={"count": 10},
                 headers={"X-Admin-Token": "test-secret-token"},
             )
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "started"
             assert "count=10" in data["message"]
-            assert "dry_run=True" in data["message"]
+            assert "count=10" in data["message"]
 
     def test_trigger_with_invalid_token_returns_401(self):
         """Test that trigger endpoint rejects invalid admin token."""
@@ -166,9 +166,8 @@ class TestTriggerServer:
                 headers={"X-Admin-Token": "test-secret-token"},
             )
             assert response.status_code == 200
-            # Default is count=50, dry_run=False
+            # Default is count=50
             assert "count=50" in response.json()["message"]
-            assert "dry_run=False" in response.json()["message"]
 
     def test_trigger_count_validation(self):
         """Test that count parameter is validated."""
@@ -209,7 +208,7 @@ class TestRunGenerationJob:
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
-            self.module.run_generation_job(count=25, dry_run=False, verbose=True)
+            self.module.run_generation_job(count=25, verbose=True)
 
             mock_run.assert_called_once()
             cmd = mock_run.call_args[0][0]
@@ -228,7 +227,7 @@ class TestRunGenerationJob:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
             self.module.run_generation_job(
-                count=10, dry_run=False, verbose=False, types=["logic", "spatial"]
+                count=10, verbose=False, types=["logic", "spatial"]
             )
 
             cmd = mock_run.call_args[0][0]
@@ -240,7 +239,7 @@ class TestRunGenerationJob:
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
-            self.module.run_generation_job(count=10, dry_run=False, verbose=False)
+            self.module.run_generation_job(count=10, verbose=False)
 
             cmd = mock_run.call_args[0][0]
             assert "--types" not in cmd
@@ -250,23 +249,10 @@ class TestRunGenerationJob:
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
-            self.module.run_generation_job(
-                count=10, dry_run=False, verbose=False, types=[]
-            )
+            self.module.run_generation_job(count=10, verbose=False, types=[])
 
             cmd = mock_run.call_args[0][0]
             assert "--types" not in cmd
-
-    def test_run_generation_job_includes_dry_run_flag(self):
-        """Test that dry_run flag is included when set."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-
-            self.module.run_generation_job(count=10, dry_run=True, verbose=False)
-
-            cmd = mock_run.call_args[0][0]
-            assert "--dry-run" in cmd
-            assert "--verbose" not in cmd
 
     def test_run_generation_job_handles_subprocess_failure(self):
         """Test that subprocess failures are logged."""
@@ -276,7 +262,7 @@ class TestRunGenerationJob:
             )
 
             # Should not raise - just logs the error
-            self.module.run_generation_job(count=10, dry_run=False, verbose=True)
+            self.module.run_generation_job(count=10, verbose=True)
 
             mock_run.assert_called_once()
 
@@ -288,7 +274,7 @@ class TestRunGenerationJob:
             mock_run.side_effect = subprocess.TimeoutExpired(cmd="test", timeout=3600)
 
             # Should not raise - just logs the error
-            self.module.run_generation_job(count=10, dry_run=False, verbose=True)
+            self.module.run_generation_job(count=10, verbose=True)
 
             mock_run.assert_called_once()
 
@@ -298,7 +284,7 @@ class TestRunGenerationJob:
             mock_run.side_effect = Exception("Unexpected error")
 
             # Should not raise - just logs the error
-            self.module.run_generation_job(count=10, dry_run=False, verbose=True)
+            self.module.run_generation_job(count=10, verbose=True)
 
             mock_run.assert_called_once()
 

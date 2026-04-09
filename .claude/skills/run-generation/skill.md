@@ -11,7 +11,7 @@ Runs the full question generation pipeline locally using `run_generation.py`.
 ## Usage
 
 ```
-/run-generation [--type <type>] [--difficulty <difficulty>] [--count <n>] [--provider-tier <tier>] [--dry-run]
+/run-generation [--type <type>] [--difficulty <difficulty>] [--count <n>] [--provider-tier <tier>]
 ```
 
 ## Arguments
@@ -22,7 +22,6 @@ Runs the full question generation pipeline locally using `run_generation.py`.
 | `--difficulty` | No | all | Difficulty level: `easy`, `medium`, `hard` |
 | `--count` | No | 50 | Number of questions to generate |
 | `--provider-tier` | No | primary | Provider tier: `primary` or `fallback` |
-| `--dry-run` | No | false | Generate and evaluate but don't insert to database |
 
 ## Implementation
 
@@ -33,7 +32,6 @@ Extract the optional arguments from the user's input:
 - `--difficulty <difficulty>` or `-d <difficulty>` - maps to `--difficulties <difficulty>`
 - `--count <n>` or `-c <n>` - maps to `--count <n>`
 - `--provider-tier <tier>` - maps to `--provider-tier <tier>`
-- `--dry-run` - adds `--dry-run` flag
 
 Validate:
 - Type must be one of: `math`, `logic`, `pattern`, `spatial`, `verbal`, `memory`
@@ -83,11 +81,6 @@ With type and provider tier:
 cd question-service && source venv/bin/activate && set -a && source .env && set +a && PYTHONPATH=$(pwd)/.. python run_generation.py --types math --provider-tier fallback --count 50 --async --async-judge --verbose
 ```
 
-Dry run:
-```bash
-cd question-service && source venv/bin/activate && set -a && source .env && set +a && PYTHONPATH=$(pwd)/.. python run_generation.py --types math --count 10 --async --async-judge --verbose --dry-run
-```
-
 ### Step 3: Run and Report
 
 Execute the command and report results including:
@@ -128,11 +121,6 @@ Generate 50 hard questions of all types.
 /run-generation --type pattern --difficulty easy --count 20
 ```
 Generate 20 easy pattern questions.
-
-```
-/run-generation --type spatial --count 30 --dry-run
-```
-Generate 30 spatial questions without inserting to database (for testing).
 
 ```
 /run-generation --provider-tier fallback

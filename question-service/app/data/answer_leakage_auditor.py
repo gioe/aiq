@@ -32,14 +32,13 @@ def _label(value: object) -> str:
 
 
 def run_answer_leakage_audit(
-    session_factory: Callable[[], Session], dry_run: bool = False
+    session_factory: Callable[[], Session],
 ) -> dict:
     """Scan the active question pool for answer leakage and deactivate offenders.
 
     Args:
         session_factory: A callable that returns a SQLAlchemy Session
                          (e.g. DatabaseService.SessionLocal).
-        dry_run: If True, log findings but do not modify the database.
 
     Returns:
         dict with keys: leaking_count, deactivated_count, low_buckets (list of str).
@@ -80,17 +79,14 @@ def run_answer_leakage_audit(
                 [q.id for q in leaking],
             )
 
-            if dry_run:
-                logger.info("[answer-leakage-audit] DRY RUN — no changes made.")
-            else:
-                for q in leaking:
-                    q.is_active = False  # type: ignore[assignment]
-                    session.add(q)
-                session.commit()
-                result["deactivated_count"] = len(leaking)
-                logger.info(
-                    f"[answer-leakage-audit] Deactivated {len(leaking)} question(s)."
-                )
+            for q in leaking:
+                q.is_active = False  # type: ignore[assignment]
+                session.add(q)
+            session.commit()
+            result["deactivated_count"] = len(leaking)
+            logger.info(
+                f"[answer-leakage-audit] Deactivated {len(leaking)} question(s)."
+            )
 
         # Pool health check
         active_after = (

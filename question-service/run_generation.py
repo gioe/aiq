@@ -171,9 +171,6 @@ Examples:
   # Generate only easy and medium math questions
   python run_generation.py --types math --difficulties easy medium
 
-  # Dry run (generate but don't insert to database)
-  python run_generation.py --dry-run
-
   # Verbose logging
   python run_generation.py --verbose
 
@@ -218,12 +215,6 @@ Examples:
         choices=[dl.value for dl in DifficultyLevel],
         default=None,
         help="Difficulty levels to generate (default: all levels)",
-    )
-
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Generate and evaluate questions but don't insert to database",
     )
 
     parser.add_argument(
@@ -538,48 +529,47 @@ def _init_components(
     db = None
     deduplicator = None
 
-    if not args.dry_run:
-        try:
-            db = QuestionDatabase(
-                database_url=settings.database_url,
-                openai_api_key=settings.openai_api_key,
-                google_api_key=settings.google_api_key,
-            )
-            logger.info("✓ Database connected")
+    try:
+        db = QuestionDatabase(
+            database_url=settings.database_url,
+            openai_api_key=settings.openai_api_key,
+            google_api_key=settings.google_api_key,
+        )
+        logger.info("✓ Database connected")
 
-            if not settings.openai_api_key:
-                logger.error("OpenAI API key required for deduplication")
-                raise RuntimeError("OpenAI API key required for deduplication")
+        if not settings.openai_api_key:
+            logger.error("OpenAI API key required for deduplication")
+            raise RuntimeError("OpenAI API key required for deduplication")
 
-            deduplicator = QuestionDeduplicator(
-                openai_api_key=settings.openai_api_key,
-                similarity_threshold=settings.dedup_similarity_threshold,
-                embedding_model=settings.dedup_embedding_model,
-                redis_url=settings.redis_url,
-                embedding_cache_ttl=settings.embedding_cache_ttl,
-                google_api_key=settings.google_api_key,
-            )
-            cache_type = "Redis" if deduplicator.using_redis_cache else "in-memory"
-            logger.info(f"✓ Deduplicator initialized (cache: {cache_type})")
-        except Exception as e:
-            logger.error(f"Failed to connect to database: {e}")
-            observability.capture_error(
-                e, context={"phase": "init", "step": "database_connection"}
-            )
-            send_phase_alert(
-                alert_manager=alert_manager,
-                category=ErrorCategory.SERVER_ERROR,
-                severity=ErrorSeverity.CRITICAL,
-                provider="database",
-                original_error=type(e).__name__,
-                message=f"Database connection failed: {str(e)}",
-                context=(
-                    f"[run_id={run_id}] Question generation cannot connect to database. "
-                    f"Check DATABASE_URL and database availability. Error: {str(e)}"
-                ),
-                is_retryable=False,
-            )
-            raise RuntimeError(f"Database connection failed: {str(e)}") from e
+        deduplicator = QuestionDeduplicator(
+            openai_api_key=settings.openai_api_key,
+            similarity_threshold=settings.dedup_similarity_threshold,
+            embedding_model=settings.dedup_embedding_model,
+            redis_url=settings.redis_url,
+            embedding_cache_ttl=settings.embedding_cache_ttl,
+            google_api_key=settings.google_api_key,
+        )
+        cache_type = "Redis" if deduplicator.using_redis_cache else "in-memory"
+        logger.info(f"✓ Deduplicator initialized (cache: {cache_type})")
+    except Exception as e:
+        logger.error(f"Failed to connect to database: {e}")
+        observability.capture_error(
+            e, context={"phase": "init", "step": "database_connection"}
+        )
+        send_phase_alert(
+            alert_manager=alert_manager,
+            category=ErrorCategory.SERVER_ERROR,
+            severity=ErrorSeverity.CRITICAL,
+            provider="database",
+            original_error=type(e).__name__,
+            message=f"Database connection failed: {str(e)}",
+            context=(
+                f"[run_id={run_id}] Question generation cannot connect to database. "
+                f"Check DATABASE_URL and database availability. Error: {str(e)}"
+            ),
+            is_retryable=False,
+        )
+        raise RuntimeError(f"Database connection failed: {str(e)}") from e
 
     return pipeline, judge, db, deduplicator
 
@@ -643,7 +633,6 @@ def main() -> int:
             f"types={args.types or 'all'}, difficulties={args.difficulties or 'all'}"
         )
         logger.info(f"Provider tier: {args.provider_tier}")
-        logger.info(f"Dry run: {args.dry_run}")
         logger.info("=" * 80)
 
         inserted_count = 0
@@ -793,7 +782,7 @@ def main() -> int:
 
             # Phase 3: Deduplication
             unique_questions = approved_questions
-            if not args.skip_deduplication and not args.dry_run:
+            if not args.skip_deduplication:
                 logger.info("\n" + "=" * 80)
                 logger.info("PHASE 3: Deduplication")
                 logger.info("=" * 80)
@@ -807,7 +796,7 @@ def main() -> int:
 
             # Phase 4: Database Insertion
             inserted_count = 0
-            if not args.dry_run and unique_questions:
+            if unique_questions:
                 logger.info("\n" + "=" * 80)
                 logger.info("PHASE 4: Database Insertion")
                 logger.info("=" * 80)
@@ -834,40 +823,36 @@ def main() -> int:
             logger.info(f"Inserted to database: {inserted_count}")
             logger.info(f"Approval rate: {approval_rate:.1f}%")
 
-            if args.dry_run:
-                logger.info("\n[DRY RUN] No questions were inserted to database")
-
             _run_stats = _build_run_stats(stats, inserted_count, approval_rate, summary)
 
-            if not args.dry_run:
-                if inserted_count == 0:
-                    logger.error("No questions were inserted to database!")
-                    send_phase_alert(
-                        alert_manager=alert_manager,
-                        category=ErrorCategory.SERVER_ERROR,
-                        severity=ErrorSeverity.CRITICAL,
-                        provider="database",
-                        original_error="InsertionFailure",
-                        message=f"Database insertion failed for all {len(unique_questions)} unique questions.",
-                        context=(
-                            f"[run_id={run_id}] Question generation completed successfully through judge evaluation, "
-                            f"but all {len(unique_questions)} questions failed to insert to database. "
-                            "Check database connection and logs."
-                        ),
-                        is_retryable=True,
-                    )
-                    raise InsertionError(
-                        f"Database insertion failed: 0 of {len(unique_questions)} questions inserted",
-                        run_summary=to_run_summary(_run_stats),
-                    )
-                elif inserted_count < len(unique_questions):
-                    logger.warning("Some questions failed to insert")
-                    raise InsertionError(
-                        f"Partial insertion failure: {inserted_count} of {len(unique_questions)} questions inserted",
-                        run_summary=to_run_summary(_run_stats),
-                    )
-                else:
-                    logger.info("✓ All unique questions inserted successfully")
+            if inserted_count == 0:
+                logger.error("No questions were inserted to database!")
+                send_phase_alert(
+                    alert_manager=alert_manager,
+                    category=ErrorCategory.SERVER_ERROR,
+                    severity=ErrorSeverity.CRITICAL,
+                    provider="database",
+                    original_error="InsertionFailure",
+                    message=f"Database insertion failed for all {len(unique_questions)} unique questions.",
+                    context=(
+                        f"[run_id={run_id}] Question generation completed successfully through judge evaluation, "
+                        f"but all {len(unique_questions)} questions failed to insert to database. "
+                        "Check database connection and logs."
+                    ),
+                    is_retryable=True,
+                )
+                raise InsertionError(
+                    f"Database insertion failed: 0 of {len(unique_questions)} questions inserted",
+                    run_summary=to_run_summary(_run_stats),
+                )
+            elif inserted_count < len(unique_questions):
+                logger.warning("Some questions failed to insert")
+                raise InsertionError(
+                    f"Partial insertion failure: {inserted_count} of {len(unique_questions)} questions inserted",
+                    run_summary=to_run_summary(_run_stats),
+                )
+            else:
+                logger.info("✓ All unique questions inserted successfully")
 
             if inserted_count > 0:
                 log_success_run(
@@ -895,14 +880,14 @@ def main() -> int:
                 else:
                     logger.warning("Failed to report run to backend API")
 
-            # Post-run answer-leakage audit (always runs; respects args.dry_run for writes)
+            # Post-run answer-leakage audit
             if db is not None:
                 try:
                     from app.data.answer_leakage_auditor import (
                         run_answer_leakage_audit,
                     )  # noqa: PLC0415
 
-                    run_answer_leakage_audit(db.SessionLocal, dry_run=args.dry_run)
+                    run_answer_leakage_audit(db.SessionLocal)
                 except Exception as audit_err:
                     logger.warning(
                         "[answer-leakage-audit] Audit skipped due to error: %s",
@@ -916,9 +901,7 @@ def main() -> int:
 
             run_summary = to_run_summary(
                 _run_stats,
-                loss_threshold=(
-                    None if args.dry_run else settings.generation_loss_threshold_pct
-                ),
+                loss_threshold=settings.generation_loss_threshold_pct,
             )
 
             logger.info(
@@ -936,8 +919,7 @@ def main() -> int:
             )
 
             if (
-                not args.dry_run
-                and _run_stats["generation_loss_pct"]
+                _run_stats["generation_loss_pct"]
                 > settings.generation_loss_threshold_pct
             ):
                 logger.warning(

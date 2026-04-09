@@ -374,11 +374,6 @@ class TriggerRequest(BaseModel):
         description="Number of questions to generate. Must be between 1 and 500.",
         json_schema_extra={"example": 50},
     )
-    dry_run: bool = Field(
-        default=False,
-        description="If true, simulates the job without persisting generated questions.",
-        json_schema_extra={"example": False},
-    )
     verbose: bool = Field(
         default=False,
         description="If true, enables detailed logging during generation.",
@@ -401,9 +396,7 @@ class TriggerResponse(BaseModel):
 
     message: str = Field(
         description="Human-readable status message describing the triggered job.",
-        json_schema_extra={
-            "example": "Question generation job started (count=50, dry_run=False)"
-        },
+        json_schema_extra={"example": "Question generation job started (count=50)"},
     )
     status: str = Field(
         description="Job status. Will be 'started' when job is successfully triggered.",
@@ -448,7 +441,6 @@ class RateLimitExceededResponse(BaseModel):
 
 def run_generation_job(
     count: int,
-    dry_run: bool,
     verbose: bool,
     types: Optional[List[str]] = None,
 ) -> None:
@@ -457,7 +449,6 @@ def run_generation_job(
 
     Args:
         count: Number of questions to generate
-        dry_run: Whether to run in dry-run mode
         verbose: Whether to run in verbose mode
         types: Optional list of question types to generate (e.g. ["logic", "spatial"])
     """
@@ -473,9 +464,6 @@ def run_generation_job(
     if verbose:
         cmd.append("--verbose")
 
-    if dry_run:
-        cmd.append("--dry-run")
-
     if types:
         cmd.extend(["--types"] + types)
 
@@ -487,7 +475,6 @@ def run_generation_job(
             kind="internal",
             attributes={
                 "count": count,
-                "dry_run": dry_run,
                 "verbose": verbose,
                 "types": ",".join(types) if types else "all",
             },
@@ -509,7 +496,7 @@ def run_generation_job(
                 observability.record_metric(
                     "trigger.job.duration",
                     value=duration_s,
-                    labels={"dry_run": str(dry_run)},
+                    labels={},
                     metric_type="histogram",
                     unit="s",
                 )
@@ -619,14 +606,14 @@ async def trigger_generation(
 
     logger.info(
         f"Received generation trigger request: count={request.count}, "
-        f"dry_run={request.dry_run}, verbose={request.verbose}, "
+        f"verbose={request.verbose}, "
         f"types={request.types or 'all'}"
     )
 
     observability.record_metric(
         "trigger.requests",
         value=1,
-        labels={"dry_run": str(request.dry_run)},
+        labels={},
         metric_type="counter",
     )
 
@@ -652,7 +639,7 @@ async def trigger_generation(
         # Create thread and set reference BEFORE starting to prevent race condition
         thread = threading.Thread(
             target=run_generation_job,
-            args=(request.count, request.dry_run, request.verbose, request.types),
+            args=(request.count, request.verbose, request.types),
             daemon=True,
         )
         _running_job = thread
@@ -660,11 +647,11 @@ async def trigger_generation(
 
     logger.info(
         f"Started generation job in background thread: "
-        f"count={request.count}, dry_run={request.dry_run}, types={request.types or 'all'}"
+        f"count={request.count}, types={request.types or 'all'}"
     )
 
     return TriggerResponse(
-        message=f"Question generation job started (count={request.count}, dry_run={request.dry_run})",
+        message=f"Question generation job started (count={request.count})",
         status="started",
         timestamp=datetime.now(timezone.utc).isoformat(),
     )

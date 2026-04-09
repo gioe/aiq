@@ -81,14 +81,14 @@ class TestTriggerServerObservabilityInstrumentation:
 
             self.client.post(
                 "/trigger",
-                json={"count": 10, "dry_run": True},
+                json={"count": 10},
                 headers={"X-Admin-Token": "test-token"},
             )
 
             mock_obs.record_metric.assert_any_call(
                 "trigger.requests",
                 value=1,
-                labels={"dry_run": "True"},
+                labels={},
                 metric_type="counter",
             )
 
@@ -148,14 +148,13 @@ class TestTriggerServerObservabilityInstrumentation:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             mock_obs.start_span.return_value = mock_context
 
-            self.module.run_generation_job(count=10, dry_run=False, verbose=True)
+            self.module.run_generation_job(count=10, verbose=True)
 
             mock_obs.start_span.assert_called_once_with(
                 "generation_job",
                 kind="internal",
                 attributes={
                     "count": 10,
-                    "dry_run": False,
                     "verbose": True,
                     "types": "all",
                 },
@@ -178,7 +177,7 @@ class TestTriggerServerObservabilityInstrumentation:
             mock_run.side_effect = timeout_error
             mock_obs.start_span.return_value = mock_context
 
-            self.module.run_generation_job(count=10, dry_run=False, verbose=True)
+            self.module.run_generation_job(count=10, verbose=True)
 
             mock_obs.capture_error.assert_called_once()
             args, kwargs = mock_obs.capture_error.call_args
@@ -200,7 +199,7 @@ class TestTriggerServerObservabilityInstrumentation:
             mock_run.side_effect = error
             mock_obs.start_span.return_value = mock_context
 
-            self.module.run_generation_job(count=10, dry_run=False, verbose=True)
+            self.module.run_generation_job(count=10, verbose=True)
 
             mock_obs.capture_error.assert_called_once()
             args, kwargs = mock_obs.capture_error.call_args
@@ -220,7 +219,7 @@ class TestTriggerServerObservabilityInstrumentation:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             mock_obs.start_span.return_value = mock_context
 
-            self.module.run_generation_job(count=10, dry_run=False, verbose=True)
+            self.module.run_generation_job(count=10, verbose=True)
 
             # Check that completion counter was recorded with success status
             metric_calls = [
@@ -245,7 +244,7 @@ class TestTriggerServerObservabilityInstrumentation:
             mock_run.return_value = MagicMock(returncode=1, stdout="out", stderr="err")
             mock_obs.start_span.return_value = mock_context
 
-            self.module.run_generation_job(count=10, dry_run=False, verbose=True)
+            self.module.run_generation_job(count=10, verbose=True)
 
             metric_calls = [
                 c
