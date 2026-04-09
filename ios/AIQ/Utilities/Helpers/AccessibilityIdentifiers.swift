@@ -299,6 +299,12 @@ enum AccessibilityIdentifiers {
         static let container = "modelPerformanceView.container"
     }
 
+    // MARK: - AI Comparison Card
+
+    enum AIComparisonCard {
+        static let container = "aiComparisonCard.container"
+    }
+
     // MARK: - Adaptive Test View
 
     enum AdaptiveTestView {
