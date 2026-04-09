@@ -42,7 +42,16 @@
       }
     },
     {
-      "filter": "04_History",
+      "filter": "04_AIBenchmarks",
+      "keyword": {
+        "text": "AIQ"
+      },
+      "title": {
+        "text": "See how you compare to AI models"
+      }
+    },
+    {
+      "filter": "05_History",
       "keyword": {
         "text": "AIQ"
       },
@@ -51,7 +60,7 @@
       }
     },
     {
-      "filter": "05_DomainScores",
+      "filter": "06_DomainScores",
       "keyword": {
         "text": "AIQ"
       },
@@ -60,7 +69,7 @@
       }
     },
     {
-      "filter": "06_Settings",
+      "filter": "07_Settings",
       "keyword": {
         "text": "AIQ"
       },
