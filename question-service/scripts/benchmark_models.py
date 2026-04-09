@@ -23,6 +23,7 @@ Exit codes:
 """
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -175,8 +176,6 @@ def print_summary(results: List[Dict]) -> None:
 
 
 def main() -> None:
-    import os
-
     parser = argparse.ArgumentParser(
         description="Benchmark question-service generator and judge models"
     )
