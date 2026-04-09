@@ -25,7 +25,7 @@ struct AIComparisonCard: View {
 
     /// The AI model with the highest mean IQ, used as the "Best AI" reference point.
     private var bestModel: Components.Schemas.ModelSummary? {
-        benchmarkModels.max { $0.meanIq < $1.meanIq }
+        AIComparisonCardLogic.bestModel(from: benchmarkModels)
     }
 
     /// Mean IQ of the best-performing AI model.
@@ -35,24 +35,12 @@ struct AIComparisonCard: View {
 
     /// Average mean IQ across all benchmark models.
     private var averageAIIQ: Double {
-        guard !benchmarkModels.isEmpty else { return 0 }
-        let total = benchmarkModels.reduce(0.0) { $0 + $1.meanIq }
-        return total / Double(benchmarkModels.count)
+        AIComparisonCardLogic.averageAIIQ(from: benchmarkModels)
     }
 
     /// Cognitive domains present in both the user's results and the best AI model's domain accuracy.
     private var comparedDomains: [(domain: TestResult.CognitiveDomain, userPct: Double, aiPct: Double)] {
-        guard let userScores = userDomainScores,
-              let bestModelDomains = bestModel?.domainAccuracy
-        else { return [] }
-
-        return TestResult.CognitiveDomain.allCases.compactMap { domain in
-            guard let userScore = userScores[domain.rawValue],
-                  let userPct = userScore.pct,
-                  let aiDomain = bestModelDomains.first(where: { $0.domain == domain.rawValue })
-            else { return nil }
-            return (domain: domain, userPct: userPct, aiPct: aiDomain.accuracyPct)
-        }
+        AIComparisonCardLogic.comparedDomains(userDomainScores: userDomainScores, bestModel: bestModel)
     }
 
     // MARK: - Body
@@ -241,13 +229,8 @@ struct AIComparisonCard: View {
         case diamond
     }
 
-    private static let gaugeMinIQ: Double = 70
-    private static let gaugeMaxIQ: Double = 160
-
     private func gaugePosition(for iq: Double, barWidth: CGFloat) -> CGFloat {
-        let clamped = max(Self.gaugeMinIQ, min(Self.gaugeMaxIQ, iq))
-        let fraction = (clamped - Self.gaugeMinIQ) / (Self.gaugeMaxIQ - Self.gaugeMinIQ)
-        return barWidth * CGFloat(fraction)
+        AIComparisonCardLogic.gaugePosition(for: iq, barWidth: barWidth)
     }
 
     @ViewBuilder
