@@ -30,6 +30,7 @@ from fastapi import APIRouter
 from . import (
     analytics,
     anchor_items,
+    benchmark_sets,
     calibration,
     calibration_monitoring,
     cat_readiness,
@@ -153,4 +154,9 @@ router.include_router(
 router.include_router(
     llm_benchmark.router,
     tags=["Admin - LLM Benchmark"],
+)
+
+router.include_router(
+    benchmark_sets.router,
+    tags=["Admin - Benchmark Sets"],
 )
