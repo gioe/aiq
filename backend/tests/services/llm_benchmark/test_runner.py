@@ -14,6 +14,7 @@ import pytest
 from app.services.llm_benchmark.runner import (
     _normalize_answer,
     _parse_answer_from_response,
+    _extract_json_from_prose,
     _estimate_cost,
     run_llm_benchmark,
 )
@@ -107,6 +108,52 @@ class TestParseAnswerFromResponse:
         # Only outer fences should be stripped
         raw = '```json\n{"answer": "42"}\n```'
         assert _parse_answer_from_response(raw) == "42"
+
+    def test_json_embedded_in_prose(self):
+        raw = 'The answer to this question is {"answer": "Paris"}.'
+        assert _parse_answer_from_response(raw) == "Paris"
+
+    def test_json_embedded_in_multiline_prose(self):
+        raw = (
+            "After careful consideration, I believe the correct answer is:\n\n"
+            '{"answer": "42"}\n\n'
+            "This is because the question asks about the meaning of life."
+        )
+        assert _parse_answer_from_response(raw) == "42"
+
+    def test_json_embedded_with_int_answer(self):
+        raw = 'Based on my analysis, {"answer": 7} is the correct response.'
+        assert _parse_answer_from_response(raw) == "7"
+
+    def test_prose_without_json(self):
+        raw = "The answer is Paris, the capital of France."
+        assert _parse_answer_from_response(raw) == ""
+
+    def test_prose_with_non_answer_json(self):
+        raw = 'Here is some data: {"result": "Paris"} for reference.'
+        assert _parse_answer_from_response(raw) == ""
+
+
+# ---------------------------------------------------------------------------
+# _extract_json_from_prose
+# ---------------------------------------------------------------------------
+
+
+class TestExtractJsonFromProse:
+    def test_extracts_answer_from_prose(self):
+        text = 'The answer is {"answer": "London"} based on the clues.'
+        assert _extract_json_from_prose(text) == "London"
+
+    def test_returns_empty_for_no_json(self):
+        assert _extract_json_from_prose("just plain text") == ""
+
+    def test_returns_empty_for_json_without_answer_key(self):
+        text = 'Here is {"result": "Paris"} for you.'
+        assert _extract_json_from_prose(text) == ""
+
+    def test_picks_first_json_with_answer(self):
+        text = 'Ignore {"x": 1}. The real one is {"answer": "Tokyo"}.'
+        assert _extract_json_from_prose(text) == "Tokyo"
 
 
 # ---------------------------------------------------------------------------
