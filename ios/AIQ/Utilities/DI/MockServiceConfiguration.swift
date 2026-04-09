@@ -41,7 +41,8 @@ import Foundation
             switch scenario {
             case .loggedInWithHistory, .loggedInNoHistory, .testInProgress, .memoryInProgress,
                  .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure,
-                 .loggedInWithHistoryNilDate, .timerExpiredZeroAnswers, .timerExpiredWithAnswers:
+                 .loggedInWithHistoryNilDate, .timerExpiredZeroAnswers, .timerExpiredWithAnswers,
+                 .notificationsDisabled:
                 true
             default:
                 false
@@ -81,6 +82,7 @@ import Foundation
             container.register(SecureStorageProtocol.self, instance: mockSecureStorage)
 
             let mockNotificationService = UITestMockNotificationService()
+            mockNotificationService.configureForScenario(scenario)
             container.register(NotificationServiceProtocol.self, instance: mockNotificationService)
 
             // MARK: - Layer 3: AuthManager

@@ -177,7 +177,7 @@ import Foundation
                     totalCount: 0
                 )
             case .loggedInWithHistory, .loggedInWithHistoryNilDate, .testInProgress, .loginFailure,
-                 .networkError, .memoryInProgress:
+                 .networkError, .memoryInProgress, .notificationsDisabled:
                 return PaginatedTestHistoryResponse(
                     hasMore: false,
                     limit: 50,
@@ -279,9 +279,10 @@ import Foundation
 
         func getNotificationPreferences() async throws -> Components.Schemas.NotificationPreferencesResponse {
             try throwIfNetworkError()
+            let enabled = scenario != .notificationsDisabled
             return Components.Schemas.NotificationPreferencesResponse(
                 message: "Preferences retrieved",
-                notificationEnabled: true
+                notificationEnabled: enabled
             )
         }
 

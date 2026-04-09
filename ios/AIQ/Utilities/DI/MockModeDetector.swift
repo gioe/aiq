@@ -154,4 +154,7 @@ enum MockScenario: String, CaseIterable {
 
     /// Active test session expired with partial answers — Time's Up alert shown (non-silent path)
     case timerExpiredWithAnswers
+
+    /// Notifications disabled — getNotificationPreferences returns false
+    case notificationsDisabled
 }
