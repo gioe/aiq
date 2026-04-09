@@ -40,9 +40,10 @@ import XCTest
 /// 1. Dashboard - Home screen with test status
 /// 2. Test Question - Active test with sample question
 /// 3. Results - IQ score and domain breakdown
-/// 4. History - Test history with trend chart
-/// 5. Domain Scores - Six cognitive domains breakdown
-/// 6. Settings - Privacy-focused settings
+/// 4. AI Benchmarks - AI vs Human comparison card
+/// 5. History - Test history with trend chart
+/// 6. Domain Scores - Six cognitive domains breakdown
+/// 7. Settings - Privacy-focused settings
 final class AppStoreScreenshotTests: BaseUITest {
     // MARK: - Properties
 
@@ -106,7 +107,7 @@ final class AppStoreScreenshotTests: BaseUITest {
 
     /// Generate all App Store screenshots in sequence
     ///
-    /// This test captures all 6 screenshots in the recommended order for App Store submission.
+    /// This test captures all 7 screenshots in the recommended order for App Store submission.
     /// Screenshots are attached to the test results and can be extracted from the xcresult bundle.
     func testGenerateAllScreenshots() {
         // Wait for app to be ready
@@ -126,13 +127,16 @@ final class AppStoreScreenshotTests: BaseUITest {
         // 3. Submit test and capture results
         captureResultsScreenshot()
 
-        // 4. Navigate to History and capture trends
+        // 4. Capture AI vs Human benchmarks (still on results screen)
+        captureAIBenchmarksScreenshot()
+
+        // 5. Navigate to History and capture trends
         captureHistoryScreenshot()
 
-        // 5. Capture domain scores detail
+        // 6. Capture domain scores detail
         captureDomainScoresScreenshot()
 
-        // 6. Navigate to Settings
+        // 7. Navigate to Settings
         captureSettingsScreenshot()
     }
 
@@ -340,6 +344,27 @@ final class AppStoreScreenshotTests: BaseUITest {
         takeScreenshot(named: "03_Results")
     }
 
+    /// Scroll to AI Comparison Card on results screen and capture screenshot
+    private func captureAIBenchmarksScreenshot() {
+        // The AI Comparison Card is below domain scores in the results ScrollView.
+        // We're already on TestResultsView after captureResultsScreenshot().
+        let aiCard = app.descendants(matching: .any)["aiComparisonCard.container"]
+
+        // Swipe up to bring the AI Comparison Card into view
+        app.swipeUp()
+        app.swipeUp()
+
+        guard aiCard.waitForExistence(timeout: networkTimeout) else {
+            XCTFail("AI Comparison Card not found on results screen")
+            return
+        }
+
+        // Wait for card animations to complete (gauge + domain bars animate on appear)
+        waitForUIToSettle(element: aiCard)
+
+        takeScreenshot(named: "04_AIBenchmarks")
+    }
+
     /// Navigate to history and capture screenshot
     private func captureHistoryScreenshot() {
         // If we're on the TestResultsView, tap Done to return to the main tab bar
@@ -367,7 +392,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         // Wait for chart animations to complete
         waitForUIToSettle(element: historyList)
 
-        takeScreenshot(named: "04_History")
+        takeScreenshot(named: "05_History")
     }
 
     /// Capture domain scores breakdown
@@ -377,7 +402,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         if domainScoresSection.exists {
             domainScoresSection.swipeUp()
             waitForUIToSettle(element: domainScoresSection)
-            takeScreenshot(named: "05_DomainScores")
+            takeScreenshot(named: "06_DomainScores")
             return
         }
 
@@ -402,7 +427,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         _ = detailView.waitForExistence(timeout: standardTimeout)
         waitForUIToSettle(element: detailView)
 
-        takeScreenshot(named: "05_DomainScores")
+        takeScreenshot(named: "06_DomainScores")
     }
 
     /// Navigate to settings and capture screenshot
@@ -422,7 +447,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         )
         waitForUIToSettle(element: settingsView)
 
-        takeScreenshot(named: "06_Settings")
+        takeScreenshot(named: "07_Settings")
     }
 }
 
