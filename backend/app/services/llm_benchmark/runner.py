@@ -22,12 +22,15 @@ from app.core.scoring.engine import (
     iq_to_percentile,
     calculate_domain_scores,
 )
+from sqlalchemy import select
+
 from app.core.scoring.test_composition import async_select_stratified_questions
 from app.models.llm_benchmark import (
     LLMTestSession,
     LLMResponse as LLMResponseRecord,
     LLMTestResult,
 )
+from app.models.models import Question
 from app.services.llm_benchmark.providers import (
     LLMResponse as ProviderResponse,
     complete_openai,
@@ -150,20 +153,28 @@ async def run_llm_benchmark(
     model_id: str,
     *,
     total_questions: int | None = None,
+    question_ids: list[int] | None = None,
     triggered_by: str = "manual",
 ) -> int:
-    """Run a full LLM benchmark session against a stratified question set.
+    """Run a full LLM benchmark session against a question set.
 
     Creates an LLMTestSession, iterates through selected questions, calls the
     appropriate LLM provider, scores each answer, persists LLMResponse records,
     and finally writes an LLMTestResult with aggregate scores.
+
+    When *question_ids* is provided the runner uses those exact questions in the
+    given order (fixed-set mode).  Otherwise it falls back to stratified
+    sampling (the original behaviour).
 
     Args:
         db: Async database session.
         vendor: Provider name — one of "openai", "anthropic", "google".
         model_id: Model identifier passed through to the provider function.
         total_questions: Override for the number of questions to select.
-            Defaults to settings.TEST_TOTAL_QUESTIONS.
+            Defaults to settings.TEST_TOTAL_QUESTIONS.  Ignored when
+            *question_ids* is provided.
+        question_ids: Optional fixed list of question IDs.  When given,
+            bypasses stratified sampling and uses these questions in order.
         triggered_by: Free-form label describing what initiated this run
             (e.g. "manual", "cron", "ci").
 
@@ -171,7 +182,8 @@ async def run_llm_benchmark(
         The integer primary key of the created LLMTestSession.
 
     Raises:
-        ValueError: If the vendor is not recognised.
+        ValueError: If the vendor is not recognised or question_ids contains
+            IDs that don't exist in the database.
     """
     provider_fn = _PROVIDER_DISPATCH.get(vendor)
     if provider_fn is None:
@@ -179,12 +191,6 @@ async def run_llm_benchmark(
             f"Unknown vendor {vendor!r}. Must be one of: "
             + ", ".join(_PROVIDER_DISPATCH)
         )
-
-    n_questions = (
-        total_questions
-        if total_questions is not None
-        else settings.TEST_TOTAL_QUESTIONS
-    )
 
     # --- 1. Create session record -----------------------------------------
     session_record = LLMTestSession(
@@ -196,22 +202,46 @@ async def run_llm_benchmark(
     db.add(session_record)
     await db.flush()  # obtain session_record.id without committing
     session_id: int = session_record.id
+
+    # --- 2. Select questions -------------------------------------------------
+    if question_ids is not None:
+        # Fixed-set mode: load questions by ID, preserving caller order.
+        q = select(Question).where(Question.id.in_(question_ids))
+        rows = (await db.execute(q)).scalars().all()
+        id_to_question = {row.id: row for row in rows}
+
+        missing = set(question_ids) - id_to_question.keys()
+        if missing:
+            raise ValueError(f"Question IDs not found: {sorted(missing)}")
+
+        questions = [id_to_question[qid] for qid in question_ids]
+        composition_metadata = {
+            "mode": "fixed_set",
+            "question_ids": question_ids,
+        }
+    else:
+        n_questions = (
+            total_questions
+            if total_questions is not None
+            else settings.TEST_TOTAL_QUESTIONS
+        )
+        questions, composition_metadata = await async_select_stratified_questions(
+            db,
+            user_id=0,
+            total_count=n_questions,
+            skip_seen_filter=True,
+        )
+
+    session_record.composition_metadata = composition_metadata
+
     logger.info(
-        "LLM benchmark session %d started: vendor=%s model=%s questions=%d",
+        "LLM benchmark session %d started: vendor=%s model=%s questions=%d mode=%s",
         session_id,
         vendor,
         model_id,
-        n_questions,
+        len(questions),
+        "fixed_set" if question_ids else "stratified",
     )
-
-    # --- 2. Select questions -------------------------------------------------
-    questions, composition_metadata = await async_select_stratified_questions(
-        db,
-        user_id=0,
-        total_count=n_questions,
-        skip_seen_filter=True,
-    )
-    session_record.composition_metadata = composition_metadata
 
     questions_dict = {q.id: q for q in questions}
 
