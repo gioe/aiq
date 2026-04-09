@@ -71,8 +71,30 @@ def _normalize_answer(raw: str) -> str:
     return text.strip()
 
 
+def _extract_json_from_prose(text: str) -> str:
+    """Try to extract a JSON object from prose text.
+
+    Scans for ``{"answer": ...}`` patterns embedded in natural language.
+    Returns the extracted answer string, or empty string if not found.
+    """
+    # Find JSON-like substrings starting with { and ending with }
+    for match in re.finditer(r"\{[^{}]*\}", text):
+        try:
+            data = json.loads(match.group())
+            if "answer" in data:
+                return str(data.get("answer", ""))
+        except (json.JSONDecodeError, AttributeError):
+            continue
+    return ""
+
+
 def _parse_answer_from_response(raw_text: str) -> str:
-    """Extract the answer value from a JSON response string.
+    r"""Extract the answer value from a JSON response string.
+
+    Handles multiple response formats:
+    1. Pure JSON: ``{"answer": "Paris"}``
+    2. Markdown-fenced JSON: `` ```json\n{"answer": "Paris"}\n``` ``
+    3. JSON embedded in prose: ``The answer is {"answer": "Paris"}.``
 
     Returns an empty string if parsing fails.
     """
@@ -87,8 +109,15 @@ def _parse_answer_from_response(raw_text: str) -> str:
             data = json.loads(stripped)
             return str(data.get("answer", ""))
         except (json.JSONDecodeError, AttributeError):
-            logger.warning("Could not parse JSON from LLM response: %.200s", raw_text)
-            return ""
+            pass
+
+    # Fall back to extracting JSON from within prose text
+    result = _extract_json_from_prose(raw_text)
+    if result:
+        return result
+
+    logger.warning("Could not parse JSON from LLM response: %.200s", raw_text)
+    return ""
 
 
 async def run_llm_benchmark(
