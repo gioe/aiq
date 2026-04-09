@@ -16,6 +16,7 @@ from app.api.v1 import (
     admin,
     feedback,
     metrics,
+    benchmark,
 )
 
 api_router = APIRouter()
@@ -39,6 +40,7 @@ api_router.include_router(
     model_performance.router, prefix="/analytics", tags=["analytics"]
 )
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(benchmark.router, prefix="/benchmark", tags=["benchmark"])
 api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
 # Metrics endpoint (no prefix - accessible at /v1/metrics)
 api_router.include_router(metrics.router)
