@@ -5,21 +5,24 @@ Provides run triggering, result browsing, and human-vs-model comparison.
 """
 
 import logging
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.core.error_responses import raise_bad_request, raise_not_found
 from app.models import get_db
 from app.models.llm_benchmark import LLMTestResult, LLMTestSession
-from app.models.models import TestResult
+from app.models.models import Question, TestResult
 from app.schemas.llm_benchmark import (
     BenchmarkDetailResponse,
     BenchmarkResultsListResponse,
     BenchmarkSessionSummary,
     CompareResponse,
+    GenerateQuestionSetResponse,
     ModelComparison,
     QuestionBreakdown,
     RunBenchmarkRequest,
@@ -34,6 +37,67 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/llm-benchmark")
 
 _VALID_VENDORS = {"openai", "anthropic", "google"}
+
+
+_DOMAINS = list(settings.TEST_DOMAIN_WEIGHTS.keys())
+_DIFFICULTIES = list(settings.TEST_DIFFICULTY_DISTRIBUTION.keys())
+
+
+@router.get(
+    "/question-set",
+    response_model=GenerateQuestionSetResponse,
+)
+async def generate_question_set(
+    total: int = Query(
+        100,
+        ge=6,
+        le=500,
+        description="Target number of questions. Distributed evenly across domains and difficulties.",
+    ),
+    _: bool = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+) -> GenerateQuestionSetResponse:
+    """Generate a balanced set of question IDs across all domains and difficulties.
+
+    Selects questions evenly across each (domain, difficulty) cell, preferring
+    questions with higher discrimination.  The resulting IDs can be passed to
+    the ``POST /run`` endpoint via the ``question_ids`` field or used to create
+    a named BenchmarkSet via ``POST /v1/admin/benchmark-sets``.
+    """
+    per_cell = total // (len(_DOMAINS) * len(_DIFFICULTIES))
+    remainder = total - per_cell * len(_DOMAINS) * len(_DIFFICULTIES)
+
+    question_ids: list[int] = []
+    domain_dist: dict[str, int] = defaultdict(int)
+    difficulty_dist: dict[str, int] = defaultdict(int)
+
+    for domain in _DOMAINS:
+        for difficulty in _DIFFICULTIES:
+            limit = per_cell + (1 if remainder > 0 else 0)
+            if remainder > 0:
+                remainder -= 1
+
+            q = (
+                select(Question.id)
+                .where(
+                    Question.question_type == domain,
+                    Question.difficulty_level == difficulty,
+                    Question.is_active.is_(True),
+                )
+                .order_by(Question.discrimination.desc().nulls_last())
+                .limit(limit)
+            )
+            rows = (await db.execute(q)).scalars().all()
+            question_ids.extend(rows)
+            domain_dist[domain] += len(rows)
+            difficulty_dist[difficulty] += len(rows)
+
+    return GenerateQuestionSetResponse(
+        question_ids=question_ids,
+        total_questions=len(question_ids),
+        domain_distribution=dict(domain_dist),
+        difficulty_distribution=dict(difficulty_dist),
+    )
 
 
 @router.post(
@@ -60,6 +124,7 @@ async def trigger_benchmark_run(
         body.vendor,
         body.model_id,
         total_questions=body.question_count,
+        question_ids=body.question_ids,
         triggered_by="admin_api",
     )
 
