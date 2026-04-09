@@ -395,5 +395,72 @@ import Foundation
                 )
             ])
         }
+
+        // MARK: - Benchmark Mock Data
+
+        /// Creates a mock ModelSummary for benchmark comparisons.
+        static func makeModelSummary(
+            displayName: String,
+            vendor: String,
+            meanIq: Double,
+            accuracyPct: Double,
+            runs: Int,
+            domainAccuracy: [Components.Schemas.DomainAccuracySummary]? = nil
+        ) -> Components.Schemas.ModelSummary {
+            Components.Schemas.ModelSummary(
+                accuracyPct: accuracyPct,
+                displayName: displayName,
+                domainAccuracy: domainAccuracy,
+                meanIq: meanIq,
+                runs: runs,
+                vendor: vendor
+            )
+        }
+
+        /// Sample benchmark models with realistic IQ scores and domain accuracy.
+        static var sampleBenchmarkModels: [Components.Schemas.ModelSummary] {
+            typealias Domain = Components.Schemas.DomainAccuracySummary
+            return [
+                makeModelSummary(
+                    displayName: "Claude 3.5 Sonnet",
+                    vendor: "anthropic",
+                    meanIq: 132,
+                    accuracyPct: 88.5,
+                    runs: 12,
+                    domainAccuracy: [
+                        Domain(accuracyPct: 92.0, domain: "logic", totalQuestions: 48),
+                        Domain(accuracyPct: 85.0, domain: "math", totalQuestions: 36),
+                        Domain(accuracyPct: 90.0, domain: "pattern", totalQuestions: 42),
+                        Domain(accuracyPct: 87.0, domain: "memory", totalQuestions: 30)
+                    ]
+                ),
+                makeModelSummary(
+                    displayName: "GPT-4o",
+                    vendor: "openai",
+                    meanIq: 128,
+                    accuracyPct: 85.0,
+                    runs: 15,
+                    domainAccuracy: [
+                        Domain(accuracyPct: 88.0, domain: "logic", totalQuestions: 60),
+                        Domain(accuracyPct: 82.0, domain: "math", totalQuestions: 45),
+                        Domain(accuracyPct: 86.0, domain: "pattern", totalQuestions: 52),
+                        Domain(accuracyPct: 84.0, domain: "memory", totalQuestions: 38)
+                    ]
+                ),
+                makeModelSummary(
+                    displayName: "Gemini 1.5 Pro",
+                    vendor: "google",
+                    meanIq: 121,
+                    accuracyPct: 79.5,
+                    runs: 8,
+                    domainAccuracy: [
+                        Domain(accuracyPct: 83.0, domain: "logic", totalQuestions: 32),
+                        Domain(accuracyPct: 76.0, domain: "math", totalQuestions: 24),
+                        Domain(accuracyPct: 80.0, domain: "pattern", totalQuestions: 28),
+                        Domain(accuracyPct: 78.0, domain: "memory", totalQuestions: 20)
+                    ]
+                )
+            ]
+        }
     }
 #endif

@@ -290,10 +290,16 @@ import Foundation
 
         func getBenchmarkSummary() async throws -> Components.Schemas.BenchmarkSummaryResponse {
             try throwIfNetworkError()
+            let models: [Components.Schemas.ModelSummary] = switch scenario {
+            case .loggedInWithHistory, .loggedInWithHistoryNilDate:
+                MockDataFactory.sampleBenchmarkModels
+            default:
+                []
+            }
             return Components.Schemas.BenchmarkSummaryResponse(
                 cacheTtl: 600,
                 minRuns: 3,
-                models: []
+                models: models
             )
         }
 
