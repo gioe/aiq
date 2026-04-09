@@ -44,7 +44,12 @@ Always use these skills instead of running commands directly:
 ### Key patterns
 
 - **MVVM**: All ViewModels inherit from `BaseViewModel`. Views observe `@Published` properties. ViewModels should not import SwiftUI (except for `ObservableObject`).
-- **OpenAPI code-gen**: The backend Pydantic schemas generate `openapi.json`, which Swift OpenAPI Generator turns into type-safe client code at build time via the local `Packages/APIClient` package. When the backend API changes, copy the new spec: `cp docs/api/openapi.json ios/Packages/APIClient/Sources/APIClient/openapi.json` — no remote release required.
+- **OpenAPI code-gen**: The backend Pydantic schemas generate `openapi.json`, which Swift OpenAPI Generator turns into type-safe client code via the local `Packages/AIQAPIClient` package. The generated sources in `Packages/AIQAPIClient/Sources/AIQAPIClientCore/GeneratedSources/` are committed manually. When the backend API changes, regenerate:
+  1. Copy the updated spec: `cp docs/api/openapi.json ios/AIQ/openapi.json` and `cp docs/api/openapi.json ios/Packages/AIQAPIClient/Sources/AIQAPIClientCore/openapi.json`
+  2. Temporarily add `swift-openapi-generator` (from: "1.10.4") to `Packages/AIQAPIClient/Package.swift` dependencies and remove the `exclude` list from the `AIQAPIClientCore` target
+  3. Run: `cd ios/Packages/AIQAPIClient && swift package resolve && swift package --allow-writing-to-package-directory generate-code-from-openapi --target AIQAPIClientCore`
+  4. Restore `Package.swift` to its original state (re-add `exclude` list, remove generator dependency)
+  5. Build to verify: `/build-ios-project`
 - **Model extensions**: UI computed properties for generated types go in the app's `AIQ/Models/` directory as `<TypeName>+Extensions.swift` (bring-your-own-extensions pattern, TASK-113). The local `APIClient` package is kept clean of product-specific code; use `Packages/APIClient/Sources/AIQAPIClient/` for API-layer display helpers, and `AIQ/Models/` for app-level domain logic. Date formatting stays in the main app's `Date+Extensions.swift`.
 - **Accessibility**: Full VoiceOver support, Dynamic Type, semantic colors, RTL layout support required.
 - **Branding string sweeps**: When replacing a user-visible term (e.g., "IQ" → "AIQ"), use `grep -rn '\bIQ\b' ios/` (no quote anchors) rather than `grep '"[^"]*IQ[^"]*"'`. The quote-anchored pattern misses Swift string interpolations like `"IQ score \(iqScore)"` in model/extension files. Also check `Packages/APIClient/Sources/AIQAPIClient/` and `AIQ/Models/` for accessibility computed properties.
