@@ -1,6 +1,6 @@
 """add_benchmark_set_tables
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 75aa1726e3aa
 Revises: 7b6f5b98429d
 Create Date: 2026-04-08 00:00:00.000000
 
@@ -13,7 +13,7 @@ from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"  # pragma: allowlist secret
+revision: str = "75aa1726e3aa"  # pragma: allowlist secret
 down_revision: Union[str, None] = "7b6f5b98429d"  # pragma: allowlist secret
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
