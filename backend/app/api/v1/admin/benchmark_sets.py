@@ -60,6 +60,42 @@ def _build_set_response(benchmark_set: BenchmarkSet) -> BenchmarkSetResponse:
     )
 
 
+def _build_detail_response(benchmark_set: BenchmarkSet) -> BenchmarkSetDetailResponse:
+    """Build a BenchmarkSetDetailResponse from a loaded BenchmarkSet.
+
+    Expects questions and their Question relationship to already be loaded.
+    """
+    domain_dist: dict[str, int] = defaultdict(int)
+    difficulty_dist: dict[str, int] = defaultdict(int)
+    question_details = []
+    for bsq in benchmark_set.questions:
+        q = bsq.question
+        domain_dist[str(q.question_type)] += 1
+        difficulty_dist[str(q.difficulty_level)] += 1
+        question_details.append(
+            BenchmarkSetQuestionDetail(
+                position=bsq.position,
+                question_id=bsq.question_id,
+                question_type=str(q.question_type),
+                difficulty_level=str(q.difficulty_level),
+                question_text=q.question_text,
+            )
+        )
+
+    return BenchmarkSetDetailResponse(
+        id=benchmark_set.id,
+        name=benchmark_set.name,
+        description=benchmark_set.description,
+        is_active=benchmark_set.is_active,
+        total_questions=len(benchmark_set.questions),
+        domain_distribution=dict(domain_dist),
+        difficulty_distribution=dict(difficulty_dist),
+        created_at=benchmark_set.created_at,
+        updated_at=benchmark_set.updated_at,
+        questions=question_details,
+    )
+
+
 @router.post(
     "",
     response_model=BenchmarkSetDetailResponse,
@@ -83,6 +119,10 @@ async def create_benchmark_set(
             f"A benchmark set named '{body.name}' already exists (ID: {existing.id})."
         )
 
+    # Reject duplicate question IDs.
+    if len(body.question_ids) != len(set(body.question_ids)):
+        raise_bad_request("Duplicate question IDs are not allowed.")
+
     # Validate all question IDs exist and are active.
     questions_q = select(Question).where(
         Question.id.in_(body.question_ids),
@@ -91,8 +131,7 @@ async def create_benchmark_set(
     found_questions = (await db.execute(questions_q)).scalars().all()
     found_ids = {q.id for q in found_questions}
 
-    requested_ids = set(body.question_ids)
-    missing_ids = requested_ids - found_ids
+    missing_ids = set(body.question_ids) - found_ids
     if missing_ids:
         sorted_missing = sorted(missing_ids)
         raise_bad_request(
@@ -108,16 +147,14 @@ async def create_benchmark_set(
     db.add(benchmark_set)
     await db.flush()  # Populate benchmark_set.id before inserting children.
 
-    question_map = {q.id: q for q in found_questions}
-    bsq_rows = []
     for position, question_id in enumerate(body.question_ids):
-        bsq = BenchmarkSetQuestion(
-            benchmark_set_id=benchmark_set.id,
-            question_id=question_id,
-            position=position,
+        db.add(
+            BenchmarkSetQuestion(
+                benchmark_set_id=benchmark_set.id,
+                question_id=question_id,
+                position=position,
+            )
         )
-        db.add(bsq)
-        bsq_rows.append((bsq, question_map[question_id]))
 
     await db.commit()
 
@@ -133,23 +170,6 @@ async def create_benchmark_set(
     )
     loaded = (await db.execute(reload_q)).scalar_one()
 
-    domain_dist: dict[str, int] = defaultdict(int)
-    difficulty_dist: dict[str, int] = defaultdict(int)
-    question_details = []
-    for bsq in loaded.questions:
-        q = bsq.question
-        domain_dist[str(q.question_type)] += 1
-        difficulty_dist[str(q.difficulty_level)] += 1
-        question_details.append(
-            BenchmarkSetQuestionDetail(
-                position=bsq.position,
-                question_id=bsq.question_id,
-                question_type=str(q.question_type),
-                difficulty_level=str(q.difficulty_level),
-                question_text=q.question_text,
-            )
-        )
-
     logger.info(
         "Created benchmark set '%s' (ID: %d) with %d questions.",
         loaded.name,
@@ -157,18 +177,7 @@ async def create_benchmark_set(
         len(loaded.questions),
     )
 
-    return BenchmarkSetDetailResponse(
-        id=loaded.id,
-        name=loaded.name,
-        description=loaded.description,
-        is_active=loaded.is_active,
-        total_questions=len(loaded.questions),
-        domain_distribution=dict(domain_dist),
-        difficulty_distribution=dict(difficulty_dist),
-        created_at=loaded.created_at,
-        updated_at=loaded.updated_at,
-        questions=question_details,
-    )
+    return _build_detail_response(loaded)
 
 
 @router.get(
@@ -220,32 +229,4 @@ async def get_benchmark_set(
     if benchmark_set is None:
         raise_not_found(f"Benchmark set '{name}' not found.")
 
-    domain_dist: dict[str, int] = defaultdict(int)
-    difficulty_dist: dict[str, int] = defaultdict(int)
-    question_details = []
-    for bsq in benchmark_set.questions:
-        q = bsq.question
-        domain_dist[str(q.question_type)] += 1
-        difficulty_dist[str(q.difficulty_level)] += 1
-        question_details.append(
-            BenchmarkSetQuestionDetail(
-                position=bsq.position,
-                question_id=bsq.question_id,
-                question_type=str(q.question_type),
-                difficulty_level=str(q.difficulty_level),
-                question_text=q.question_text,
-            )
-        )
-
-    return BenchmarkSetDetailResponse(
-        id=benchmark_set.id,
-        name=benchmark_set.name,
-        description=benchmark_set.description,
-        is_active=benchmark_set.is_active,
-        total_questions=len(benchmark_set.questions),
-        domain_distribution=dict(domain_dist),
-        difficulty_distribution=dict(difficulty_dist),
-        created_at=benchmark_set.created_at,
-        updated_at=benchmark_set.updated_at,
-        questions=question_details,
-    )
+    return _build_detail_response(benchmark_set)
