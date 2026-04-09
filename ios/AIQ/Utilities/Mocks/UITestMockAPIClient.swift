@@ -112,10 +112,18 @@ import Foundation
             timeLimitExceeded _: Bool
         ) async throws -> TestSubmitResponse {
             try throwIfNetworkError()
+            let result: TestResult = switch scenario {
+            case .timerExpiredWithAnswers:
+                UITestMockData.lowScoreResult
+            case .loggedInWithHistoryNilDate:
+                UITestMockData.midScoreResult
+            default:
+                UITestMockData.highScoreResult
+            }
             return TestSubmitResponse(
                 message: "Test completed successfully",
                 responsesCount: UITestMockData.sampleQuestions.count,
-                result: UITestMockData.highScoreResult,
+                result: result,
                 session: UITestMockData.completedSession
             )
         }
@@ -500,6 +508,28 @@ import Foundation
             totalQuestions: 20,
             correctAnswers: 18,
             accuracyPercentage: 90.0,
+            completedAt: Date()
+        )
+
+        static let midScoreResult = MockDataFactory.makeTestResult(
+            id: 6,
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 100,
+            totalQuestions: 20,
+            correctAnswers: 12,
+            accuracyPercentage: 60.0,
+            completedAt: Date()
+        )
+
+        static let lowScoreResult = MockDataFactory.makeTestResult(
+            id: 7,
+            testSessionId: 100,
+            userId: 1,
+            iqScore: 85,
+            totalQuestions: 20,
+            correctAnswers: 8,
+            accuracyPercentage: 40.0,
             completedAt: Date()
         )
     }
