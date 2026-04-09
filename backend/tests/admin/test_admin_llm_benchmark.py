@@ -4,6 +4,7 @@ Tests for LLM benchmark admin API endpoints.
 Covers POST /run, GET /results, GET /results/{session_id}, and GET /compare.
 """
 
+import math
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
@@ -63,6 +64,7 @@ def _create_result(
     percentile=75.0,
     total_questions=20,
     correct_answers=15,
+    domain_scores=None,
 ):
     result = LLMTestResult(
         session_id=session.id,
@@ -72,7 +74,11 @@ def _create_result(
         percentile_rank=percentile,
         total_questions=total_questions,
         correct_answers=correct_answers,
-        domain_scores={"pattern": 0.8, "logic": 0.7},
+        domain_scores=(
+            domain_scores
+            if domain_scores is not None
+            else {"pattern": 0.8, "logic": 0.7}
+        ),
         completed_at=session.started_at,
     )
     db.add(result)
@@ -479,6 +485,146 @@ class TestCompareHumanVsModels:
         assert data["human_avg_iq"] == pytest.approx(100.0)
         assert data["human_test_count"] == 1
         assert data["models"] == []
+
+    def test_compare_confidence_intervals(
+        self, client, db_session, admin_headers, test_user
+    ):
+        """CI is computed when multiple human results exist."""
+        from app.models.models import TestSession
+
+        scores = [95, 100, 105, 110, 115]
+        for score in scores:
+            session = TestSession(user_id=test_user.id, status=TestStatus.COMPLETED)
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+            db_session.add(
+                TestResult(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    iq_score=score,
+                    total_questions=20,
+                    correct_answers=12,
+                )
+            )
+        db_session.commit()
+
+        resp = client.get("/v1/admin/llm-benchmark/compare", headers=admin_headers)
+        data = resp.json()
+
+        assert data["human_avg_iq"] == pytest.approx(105.0)
+        assert data["human_test_count"] == 5
+        ci = data["human_ci"]
+        assert ci is not None
+        assert ci["lower"] < 105.0
+        assert ci["upper"] > 105.0
+        # sample stdev([95,100,105,110,115]) = sqrt(250/4) ≈ 7.906; margin ≈ 6.93
+        assert ci["lower"] == pytest.approx(
+            105.0 - 1.96 * math.sqrt(250 / 4) / math.sqrt(5), abs=0.05
+        )
+
+    def test_compare_low_sample_warning(
+        self, client, db_session, admin_headers, test_user
+    ):
+        """Warning shown when human_test_count < 30."""
+        from app.models.models import TestSession
+
+        session = TestSession(user_id=test_user.id, status=TestStatus.COMPLETED)
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+        db_session.add(
+            TestResult(
+                test_session_id=session.id,
+                user_id=test_user.id,
+                iq_score=100,
+                total_questions=20,
+                correct_answers=12,
+            )
+        )
+        db_session.commit()
+
+        resp = client.get("/v1/admin/llm-benchmark/compare", headers=admin_headers)
+        data = resp.json()
+
+        assert data["low_sample_warning"] is not None
+        assert "1 human" in data["low_sample_warning"]
+        assert "30" in data["low_sample_warning"]
+
+    def test_compare_domain_breakdown(
+        self, client, db_session, admin_headers, test_user
+    ):
+        """Domain breakdown aggregates human and model domain_scores."""
+        from app.models.models import TestSession
+
+        human_session = TestSession(user_id=test_user.id, status=TestStatus.COMPLETED)
+        db_session.add(human_session)
+        db_session.commit()
+        db_session.refresh(human_session)
+
+        human_result = TestResult(
+            test_session_id=human_session.id,
+            user_id=test_user.id,
+            iq_score=100,
+            total_questions=20,
+            correct_answers=12,
+            domain_scores={
+                "pattern": {"correct": 3, "total": 5, "pct": 60.0},
+                "logic": {"correct": 4, "total": 5, "pct": 80.0},
+            },
+        )
+        db_session.add(human_result)
+        db_session.commit()
+
+        llm_session = _create_session(db_session)
+        _create_result(
+            db_session,
+            llm_session,
+            iq_score=110,
+            domain_scores={
+                "pattern": {"correct": 4, "total": 5, "pct": 80.0},
+                "logic": {"correct": 5, "total": 5, "pct": 100.0},
+            },
+        )
+
+        resp = client.get("/v1/admin/llm-benchmark/compare", headers=admin_headers)
+        data = resp.json()
+
+        breakdown = {d["domain"]: d for d in data["domain_breakdown"]}
+        assert "pattern" in breakdown
+        assert breakdown["pattern"]["human_pct"] == pytest.approx(60.0)
+        assert breakdown["pattern"]["model_pct"] == pytest.approx(80.0)
+
+    def test_compare_effect_size(self, client, db_session, admin_headers, test_user):
+        """Cohen's d is computed when both groups have >= 2 observations."""
+        from app.models.models import TestSession
+
+        for score in [95, 105]:
+            session = TestSession(user_id=test_user.id, status=TestStatus.COMPLETED)
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+            db_session.add(
+                TestResult(
+                    test_session_id=session.id,
+                    user_id=test_user.id,
+                    iq_score=score,
+                    total_questions=20,
+                    correct_answers=12,
+                )
+            )
+        db_session.commit()
+
+        for iq in [115, 125]:
+            s = _create_session(db_session)
+            _create_result(db_session, s, iq_score=iq)
+
+        resp = client.get("/v1/admin/llm-benchmark/compare", headers=admin_headers)
+        data = resp.json()
+
+        assert data["effect_size"] is not None
+        # Human mean=100, model mean=120, both std=~7.07 → d ≈ -2.83
+        assert data["effect_size"] < 0  # models score higher
 
     def test_compare_unauthorized(self, client, db_session):
         resp = client.get(
