@@ -30,7 +30,7 @@ class RunBenchmarkRequest(BaseModel):
         ...,
         description=(
             "Vendor-specific model identifier "
-            "(e.g. 'gpt-4o', 'claude-3-5-sonnet-20241022', 'gemini-2.0-flash')."
+            "(e.g. 'gpt-5.2', 'claude-sonnet-4-5-20250929', 'gemini-3.1-pro-preview')."
         ),
     )
     question_count: Optional[int] = Field(

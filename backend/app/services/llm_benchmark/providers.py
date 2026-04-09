@@ -45,7 +45,7 @@ def _error_response(model: str, error: str) -> LLMResponse:
 # ---------------------------------------------------------------------------
 
 _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-_OPENAI_MODEL = "gpt-4o-mini"
+_OPENAI_MODEL = "gpt-5.2"
 
 
 async def complete_openai(prompt: str, *, model: str = _OPENAI_MODEL) -> LLMResponse:
@@ -94,7 +94,7 @@ async def complete_openai(prompt: str, *, model: str = _OPENAI_MODEL) -> LLMResp
 # ---------------------------------------------------------------------------
 
 _ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-_ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+_ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929"
 
 
 async def complete_anthropic(
@@ -154,7 +154,7 @@ async def complete_anthropic(
 # ---------------------------------------------------------------------------
 
 _GOOGLE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-_GOOGLE_MODEL = "gemini-2.5-flash"
+_GOOGLE_MODEL = "gemini-3.1-pro-preview"
 
 
 async def complete_google(prompt: str, *, model: str = _GOOGLE_MODEL) -> LLMResponse:

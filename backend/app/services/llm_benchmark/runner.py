@@ -51,9 +51,10 @@ _PROVIDER_DISPATCH: dict[str, Callable[..., Awaitable[ProviderResponse]]] = {
 # Used for cost-cap enforcement only — not billing-grade.
 _COST_PER_M_TOKENS: dict[str, tuple[float, float]] = {
     # (input_cost, output_cost) per 1M tokens
-    "openai": (0.15, 0.60),  # gpt-4o-mini
-    "anthropic": (3.00, 15.00),  # claude-sonnet-4
-    "google": (0.075, 0.30),  # gemini-2.0-flash
+    # Prices from question-service/config/models.yaml
+    "openai": (5.00, 15.00),  # gpt-5.2
+    "anthropic": (3.00, 15.00),  # claude-sonnet-4.5
+    "google": (1.25, 10.00),  # gemini-3.1-pro-preview
 }
 
 
