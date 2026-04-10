@@ -1,1 +1,1 @@
-MZGenre.HealthAndFitness
+HEALTH_AND_FITNESS

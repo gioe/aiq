@@ -149,10 +149,11 @@ platform :ios do
     submit_review
   end
 
-  desc "Build and upload to TestFlight only (no App Store submission)"
+  desc "Build and upload to TestFlight with metadata and screenshots"
   lane :beta do
     bump_build_number
     build
     upload_testflight
+    upload_metadata
   end
 end

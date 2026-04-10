@@ -75,6 +75,10 @@ cd ios && ruby scripts/add_files_to_xcode.rb AIQ/Features/Auth/Views/LoginView.s
 
 > **Why:** If the group is missing, `add_files_to_xcode.rb` silently places the file under the root AIQ group with an incorrect path, which causes "Build input files cannot be found" build failures. Always create the group first.
 
+### Verifying path attributes after adding files
+
+After running `add_files_to_xcode.rb` for files in nested groups (e.g., `AIQ/Features/Test/Views/`), verify the `PBXFileReference` in `project.pbxproj` uses the full relative path — not just the filename. The script sometimes registers `path = Filename.swift` instead of `path = Features/Module/Views/Filename.swift`, which causes "Build input file cannot be found" errors. Compare against sibling files in the same group to confirm the format includes `name = Filename.swift; path = Features/...`.
+
 ### Migrating existing files to a new location
 
 When files are **already registered** in the Xcode project and you're moving them (e.g., from `AIQ/Views/X.swift` to `AIQ/Features/Y/Views/X.swift`), `add_files_to_xcode.rb` detects the existing file reference by filename and moves it into the new group — but does **not** update its `path` attribute. This results in the file resolving to the wrong filesystem location and a "Build input files cannot be found" failure.

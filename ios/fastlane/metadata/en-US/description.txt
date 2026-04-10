@@ -1,11 +1,11 @@
 AIQ helps you track your cognitive capacity over time—just like you track your physical health with weight and heart rate.
 
 WHAT IS AIQ?
-AIQ uses research-based cognitive assessments to measure your IQ with scientifically validated methods. Unlike traditional IQ tests that you take once, AIQ lets you monitor your cognitive performance over months and years to understand how your mind performs over time.
+AIQ uses research-based cognitive assessments to measure your cognitive capacities with scientifically validated methods. Based on your performance against questions generated and validated by leading LLMs, AIQ lets you monitor your cognitive performance over months and years to understand how your mind performs over time.
 
 HOW IT WORKS
 • Take a comprehensive cognitive assessment covering multiple domains
-• Receive your personalized IQ score with detailed breakdown
+• Receive your personalized score with detailed breakdown
 • Track your cognitive trends over time with historical charts
 • Fresh AI-generated questions ensure valid, repeatable assessments
 
@@ -35,7 +35,10 @@ AIQ uses psychometric principles for reliable, valid assessments:
 • Statistical validity checks for accurate results
 • Continuous improvement through research data
 
+TRY IT WITHOUT AN ACCOUNT
+Take a test as a guest — no sign-up required. Create an account when you're ready to save your history and track trends over time.
+
 START YOUR COGNITIVE JOURNEY
-Download AIQ today and begin understanding your mind like never before. Track your IQ, identify trends, and take charge of your cognitive health.
+Download AIQ today and begin understanding your mind like never before. Track your score, identify trends, and take charge of your cognitive health.
 
 Questions? Contact us at support@a-iq-test.com

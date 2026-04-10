@@ -1,6 +1,13 @@
 AIQ is a cognitive assessment app that allows users to track their IQ scores over time.
 
 To test the app:
+
+Guest mode (no account required):
+1. Tap "Try as Guest" on the welcome screen
+2. Take a cognitive test and view your results immediately
+3. Guest users can take up to 3 tests per device
+
+Registered user mode:
 1. Create an account or use demo credentials
 2. Start a new cognitive test from the home screen
 3. Answer the assessment questions (approximately 20-30 minutes for full test)
@@ -8,6 +15,7 @@ To test the app:
 5. Check Settings for privacy controls and account management
 
 Key features to review:
+• Guest test access without registration
 • Account creation and login
 • Starting and completing a cognitive test
 • Viewing test results and history
