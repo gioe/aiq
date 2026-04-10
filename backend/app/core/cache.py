@@ -112,33 +112,48 @@ def get_cache() -> SimpleCache:
     return _cache
 
 
-def cache_key(*args, **kwargs) -> str:
+def _schema_hash(model: type) -> str:
+    """Return a short, deterministic hash of a Pydantic model's JSON schema."""
+    schema = model.model_json_schema()
+    schema_str = json.dumps(schema, sort_keys=True)
+    return hashlib.md5(schema_str.encode()).hexdigest()[:8]
+
+
+def cache_key(*args, response_model: Optional[type] = None, **kwargs) -> str:
     """
     Generate a cache key from function arguments.
 
     Args:
         *args: Positional arguments
+        response_model: Optional Pydantic model class. When provided, a hash
+            of the model's JSON schema is included in the key so that schema
+            changes automatically invalidate stale cache entries.
         **kwargs: Keyword arguments
 
     Returns:
-        MD5 hash of serialized arguments
+        MD5 hash of serialized arguments (plus schema version when provided)
     """
     # Create a deterministic string from args and kwargs
-    key_data = {
+    key_data: dict = {
         "args": args,
         "kwargs": sorted(kwargs.items()),  # Sort for consistent ordering
     }
+    if response_model is not None:
+        key_data["_schema"] = _schema_hash(response_model)
     key_str = json.dumps(key_data, sort_keys=True, default=str)
     return hashlib.md5(key_str.encode()).hexdigest()
 
 
-def cached(ttl: int = 300, key_prefix: str = ""):
+def cached(ttl: int = 300, key_prefix: str = "", response_model: Optional[type] = None):
     """
     Decorator to cache function results.
 
     Args:
         ttl: Time-to-live in seconds (default: 5 minutes)
         key_prefix: Prefix for cache keys (useful for namespacing)
+        response_model: Optional Pydantic model class whose schema hash is
+            included in the cache key. Schema changes automatically invalidate
+            stale entries.
 
     Returns:
         Decorated function that caches results
@@ -154,7 +169,7 @@ def cached(ttl: int = 300, key_prefix: str = ""):
         @wraps(func)
         def wrapper(*args, **kwargs):
             # Generate cache key
-            args_key = cache_key(*args, **kwargs)
+            args_key = cache_key(*args, response_model=response_model, **kwargs)
             full_key = f"{key_prefix}:{func.__name__}:{args_key}"
 
             # Try to get from cache
