@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective Date:** January 23, 2026
+**Effective Date:** April 10, 2026
 
 This Privacy Policy describes how AIQ ("we," "us," or "our") collects, uses, and shares your personal information when you use our mobile application (the "App"). We are committed to protecting your privacy and being transparent about our data practices.
 
@@ -31,6 +31,17 @@ When you create an account and use AIQ, we collect:
 - **Name** (first and last) - Used to personalize your profile and test results display
 - **Password** - Stored securely using industry-standard bcrypt hashing (we never store passwords in plain text)
 
+### Guest Users (No Account Required)
+
+You can take a limited number of cognitive assessments without creating an account. When you use AIQ as a guest, we collect:
+
+- **Device ID** - A unique identifier for your iOS device, used to enforce guest test usage limits (currently 3 free tests per device) and to associate your test session with your device
+- **Test Responses** - Your answers to assessment questions during the guest session
+- **Test Scores** - Calculated IQ scores and performance metrics for the guest session
+- **Response Times** - Time spent on each question
+
+Guest data is collected anonymously — we do not collect your name, email, or any other personally identifiable information during guest usage. If you later create an account, your guest test data may be linked to your new account.
+
 ### Test Performance Data
 
 To provide our core cognitive assessment service, we collect:
@@ -54,6 +65,7 @@ When you use the App, we automatically collect:
   - Crash reporting and debugging
   - Analytics to improve app performance
   - Linking your test sessions to your account
+  - Enforcing guest test usage limits (limiting free tests for non-registered users)
 
 - **Crash and Diagnostic Data** - Information about app crashes, errors, and performance issues, including:
   - Stack traces and error logs
@@ -152,6 +164,14 @@ We retain your personal information for as long as necessary to provide our serv
 - **Account Information** - Retained as long as your account is active
 - **Test Results** - Retained as long as your account is active to provide historical tracking
 - **Analytics Data** - Retained for up to 24 months for service improvement
+
+### Guest Data
+
+Guest test data (test responses, scores, and associated device ID) is retained for up to 12 months from the date of the test session. After this period, guest data is permanently deleted unless:
+- You create an account and your guest data is linked to it (in which case the Active Accounts retention policy applies)
+- Retention is required by law
+
+Guest device IDs used for test usage limit enforcement are retained for as long as necessary to maintain accurate usage counts.
 
 ### Deleted Accounts
 
@@ -290,7 +310,7 @@ AIQ is the data controller responsible for your personal information. Contact de
 We process your personal information under the following legal bases:
 
 - **Contract Performance** - Processing necessary to provide the AIQ service (account management, test delivery, score calculation)
-- **Legitimate Interests** - Processing for analytics, service improvement, security, and fraud prevention, where not overridden by your rights
+- **Legitimate Interests** - Processing for analytics, service improvement, security, and fraud prevention, where not overridden by your rights. This includes collecting device IDs and anonymous test data from guest users to enforce test usage limits and prevent abuse of our free assessment offering
 - **Consent** - Processing for optional features like push notifications (you can withdraw consent anytime)
 - **Legal Obligations** - Processing to comply with laws and regulations
 
@@ -343,6 +363,6 @@ We will respond to all legitimate requests within the timeframes required by app
 
 ---
 
-**Last Updated:** January 23, 2026
+**Last Updated:** April 10, 2026
 
 This Privacy Policy is effective as of the date stated above and applies to all users of the AIQ mobile application.
