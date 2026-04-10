@@ -271,6 +271,33 @@ import Foundation
             )
         }
 
+        // MARK: - Guest Test Management
+
+        func startGuestTest(deviceId _: String) async throws -> Components.Schemas.GuestStartTestResponse {
+            try throwIfNetworkError()
+            return Components.Schemas.GuestStartTestResponse(
+                guestToken: "mock-guest-token",
+                questions: UITestMockData.sampleQuestions,
+                session: UITestMockData.newSession,
+                testsRemaining: 3,
+                totalQuestions: UITestMockData.sampleQuestions.count
+            )
+        }
+
+        func submitGuestTest(
+            guestToken _: String,
+            responses _: [QuestionResponse],
+            timeLimitExceeded _: Bool
+        ) async throws -> Components.Schemas.GuestSubmitTestResponse {
+            try throwIfNetworkError()
+            return Components.Schemas.GuestSubmitTestResponse(
+                message: "Test submitted successfully",
+                responsesCount: UITestMockData.sampleQuestions.count,
+                result: UITestMockData.highScoreResult,
+                session: UITestMockData.completedSession
+            )
+        }
+
         // MARK: - Notifications
 
         func registerDevice(deviceToken _: String) async throws {
