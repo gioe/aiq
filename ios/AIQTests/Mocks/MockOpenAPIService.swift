@@ -33,6 +33,8 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private(set) var submitFeedbackCalled = false
     private(set) var setTokensCalled = false
     private(set) var clearTokensCalled = false
+    private(set) var startGuestTestCalled = false
+    private(set) var submitGuestTestCalled = false
 
     // MARK: - Parameter Capture
 
@@ -60,6 +62,10 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private(set) var lastAdaptiveResponseUserAnswer: String?
     private(set) var lastAdaptiveResponseTimeSpent: Int?
     private(set) var lastGetTestProgressSessionId: Int?
+    private(set) var lastStartGuestTestDeviceId: String?
+    private(set) var lastSubmitGuestTestToken: String?
+    private(set) var lastSubmitGuestTestResponses: [QuestionResponse]?
+    private(set) var lastSubmitGuestTestTimeLimitExceeded: Bool?
 
     // MARK: - Call Counts
 
@@ -108,6 +114,10 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     var getNotificationPreferencesError: Error?
     var submitFeedbackResponse: FeedbackSubmitResponse?
     var submitFeedbackError: Error?
+    var startGuestTestResponse: Components.Schemas.GuestStartTestResponse?
+    var startGuestTestError: Error?
+    var submitGuestTestResponse: Components.Schemas.GuestSubmitTestResponse?
+    var submitGuestTestError: Error?
 
     // MARK: - Initialization
 
@@ -317,6 +327,38 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         return response
     }
 
+    // MARK: - Guest Test Management
+
+    func startGuestTest(deviceId: String) async throws -> Components.Schemas.GuestStartTestResponse {
+        startGuestTestCalled = true
+        lastStartGuestTestDeviceId = deviceId
+        if let error = startGuestTestError { throw error }
+        guard let response = startGuestTestResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "startGuestTestResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    func submitGuestTest(
+        guestToken: String,
+        responses: [QuestionResponse],
+        timeLimitExceeded: Bool
+    ) async throws -> Components.Schemas.GuestSubmitTestResponse {
+        submitGuestTestCalled = true
+        lastSubmitGuestTestToken = guestToken
+        lastSubmitGuestTestResponses = responses
+        lastSubmitGuestTestTimeLimitExceeded = timeLimitExceeded
+        if let error = submitGuestTestError { throw error }
+        guard let response = submitGuestTestResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "submitGuestTestResponse not configured"
+            ])
+        }
+        return response
+    }
+
     // MARK: - Notifications
 
     func registerDevice(deviceToken: String) async throws {
@@ -430,6 +472,8 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         submitFeedbackCalled = false
         setTokensCalled = false
         clearTokensCalled = false
+        startGuestTestCalled = false
+        submitGuestTestCalled = false
 
         lastLoginEmail = nil
         lastLoginPassword = nil
@@ -455,6 +499,10 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         lastAdaptiveResponseUserAnswer = nil
         lastAdaptiveResponseTimeSpent = nil
         lastGetTestProgressSessionId = nil
+        lastStartGuestTestDeviceId = nil
+        lastSubmitGuestTestToken = nil
+        lastSubmitGuestTestResponses = nil
+        lastSubmitGuestTestTimeLimitExceeded = nil
 
         getTestHistoryCallCount = 0
         abandonTestCallCount = 0
@@ -497,5 +545,9 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         getNotificationPreferencesError = nil
         submitFeedbackResponse = nil
         submitFeedbackError = nil
+        startGuestTestResponse = nil
+        startGuestTestError = nil
+        submitGuestTestResponse = nil
+        submitGuestTestError = nil
     }
 }

@@ -1,4 +1,5 @@
 @testable import AIQ
+import AIQAPIClientCore
 import AIQSharedKit
 import Combine
 import XCTest
@@ -608,6 +609,217 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertEqual(sut.navigationState.currentQuestionIndex, 0, "Question index should be reset to 0")
     }
 
+    // MARK: - Guest Test Flow Tests
+
+    func testStartGuestTest_Success_SetsGuestModeAndSessionAndQuestions() async {
+        // Given
+        let sessionId = 3001
+        let questions = makeQuestions(count: 3)
+        mockService.startGuestTestResponse = makeGuestStartResponse(
+            sessionId: sessionId,
+            questions: questions,
+            guestToken: "test-guest-token",
+            testsRemaining: 2
+        )
+
+        // When
+        await sut.startGuestTest(deviceId: "test-device-id")
+
+        // Then
+        XCTAssertTrue(sut.isGuestMode, "isGuestMode should be true after startGuestTest")
+        XCTAssertNotNil(sut.testSession, "testSession should be set after successful start")
+        XCTAssertEqual(sut.testSession?.id, sessionId, "testSession ID should match response")
+        XCTAssertEqual(sut.navigationState.questions.count, 3, "Questions should be loaded")
+        XCTAssertEqual(sut.guestTestsRemaining, 2, "guestTestsRemaining should be set from response")
+        XCTAssertFalse(sut.isLoading, "isLoading should be false after success")
+        XCTAssertNil(sut.error, "No error should be set on success")
+    }
+
+    func testStartGuestTest_Success_PassesDeviceId() async {
+        // Given
+        let deviceId = "unique-device-identifier-123"
+        let questions = makeQuestions(count: 3)
+        mockService.startGuestTestResponse = makeGuestStartResponse(
+            sessionId: 3002,
+            questions: questions
+        )
+
+        // When
+        await sut.startGuestTest(deviceId: deviceId)
+
+        // Then
+        XCTAssertTrue(mockService.startGuestTestCalled, "startGuestTest should be called on the service")
+        XCTAssertEqual(mockService.lastStartGuestTestDeviceId, deviceId, "deviceId should be passed through to the API")
+    }
+
+    func testStartGuestTest_APIError_SetsContextualError() async {
+        // Given
+        let apiError = APIError.api(.serverError(statusCode: 429, message: "Guest test limit exceeded"))
+        mockService.startGuestTestError = apiError
+
+        // When
+        await sut.startGuestTest(deviceId: "test-device-id")
+
+        // Then
+        XCTAssertNotNil(sut.error, "Error should be set after API error")
+        XCTAssertFalse(sut.isLoading, "isLoading should be false after error")
+        XCTAssertTrue(sut.isGuestMode, "isGuestMode is set true before the API call, so it stays true")
+    }
+
+    func testStartGuestTest_GenericError_SetsContextualError() async {
+        // Given
+        let genericError = NSError(domain: "NetworkError", code: -1009, userInfo: [
+            NSLocalizedDescriptionKey: "The Internet connection appears to be offline."
+        ])
+        mockService.startGuestTestError = genericError
+
+        // When
+        await sut.startGuestTest(deviceId: "test-device-id")
+
+        // Then
+        XCTAssertNotNil(sut.error, "Error should be set after generic error")
+        XCTAssertFalse(sut.isLoading, "isLoading should be false after error")
+    }
+
+    func testSubmitTest_GuestMode_CallsPerformGuestSubmission() async {
+        // Given - start a guest test
+        let sessionId = 3003
+        let questions = makeQuestions(count: 3)
+        mockService.startGuestTestResponse = makeGuestStartResponse(
+            sessionId: sessionId,
+            questions: questions,
+            guestToken: "submit-test-token"
+        )
+        await sut.startGuestTest(deviceId: "test-device-id")
+
+        // Answer all questions
+        for question in sut.navigationState.questions {
+            sut.navigationState.userAnswers[question.id] = "A"
+        }
+
+        mockService.submitGuestTestResponse = makeGuestSubmitResponse(sessionId: sessionId)
+
+        // When
+        await sut.submitTest()
+
+        // Then
+        XCTAssertTrue(mockService.submitGuestTestCalled, "submitGuestTest should be called on the mock service")
+        XCTAssertEqual(mockService.lastSubmitGuestTestToken, "submit-test-token", "Guest token should be passed through")
+        XCTAssertEqual(mockService.lastSubmitGuestTestTimeLimitExceeded, false, "timeLimitExceeded should be false for manual submit")
+        XCTAssertFalse(mockService.submitTestCalled, "The authenticated submitTest should NOT be called in guest mode")
+    }
+
+    func testSubmitTest_GuestMode_Success_SetsResultAndCompletedState() async {
+        // Given
+        let sessionId = 3004
+        let questions = makeQuestions(count: 3)
+        mockService.startGuestTestResponse = makeGuestStartResponse(
+            sessionId: sessionId,
+            questions: questions
+        )
+        await sut.startGuestTest(deviceId: "test-device-id")
+
+        for question in sut.navigationState.questions {
+            sut.navigationState.userAnswers[question.id] = "B"
+        }
+
+        let submitResponse = makeGuestSubmitResponse(sessionId: sessionId, iqScore: 112)
+        mockService.submitGuestTestResponse = submitResponse
+
+        // When
+        await sut.submitTest()
+
+        // Then
+        XCTAssertTrue(sut.isTestCompleted, "isTestCompleted should be true after successful guest submit")
+        XCTAssertNotNil(sut.testResult, "testResult should be set after successful guest submit")
+        XCTAssertNil(sut.error, "No error should be set on success")
+    }
+
+    func testSubmitTest_GuestMode_Error_SetsError() async {
+        // Given
+        let sessionId = 3005
+        let questions = makeQuestions(count: 3)
+        mockService.startGuestTestResponse = makeGuestStartResponse(
+            sessionId: sessionId,
+            questions: questions
+        )
+        await sut.startGuestTest(deviceId: "test-device-id")
+
+        for question in sut.navigationState.questions {
+            sut.navigationState.userAnswers[question.id] = "C"
+        }
+
+        let submitError = APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
+        mockService.submitGuestTestError = submitError
+
+        // When
+        await sut.submitTest()
+
+        // Then
+        XCTAssertNotNil(sut.error, "Error should be set after failed guest submit")
+        XCTAssertFalse(sut.isTestCompleted, "isTestCompleted should remain false after failed submit")
+    }
+
+    func testSubmitTestForTimeout_GuestMode_ZeroAnswers_AbandonsSilently() async {
+        // Given - start a guest test with no answers
+        let sessionId = 3006
+        let questions = makeQuestions(count: 3)
+        mockService.startGuestTestResponse = makeGuestStartResponse(
+            sessionId: sessionId,
+            questions: questions
+        )
+        await sut.startGuestTest(deviceId: "test-device-id")
+
+        XCTAssertEqual(sut.answeredCount, 0, "Precondition: no answers given")
+
+        // When
+        await sut.submitTestForTimeout()
+
+        // Then
+        XCTAssertTrue(sut.wasAbandonedSilently, "wasAbandonedSilently should be true for zero-answer guest timeout")
+        XCTAssertNil(sut.testSession, "testSession should be cleared on silent guest abandonment")
+        XCTAssertFalse(mockService.submitGuestTestCalled, "submitGuestTest should NOT be called when zero answers")
+        XCTAssertFalse(mockService.abandonTestCalled, "abandonTest should NOT be called for guest mode (no auth)")
+    }
+
+    func testSubmitTestForTimeout_GuestMode_WithAnswers_SubmitsWithTimeLimitExceeded() async {
+        // Given - start a guest test and answer some questions
+        let sessionId = 3007
+        let questions = makeQuestions(count: 3)
+        mockService.startGuestTestResponse = makeGuestStartResponse(
+            sessionId: sessionId,
+            questions: questions
+        )
+        await sut.startGuestTest(deviceId: "test-device-id")
+
+        // Answer only some questions (partial answers allowed for timeout submit)
+        sut.navigationState.userAnswers[questions[0].id] = "A"
+        sut.navigationState.userAnswers[questions[1].id] = "B"
+        XCTAssertEqual(sut.answeredCount, 2, "Precondition: two answers given")
+
+        mockService.submitGuestTestResponse = makeGuestSubmitResponse(sessionId: sessionId)
+
+        // When
+        await sut.submitTestForTimeout()
+
+        // Then
+        XCTAssertTrue(mockService.submitGuestTestCalled, "submitGuestTest should be called when answers exist")
+        XCTAssertEqual(mockService.lastSubmitGuestTestTimeLimitExceeded, true, "timeLimitExceeded should be true for timeout submit")
+        XCTAssertFalse(mockService.submitTestCalled, "Authenticated submitTest should NOT be called in guest mode")
+    }
+
+    func testSubmitTestForTimeout_GuestMode_NoSession_SetsError() async {
+        // Given - guest mode is NOT set, and no session exists
+        // (sut is in fresh state: no session, no guest mode)
+        XCTAssertNil(sut.testSession, "Precondition: no test session")
+
+        // When
+        await sut.submitTestForTimeout()
+
+        // Then - should surface an error because there's no active session
+        XCTAssertNotNil(sut.error, "Error should be set when no session exists for timeout submit")
+    }
+
     // MARK: - Test Factory Methods
 
     private func makeTestSession(
@@ -706,6 +918,58 @@ final class TestTakingViewModelTests: XCTestCase {
             correctAnswers: correctAnswers,
             accuracyPercentage: accuracyPercentage,
             completedAt: completedAt
+        )
+    }
+
+    private func makeGuestStartResponse(
+        sessionId: Int,
+        questions: [Question],
+        guestToken: String = "test-guest-token",
+        testsRemaining: Int = 2,
+        totalQuestions: Int? = nil
+    ) -> Components.Schemas.GuestStartTestResponse {
+        Components.Schemas.GuestStartTestResponse(
+            guestToken: guestToken,
+            questions: questions,
+            session: Components.Schemas.TestSessionResponse(
+                id: sessionId,
+                startedAt: Date(),
+                status: "in_progress",
+                userId: 0
+            ),
+            testsRemaining: testsRemaining,
+            totalQuestions: totalQuestions ?? questions.count
+        )
+    }
+
+    private func makeGuestSubmitResponse(
+        sessionId: Int,
+        responsesCount: Int = 3,
+        iqScore: Int = 105,
+        correctAnswers: Int = 2,
+        totalQuestions: Int = 3,
+        accuracyPercentage: Double = 66.7
+    ) -> Components.Schemas.GuestSubmitTestResponse {
+        Components.Schemas.GuestSubmitTestResponse(
+            message: "Guest test submitted",
+            responsesCount: responsesCount,
+            result: Components.Schemas.TestResultResponse(
+                accuracyPercentage: accuracyPercentage,
+                completedAt: Date(),
+                correctAnswers: correctAnswers,
+                id: 1,
+                iqScore: iqScore,
+                testSessionId: sessionId,
+                totalQuestions: totalQuestions,
+                userId: 0
+            ),
+            session: Components.Schemas.TestSessionResponse(
+                completedAt: Date(),
+                id: sessionId,
+                startedAt: Date(),
+                status: "completed",
+                userId: 0
+            )
         )
     }
 
