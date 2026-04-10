@@ -24,14 +24,19 @@ struct GuestTestContainerView: View {
     /// Callback to exit guest mode and return to WelcomeView
     let onExit: () -> Void
 
+    /// Called when the guest test limit has been reached (testsRemaining == 0)
+    let onLimitReached: () -> Void
+
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.appTheme) private var theme
 
     init(
         onExit: @escaping () -> Void,
+        onLimitReached: @escaping () -> Void = {},
         serviceContainer: ServiceContainer = .shared
     ) {
         self.onExit = onExit
+        self.onLimitReached = onLimitReached
         let vm = ViewModelFactory.makeTestTakingViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
     }
@@ -437,10 +442,30 @@ struct GuestTestContainerView: View {
 
     // MARK: - Actions
 
+    private static let guestDeviceIdKey = "com.aiq.guestDeviceId"
+
+    /// Returns a stable device identifier for guest tests.
+    /// Prefers identifierForVendor; falls back to a UUID persisted in UserDefaults.
+    private func stableDeviceId() -> String {
+        if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
+            return vendorId
+        }
+        let defaults = UserDefaults.standard
+        if let stored = defaults.string(forKey: Self.guestDeviceIdKey) {
+            return stored
+        }
+        let newId = UUID().uuidString
+        defaults.set(newId, forKey: Self.guestDeviceIdKey)
+        return newId
+    }
+
     private func startGuestTest() async {
-        let deviceId = UIDevice.current.identifierForVendor?.uuidString
-            ?? UUID().uuidString
+        let deviceId = stableDeviceId()
         await viewModel.startGuestTest(deviceId: deviceId)
+
+        if viewModel.guestTestsRemaining == 0 {
+            onLimitReached()
+        }
 
         if let session = viewModel.testSession {
             let timerStarted = timerManager.startWithSessionTime(session.startedAt)

@@ -441,7 +441,14 @@ class TestTakingViewModel: BaseViewModel {
 
     /// Submit a guest test using the stored guest token
     private func performGuestSubmission(timeLimitExceeded: Bool) async {
-        guard let session = testSession, let token = guestToken else { return }
+        guard let session = testSession, let token = guestToken else {
+            let err = ContextualError(
+                error: .api(.unknown(message: "Missing guest token or session")),
+                operation: .submitTest
+            )
+            handleError(err, context: CrashlyticsErrorRecorder.ErrorContext.submitTest.rawValue)
+            return
+        }
         isSubmitting = true
         defer { isSubmitting = false }
         clearError()

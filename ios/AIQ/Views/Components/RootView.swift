@@ -115,9 +115,14 @@ struct RootView: View {
                         MainTabView()
                     }
                 } else if isGuestTestMode {
-                    GuestTestContainerView(onExit: {
-                        isGuestTestMode = false
-                    })
+                    GuestTestContainerView(
+                        onExit: {
+                            isGuestTestMode = false
+                        },
+                        onLimitReached: {
+                            isGuestLimitReached = true
+                        }
+                    )
                 } else {
                     WelcomeView(
                         onStartGuestTest: {
