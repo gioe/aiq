@@ -63,6 +63,8 @@ struct RootView: View {
     @State private var showSplash = true
     @State private var isBiometricLocked = false
     @State private var hasAcceptedConsent: Bool
+    @State private var isGuestTestMode = false
+    @State private var isGuestLimitReached = false
     /// Set to true after restoreSession() completes. Gates MainTabView/OnboardingContainerView
     /// from rendering until session tokens are stable, preventing DashboardView.task from
     /// making API calls concurrently with validateSession()'s token refresh.
@@ -112,8 +114,17 @@ struct RootView: View {
                     } else {
                         MainTabView()
                     }
+                } else if isGuestTestMode {
+                    GuestTestContainerView(onExit: {
+                        isGuestTestMode = false
+                    })
                 } else {
-                    WelcomeView()
+                    WelcomeView(
+                        onStartGuestTest: {
+                            isGuestTestMode = true
+                        },
+                        isGuestLimitReached: isGuestLimitReached
+                    )
                 }
             }
             .task {

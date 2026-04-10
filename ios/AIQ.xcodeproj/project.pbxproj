@@ -272,6 +272,7 @@
 		EA7BFC6FBEC499DF5F8D0891 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27D5F7D5011005CA8EF6841 /* OnboardingViewModel.swift */; };
 		ECA2EEC6F3D845FEADEB9015 /* AIQSharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 666F2CD1B6D44CB2B4FCB894 /* AIQSharedKit */; };
 		ED8AACC1354B34EDA90CBCF0 /* UITestMockNetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5A66CEDB6C4EBE047F1AF /* UITestMockNetworkMonitor.swift */; };
+		EE1BFC44375E2BAC2375019E /* GuestTestContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFEC171E1CA8076069CDE4B /* GuestTestContainerView.swift */; };
 		EE7FC19E3214835FBF1D7351 /* AIComparisonCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C3F13ADF1B45E4AEB6FA58D /* AIComparisonCardTests.swift */; };
 		EF41B8640185CE579F347B7D /* TestTimerModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3DE625363E7D923EC1A875 /* TestTimerModifier.swift */; };
 		F0DBC3E90AB1EC893C223D22 /* DomainScoresView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C27A3BC7BC5A7E9215CA1112 /* DomainScoresView.swift */; };
@@ -381,6 +382,7 @@
 		2C333BE1267F47B99054F76A /* KeychainStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStorageTests.swift; sourceTree = "<group>"; };
 		2D32657F591428C1B808AF1A /* HistoryPreferencesStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HistoryPreferencesStorage.swift; sourceTree = "<group>"; };
 		2DDBE2C07CB038DC1DA1E453 /* UITestMockNotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UITestMockNotificationService.swift; sourceTree = "<group>"; };
+		2EFEC171E1CA8076069CDE4B /* GuestTestContainerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GuestTestContainerView.swift; path = Features/Guest/Views/GuestTestContainerView.swift; sourceTree = "<group>"; };
 		2F37BA365B1D92EB76125320 /* TestCompletionViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestCompletionViewTests.swift; sourceTree = "<group>"; };
 		300F0EB6567454426087E83B /* IQTrendChartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IQTrendChartTests.swift; sourceTree = "<group>"; };
 		3024C5290E1AEBB243A5EDEA /* AppStateStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppStateStorage.swift; sourceTree = "<group>"; };
@@ -647,6 +649,7 @@
 				1AC76D92C992F2A8F9A9E50F /* Dashboard */,
 				BE5295FC846E9932B97773CA /* History */,
 				155FCA58D2F86B66E0C7EE59 /* Test */,
+				E2426937288D2D98E8C4E938 /* Guest */,
 			);
 			name = Features;
 			sourceTree = "<group>";
@@ -1037,6 +1040,14 @@
 			path = Navigation;
 			sourceTree = "<group>";
 		};
+		7345C7E42271C493927BE231 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				2EFEC171E1CA8076069CDE4B /* GuestTestContainerView.swift */,
+			);
+			name = Views;
+			sourceTree = "<group>";
+		};
 		73BB07B1DB177A352AF3D0BB /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
@@ -1298,6 +1309,14 @@
 				F58E513A5860F5C33062C7C1 /* DashboardViewModel.swift */,
 			);
 			name = ViewModels;
+			sourceTree = "<group>";
+		};
+		E2426937288D2D98E8C4E938 /* Guest */ = {
+			isa = PBXGroup;
+			children = (
+				7345C7E42271C493927BE231 /* Views */,
+			);
+			name = Guest;
 			sourceTree = "<group>";
 		};
 		E345CF7CEB89BB362627FD7F /* ViewModels */ = {
@@ -1808,6 +1827,7 @@
 				540E8FBB3E26DCC030D8DDE8 /* ModelPerformanceView.swift in Sources */,
 				24B5CC6B706BC4AC4A48C7FE /* AIComparisonCard.swift in Sources */,
 				5A2DFFD323ACCE48D77359B8 /* AIComparisonCardLogic.swift in Sources */,
+				EE1BFC44375E2BAC2375019E /* GuestTestContainerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -6,10 +6,24 @@ struct WelcomeView: View {
     @StateObject private var viewModel: LoginViewModel
     @State private var isAnimating = false
 
+    /// Callback to start a guest test (bypasses authentication)
+    var onStartGuestTest: (() -> Void)?
+
+    /// When true, the guest test limit has been reached for this device
+    var isGuestLimitReached: Bool = false
+
     /// Creates a WelcomeView with the specified service container
-    /// - Parameter serviceContainer: Container for resolving dependencies. Defaults to the shared container.
-    ///   Parent views can inject this from `@Environment(\.serviceContainer)` for better testability.
-    init(serviceContainer: ServiceContainer = .shared) {
+    /// - Parameters:
+    ///   - onStartGuestTest: Callback invoked when the user taps "Try a Free Test"
+    ///   - isGuestLimitReached: Whether the device has exhausted guest tests
+    ///   - serviceContainer: Container for resolving dependencies
+    init(
+        onStartGuestTest: (() -> Void)? = nil,
+        isGuestLimitReached: Bool = false,
+        serviceContainer: ServiceContainer = .shared
+    ) {
+        self.onStartGuestTest = onStartGuestTest
+        self.isGuestLimitReached = isGuestLimitReached
         let vm = ViewModelFactory.makeLoginViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
     }
@@ -130,6 +144,43 @@ struct WelcomeView: View {
                             value: isAnimating
                         )
 
+                        // Guest Test CTA
+                        if let onStartGuestTest {
+                            VStack(spacing: DesignSystem.Spacing.md) {
+                                if isGuestLimitReached {
+                                    // Limit reached — sign-up messaging
+                                    VStack(spacing: DesignSystem.Spacing.sm) {
+                                        Text("Create an account to keep testing")
+                                            .font(theme.typography.bodyMedium)
+                                            .foregroundColor(theme.colors.textSecondary)
+                                            .multilineTextAlignment(.center)
+                                    }
+                                } else {
+                                    Text("or")
+                                        .font(theme.typography.bodyMedium)
+                                        .foregroundColor(theme.colors.textTertiary)
+
+                                    Button(action: onStartGuestTest) {
+                                        HStack(spacing: DesignSystem.Spacing.sm) {
+                                            Image(systemName: "play.circle.fill")
+                                            Text("Try a Free Test")
+                                        }
+                                        .font(theme.typography.button)
+                                        .foregroundColor(theme.colors.primary)
+                                        .frame(minHeight: 44)
+                                    }
+                                }
+                            }
+                            .opacity(isAnimating ? 1.0 : 0.0)
+                            .animation(
+                                reduceMotion
+                                    ? nil
+                                    : theme.animations.smooth
+                                    .delay(DesignSystem.AnimationDelay.long),
+                                value: isAnimating
+                            )
+                        }
+
                         // Registration Link
                         VStack(spacing: DesignSystem.Spacing.md) {
                             Text("Don't have an account?")
@@ -147,7 +198,9 @@ struct WelcomeView: View {
                                         .frame(minHeight: 44)
                                 }
                             )
-                            .accessibilityIdentifier(AccessibilityIdentifiers.WelcomeView.createAccountButton)
+                            .accessibilityIdentifier(
+                                AccessibilityIdentifiers.WelcomeView.createAccountButton
+                            )
                         }
                         .padding(.top, DesignSystem.Spacing.sm)
                         .opacity(isAnimating ? 1.0 : 0.0)

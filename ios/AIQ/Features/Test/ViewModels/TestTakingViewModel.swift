@@ -62,6 +62,17 @@ class TestTakingViewModel: BaseViewModel {
     /// Whether we're waiting for the next adaptive question from the server
     @Published private(set) var isLoadingNextQuestion: Bool = false
 
+    // MARK: - Guest Mode Properties
+
+    /// Whether this test session is a guest (unauthenticated) test
+    @Published private(set) var isGuestMode: Bool = false
+
+    /// One-time token returned by startGuestTest, consumed on submit
+    private var guestToken: String?
+
+    /// Number of guest tests remaining for this device after the current test
+    @Published private(set) var guestTestsRemaining: Int?
+
     // MARK: - Private Properties
 
     private let timeTracker = QuestionTimeTracker()
@@ -392,6 +403,69 @@ class TestTakingViewModel: BaseViewModel {
         await coordinator.submitAnswerAndGetNext()
     }
 
+    // MARK: - Guest Test Management
+
+    /// Start a guest test using the device identifier
+    func startGuestTest(deviceId: String) async {
+        isGuestMode = true
+        wasAbandonedSilently = false
+        setLoading(true)
+        clearError()
+
+        do {
+            let response = try await apiService.startGuestTest(deviceId: deviceId)
+            guestToken = response.guestToken
+            guestTestsRemaining = response.testsRemaining
+            handleTestStartSuccess(
+                response: .init(
+                    questions: response.questions,
+                    session: response.session,
+                    totalQuestions: response.totalQuestions
+                )
+            )
+        } catch let error as APIError {
+            handleGuestStartError(error)
+        } catch {
+            handleGenericTestStartError(error, questionCount: 0)
+        }
+    }
+
+    private func handleGuestStartError(_ error: APIError) {
+        let contextualError = ContextualError(
+            error: error,
+            operation: .fetchQuestions
+        )
+        self.error = contextualError
+        setLoading(false)
+    }
+
+    /// Submit a guest test using the stored guest token
+    private func performGuestSubmission(timeLimitExceeded: Bool) async {
+        guard let session = testSession, let token = guestToken else { return }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        clearError()
+
+        let submission = buildTestSubmission(
+            for: session,
+            timeLimitExceeded: timeLimitExceeded
+        )
+        do {
+            let response = try await apiService.submitGuestTest(
+                guestToken: token,
+                responses: submission.responses,
+                timeLimitExceeded: timeLimitExceeded
+            )
+            guestToken = nil
+            testResult = response.result
+            testSession = response.session
+            isTestCompleted = true
+            resetTimeTracking()
+        } catch {
+            handleSubmissionFailure(error)
+        }
+    }
+
     /// Resume an active test session
     /// - Parameter sessionId: The ID of the session to resume
     func resumeActiveSession(sessionId: Int) async {
@@ -563,7 +637,11 @@ class TestTakingViewModel: BaseViewModel {
             return
         }
 
-        await performSubmission(timeLimitExceeded: false)
+        if isGuestMode {
+            await performGuestSubmission(timeLimitExceeded: false)
+        } else {
+            await performSubmission(timeLimitExceeded: false)
+        }
     }
 
     private func performSubmission(timeLimitExceeded: Bool) async {
@@ -602,7 +680,15 @@ class TestTakingViewModel: BaseViewModel {
             print("[TIMEOUT] Auto-submitting test due to timeout: \(answeredCount)/\(qCount) answered")
         #endif
         if answeredCount == 0 {
-            await abandonTestSilently()
+            if isGuestMode {
+                testSession = nil
+                guestToken = nil
+                wasAbandonedSilently = true
+            } else {
+                await abandonTestSilently()
+            }
+        } else if isGuestMode {
+            await performGuestSubmission(timeLimitExceeded: true)
         } else {
             await performSubmission(timeLimitExceeded: true)
         }
