@@ -3678,6 +3678,110 @@
         "title": "GenerateQuestionSetResponse",
         "type": "object"
       },
+      "GuestStartTestResponse": {
+        "description": "Response returned by POST /v1/test/guest/start.\n\nExtends the standard StartTestResponse with a one-time guest_token\n(must be supplied verbatim in the subsequent submit call) and the number\nof tests the device can still take after this one begins.",
+        "properties": {
+          "guest_token": {
+            "description": "One-time token that must be supplied when submitting this test. Valid for GUEST_TOKEN_TTL_MINUTES minutes. Consumed on first use.",
+            "title": "Guest Token",
+            "type": "string"
+          },
+          "questions": {
+            "description": "Questions for this test",
+            "items": {
+              "$ref": "#/components/schemas/QuestionResponse"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "session": {
+            "$ref": "#/components/schemas/TestSessionResponse",
+            "description": "Created guest test session"
+          },
+          "tests_remaining": {
+            "description": "Number of additional guest tests this device may take after the current one. Zero means the client should prompt account creation.",
+            "minimum": 0.0,
+            "title": "Tests Remaining",
+            "type": "integer"
+          },
+          "total_questions": {
+            "description": "Total number of questions in test",
+            "title": "Total Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session",
+          "questions",
+          "total_questions",
+          "guest_token",
+          "tests_remaining"
+        ],
+        "title": "GuestStartTestResponse",
+        "type": "object"
+      },
+      "GuestSubmitRequest": {
+        "description": "Request body for POST /v1/test/guest/submit.\n\nReplaces the authenticated ResponseSubmission.session_id field with a\nguest_token, which the server uses to look up the associated session_id\nand device_id from the in-memory TTLCache.",
+        "properties": {
+          "guest_token": {
+            "description": "One-time token returned by POST /v1/test/guest/start.",
+            "minLength": 1,
+            "title": "Guest Token",
+            "type": "string"
+          },
+          "responses": {
+            "description": "List of responses for the test session",
+            "items": {
+              "$ref": "#/components/schemas/ResponseItem"
+            },
+            "title": "Responses",
+            "type": "array"
+          },
+          "time_limit_exceeded": {
+            "default": false,
+            "description": "Flag indicating if the time limit was exceeded (client-reported)",
+            "title": "Time Limit Exceeded",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "guest_token",
+          "responses"
+        ],
+        "title": "GuestSubmitRequest",
+        "type": "object"
+      },
+      "GuestSubmitTestResponse": {
+        "description": "Response returned by POST /v1/test/guest/submit.\n\nIdentical to SubmitTestResponse \u2014 re-exposed under a guest-specific name\nso the OpenAPI spec tags it correctly and the iOS client can generate a\ntype-safe model for this endpoint independently.",
+        "properties": {
+          "message": {
+            "description": "Confirmation message",
+            "title": "Message",
+            "type": "string"
+          },
+          "responses_count": {
+            "description": "Number of responses submitted",
+            "title": "Responses Count",
+            "type": "integer"
+          },
+          "result": {
+            "$ref": "#/components/schemas/TestResultResponse",
+            "description": "Test result with IQ score"
+          },
+          "session": {
+            "$ref": "#/components/schemas/TestSessionResponse",
+            "description": "Updated test session"
+          }
+        },
+        "required": [
+          "session",
+          "result",
+          "responses_count",
+          "message"
+        ],
+        "title": "GuestSubmitTestResponse",
+        "type": "object"
+      },
       "GuttmanCheckDetails": {
         "description": "Detailed results from Guttman error detection.",
         "properties": {
@@ -13993,6 +14097,93 @@
         "summary": "Get Active Test Session",
         "tags": [
           "test"
+        ]
+      }
+    },
+    "/v1/test/guest/start": {
+      "post": {
+        "description": "Start a new guest test session.\n\nNo authentication required. Returns all questions upfront (fixed-form),\nplus a one-time *guest_token* that must be included when submitting answers.\n\nArgs:\n    x_device_id: Client-supplied device identifier (from X-Device-Id header).\n    db:          Database session.\n\nReturns:\n    GuestStartTestResponse with questions, guest_token, and tests_remaining.\n\nRaises:\n    HTTPException 400: X-Device-Id header is blank.\n    HTTPException 404: No active questions found.\n    HTTPException 429: Device has reached the guest test limit.",
+        "operationId": "start_guest_test_v1_test_guest_start_post",
+        "parameters": [
+          {
+            "description": "Unique identifier for this device. Used to enforce the per-device guest test limit.",
+            "in": "header",
+            "name": "X-Device-Id",
+            "required": true,
+            "schema": {
+              "description": "Unique identifier for this device. Used to enforce the per-device guest test limit.",
+              "title": "X-Device-Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestStartTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Guest Test",
+        "tags": [
+          "guest"
+        ]
+      }
+    },
+    "/v1/test/guest/submit": {
+      "post": {
+        "description": "Submit answers for a guest test session.\n\nThe *guest_token* from the start response is consumed here \u2014 a second call\nwith the same token returns 400.\n\nArgs:\n    submission: Guest submit request with guest_token, responses, and\n                optional time_limit_exceeded flag.\n    db:         Database session.\n\nReturns:\n    GuestSubmitTestResponse (identical structure to SubmitTestResponse).\n\nRaises:\n    HTTPException 400: Invalid or expired guest token, empty responses,\n                      or invalid question IDs.\n    HTTPException 404: Session or question not found.\n    HTTPException 409: Duplicate response for a question.",
+        "operationId": "submit_guest_test_v1_test_guest_submit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestSubmitTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Guest Test",
+        "tags": [
+          "guest"
         ]
       }
     },

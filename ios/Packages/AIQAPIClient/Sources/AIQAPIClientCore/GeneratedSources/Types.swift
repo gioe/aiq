@@ -2129,6 +2129,52 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `GET /v1/test/active`.
     /// - Remark: Generated from `#/paths//v1/test/active/get(get_active_test_session_v1_test_active_get)`.
     func getActiveTestSessionV1TestActiveGet(_ input: Operations.GetActiveTestSessionV1TestActiveGet.Input) async throws -> Operations.GetActiveTestSessionV1TestActiveGet.Output
+    /// Start Guest Test
+    ///
+    /// Start a new guest test session.
+    ///
+    /// No authentication required. Returns all questions upfront (fixed-form),
+    /// plus a one-time *guest_token* that must be included when submitting answers.
+    ///
+    /// Args:
+    ///     x_device_id: Client-supplied device identifier (from X-Device-Id header).
+    ///     db:          Database session.
+    ///
+    /// Returns:
+    ///     GuestStartTestResponse with questions, guest_token, and tests_remaining.
+    ///
+    /// Raises:
+    ///     HTTPException 400: X-Device-Id header is blank.
+    ///     HTTPException 404: No active questions found.
+    ///     HTTPException 429: Device has reached the guest test limit.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/start`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/start/post(start_guest_test_v1_test_guest_start_post)`.
+    func startGuestTestV1TestGuestStartPost(_ input: Operations.StartGuestTestV1TestGuestStartPost.Input) async throws -> Operations.StartGuestTestV1TestGuestStartPost.Output
+    /// Submit Guest Test
+    ///
+    /// Submit answers for a guest test session.
+    ///
+    /// The *guest_token* from the start response is consumed here — a second call
+    /// with the same token returns 400.
+    ///
+    /// Args:
+    ///     submission: Guest submit request with guest_token, responses, and
+    ///                 optional time_limit_exceeded flag.
+    ///     db:         Database session.
+    ///
+    /// Returns:
+    ///     GuestSubmitTestResponse (identical structure to SubmitTestResponse).
+    ///
+    /// Raises:
+    ///     HTTPException 400: Invalid or expired guest token, empty responses,
+    ///                       or invalid question IDs.
+    ///     HTTPException 404: Session or question not found.
+    ///     HTTPException 409: Duplicate response for a question.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/submit`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/submit/post(submit_guest_test_v1_test_guest_submit_post)`.
+    func submitGuestTestV1TestGuestSubmitPost(_ input: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input) async throws -> Operations.SubmitGuestTestV1TestGuestSubmitPost.Output
     /// Get Test History
     ///
     /// Get historical test results for the current user with pagination.
@@ -5043,6 +5089,62 @@ extension APIProtocol {
     /// - Remark: Generated from `#/paths//v1/test/active/get(get_active_test_session_v1_test_active_get)`.
     public func getActiveTestSessionV1TestActiveGet(headers: Operations.GetActiveTestSessionV1TestActiveGet.Input.Headers = .init()) async throws -> Operations.GetActiveTestSessionV1TestActiveGet.Output {
         try await getActiveTestSessionV1TestActiveGet(Operations.GetActiveTestSessionV1TestActiveGet.Input(headers: headers))
+    }
+    /// Start Guest Test
+    ///
+    /// Start a new guest test session.
+    ///
+    /// No authentication required. Returns all questions upfront (fixed-form),
+    /// plus a one-time *guest_token* that must be included when submitting answers.
+    ///
+    /// Args:
+    ///     x_device_id: Client-supplied device identifier (from X-Device-Id header).
+    ///     db:          Database session.
+    ///
+    /// Returns:
+    ///     GuestStartTestResponse with questions, guest_token, and tests_remaining.
+    ///
+    /// Raises:
+    ///     HTTPException 400: X-Device-Id header is blank.
+    ///     HTTPException 404: No active questions found.
+    ///     HTTPException 429: Device has reached the guest test limit.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/start`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/start/post(start_guest_test_v1_test_guest_start_post)`.
+    public func startGuestTestV1TestGuestStartPost(headers: Operations.StartGuestTestV1TestGuestStartPost.Input.Headers) async throws -> Operations.StartGuestTestV1TestGuestStartPost.Output {
+        try await startGuestTestV1TestGuestStartPost(Operations.StartGuestTestV1TestGuestStartPost.Input(headers: headers))
+    }
+    /// Submit Guest Test
+    ///
+    /// Submit answers for a guest test session.
+    ///
+    /// The *guest_token* from the start response is consumed here — a second call
+    /// with the same token returns 400.
+    ///
+    /// Args:
+    ///     submission: Guest submit request with guest_token, responses, and
+    ///                 optional time_limit_exceeded flag.
+    ///     db:         Database session.
+    ///
+    /// Returns:
+    ///     GuestSubmitTestResponse (identical structure to SubmitTestResponse).
+    ///
+    /// Raises:
+    ///     HTTPException 400: Invalid or expired guest token, empty responses,
+    ///                       or invalid question IDs.
+    ///     HTTPException 404: Session or question not found.
+    ///     HTTPException 409: Duplicate response for a question.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/submit`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/submit/post(submit_guest_test_v1_test_guest_submit_post)`.
+    public func submitGuestTestV1TestGuestSubmitPost(
+        headers: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input.Headers = .init(),
+        body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input.Body
+    ) async throws -> Operations.SubmitGuestTestV1TestGuestSubmitPost.Output {
+        try await submitGuestTestV1TestGuestSubmitPost(Operations.SubmitGuestTestV1TestGuestSubmitPost.Input(
+            headers: headers,
+            body: body
+        ))
     }
     /// Get Test History
     ///
@@ -9791,6 +9893,153 @@ public enum Components {
                 case domainDistribution = "domain_distribution"
                 case questionIds = "question_ids"
                 case totalQuestions = "total_questions"
+            }
+        }
+        /// Response returned by POST /v1/test/guest/start.
+        ///
+        /// Extends the standard StartTestResponse with a one-time guest_token
+        /// (must be supplied verbatim in the subsequent submit call) and the number
+        /// of tests the device can still take after this one begins.
+        ///
+        /// - Remark: Generated from `#/components/schemas/GuestStartTestResponse`.
+        public struct GuestStartTestResponse: Codable, Hashable, Sendable {
+            /// One-time token that must be supplied when submitting this test. Valid for GUEST_TOKEN_TTL_MINUTES minutes. Consumed on first use.
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestStartTestResponse/guest_token`.
+            public var guestToken: Swift.String
+            /// Questions for this test
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestStartTestResponse/questions`.
+            public var questions: [Components.Schemas.QuestionResponse]
+            /// Created guest test session
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestStartTestResponse/session`.
+            public var session: Components.Schemas.TestSessionResponse
+            /// Number of additional guest tests this device may take after the current one. Zero means the client should prompt account creation.
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestStartTestResponse/tests_remaining`.
+            public var testsRemaining: Swift.Int
+            /// Total number of questions in test
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestStartTestResponse/total_questions`.
+            public var totalQuestions: Swift.Int
+            /// Creates a new `GuestStartTestResponse`.
+            ///
+            /// - Parameters:
+            ///   - guestToken: One-time token that must be supplied when submitting this test. Valid for GUEST_TOKEN_TTL_MINUTES minutes. Consumed on first use.
+            ///   - questions: Questions for this test
+            ///   - session: Created guest test session
+            ///   - testsRemaining: Number of additional guest tests this device may take after the current one. Zero means the client should prompt account creation.
+            ///   - totalQuestions: Total number of questions in test
+            public init(
+                guestToken: Swift.String,
+                questions: [Components.Schemas.QuestionResponse],
+                session: Components.Schemas.TestSessionResponse,
+                testsRemaining: Swift.Int,
+                totalQuestions: Swift.Int
+            ) {
+                self.guestToken = guestToken
+                self.questions = questions
+                self.session = session
+                self.testsRemaining = testsRemaining
+                self.totalQuestions = totalQuestions
+            }
+            public enum CodingKeys: String, CodingKey {
+                case guestToken = "guest_token"
+                case questions
+                case session
+                case testsRemaining = "tests_remaining"
+                case totalQuestions = "total_questions"
+            }
+        }
+        /// Request body for POST /v1/test/guest/submit.
+        ///
+        /// Replaces the authenticated ResponseSubmission.session_id field with a
+        /// guest_token, which the server uses to look up the associated session_id
+        /// and device_id from the in-memory TTLCache.
+        ///
+        /// - Remark: Generated from `#/components/schemas/GuestSubmitRequest`.
+        public struct GuestSubmitRequest: Codable, Hashable, Sendable {
+            /// One-time token returned by POST /v1/test/guest/start.
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestSubmitRequest/guest_token`.
+            public var guestToken: Swift.String
+            /// List of responses for the test session
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestSubmitRequest/responses`.
+            public var responses: [Components.Schemas.ResponseItem]
+            /// Flag indicating if the time limit was exceeded (client-reported)
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestSubmitRequest/time_limit_exceeded`.
+            public var timeLimitExceeded: Swift.Bool?
+            /// Creates a new `GuestSubmitRequest`.
+            ///
+            /// - Parameters:
+            ///   - guestToken: One-time token returned by POST /v1/test/guest/start.
+            ///   - responses: List of responses for the test session
+            ///   - timeLimitExceeded: Flag indicating if the time limit was exceeded (client-reported)
+            public init(
+                guestToken: Swift.String,
+                responses: [Components.Schemas.ResponseItem],
+                timeLimitExceeded: Swift.Bool? = nil
+            ) {
+                self.guestToken = guestToken
+                self.responses = responses
+                self.timeLimitExceeded = timeLimitExceeded
+            }
+            public enum CodingKeys: String, CodingKey {
+                case guestToken = "guest_token"
+                case responses
+                case timeLimitExceeded = "time_limit_exceeded"
+            }
+        }
+        /// Response returned by POST /v1/test/guest/submit.
+        ///
+        /// Identical to SubmitTestResponse — re-exposed under a guest-specific name
+        /// so the OpenAPI spec tags it correctly and the iOS client can generate a
+        /// type-safe model for this endpoint independently.
+        ///
+        /// - Remark: Generated from `#/components/schemas/GuestSubmitTestResponse`.
+        public struct GuestSubmitTestResponse: Codable, Hashable, Sendable {
+            /// Confirmation message
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestSubmitTestResponse/message`.
+            public var message: Swift.String
+            /// Number of responses submitted
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestSubmitTestResponse/responses_count`.
+            public var responsesCount: Swift.Int
+            /// Test result with IQ score
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestSubmitTestResponse/result`.
+            public var result: Components.Schemas.TestResultResponse
+            /// Updated test session
+            ///
+            /// - Remark: Generated from `#/components/schemas/GuestSubmitTestResponse/session`.
+            public var session: Components.Schemas.TestSessionResponse
+            /// Creates a new `GuestSubmitTestResponse`.
+            ///
+            /// - Parameters:
+            ///   - message: Confirmation message
+            ///   - responsesCount: Number of responses submitted
+            ///   - result: Test result with IQ score
+            ///   - session: Updated test session
+            public init(
+                message: Swift.String,
+                responsesCount: Swift.Int,
+                result: Components.Schemas.TestResultResponse,
+                session: Components.Schemas.TestSessionResponse
+            ) {
+                self.message = message
+                self.responsesCount = responsesCount
+                self.result = result
+                self.session = session
+            }
+            public enum CodingKeys: String, CodingKey {
+                case message
+                case responsesCount = "responses_count"
+                case result
+                case session
             }
         }
         /// Detailed results from Guttman error detection.
@@ -34346,6 +34595,384 @@ public enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Start Guest Test
+    ///
+    /// Start a new guest test session.
+    ///
+    /// No authentication required. Returns all questions upfront (fixed-form),
+    /// plus a one-time *guest_token* that must be included when submitting answers.
+    ///
+    /// Args:
+    ///     x_device_id: Client-supplied device identifier (from X-Device-Id header).
+    ///     db:          Database session.
+    ///
+    /// Returns:
+    ///     GuestStartTestResponse with questions, guest_token, and tests_remaining.
+    ///
+    /// Raises:
+    ///     HTTPException 400: X-Device-Id header is blank.
+    ///     HTTPException 404: No active questions found.
+    ///     HTTPException 429: Device has reached the guest test limit.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/start`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/start/post(start_guest_test_v1_test_guest_start_post)`.
+    public enum StartGuestTestV1TestGuestStartPost {
+        public static let id: Swift.String = "start_guest_test_v1_test_guest_start_post"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/test/guest/start/POST/header`.
+            public struct Headers: Sendable, Hashable {
+                /// Unique identifier for this device. Used to enforce the per-device guest test limit.
+                ///
+                /// - Remark: Generated from `#/paths/v1/test/guest/start/POST/header/X-Device-Id`.
+                public var xDeviceId: Swift.String
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.StartGuestTestV1TestGuestStartPost.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xDeviceId: Unique identifier for this device. Used to enforce the per-device guest test limit.
+                ///   - accept:
+                public init(
+                    xDeviceId: Swift.String,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.StartGuestTestV1TestGuestStartPost.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xDeviceId = xDeviceId
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.StartGuestTestV1TestGuestStartPost.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            public init(headers: Operations.StartGuestTestV1TestGuestStartPost.Input.Headers) {
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/test/guest/start/POST/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/test/guest/start/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.GuestStartTestResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.GuestStartTestResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.StartGuestTestV1TestGuestStartPost.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.StartGuestTestV1TestGuestStartPost.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/test/guest/start/post(start_guest_test_v1_test_guest_start_post)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.StartGuestTestV1TestGuestStartPost.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.StartGuestTestV1TestGuestStartPost.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/test/guest/start/POST/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/test/guest/start/POST/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.StartGuestTestV1TestGuestStartPost.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.StartGuestTestV1TestGuestStartPost.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/test/guest/start/post(start_guest_test_v1_test_guest_start_post)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.StartGuestTestV1TestGuestStartPost.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.StartGuestTestV1TestGuestStartPost.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Submit Guest Test
+    ///
+    /// Submit answers for a guest test session.
+    ///
+    /// The *guest_token* from the start response is consumed here — a second call
+    /// with the same token returns 400.
+    ///
+    /// Args:
+    ///     submission: Guest submit request with guest_token, responses, and
+    ///                 optional time_limit_exceeded flag.
+    ///     db:         Database session.
+    ///
+    /// Returns:
+    ///     GuestSubmitTestResponse (identical structure to SubmitTestResponse).
+    ///
+    /// Raises:
+    ///     HTTPException 400: Invalid or expired guest token, empty responses,
+    ///                       or invalid question IDs.
+    ///     HTTPException 404: Session or question not found.
+    ///     HTTPException 409: Duplicate response for a question.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/submit`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/submit/post(submit_guest_test_v1_test_guest_submit_post)`.
+    public enum SubmitGuestTestV1TestGuestSubmitPost {
+        public static let id: Swift.String = "submit_guest_test_v1_test_guest_submit_post"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/test/guest/submit/POST/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.SubmitGuestTestV1TestGuestSubmitPost.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.SubmitGuestTestV1TestGuestSubmitPost.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input.Headers
+            /// - Remark: Generated from `#/paths/v1/test/guest/submit/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/test/guest/submit/POST/requestBody/content/application\/json`.
+                case json(Components.Schemas.GuestSubmitRequest)
+            }
+            public var body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input.Body
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            public init(
+                headers: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input.Headers = .init(),
+                body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input.Body
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/test/guest/submit/POST/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/test/guest/submit/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.GuestSubmitTestResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.GuestSubmitTestResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/test/guest/submit/post(submit_guest_test_v1_test_guest_submit_post)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/test/guest/submit/POST/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/test/guest/submit/POST/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/test/guest/submit/post(submit_guest_test_v1_test_guest_submit_post)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
                             response: self
                         )
                     }

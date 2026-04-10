@@ -9553,6 +9553,220 @@ public struct Client: APIProtocol {
             }
         )
     }
+    /// Start Guest Test
+    ///
+    /// Start a new guest test session.
+    ///
+    /// No authentication required. Returns all questions upfront (fixed-form),
+    /// plus a one-time *guest_token* that must be included when submitting answers.
+    ///
+    /// Args:
+    ///     x_device_id: Client-supplied device identifier (from X-Device-Id header).
+    ///     db:          Database session.
+    ///
+    /// Returns:
+    ///     GuestStartTestResponse with questions, guest_token, and tests_remaining.
+    ///
+    /// Raises:
+    ///     HTTPException 400: X-Device-Id header is blank.
+    ///     HTTPException 404: No active questions found.
+    ///     HTTPException 429: Device has reached the guest test limit.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/start`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/start/post(start_guest_test_v1_test_guest_start_post)`.
+    public func startGuestTestV1TestGuestStartPost(_ input: Operations.StartGuestTestV1TestGuestStartPost.Input) async throws -> Operations.StartGuestTestV1TestGuestStartPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.StartGuestTestV1TestGuestStartPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/guest/start",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "X-Device-Id",
+                    value: input.headers.xDeviceId
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.StartGuestTestV1TestGuestStartPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.GuestStartTestResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.StartGuestTestV1TestGuestStartPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Submit Guest Test
+    ///
+    /// Submit answers for a guest test session.
+    ///
+    /// The *guest_token* from the start response is consumed here — a second call
+    /// with the same token returns 400.
+    ///
+    /// Args:
+    ///     submission: Guest submit request with guest_token, responses, and
+    ///                 optional time_limit_exceeded flag.
+    ///     db:         Database session.
+    ///
+    /// Returns:
+    ///     GuestSubmitTestResponse (identical structure to SubmitTestResponse).
+    ///
+    /// Raises:
+    ///     HTTPException 400: Invalid or expired guest token, empty responses,
+    ///                       or invalid question IDs.
+    ///     HTTPException 404: Session or question not found.
+    ///     HTTPException 409: Duplicate response for a question.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/submit`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/submit/post(submit_guest_test_v1_test_guest_submit_post)`.
+    public func submitGuestTestV1TestGuestSubmitPost(_ input: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input) async throws -> Operations.SubmitGuestTestV1TestGuestSubmitPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.SubmitGuestTestV1TestGuestSubmitPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/guest/submit",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.GuestSubmitTestResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Get Test History
     ///
     /// Get historical test results for the current user with pagination.
