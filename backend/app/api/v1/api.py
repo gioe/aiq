@@ -9,6 +9,7 @@ from app.api.v1 import (
     user,
     questions,
     test,
+    guest_test,
     notifications,
     question_analytics,
     client_analytics,
@@ -27,6 +28,7 @@ api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(user.router, prefix="/user", tags=["user"])
 api_router.include_router(questions.router, prefix="/questions", tags=["questions"])
 api_router.include_router(test.router, prefix="/test", tags=["test"])
+api_router.include_router(guest_test.router, prefix="/test/guest", tags=["guest"])
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]
 )

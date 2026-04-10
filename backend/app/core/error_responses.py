@@ -88,6 +88,18 @@ class ErrorMessages:
     )
 
     # ==========================================================================
+    # Guest Test Errors (400 / 429)
+    # ==========================================================================
+    # TASK-359: Guest test endpoints
+    GUEST_DEVICE_ID_REQUIRED = (
+        "X-Device-Id header is required for guest tests. "
+        "Please provide a non-empty device identifier."
+    )
+    GUEST_TOKEN_INVALID = (
+        "Invalid or expired guest token. " "Please start a new guest test session."
+    )
+
+    # ==========================================================================
     # Bad Request Errors (400)
     # ==========================================================================
     EMPTY_RESPONSE_LIST = "Response list cannot be empty."

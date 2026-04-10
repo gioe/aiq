@@ -1128,3 +1128,34 @@ class FeedbackSubmission(Base):
         Index("ix_feedback_submissions_category_created", "category", "created_at"),
         Index("ix_feedback_submissions_status_created", "status", "created_at"),
     )
+
+
+class GuestDeviceLimit(Base):
+    """
+    Tracks how many tests a guest device has taken.
+
+    Guest tests are linked to a sentinel user (GUEST_USER_ID = -1) rather than
+    a real user account. This table enforces a per-device ceiling so that
+    unauthenticated users cannot take unlimited tests.
+
+    Keyed on device_id supplied by the client via the X-Device-Id header.
+    A unique constraint on device_id prevents race-condition duplicates.
+    """
+
+    __tablename__ = "guest_device_limits"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    device_id: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
+    )
+    tests_taken: Mapped[int] = mapped_column(default=0)
+    first_test_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+    )
+    last_test_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+    )

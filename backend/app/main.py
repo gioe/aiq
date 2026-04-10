@@ -482,6 +482,16 @@ def create_application() -> FastAPI:
                     "limit": 5,
                     "window": 3600,
                 },  # 5 per hour - modifies question data
+                # Guest test endpoints (TASK-359)
+                # Unauthenticated; strict limit to prevent automated abuse
+                f"{settings.API_V1_PREFIX}/test/guest/start": {
+                    "limit": 5,
+                    "window": 3600,
+                },  # 5 per hour per IP
+                f"{settings.API_V1_PREFIX}/test/guest/submit": {
+                    "limit": 5,
+                    "window": 3600,
+                },  # 5 per hour per IP
             },
         )
 

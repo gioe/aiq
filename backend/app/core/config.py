@@ -8,7 +8,6 @@ from typing import Dict, List, Literal, Self
 
 from app.models.models import QuestionType
 
-
 # Tolerance for floating-point weight summation checks
 _WEIGHT_SUM_TOLERANCE = 1e-6
 
@@ -76,6 +75,17 @@ class Settings(BaseSettings):
     DISABLE_TEST_CADENCE: bool = False
     NOTIFICATION_ADVANCE_DAYS: int = 0  # Days before test is due to send notification
     NOTIFICATION_REMINDER_DAYS: int = 7  # Days after due date to send reminder
+
+    # Guest Test Configuration (TASK-359)
+    # Sentinel user ID for all guest test session rows (must exist in the users table).
+    # Inserted via Alembic migration before any guest endpoint is exercised.
+    GUEST_USER_ID: int = -1
+    # Maximum number of tests a single device may take as a guest before requiring
+    # account creation.
+    GUEST_TEST_LIMIT: int = 3
+    # How long (in minutes) a one-time guest submission token remains valid before
+    # it is evicted from the TTLCache.
+    GUEST_TOKEN_TTL_MINUTES: int = 45
 
     # Test Composition (P11-004: Standard IQ Test Structure)
     # Based on IQ_TEST_RESEARCH_FINDINGS.txt, Part 5.4 (Test Construction)
