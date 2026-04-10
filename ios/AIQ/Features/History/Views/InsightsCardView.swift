@@ -5,36 +5,80 @@ import SwiftUI
 struct InsightsCardView: View {
     let insights: PerformanceInsights
 
+    @AppStorage("insightsCardExpanded") private var isExpanded: Bool = false
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // Header
-            HStack {
-                Image(systemName: "lightbulb.fill")
-                    .foregroundColor(.yellow)
-                    .font(.title2)
+        VStack(alignment: .leading, spacing: isExpanded ? 20 : 0) {
+            // Header — always visible, tappable to toggle
+            Button {
+                withAnimation(theme.animations.smooth) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundColor(.yellow)
+                        .font(.title2)
 
-                Text("insights.performance.title".localized)
-                    .font(.headline)
-                    .fontWeight(.bold)
+                    Text("insights.performance.title".localized)
+                        .font(.headline)
+                        .fontWeight(.bold)
 
-                Spacer()
+                    Spacer()
+
+                    // Collapsed summary: trend direction + percentage
+                    if !isExpanded {
+                        HStack(spacing: 6) {
+                            Image(systemName: insights.trendDirection.icon)
+                                .foregroundColor(trendColor)
+                                .font(.subheadline)
+
+                            if let percentage = insights.trendPercentage {
+                                Text(formatPercentage(percentage))
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(trendColor)
+                            } else {
+                                Text(insights.trendDirection.description)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(trendColor)
+                            }
+                        }
+                    }
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
-            .padding(.bottom, 4)
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                "insights.performance.title".localized +
+                    ", \(insights.trendDirection.description)" +
+                    (insights.trendPercentage.map { ", \(formatPercentage($0))" } ?? "")
+            )
+            .accessibilityHint(
+                "Double tap to \(isExpanded ? "collapse" : "expand") performance insights"
+            )
+            .accessibilityAddTraits(.isButton)
+            .padding(.bottom, isExpanded ? 4 : 0)
 
-            // Performance Overview Section
-            performanceOverview
+            // Expanded content
+            if isExpanded {
+                // Performance Overview Section
+                performanceOverview
 
-            Divider()
+                Divider()
 
-            // Detailed Metrics Section
-            detailedMetrics
+                // Detailed Metrics Section
+                detailedMetrics
 
-            Divider()
+                Divider()
 
-            // Actionable Insights
-            actionableInsights
+                // Actionable Insights
+                actionableInsights
+            }
         }
         .padding()
         .background(Color(.systemBackground))
