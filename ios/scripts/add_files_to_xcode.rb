@@ -66,8 +66,25 @@ ARGV.each do |file_path|
     group = existing_group
   end
 
-  # Check if file already exists in the group
-  existing_file = group.files.find { |f| f.path == file_name }
+  # Compute the relative path from the nearest ancestor group that has a real
+  # path on disk.  Groups like Features/Test/Views often have empty `path`
+  # attributes (virtual groups), so file references under them must carry the
+  # full relative path back to the first ancestor whose `path` is set.
+  relative_prefix_parts = []
+  g = group
+  while g && g != project.main_group
+    relative_prefix_parts.unshift(g.name) if g.path.nil? || g.path.empty?
+    break unless g.path.nil? || g.path.empty?
+    g = g.parent
+  end
+  relative_path = if relative_prefix_parts.empty?
+    file_name
+  else
+    File.join(*relative_prefix_parts, file_name)
+  end
+
+  # Check if file already exists in the group (match by filename or full path)
+  existing_file = group.files.find { |f| f.path == file_name || f.path == relative_path || f.name == file_name }
   if existing_file
     puts "#{WARN} File already in project: #{file_path}"
     # Remove it first if path is wrong
@@ -95,8 +112,12 @@ ARGV.each do |file_path|
   else nil
   end
 
-  # Add the file to the group with proper file type
-  file_ref = group.new_reference(file_name)
+  # Add the file to the group with proper file type.
+  # Use the full relative path so Xcode resolves the file correctly from the
+  # nearest ancestor group that has a real `path` attribute.  Set `name` to
+  # just the filename for display, matching the pattern of sibling files.
+  file_ref = group.new_reference(relative_path)
+  file_ref.name = file_name if relative_path != file_name
   file_ref.last_known_file_type = file_type if file_type
 
   if no_target
