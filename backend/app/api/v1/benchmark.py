@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth.dependencies import get_current_user
-from app.core.cache import get_cache
+from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.models import User, get_db
 from app.models.llm_benchmark import LLMTestResult
 
@@ -136,7 +136,8 @@ async def get_benchmark_summary(
     """Return curated model performance data for authenticated users."""
 
     cache = get_cache()
-    cache_key = f"{_CACHE_KEY}:min_runs={min_runs}"
+    args_hash = generate_cache_key(min_runs, response_model=BenchmarkSummaryResponse)
+    cache_key = f"{_CACHE_KEY}:{args_hash}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached

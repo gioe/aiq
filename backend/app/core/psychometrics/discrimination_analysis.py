@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.models.models import DifficultyLevel, Question, QuestionType
+from app.schemas.discrimination_analysis import DiscriminationReportResponse
 
 
 # =============================================================================
@@ -375,7 +376,9 @@ def get_discrimination_report(
     # This ensures any future parameters are automatically included in the cache key
     cache = get_cache()
     params_hash = generate_cache_key(
-        min_responses=min_responses, action_list_limit=action_list_limit
+        min_responses=min_responses,
+        action_list_limit=action_list_limit,
+        response_model=DiscriminationReportResponse,
     )
     full_cache_key = f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:{params_hash}"
     cached_result = cache.get(full_cache_key)
@@ -1004,7 +1007,9 @@ async def async_get_discrimination_report(
     # Check cache first (IDA-F004)
     cache = get_cache()
     params_hash = generate_cache_key(
-        min_responses=min_responses, action_list_limit=action_list_limit
+        min_responses=min_responses,
+        action_list_limit=action_list_limit,
+        response_model=DiscriminationReportResponse,
     )
     full_cache_key = f"{DISCRIMINATION_REPORT_CACHE_PREFIX}:{params_hash}"
     cached_result = cache.get(full_cache_key)
