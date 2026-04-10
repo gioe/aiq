@@ -259,6 +259,50 @@ class TestCacheKey:
         assert len(key) == 32  # MD5 hex digest length
 
 
+class TestCacheKeySchemaVersioning:
+    """Tests for response_model schema versioning in cache_key()."""
+
+    def test_different_models_produce_different_keys(self):
+        from pydantic import BaseModel
+
+        class ModelA(BaseModel):
+            name: str
+            age: int
+
+        class ModelB(BaseModel):
+            name: str
+            email: str
+
+        key_a = cache_key("x", response_model=ModelA)
+        key_b = cache_key("x", response_model=ModelB)
+        assert key_a != key_b
+
+    def test_same_model_produces_deterministic_key(self):
+        from pydantic import BaseModel
+
+        class MyModel(BaseModel):
+            value: int
+
+        key1 = cache_key("x", response_model=MyModel)
+        key2 = cache_key("x", response_model=MyModel)
+        assert key1 == key2
+
+    def test_with_model_differs_from_without(self):
+        from pydantic import BaseModel
+
+        class MyModel(BaseModel):
+            value: int
+
+        key_with = cache_key("x", response_model=MyModel)
+        key_without = cache_key("x")
+        assert key_with != key_without
+
+    def test_none_response_model_matches_no_model(self):
+        key_none = cache_key("x", response_model=None)
+        key_omitted = cache_key("x")
+        assert key_none == key_omitted
+
+
 class TestCachedDecorator:
     """Tests for the @cached decorator."""
 

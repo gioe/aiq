@@ -33,7 +33,6 @@ if TYPE_CHECKING:
 
 from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.core.datetime_utils import utc_now
-from app.schemas.reliability import ReliabilityReportResponse
 from ._constants import (
     ALPHA_THRESHOLDS,
     AIQ_ALPHA_THRESHOLD,
@@ -497,6 +496,9 @@ def get_reliability_report(
         docs/plans/in-progress/PLAN-RELIABILITY-ESTIMATION.md (RE-006, RE-FI-019)
     """
     # Generate cache key from parameters (RE-FI-019)
+    # Lazy import to avoid circular dependency: schemas → core.reliability → report → schemas
+    from app.schemas.reliability import ReliabilityReportResponse
+
     cache = get_cache()
     params_hash = generate_cache_key(
         min_sessions=min_sessions,
