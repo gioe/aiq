@@ -26,6 +26,7 @@ Examples:
 """
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -96,10 +97,26 @@ def parse_tree_entries(tree_block: str) -> dict[str, str]:
     return entries
 
 
+def _git_ignored(paths: list[Path]) -> set[str]:
+    """Return the set of path names that git considers ignored."""
+    if not paths:
+        return set()
+    try:
+        result = subprocess.run(
+            ["git", "check-ignore", "--"] + [str(p) for p in paths],
+            capture_output=True,
+            text=True,
+        )
+        return {Path(line).name for line in result.stdout.splitlines() if line}
+    except FileNotFoundError:
+        return set()
+
+
 def get_dir_contents(target: Path) -> tuple[list[str], list[str]]:
     """Return (directories, files) in target, excluding noise."""
     dirs = []
     files = []
+    candidates: list[Path] = []
     for entry in sorted(target.iterdir()):
         name = entry.name
         if name in EXCLUDED:
@@ -110,10 +127,17 @@ def get_dir_contents(target: Path) -> tuple[list[str], list[str]]:
             # Only include select hidden dirs
             if name not in {".claude", ".github"}:
                 continue
+        candidates.append(entry)
+
+    ignored = _git_ignored([c for c in candidates])
+
+    for entry in candidates:
+        if entry.name in ignored:
+            continue
         if entry.is_dir():
-            dirs.append(name + "/")
-        elif entry.is_file() and not name.startswith("."):
-            files.append(name)
+            dirs.append(entry.name + "/")
+        elif entry.is_file() and not entry.name.startswith("."):
+            files.append(entry.name)
     return dirs, files
 
 

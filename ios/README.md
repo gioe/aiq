@@ -15,7 +15,6 @@ ios/
 ├── app-store/            # App Store metadata and screenshots
 ├── TestNotifications/    # APNs test payloads
 ├── .claude/              # Claude Code config for iOS
-├── build/                # Xcode build artifacts (gitignored)
 ├── Packages/             # Local Swift packages (AIQAPIClient, SharedKit)
 └── fastlane/             # (new - needs description)
 ```
