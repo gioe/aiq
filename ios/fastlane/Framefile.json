@@ -15,7 +15,16 @@
   },
   "data": [
     {
-      "filter": "01_Dashboard",
+      "filter": "01_Welcome",
+      "keyword": {
+        "text": "AIQ"
+      },
+      "title": {
+        "text": "No account required — try it free"
+      }
+    },
+    {
+      "filter": "02_Dashboard",
       "keyword": {
         "text": "AIQ"
       },
@@ -24,7 +33,7 @@
       }
     },
     {
-      "filter": "02_TestQuestion",
+      "filter": "03_TestQuestion",
       "keyword": {
         "text": "AIQ"
       },
@@ -33,7 +42,7 @@
       }
     },
     {
-      "filter": "03_Results",
+      "filter": "04_Results",
       "keyword": {
         "text": "AIQ"
       },
@@ -42,7 +51,7 @@
       }
     },
     {
-      "filter": "04_AIBenchmarks",
+      "filter": "05_AIBenchmarks",
       "keyword": {
         "text": "AIQ"
       },
@@ -51,7 +60,7 @@
       }
     },
     {
-      "filter": "05_History",
+      "filter": "06_History",
       "keyword": {
         "text": "AIQ"
       },
@@ -60,7 +69,7 @@
       }
     },
     {
-      "filter": "06_DomainScores",
+      "filter": "07_DomainScores",
       "keyword": {
         "text": "AIQ"
       },
@@ -69,7 +78,7 @@
       }
     },
     {
-      "filter": "07_Settings",
+      "filter": "08_Settings",
       "keyword": {
         "text": "AIQ"
       },

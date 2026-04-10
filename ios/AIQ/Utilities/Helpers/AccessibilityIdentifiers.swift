@@ -50,6 +50,7 @@ enum AccessibilityIdentifiers {
         static let createAccountButton = "welcomeView.createAccountButton"
         static let brainIcon = "welcomeView.brainIcon"
         static let errorBanner = "welcomeView.errorBanner"
+        static let guestTestButton = "welcomeView.guestTestButton"
     }
 
     // MARK: - Registration View

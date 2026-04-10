@@ -37,13 +37,14 @@ import XCTest
 ///
 /// ## Screenshot Order (matches APP_STORE_METADATA.md)
 ///
-/// 1. Dashboard - Home screen with test status
-/// 2. Test Question - Active test with sample question
-/// 3. Results - IQ score and domain breakdown
-/// 4. AI Benchmarks - AI vs Human comparison card
-/// 5. History - Test history with trend chart
-/// 6. Domain Scores - Six cognitive domains breakdown
-/// 7. Settings - Privacy-focused settings
+/// 1. Welcome - Welcome screen with "Try a Free Test" guest CTA
+/// 2. Dashboard - Home screen with test status
+/// 3. Test Question - Active test with sample question
+/// 4. Results - IQ score and domain breakdown
+/// 5. AI Benchmarks - AI vs Human comparison card
+/// 6. History - Test history with trend chart
+/// 7. Domain Scores - Six cognitive domains breakdown
+/// 8. Settings - Privacy-focused settings
 final class AppStoreScreenshotTests: BaseUITest {
     // MARK: - Properties
 
@@ -107,9 +108,16 @@ final class AppStoreScreenshotTests: BaseUITest {
 
     /// Generate all App Store screenshots in sequence
     ///
-    /// This test captures all 7 screenshots in the recommended order for App Store submission.
+    /// This test captures all 8 screenshots in the recommended order for App Store submission.
     /// Screenshots are attached to the test results and can be extracted from the xcresult bundle.
     func testGenerateAllScreenshots() {
+        // 1. Welcome Screenshot (unauthenticated state with guest CTA)
+        // The app launches with loggedInWithHistory — relaunch as loggedOut for WelcomeView
+        captureWelcomeScreenshot()
+
+        // Relaunch as authenticated user for remaining screenshots
+        relaunchWithScenario("loggedInWithHistory")
+
         // Wait for app to be ready
         let dashboardTab = app.buttons["Dashboard"]
         XCTAssertTrue(
@@ -117,30 +125,35 @@ final class AppStoreScreenshotTests: BaseUITest {
             "Dashboard should appear after launch"
         )
 
-        // 1. Dashboard Screenshot
+        // 2. Dashboard Screenshot
         XCTAssertTrue(dashboardTab.isHittable, "Dashboard tab should be interactable")
-        takeScreenshot(named: "01_Dashboard")
+        takeScreenshot(named: "02_Dashboard")
 
-        // 2. Start a test and capture question screen
+        // 3. Start a test and capture question screen
         captureTestQuestionScreenshot()
 
-        // 3. Submit test and capture results
+        // 4. Submit test and capture results
         captureResultsScreenshot()
 
-        // 4. Capture AI vs Human benchmarks (still on results screen)
+        // 5. Capture AI vs Human benchmarks (still on results screen)
         captureAIBenchmarksScreenshot()
 
-        // 5. Navigate to History and capture trends
+        // 6. Navigate to History and capture trends
         captureHistoryScreenshot()
 
-        // 6. Capture domain scores detail
+        // 7. Capture domain scores detail
         captureDomainScoresScreenshot()
 
-        // 7. Navigate to Settings
+        // 8. Navigate to Settings
         captureSettingsScreenshot()
     }
 
     // MARK: - Individual Screenshot Captures
+
+    /// Capture the welcome screen with guest CTA (unauthenticated state)
+    func testCaptureWelcome() {
+        captureWelcomeScreenshot()
+    }
 
     /// Capture the dashboard/home screen
     func testCaptureDashboard() {
@@ -151,7 +164,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         )
         XCTAssertTrue(dashboardTab.isHittable, "Dashboard tab should be interactable")
 
-        takeScreenshot(named: "01_Dashboard")
+        takeScreenshot(named: "02_Dashboard")
     }
 
     /// Capture an active test question
@@ -179,7 +192,7 @@ final class AppStoreScreenshotTests: BaseUITest {
 
         let scoreLabel = app.otherElements["testResultsView.scoreLabel"]
         XCTAssertTrue(scoreLabel.exists, "Results view should be visible")
-        takeScreenshot(named: "03_Results")
+        takeScreenshot(named: "04_Results")
     }
 
     /// Capture history/trends screen
@@ -212,6 +225,28 @@ final class AppStoreScreenshotTests: BaseUITest {
         _ = waitForHittable(element, timeout: animationSettleTimeout)
     }
 
+    /// Relaunch as logged-out and capture the WelcomeView with guest CTA visible
+    private func captureWelcomeScreenshot() {
+        relaunchWithScenario("loggedOut")
+
+        // Wait for the WelcomeView email field as sentinel
+        let emailField = app.textFields["welcomeView.emailTextField"]
+        XCTAssertTrue(
+            emailField.waitForExistence(timeout: networkTimeout),
+            "WelcomeView should appear in logged-out state"
+        )
+
+        // Verify the guest test CTA is visible
+        let guestButton = app.buttons["welcomeView.guestTestButton"]
+        XCTAssertTrue(
+            guestButton.waitForExistence(timeout: standardTimeout),
+            "Try a Free Test button should be visible"
+        )
+
+        waitForUIToSettle(element: guestButton)
+        takeScreenshot(named: "01_Welcome")
+    }
+
     /// Start a test and navigate to the question screen
     private func captureTestQuestionScreenshot() {
         // Look for Start Test button (identifier matches DashboardView.actionButton)
@@ -232,7 +267,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         // Wait for question UI to be fully rendered
         waitForUIToSettle(element: questionCard)
 
-        takeScreenshot(named: "02_TestQuestion")
+        takeScreenshot(named: "03_TestQuestion")
     }
 
     /// Start test and answer some questions for results screen
@@ -341,7 +376,7 @@ final class AppStoreScreenshotTests: BaseUITest {
 
         let scoreLabel = app.otherElements["testResultsView.scoreLabel"]
         XCTAssertTrue(scoreLabel.exists, "Results view should be visible")
-        takeScreenshot(named: "03_Results")
+        takeScreenshot(named: "04_Results")
     }
 
     /// Scroll to AI Comparison Card on results screen and capture screenshot
@@ -362,7 +397,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         // Wait for card animations to complete (gauge + domain bars animate on appear)
         waitForUIToSettle(element: aiCard)
 
-        takeScreenshot(named: "04_AIBenchmarks")
+        takeScreenshot(named: "05_AIBenchmarks")
     }
 
     /// Navigate to history and capture screenshot
@@ -392,7 +427,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         // Wait for chart animations to complete
         waitForUIToSettle(element: historyList)
 
-        takeScreenshot(named: "05_History")
+        takeScreenshot(named: "06_History")
     }
 
     /// Capture domain scores breakdown
@@ -402,7 +437,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         if domainScoresSection.exists {
             domainScoresSection.swipeUp()
             waitForUIToSettle(element: domainScoresSection)
-            takeScreenshot(named: "06_DomainScores")
+            takeScreenshot(named: "07_DomainScores")
             return
         }
 
@@ -427,7 +462,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         _ = detailView.waitForExistence(timeout: standardTimeout)
         waitForUIToSettle(element: detailView)
 
-        takeScreenshot(named: "06_DomainScores")
+        takeScreenshot(named: "07_DomainScores")
     }
 
     /// Navigate to settings and capture screenshot
@@ -447,7 +482,7 @@ final class AppStoreScreenshotTests: BaseUITest {
         )
         waitForUIToSettle(element: settingsView)
 
-        takeScreenshot(named: "07_Settings")
+        takeScreenshot(named: "08_Settings")
     }
 }
 

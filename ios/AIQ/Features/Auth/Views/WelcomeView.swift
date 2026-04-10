@@ -169,6 +169,9 @@ struct WelcomeView: View {
                                         .foregroundColor(theme.colors.primary)
                                         .frame(minHeight: 44)
                                     }
+                                    .accessibilityIdentifier(
+                                        AccessibilityIdentifiers.WelcomeView.guestTestButton
+                                    )
                                 }
                             }
                             .opacity(isAnimating ? 1.0 : 0.0)
