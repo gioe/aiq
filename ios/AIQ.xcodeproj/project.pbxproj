@@ -65,6 +65,7 @@
 		24E15231306FC8A7CEBC07C0 /* StringLocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F8C9F55B117C21CD8CDF7 /* StringLocalizationTests.swift */; };
 		25F8149AA5AD3B8B578234D6 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 5F67568DF35617BE6981320E /* FirebaseAnalytics */; };
 		274DEA0A6EC19369D9E10DA0 /* MockApplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1DA3C6605F4AD495B2FDD3B /* MockApplication.swift */; };
+		2955035AE353A357CC653ABF /* CompactTestRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0848038D590BEC1F47056CCB /* CompactTestRow.swift */; };
 		2AF8C8825E45CC0D1E5CD180 /* UITestMockSecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0528989EAABEC1CC29EFF6D6 /* UITestMockSecureStorage.swift */; };
 		2B5CCA8DB0C2482BBDEB778D /* NotificationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C496159D2E04EA9B19FA657 /* NotificationManagerTests.swift */; };
 		2B749C79C80BFF7C1E617F24 /* APIErrorParseBadRequestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1084C47BFACBB5751871A9 /* APIErrorParseBadRequestTests.swift */; };
@@ -328,6 +329,7 @@
 		06B09FEC0703158590FE3520 /* AppStateStorageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppStateStorageTests.swift; sourceTree = "<group>"; };
 		072E2B26AEB64EC2A61946A4 /* AppLifecycleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppLifecycleTests.swift; sourceTree = "<group>"; };
 		07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = TrustKit.plist; sourceTree = "<group>"; };
+		0848038D590BEC1F47056CCB /* CompactTestRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CompactTestRow.swift; path = Features/History/Views/CompactTestRow.swift; sourceTree = "<group>"; };
 		08A3A24F902D9D469A002D10 /* TestProgressHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestProgressHeader.swift; path = Features/Test/Views/TestProgressHeader.swift; sourceTree = "<group>"; };
 		0A03B180242F54340F85306F /* AuthServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceProtocol.swift; sourceTree = "<group>"; };
 		0A5FEBB0B4125E5CCB8E443C /* TestAbandonmentErrorScenarioTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestAbandonmentErrorScenarioTests.swift; sourceTree = "<group>"; };
@@ -822,6 +824,7 @@
 				E1DDD146F037257ABBD2C968 /* TestDetailView.swift */,
 				915618D2F348FB1C641A85D3 /* TestDetailView+Helpers.swift */,
 				5D87D7B43563F23987009ED7 /* TestHistoryListItem.swift */,
+				0848038D590BEC1F47056CCB /* CompactTestRow.swift */,
 			);
 			name = Views;
 			sourceTree = "<group>";
@@ -1836,6 +1839,7 @@
 				EE1BFC44375E2BAC2375019E /* GuestTestContainerView.swift in Sources */,
 				C3E1EBECBB4C89E04C6DF2E6 /* TestNavigationControls.swift in Sources */,
 				504ACCFFEBEDAE952854072E /* TestContentLayout.swift in Sources */,
+				2955035AE353A357CC653ABF /* CompactTestRow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

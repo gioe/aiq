@@ -168,19 +168,28 @@ struct HistoryView: View {
                     .padding(.horizontal)
                 }
 
-                // Test History List
-                ForEach(Array(viewModel.testHistory.enumerated()), id: \.element.id) { index, result in
-                    Button {
-                        router.push(.testDetail(
-                            result: result,
-                            userAverage: viewModel.averageIQScore
-                        ))
-                    } label: {
-                        TestHistoryListItem(testResult: result)
+                // Test History List (grouped by month)
+                ForEach(groupedByMonth(viewModel.testHistory), id: \.key) { group in
+                    Section {
+                        ForEach(group.results, id: \.id) { result in
+                            Button {
+                                router.push(.testDetail(
+                                    result: result,
+                                    userAverage: viewModel.averageIQScore
+                                ))
+                            } label: {
+                                CompactTestRow(testResult: result)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        Text(group.key)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 8)
                     }
-                    .buttonStyle(.plain)
                     .padding(.horizontal)
-                    .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.testRow(at: index))
                 }
 
                 // Load More Button
@@ -223,6 +232,35 @@ struct HistoryView: View {
             """
         )
         .accessibilityIdentifier(AccessibilityIdentifiers.HistoryView.emptyStateView)
+    }
+
+    /// Groups test results by month, preserving the existing sort order
+    private func groupedByMonth(
+        _ results: [TestResult]
+    ) -> [(key: String, results: [TestResult])] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+
+        var groups: [(key: String, results: [TestResult])] = []
+        var currentKey = ""
+        var currentResults: [TestResult] = []
+
+        for result in results {
+            let key = formatter.string(from: result.completedAt)
+            if key != currentKey {
+                if !currentResults.isEmpty {
+                    groups.append((key: currentKey, results: currentResults))
+                }
+                currentKey = key
+                currentResults = [result]
+            } else {
+                currentResults.append(result)
+            }
+        }
+        if !currentResults.isEmpty {
+            groups.append((key: currentKey, results: currentResults))
+        }
+        return groups
     }
 }
 
