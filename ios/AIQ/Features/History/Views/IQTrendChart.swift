@@ -46,13 +46,13 @@ struct IQTrendChart: View {
                 if !benchmarkModels.isEmpty {
                     HStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 2)
-                            .stroke(ColorPalette.info, style: StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                            .frame(width: 12, height: 1)
-                        Text("AI")
+                            .fill(ColorPalette.info.opacity(0.15))
+                            .frame(width: 12, height: 8)
+                        Text("AI Range")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
-                    .accessibilityLabel("Dashed lines show AI model benchmark scores")
+                    .accessibilityLabel("Shaded band shows AI model benchmark score range")
                 }
             }
 
@@ -109,24 +109,21 @@ struct IQTrendChart: View {
                                 .cornerRadius(2)
                         }
 
-                    // AI model benchmark reference lines
-                    ForEach(Array(benchmarkModels.prefix(3).enumerated()), id: \.offset) { index, model in
-                        RuleMark(y: .value(model.displayName, model.meanIq))
-                            .foregroundStyle(benchmarkLineColor(for: index).opacity(0.5))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                            .annotation(position: .bottom, alignment: .leading) {
-                                Text("\(model.displayName): \(Int(model.meanIq))")
-                                    .font(.caption2)
-                                    .foregroundColor(benchmarkLineColor(for: index))
-                                    .fixedSize()
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        Color(.systemBackground)
-                                            .opacity(0.8)
-                                    )
-                                    .cornerRadius(2)
-                            }
+                    // AI model benchmark range band
+                    if let range = benchmarkRange {
+                        AreaMark(
+                            x: .value("Date", chartDateRange.lowerBound),
+                            yStart: .value("AI Low", range.lowerBound),
+                            yEnd: .value("AI High", range.upperBound)
+                        )
+                        .foregroundStyle(ColorPalette.info.opacity(0.12))
+
+                        AreaMark(
+                            x: .value("Date", chartDateRange.upperBound),
+                            yStart: .value("AI Low", range.lowerBound),
+                            yEnd: .value("AI High", range.upperBound)
+                        )
+                        .foregroundStyle(ColorPalette.info.opacity(0.12))
                     }
                 }
                 .chartYScale(domain: chartYDomain)
@@ -143,6 +140,19 @@ struct IQTrendChart: View {
                 .drawingGroup() // Rasterize chart for better rendering performance
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(chartAccessibilityLabel)
+
+                // Compact AI model legend
+                if !benchmarkModels.isEmpty {
+                    HStack(spacing: 12) {
+                        ForEach(benchmarkModels.prefix(3), id: \.displayName) { model in
+                            Text("\(model.displayName): \(Int(model.meanIq))")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(benchmarkLegendAccessibilityLabel)
+                }
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.xyaxis.line")
@@ -186,13 +196,28 @@ struct IQTrendChart: View {
         )
     }
 
-    /// Returns a distinct color for each benchmark reference line
-    private func benchmarkLineColor(for index: Int) -> Color {
-        switch index {
-        case 0: ColorPalette.info
-        case 1: ColorPalette.secondary
-        default: ColorPalette.warning
+    /// Closed range from lowest to highest benchmark IQ score
+    private var benchmarkRange: ClosedRange<Double>? {
+        let scores = benchmarkModels.prefix(3).map(\.meanIq)
+        guard let low = scores.min(), let high = scores.max() else { return nil }
+        // Ensure visible band even when all scores are identical
+        return low == high ? (low - 1) ... (high + 1) : low ... high
+    }
+
+    /// Date range of the chart data for spanning the AreaMark band
+    private var chartDateRange: ClosedRange<Date> {
+        let dates = sampledData.map(\.completedAt)
+        let first = dates.min() ?? Date()
+        let last = dates.max() ?? Date()
+        return first ... last
+    }
+
+    /// Accessibility label for the benchmark legend
+    private var benchmarkLegendAccessibilityLabel: String {
+        let descriptions = benchmarkModels.prefix(3).map {
+            "\($0.displayName) scored \(Int($0.meanIq))"
         }
+        return "AI model scores: " + descriptions.joined(separator: ", ")
     }
 
     /// Accessibility label describing the chart content
@@ -215,7 +240,12 @@ struct IQTrendChart: View {
         label += dateRangeDescription
 
         if hasConfidenceIntervals {
-            label += "Shaded areas show 95% confidence intervals for measurement uncertainty."
+            label += "Shaded areas show 95% confidence intervals for measurement uncertainty. "
+        }
+
+        if !benchmarkModels.isEmpty, let range = benchmarkRange {
+            label += "A shaded band from \(Int(range.lowerBound)) to \(Int(range.upperBound)) "
+            label += "shows the AI model benchmark score range."
         }
 
         return label
