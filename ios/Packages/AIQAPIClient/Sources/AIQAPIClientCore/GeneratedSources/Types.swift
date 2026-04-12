@@ -2147,6 +2147,26 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `DELETE /v1/groups/{group_id}/members/{user_id}`.
     /// - Remark: Generated from `#/paths//v1/groups/{group_id}/members/{user_id}/delete(remove_member_v1_groups__group_id__members__user_id__delete)`.
     func removeMemberV1GroupsGroupIdMembersUserIdDelete(_ input: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input) async throws -> Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output
+    /// Transfer Ownership
+    ///
+    /// Transfer group ownership to another member.
+    ///
+    /// Only the current owner can transfer ownership. The new owner must already
+    /// be a member of the group. After transfer, the previous owner becomes a
+    /// regular member.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     body: TransferOwnershipRequest containing the new_owner_id.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupDetailResponse reflecting the updated roles.
+    ///
+    /// - Remark: HTTP `PUT /v1/groups/{group_id}/transfer-ownership`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/transfer-ownership/put(transfer_ownership_v1_groups__group_id__transfer_ownership_put)`.
+    func transferOwnershipV1GroupsGroupIdTransferOwnershipPut(_ input: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input) async throws -> Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output
     /// Health Check
     ///
     /// Health check endpoint.
@@ -5269,6 +5289,36 @@ extension APIProtocol {
         try await removeMemberV1GroupsGroupIdMembersUserIdDelete(Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input(
             path: path,
             headers: headers
+        ))
+    }
+    /// Transfer Ownership
+    ///
+    /// Transfer group ownership to another member.
+    ///
+    /// Only the current owner can transfer ownership. The new owner must already
+    /// be a member of the group. After transfer, the previous owner becomes a
+    /// regular member.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     body: TransferOwnershipRequest containing the new_owner_id.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupDetailResponse reflecting the updated roles.
+    ///
+    /// - Remark: HTTP `PUT /v1/groups/{group_id}/transfer-ownership`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/transfer-ownership/put(transfer_ownership_v1_groups__group_id__transfer_ownership_put)`.
+    public func transferOwnershipV1GroupsGroupIdTransferOwnershipPut(
+        path: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input.Path,
+        headers: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input.Headers = .init(),
+        body: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input.Body
+    ) async throws -> Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output {
+        try await transferOwnershipV1GroupsGroupIdTransferOwnershipPut(Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input(
+            path: path,
+            headers: headers,
+            body: body
         ))
     }
     /// Health Check
@@ -11195,6 +11245,25 @@ public enum Components {
             }
             public enum CodingKeys: String, CodingKey {
                 case inviteCode = "invite_code"
+            }
+        }
+        /// Schema for transferring group ownership to another member.
+        ///
+        /// - Remark: Generated from `#/components/schemas/TransferOwnershipRequest`.
+        public struct TransferOwnershipRequest: Codable, Hashable, Sendable {
+            /// User ID of the member to become the new owner
+            ///
+            /// - Remark: Generated from `#/components/schemas/TransferOwnershipRequest/new_owner_id`.
+            public var newOwnerId: Swift.Int
+            /// Creates a new `TransferOwnershipRequest`.
+            ///
+            /// - Parameters:
+            ///   - newOwnerId: User ID of the member to become the new owner
+            public init(newOwnerId: Swift.Int) {
+                self.newOwnerId = newOwnerId
+            }
+            public enum CodingKeys: String, CodingKey {
+                case newOwnerId = "new_owner_id"
             }
         }
         /// Schema for a single leaderboard entry.
@@ -35537,6 +35606,209 @@ public enum Operations {
             /// - Throws: An error if `self` is not `.unprocessableContent`.
             /// - SeeAlso: `.unprocessableContent`.
             public var unprocessableContent: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Transfer Ownership
+    ///
+    /// Transfer group ownership to another member.
+    ///
+    /// Only the current owner can transfer ownership. The new owner must already
+    /// be a member of the group. After transfer, the previous owner becomes a
+    /// regular member.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     body: TransferOwnershipRequest containing the new_owner_id.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupDetailResponse reflecting the updated roles.
+    ///
+    /// - Remark: HTTP `PUT /v1/groups/{group_id}/transfer-ownership`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/transfer-ownership/put(transfer_ownership_v1_groups__group_id__transfer_ownership_put)`.
+    public enum TransferOwnershipV1GroupsGroupIdTransferOwnershipPut {
+        public static let id: Swift.String = "transfer_ownership_v1_groups__group_id__transfer_ownership_put"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/transfer-ownership/PUT/path`.
+            public struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/transfer-ownership/PUT/path/group_id`.
+                public var groupId: Swift.Int
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - groupId:
+                public init(groupId: Swift.Int) {
+                    self.groupId = groupId
+                }
+            }
+            public var path: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input.Path
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/transfer-ownership/PUT/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input.Headers
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/transfer-ownership/PUT/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/transfer-ownership/PUT/requestBody/content/application\/json`.
+                case json(Components.Schemas.TransferOwnershipRequest)
+            }
+            public var body: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input.Body
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            ///   - body:
+            public init(
+                path: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input.Path,
+                headers: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input.Headers = .init(),
+                body: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Input.Body
+            ) {
+                self.path = path
+                self.headers = headers
+                self.body = body
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/transfer-ownership/PUT/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/transfer-ownership/PUT/responses/200/content/application\/json`.
+                    case json(Components.Schemas.GroupDetailResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.GroupDetailResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/transfer-ownership/put(transfer_ownership_v1_groups__group_id__transfer_ownership_put)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/transfer-ownership/PUT/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/transfer-ownership/PUT/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/transfer-ownership/put(transfer_ownership_v1_groups__group_id__transfer_ownership_put)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.TransferOwnershipV1GroupsGroupIdTransferOwnershipPut.Output.UnprocessableContent {
                 get throws {
                     switch self {
                     case let .unprocessableContent(response):
