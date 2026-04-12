@@ -349,6 +349,35 @@ import Foundation
             )
         }
 
+        // MARK: - Groups
+
+        func listGroups() async throws -> [Components.Schemas.GroupResponse] {
+            []
+        }
+
+        func createGroup(name _: String) async throws -> Components.Schemas.GroupResponse {
+            throw APIError.api(.notFound(message: "Not implemented in UI tests"))
+        }
+
+        func getGroup(groupId _: Int) async throws -> Components.Schemas.GroupDetailResponse {
+            throw APIError.api(.notFound(message: "Not implemented in UI tests"))
+        }
+
+        func deleteGroup(groupId _: Int) async throws {}
+        func joinGroup(inviteCode _: String) async throws -> Components.Schemas.GroupResponse {
+            throw APIError.api(.notFound(message: "Not implemented in UI tests"))
+        }
+
+        func generateInvite(groupId _: Int) async throws -> Components.Schemas.GroupInviteResponse {
+            throw APIError.api(.notFound(message: "Not implemented in UI tests"))
+        }
+
+        func getLeaderboard(groupId _: Int) async throws -> Components.Schemas.LeaderboardResponse {
+            throw APIError.api(.notFound(message: "Not implemented in UI tests"))
+        }
+
+        func removeMember(groupId _: Int, userId _: Int) async throws {}
+
         // MARK: - Token Management
 
         func setTokens(accessToken _: String, refreshToken _: String) async {

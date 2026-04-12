@@ -76,6 +76,17 @@ protocol OpenAPIServiceProtocol: Sendable {
 
     func submitFeedback(_ feedback: Feedback) async throws -> FeedbackSubmitResponse
 
+    // MARK: - Groups
+
+    func listGroups() async throws -> [Components.Schemas.GroupResponse]
+    func createGroup(name: String) async throws -> Components.Schemas.GroupResponse
+    func getGroup(groupId: Int) async throws -> Components.Schemas.GroupDetailResponse
+    func deleteGroup(groupId: Int) async throws
+    func joinGroup(inviteCode: String) async throws -> Components.Schemas.GroupResponse
+    func generateInvite(groupId: Int) async throws -> Components.Schemas.GroupInviteResponse
+    func getLeaderboard(groupId: Int) async throws -> Components.Schemas.LeaderboardResponse
+    func removeMember(groupId: Int, userId: Int) async throws
+
     // MARK: - Token Management
 
     func setTokens(accessToken: String, refreshToken: String) async
@@ -849,6 +860,182 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             case .unprocessableContent:
                 throw APIError.api(.unprocessableEntity(message: "Validation failed"))
 
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    // MARK: - Groups
+
+    func listGroups() async throws -> [Components.Schemas.GroupResponse] {
+        do {
+            let response = try await client.listGroupsV1GroupsGet()
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(groups) = okResponse.body else {
+                    throw APIError.api(.invalidResponse)
+                }
+                return groups
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    func createGroup(name: String) async throws -> Components.Schemas.GroupResponse {
+        do {
+            let response = try await client.createGroupV1GroupsPost(
+                body: .json(Components.Schemas.CreateGroupRequest(name: name))
+            )
+            switch response {
+            case let .created(createdResponse):
+                guard case let .json(group) = createdResponse.body else {
+                    throw APIError.api(.invalidResponse)
+                }
+                return group
+            case .unprocessableContent:
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    func getGroup(groupId: Int) async throws -> Components.Schemas.GroupDetailResponse {
+        do {
+            let response = try await client.getGroupV1GroupsGroupIdGet(
+                path: .init(groupId: groupId)
+            )
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(group) = okResponse.body else {
+                    throw APIError.api(.invalidResponse)
+                }
+                return group
+            case .unprocessableContent:
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    func deleteGroup(groupId: Int) async throws {
+        do {
+            let response = try await client.deleteGroupV1GroupsGroupIdDelete(
+                path: .init(groupId: groupId)
+            )
+            switch response {
+            case .noContent:
+                return
+            case .unprocessableContent:
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    func joinGroup(inviteCode: String) async throws -> Components.Schemas.GroupResponse {
+        do {
+            let response = try await client.joinGroupV1GroupsJoinPost(
+                body: .json(Components.Schemas.JoinGroupRequest(inviteCode: inviteCode))
+            )
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(group) = okResponse.body else {
+                    throw APIError.api(.invalidResponse)
+                }
+                return group
+            case .unprocessableContent:
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    func generateInvite(groupId: Int) async throws -> Components.Schemas.GroupInviteResponse {
+        do {
+            let response = try await client.generateInviteV1GroupsGroupIdInvitePost(
+                path: .init(groupId: groupId)
+            )
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(invite) = okResponse.body else {
+                    throw APIError.api(.invalidResponse)
+                }
+                return invite
+            case .unprocessableContent:
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    func getLeaderboard(groupId: Int) async throws -> Components.Schemas.LeaderboardResponse {
+        do {
+            let response = try await client.getLeaderboardV1GroupsGroupIdLeaderboardGet(
+                path: .init(groupId: groupId)
+            )
+            switch response {
+            case let .ok(okResponse):
+                guard case let .json(leaderboard) = okResponse.body else {
+                    throw APIError.api(.invalidResponse)
+                }
+                return leaderboard
+            case .unprocessableContent:
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
+            case let .undocumented(statusCode, payload):
+                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+            }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    func removeMember(groupId: Int, userId: Int) async throws {
+        do {
+            let response = try await client.removeMemberV1GroupsGroupIdMembersUserIdDelete(
+                path: .init(groupId: groupId, userId: userId)
+            )
+            switch response {
+            case .noContent:
+                return
+            case .unprocessableContent:
+                throw APIError.api(.unprocessableEntity(message: "Validation failed"))
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }

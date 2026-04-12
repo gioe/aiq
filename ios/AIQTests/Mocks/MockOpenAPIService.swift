@@ -422,6 +422,93 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         return response
     }
 
+    // MARK: - Groups
+
+    var listGroupsResponse: [Components.Schemas.GroupResponse]?
+    var listGroupsError: Error?
+
+    func listGroups() async throws -> [Components.Schemas.GroupResponse] {
+        if let error = listGroupsError { throw error }
+        return listGroupsResponse ?? []
+    }
+
+    var createGroupResponse: Components.Schemas.GroupResponse?
+    var createGroupError: Error?
+
+    func createGroup(name _: String) async throws -> Components.Schemas.GroupResponse {
+        if let error = createGroupError { throw error }
+        guard let response = createGroupResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "createGroupResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    var getGroupResponse: Components.Schemas.GroupDetailResponse?
+    var getGroupError: Error?
+
+    func getGroup(groupId _: Int) async throws -> Components.Schemas.GroupDetailResponse {
+        if let error = getGroupError { throw error }
+        guard let response = getGroupResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "getGroupResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    var deleteGroupError: Error?
+
+    func deleteGroup(groupId _: Int) async throws {
+        if let error = deleteGroupError { throw error }
+    }
+
+    var joinGroupResponse: Components.Schemas.GroupResponse?
+    var joinGroupError: Error?
+
+    func joinGroup(inviteCode _: String) async throws -> Components.Schemas.GroupResponse {
+        if let error = joinGroupError { throw error }
+        guard let response = joinGroupResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "joinGroupResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    var generateInviteResponse: Components.Schemas.GroupInviteResponse?
+    var generateInviteError: Error?
+
+    func generateInvite(groupId _: Int) async throws -> Components.Schemas.GroupInviteResponse {
+        if let error = generateInviteError { throw error }
+        guard let response = generateInviteResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "generateInviteResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    var getLeaderboardResponse: Components.Schemas.LeaderboardResponse?
+    var getLeaderboardError: Error?
+
+    func getLeaderboard(groupId _: Int) async throws -> Components.Schemas.LeaderboardResponse {
+        if let error = getLeaderboardError { throw error }
+        guard let response = getLeaderboardResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "getLeaderboardResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    var removeMemberError: Error?
+
+    func removeMember(groupId _: Int, userId _: Int) async throws {
+        if let error = removeMemberError { throw error }
+    }
+
     // MARK: - Token Management
 
     func setTokens(accessToken: String, refreshToken: String) async {
