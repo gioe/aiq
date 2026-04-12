@@ -2017,6 +2017,23 @@
         "title": "CreateBenchmarkSetRequest",
         "type": "object"
       },
+      "CreateGroupRequest": {
+        "description": "Schema for creating a new group.",
+        "properties": {
+          "name": {
+            "description": "Group display name (1-30 characters)",
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateGroupRequest",
+        "type": "object"
+      },
       "CriterionResultResponse": {
         "description": "Result for a single acceptance criterion.",
         "properties": {
@@ -3678,6 +3695,188 @@
         "title": "GenerateQuestionSetResponse",
         "type": "object"
       },
+      "GroupDetailResponse": {
+        "description": "Schema for a group detail response including member list.",
+        "properties": {
+          "created_at": {
+            "description": "Timestamp when the group was created",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "User ID of the group creator",
+            "title": "Created By",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Group ID",
+            "title": "Id",
+            "type": "integer"
+          },
+          "invite_code": {
+            "description": "Invite code for sharing the group",
+            "title": "Invite Code",
+            "type": "string"
+          },
+          "max_members": {
+            "description": "Maximum number of members allowed",
+            "title": "Max Members",
+            "type": "integer"
+          },
+          "member_count": {
+            "description": "Current number of members in the group",
+            "title": "Member Count",
+            "type": "integer"
+          },
+          "members": {
+            "description": "List of current group members with their roles",
+            "items": {
+              "$ref": "#/components/schemas/GroupMemberResponse"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "name": {
+            "description": "Group display name",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_by",
+          "created_at",
+          "invite_code",
+          "max_members",
+          "member_count",
+          "members"
+        ],
+        "title": "GroupDetailResponse",
+        "type": "object"
+      },
+      "GroupInviteResponse": {
+        "description": "Schema for a group invite response.",
+        "properties": {
+          "created_at": {
+            "description": "Timestamp when the invite was created",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "Timestamp when the invite expires",
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "description": "Invite ID",
+            "title": "Id",
+            "type": "integer"
+          },
+          "invite_code": {
+            "description": "Invite code to share with others",
+            "title": "Invite Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "invite_code",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "GroupInviteResponse",
+        "type": "object"
+      },
+      "GroupMemberResponse": {
+        "description": "Schema for a single group member.",
+        "properties": {
+          "first_name": {
+            "description": "First name of the member",
+            "title": "First Name",
+            "type": "string"
+          },
+          "joined_at": {
+            "description": "Timestamp when the member joined",
+            "format": "date-time",
+            "title": "Joined At",
+            "type": "string"
+          },
+          "role": {
+            "description": "Member role in the group (owner or member)",
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "User ID of the member",
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "first_name",
+          "role",
+          "joined_at"
+        ],
+        "title": "GroupMemberResponse",
+        "type": "object"
+      },
+      "GroupResponse": {
+        "description": "Schema for a group summary response.",
+        "properties": {
+          "created_at": {
+            "description": "Timestamp when the group was created",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "User ID of the group creator",
+            "title": "Created By",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Group ID",
+            "title": "Id",
+            "type": "integer"
+          },
+          "invite_code": {
+            "description": "Invite code for sharing the group",
+            "title": "Invite Code",
+            "type": "string"
+          },
+          "max_members": {
+            "description": "Maximum number of members allowed",
+            "title": "Max Members",
+            "type": "integer"
+          },
+          "member_count": {
+            "description": "Current number of members in the group",
+            "title": "Member Count",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Group display name",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_by",
+          "created_at",
+          "invite_code",
+          "max_members",
+          "member_count"
+        ],
+        "title": "GroupResponse",
+        "type": "object"
+      },
       "GuestStartTestResponse": {
         "description": "Response returned by POST /v1/test/guest/start.\n\nExtends the standard StartTestResponse with a one-time guest_token\n(must be supplied verbatim in the subsequent submit call) and the number\nof tests the device can still take after this one begins.",
         "properties": {
@@ -4254,6 +4453,90 @@
           "ready_for_calibration"
         ],
         "title": "ItemCalibrationStats",
+        "type": "object"
+      },
+      "JoinGroupRequest": {
+        "description": "Schema for joining a group via invite code.",
+        "properties": {
+          "invite_code": {
+            "description": "Invite code for the group",
+            "title": "Invite Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_code"
+        ],
+        "title": "JoinGroupRequest",
+        "type": "object"
+      },
+      "LeaderboardEntryResponse": {
+        "description": "Schema for a single leaderboard entry.",
+        "properties": {
+          "average_score": {
+            "description": "Average IQ score across all tests for the user",
+            "title": "Average Score",
+            "type": "number"
+          },
+          "best_score": {
+            "description": "Highest IQ score achieved by the user",
+            "title": "Best Score",
+            "type": "integer"
+          },
+          "first_name": {
+            "description": "First name of the user",
+            "title": "First Name",
+            "type": "string"
+          },
+          "rank": {
+            "description": "Rank position in the leaderboard (1-based)",
+            "title": "Rank",
+            "type": "integer"
+          },
+          "user_id": {
+            "description": "User ID",
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rank",
+          "user_id",
+          "first_name",
+          "best_score",
+          "average_score"
+        ],
+        "title": "LeaderboardEntryResponse",
+        "type": "object"
+      },
+      "LeaderboardResponse": {
+        "description": "Schema for the group leaderboard response.",
+        "properties": {
+          "entries": {
+            "description": "Ranked list of group members by best score",
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardEntryResponse"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "group_id": {
+            "description": "Group ID",
+            "title": "Group Id",
+            "type": "integer"
+          },
+          "group_name": {
+            "description": "Display name of the group",
+            "title": "Group Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "group_name",
+          "entries"
+        ],
+        "title": "LeaderboardResponse",
         "type": "object"
       },
       "LogoutAllStatsResponse": {
@@ -13827,6 +14110,362 @@
         "summary": "Submit Feedback",
         "tags": [
           "feedback"
+        ]
+      }
+    },
+    "/v1/groups/": {
+      "get": {
+        "description": "List all groups the current user belongs to.\n\nArgs:\n    current_user: Authenticated user making the request.\n    db: Async database session.\n\nReturns:\n    List of GroupResponse objects, each with a current member_count.",
+        "operationId": "list_groups_v1_groups__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GroupResponse"
+                  },
+                  "title": "Response List Groups V1 Groups  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Groups",
+        "tags": [
+          "groups"
+        ]
+      },
+      "post": {
+        "description": "Create a new group.\n\nCreates the group and automatically adds the creator as the owner.\n\nArgs:\n    body: CreateGroupRequest containing the group name.\n    current_user: Authenticated user making the request.\n    db: Async database session.\n\nReturns:\n    GroupResponse with member_count=1.",
+        "operationId": "create_group_v1_groups__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/v1/groups/join": {
+      "post": {
+        "description": "Join a group using an invite code.\n\nAccepts either a generated GroupInvite code (with expiry enforcement) or\nthe permanent Group.invite_code. Generated invites are checked first; if\na valid, unexpired invite is found, the acceptor is recorded on it.\n\nArgs:\n    body: JoinGroupRequest containing the invite_code.\n    current_user: Authenticated user making the request.\n    db: Async database session.\n\nReturns:\n    GroupResponse for the joined group.",
+        "operationId": "join_group_v1_groups_join_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Join Group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/v1/groups/{group_id}": {
+      "delete": {
+        "description": "Delete a group and all associated memberships and invites.\n\nOnly the group owner can delete the group. Cascade deletes on the ORM\nrelationships handle memberships and invites automatically.\n\nArgs:\n    group_id: Primary key of the group.\n    current_user: Authenticated user making the request.\n    db: Async database session.\n\nReturns:\n    No content (204) on success.",
+        "operationId": "delete_group_v1_groups__group_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Group",
+        "tags": [
+          "groups"
+        ]
+      },
+      "get": {
+        "description": "Return full group detail including the member list.\n\nRequires the caller to be a member of the group.\n\nArgs:\n    group_id: Primary key of the group.\n    current_user: Authenticated user making the request.\n    db: Async database session.\n\nReturns:\n    GroupDetailResponse with members list.",
+        "operationId": "get_group_v1_groups__group_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/v1/groups/{group_id}/invite": {
+      "post": {
+        "description": "Generate a new invite link for the group.\n\nOnly the group owner can generate invites.\n\nArgs:\n    group_id: Primary key of the group.\n    current_user: Authenticated user making the request.\n    db: Async database session.\n\nReturns:\n    GroupInviteResponse with the new invite code and expiry.",
+        "operationId": "generate_invite_v1_groups__group_id__invite_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupInviteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Invite",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/v1/groups/{group_id}/leaderboard": {
+      "get": {
+        "description": "Return a ranked leaderboard for all group members.\n\nMembers with no test results appear at the bottom with scores of 0.\nRequires the caller to be a member of the group.\n\nArgs:\n    group_id: Primary key of the group.\n    current_user: Authenticated user making the request.\n    db: Async database session.\n\nReturns:\n    LeaderboardResponse with ranked entries for every group member.",
+        "operationId": "get_leaderboard_v1_groups__group_id__leaderboard_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Leaderboard",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/v1/groups/{group_id}/members/{user_id}": {
+      "delete": {
+        "description": "Remove a member from a group (leave or kick).\n\nA user may remove themselves (leave). The group owner may remove any\nnon-owner member. The owner cannot be removed via this endpoint.\n\nArgs:\n    group_id: Primary key of the group.\n    user_id: ID of the user to remove.\n    current_user: Authenticated user making the request.\n    db: Async database session.\n\nReturns:\n    No content (204) on success.",
+        "operationId": "remove_member_v1_groups__group_id__members__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Member",
+        "tags": [
+          "groups"
         ]
       }
     },
