@@ -45,6 +45,7 @@ class TransferOwnershipRequest(BaseModel):
 
     new_owner_id: int = Field(
         ...,
+        gt=0,
         description="User ID of the member to become the new owner",
     )
 
