@@ -2008,6 +2008,145 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `POST /v1/feedback/submit`.
     /// - Remark: Generated from `#/paths//v1/feedback/submit/post(submit_feedback_v1_feedback_submit_post)`.
     func submitFeedbackV1FeedbackSubmitPost(_ input: Operations.SubmitFeedbackV1FeedbackSubmitPost.Input) async throws -> Operations.SubmitFeedbackV1FeedbackSubmitPost.Output
+    /// List Groups
+    ///
+    /// List all groups the current user belongs to.
+    ///
+    /// Args:
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     List of GroupResponse objects, each with a current member_count.
+    ///
+    /// - Remark: HTTP `GET /v1/groups/`.
+    /// - Remark: Generated from `#/paths//v1/groups//get(list_groups_v1_groups__get)`.
+    func listGroupsV1GroupsGet(_ input: Operations.ListGroupsV1GroupsGet.Input) async throws -> Operations.ListGroupsV1GroupsGet.Output
+    /// Create Group
+    ///
+    /// Create a new group.
+    ///
+    /// Creates the group and automatically adds the creator as the owner.
+    ///
+    /// Args:
+    ///     body: CreateGroupRequest containing the group name.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupResponse with member_count=1.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/`.
+    /// - Remark: Generated from `#/paths//v1/groups//post(create_group_v1_groups__post)`.
+    func createGroupV1GroupsPost(_ input: Operations.CreateGroupV1GroupsPost.Input) async throws -> Operations.CreateGroupV1GroupsPost.Output
+    /// Join Group
+    ///
+    /// Join a group using an invite code.
+    ///
+    /// Accepts either a generated GroupInvite code (with expiry enforcement) or
+    /// the permanent Group.invite_code. Generated invites are checked first; if
+    /// a valid, unexpired invite is found, the acceptor is recorded on it.
+    ///
+    /// Args:
+    ///     body: JoinGroupRequest containing the invite_code.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupResponse for the joined group.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/join`.
+    /// - Remark: Generated from `#/paths//v1/groups/join/post(join_group_v1_groups_join_post)`.
+    func joinGroupV1GroupsJoinPost(_ input: Operations.JoinGroupV1GroupsJoinPost.Input) async throws -> Operations.JoinGroupV1GroupsJoinPost.Output
+    /// Get Group
+    ///
+    /// Return full group detail including the member list.
+    ///
+    /// Requires the caller to be a member of the group.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupDetailResponse with members list.
+    ///
+    /// - Remark: HTTP `GET /v1/groups/{group_id}`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/get(get_group_v1_groups__group_id__get)`.
+    func getGroupV1GroupsGroupIdGet(_ input: Operations.GetGroupV1GroupsGroupIdGet.Input) async throws -> Operations.GetGroupV1GroupsGroupIdGet.Output
+    /// Delete Group
+    ///
+    /// Delete a group and all associated memberships and invites.
+    ///
+    /// Only the group owner can delete the group. Cascade deletes on the ORM
+    /// relationships handle memberships and invites automatically.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     No content (204) on success.
+    ///
+    /// - Remark: HTTP `DELETE /v1/groups/{group_id}`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/delete(delete_group_v1_groups__group_id__delete)`.
+    func deleteGroupV1GroupsGroupIdDelete(_ input: Operations.DeleteGroupV1GroupsGroupIdDelete.Input) async throws -> Operations.DeleteGroupV1GroupsGroupIdDelete.Output
+    /// Generate Invite
+    ///
+    /// Generate a new invite link for the group.
+    ///
+    /// Only the group owner can generate invites.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupInviteResponse with the new invite code and expiry.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/{group_id}/invite`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/invite/post(generate_invite_v1_groups__group_id__invite_post)`.
+    func generateInviteV1GroupsGroupIdInvitePost(_ input: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Input) async throws -> Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output
+    /// Get Leaderboard
+    ///
+    /// Return a ranked leaderboard for all group members.
+    ///
+    /// Members with no test results appear at the bottom with scores of 0.
+    /// Requires the caller to be a member of the group.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     LeaderboardResponse with ranked entries for every group member.
+    ///
+    /// - Remark: HTTP `GET /v1/groups/{group_id}/leaderboard`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/leaderboard/get(get_leaderboard_v1_groups__group_id__leaderboard_get)`.
+    func getLeaderboardV1GroupsGroupIdLeaderboardGet(_ input: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Input) async throws -> Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output
+    /// Remove Member
+    ///
+    /// Remove a member from a group (leave or kick).
+    ///
+    /// A user may remove themselves (leave). The group owner may remove any
+    /// non-owner member. The owner cannot be removed via this endpoint.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     user_id: ID of the user to remove.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     No content (204) on success.
+    ///
+    /// - Remark: HTTP `DELETE /v1/groups/{group_id}/members/{user_id}`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/members/{user_id}/delete(remove_member_v1_groups__group_id__members__user_id__delete)`.
+    func removeMemberV1GroupsGroupIdMembersUserIdDelete(_ input: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input) async throws -> Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output
     /// Health Check
     ///
     /// Health check endpoint.
@@ -4933,6 +5072,203 @@ extension APIProtocol {
         try await submitFeedbackV1FeedbackSubmitPost(Operations.SubmitFeedbackV1FeedbackSubmitPost.Input(
             headers: headers,
             body: body
+        ))
+    }
+    /// List Groups
+    ///
+    /// List all groups the current user belongs to.
+    ///
+    /// Args:
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     List of GroupResponse objects, each with a current member_count.
+    ///
+    /// - Remark: HTTP `GET /v1/groups/`.
+    /// - Remark: Generated from `#/paths//v1/groups//get(list_groups_v1_groups__get)`.
+    public func listGroupsV1GroupsGet(headers: Operations.ListGroupsV1GroupsGet.Input.Headers = .init()) async throws -> Operations.ListGroupsV1GroupsGet.Output {
+        try await listGroupsV1GroupsGet(Operations.ListGroupsV1GroupsGet.Input(headers: headers))
+    }
+    /// Create Group
+    ///
+    /// Create a new group.
+    ///
+    /// Creates the group and automatically adds the creator as the owner.
+    ///
+    /// Args:
+    ///     body: CreateGroupRequest containing the group name.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupResponse with member_count=1.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/`.
+    /// - Remark: Generated from `#/paths//v1/groups//post(create_group_v1_groups__post)`.
+    public func createGroupV1GroupsPost(
+        headers: Operations.CreateGroupV1GroupsPost.Input.Headers = .init(),
+        body: Operations.CreateGroupV1GroupsPost.Input.Body
+    ) async throws -> Operations.CreateGroupV1GroupsPost.Output {
+        try await createGroupV1GroupsPost(Operations.CreateGroupV1GroupsPost.Input(
+            headers: headers,
+            body: body
+        ))
+    }
+    /// Join Group
+    ///
+    /// Join a group using an invite code.
+    ///
+    /// Accepts either a generated GroupInvite code (with expiry enforcement) or
+    /// the permanent Group.invite_code. Generated invites are checked first; if
+    /// a valid, unexpired invite is found, the acceptor is recorded on it.
+    ///
+    /// Args:
+    ///     body: JoinGroupRequest containing the invite_code.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupResponse for the joined group.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/join`.
+    /// - Remark: Generated from `#/paths//v1/groups/join/post(join_group_v1_groups_join_post)`.
+    public func joinGroupV1GroupsJoinPost(
+        headers: Operations.JoinGroupV1GroupsJoinPost.Input.Headers = .init(),
+        body: Operations.JoinGroupV1GroupsJoinPost.Input.Body
+    ) async throws -> Operations.JoinGroupV1GroupsJoinPost.Output {
+        try await joinGroupV1GroupsJoinPost(Operations.JoinGroupV1GroupsJoinPost.Input(
+            headers: headers,
+            body: body
+        ))
+    }
+    /// Get Group
+    ///
+    /// Return full group detail including the member list.
+    ///
+    /// Requires the caller to be a member of the group.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupDetailResponse with members list.
+    ///
+    /// - Remark: HTTP `GET /v1/groups/{group_id}`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/get(get_group_v1_groups__group_id__get)`.
+    public func getGroupV1GroupsGroupIdGet(
+        path: Operations.GetGroupV1GroupsGroupIdGet.Input.Path,
+        headers: Operations.GetGroupV1GroupsGroupIdGet.Input.Headers = .init()
+    ) async throws -> Operations.GetGroupV1GroupsGroupIdGet.Output {
+        try await getGroupV1GroupsGroupIdGet(Operations.GetGroupV1GroupsGroupIdGet.Input(
+            path: path,
+            headers: headers
+        ))
+    }
+    /// Delete Group
+    ///
+    /// Delete a group and all associated memberships and invites.
+    ///
+    /// Only the group owner can delete the group. Cascade deletes on the ORM
+    /// relationships handle memberships and invites automatically.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     No content (204) on success.
+    ///
+    /// - Remark: HTTP `DELETE /v1/groups/{group_id}`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/delete(delete_group_v1_groups__group_id__delete)`.
+    public func deleteGroupV1GroupsGroupIdDelete(
+        path: Operations.DeleteGroupV1GroupsGroupIdDelete.Input.Path,
+        headers: Operations.DeleteGroupV1GroupsGroupIdDelete.Input.Headers = .init()
+    ) async throws -> Operations.DeleteGroupV1GroupsGroupIdDelete.Output {
+        try await deleteGroupV1GroupsGroupIdDelete(Operations.DeleteGroupV1GroupsGroupIdDelete.Input(
+            path: path,
+            headers: headers
+        ))
+    }
+    /// Generate Invite
+    ///
+    /// Generate a new invite link for the group.
+    ///
+    /// Only the group owner can generate invites.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupInviteResponse with the new invite code and expiry.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/{group_id}/invite`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/invite/post(generate_invite_v1_groups__group_id__invite_post)`.
+    public func generateInviteV1GroupsGroupIdInvitePost(
+        path: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Input.Path,
+        headers: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Input.Headers = .init()
+    ) async throws -> Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output {
+        try await generateInviteV1GroupsGroupIdInvitePost(Operations.GenerateInviteV1GroupsGroupIdInvitePost.Input(
+            path: path,
+            headers: headers
+        ))
+    }
+    /// Get Leaderboard
+    ///
+    /// Return a ranked leaderboard for all group members.
+    ///
+    /// Members with no test results appear at the bottom with scores of 0.
+    /// Requires the caller to be a member of the group.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     LeaderboardResponse with ranked entries for every group member.
+    ///
+    /// - Remark: HTTP `GET /v1/groups/{group_id}/leaderboard`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/leaderboard/get(get_leaderboard_v1_groups__group_id__leaderboard_get)`.
+    public func getLeaderboardV1GroupsGroupIdLeaderboardGet(
+        path: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Input.Path,
+        headers: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Input.Headers = .init()
+    ) async throws -> Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output {
+        try await getLeaderboardV1GroupsGroupIdLeaderboardGet(Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Input(
+            path: path,
+            headers: headers
+        ))
+    }
+    /// Remove Member
+    ///
+    /// Remove a member from a group (leave or kick).
+    ///
+    /// A user may remove themselves (leave). The group owner may remove any
+    /// non-owner member. The owner cannot be removed via this endpoint.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     user_id: ID of the user to remove.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     No content (204) on success.
+    ///
+    /// - Remark: HTTP `DELETE /v1/groups/{group_id}/members/{user_id}`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/members/{user_id}/delete(remove_member_v1_groups__group_id__members__user_id__delete)`.
+    public func removeMemberV1GroupsGroupIdMembersUserIdDelete(
+        path: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input.Path,
+        headers: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input.Headers = .init()
+    ) async throws -> Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output {
+        try await removeMemberV1GroupsGroupIdMembersUserIdDelete(Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input(
+            path: path,
+            headers: headers
         ))
     }
     /// Health Check
@@ -8019,6 +8355,25 @@ public enum Components {
                 case questionIds = "question_ids"
             }
         }
+        /// Schema for creating a new group.
+        ///
+        /// - Remark: Generated from `#/components/schemas/CreateGroupRequest`.
+        public struct CreateGroupRequest: Codable, Hashable, Sendable {
+            /// Group display name (1-30 characters)
+            ///
+            /// - Remark: Generated from `#/components/schemas/CreateGroupRequest/name`.
+            public var name: Swift.String
+            /// Creates a new `CreateGroupRequest`.
+            ///
+            /// - Parameters:
+            ///   - name: Group display name (1-30 characters)
+            public init(name: Swift.String) {
+                self.name = name
+            }
+            public enum CodingKeys: String, CodingKey {
+                case name
+            }
+        }
         /// Result for a single acceptance criterion.
         ///
         /// - Remark: Generated from `#/components/schemas/CriterionResultResponse`.
@@ -9895,6 +10250,242 @@ public enum Components {
                 case totalQuestions = "total_questions"
             }
         }
+        /// Schema for a group detail response including member list.
+        ///
+        /// - Remark: Generated from `#/components/schemas/GroupDetailResponse`.
+        public struct GroupDetailResponse: Codable, Hashable, Sendable {
+            /// Timestamp when the group was created
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupDetailResponse/created_at`.
+            public var createdAt: Foundation.Date
+            /// User ID of the group creator
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupDetailResponse/created_by`.
+            public var createdBy: Swift.Int
+            /// Group ID
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupDetailResponse/id`.
+            public var id: Swift.Int
+            /// Invite code for sharing the group
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupDetailResponse/invite_code`.
+            public var inviteCode: Swift.String
+            /// Maximum number of members allowed
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupDetailResponse/max_members`.
+            public var maxMembers: Swift.Int
+            /// Current number of members in the group
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupDetailResponse/member_count`.
+            public var memberCount: Swift.Int
+            /// List of current group members with their roles
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupDetailResponse/members`.
+            public var members: [Components.Schemas.GroupMemberResponse]
+            /// Group display name
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupDetailResponse/name`.
+            public var name: Swift.String
+            /// Creates a new `GroupDetailResponse`.
+            ///
+            /// - Parameters:
+            ///   - createdAt: Timestamp when the group was created
+            ///   - createdBy: User ID of the group creator
+            ///   - id: Group ID
+            ///   - inviteCode: Invite code for sharing the group
+            ///   - maxMembers: Maximum number of members allowed
+            ///   - memberCount: Current number of members in the group
+            ///   - members: List of current group members with their roles
+            ///   - name: Group display name
+            public init(
+                createdAt: Foundation.Date,
+                createdBy: Swift.Int,
+                id: Swift.Int,
+                inviteCode: Swift.String,
+                maxMembers: Swift.Int,
+                memberCount: Swift.Int,
+                members: [Components.Schemas.GroupMemberResponse],
+                name: Swift.String
+            ) {
+                self.createdAt = createdAt
+                self.createdBy = createdBy
+                self.id = id
+                self.inviteCode = inviteCode
+                self.maxMembers = maxMembers
+                self.memberCount = memberCount
+                self.members = members
+                self.name = name
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case createdBy = "created_by"
+                case id
+                case inviteCode = "invite_code"
+                case maxMembers = "max_members"
+                case memberCount = "member_count"
+                case members
+                case name
+            }
+        }
+        /// Schema for a group invite response.
+        ///
+        /// - Remark: Generated from `#/components/schemas/GroupInviteResponse`.
+        public struct GroupInviteResponse: Codable, Hashable, Sendable {
+            /// Timestamp when the invite was created
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupInviteResponse/created_at`.
+            public var createdAt: Foundation.Date
+            /// Timestamp when the invite expires
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupInviteResponse/expires_at`.
+            public var expiresAt: Foundation.Date
+            /// Invite ID
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupInviteResponse/id`.
+            public var id: Swift.Int
+            /// Invite code to share with others
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupInviteResponse/invite_code`.
+            public var inviteCode: Swift.String
+            /// Creates a new `GroupInviteResponse`.
+            ///
+            /// - Parameters:
+            ///   - createdAt: Timestamp when the invite was created
+            ///   - expiresAt: Timestamp when the invite expires
+            ///   - id: Invite ID
+            ///   - inviteCode: Invite code to share with others
+            public init(
+                createdAt: Foundation.Date,
+                expiresAt: Foundation.Date,
+                id: Swift.Int,
+                inviteCode: Swift.String
+            ) {
+                self.createdAt = createdAt
+                self.expiresAt = expiresAt
+                self.id = id
+                self.inviteCode = inviteCode
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case expiresAt = "expires_at"
+                case id
+                case inviteCode = "invite_code"
+            }
+        }
+        /// Schema for a single group member.
+        ///
+        /// - Remark: Generated from `#/components/schemas/GroupMemberResponse`.
+        public struct GroupMemberResponse: Codable, Hashable, Sendable {
+            /// First name of the member
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupMemberResponse/first_name`.
+            public var firstName: Swift.String
+            /// Timestamp when the member joined
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupMemberResponse/joined_at`.
+            public var joinedAt: Foundation.Date
+            /// Member role in the group (owner or member)
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupMemberResponse/role`.
+            public var role: Swift.String
+            /// User ID of the member
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupMemberResponse/user_id`.
+            public var userId: Swift.Int
+            /// Creates a new `GroupMemberResponse`.
+            ///
+            /// - Parameters:
+            ///   - firstName: First name of the member
+            ///   - joinedAt: Timestamp when the member joined
+            ///   - role: Member role in the group (owner or member)
+            ///   - userId: User ID of the member
+            public init(
+                firstName: Swift.String,
+                joinedAt: Foundation.Date,
+                role: Swift.String,
+                userId: Swift.Int
+            ) {
+                self.firstName = firstName
+                self.joinedAt = joinedAt
+                self.role = role
+                self.userId = userId
+            }
+            public enum CodingKeys: String, CodingKey {
+                case firstName = "first_name"
+                case joinedAt = "joined_at"
+                case role
+                case userId = "user_id"
+            }
+        }
+        /// Schema for a group summary response.
+        ///
+        /// - Remark: Generated from `#/components/schemas/GroupResponse`.
+        public struct GroupResponse: Codable, Hashable, Sendable {
+            /// Timestamp when the group was created
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupResponse/created_at`.
+            public var createdAt: Foundation.Date
+            /// User ID of the group creator
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupResponse/created_by`.
+            public var createdBy: Swift.Int
+            /// Group ID
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupResponse/id`.
+            public var id: Swift.Int
+            /// Invite code for sharing the group
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupResponse/invite_code`.
+            public var inviteCode: Swift.String
+            /// Maximum number of members allowed
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupResponse/max_members`.
+            public var maxMembers: Swift.Int
+            /// Current number of members in the group
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupResponse/member_count`.
+            public var memberCount: Swift.Int
+            /// Group display name
+            ///
+            /// - Remark: Generated from `#/components/schemas/GroupResponse/name`.
+            public var name: Swift.String
+            /// Creates a new `GroupResponse`.
+            ///
+            /// - Parameters:
+            ///   - createdAt: Timestamp when the group was created
+            ///   - createdBy: User ID of the group creator
+            ///   - id: Group ID
+            ///   - inviteCode: Invite code for sharing the group
+            ///   - maxMembers: Maximum number of members allowed
+            ///   - memberCount: Current number of members in the group
+            ///   - name: Group display name
+            public init(
+                createdAt: Foundation.Date,
+                createdBy: Swift.Int,
+                id: Swift.Int,
+                inviteCode: Swift.String,
+                maxMembers: Swift.Int,
+                memberCount: Swift.Int,
+                name: Swift.String
+            ) {
+                self.createdAt = createdAt
+                self.createdBy = createdBy
+                self.id = id
+                self.inviteCode = inviteCode
+                self.maxMembers = maxMembers
+                self.memberCount = memberCount
+                self.name = name
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case createdBy = "created_by"
+                case id
+                case inviteCode = "invite_code"
+                case maxMembers = "max_members"
+                case memberCount = "member_count"
+                case name
+            }
+        }
         /// Response returned by POST /v1/test/guest/start.
         ///
         /// Extends the standard StartTestResponse with a one-time guest_token
@@ -10585,6 +11176,115 @@ public enum Components {
                 case questionType = "question_type"
                 case readyForCalibration = "ready_for_calibration"
                 case responseCount = "response_count"
+            }
+        }
+        /// Schema for joining a group via invite code.
+        ///
+        /// - Remark: Generated from `#/components/schemas/JoinGroupRequest`.
+        public struct JoinGroupRequest: Codable, Hashable, Sendable {
+            /// Invite code for the group
+            ///
+            /// - Remark: Generated from `#/components/schemas/JoinGroupRequest/invite_code`.
+            public var inviteCode: Swift.String
+            /// Creates a new `JoinGroupRequest`.
+            ///
+            /// - Parameters:
+            ///   - inviteCode: Invite code for the group
+            public init(inviteCode: Swift.String) {
+                self.inviteCode = inviteCode
+            }
+            public enum CodingKeys: String, CodingKey {
+                case inviteCode = "invite_code"
+            }
+        }
+        /// Schema for a single leaderboard entry.
+        ///
+        /// - Remark: Generated from `#/components/schemas/LeaderboardEntryResponse`.
+        public struct LeaderboardEntryResponse: Codable, Hashable, Sendable {
+            /// Average IQ score across all tests for the user
+            ///
+            /// - Remark: Generated from `#/components/schemas/LeaderboardEntryResponse/average_score`.
+            public var averageScore: Swift.Double
+            /// Highest IQ score achieved by the user
+            ///
+            /// - Remark: Generated from `#/components/schemas/LeaderboardEntryResponse/best_score`.
+            public var bestScore: Swift.Int
+            /// First name of the user
+            ///
+            /// - Remark: Generated from `#/components/schemas/LeaderboardEntryResponse/first_name`.
+            public var firstName: Swift.String
+            /// Rank position in the leaderboard (1-based)
+            ///
+            /// - Remark: Generated from `#/components/schemas/LeaderboardEntryResponse/rank`.
+            public var rank: Swift.Int
+            /// User ID
+            ///
+            /// - Remark: Generated from `#/components/schemas/LeaderboardEntryResponse/user_id`.
+            public var userId: Swift.Int
+            /// Creates a new `LeaderboardEntryResponse`.
+            ///
+            /// - Parameters:
+            ///   - averageScore: Average IQ score across all tests for the user
+            ///   - bestScore: Highest IQ score achieved by the user
+            ///   - firstName: First name of the user
+            ///   - rank: Rank position in the leaderboard (1-based)
+            ///   - userId: User ID
+            public init(
+                averageScore: Swift.Double,
+                bestScore: Swift.Int,
+                firstName: Swift.String,
+                rank: Swift.Int,
+                userId: Swift.Int
+            ) {
+                self.averageScore = averageScore
+                self.bestScore = bestScore
+                self.firstName = firstName
+                self.rank = rank
+                self.userId = userId
+            }
+            public enum CodingKeys: String, CodingKey {
+                case averageScore = "average_score"
+                case bestScore = "best_score"
+                case firstName = "first_name"
+                case rank
+                case userId = "user_id"
+            }
+        }
+        /// Schema for the group leaderboard response.
+        ///
+        /// - Remark: Generated from `#/components/schemas/LeaderboardResponse`.
+        public struct LeaderboardResponse: Codable, Hashable, Sendable {
+            /// Ranked list of group members by best score
+            ///
+            /// - Remark: Generated from `#/components/schemas/LeaderboardResponse/entries`.
+            public var entries: [Components.Schemas.LeaderboardEntryResponse]
+            /// Group ID
+            ///
+            /// - Remark: Generated from `#/components/schemas/LeaderboardResponse/group_id`.
+            public var groupId: Swift.Int
+            /// Display name of the group
+            ///
+            /// - Remark: Generated from `#/components/schemas/LeaderboardResponse/group_name`.
+            public var groupName: Swift.String
+            /// Creates a new `LeaderboardResponse`.
+            ///
+            /// - Parameters:
+            ///   - entries: Ranked list of group members by best score
+            ///   - groupId: Group ID
+            ///   - groupName: Display name of the group
+            public init(
+                entries: [Components.Schemas.LeaderboardEntryResponse],
+                groupId: Swift.Int,
+                groupName: Swift.String
+            ) {
+                self.entries = entries
+                self.groupId = groupId
+                self.groupName = groupName
+            }
+            public enum CodingKeys: String, CodingKey {
+                case entries
+                case groupId = "group_id"
+                case groupName = "group_name"
             }
         }
         /// Response model for logout-all monitoring statistics.
@@ -33414,6 +34114,1429 @@ public enum Operations {
             /// - Throws: An error if `self` is not `.unprocessableContent`.
             /// - SeeAlso: `.unprocessableContent`.
             public var unprocessableContent: Operations.SubmitFeedbackV1FeedbackSubmitPost.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// List Groups
+    ///
+    /// List all groups the current user belongs to.
+    ///
+    /// Args:
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     List of GroupResponse objects, each with a current member_count.
+    ///
+    /// - Remark: HTTP `GET /v1/groups/`.
+    /// - Remark: Generated from `#/paths//v1/groups//get(list_groups_v1_groups__get)`.
+    public enum ListGroupsV1GroupsGet {
+        public static let id: Swift.String = "list_groups_v1_groups__get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/groups/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.ListGroupsV1GroupsGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.ListGroupsV1GroupsGet.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.ListGroupsV1GroupsGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            public init(headers: Operations.ListGroupsV1GroupsGet.Input.Headers = .init()) {
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/GET/responses/200/content/application\/json`.
+                    case json([Components.Schemas.GroupResponse])
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: [Components.Schemas.GroupResponse] {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ListGroupsV1GroupsGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.ListGroupsV1GroupsGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups//get(list_groups_v1_groups__get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.ListGroupsV1GroupsGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.ListGroupsV1GroupsGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Create Group
+    ///
+    /// Create a new group.
+    ///
+    /// Creates the group and automatically adds the creator as the owner.
+    ///
+    /// Args:
+    ///     body: CreateGroupRequest containing the group name.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupResponse with member_count=1.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/`.
+    /// - Remark: Generated from `#/paths//v1/groups//post(create_group_v1_groups__post)`.
+    public enum CreateGroupV1GroupsPost {
+        public static let id: Swift.String = "create_group_v1_groups__post"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/groups/POST/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.CreateGroupV1GroupsPost.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.CreateGroupV1GroupsPost.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.CreateGroupV1GroupsPost.Input.Headers
+            /// - Remark: Generated from `#/paths/v1/groups/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/POST/requestBody/content/application\/json`.
+                case json(Components.Schemas.CreateGroupRequest)
+            }
+            public var body: Operations.CreateGroupV1GroupsPost.Input.Body
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            public init(
+                headers: Operations.CreateGroupV1GroupsPost.Input.Headers = .init(),
+                body: Operations.CreateGroupV1GroupsPost.Input.Body
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Created: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/POST/responses/201/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/POST/responses/201/content/application\/json`.
+                    case json(Components.Schemas.GroupResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.GroupResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.CreateGroupV1GroupsPost.Output.Created.Body
+                /// Creates a new `Created`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.CreateGroupV1GroupsPost.Output.Created.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups//post(create_group_v1_groups__post)/responses/201`.
+            ///
+            /// HTTP response code: `201 created`.
+            case created(Operations.CreateGroupV1GroupsPost.Output.Created)
+            /// The associated value of the enum case if `self` is `.created`.
+            ///
+            /// - Throws: An error if `self` is not `.created`.
+            /// - SeeAlso: `.created`.
+            public var created: Operations.CreateGroupV1GroupsPost.Output.Created {
+                get throws {
+                    switch self {
+                    case let .created(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "created",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/POST/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/POST/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.CreateGroupV1GroupsPost.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.CreateGroupV1GroupsPost.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups//post(create_group_v1_groups__post)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.CreateGroupV1GroupsPost.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.CreateGroupV1GroupsPost.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Join Group
+    ///
+    /// Join a group using an invite code.
+    ///
+    /// Accepts either a generated GroupInvite code (with expiry enforcement) or
+    /// the permanent Group.invite_code. Generated invites are checked first; if
+    /// a valid, unexpired invite is found, the acceptor is recorded on it.
+    ///
+    /// Args:
+    ///     body: JoinGroupRequest containing the invite_code.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupResponse for the joined group.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/join`.
+    /// - Remark: Generated from `#/paths//v1/groups/join/post(join_group_v1_groups_join_post)`.
+    public enum JoinGroupV1GroupsJoinPost {
+        public static let id: Swift.String = "join_group_v1_groups_join_post"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/groups/join/POST/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.JoinGroupV1GroupsJoinPost.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.JoinGroupV1GroupsJoinPost.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.JoinGroupV1GroupsJoinPost.Input.Headers
+            /// - Remark: Generated from `#/paths/v1/groups/join/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/join/POST/requestBody/content/application\/json`.
+                case json(Components.Schemas.JoinGroupRequest)
+            }
+            public var body: Operations.JoinGroupV1GroupsJoinPost.Input.Body
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            public init(
+                headers: Operations.JoinGroupV1GroupsJoinPost.Input.Headers = .init(),
+                body: Operations.JoinGroupV1GroupsJoinPost.Input.Body
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/join/POST/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/join/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.GroupResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.GroupResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.JoinGroupV1GroupsJoinPost.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.JoinGroupV1GroupsJoinPost.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/join/post(join_group_v1_groups_join_post)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.JoinGroupV1GroupsJoinPost.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.JoinGroupV1GroupsJoinPost.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/join/POST/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/join/POST/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.JoinGroupV1GroupsJoinPost.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.JoinGroupV1GroupsJoinPost.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/join/post(join_group_v1_groups_join_post)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.JoinGroupV1GroupsJoinPost.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.JoinGroupV1GroupsJoinPost.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Get Group
+    ///
+    /// Return full group detail including the member list.
+    ///
+    /// Requires the caller to be a member of the group.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupDetailResponse with members list.
+    ///
+    /// - Remark: HTTP `GET /v1/groups/{group_id}`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/get(get_group_v1_groups__group_id__get)`.
+    public enum GetGroupV1GroupsGroupIdGet {
+        public static let id: Swift.String = "get_group_v1_groups__group_id__get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/GET/path`.
+            public struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/GET/path/group_id`.
+                public var groupId: Swift.Int
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - groupId:
+                public init(groupId: Swift.Int) {
+                    self.groupId = groupId
+                }
+            }
+            public var path: Operations.GetGroupV1GroupsGroupIdGet.Input.Path
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetGroupV1GroupsGroupIdGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetGroupV1GroupsGroupIdGet.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.GetGroupV1GroupsGroupIdGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            public init(
+                path: Operations.GetGroupV1GroupsGroupIdGet.Input.Path,
+                headers: Operations.GetGroupV1GroupsGroupIdGet.Input.Headers = .init()
+            ) {
+                self.path = path
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.GroupDetailResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.GroupDetailResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetGroupV1GroupsGroupIdGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetGroupV1GroupsGroupIdGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/get(get_group_v1_groups__group_id__get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.GetGroupV1GroupsGroupIdGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.GetGroupV1GroupsGroupIdGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/GET/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetGroupV1GroupsGroupIdGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetGroupV1GroupsGroupIdGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/get(get_group_v1_groups__group_id__get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.GetGroupV1GroupsGroupIdGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.GetGroupV1GroupsGroupIdGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Delete Group
+    ///
+    /// Delete a group and all associated memberships and invites.
+    ///
+    /// Only the group owner can delete the group. Cascade deletes on the ORM
+    /// relationships handle memberships and invites automatically.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     No content (204) on success.
+    ///
+    /// - Remark: HTTP `DELETE /v1/groups/{group_id}`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/delete(delete_group_v1_groups__group_id__delete)`.
+    public enum DeleteGroupV1GroupsGroupIdDelete {
+        public static let id: Swift.String = "delete_group_v1_groups__group_id__delete"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/DELETE/path`.
+            public struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/DELETE/path/group_id`.
+                public var groupId: Swift.Int
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - groupId:
+                public init(groupId: Swift.Int) {
+                    self.groupId = groupId
+                }
+            }
+            public var path: Operations.DeleteGroupV1GroupsGroupIdDelete.Input.Path
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/DELETE/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.DeleteGroupV1GroupsGroupIdDelete.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.DeleteGroupV1GroupsGroupIdDelete.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.DeleteGroupV1GroupsGroupIdDelete.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            public init(
+                path: Operations.DeleteGroupV1GroupsGroupIdDelete.Input.Path,
+                headers: Operations.DeleteGroupV1GroupsGroupIdDelete.Input.Headers = .init()
+            ) {
+                self.path = path
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct NoContent: Sendable, Hashable {
+                /// Creates a new `NoContent`.
+                public init() {}
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/delete(delete_group_v1_groups__group_id__delete)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            case noContent(Operations.DeleteGroupV1GroupsGroupIdDelete.Output.NoContent)
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/delete(delete_group_v1_groups__group_id__delete)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            public static var noContent: Self {
+                .noContent(.init())
+            }
+            /// The associated value of the enum case if `self` is `.noContent`.
+            ///
+            /// - Throws: An error if `self` is not `.noContent`.
+            /// - SeeAlso: `.noContent`.
+            public var noContent: Operations.DeleteGroupV1GroupsGroupIdDelete.Output.NoContent {
+                get throws {
+                    switch self {
+                    case let .noContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "noContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/DELETE/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/DELETE/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.DeleteGroupV1GroupsGroupIdDelete.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.DeleteGroupV1GroupsGroupIdDelete.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/delete(delete_group_v1_groups__group_id__delete)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.DeleteGroupV1GroupsGroupIdDelete.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.DeleteGroupV1GroupsGroupIdDelete.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Generate Invite
+    ///
+    /// Generate a new invite link for the group.
+    ///
+    /// Only the group owner can generate invites.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupInviteResponse with the new invite code and expiry.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/{group_id}/invite`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/invite/post(generate_invite_v1_groups__group_id__invite_post)`.
+    public enum GenerateInviteV1GroupsGroupIdInvitePost {
+        public static let id: Swift.String = "generate_invite_v1_groups__group_id__invite_post"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/invite/POST/path`.
+            public struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/invite/POST/path/group_id`.
+                public var groupId: Swift.Int
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - groupId:
+                public init(groupId: Swift.Int) {
+                    self.groupId = groupId
+                }
+            }
+            public var path: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Input.Path
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/invite/POST/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GenerateInviteV1GroupsGroupIdInvitePost.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GenerateInviteV1GroupsGroupIdInvitePost.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            public init(
+                path: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Input.Path,
+                headers: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Input.Headers = .init()
+            ) {
+                self.path = path
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/invite/POST/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/invite/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.GroupInviteResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.GroupInviteResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/invite/post(generate_invite_v1_groups__group_id__invite_post)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/invite/POST/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/invite/POST/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/invite/post(generate_invite_v1_groups__group_id__invite_post)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.GenerateInviteV1GroupsGroupIdInvitePost.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Get Leaderboard
+    ///
+    /// Return a ranked leaderboard for all group members.
+    ///
+    /// Members with no test results appear at the bottom with scores of 0.
+    /// Requires the caller to be a member of the group.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     LeaderboardResponse with ranked entries for every group member.
+    ///
+    /// - Remark: HTTP `GET /v1/groups/{group_id}/leaderboard`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/leaderboard/get(get_leaderboard_v1_groups__group_id__leaderboard_get)`.
+    public enum GetLeaderboardV1GroupsGroupIdLeaderboardGet {
+        public static let id: Swift.String = "get_leaderboard_v1_groups__group_id__leaderboard_get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/leaderboard/GET/path`.
+            public struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/leaderboard/GET/path/group_id`.
+                public var groupId: Swift.Int
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - groupId:
+                public init(groupId: Swift.Int) {
+                    self.groupId = groupId
+                }
+            }
+            public var path: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Input.Path
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/leaderboard/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            public init(
+                path: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Input.Path,
+                headers: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Input.Headers = .init()
+            ) {
+                self.path = path
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/leaderboard/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/leaderboard/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.LeaderboardResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.LeaderboardResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/leaderboard/get(get_leaderboard_v1_groups__group_id__leaderboard_get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/leaderboard/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/leaderboard/GET/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/leaderboard/get(get_leaderboard_v1_groups__group_id__leaderboard_get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.GetLeaderboardV1GroupsGroupIdLeaderboardGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Remove Member
+    ///
+    /// Remove a member from a group (leave or kick).
+    ///
+    /// A user may remove themselves (leave). The group owner may remove any
+    /// non-owner member. The owner cannot be removed via this endpoint.
+    ///
+    /// Args:
+    ///     group_id: Primary key of the group.
+    ///     user_id: ID of the user to remove.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     No content (204) on success.
+    ///
+    /// - Remark: HTTP `DELETE /v1/groups/{group_id}/members/{user_id}`.
+    /// - Remark: Generated from `#/paths//v1/groups/{group_id}/members/{user_id}/delete(remove_member_v1_groups__group_id__members__user_id__delete)`.
+    public enum RemoveMemberV1GroupsGroupIdMembersUserIdDelete {
+        public static let id: Swift.String = "remove_member_v1_groups__group_id__members__user_id__delete"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/members/{user_id}/DELETE/path`.
+            public struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/members/{user_id}/DELETE/path/group_id`.
+                public var groupId: Swift.Int
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/members/{user_id}/DELETE/path/user_id`.
+                public var userId: Swift.Int
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - groupId:
+                ///   - userId:
+                public init(
+                    groupId: Swift.Int,
+                    userId: Swift.Int
+                ) {
+                    self.groupId = groupId
+                    self.userId = userId
+                }
+            }
+            public var path: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input.Path
+            /// - Remark: Generated from `#/paths/v1/groups/{group_id}/members/{user_id}/DELETE/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            public init(
+                path: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input.Path,
+                headers: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Input.Headers = .init()
+            ) {
+                self.path = path
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct NoContent: Sendable, Hashable {
+                /// Creates a new `NoContent`.
+                public init() {}
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/members/{user_id}/delete(remove_member_v1_groups__group_id__members__user_id__delete)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            case noContent(Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output.NoContent)
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/members/{user_id}/delete(remove_member_v1_groups__group_id__members__user_id__delete)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            public static var noContent: Self {
+                .noContent(.init())
+            }
+            /// The associated value of the enum case if `self` is `.noContent`.
+            ///
+            /// - Throws: An error if `self` is not `.noContent`.
+            /// - SeeAlso: `.noContent`.
+            public var noContent: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output.NoContent {
+                get throws {
+                    switch self {
+                    case let .noContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "noContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/groups/{group_id}/members/{user_id}/DELETE/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/groups/{group_id}/members/{user_id}/DELETE/responses/422/content/application\/json`.
+                    case json(Components.Schemas.HTTPValidationError)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.HTTPValidationError {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/groups/{group_id}/members/{user_id}/delete(remove_member_v1_groups__group_id__members__user_id__delete)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.RemoveMemberV1GroupsGroupIdMembersUserIdDelete.Output.UnprocessableContent {
                 get throws {
                     switch self {
                     case let .unprocessableContent(response):
