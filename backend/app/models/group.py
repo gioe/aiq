@@ -31,7 +31,7 @@ class GroupRole(str, enum.Enum):
 class Group(Base):
     __tablename__ = "groups"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(30))
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(
@@ -55,7 +55,7 @@ class Group(Base):
 class GroupMembership(Base):
     __tablename__ = "group_memberships"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     # GroupRole is a VARCHAR-backed enum (not a native PG enum type).
@@ -80,7 +80,7 @@ class GroupMembership(Base):
 class GroupInvite(Base):
     __tablename__ = "group_invites"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"))
     invited_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     invite_code: Mapped[str] = mapped_column(

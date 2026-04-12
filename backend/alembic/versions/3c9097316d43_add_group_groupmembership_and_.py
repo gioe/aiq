@@ -36,10 +36,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("invite_code"),
     )
-    op.execute("CREATE INDEX IF NOT EXISTS ix_groups_id ON groups (id)")
-    op.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS ix_groups_invite_code ON groups (invite_code)"
-    )
+    # PK index on id is automatic; unique constraint on invite_code already
+    # creates an implicit unique index — no explicit CREATE INDEX needed.
 
     # --- group_invites ---
     op.create_table(
@@ -58,11 +56,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("invite_code"),
     )
-    op.execute("CREATE INDEX IF NOT EXISTS ix_group_invites_id ON group_invites (id)")
-    op.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS ix_group_invites_invite_code"
-        " ON group_invites (invite_code)"
-    )
+    # PK index on id is automatic; unique constraint on invite_code already
+    # creates an implicit unique index — no explicit CREATE INDEX needed.
 
     # --- group_memberships ---
     op.create_table(
@@ -79,9 +74,7 @@ def upgrade() -> None:
             "group_id", "user_id", name="uq_group_membership_group_user"
         ),
     )
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_group_memberships_id ON group_memberships (id)"
-    )
+    # PK index on id is automatic.
     op.execute(
         "CREATE INDEX IF NOT EXISTS ix_group_memberships_user_id"
         " ON group_memberships (user_id)"
@@ -89,17 +82,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Drop group_memberships indexes and table.
+    # Drop group_memberships user_id index and table.
     op.execute("DROP INDEX IF EXISTS ix_group_memberships_user_id")
-    op.execute("DROP INDEX IF EXISTS ix_group_memberships_id")
     op.drop_table("group_memberships")
 
-    # Drop group_invites indexes and table.
-    op.execute("DROP INDEX IF EXISTS ix_group_invites_invite_code")
-    op.execute("DROP INDEX IF EXISTS ix_group_invites_id")
+    # Drop group_invites table (PK and unique constraint indexes drop with table).
     op.drop_table("group_invites")
 
-    # Drop groups indexes and table.
-    op.execute("DROP INDEX IF EXISTS ix_groups_invite_code")
-    op.execute("DROP INDEX IF EXISTS ix_groups_id")
+    # Drop groups table (PK and unique constraint indexes drop with table).
     op.drop_table("groups")
