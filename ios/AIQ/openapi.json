@@ -4470,6 +4470,21 @@
         "title": "JoinGroupRequest",
         "type": "object"
       },
+      "TransferOwnershipRequest": {
+        "description": "Schema for transferring group ownership to another member.",
+        "properties": {
+          "new_owner_id": {
+            "description": "User ID of the member to become the new owner",
+            "title": "New Owner Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "new_owner_id"
+        ],
+        "title": "TransferOwnershipRequest",
+        "type": "object"
+      },
       "LeaderboardEntryResponse": {
         "description": "Schema for a single leaderboard entry.",
         "properties": {
@@ -14464,6 +14479,64 @@
           }
         ],
         "summary": "Remove Member",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/v1/groups/{group_id}/transfer-ownership": {
+      "put": {
+        "description": "Transfer group ownership to another member.\n\nOnly the current owner can transfer ownership. The new owner must already\nbe a member of the group. After transfer, the previous owner becomes a\nregular member.\n\nArgs:\n    group_id: Primary key of the group.\n    body: TransferOwnershipRequest containing the new_owner_id.\n    current_user: Authenticated user making the request.\n    db: Async database session.\n\nReturns:\n    GroupDetailResponse reflecting the updated roles.",
+        "operationId": "transfer_ownership_v1_groups__group_id__transfer_ownership_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferOwnershipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Transfer Ownership",
         "tags": [
           "groups"
         ]

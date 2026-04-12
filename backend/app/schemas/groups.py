@@ -40,6 +40,15 @@ class CreateGroupRequest(BaseModel):
         return sanitized
 
 
+class TransferOwnershipRequest(BaseModel):
+    """Schema for transferring group ownership to another member."""
+
+    new_owner_id: int = Field(
+        ...,
+        description="User ID of the member to become the new owner",
+    )
+
+
 class JoinGroupRequest(BaseModel):
     """Schema for joining a group via invite code."""
 

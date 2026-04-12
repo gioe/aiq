@@ -36,6 +36,7 @@ from app.schemas.groups import (
     JoinGroupRequest,
     LeaderboardEntryResponse,
     LeaderboardResponse,
+    TransferOwnershipRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -594,3 +595,93 @@ async def delete_group(
         raise_server_error(ErrorMessages.database_operation_failed("delete group"))
 
     return None
+
+
+@router.put("/{group_id}/transfer-ownership", response_model=GroupDetailResponse)
+async def transfer_ownership(
+    group_id: int,
+    body: TransferOwnershipRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> GroupDetailResponse:
+    """
+    Transfer group ownership to another member.
+
+    Only the current owner can transfer ownership. The new owner must already
+    be a member of the group. After transfer, the previous owner becomes a
+    regular member.
+
+    Args:
+        group_id: Primary key of the group.
+        body: TransferOwnershipRequest containing the new_owner_id.
+        current_user: Authenticated user making the request.
+        db: Async database session.
+
+    Returns:
+        GroupDetailResponse reflecting the updated roles.
+    """
+    group = await _get_group_or_404(db, group_id)
+
+    # Caller must be the current owner
+    caller_membership = await _get_membership(db, group_id, current_user.id)
+    if caller_membership is None or caller_membership.role != GroupRole.OWNER:
+        raise_forbidden("Only the group owner can transfer ownership.")
+
+    # Cannot transfer to yourself
+    if body.new_owner_id == current_user.id:
+        raise_bad_request("You are already the owner of this group.")
+
+    # New owner must be a current member
+    new_owner_membership = await _get_membership(db, group_id, body.new_owner_id)
+    if new_owner_membership is None:
+        raise_not_found("The specified user is not a member of this group.")
+
+    try:
+        caller_membership.role = GroupRole.MEMBER
+        new_owner_membership.role = GroupRole.OWNER
+        await db.commit()
+    except SQLAlchemyError:
+        await db.rollback()
+        logger.error(
+            "Failed to transfer ownership of group %s from user %s to user %s",
+            group_id,
+            current_user.id,
+            body.new_owner_id,
+            exc_info=True,
+        )
+        raise_server_error(
+            ErrorMessages.database_operation_failed("transfer group ownership")
+        )
+
+    # Build the response with refreshed member list
+    stmt = (
+        select(GroupMembership, User.first_name)
+        .join(User, GroupMembership.user_id == User.id)
+        .where(GroupMembership.group_id == group_id)
+        .order_by(GroupMembership.joined_at)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    members = [
+        GroupMemberResponse(
+            user_id=membership.user_id,
+            first_name=first_name or "",
+            role=membership.role.value,
+            joined_at=membership.joined_at,
+        )
+        for membership, first_name in rows
+    ]
+
+    count = await _member_count(db, group_id)
+
+    return GroupDetailResponse(
+        id=group.id,
+        name=group.name,
+        created_by=group.created_by,
+        created_at=group.created_at,
+        invite_code=group.invite_code,
+        max_members=group.max_members,
+        member_count=count,
+        members=members,
+    )
