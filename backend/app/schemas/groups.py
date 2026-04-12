@@ -3,7 +3,7 @@ Pydantic schemas for the groups API endpoints.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -151,20 +151,4 @@ class LeaderboardResponse(BaseModel):
     entries: List[LeaderboardEntryResponse] = Field(
         ...,
         description="Ranked list of group members by best score",
-    )
-
-
-# =============================================================================
-# Optional Nullable Fields for Invite Acceptance
-# =============================================================================
-
-
-class GroupInviteDetailResponse(GroupInviteResponse):
-    """Schema for a group invite with acceptance details (internal/admin use)."""
-
-    accepted_by: Optional[int] = Field(
-        None, description="User ID of the member who accepted this invite, if any"
-    )
-    accepted_at: Optional[datetime] = Field(
-        None, description="Timestamp when the invite was accepted, if applicable"
     )

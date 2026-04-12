@@ -47,7 +47,6 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 _INVITE_EXPIRY_DAYS = 7  # GroupInvite validity window
-_MAX_GROUP_MEMBERS = 10  # Hard cap enforced at join time
 
 
 # ---------------------------------------------------------------------------
@@ -144,9 +143,11 @@ async def create_group(
         db.add(membership)
         await db.commit()
         await db.refresh(group)
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         await db.rollback()
-        logger.error(f"Failed to create group for user {current_user.id}: {e}")
+        logger.error(
+            "Failed to create group for user %s", current_user.id, exc_info=True
+        )
         raise_server_error(ErrorMessages.database_operation_failed("create group"))
 
     return GroupResponse(
@@ -301,10 +302,13 @@ async def generate_invite(
         db.add(invite)
         await db.commit()
         await db.refresh(invite)
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         await db.rollback()
         logger.error(
-            f"Failed to create invite for group {group_id} by user {current_user.id}: {e}"
+            "Failed to create invite for group %s by user %s",
+            group_id,
+            current_user.id,
+            exc_info=True,
         )
         raise_server_error(
             ErrorMessages.database_operation_failed("create group invite")
@@ -320,10 +324,11 @@ async def join_group(
     db: AsyncSession = Depends(get_db),
 ) -> GroupResponse:
     """
-    Join a group using its invite code.
+    Join a group using an invite code.
 
-    Looks up the group by Group.invite_code. Validates membership capacity
-    and that the user is not already a member.
+    Accepts either a generated GroupInvite code (with expiry enforcement) or
+    the permanent Group.invite_code. Generated invites are checked first; if
+    a valid, unexpired invite is found, the acceptor is recorded on it.
 
     Args:
         body: JoinGroupRequest containing the invite_code.
@@ -333,22 +338,43 @@ async def join_group(
     Returns:
         GroupResponse for the joined group.
     """
-    # Look up by Group.invite_code (the permanent group invite code)
+    group: Optional[Group] = None
+    invite: Optional[GroupInvite] = None
+
+    # 1. Try generated GroupInvite codes first (respects expiry)
     result = await db.execute(
-        select(Group).where(Group.invite_code == body.invite_code)
+        select(GroupInvite).where(GroupInvite.invite_code == body.invite_code)
     )
-    group = result.scalar_one_or_none()
+    invite = result.scalar_one_or_none()
+    if invite is not None:
+        now = utc_now()
+        if invite.expires_at < now:
+            raise_bad_request("This invite code has expired.")
+        if invite.accepted_by is not None:
+            raise_conflict("This invite code has already been used.")
+        # Resolve the group from the invite
+        group_result = await db.execute(
+            select(Group).where(Group.id == invite.group_id)
+        )
+        group = group_result.scalar_one_or_none()
+    else:
+        # 2. Fall back to the permanent Group.invite_code
+        group_result = await db.execute(
+            select(Group).where(Group.invite_code == body.invite_code)
+        )
+        group = group_result.scalar_one_or_none()
+
     if group is None:
-        raise_not_found("Group not found.")
+        raise_not_found("Invalid invite code.")
 
     # Check not already a member
     existing = await _get_membership(db, group.id, current_user.id)
     if existing is not None:
         raise_conflict("You are already a member of this group.")
 
-    # Enforce member cap
+    # Enforce member cap (use the per-group max_members, not a global constant)
     count = await _member_count(db, group.id)
-    if count >= _MAX_GROUP_MEMBERS:
+    if count >= group.max_members:
         raise_bad_request("This group has reached its maximum member limit.")
 
     try:
@@ -358,6 +384,12 @@ async def join_group(
             role=GroupRole.MEMBER,
         )
         db.add(membership)
+
+        # Record acceptance on the invite if one was used
+        if invite is not None:
+            invite.accepted_by = current_user.id
+            invite.accepted_at = utc_now()
+
         await db.commit()
     except IntegrityError:
         # Race condition: another request created the membership concurrently
@@ -365,7 +397,12 @@ async def join_group(
         raise_conflict("You are already a member of this group.")
     except SQLAlchemyError as e:
         await db.rollback()
-        logger.error(f"Failed to add user {current_user.id} to group {group.id}: {e}")
+        logger.error(
+            "Failed to add user %s to group %s: %s",
+            current_user.id,
+            group.id,
+            e,
+        )
         raise_server_error(ErrorMessages.database_operation_failed("join group"))
 
     new_count = await _member_count(db, group.id)
@@ -505,9 +542,11 @@ async def remove_member(
     try:
         await db.delete(target_membership)
         await db.commit()
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         await db.rollback()
-        logger.error(f"Failed to remove user {user_id} from group {group_id}: {e}")
+        logger.error(
+            "Failed to remove user %s from group %s", user_id, group_id, exc_info=True
+        )
         raise_server_error(
             ErrorMessages.database_operation_failed("remove group member")
         )
@@ -544,10 +583,13 @@ async def delete_group(
     try:
         await db.delete(group)
         await db.commit()
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         await db.rollback()
         logger.error(
-            f"Failed to delete group {group_id} by user {current_user.id}: {e}"
+            "Failed to delete group %s by user %s",
+            group_id,
+            current_user.id,
+            exc_info=True,
         )
         raise_server_error(ErrorMessages.database_operation_failed("delete group"))
 
