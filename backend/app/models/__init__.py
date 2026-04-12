@@ -40,6 +40,12 @@ from .llm_benchmark import (
     BenchmarkSet,
     BenchmarkSetQuestion,
 )
+from .group import (
+    Group,
+    GroupMembership,
+    GroupInvite,
+    GroupRole,
+)
 
 __all__ = [
     "Base",
@@ -74,4 +80,8 @@ __all__ = [
     "LLMTestResult",
     "BenchmarkSet",
     "BenchmarkSetQuestion",
+    "Group",
+    "GroupMembership",
+    "GroupInvite",
+    "GroupRole",
 ]
