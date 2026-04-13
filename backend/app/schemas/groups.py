@@ -3,7 +3,7 @@ Pydantic schemas for the groups API endpoints.
 """
 
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -161,4 +161,20 @@ class LeaderboardResponse(BaseModel):
     entries: List[LeaderboardEntryResponse] = Field(
         ...,
         description="Ranked list of group members by best score",
+    )
+    total_count: int = Field(
+        ..., description="Total number of group members (before pagination)"
+    )
+    limit: Optional[int] = Field(
+        None, description="Page size used (null if no pagination)"
+    )
+    offset: Optional[int] = Field(
+        None, description="Offset used (null if no pagination)"
+    )
+    has_more: bool = Field(
+        False, description="Whether more entries exist beyond the current page"
+    )
+    days: Optional[int] = Field(
+        None,
+        description="Time window in days used to filter scores (null if all-time)",
     )

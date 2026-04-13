@@ -9,7 +9,7 @@ import logging
 from datetime import timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select, func, and_
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -424,6 +424,23 @@ async def get_leaderboard(
     group_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    days: Optional[int] = Query(
+        None,
+        ge=1,
+        le=3650,
+        description="Only include test results from the last N days",
+    ),
+    limit: Optional[int] = Query(
+        None,
+        ge=1,
+        le=100,
+        description="Maximum number of entries to return",
+    ),
+    offset: Optional[int] = Query(
+        None,
+        ge=0,
+        description="Number of entries to skip (requires limit)",
+    ),
 ) -> LeaderboardResponse:
     """
     Return a ranked leaderboard for all group members.
@@ -431,10 +448,17 @@ async def get_leaderboard(
     Members with no test results appear at the bottom with scores of 0.
     Requires the caller to be a member of the group.
 
+    Supports an optional time-window filter (``days``) that restricts score
+    aggregation to results completed within the last *N* days, and optional
+    pagination via ``limit`` / ``offset``.
+
     Args:
         group_id: Primary key of the group.
         current_user: Authenticated user making the request.
         db: Async database session.
+        days: Optional time window — only aggregate results from the last N days.
+        limit: Optional page size for pagination.
+        offset: Optional offset for pagination (requires limit).
 
     Returns:
         LeaderboardResponse with ranked entries for every group member.
@@ -443,15 +467,15 @@ async def get_leaderboard(
     await _require_membership(db, group_id, current_user.id)
 
     # Subquery: best and average IQ score per user
-    score_subq = (
-        select(
-            TestResult.user_id,
-            func.max(TestResult.iq_score).label("best_score"),
-            func.avg(TestResult.iq_score).label("average_score"),
-        )
-        .group_by(TestResult.user_id)
-        .subquery()
+    score_stmt = select(
+        TestResult.user_id,
+        func.max(TestResult.iq_score).label("best_score"),
+        func.avg(TestResult.iq_score).label("average_score"),
     )
+    if days is not None:
+        cutoff = utc_now() - timedelta(days=days)
+        score_stmt = score_stmt.where(TestResult.completed_at >= cutoff)
+    score_subq = score_stmt.group_by(TestResult.user_id).subquery()
 
     # Join group members with scores; left-join so zero-result members appear
     stmt = (
@@ -469,10 +493,18 @@ async def get_leaderboard(
 
     result = await db.execute(stmt)
     rows = result.all()
+    total_count = len(rows)
+
+    # Apply pagination after ranking so rank values are globally correct
+    if limit is not None:
+        start = offset or 0
+        rows = rows[start : start + limit]
+    elif offset is not None:
+        rows = rows[offset:]
 
     entries = [
         LeaderboardEntryResponse(
-            rank=idx + 1,
+            rank=(offset or 0) + idx + 1,
             user_id=user_id,
             first_name=first_name or "",
             best_score=best_score if best_score is not None else 0,
@@ -485,6 +517,13 @@ async def get_leaderboard(
         group_id=group.id,
         group_name=group.name,
         entries=entries,
+        total_count=total_count,
+        limit=limit,
+        offset=offset if limit is not None else None,
+        has_more=(
+            ((offset or 0) + limit < total_count) if limit is not None else False
+        ),
+        days=days,
     )
 
 
