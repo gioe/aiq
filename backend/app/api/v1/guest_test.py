@@ -35,7 +35,9 @@ from typing import Any, Dict, Optional
 
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends, Header
-from sqlalchemy import select
+from datetime import timedelta
+
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -262,7 +264,22 @@ async def start_guest_test(
             headers={"Retry-After": "0", "X-Tests-Remaining": "0"},
         )
 
-    # 3. Select questions using the sentinel user (skip seen-question filter because
+    # 3. Abandon stale IN_PROGRESS guest sessions older than the token TTL.
+    #    All guest sessions share GUEST_USER_ID, and the partial unique index
+    #    ix_test_sessions_user_active allows only one IN_PROGRESS session per user.
+    #    Without this cleanup a second concurrent guest start would hit IntegrityError.
+    ttl_cutoff = utc_now() - timedelta(minutes=settings.GUEST_TOKEN_TTL_MINUTES)
+    await db.execute(
+        update(TestSession)
+        .where(
+            TestSession.user_id == settings.GUEST_USER_ID,
+            TestSession.status == TestStatus.IN_PROGRESS,
+            TestSession.started_at < ttl_cutoff,
+        )
+        .values(status=TestStatus.ABANDONED)
+    )
+
+    # 4. Select questions using the sentinel user (skip seen-question filter because
     #    the sentinel user has no UserQuestion records — every question looks "unseen"
     #    — and we want a randomly stratified selection, not the full pool).
     question_count = settings.TEST_TOTAL_QUESTIONS
@@ -279,7 +296,7 @@ async def start_guest_test(
     if not unseen_questions:
         raise_not_found(ErrorMessages.NO_QUESTIONS_AVAILABLE)
 
-    # 4. Create TestSession linked to sentinel user
+    # 5. Create TestSession linked to sentinel user
     test_session = TestSession(
         user_id=settings.GUEST_USER_ID,
         status=TestStatus.IN_PROGRESS,
@@ -288,7 +305,22 @@ async def start_guest_test(
         is_adaptive=False,
     )
     db.add(test_session)
-    await db.flush()  # Obtain session ID without committing
+
+    try:
+        await db.flush()  # Obtain session ID without committing
+    except IntegrityError:
+        # Race condition: another concurrent guest start won the unique index.
+        # Mirrors the authenticated flow pattern at test.py:635-647.
+        await db.rollback()
+        logger.warning(
+            "Race condition detected: concurrent guest test start "
+            "(user_id=%d, device_id=%s)",
+            settings.GUEST_USER_ID,
+            device_id,
+        )
+        from app.core.error_responses import raise_conflict
+
+        raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
 
     # NOTE: We intentionally do NOT create UserQuestion rows for guests.
     # The UserQuestion table has a UNIQUE(user_id, question_id) constraint,
@@ -300,7 +332,7 @@ async def start_guest_test(
     await db.commit()
     await db.refresh(test_session)
 
-    # 5. Mint one-time token (includes question IDs for submit validation)
+    # 6. Mint one-time token (includes question IDs for submit validation)
     question_ids = [q.id for q in unseen_questions]
     guest_token = _generate_guest_token(
         session_id=test_session.id,
