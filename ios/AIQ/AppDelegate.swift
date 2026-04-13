@@ -24,6 +24,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     /// Set by AIQApp during initialization
     weak var appRouter: AppRouter?
 
+    /// Stores a deep link received before authentication so it can be replayed after login
+    @MainActor var pendingDeepLink: (deepLink: DeepLink, source: DeepLinkSource, originalURL: String)?
+
     func application(
         _: UIApplication,
         didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -301,6 +304,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
 
         Self.logger.info("Successfully parsed deep link: \(String(describing: deepLink), privacy: .public)")
+
+        // Store as pending so MainTabView can consume it after authentication.
+        // If MainTabView is already observing (user is authenticated), the notification
+        // below handles it immediately and MainTabView clears the pending link.
+        pendingDeepLink = (deepLink: deepLink, source: source, originalURL: sanitizedURL)
 
         // Post notification for the app to handle
         // This allows the deep link to be handled asynchronously when the app is ready

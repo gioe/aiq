@@ -89,10 +89,16 @@ struct MainTabView: View {
             guard let deepLink = notification.userInfo?["deepLink"] as? DeepLink else { return }
             let source = notification.userInfo?["source"] as? DeepLinkSource ?? .unknown
             let originalURL = notification.userInfo?["originalURL"] as? String ?? ""
+            // Clear pending link since we're handling it now
+            clearPendingDeepLink()
             let service = getNavigationService()
             Task {
                 _ = await service.navigate(to: deepLink, source: source, originalURL: originalURL)
             }
+        }
+        .onAppear {
+            // Check for a deep link that arrived before authentication (deferred intent)
+            consumePendingDeepLink()
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .notificationTapped)
@@ -231,6 +237,30 @@ struct MainTabView: View {
         )
         navigationService = service
         return service
+    }
+
+    // MARK: - Pending Deep Link
+
+    /// Consume a pending deep link stored by AppDelegate (deferred intent from pre-auth)
+    private func consumePendingDeepLink() {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate,
+              let pending = appDelegate.pendingDeepLink
+        else { return }
+        appDelegate.pendingDeepLink = nil
+        let service = getNavigationService()
+        Task {
+            _ = await service.navigate(
+                to: pending.deepLink,
+                source: pending.source,
+                originalURL: pending.originalURL
+            )
+        }
+    }
+
+    /// Clear the pending deep link without consuming it (used when the notification handles it)
+    private func clearPendingDeepLink() {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
+        appDelegate.pendingDeepLink = nil
     }
 
     // MARK: - Keyboard Shortcuts
