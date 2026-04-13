@@ -16,11 +16,11 @@ final class LeaderboardRowViewTests: XCTestCase {
         userId: Int
     ) -> Components.Schemas.LeaderboardEntryResponse {
         Components.Schemas.LeaderboardEntryResponse(
-            averageScore: averageScore,
-            bestScore: bestScore,
-            firstName: firstName,
             rank: rank,
-            userId: userId
+            userId: userId,
+            firstName: firstName,
+            bestScore: bestScore,
+            averageScore: averageScore
         )
     }
 
