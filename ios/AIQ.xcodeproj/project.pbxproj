@@ -31,6 +31,7 @@
 		16F818EB764C0F6284746753 /* DashboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F7B0036C4AA0EE698B9C2EC /* DashboardViewModelTests.swift */; };
 		17223A4D42D0C5CFCBE96BA6 /* SnapshotHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7983162A03F83CDECFC3FC04 /* SnapshotHelper.swift */; };
 		1862D5E3AEAE001552CE628C /* UITestMockBiometricPreferenceStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9A7A398A7F88DB98F4B6BC /* UITestMockBiometricPreferenceStorage.swift */; };
+		18E92C2D6B35FEE06137E3D3 /* QuestionGridToggleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08F2FA3FDD461021432AFDCD /* QuestionGridToggleUITests.swift */; };
 		1A57DF962EFE222F009F9E9D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1A57DF952EFE222F009F9E9D /* PrivacyInfo.xcprivacy */; };
 		1A66E85D14DF3026B9616C56 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DB1F74E4C42D4EDE293DC7 /* User.swift */; };
 		1A9B817B2F2EDE3900403187 /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = C3D4E5F6A7B8C9D0E1F2A3B4 /* OpenAPIRuntime */; };
@@ -348,6 +349,7 @@
 		07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = TrustKit.plist; sourceTree = "<group>"; };
 		0848038D590BEC1F47056CCB /* CompactTestRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CompactTestRow.swift; path = Features/History/Views/CompactTestRow.swift; sourceTree = "<group>"; };
 		08A3A24F902D9D469A002D10 /* TestProgressHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestProgressHeader.swift; path = Features/Test/Views/TestProgressHeader.swift; sourceTree = "<group>"; };
+		08F2FA3FDD461021432AFDCD /* QuestionGridToggleUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuestionGridToggleUITests.swift; sourceTree = "<group>"; };
 		0A03B180242F54340F85306F /* AuthServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceProtocol.swift; sourceTree = "<group>"; };
 		0A5FEBB0B4125E5CCB8E443C /* TestAbandonmentErrorScenarioTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestAbandonmentErrorScenarioTests.swift; sourceTree = "<group>"; };
 		0A9DE389A0A5B5902EC26C7E /* NotificationSettingsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NotificationSettingsViewModel.swift; path = Features/Settings/ViewModels/NotificationSettingsViewModel.swift; sourceTree = "<group>"; };
@@ -822,6 +824,7 @@
 				9A52C6D6CC7071D806BC4AD2 /* TestTakingAbandonmentFlowTests.swift */,
 				41569A8DB49D0ABEF0542DC2 /* DashboardPullToRefreshUITests.swift */,
 				5169502BD744EB44262DF9D5 /* AIComparisonCardUITests.swift */,
+				08F2FA3FDD461021432AFDCD /* QuestionGridToggleUITests.swift */,
 			);
 			path = AIQUITests;
 			sourceTree = "<group>";
@@ -1653,6 +1656,7 @@
 				8565688270FD11942FD2FC10 /* DashboardPullToRefreshUITests.swift in Sources */,
 				17223A4D42D0C5CFCBE96BA6 /* SnapshotHelper.swift in Sources */,
 				E0AC6258EC827804E036B3DF /* AIComparisonCardUITests.swift in Sources */,
+				18E92C2D6B35FEE06137E3D3 /* QuestionGridToggleUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
