@@ -151,7 +151,7 @@ struct PreTestInfoView: View {
             .padding(.bottom, theme.spacing.xxxl)
         }
         .background(theme.colors.background)
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 

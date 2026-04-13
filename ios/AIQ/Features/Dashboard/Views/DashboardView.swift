@@ -25,6 +25,9 @@ struct DashboardView: View {
     /// Controls presentation of the pre-test info bottom sheet
     @State private var showPreTestInfo: Bool = false
 
+    /// Set to true when the user confirms "I'm Ready" so navigation fires after sheet dismissal
+    @State private var pendingTestStart: Bool = false
+
     @Environment(\.appTheme) private var theme
 
     /// Creates a DashboardView with the specified service container
@@ -84,19 +87,28 @@ struct DashboardView: View {
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingContainerView()
         }
-        .sheet(isPresented: $showPreTestInfo) {
-            PreTestInfoView(
-                onStartTest: {
+        .sheet(
+            isPresented: $showPreTestInfo,
+            onDismiss: {
+                if pendingTestStart {
+                    pendingTestStart = false
                     performNavigateToTest()
-                },
-                onDontShowAgain: {
-                    hasSeenPreTestInfo = true
-                },
-                onDismiss: {
-                    // No navigation — user returns to dashboard
                 }
-            )
-        }
+            },
+            content: {
+                PreTestInfoView(
+                    onStartTest: {
+                        pendingTestStart = true
+                    },
+                    onDontShowAgain: {
+                        hasSeenPreTestInfo = true
+                    },
+                    onDismiss: {
+                        // No navigation — user returns to dashboard
+                    }
+                )
+            }
+        )
         .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentView)) { _ in
             Task {
                 await viewModel.refreshDashboard()
