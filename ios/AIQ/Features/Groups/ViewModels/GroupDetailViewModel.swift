@@ -11,6 +11,7 @@ class GroupDetailViewModel: BaseViewModel {
     @Published var leaderboard: Components.Schemas.LeaderboardResponse?
     @Published var showInviteSheet = false
     @Published var showDeleteConfirmation = false
+    @Published var showLeaveConfirmation = false
 
     // MARK: - Private Properties
 
@@ -72,6 +73,18 @@ class GroupDetailViewModel: BaseViewModel {
             await fetchGroupData()
         } catch {
             handleError(error, context: "removeMember")
+        }
+    }
+
+    /// Leave the group (non-owner members only)
+    func leaveGroup() async -> Bool {
+        guard let userId = currentUserId else { return false }
+        do {
+            try await apiService.removeMember(groupId: groupId, userId: userId)
+            return true
+        } catch {
+            handleError(error, context: "leaveGroup")
+            return false
         }
     }
 

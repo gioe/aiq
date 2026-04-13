@@ -36,22 +36,28 @@ struct GroupDetailView: View {
         }
         .navigationTitle(viewModel.group?.name ?? "Group")
         .toolbar {
-            if viewModel.isOwner {
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button {
-                            shareInvite()
-                        } label: {
-                            Label("Share Invite", systemImage: "square.and.arrow.up")
-                        }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button {
+                        shareInvite()
+                    } label: {
+                        Label("Share Invite", systemImage: "square.and.arrow.up")
+                    }
+                    if viewModel.isOwner {
                         Button(role: .destructive) {
                             viewModel.showDeleteConfirmation = true
                         } label: {
                             Label("Delete Group", systemImage: "trash")
                         }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
+                    } else {
+                        Button(role: .destructive) {
+                            viewModel.showLeaveConfirmation = true
+                        } label: {
+                            Label("Leave Group", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
                     }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -72,6 +78,21 @@ struct GroupDetailView: View {
             }
         } message: {
             Text("This will permanently delete the group and remove all members. This cannot be undone.")
+        }
+        .confirmationDialog(
+            "Leave Group",
+            isPresented: $viewModel.showLeaveConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Leave", role: .destructive) {
+                Task {
+                    if await viewModel.leaveGroup() {
+                        router.pop()
+                    }
+                }
+            }
+        } message: {
+            Text("Are you sure you want to leave this group? You can rejoin later with an invite code.")
         }
         .task {
             await viewModel.fetchGroupData()
