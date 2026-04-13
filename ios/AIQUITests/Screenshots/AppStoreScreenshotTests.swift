@@ -45,6 +45,7 @@ import XCTest
 /// 6. History - Test history with trend chart
 /// 7. Domain Scores - Six cognitive domains breakdown
 /// 8. Settings - Privacy-focused settings
+/// 9. Groups - Group detail with leaderboard rankings
 final class AppStoreScreenshotTests: BaseUITest {
     // MARK: - Properties
 
@@ -108,7 +109,7 @@ final class AppStoreScreenshotTests: BaseUITest {
 
     /// Generate all App Store screenshots in sequence
     ///
-    /// This test captures all 8 screenshots in the recommended order for App Store submission.
+    /// This test captures all 9 screenshots in the recommended order for App Store submission.
     /// Screenshots are attached to the test results and can be extracted from the xcresult bundle.
     func testGenerateAllScreenshots() {
         // 1. Welcome Screenshot (unauthenticated state with guest CTA)
@@ -146,6 +147,9 @@ final class AppStoreScreenshotTests: BaseUITest {
 
         // 8. Navigate to Settings
         captureSettingsScreenshot()
+
+        // 9. Navigate to Groups and capture detail view with leaderboard
+        captureGroupsScreenshot()
     }
 
     // MARK: - Individual Screenshot Captures
@@ -483,6 +487,35 @@ final class AppStoreScreenshotTests: BaseUITest {
         waitForUIToSettle(element: settingsView)
 
         takeScreenshot(named: "08_Settings")
+    }
+
+    /// Navigate to Groups tab, tap first group, and capture the detail view with leaderboard
+    private func captureGroupsScreenshot() {
+        // Navigate to Groups tab
+        let groupsTab = app.buttons["Groups"]
+        guard groupsTab.waitForExistence(timeout: standardTimeout) else {
+            XCTFail("Groups tab not found")
+            return
+        }
+        groupsTab.tap()
+
+        // Wait for groups list to load and tap the first group card
+        let firstGroupCard = app.descendants(matching: .any)["groupsView.groupCard.1"]
+        guard firstGroupCard.waitForExistence(timeout: networkTimeout) else {
+            XCTFail("First group card not found")
+            return
+        }
+        firstGroupCard.tap()
+
+        // Wait for leaderboard section to appear in GroupDetailView
+        let leaderboard = app.descendants(matching: .any)["groupsView.leaderboard"]
+        guard leaderboard.waitForExistence(timeout: networkTimeout) else {
+            XCTFail("Leaderboard section not found in group detail")
+            return
+        }
+
+        waitForUIToSettle(element: leaderboard)
+        takeScreenshot(named: "09_Groups")
     }
 }
 
