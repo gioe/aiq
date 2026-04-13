@@ -16,11 +16,11 @@ final class GroupDetailViewLeaderboardTests: XCTestCase {
         userId: Int
     ) -> Components.Schemas.LeaderboardEntryResponse {
         Components.Schemas.LeaderboardEntryResponse(
-            averageScore: averageScore,
-            bestScore: bestScore,
-            firstName: firstName,
             rank: rank,
-            userId: userId
+            userId: userId,
+            firstName: firstName,
+            bestScore: bestScore,
+            averageScore: averageScore
         )
     }
 
@@ -30,10 +30,10 @@ final class GroupDetailViewLeaderboardTests: XCTestCase {
         userId: Int
     ) -> Components.Schemas.GroupMemberResponse {
         Components.Schemas.GroupMemberResponse(
+            userId: userId,
             firstName: firstName,
-            joinedAt: Date(),
             role: role,
-            userId: userId
+            joinedAt: Date()
         )
     }
 
@@ -62,9 +62,10 @@ final class GroupDetailViewLeaderboardTests: XCTestCase {
     func testEmptyLeaderboardState() {
         // Given
         let leaderboard = Components.Schemas.LeaderboardResponse(
-            entries: [],
             groupId: 1,
-            groupName: "Empty Group"
+            groupName: "Empty Group",
+            entries: [],
+            totalCount: 0
         )
 
         // When / Then
@@ -79,9 +80,10 @@ final class GroupDetailViewLeaderboardTests: XCTestCase {
 
         // When
         let leaderboard = Components.Schemas.LeaderboardResponse(
-            entries: [entry],
             groupId: expectedGroupId,
-            groupName: expectedGroupName
+            groupName: expectedGroupName,
+            entries: [entry],
+            totalCount: 1
         )
 
         // Then
@@ -100,14 +102,14 @@ final class GroupDetailViewLeaderboardTests: XCTestCase {
         ]
 
         let group = Components.Schemas.GroupDetailResponse(
-            createdAt: Date(),
-            createdBy: 1,
             id: 10,
+            name: "Test Group",
+            createdBy: 1,
+            createdAt: Date(),
             inviteCode: "ABC123",
             maxMembers: 10,
             memberCount: 3,
-            members: members,
-            name: "Test Group"
+            members: members
         )
 
         // Then
