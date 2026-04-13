@@ -83,7 +83,7 @@ struct GroupDetailView: View {
     private var content: some View {
         ScrollView {
             VStack(spacing: DesignSystem.Spacing.lg) {
-                // Invite code section (owner only)
+                // Invite code section
                 if let code = viewModel.inviteCode {
                     inviteCodeCard(code: code)
                 }

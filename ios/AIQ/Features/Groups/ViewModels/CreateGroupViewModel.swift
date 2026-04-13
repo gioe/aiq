@@ -56,6 +56,6 @@ class CreateGroupViewModel: BaseViewModel {
 
     /// Remaining characters for the group name
     var remainingCharacters: Int {
-        Self.maxGroupNameLength - groupName.count
+        Self.maxGroupNameLength - groupName.trimmingCharacters(in: .whitespacesAndNewlines).count
     }
 }
