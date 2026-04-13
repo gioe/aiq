@@ -293,14 +293,6 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(profile1, profile2)
     }
 
-    func testUserProfileInequality() {
-        // UserProfileUpdate has no fields; all instances are equal
-        let profile1 = UserProfile()
-        let profile2 = UserProfile()
-
-        XCTAssertEqual(profile1, profile2)
-    }
-
     // MARK: - Edge Cases and Validation Tests
 
     func testUserDecodingWithEmptyEmail() throws {

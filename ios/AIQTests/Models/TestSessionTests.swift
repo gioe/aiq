@@ -74,59 +74,6 @@ final class TestSessionTests: XCTestCase {
         XCTAssertEqual(jsonString, "\"in_progress\"")
     }
 
-    // MARK: - MockDataFactory Tests
-
-    func testMakeTestSession_InProgressSessionNeverHasCompletedAt() {
-        // Even if completedAt is explicitly provided, in-progress sessions should not have it
-        let session = MockDataFactory.makeTestSession(
-            id: 1,
-            userId: 1,
-            status: "in_progress",
-            startedAt: Date(),
-            completedAt: Date() // Try to force a completedAt
-        )
-        // completedAt was removed from TestSessionResponse schema — test vacuously passes
-        _ = session.status // verify session is accessible
-    }
-
-    func testMakeTestSession_AbandonedSessionNeverHasCompletedAt() {
-        let session = MockDataFactory.makeTestSession(
-            id: 1,
-            userId: 1,
-            status: "abandoned",
-            startedAt: Date(),
-            completedAt: Date() // Try to force a completedAt
-        )
-        // completedAt was removed from TestSessionResponse schema — test vacuously passes
-        _ = session.status // verify session is accessible
-    }
-
-    func testMakeTestSession_CompletedSessionAlwaysHasCompletedAt() {
-        let startedAt = Date()
-        let session = MockDataFactory.makeTestSession(
-            id: 1,
-            userId: 1,
-            status: "completed",
-            startedAt: startedAt
-        )
-        // completedAt was removed from TestSessionResponse schema — skip assertion
-        // Default is 35 minutes (2100 seconds) after start
-        // completedAt was removed from TestSessionResponse schema — skip assertion
-    }
-
-    func testMakeTestSession_CompletedSessionUsesProvidedCompletedAt() {
-        let startedAt = Date()
-        let providedCompletedAt = startedAt.addingTimeInterval(900) // 15 minutes
-        let session = MockDataFactory.makeTestSession(
-            id: 1,
-            userId: 1,
-            status: "completed",
-            startedAt: startedAt,
-            completedAt: providedCompletedAt
-        )
-        // completedAt was removed from TestSessionResponse schema — skip assertion
-    }
-
     // MARK: - TestSession Decoding Tests
 
     func testTestSessionDecodingWithAllFields() throws {

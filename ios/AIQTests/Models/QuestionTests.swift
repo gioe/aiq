@@ -335,24 +335,6 @@ final class QuestionTests: XCTestCase {
         XCTAssertNotEqual(question1, question2)
     }
 
-    func testQuestionInequalityDifferentAnswerOptions() throws {
-        // answerOptions is no longer part of the schema; both questions are structurally
-        // identical because the factory ignores the answerOptions parameter
-        let question1 = try createValidQuestion(answerOptions: ["A", "B"])
-        let question2 = try createValidQuestion(answerOptions: ["C", "D"])
-
-        XCTAssertEqual(question1, question2)
-    }
-
-    func testQuestionInequalityDifferentExplanation() throws {
-        // explanation is no longer part of the schema; both questions are structurally
-        // identical because the factory ignores the explanation parameter
-        let question1 = try createValidQuestion(explanation: "Explanation 1")
-        let question2 = try createValidQuestion(explanation: "Explanation 2")
-
-        XCTAssertEqual(question1, question2)
-    }
-
     // MARK: - Question Encoding Tests
 
     func testQuestionEncodingRoundTrip() throws {
