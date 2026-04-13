@@ -27,133 +27,147 @@ struct PrivacyConsentView: View {
                     .opacity(0.15)
                     .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: DesignSystem.Spacing.xxxl) {
-                        // Header
-                        VStack(spacing: DesignSystem.Spacing.lg) {
-                            Image(systemName: "hand.raised.fill")
-                                .font(.system(size: 80))
-                                .foregroundStyle(theme.gradients.scoreGradient)
-                                .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
-                                .animation(
-                                    reduceMotion
-                                        ? nil
-                                        : Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
-                                    value: isAnimating
-                                )
-                                .accessibilityIdentifier(AccessibilityIdentifiers.PrivacyConsentView.privacyIcon)
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(spacing: DesignSystem.Spacing.xxxl) {
+                            // Header
+                            VStack(spacing: DesignSystem.Spacing.lg) {
+                                Image(systemName: "hand.raised.fill")
+                                    .font(.system(size: 80))
+                                    .foregroundStyle(theme.gradients.scoreGradient)
+                                    .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))
+                                    .animation(
+                                        reduceMotion
+                                            ? nil
+                                            : Animation.easeInOut(duration: 2.0)
+                                            .repeatForever(autoreverses: true),
+                                        value: isAnimating
+                                    )
+                                    .accessibilityIdentifier(
+                                        AccessibilityIdentifiers.PrivacyConsentView.privacyIcon
+                                    )
 
-                            Text("Privacy & Terms")
-                                .displayMediumFont()
-                                .foregroundStyle(theme.gradients.scoreGradient)
-                                .multilineTextAlignment(.center)
+                                Text("Privacy & Terms")
+                                    .displayMediumFont()
+                                    .foregroundStyle(theme.gradients.scoreGradient)
+                                    .multilineTextAlignment(.center)
 
-                            Text("Your privacy matters to us")
-                                .font(theme.typography.bodyLarge)
-                                .foregroundColor(theme.colors.textSecondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.top, DesignSystem.Spacing.xl)
-                        .onAppear {
-                            if reduceMotion {
-                                isAnimating = true
-                            } else {
-                                withAnimation(theme.animations.bouncy) {
+                                Text("Your privacy matters to us")
+                                    .font(theme.typography.bodyLarge)
+                                    .foregroundColor(theme.colors.textSecondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.top, DesignSystem.Spacing.xl)
+                            .onAppear {
+                                if reduceMotion {
                                     isAnimating = true
+                                } else {
+                                    withAnimation(theme.animations.bouncy) {
+                                        isAnimating = true
+                                    }
                                 }
                             }
-                        }
 
-                        // Privacy Summary
-                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
-                            privacyPointCard(
-                                icon: "shield.checkered",
-                                title: "Your Data is Protected",
-                                description: "We use industry-standard encryption to keep your information secure.",
-                                color: theme.colors.statGreen
-                            )
+                            // Privacy Summary
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+                                privacyPointCard(
+                                    icon: "shield.checkered",
+                                    title: "Your Data is Protected",
+                                    description:
+                                    "We use industry-standard encryption to keep your information secure.",
+                                    color: theme.colors.statGreen
+                                )
 
-                            privacyPointCard(
-                                icon: "eye.slash.fill",
-                                title: "No Sale of Data",
-                                description: "We never sell your personal information to third parties.",
-                                color: theme.colors.statBlue
-                            )
+                                privacyPointCard(
+                                    icon: "eye.slash.fill",
+                                    title: "No Sale of Data",
+                                    description:
+                                    "We never sell your personal information to third parties.",
+                                    color: theme.colors.statBlue
+                                )
 
-                            privacyPointCard(
-                                icon: "brain.head.profile",
-                                title: "Your Results",
-                                description: "Test results are stored securely and only accessible to you.",
-                                color: theme.colors.statPurple
-                            )
+                                privacyPointCard(
+                                    icon: "brain.head.profile",
+                                    title: "Your Results",
+                                    description:
+                                    "Test results are stored securely and only accessible to you.",
+                                    color: theme.colors.statPurple
+                                )
 
-                            privacyPointCard(
-                                icon: "chart.line.uptrend.xyaxis",
-                                title: "Analytics",
-                                description: "We collect anonymous usage data to improve the app experience.",
-                                color: theme.colors.statOrange
-                            )
-                        }
-                        .padding(.horizontal, DesignSystem.Spacing.xl)
-                        .opacity(isAnimating ? 1.0 : 0.0)
-                        .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
-                        .animation(
-                            reduceMotion ? nil : theme.animations.smooth.delay(DesignSystem.AnimationDelay.short),
-                            value: isAnimating
-                        )
-
-                        // Legal Links
-                        VStack(spacing: DesignSystem.Spacing.md) {
-                            Text("By continuing, you agree to our:")
-                                .font(theme.typography.bodyMedium)
-                                .foregroundColor(theme.colors.textSecondary)
-                                .multilineTextAlignment(.center)
-
-                            HStack(spacing: DesignSystem.Spacing.lg) {
-                                Link("Privacy Policy", destination: privacyPolicyURL)
-                                    .font(theme.typography.labelMedium)
-                                    .foregroundColor(theme.colors.primary)
-                                    .accessibilityIdentifier(
-                                        AccessibilityIdentifiers.PrivacyConsentView.privacyPolicyLink
-                                    )
-
-                                Text("•")
-                                    .foregroundColor(theme.colors.textSecondary)
-
-                                Link("Terms of Service", destination: termsOfServiceURL)
-                                    .font(theme.typography.labelMedium)
-                                    .foregroundColor(theme.colors.primary)
-                                    .accessibilityIdentifier(
-                                        AccessibilityIdentifiers.PrivacyConsentView.termsOfServiceLink
-                                    )
+                                privacyPointCard(
+                                    icon: "chart.line.uptrend.xyaxis",
+                                    title: "Analytics",
+                                    description:
+                                    "We collect anonymous usage data to improve the app experience.",
+                                    color: theme.colors.statOrange
+                                )
                             }
+                            .padding(.horizontal, DesignSystem.Spacing.xl)
+                            .opacity(isAnimating ? 1.0 : 0.0)
+                            .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
+                            .animation(
+                                reduceMotion
+                                    ? nil
+                                    : theme.animations.smooth.delay(DesignSystem.AnimationDelay.short),
+                                value: isAnimating
+                            )
+
+                            // Legal Links
+                            VStack(spacing: DesignSystem.Spacing.md) {
+                                Text("By continuing, you agree to our:")
+                                    .font(theme.typography.bodyMedium)
+                                    .foregroundColor(theme.colors.textSecondary)
+                                    .multilineTextAlignment(.center)
+
+                                HStack(spacing: DesignSystem.Spacing.lg) {
+                                    Link("Privacy Policy", destination: privacyPolicyURL)
+                                        .font(theme.typography.labelMedium)
+                                        .foregroundColor(theme.colors.primary)
+                                        .accessibilityIdentifier(
+                                            AccessibilityIdentifiers.PrivacyConsentView
+                                                .privacyPolicyLink
+                                        )
+
+                                    Text("•")
+                                        .foregroundColor(theme.colors.textSecondary)
+
+                                    Link("Terms of Service", destination: termsOfServiceURL)
+                                        .font(theme.typography.labelMedium)
+                                        .foregroundColor(theme.colors.primary)
+                                        .accessibilityIdentifier(
+                                            AccessibilityIdentifiers.PrivacyConsentView
+                                                .termsOfServiceLink
+                                        )
+                                }
+                            }
+                            .padding(.horizontal, DesignSystem.Spacing.xl)
+                            .opacity(isAnimating ? 1.0 : 0.0)
+                            .animation(
+                                reduceMotion
+                                    ? nil
+                                    : theme.animations.smooth
+                                    .delay(DesignSystem.AnimationDelay.medium),
+                                value: isAnimating
+                            )
                         }
                         .padding(.horizontal, DesignSystem.Spacing.xl)
-                        .opacity(isAnimating ? 1.0 : 0.0)
-                        .animation(
-                            reduceMotion
-                                ? nil
-                                : theme.animations.smooth.delay(DesignSystem.AnimationDelay.medium),
-                            value: isAnimating
-                        )
-
-                        // Accept Button
-                        PrimaryButton(
-                            title: "I Agree & Continue",
-                            action: acceptConsent,
-                            accessibilityId: AccessibilityIdentifiers.PrivacyConsentView.acceptButton
-                        )
-                        .padding(.horizontal, DesignSystem.Spacing.xxl)
-                        .padding(.top, DesignSystem.Spacing.xl)
-                        .opacity(isAnimating ? 1.0 : 0.0)
-                        .animation(
-                            reduceMotion ? nil : theme.animations.smooth.delay(DesignSystem.AnimationDelay.long),
-                            value: isAnimating
-                        )
-
-                        Spacer()
                     }
-                    .padding(.horizontal, DesignSystem.Spacing.xl)
+
+                    // Accept Button — sticky footer outside ScrollView
+                    PrimaryButton(
+                        title: "I Agree & Continue",
+                        action: acceptConsent,
+                        accessibilityId: AccessibilityIdentifiers.PrivacyConsentView.acceptButton
+                    )
+                    .padding(.horizontal, DesignSystem.Spacing.xxl)
+                    .padding(.vertical, DesignSystem.Spacing.md)
+                    .opacity(isAnimating ? 1.0 : 0.0)
+                    .animation(
+                        reduceMotion
+                            ? nil
+                            : theme.animations.smooth.delay(DesignSystem.AnimationDelay.long),
+                        value: isAnimating
+                    )
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
