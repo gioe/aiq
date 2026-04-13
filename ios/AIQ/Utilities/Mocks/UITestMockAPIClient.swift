@@ -352,7 +352,12 @@ import Foundation
         // MARK: - Groups
 
         func listGroups() async throws -> [Components.Schemas.GroupResponse] {
-            []
+            switch scenario {
+            case .loggedInWithHistory:
+                UITestMockData.sampleGroups
+            default:
+                []
+            }
         }
 
         func createGroup(name _: String) async throws -> Components.Schemas.GroupResponse {
@@ -360,7 +365,12 @@ import Foundation
         }
 
         func getGroup(groupId _: Int) async throws -> Components.Schemas.GroupDetailResponse {
-            throw APIError.api(.notFound(message: "Not implemented in UI tests"))
+            switch scenario {
+            case .loggedInWithHistory:
+                return UITestMockData.sampleGroupDetail
+            default:
+                throw APIError.api(.notFound(message: "Not implemented in UI tests"))
+            }
         }
 
         func deleteGroup(groupId _: Int) async throws {}
@@ -373,7 +383,12 @@ import Foundation
         }
 
         func getLeaderboard(groupId _: Int) async throws -> Components.Schemas.LeaderboardResponse {
-            throw APIError.api(.notFound(message: "Not implemented in UI tests"))
+            switch scenario {
+            case .loggedInWithHistory:
+                return UITestMockData.sampleLeaderboard
+            default:
+                throw APIError.api(.notFound(message: "Not implemented in UI tests"))
+            }
         }
 
         func removeMember(groupId _: Int, userId _: Int) async throws {}
@@ -587,6 +602,102 @@ import Foundation
             correctAnswers: 8,
             accuracyPercentage: 40.0,
             completedAt: Date()
+        )
+
+        // MARK: - Sample Groups
+
+        static let sampleGroupMembers: [Components.Schemas.GroupMemberResponse] = [
+            Components.Schemas.GroupMemberResponse(
+                firstName: "You",
+                joinedAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
+                role: "owner",
+                userId: 1
+            ),
+            Components.Schemas.GroupMemberResponse(
+                firstName: "Alex",
+                joinedAt: Date().addingTimeInterval(-25 * 24 * 60 * 60),
+                role: "member",
+                userId: 2
+            ),
+            Components.Schemas.GroupMemberResponse(
+                firstName: "Jordan",
+                joinedAt: Date().addingTimeInterval(-20 * 24 * 60 * 60),
+                role: "member",
+                userId: 3
+            ),
+            Components.Schemas.GroupMemberResponse(
+                firstName: "Sam",
+                joinedAt: Date().addingTimeInterval(-15 * 24 * 60 * 60),
+                role: "member",
+                userId: 4
+            )
+        ]
+
+        static let sampleGroups: [Components.Schemas.GroupResponse] = [
+            Components.Schemas.GroupResponse(
+                createdAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
+                createdBy: 1,
+                id: 1,
+                inviteCode: "AIQ-BRAIN",
+                maxMembers: 10,
+                memberCount: 4,
+                name: "Brain Trust"
+            ),
+            Components.Schemas.GroupResponse(
+                createdAt: Date().addingTimeInterval(-14 * 24 * 60 * 60),
+                createdBy: 2,
+                id: 2,
+                inviteCode: "AIQ-STUDY",
+                maxMembers: 20,
+                memberCount: 2,
+                name: "Study Group"
+            )
+        ]
+
+        static let sampleGroupDetail = Components.Schemas.GroupDetailResponse(
+            createdAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
+            createdBy: 1,
+            id: 1,
+            inviteCode: "AIQ-BRAIN",
+            maxMembers: 10,
+            memberCount: 4,
+            members: sampleGroupMembers,
+            name: "Brain Trust"
+        )
+
+        static let sampleLeaderboard = Components.Schemas.LeaderboardResponse(
+            entries: [
+                Components.Schemas.LeaderboardEntryResponse(
+                    averageScore: 122.5,
+                    bestScore: 130,
+                    firstName: "You",
+                    rank: 1,
+                    userId: 1
+                ),
+                Components.Schemas.LeaderboardEntryResponse(
+                    averageScore: 118.0,
+                    bestScore: 125,
+                    firstName: "Alex",
+                    rank: 2,
+                    userId: 2
+                ),
+                Components.Schemas.LeaderboardEntryResponse(
+                    averageScore: 112.0,
+                    bestScore: 119,
+                    firstName: "Jordan",
+                    rank: 3,
+                    userId: 3
+                ),
+                Components.Schemas.LeaderboardEntryResponse(
+                    averageScore: 105.5,
+                    bestScore: 112,
+                    firstName: "Sam",
+                    rank: 4,
+                    userId: 4
+                )
+            ],
+            groupId: 1,
+            groupName: "Brain Trust"
         )
     }
 
