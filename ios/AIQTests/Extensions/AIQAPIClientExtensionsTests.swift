@@ -438,8 +438,15 @@ final class APIClientExtensionsTests: XCTestCase {
         totalQuestions: Int = 20,
         correctAnswers: Int = 15,
         accuracyPercentage: Double = 75.0,
-        completedAt: Date = Date()
+        completedAt: Date = Date(),
+        percentileRank _: Double? = nil,
+        completionTimeSeconds _: Int? = nil,
+        strongestDomain _: String? = nil,
+        weakestDomain _: String? = nil
     ) -> Components.Schemas.TestResultResponse {
+        // Note: percentileRank, completionTimeSeconds, strongestDomain, weakestDomain
+        // are no longer in the generated schema. Parameters are accepted for test
+        // compilation compatibility but are unused.
         Components.Schemas.TestResultResponse(
             accuracyPercentage: accuracyPercentage,
             completedAt: completedAt,
@@ -473,25 +480,23 @@ final class APIClientExtensionsTests: XCTestCase {
         email: String = "test@example.com",
         createdAt: Date = Date(),
         notificationEnabled: Bool = true,
+        isAdmin: Bool = false,
         birthYear: Int? = nil,
         country: String? = nil,
         region: String? = nil,
         educationLevel: Components.Schemas.EducationLevel? = nil
     ) -> Components.Schemas.UserResponse {
-        var educationPayload: Components.Schemas.UserResponse.EducationLevelPayload?
-        if let level = educationLevel {
-            educationPayload = Components.Schemas.UserResponse.EducationLevelPayload(value1: level)
-        }
-        return Components.Schemas.UserResponse(
-            birthYear: birthYear,
-            country: country,
-            createdAt: createdAt,
-            educationLevel: educationPayload,
+        Components.Schemas.UserResponse(
+            id: id,
             email: email,
             firstName: firstName,
-            id: id,
             lastName: lastName,
+            createdAt: createdAt,
             notificationEnabled: notificationEnabled,
+            isAdmin: isAdmin,
+            birthYear: birthYear,
+            educationLevel: educationLevel,
+            country: country,
             region: region
         )
     }
