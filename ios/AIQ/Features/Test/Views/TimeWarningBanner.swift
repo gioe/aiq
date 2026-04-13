@@ -6,9 +6,6 @@ struct TimeWarningBanner: View {
     let remainingTime: String
     let onDismiss: () -> Void
 
-    @State private var isVisible = false
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
-
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -30,14 +27,7 @@ struct TimeWarningBanner: View {
 
             IconButton(
                 icon: "xmark.circle.fill",
-                action: {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        isVisible = false
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        onDismiss()
-                    }
-                },
+                action: onDismiss,
                 accessibilityLabel: "Dismiss time warning",
                 foregroundColor: .secondary
             )
@@ -53,19 +43,8 @@ struct TimeWarningBanner: View {
                 )
         )
         .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.timeWarningBanner)
-        .opacity(isVisible ? 1 : 0)
-        .offset(y: reduceMotion ? 0 : (isVisible ? 0 : -20))
         .onAppear {
-            // Trigger warning haptic when time warning appears
             ServiceContainer.shared.resolve(HapticManagerProtocol.self).trigger(.warning)
-
-            if reduceMotion {
-                isVisible = true
-            } else {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                    isVisible = true
-                }
-            }
         }
     }
 }
