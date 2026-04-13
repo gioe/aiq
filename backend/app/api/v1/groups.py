@@ -466,12 +466,15 @@ async def get_leaderboard(
     group = await _get_group_or_404(db, group_id)
     await _require_membership(db, group_id, current_user.id)
 
-    # Subquery: best and average IQ score per user
+    # Subquery: best and average IQ score per user (scoped to group members)
+    member_ids = select(GroupMembership.user_id).where(
+        GroupMembership.group_id == group_id
+    )
     score_stmt = select(
         TestResult.user_id,
         func.max(TestResult.iq_score).label("best_score"),
         func.avg(TestResult.iq_score).label("average_score"),
-    )
+    ).where(TestResult.user_id.in_(member_ids))
     if days is not None:
         cutoff = utc_now() - timedelta(days=days)
         score_stmt = score_stmt.where(TestResult.completed_at >= cutoff)
