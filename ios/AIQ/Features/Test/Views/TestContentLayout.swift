@@ -110,6 +110,7 @@ struct TestContentLayout: View {
                         .bannerSlideTransition(reduceMotion: reduceMotion)
                     }
                 }
+                .clipped()
 
                 // Navigation controls
                 TestNavigationControls(viewModel: viewModel, reduceMotion: reduceMotion)
