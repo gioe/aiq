@@ -289,7 +289,7 @@ final class AdaptiveTestCoordinatorTests: XCTestCase {
 
     // MARK: - Criterion 1371: appendQuestionAndAdvance called when testComplete is false and nextQuestion present
 
-    func testSubmitAnswerAndGetNext_AppendsNextQuestion_WhenTestNotComplete() async {
+    func testSubmitAnswerAndGetNext_AppendsNextQuestion_WhenTestNotComplete() async throws {
         // Given
         let sessionId = 200
         let firstQuestionId = 10
@@ -322,8 +322,10 @@ final class AdaptiveTestCoordinatorTests: XCTestCase {
             "The appended question should match the nextQuestion from the response"
         )
         XCTAssertFalse(sut.isLoadingNextQuestion, "isLoadingNextQuestion should be false after completion")
-        XCTAssertEqual(sut.currentTheta, 0.5, accuracy: 0.001)
-        XCTAssertEqual(sut.currentSE, 0.8, accuracy: 0.001)
+        XCTAssertNotNil(sut.currentTheta)
+        XCTAssertNotNil(sut.currentSE)
+        XCTAssertEqual(try XCTUnwrap(sut.currentTheta), 0.5, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(sut.currentSE), 0.8, accuracy: 0.001)
         XCTAssertEqual(sut.itemsAdministered, 2)
     }
 
