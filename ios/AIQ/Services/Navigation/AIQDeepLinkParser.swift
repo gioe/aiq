@@ -10,6 +10,7 @@ import os
 /// Supported URL patterns:
 /// - `aiq://test/results/{id}` - View specific test results
 /// - `aiq://test/resume/{sessionId}` - Resume a test session
+/// - `aiq://groups/join?code={inviteCode}` - Join a group via invite code
 /// - `aiq://settings` - Open settings (returns nil — handled at tab level by DeepLinkNavigationService)
 /// - `https://a-iq-test.com/...` and `https://dev.a-iq-test.com/...` - Same patterns as universal links
 ///
@@ -57,6 +58,9 @@ struct AIQDeepLinkParser: DeepLinkParser {
             return .popToRootThenPush(.testTaking(sessionId: sessionId))
         case .testResults:
             // Requires async API call to fetch TestResult — handled by DeepLinkNavigationService
+            return nil
+        case .joinGroup:
+            // Requires async API call to join group — handled by DeepLinkNavigationService
             return nil
         case .settings:
             // Handled at tab level by DeepLinkNavigationService
@@ -114,6 +118,8 @@ struct AIQDeepLinkParser: DeepLinkParser {
         switch host {
         case "test":
             return parseTestRoute(pathComponents: pathComponents, originalURL: originalURL)
+        case "groups":
+            return parseGroupsRoute(pathComponents: pathComponents, originalURL: originalURL)
         case "settings":
             return parseSettingsRoute(pathComponents: pathComponents, originalURL: originalURL)
         default:
@@ -168,6 +174,30 @@ struct AIQDeepLinkParser: DeepLinkParser {
             recordInvalidDeepLink(.unrecognizedTestAction(action: action, url: originalURL.absoluteString))
             return .invalid
         }
+    }
+
+    private func parseGroupsRoute(pathComponents: [String], originalURL: URL) -> DeepLink {
+        guard let action = pathComponents.first, action == "join" else {
+            let route = pathComponents.first ?? "groups"
+            recordInvalidDeepLink(.unrecognizedRoute(route: "groups/\(route)", url: originalURL.absoluteString))
+            return .invalid
+        }
+
+        // Extract invite code from query parameter: ?code=ABC123
+        guard let components = URLComponents(url: originalURL, resolvingAgainstBaseURL: false),
+              let code = components.queryItems?.first(where: { $0.name == "code" })?.value
+        else {
+            recordInvalidDeepLink(.missingInviteCode(url: originalURL.absoluteString))
+            return .invalid
+        }
+
+        let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedCode.isEmpty else {
+            recordInvalidDeepLink(.emptyInviteCode(url: originalURL.absoluteString))
+            return .invalid
+        }
+
+        return .joinGroup(inviteCode: trimmedCode)
     }
 
     private func parseSettingsRoute(pathComponents: [String], originalURL: URL) -> DeepLink {

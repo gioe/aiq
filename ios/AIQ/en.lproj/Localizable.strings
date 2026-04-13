@@ -625,6 +625,8 @@
 "error.deeplink.invalid.session.id" = "Test resume requires numeric sessionId, got '%@': %@";
 "error.deeplink.non.positive.session.id" = "Session ID must be positive, got '%d': %@";
 "error.deeplink.unrecognized.test.action" = "Unrecognized test action '%@': %@";
+"error.deeplink.missing.invite.code" = "Group invite link missing code parameter: %@";
+"error.deeplink.empty.invite.code" = "Group invite link has empty code: %@";
 
 // MARK: - Service Errors - Auth
 "error.auth.operation.in.progress" = "Another operation is in progress";
@@ -711,6 +713,7 @@
 "toast.deeplink.invalid" = "Unable to open this link";
 "toast.deeplink.navigation.failed" = "Unable to load content";
 "toast.deeplink.resume.unavailable" = "Test resumption is not yet available";
+"toast.deeplink.join.group.failed" = "Unable to join group from this link";
 
 // Toast Type Labels - Used by VoiceOver to announce toast notification type
 "toast.type.error" = "Error";

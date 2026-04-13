@@ -13,6 +13,8 @@ enum DeepLinkError: LocalizedError {
     case invalidSessionID(identifier: String, url: String)
     case nonPositiveSessionID(id: Int, url: String)
     case unrecognizedTestAction(action: String, url: String)
+    case missingInviteCode(url: String)
+    case emptyInviteCode(url: String)
 
     var errorDescription: String? {
         switch self {
@@ -34,6 +36,10 @@ enum DeepLinkError: LocalizedError {
             String(format: NSLocalizedString("error.deeplink.non.positive.session.id", comment: ""), id, url)
         case let .unrecognizedTestAction(action, url):
             String(format: NSLocalizedString("error.deeplink.unrecognized.test.action", comment: ""), action, url)
+        case let .missingInviteCode(url):
+            String(format: NSLocalizedString("error.deeplink.missing.invite.code", comment: ""), url)
+        case let .emptyInviteCode(url):
+            String(format: NSLocalizedString("error.deeplink.empty.invite.code", comment: ""), url)
         }
     }
 }
@@ -48,6 +54,9 @@ enum DeepLink: Equatable {
 
     /// Resume a test session by session ID
     case resumeTest(sessionId: Int)
+
+    /// Join a group using an invite code from a deep link
+    case joinGroup(inviteCode: String)
 
     /// Navigate to settings
     ///
@@ -66,6 +75,8 @@ enum DeepLink: Equatable {
             "test_results"
         case .resumeTest:
             "resume_test"
+        case .joinGroup:
+            "join_group"
         case .settings:
             "settings"
         case .invalid:
@@ -91,7 +102,7 @@ enum DeepLinkSource: String {
 }
 
 /// Convert a DeepLinkError to an analytics-friendly error type string
-func deepLinkErrorTypeString(from error: DeepLinkError) -> String {
+func deepLinkErrorTypeString(from error: DeepLinkError) -> String { // swiftlint:disable:this cyclomatic_complexity
     switch error {
     case .unrecognizedSchemeOrHost:
         "unrecognized_scheme_or_host"
@@ -111,5 +122,9 @@ func deepLinkErrorTypeString(from error: DeepLinkError) -> String {
         "non_positive_session_id"
     case .unrecognizedTestAction:
         "unrecognized_test_action"
+    case .missingInviteCode:
+        "missing_invite_code"
+    case .emptyInviteCode:
+        "empty_invite_code"
     }
 }
