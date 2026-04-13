@@ -18,12 +18,12 @@ final class AIComparisonCardTests: XCTestCase {
         domainAccuracy: [Components.Schemas.DomainAccuracySummary]? = nil
     ) -> Components.Schemas.ModelSummary {
         .init(
-            accuracyPct: accuracyPct,
             displayName: displayName,
-            domainAccuracy: domainAccuracy,
+            vendor: vendor,
             meanIq: meanIq,
+            accuracyPct: accuracyPct,
             runs: runs,
-            vendor: vendor
+            domainAccuracy: domainAccuracy
         )
     }
 
@@ -32,7 +32,7 @@ final class AIComparisonCardTests: XCTestCase {
         accuracyPct: Double = 75.0,
         totalQuestions: Int = 20
     ) -> Components.Schemas.DomainAccuracySummary {
-        .init(accuracyPct: accuracyPct, domain: domain, totalQuestions: totalQuestions)
+        .init(domain: domain, accuracyPct: accuracyPct, totalQuestions: totalQuestions)
     }
 
     private func makeDomainScore(
