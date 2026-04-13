@@ -85,6 +85,15 @@
       "title": {
         "text": "Privacy-first design"
       }
+    },
+    {
+      "filter": "09_Groups",
+      "keyword": {
+        "text": "AIQ"
+      },
+      "title": {
+        "text": "Compete with friends and groups"
+      }
     }
   ]
 }
