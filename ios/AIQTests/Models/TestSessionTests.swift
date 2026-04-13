@@ -1670,7 +1670,7 @@ final class TestSessionTests: XCTestCase {
             accuracyPercentage: 50.0,
             completedAt: Date()
         )
-        XCTAssertEqual(result0.percentileFormatted, "Lower 50%")
+        XCTAssertNil(result0.percentileFormatted)
 
         // Test 100th percentile
         let result100 = SubmittedTestResult(
@@ -1683,7 +1683,7 @@ final class TestSessionTests: XCTestCase {
             accuracyPercentage: 100.0,
             completedAt: Date()
         )
-        XCTAssertEqual(result100.percentileFormatted, "Top 2%")
+        XCTAssertNil(result100.percentileFormatted)
 
         // Test 50th percentile (median)
         let result50 = SubmittedTestResult(
@@ -1696,7 +1696,7 @@ final class TestSessionTests: XCTestCase {
             accuracyPercentage: 75.0,
             completedAt: Date()
         )
-        XCTAssertEqual(result50.percentileFormatted, "Top 50%")
+        XCTAssertNil(result50.percentileFormatted)
     }
 
     func testResponseTimeAnomalyWithZeroTime() throws {
