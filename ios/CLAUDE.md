@@ -49,7 +49,8 @@ Always use these skills instead of running commands directly:
   2. Temporarily add `swift-openapi-generator` (from: "1.10.4") to `Packages/AIQAPIClient/Package.swift` dependencies and remove the `exclude` list from the `AIQAPIClientCore` target
   3. Run: `cd ios/Packages/AIQAPIClient && swift package resolve && swift package --allow-writing-to-package-directory generate-code-from-openapi --target AIQAPIClientCore`
   4. Restore `Package.swift` to its original state (re-add `exclude` list, remove generator dependency)
-  5. Build to verify: `/build-ios-project`
+  5. **Verify nullable fields**: The Swift OpenAPI Generator silently drops properties defined with `anyOf: [type, null]` (OpenAPI 3.1 nullable pattern). After regen, diff the generated `Types.swift` against the OpenAPI spec to confirm all schema properties were emitted. Manually add any missing nullable fields (e.g., `nextQuestion`, `result`, `stoppingReason` on `AdaptiveNextResponse`).
+  6. Build to verify: `/build-ios-project`
 - **Model extensions**: UI computed properties for generated types go in the app's `AIQ/Models/` directory as `<TypeName>+Extensions.swift` (bring-your-own-extensions pattern, TASK-113). The local `APIClient` package is kept clean of product-specific code; use `Packages/APIClient/Sources/AIQAPIClient/` for API-layer display helpers, and `AIQ/Models/` for app-level domain logic. Date formatting stays in the main app's `Date+Extensions.swift`.
 - **Accessibility**: Full VoiceOver support, Dynamic Type, semantic colors, RTL layout support required.
 - **Branding string sweeps**: When replacing a user-visible term (e.g., "IQ" → "AIQ"), use `grep -rn '\bIQ\b' ios/` (no quote anchors) rather than `grep '"[^"]*IQ[^"]*"'`. The quote-anchored pattern misses Swift string interpolations like `"IQ score \(iqScore)"` in model/extension files. Also check `Packages/APIClient/Sources/AIQAPIClient/` and `AIQ/Models/` for accessibility computed properties.
