@@ -113,6 +113,14 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
                 originalURL: originalURL
             )
 
+        case let .joinGroup(inviteCode):
+            return await handleJoinGroupNavigation(
+                inviteCode: inviteCode,
+                deepLink: deepLink,
+                source: source,
+                originalURL: originalURL
+            )
+
         case .invalid:
             Self.logger.warning("Received invalid deep link: \(String(describing: deepLink), privacy: .public)")
             return .invalid
@@ -193,6 +201,34 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
         }
     }
 
+    /// Handle join group deep link (requires async API call to join the group)
+    private func handleJoinGroupNavigation(
+        inviteCode: String,
+        deepLink: DeepLink,
+        source: DeepLinkSource,
+        originalURL: String
+    ) async -> DeepLinkNavigationResult {
+        tabSelectionHandler(.groups)
+        router.currentTab = .groups
+        router.popToRoot(in: .groups)
+
+        let apiService = apiServiceProvider()
+        do {
+            let group = try await apiService.joinGroup(inviteCode: inviteCode)
+            router.groupsCoordinator.push(.groupDetail(groupId: group.id))
+            trackSuccess(deepLink: deepLink, source: source, originalURL: originalURL)
+            return .navigated(tab: .groups)
+        } catch {
+            Self.logger.error(
+                "Failed to join group with invite code: \(error.localizedDescription, privacy: .public)"
+            )
+            CrashlyticsErrorRecorder.recordError(error, context: .deepLinkNavigation)
+            trackFailure(errorType: "join_group_failed", source: source, originalURL: originalURL)
+            handleNavigationFailure(deepLink: deepLink)
+            return .failed(deepLink)
+        }
+    }
+
     private func handleNavigationFailure(deepLink: DeepLink) {
         let linkDesc = String(describing: deepLink)
         Self.logger.error("Failed to handle deep link: \(linkDesc, privacy: .public)")
@@ -202,6 +238,8 @@ final class DeepLinkNavigationService: DeepLinkNavigationServiceProtocol {
             "toast.deeplink.navigation.failed".localized
         case .resumeTest:
             "toast.deeplink.resume.unavailable".localized
+        case .joinGroup:
+            "toast.deeplink.join.group.failed".localized
         default:
             "toast.deeplink.navigation.failed".localized
         }
