@@ -1,5 +1,5 @@
 """
-Tests for admin user endpoints (cooldown bypass flag management).
+Tests for admin user endpoints (cooldown bypass and admin status flag management).
 """
 
 from datetime import datetime, timedelta
@@ -178,6 +178,180 @@ class TestSetCooldownBypass:
         response = client.patch(
             f"/v1/admin/user-flags/{user.id}/cooldown-bypass",
             json={"bypass_cooldown": True},
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert response.status_code == 401
+
+
+class TestGetAdminStatus:
+    """Tests for GET /v1/admin/user-flags/{user_id}/admin-status."""
+
+    def test_get_admin_status_default_false(self, client, admin_headers, db_session):
+        """New user has is_admin=False by default."""
+        user = User(
+            email="admin_default@example.com",
+            password_hash=hash_password("pw123"),
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        response = client.get(
+            f"/v1/admin/user-flags/{user.id}/admin-status",
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_id"] == user.id
+        assert data["is_admin"] is False
+
+    def test_get_admin_status_true_after_set(self, client, admin_headers, db_session):
+        """Returns True when is_admin has been set on the user."""
+        user = User(
+            email="admin_true@example.com",
+            password_hash=hash_password("pw123"),
+            is_admin=True,
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        response = client.get(
+            f"/v1/admin/user-flags/{user.id}/admin-status",
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["is_admin"] is True
+
+    def test_get_admin_status_user_not_found(self, client, admin_headers):
+        """Returns 404 for a non-existent user_id."""
+        response = client.get(
+            "/v1/admin/user-flags/999999/admin-status",
+            headers=admin_headers,
+        )
+        assert response.status_code == 404
+
+    def test_get_admin_status_requires_admin_token(self, client, db_session):
+        """Returns 401 when X-Admin-Token header is missing."""
+        user = User(
+            email="admin_noauth@example.com",
+            password_hash=hash_password("pw123"),
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        response = client.get(f"/v1/admin/user-flags/{user.id}/admin-status")
+        assert response.status_code in (401, 422)
+
+    def test_get_admin_status_invalid_admin_token(self, client, db_session):
+        """Returns 401 for an invalid admin token."""
+        user = User(
+            email="admin_badauth@example.com",
+            password_hash=hash_password("pw123"),
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        response = client.get(
+            f"/v1/admin/user-flags/{user.id}/admin-status",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert response.status_code == 401
+
+
+class TestSetAdminStatus:
+    """Tests for PATCH /v1/admin/user-flags/{user_id}/admin-status."""
+
+    def test_set_admin_status_true(self, client, admin_headers, db_session):
+        """Sets is_admin to True and returns updated status."""
+        user = User(
+            email="set_admin_true@example.com",
+            password_hash=hash_password("pw123"),
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        response = client.patch(
+            f"/v1/admin/user-flags/{user.id}/admin-status",
+            json={"is_admin": True},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_id"] == user.id
+        assert data["is_admin"] is True
+
+        # Confirm persisted in DB
+        db_session.refresh(user)
+        assert user.is_admin is True
+
+    def test_set_admin_status_false(self, client, admin_headers, db_session):
+        """Unsets is_admin back to False."""
+        user = User(
+            email="set_admin_false@example.com",
+            password_hash=hash_password("pw123"),
+            is_admin=True,
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        response = client.patch(
+            f"/v1/admin/user-flags/{user.id}/admin-status",
+            json={"is_admin": False},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["is_admin"] is False
+
+        db_session.refresh(user)
+        assert user.is_admin is False
+
+    def test_set_admin_status_user_not_found(self, client, admin_headers):
+        """Returns 404 for a non-existent user_id."""
+        response = client.patch(
+            "/v1/admin/user-flags/999999/admin-status",
+            json={"is_admin": True},
+            headers=admin_headers,
+        )
+        assert response.status_code == 404
+
+    def test_set_admin_status_requires_admin_token(self, client, db_session):
+        """Returns 401 when X-Admin-Token header is missing."""
+        user = User(
+            email="set_admin_noauth@example.com",
+            password_hash=hash_password("pw123"),
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        response = client.patch(
+            f"/v1/admin/user-flags/{user.id}/admin-status",
+            json={"is_admin": True},
+        )
+        assert response.status_code in (401, 422)
+
+    def test_set_admin_status_invalid_admin_token(self, client, db_session):
+        """Returns 401 for an invalid admin token."""
+        user = User(
+            email="set_admin_badauth@example.com",
+            password_hash=hash_password("pw123"),
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        response = client.patch(
+            f"/v1/admin/user-flags/{user.id}/admin-status",
+            json={"is_admin": True},
             headers={"X-Admin-Token": "wrong-token"},
         )
         assert response.status_code == 401
