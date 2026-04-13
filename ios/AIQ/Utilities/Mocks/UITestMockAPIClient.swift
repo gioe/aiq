@@ -237,7 +237,15 @@ import Foundation
         // swiftlint:disable:next line_length
         func submitAdaptiveResponse(sessionId _: Int, questionId _: Int, userAnswer _: String, timeSpentSeconds _: Int?) async throws -> Components.Schemas.AdaptiveNextResponse {
             try throwIfNetworkError()
+            let nextQ = MockDataFactory.makeQuestion(
+                id: 99,
+                questionText: "What number comes next: 3, 6, 12, 24, ?",
+                questionType: "pattern",
+                difficultyLevel: "medium",
+                answerOptions: ["30", "36", "48", "96"]
+            )
             return Components.Schemas.AdaptiveNextResponse(
+                nextQuestion: nextQ,
                 currentTheta: 0.5,
                 currentSe: 0.5,
                 itemsAdministered: 2,

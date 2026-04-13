@@ -146,6 +146,8 @@ class AdaptiveTestCoordinator {
 
         if response.testComplete ?? false {
             handleCompletion(response)
+        } else if let nextQuestion = response.nextQuestion {
+            delegate?.appendQuestionAndAdvance(nextQuestion)
         }
 
         isLoadingNextQuestion = false

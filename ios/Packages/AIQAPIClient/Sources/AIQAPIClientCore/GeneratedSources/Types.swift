@@ -6178,6 +6178,10 @@ public enum Components {
         ///
         /// - Remark: Generated from `#/components/schemas/AdaptiveNextResponse`.
         public struct AdaptiveNextResponse: Codable, Hashable, Sendable {
+            /// Next question to present (null when test is complete)
+            ///
+            /// - Remark: Generated from `#/components/schemas/AdaptiveNextResponse/next_question`.
+            public var nextQuestion: Components.Schemas.QuestionResponse?
             /// Current ability estimate (theta)
             ///
             /// - Remark: Generated from `#/components/schemas/AdaptiveNextResponse/current_theta`.
@@ -6194,29 +6198,49 @@ public enum Components {
             ///
             /// - Remark: Generated from `#/components/schemas/AdaptiveNextResponse/test_complete`.
             public var testComplete: Swift.Bool?
+            /// Final test result (only present when test_complete is True)
+            ///
+            /// - Remark: Generated from `#/components/schemas/AdaptiveNextResponse/result`.
+            public var result: OpenAPIRuntime.OpenAPIObjectContainer?
+            /// Reason the test stopped (e.g., 'se_threshold', 'max_items')
+            ///
+            /// - Remark: Generated from `#/components/schemas/AdaptiveNextResponse/stopping_reason`.
+            public var stoppingReason: Swift.String?
             /// Creates a new `AdaptiveNextResponse`.
             ///
             /// - Parameters:
+            ///   - nextQuestion: Next question to present (null when test is complete)
             ///   - currentTheta: Current ability estimate (theta)
             ///   - currentSe: Standard error of the ability estimate
             ///   - itemsAdministered: Total number of items administered so far
             ///   - testComplete: Whether the test has ended
+            ///   - result: Final test result (only present when test_complete is True)
+            ///   - stoppingReason: Reason the test stopped
             public init(
+                nextQuestion: Components.Schemas.QuestionResponse? = nil,
                 currentTheta: Swift.Double,
                 currentSe: Swift.Double,
                 itemsAdministered: Swift.Int,
-                testComplete: Swift.Bool? = nil
+                testComplete: Swift.Bool? = nil,
+                result: OpenAPIRuntime.OpenAPIObjectContainer? = nil,
+                stoppingReason: Swift.String? = nil
             ) {
+                self.nextQuestion = nextQuestion
                 self.currentTheta = currentTheta
                 self.currentSe = currentSe
                 self.itemsAdministered = itemsAdministered
                 self.testComplete = testComplete
+                self.result = result
+                self.stoppingReason = stoppingReason
             }
             public enum CodingKeys: String, CodingKey {
+                case nextQuestion = "next_question"
                 case currentTheta = "current_theta"
                 case currentSe = "current_se"
                 case itemsAdministered = "items_administered"
                 case testComplete = "test_complete"
+                case result
+                case stoppingReason = "stopping_reason"
             }
         }
         /// Schema for submitting a single response during an adaptive (CAT) test session.
