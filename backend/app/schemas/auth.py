@@ -167,6 +167,7 @@ class UserResponse(BaseModel):
     created_at: datetime = Field(..., description="Account creation timestamp")
     last_login_at: Optional[datetime] = Field(None, description="Last login timestamp")
     notification_enabled: bool = Field(..., description="Push notification preference")
+    is_admin: bool = Field(..., description="Whether the user has admin privileges")
 
     # Optional demographic data for norming study (P13-001)
     birth_year: Optional[int] = Field(None, description="Year of birth")
