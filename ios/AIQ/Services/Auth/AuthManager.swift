@@ -332,13 +332,11 @@ extension AuthManager {
         isAuthenticated && currentUser != nil
     }
 
-    /// The user's display name.
-    ///
-    /// The generated `UserResponse` schema no longer includes `firstName` / `lastName`
-    /// fields (dropped during OpenAPI client regen). Returns the email as a fallback
-    /// until the backend schema re-exposes name fields.
+    /// The user's display name built from first/last name, falling back to email.
     var userFullName: String? {
-        currentUser?.email
+        guard let user = currentUser else { return nil }
+        let parts = [user.firstName, user.lastName].compactMap { $0 }
+        return parts.isEmpty ? user.email : parts.joined(separator: " ")
     }
 
     /// Get the user's email
