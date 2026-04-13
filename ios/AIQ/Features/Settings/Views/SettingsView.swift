@@ -45,11 +45,8 @@ struct SettingsView: View {
                 Section {
                     if let user = viewModel.currentUser {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(user.fullName)
-                                .font(theme.typography.h4)
                             Text(user.email)
-                                .font(theme.typography.bodySmall)
-                                .foregroundColor(theme.colors.textSecondary)
+                                .font(theme.typography.h4)
                         }
                         .padding(.vertical, 8)
                         .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.accountSection)

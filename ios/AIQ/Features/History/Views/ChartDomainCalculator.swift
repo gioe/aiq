@@ -39,9 +39,9 @@ enum ChartDomainCalculator {
 
         for result in history {
             allValues.append(result.iqScore)
-            if let ciPayload = result.confidenceInterval {
-                allValues.append(ciPayload.value1.lower)
-                allValues.append(ciPayload.value1.upper)
+            if let ci = result.confidenceIntervalConverted {
+                allValues.append(ci.lower)
+                allValues.append(ci.upper)
             }
         }
 
@@ -72,9 +72,9 @@ enum ChartDomainCalculator {
 
         for result in history {
             allValues.append(result.iqScore)
-            if let ciPayload = result.confidenceInterval {
-                allValues.append(ciPayload.value1.lower)
-                allValues.append(ciPayload.value1.upper)
+            if let ci = result.confidenceIntervalConverted {
+                allValues.append(ci.lower)
+                allValues.append(ci.upper)
             }
         }
 
@@ -99,7 +99,7 @@ enum ChartDomainCalculator {
     /// - Parameter history: Array of test results to check
     /// - Returns: True if at least one result has a confidence interval
     static func hasConfidenceIntervals(in history: [TestResult]) -> Bool {
-        history.contains { $0.confidenceInterval != nil }
+        history.contains { $0.confidenceIntervalConverted != nil }
     }
 
     // MARK: - Data Filtering
@@ -111,7 +111,7 @@ enum ChartDomainCalculator {
     /// - Parameter history: Array of test results to filter
     /// - Returns: Array containing only results with confidence intervals
     static func filterResultsWithCI(from history: [TestResult]) -> [TestResult] {
-        history.filter { $0.confidenceInterval != nil }
+        history.filter { $0.confidenceIntervalConverted != nil }
     }
 
     // MARK: - Data Sampling

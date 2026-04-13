@@ -48,19 +48,12 @@ final class HistoryViewModelTests: XCTestCase {
         TestResult(
             accuracyPercentage: 50.0,
             completedAt: completedAt,
-            completionTimeSeconds: 300,
-            confidenceInterval: nil,
             correctAnswers: 10,
-            domainScores: nil,
             id: id,
             iqScore: iqScore,
-            percentileRank: 50.0,
-            responseTimeFlags: nil,
-            strongestDomain: nil,
             testSessionId: id,
             totalQuestions: 20,
-            userId: 1,
-            weakestDomain: nil
+            userId: 1
         )
     }
 

@@ -88,10 +88,10 @@ class FeedbackViewModel: BaseViewModel {
         do {
             // Create feedback request body
             let feedback = Feedback(
-                category: category,
-                description: description,
+                name: name,
                 email: email,
-                name: name
+                category: category,
+                description: description
             )
 
             // Submit feedback to backend (no authentication required)

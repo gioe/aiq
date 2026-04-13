@@ -602,19 +602,12 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         let testResult = SubmittedTestResult(
             accuracyPercentage: 100.0,
             completedAt: Date(),
-            completionTimeSeconds: 120,
-            confidenceInterval: nil,
             correctAnswers: 2,
-            domainScores: nil,
             id: 1,
             iqScore: 125,
-            percentileRank: 90.0,
-            responseTimeFlags: nil,
-            strongestDomain: nil,
             testSessionId: sessionId,
             totalQuestions: 2,
-            userId: 1,
-            weakestDomain: nil
+            userId: 1
         )
         let completedSession = MockDataFactory.makeTestSession(
             id: sessionId,
@@ -643,19 +636,12 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         let historyResult = TestResult(
             accuracyPercentage: testResult.accuracyPercentage,
             completedAt: testResult.completedAt,
-            completionTimeSeconds: testResult.completionTimeSeconds,
-            confidenceInterval: testResult.confidenceInterval,
             correctAnswers: testResult.correctAnswers,
-            domainScores: testResult.domainScores,
             id: testResult.id,
             iqScore: testResult.iqScore,
-            percentileRank: testResult.percentileRank,
-            responseTimeFlags: testResult.responseTimeFlags,
-            strongestDomain: testResult.strongestDomain,
             testSessionId: testResult.testSessionId,
             totalQuestions: testResult.totalQuestions,
-            userId: testResult.userId,
-            weakestDomain: testResult.weakestDomain
+            userId: testResult.userId
         )
         await mockService.setTestHistoryResponse([historyResult])
         await mockService.getActiveTestResponse = nil // No active session after completion
@@ -759,19 +745,12 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             [TestResult(
                 accuracyPercentage: 80.0,
                 completedAt: Date(),
-                completionTimeSeconds: 600,
-                confidenceInterval: nil,
                 correctAnswers: 8,
-                domainScores: nil,
                 id: 1,
                 iqScore: 120,
-                percentileRank: 85.0,
-                responseTimeFlags: nil,
-                strongestDomain: nil,
                 testSessionId: sessionId,
                 totalQuestions: 10,
-                userId: 1,
-                weakestDomain: nil
+                userId: 1
             )]
         )
         await mockService.getActiveTestResponse = nil

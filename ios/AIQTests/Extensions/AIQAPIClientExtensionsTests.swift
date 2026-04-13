@@ -438,25 +438,17 @@ final class APIClientExtensionsTests: XCTestCase {
         totalQuestions: Int = 20,
         correctAnswers: Int = 15,
         accuracyPercentage: Double = 75.0,
-        completedAt: Date = Date(),
-        completionTimeSeconds: Int? = nil,
-        percentileRank: Double? = nil,
-        strongestDomain: String? = nil,
-        weakestDomain: String? = nil
+        completedAt: Date = Date()
     ) -> Components.Schemas.TestResultResponse {
         Components.Schemas.TestResultResponse(
             accuracyPercentage: accuracyPercentage,
             completedAt: completedAt,
-            completionTimeSeconds: completionTimeSeconds,
             correctAnswers: correctAnswers,
             id: id,
             iqScore: iqScore,
-            percentileRank: percentileRank,
-            strongestDomain: strongestDomain,
             testSessionId: testSessionId,
             totalQuestions: totalQuestions,
-            userId: userId,
-            weakestDomain: weakestDomain
+            userId: userId
         )
     }
 

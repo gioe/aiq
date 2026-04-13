@@ -125,8 +125,8 @@ class AdaptiveTestCoordinator {
 
     private func handleStartSuccess(response: StartTestResponse) {
         isAdaptiveTest = true
-        currentTheta = response.currentTheta
-        currentSE = response.currentSe
+        currentTheta = nil
+        currentSE = nil
         itemsAdministered = response.questions.count
 
         delegate?.prepareForAdaptiveStart(session: response.session, questions: response.questions)
@@ -146,8 +146,6 @@ class AdaptiveTestCoordinator {
 
         if response.testComplete ?? false {
             handleCompletion(response)
-        } else if let nextQuestion = response.nextQuestion?.value1 {
-            delegate?.appendQuestionAndAdvance(nextQuestion)
         }
 
         isLoadingNextQuestion = false
@@ -168,8 +166,7 @@ class AdaptiveTestCoordinator {
         }
 
         #if DebugBuild
-            // swiftlint:disable:next line_length
-            print("[CAT] Adaptive test completed. Items: \(response.itemsAdministered), Reason: \(response.stoppingReason ?? "unknown")")
+            print("[CAT] Adaptive test completed. Items: \(response.itemsAdministered)")
         #endif
     }
 

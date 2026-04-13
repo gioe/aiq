@@ -84,7 +84,6 @@ extension Components.Schemas.ResponseItem {
 
         return Components.Schemas.ResponseItem(
             questionId: questionId,
-            timeSpentSeconds: timeSpentSeconds,
             userAnswer: userAnswer
         )
     }

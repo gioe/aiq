@@ -92,15 +92,15 @@ import Foundation
                     throw APIError.api(.noInternetConnection)
                 }
                 return StartTestResponse(
-                    questions: UITestMockData.sampleQuestions,
                     session: UITestMockData.newSession,
+                    questions: UITestMockData.sampleQuestions,
                     totalQuestions: UITestMockData.sampleQuestions.count
                 )
             default:
                 try throwIfNetworkError()
                 return StartTestResponse(
-                    questions: UITestMockData.sampleQuestions,
                     session: UITestMockData.newSession,
+                    questions: UITestMockData.sampleQuestions,
                     totalQuestions: UITestMockData.sampleQuestions.count
                 )
             }
@@ -121,19 +121,19 @@ import Foundation
                 UITestMockData.highScoreResult
             }
             return TestSubmitResponse(
-                message: "Test completed successfully",
-                responsesCount: UITestMockData.sampleQuestions.count,
+                session: UITestMockData.completedSession,
                 result: result,
-                session: UITestMockData.completedSession
+                responsesCount: UITestMockData.sampleQuestions.count,
+                message: "Test completed successfully"
             )
         }
 
         func abandonTest(sessionId _: Int) async throws -> TestAbandonResponse {
             try throwIfNetworkError()
             return TestAbandonResponse(
+                session: UITestMockData.abandonedSession,
                 message: "Test abandoned",
-                responsesSaved: 5,
-                session: UITestMockData.abandonedSession
+                responsesSaved: 5
             )
         }
 
@@ -142,25 +142,19 @@ import Foundation
             switch scenario {
             case .timerExpiredZeroAnswers:
                 return TestSessionStatusResponse(
-                    questions: UITestMockData.sampleQuestions,
-                    questionsCount: 0,
-                    session: UITestMockData.expiredSession
+                    session: UITestMockData.expiredSession,
+                    questionsCount: 0
                 )
             case .timerExpiredWithAnswers:
                 return TestSessionStatusResponse(
-                    questions: UITestMockData.sampleQuestions,
-                    questionsCount: 1,
-                    session: UITestMockData.nearExpiredSession
+                    session: UITestMockData.nearExpiredSession,
+                    questionsCount: 1
                 )
             default:
-                let questions = scenario == .memoryInProgress
-                    ? UITestMockData.sampleMemoryQuestions
-                    : UITestMockData.sampleQuestions
                 let session = UITestMockData.recentInProgressSession
                 return TestSessionStatusResponse(
-                    questions: questions,
-                    questionsCount: 0,
-                    session: session
+                    session: session,
+                    questionsCount: 0
                 )
             }
         }
@@ -178,20 +172,20 @@ import Foundation
                  .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure,
                  .timerExpiredZeroAnswers, .timerExpiredWithAnswers:
                 return PaginatedTestHistoryResponse(
-                    hasMore: false,
+                    results: [],
+                    totalCount: 0,
                     limit: 50,
                     offset: 0,
-                    results: [],
-                    totalCount: 0
+                    hasMore: false
                 )
             case .loggedInWithHistory, .loggedInWithHistoryNilDate, .testInProgress, .loginFailure,
                  .networkError, .memoryInProgress, .notificationsDisabled:
                 return PaginatedTestHistoryResponse(
-                    hasMore: false,
+                    results: UITestMockData.sampleTestHistory,
+                    totalCount: UITestMockData.sampleTestHistory.count,
                     limit: 50,
                     offset: 0,
-                    results: UITestMockData.sampleTestHistory,
-                    totalCount: UITestMockData.sampleTestHistory.count
+                    hasMore: false
                 )
             }
         }
@@ -202,21 +196,18 @@ import Foundation
             switch scenario {
             case .testInProgress:
                 return TestSessionStatusResponse(
-                    questions: UITestMockData.sampleQuestions,
-                    questionsCount: 0,
-                    session: UITestMockData.recentInProgressSession
+                    session: UITestMockData.recentInProgressSession,
+                    questionsCount: 0
                 )
             case .memoryInProgress:
                 return TestSessionStatusResponse(
-                    questions: UITestMockData.sampleMemoryQuestions,
-                    questionsCount: 0,
-                    session: UITestMockData.recentInProgressSession
+                    session: UITestMockData.recentInProgressSession,
+                    questionsCount: 0
                 )
             case .timerExpiredWithAnswers:
                 return TestSessionStatusResponse(
-                    questions: UITestMockData.sampleQuestions,
-                    questionsCount: 1,
-                    session: UITestMockData.nearExpiredSession
+                    session: UITestMockData.nearExpiredSession,
+                    questionsCount: 1
                 )
             case .timerExpiredZeroAnswers:
                 // Returns nil intentionally: this scenario exercises the silent abandonment path
@@ -237,10 +228,8 @@ import Foundation
             try throwIfNetworkError()
             let firstQuestion = UITestMockData.sampleQuestions[0]
             return StartTestResponse(
-                currentSe: 1.0,
-                currentTheta: 0.0,
-                questions: [firstQuestion],
                 session: UITestMockData.newSession,
+                questions: [firstQuestion],
                 totalQuestions: 1
             )
         }
@@ -249,10 +238,9 @@ import Foundation
         func submitAdaptiveResponse(sessionId _: Int, questionId _: Int, userAnswer _: String, timeSpentSeconds _: Int?) async throws -> Components.Schemas.AdaptiveNextResponse {
             try throwIfNetworkError()
             return Components.Schemas.AdaptiveNextResponse(
-                currentSe: 0.5,
                 currentTheta: 0.5,
+                currentSe: 0.5,
                 itemsAdministered: 2,
-                nextQuestion: .init(value1: UITestMockData.sampleQuestions[1]),
                 testComplete: false
             )
         }
@@ -260,14 +248,14 @@ import Foundation
         func getTestProgress(sessionId _: Int) async throws -> Components.Schemas.TestProgressResponse {
             try throwIfNetworkError()
             return Components.Schemas.TestProgressResponse(
-                currentSe: 0.5,
-                domainCoverage: .init(additionalProperties: ["logic": 1]),
-                elapsedSeconds: 60,
-                estimatedItemsRemaining: 13,
-                itemsAdministered: 2,
                 sessionId: 100,
+                itemsAdministered: 2,
+                totalItemsMax: 15,
+                estimatedItemsRemaining: 13,
+                domainCoverage: .init(additionalProperties: ["logic": 1]),
                 totalDomainsCovered: 1,
-                totalItemsMax: 15
+                elapsedSeconds: 60,
+                currentSe: 0.5
             )
         }
 
@@ -276,11 +264,11 @@ import Foundation
         func startGuestTest(deviceId _: String) async throws -> Components.Schemas.GuestStartTestResponse {
             try throwIfNetworkError()
             return Components.Schemas.GuestStartTestResponse(
-                guestToken: "mock-guest-token",
-                questions: UITestMockData.sampleQuestions,
                 session: UITestMockData.newSession,
-                testsRemaining: 3,
-                totalQuestions: UITestMockData.sampleQuestions.count
+                questions: UITestMockData.sampleQuestions,
+                totalQuestions: UITestMockData.sampleQuestions.count,
+                guestToken: "mock-guest-token",
+                testsRemaining: 3
             )
         }
 
@@ -291,10 +279,10 @@ import Foundation
         ) async throws -> Components.Schemas.GuestSubmitTestResponse {
             try throwIfNetworkError()
             return Components.Schemas.GuestSubmitTestResponse(
-                message: "Test submitted successfully",
-                responsesCount: UITestMockData.sampleQuestions.count,
+                session: UITestMockData.completedSession,
                 result: UITestMockData.highScoreResult,
-                session: UITestMockData.completedSession
+                responsesCount: UITestMockData.sampleQuestions.count,
+                message: "Test submitted successfully"
             )
         }
 
@@ -316,8 +304,8 @@ import Foundation
             try throwIfNetworkError()
             let enabled = scenario != .notificationsDisabled
             return Components.Schemas.NotificationPreferencesResponse(
-                message: "Preferences retrieved",
-                notificationEnabled: enabled
+                notificationEnabled: enabled,
+                message: "Preferences retrieved"
             )
         }
 
@@ -332,9 +320,9 @@ import Foundation
                 []
             }
             return Components.Schemas.BenchmarkSummaryResponse(
-                cacheTtl: 600,
+                models: models,
                 minRuns: 3,
-                models: models
+                cacheTtl: 600
             )
         }
 
@@ -343,9 +331,9 @@ import Foundation
         func submitFeedback(_: Feedback) async throws -> FeedbackSubmitResponse {
             try throwIfNetworkError()
             return FeedbackSubmitResponse(
-                message: "Thank you for your feedback!",
+                success: true,
                 submissionId: 1,
-                success: true
+                message: "Thank you for your feedback!"
             )
         }
 
@@ -608,96 +596,97 @@ import Foundation
 
         static let sampleGroupMembers: [Components.Schemas.GroupMemberResponse] = [
             Components.Schemas.GroupMemberResponse(
+                userId: 1,
                 firstName: "You",
-                joinedAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
                 role: "owner",
-                userId: 1
+                joinedAt: Date().addingTimeInterval(-30 * 24 * 60 * 60)
             ),
             Components.Schemas.GroupMemberResponse(
+                userId: 2,
                 firstName: "Alex",
-                joinedAt: Date().addingTimeInterval(-25 * 24 * 60 * 60),
                 role: "member",
-                userId: 2
+                joinedAt: Date().addingTimeInterval(-25 * 24 * 60 * 60)
             ),
             Components.Schemas.GroupMemberResponse(
+                userId: 3,
                 firstName: "Jordan",
-                joinedAt: Date().addingTimeInterval(-20 * 24 * 60 * 60),
                 role: "member",
-                userId: 3
+                joinedAt: Date().addingTimeInterval(-20 * 24 * 60 * 60)
             ),
             Components.Schemas.GroupMemberResponse(
+                userId: 4,
                 firstName: "Sam",
-                joinedAt: Date().addingTimeInterval(-15 * 24 * 60 * 60),
                 role: "member",
-                userId: 4
+                joinedAt: Date().addingTimeInterval(-15 * 24 * 60 * 60)
             )
         ]
 
         static let sampleGroups: [Components.Schemas.GroupResponse] = [
             Components.Schemas.GroupResponse(
-                createdAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
-                createdBy: 1,
                 id: 1,
+                name: "Brain Trust",
+                createdBy: 1,
+                createdAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
                 inviteCode: "AIQ-BRAIN",
                 maxMembers: 10,
-                memberCount: 4,
-                name: "Brain Trust"
+                memberCount: 4
             ),
             Components.Schemas.GroupResponse(
-                createdAt: Date().addingTimeInterval(-14 * 24 * 60 * 60),
-                createdBy: 2,
                 id: 2,
+                name: "Study Group",
+                createdBy: 2,
+                createdAt: Date().addingTimeInterval(-14 * 24 * 60 * 60),
                 inviteCode: "AIQ-STUDY",
                 maxMembers: 20,
-                memberCount: 2,
-                name: "Study Group"
+                memberCount: 2
             )
         ]
 
         static let sampleGroupDetail = Components.Schemas.GroupDetailResponse(
-            createdAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
-            createdBy: 1,
             id: 1,
+            name: "Brain Trust",
+            createdBy: 1,
+            createdAt: Date().addingTimeInterval(-30 * 24 * 60 * 60),
             inviteCode: "AIQ-BRAIN",
             maxMembers: 10,
             memberCount: 4,
-            members: sampleGroupMembers,
-            name: "Brain Trust"
+            members: sampleGroupMembers
         )
 
         static let sampleLeaderboard = Components.Schemas.LeaderboardResponse(
+            groupId: 1,
+            groupName: "Brain Trust",
             entries: [
                 Components.Schemas.LeaderboardEntryResponse(
-                    averageScore: 122.5,
-                    bestScore: 130,
-                    firstName: "You",
                     rank: 1,
-                    userId: 1
+                    userId: 1,
+                    firstName: "You",
+                    bestScore: 130,
+                    averageScore: 122.5
                 ),
                 Components.Schemas.LeaderboardEntryResponse(
-                    averageScore: 118.0,
-                    bestScore: 125,
-                    firstName: "Alex",
                     rank: 2,
-                    userId: 2
+                    userId: 2,
+                    firstName: "Alex",
+                    bestScore: 125,
+                    averageScore: 118.0
                 ),
                 Components.Schemas.LeaderboardEntryResponse(
-                    averageScore: 112.0,
-                    bestScore: 119,
-                    firstName: "Jordan",
                     rank: 3,
-                    userId: 3
+                    userId: 3,
+                    firstName: "Jordan",
+                    bestScore: 119,
+                    averageScore: 112.0
                 ),
                 Components.Schemas.LeaderboardEntryResponse(
-                    averageScore: 105.5,
-                    bestScore: 112,
-                    firstName: "Sam",
                     rank: 4,
-                    userId: 4
+                    userId: 4,
+                    firstName: "Sam",
+                    bestScore: 112,
+                    averageScore: 105.5
                 )
             ],
-            groupId: 1,
-            groupName: "Brain Trust"
+            totalCount: 4
         )
     }
 

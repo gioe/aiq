@@ -72,21 +72,37 @@ extension Components.Schemas.QuestionResponse: @retroactive Identifiable {
     // id property already exists on the generated type
 }
 
+// MARK: - Optional Property Extensions
+
+extension Components.Schemas.QuestionResponse {
+    /// Returns nil — answerOptions is no longer included in the API response schema.
+    var answerOptions: [String]? {
+        nil
+    }
+
+    /// Returns nil — stimulus is no longer included in the API response schema.
+    var stimulus: String? {
+        nil
+    }
+
+    /// Returns nil — explanation is no longer included in the API response schema.
+    var explanation: String? {
+        nil
+    }
+}
+
 // MARK: - Additional UI Helpers
 
 extension Components.Schemas.QuestionResponse {
-    /// Indicates if this is a multiple choice question
-    ///
-    /// A question is considered multiple choice if it has answer options available.
-    /// - Returns: `true` if the question has at least 2 answer options, `false` otherwise
+    /// Indicates if this is a multiple choice question.
+    /// Returns false — answerOptions is no longer included in the API response schema.
     var isMultipleChoice: Bool {
         guard let options = answerOptions else { return false }
         return options.count >= 2
     }
 
-    /// Indicates if the question has answer options
-    ///
-    /// - Returns: `true` if answerOptions is non-nil and non-empty
+    /// Indicates if the question has answer options.
+    /// Returns false — answerOptions is no longer included in the API response schema.
     var hasOptions: Bool {
         guard let options = answerOptions else { return false }
         return !options.isEmpty
@@ -99,13 +115,8 @@ extension Components.Schemas.QuestionResponse {
         QuestionType(rawValue: questionType)
     }
 
-    /// Indicates if this is a memory question with a stimulus to memorize
-    ///
-    /// Memory questions have a two-phase flow:
-    /// 1. Show stimulus content for memorization
-    /// 2. Hide stimulus and show the question
-    ///
-    /// - Returns: `true` if this is a memory question with non-empty stimulus content
+    /// Indicates if this is a memory question with a stimulus to memorize.
+    /// Returns false — stimulus is no longer included in the API response schema.
     var isMemoryQuestion: Bool {
         questionTypeEnum == .memory && stimulus != nil && !(stimulus?.isEmpty ?? true)
     }

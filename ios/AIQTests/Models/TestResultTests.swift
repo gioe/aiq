@@ -272,77 +272,11 @@ final class TestResultTests: XCTestCase {
 
     // MARK: - TestResult Domain Scores Decoding Tests
 
-    func testTestResultDecodingWithDomainScores() throws {
-        let json = """
-        {
-            "id": 1,
-            "test_session_id": 10,
-            "user_id": 100,
-            "iq_score": 115,
-            "percentile_rank": 84.0,
-            "total_questions": 20,
-            "correct_answers": 14,
-            "accuracy_percentage": 70.0,
-            "completion_time_seconds": 1200,
-            "completed_at": "2025-12-13T10:00:00Z",
-            "domain_scores": {
-                "pattern": {"correct": 3, "total": 4, "pct": 75.0},
-                "logic": {"correct": 2, "total": 3, "pct": 66.67},
-                "spatial": {"correct": 2, "total": 3, "pct": 66.67},
-                "math": {"correct": 3, "total": 4, "pct": 75.0},
-                "verbal": {"correct": 3, "total": 3, "pct": 100.0},
-                "memory": {"correct": 1, "total": 3, "pct": 33.33}
-            }
-        }
-        """
-
-        let data = try XCTUnwrap(json.data(using: .utf8))
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let result = try decoder.decode(TestResult.self, from: data)
-
-        XCTAssertEqual(result.id, 1)
-        XCTAssertEqual(result.iqScore, 115)
-        XCTAssertNotNil(result.domainScores)
-
-        let converted = result.domainScoresConverted
-        XCTAssertEqual(converted?.count, 6)
-        XCTAssertEqual(converted?["pattern"]?.correct, 3)
-        XCTAssertEqual(converted?["pattern"]?.total, 4)
-        XCTAssertEqual(converted?["pattern"]?.pct, 75.0)
-        XCTAssertEqual(converted?["verbal"]?.pct, 100.0)
-        XCTAssertEqual(converted?["memory"]?.pct, 33.33)
-    }
-
-    func testTestResultDecodingWithNullDomainScores() throws {
-        let json = """
-        {
-            "id": 1,
-            "test_session_id": 10,
-            "user_id": 100,
-            "iq_score": 115,
-            "percentile_rank": null,
-            "total_questions": 20,
-            "correct_answers": 14,
-            "accuracy_percentage": 70.0,
-            "completion_time_seconds": null,
-            "completed_at": "2025-12-13T10:00:00Z",
-            "domain_scores": null
-        }
-        """
-
-        let data = try XCTUnwrap(json.data(using: .utf8))
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let result = try decoder.decode(TestResult.self, from: data)
-
-        XCTAssertNil(result.domainScores)
-        XCTAssertNil(result.percentileRank)
-        XCTAssertNil(result.completionTimeSeconds)
-    }
-
-    func testTestResultDecodingWithoutDomainScoresField() throws {
-        // Test backward compatibility when domain_scores field is not present
+    func testTestResultDecodingWithRequiredFieldsOnly() throws {
+        // The current API schema includes only required fields on TestResultResponse.
+        // Optional fields (domainScores, confidenceInterval, percentileRank, etc.) are no longer
+        // part of the generated type — domainScoresConverted and confidenceIntervalConverted
+        // return nil via computed properties in TestResult+Extensions.swift.
         let json = """
         {
             "id": 1,
@@ -361,7 +295,40 @@ final class TestResultTests: XCTestCase {
         decoder.dateDecodingStrategy = .iso8601
         let result = try decoder.decode(TestResult.self, from: data)
 
-        XCTAssertNil(result.domainScores)
+        XCTAssertEqual(result.id, 1)
+        XCTAssertEqual(result.iqScore, 115)
+        XCTAssertNil(result.domainScoresConverted)
+        XCTAssertNil(result.percentileRank)
+        XCTAssertNil(result.completionTimeSeconds)
+    }
+
+    func testTestResultDecodingIgnoresUnknownFields() throws {
+        // Extra fields in the JSON payload (legacy or future) should not cause decoding to fail.
+        let json = """
+        {
+            "id": 1,
+            "test_session_id": 10,
+            "user_id": 100,
+            "iq_score": 115,
+            "total_questions": 20,
+            "correct_answers": 14,
+            "accuracy_percentage": 70.0,
+            "completed_at": "2025-12-13T10:00:00Z",
+            "percentile_rank": null,
+            "completion_time_seconds": null,
+            "domain_scores": null
+        }
+        """
+
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let result = try decoder.decode(TestResult.self, from: data)
+
+        XCTAssertEqual(result.iqScore, 115)
+        XCTAssertNil(result.domainScoresConverted)
+        XCTAssertNil(result.percentileRank)
+        XCTAssertNil(result.completionTimeSeconds)
     }
 
     // MARK: - CognitiveDomain Tests
@@ -386,161 +353,39 @@ final class TestResultTests: XCTestCase {
 
     // MARK: - Domain Score Helper Tests
 
-    func testSortedDomainScores() throws {
-        let result = try createTestResultWithDomainScores()
+    // domainScoresConverted, sortedDomainScores, strongestCognitiveDomain, weakestCognitiveDomain
+    // all return nil because domainScores is no longer part of the generated TestResultResponse schema.
 
-        let sorted = result.sortedDomainScores
-        XCTAssertNotNil(sorted)
-        XCTAssertEqual(sorted?.count, 6)
-
-        // Verify order matches CognitiveDomain.allCases
-        XCTAssertEqual(sorted?[0].domain, .pattern)
-        XCTAssertEqual(sorted?[1].domain, .logic)
-        XCTAssertEqual(sorted?[2].domain, .spatial)
-        XCTAssertEqual(sorted?[3].domain, .math)
-        XCTAssertEqual(sorted?[4].domain, .verbal)
-        XCTAssertEqual(sorted?[5].domain, .memory)
-    }
-
-    func testSortedDomainScoresReturnsNilWhenNoDomainScores() {
-        let result = createTestResultWithoutDomainScores()
-
+    func testSortedDomainScoresReturnsNil() {
+        let result = makeTestResult()
         XCTAssertNil(result.sortedDomainScores)
     }
 
-    func testStrongestDomainReturnsNilWhenNoDomainScores() {
-        let result = createTestResultWithoutDomainScores()
-
+    func testStrongestDomainReturnsNil() {
+        let result = makeTestResult()
         XCTAssertNil(result.strongestDomain)
+        XCTAssertNil(result.strongestCognitiveDomain)
     }
 
-    func testWeakestDomainReturnsNilWhenNoDomainScores() {
-        let result = createTestResultWithoutDomainScores()
-
+    func testWeakestDomainReturnsNil() {
+        let result = makeTestResult()
         XCTAssertNil(result.weakestDomain)
+        XCTAssertNil(result.weakestCognitiveDomain)
     }
 
-    func testStrongestDomain() throws {
-        let result = try createTestResultWithDomainScores()
-
-        // verbal has pct 100.0 — highest among all domains
-        XCTAssertNotNil(result.strongestCognitiveDomain)
-        XCTAssertEqual(result.strongestCognitiveDomain?.domain, .verbal)
-        XCTAssertEqual(result.strongestCognitiveDomain?.score.pct, 100.0)
-    }
-
-    func testWeakestDomain() throws {
-        let result = try createTestResultWithDomainScores()
-
-        // memory has pct 33.33 — lowest among all domains
-        XCTAssertNotNil(result.weakestCognitiveDomain)
-        XCTAssertEqual(result.weakestCognitiveDomain?.domain, .memory)
-        XCTAssertEqual(result.weakestCognitiveDomain?.score.pct, 33.33)
-    }
-
-    func testStrongestWeakestExcludesDomainsWithZeroQuestions() throws {
-        let json = """
-        {
-            "id": 1,
-            "test_session_id": 10,
-            "user_id": 100,
-            "iq_score": 115,
-            "total_questions": 10,
-            "correct_answers": 7,
-            "accuracy_percentage": 70.0,
-            "completed_at": "2025-12-13T10:00:00Z",
-            "domain_scores": {
-                "pattern": {"correct": 3, "total": 4, "pct": 75.0},
-                "logic": {"correct": 0, "total": 0, "pct": null},
-                "verbal": {"correct": 4, "total": 6, "pct": 66.67}
-            }
-        }
-        """
-        let data = try XCTUnwrap(json.data(using: .utf8))
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let result = try decoder.decode(TestResult.self, from: data)
-
-        // logic has total == 0 and must be excluded
-        XCTAssertEqual(result.strongestCognitiveDomain?.domain, .pattern)
-        XCTAssertEqual(result.weakestCognitiveDomain?.domain, .verbal)
-    }
-
-    // MARK: - MockDataFactory Round-Trip Tests
-
-    func testMakeDomainScoresPayloadRoundTrip() {
-        let input: [String: DomainScore] = [
-            "pattern": DomainScore(correct: 3, total: 4, pct: 75.0, percentile: nil),
-            "verbal": DomainScore(correct: 3, total: 3, pct: 100.0, percentile: 85.0),
-            "memory": DomainScore(correct: 1, total: 3, pct: 33.33, percentile: nil)
-        ]
-
-        let payload = MockDataFactory.makeDomainScoresPayload(input)
-        let result = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 10,
-            userId: 100,
-            iqScore: 115,
-            totalQuestions: 10,
-            correctAnswers: 7,
-            accuracyPercentage: 70.0,
-            completedAt: Date(),
-            domainScores: payload
-        )
-
-        let converted = result.domainScoresConverted
-        XCTAssertNotNil(converted)
-        XCTAssertEqual(converted?.count, 3)
-
-        XCTAssertEqual(converted?["pattern"]?.correct, 3)
-        XCTAssertEqual(converted?["pattern"]?.total, 4)
-        XCTAssertEqual(converted?["pattern"]?.pct, 75.0)
-
-        XCTAssertEqual(converted?["verbal"]?.correct, 3)
-        XCTAssertEqual(converted?["verbal"]?.total, 3)
-        XCTAssertEqual(converted?["verbal"]?.pct, 100.0)
-        XCTAssertEqual(converted?["verbal"]?.percentile, 85.0)
-
-        XCTAssertEqual(converted?["memory"]?.correct, 1)
-        XCTAssertEqual(converted?["memory"]?.total, 3)
-        XCTAssertEqual(converted?["memory"]?.pct, 33.33)
+    func testDomainScoresConvertedReturnsNil() {
+        let result = makeTestResult()
+        XCTAssertNil(result.domainScoresConverted)
     }
 
     // MARK: - Helper Methods
 
-    private func createTestResultWithDomainScores() throws -> TestResult {
-        let json = """
-        {
-            "id": 1,
-            "test_session_id": 10,
-            "user_id": 100,
-            "iq_score": 115,
-            "total_questions": 20,
-            "correct_answers": 14,
-            "accuracy_percentage": 70.0,
-            "completed_at": "2025-12-13T10:00:00Z",
-            "domain_scores": {
-                "pattern": {"correct": 3, "total": 4, "pct": 75.0},
-                "logic": {"correct": 2, "total": 3, "pct": 66.67},
-                "spatial": {"correct": 2, "total": 3, "pct": 66.67},
-                "math": {"correct": 3, "total": 4, "pct": 75.0},
-                "verbal": {"correct": 3, "total": 3, "pct": 100.0},
-                "memory": {"correct": 1, "total": 3, "pct": 33.33}
-            }
-        }
-        """
-        let data = try XCTUnwrap(json.data(using: .utf8))
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(TestResult.self, from: data)
-    }
-
-    private func createTestResultWithoutDomainScores() -> TestResult {
+    private func makeTestResult(iqScore: Int = 115) -> TestResult {
         MockDataFactory.makeTestResult(
             id: 1,
             testSessionId: 10,
             userId: 100,
-            iqScore: 115,
+            iqScore: iqScore,
             totalQuestions: 20,
             correctAnswers: 14,
             accuracyPercentage: 70.0,
@@ -606,20 +451,20 @@ final class TestResultTests: XCTestCase {
 
     // MARK: - TestResult with ConfidenceInterval Tests
 
-    func testTestResultDecodingWithConfidenceInterval() throws {
+    func testTestResultDecodingWithConfidenceIntervalInPayload() throws {
+        // confidence_interval is not part of the generated schema; confidenceIntervalConverted
+        // always returns nil. Verify the result decodes successfully even when JSON contains
+        // unknown fields like confidence_interval.
         let json = """
         {
             "id": 1,
             "test_session_id": 10,
             "user_id": 100,
             "iq_score": 108,
-            "percentile_rank": 70.2,
             "total_questions": 20,
             "correct_answers": 14,
             "accuracy_percentage": 70.0,
-            "completion_time_seconds": 1200,
             "completed_at": "2025-12-13T10:00:00Z",
-            "domain_scores": null,
             "confidence_interval": {
                 "lower": 101,
                 "upper": 115,
@@ -636,26 +481,19 @@ final class TestResultTests: XCTestCase {
 
         XCTAssertEqual(result.id, 1)
         XCTAssertEqual(result.iqScore, 108)
-        XCTAssertNotNil(result.confidenceInterval)
-
-        XCTAssertEqual(result.confidenceIntervalConverted?.lower, 101)
-        XCTAssertEqual(result.confidenceIntervalConverted?.upper, 115)
-        XCTAssertEqual(result.confidenceIntervalConverted?.confidenceLevel, 0.95)
-        XCTAssertEqual(result.confidenceIntervalConverted?.standardError, 3.5)
+        XCTAssertNil(result.confidenceIntervalConverted)
     }
 
-    func testTestResultDecodingWithNullConfidenceInterval() throws {
+    func testTestResultDecodingWithNullConfidenceIntervalInPayload() throws {
         let json = """
         {
             "id": 1,
             "test_session_id": 10,
             "user_id": 100,
             "iq_score": 108,
-            "percentile_rank": 70.2,
             "total_questions": 20,
             "correct_answers": 14,
             "accuracy_percentage": 70.0,
-            "completion_time_seconds": 1200,
             "completed_at": "2025-12-13T10:00:00Z",
             "confidence_interval": null
         }
@@ -667,100 +505,22 @@ final class TestResultTests: XCTestCase {
         let result = try decoder.decode(TestResult.self, from: data)
 
         XCTAssertEqual(result.iqScore, 108)
-        XCTAssertNil(result.confidenceInterval)
-    }
-
-    func testTestResultDecodingWithoutConfidenceIntervalField() throws {
-        // Backward compatibility - confidence_interval field may not be present
-        let json = """
-        {
-            "id": 1,
-            "test_session_id": 10,
-            "user_id": 100,
-            "iq_score": 108,
-            "percentile_rank": 70.2,
-            "total_questions": 20,
-            "correct_answers": 14,
-            "accuracy_percentage": 70.0,
-            "completed_at": "2025-12-13T10:00:00Z"
-        }
-        """
-
-        let data = try XCTUnwrap(json.data(using: .utf8))
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let result = try decoder.decode(TestResult.self, from: data)
-
-        XCTAssertEqual(result.iqScore, 108)
-        XCTAssertNil(result.confidenceInterval)
+        XCTAssertNil(result.confidenceIntervalConverted)
     }
 
     // MARK: - TestResult Score Display Helper Tests
 
-    func testScoreWithConfidenceIntervalWhenPresent() {
-        let ci = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
-        let result = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 10,
-            userId: 100,
-            iqScore: 108,
-            totalQuestions: 20,
-            correctAnswers: 14,
-            accuracyPercentage: 70.0,
-            completedAt: Date(),
-            confidenceInterval: .init(value1: ci)
-        )
-
-        XCTAssertEqual(result.scoreWithConfidenceInterval, "108 (101-115)")
-    }
-
-    func testScoreWithConfidenceIntervalWhenNil() {
-        let result = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 10,
-            userId: 100,
-            iqScore: 108,
-            totalQuestions: 20,
-            correctAnswers: 14,
-            accuracyPercentage: 70.0,
-            completedAt: Date()
-        )
-
+    func testScoreWithConfidenceIntervalReturnsPlainScore() {
+        // confidenceIntervalConverted always returns nil; scoreWithConfidenceInterval
+        // falls back to the plain IQ score string.
+        let result = makeTestResult(iqScore: 108)
         XCTAssertEqual(result.scoreWithConfidenceInterval, "108")
     }
 
-    func testScoreAccessibilityDescriptionWithConfidenceInterval() {
-        let ci = ConfidenceInterval(confidenceLevel: 0.95, lower: 101, standardError: 3.5, upper: 115)
-        let result = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 10,
-            userId: 100,
-            iqScore: 108,
-            totalQuestions: 20,
-            correctAnswers: 14,
-            accuracyPercentage: 70.0,
-            completedAt: Date(),
-            confidenceInterval: .init(value1: ci)
-        )
-
-        XCTAssertEqual(
-            result.scoreAccessibilityDescription,
-            "AIQ score 108, range 101 to 115"
-        )
-    }
-
-    func testScoreAccessibilityDescriptionWithoutConfidenceInterval() {
-        let result = MockDataFactory.makeTestResult(
-            id: 1,
-            testSessionId: 10,
-            userId: 100,
-            iqScore: 108,
-            totalQuestions: 20,
-            correctAnswers: 14,
-            accuracyPercentage: 70.0,
-            completedAt: Date()
-        )
-
+    func testScoreAccessibilityDescriptionReturnsPlainScore() {
+        // confidenceIntervalConverted always returns nil; scoreAccessibilityDescription
+        // falls back to the plain accessibility string.
+        let result = makeTestResult(iqScore: 108)
         XCTAssertEqual(result.scoreAccessibilityDescription, "AIQ score 108")
     }
 
@@ -1128,16 +888,18 @@ final class TestResultTests: XCTestCase {
         XCTAssertEqual(response.results.count, 2, "should decode both results")
         XCTAssertEqual(response.totalCount, 2, "totalCount should be 2")
 
-        // First result with optional fields present
+        // Optional fields (confidenceInterval, domainScores, completionTimeSeconds) are not part
+        // of the generated schema; verify the required fields decode correctly for both results.
         let firstResult = response.results[0]
-        XCTAssertNotNil(firstResult.confidenceInterval, "first result should have CI")
-        XCTAssertNotNil(firstResult.domainScores, "first result should have domain scores")
-        XCTAssertEqual(firstResult.completionTimeSeconds, 1200, "first result should have completion time")
+        XCTAssertEqual(firstResult.iqScore, 115, "first result iqScore should decode")
+        XCTAssertNil(firstResult.confidenceIntervalConverted, "confidenceIntervalConverted always nil")
+        XCTAssertNil(firstResult.domainScoresConverted, "domainScoresConverted always nil")
+        XCTAssertNil(firstResult.completionTimeSeconds, "completionTimeSeconds always nil")
 
-        // Second result with optional fields null
         let secondResult = response.results[1]
-        XCTAssertNil(secondResult.confidenceInterval, "second result should have nil CI")
-        XCTAssertNil(secondResult.domainScores, "second result should have nil domain scores")
-        XCTAssertNil(secondResult.completionTimeSeconds, "second result should have nil completion time")
+        XCTAssertEqual(secondResult.iqScore, 100, "second result iqScore should decode")
+        XCTAssertNil(secondResult.confidenceIntervalConverted, "confidenceIntervalConverted always nil")
+        XCTAssertNil(secondResult.domainScoresConverted, "domainScoresConverted always nil")
+        XCTAssertNil(secondResult.completionTimeSeconds, "completionTimeSeconds always nil")
     }
 }

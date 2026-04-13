@@ -11,11 +11,11 @@ import SwiftUI
 //
 // Pattern: Following TASK-368 and TASK-365, we extend generated types rather than duplicating them.
 //
-// **Important Notes:**
-// - The generated type does not include optional properties like `percentileRank`,
-//   `completionTimeSeconds`, `domainScores`, `confidenceInterval` due to OpenAPI generator limitations.
-// - Until the generator is updated, these properties cannot be accessed.
-// - This is a known limitation tracked in the OpenAPI migration documentation.
+// **Note:** The regenerated TestResultResponse (as of the is_admin spec update) only includes
+// required fields: id, testSessionId, userId, iqScore, totalQuestions, correctAnswers,
+// accuracyPercentage, completedAt. Optional fields (percentileRank, completionTimeSeconds,
+// domainScores, confidenceInterval, strongestDomain, weakestDomain, modelScores) have been
+// removed from the OpenAPI spec's required fields and are no longer generated.
 
 // MARK: - Protocol Conformance
 
@@ -56,44 +56,48 @@ extension Components.Schemas.TestResultResponse {
 // MARK: - Optional Property Extensions (migrated from APIClient package, TASK-711)
 
 extension Components.Schemas.TestResultResponse {
+    /// Returns nil — percentileRank is no longer included in the API response schema.
+    var percentileRank: Double? {
+        nil
+    }
+
+    /// Returns nil — completionTimeSeconds is no longer included in the API response schema.
+    var completionTimeSeconds: Int? {
+        nil
+    }
+
+    /// Returns nil — strongestDomain is no longer included in the API response schema.
+    var strongestDomain: String? {
+        nil
+    }
+
+    /// Returns nil — weakestDomain is no longer included in the API response schema.
+    var weakestDomain: String? {
+        nil
+    }
+
     /// Formatted percentile rank string (e.g., "85th percentile")
-    /// Returns nil if percentileRank is not available
+    /// Returns nil — percentileRank is no longer included in the API response schema.
     var percentileRankFormatted: String? {
-        guard let rank = percentileRank else { return nil }
-        let roundedRank = Int(round(rank))
-        let suffix = switch roundedRank % 100 {
-        case 11, 12, 13:
-            "th"
-        default:
-            switch roundedRank % 10 {
-            case 1: "st"
-            case 2: "nd"
-            case 3: "rd"
-            default: "th"
-            }
-        }
-        return "\(roundedRank)\(suffix) percentile"
+        nil
     }
 
     /// Formatted completion time in M:SS format (e.g., "5:30")
-    /// Returns nil if completionTimeSeconds is not available
+    /// Returns nil — completionTimeSeconds is no longer included in the API response schema.
     var completionTimeFormatted: String? {
-        guard let seconds = completionTimeSeconds else { return nil }
-        let minutes = seconds / 60
-        let remainingSeconds = seconds % 60
-        return String(format: "%d:%02d", minutes, remainingSeconds)
+        nil
     }
 
     /// Display text for the strongest cognitive domain
-    /// Returns nil if strongestDomain is not available
+    /// Returns nil — strongestDomain is no longer included in the API response schema.
     var strongestDomainDisplay: String? {
-        strongestDomain
+        nil
     }
 
     /// Display text for the weakest cognitive domain
-    /// Returns nil if weakestDomain is not available
+    /// Returns nil — weakestDomain is no longer included in the API response schema.
     var weakestDomainDisplay: String? {
-        weakestDomain
+        nil
     }
 }
 
@@ -101,60 +105,31 @@ extension Components.Schemas.TestResultResponse {
 
 extension Components.Schemas.TestResultResponse {
     /// Converts the OpenAPI-generated confidence interval to the local ConfidenceInterval type.
-    ///
-    /// The generated type wraps optional types in a `Payload` struct with a `value1` property
-    /// due to how the OpenAPI generator handles `anyOf: [type, null]`.
+    /// Returns nil — confidenceInterval is no longer included in the API response schema.
     var confidenceIntervalConverted: ConfidenceInterval? {
-        guard let payload = confidenceInterval?.value1 else { return nil }
-        return ConfidenceInterval(
-            confidenceLevel: payload.confidenceLevel,
-            lower: payload.lower,
-            standardError: payload.standardError,
-            upper: payload.upper
-        )
+        nil
     }
 
     /// Formatted percentile string (e.g., "Top 16%")
+    /// Returns nil — percentileRank is no longer included in the API response schema.
     var percentileFormatted: String? {
-        guard let rankValue = percentileRank else { return nil }
-        let percentile = Int(round(rankValue))
-
-        if percentile >= 98 {
-            return "Top 2%"
-        } else if percentile >= 95 {
-            return "Top 5%"
-        } else if percentile >= 90 {
-            return "Top 10%"
-        } else if percentile >= 75 {
-            return "Top 25%"
-        } else if percentile >= 50 {
-            return "Top 50%"
-        } else {
-            return "Lower 50%"
-        }
+        nil
     }
 
     /// Detailed percentile description (e.g., "84th percentile")
+    /// Returns nil — percentileRank is no longer included in the API response schema.
     var percentileDescription: String? {
-        guard let rankValue = percentileRank else { return nil }
-        let percentile = Int(round(rankValue))
-        return "\(percentile.ordinalString) percentile"
+        nil
     }
 
     /// Score displayed with confidence interval range when available (e.g., "108 (101-115)")
     var scoreWithConfidenceInterval: String {
-        if let ci = confidenceIntervalConverted {
-            return "\(iqScore) (\(ci.rangeFormatted))"
-        }
-        return "\(iqScore)"
+        "\(iqScore)"
     }
 
     /// Accessibility description for the score with confidence interval
     var scoreAccessibilityDescription: String {
-        if let ci = confidenceIntervalConverted {
-            return "AIQ score \(iqScore), range \(ci.lower) to \(ci.upper)"
-        }
-        return "AIQ score \(iqScore)"
+        "AIQ score \(iqScore)"
     }
 }
 
@@ -185,57 +160,29 @@ extension Components.Schemas.TestResultResponse {
         }
     }
 
-    /// Converts the OpenAPI domain scores payload to a dictionary for UI usage.
-    ///
-    /// The generated `domainScores` property is of type `DomainScoresPayload?` which wraps
-    /// an `additionalProperties: [String: OpenAPIObjectContainer]` dictionary. Each container
-    /// is round-tripped through JSON to produce a typed `DomainScore` value.
+    /// Returns nil — domainScores is no longer included in the API response schema.
     var domainScoresConverted: [String: DomainScore]? {
-        guard let payload = domainScores else { return nil }
-        let encoder = JSONEncoder()
-        let decoder = JSONDecoder()
-        var result: [String: DomainScore] = [:]
-        for (key, value) in payload.additionalProperties {
-            guard let data = try? encoder.encode(value),
-                  let score = try? decoder.decode(DomainScore.self, from: data)
-            else { continue }
-            result[key] = score
-        }
-        return result.isEmpty ? nil : result
+        nil
     }
 
-    /// Returns domain scores sorted by `CognitiveDomain.allCases` order with full metadata.
-    ///
-    /// Only domains present in `domainScoresConverted` are included, so the count may be
-    /// less than six when the backend omits certain domains.
+    /// Returns nil — domainScores is no longer included in the API response schema.
     var sortedDomainScoresWithMetadata: [(domain: CognitiveDomain, score: DomainScore)]? {
-        guard let scores = domainScoresConverted, !scores.isEmpty else { return nil }
-        let sorted = CognitiveDomain.allCases.compactMap { domain -> (domain: CognitiveDomain, score: DomainScore)? in
-            guard let score = scores[domain.rawValue] else { return nil }
-            return (domain: domain, score: score)
-        }
-        return sorted.isEmpty ? nil : sorted
+        nil
     }
 
-    /// Domain scores sorted by `CognitiveDomain.allCases` order.
-    ///
-    /// Convenience alias for `sortedDomainScoresWithMetadata`.
+    /// Returns nil — domainScores is no longer included in the API response schema.
     var sortedDomainScores: [(domain: CognitiveDomain, score: DomainScore)]? {
-        sortedDomainScoresWithMetadata
+        nil
     }
 
-    /// The domain with the highest accuracy score, excluding domains with zero questions.
+    /// Returns nil — domainScores is no longer included in the API response schema.
     var strongestCognitiveDomain: (domain: CognitiveDomain, score: DomainScore)? {
-        sortedDomainScoresWithMetadata?
-            .filter { $0.score.total > 0 }
-            .max { ($0.score.pct ?? 0) < ($1.score.pct ?? 0) }
+        nil
     }
 
-    /// The domain with the lowest accuracy score, excluding domains with zero questions.
+    /// Returns nil — domainScores is no longer included in the API response schema.
     var weakestCognitiveDomain: (domain: CognitiveDomain, score: DomainScore)? {
-        sortedDomainScoresWithMetadata?
-            .filter { $0.score.total > 0 }
-            .min { ($0.score.pct ?? 0) < ($1.score.pct ?? 0) }
+        nil
     }
 }
 
@@ -276,46 +223,17 @@ extension Components.Schemas.TestResultResponse {
         }
     }
 
-    /// Converts the OpenAPI model scores payload to a typed dictionary.
-    ///
-    /// Same pattern as `domainScoresConverted` — round-trips each `OpenAPIObjectContainer`
-    /// through JSON to produce a typed `ModelScore`.
+    /// Returns nil — modelScores is no longer included in the API response schema.
     var modelScoresConverted: [String: ModelScore]? {
-        guard let payload = modelScores else { return nil }
-        let encoder = JSONEncoder()
-        let decoder = JSONDecoder()
-        var result: [String: ModelScore] = [:]
-        for (key, value) in payload.additionalProperties {
-            guard let data = try? encoder.encode(value),
-                  let score = try? decoder.decode(ModelScore.self, from: data)
-            else { continue }
-            result[key] = score
-        }
-        return result.isEmpty ? nil : result
+        nil
     }
 
-    /// Model scores grouped by vendor with aggregate stats per vendor.
+    /// Returns nil — modelScores is no longer included in the API response schema.
     var vendorGroupedScores: [(
         vendor: ModelVendor,
         models: [(model: String, score: ModelScore)],
         aggregate: ModelScore
     )]? {
-        guard let scores = modelScoresConverted, !scores.isEmpty else { return nil }
-
-        var groups: [ModelVendor: [(model: String, score: ModelScore)]] = [:]
-        for (model, score) in scores {
-            let vendor = ModelVendor.from(modelName: model)
-            groups[vendor, default: []].append((model: model, score: score))
-        }
-
-        return groups.map { vendor, models in
-            let sortedModels = models.sorted { $0.model < $1.model }
-            let totalCorrect = models.reduce(0) { $0 + $1.score.correct }
-            let totalQuestions = models.reduce(0) { $0 + $1.score.total }
-            let pct = totalQuestions > 0 ? (Double(totalCorrect) / Double(totalQuestions)) * 100.0 : nil
-            let aggregate = ModelScore(correct: totalCorrect, total: totalQuestions, pct: pct)
-            return (vendor: vendor, models: sortedModels, aggregate: aggregate)
-        }
-        .sorted { ($0.aggregate.pct ?? 0) > ($1.aggregate.pct ?? 0) }
+        nil
     }
 }

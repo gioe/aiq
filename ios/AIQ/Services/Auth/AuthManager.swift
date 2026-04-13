@@ -334,7 +334,7 @@ extension AuthManager {
 
     /// Get the user's full name
     var userFullName: String? {
-        currentUser?.fullName
+        currentUser?.email
     }
 
     /// Get the user's email

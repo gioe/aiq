@@ -25,7 +25,7 @@ import Foundation
         @Published var authError: Error?
 
         var userFullName: String? {
-            currentUser?.fullName
+            currentUser?.email
         }
 
         var isAuthenticatedPublisher: Published<Bool>.Publisher {
@@ -106,8 +106,8 @@ import Foundation
         func register(
             email: String,
             password _: String,
-            firstName: String,
-            lastName: String,
+            firstName _: String,
+            lastName _: String,
             birthYear _: Int?,
             educationLevel _: EducationLevel?,
             country _: String?,
@@ -121,12 +121,11 @@ import Foundation
 
             if shouldSucceedRegister {
                 let mockUser = Components.Schemas.UserResponse(
-                    createdAt: Date(),
-                    email: email,
-                    firstName: firstName,
                     id: 1,
-                    lastName: lastName,
-                    notificationEnabled: false
+                    email: email,
+                    createdAt: Date(),
+                    notificationEnabled: false,
+                    isAdmin: false
                 )
                 isAuthenticated = true
                 currentUser = mockUser
@@ -166,12 +165,11 @@ import Foundation
 
             if shouldSucceedLogin {
                 let mockUser = Components.Schemas.UserResponse(
-                    createdAt: Date(),
-                    email: email,
-                    firstName: "Test",
                     id: 1,
-                    lastName: "User",
-                    notificationEnabled: true
+                    email: email,
+                    createdAt: Date(),
+                    notificationEnabled: true,
+                    isAdmin: false
                 )
                 print("[UITestMockAuthManager] Setting isAuthenticated = true")
                 isAuthenticated = true
@@ -228,12 +226,11 @@ import Foundation
 
         /// Standard mock user for authenticated scenarios
         static let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date().addingTimeInterval(-30 * 24 * 60 * 60), // 30 days ago
-            email: "alex@example.com",
-            firstName: "Alex",
             id: 1,
-            lastName: "Morgan",
-            notificationEnabled: true
+            email: "alex@example.com",
+            createdAt: Date().addingTimeInterval(-30 * 24 * 60 * 60), // 30 days ago
+            notificationEnabled: true,
+            isAdmin: false
         )
     }
 

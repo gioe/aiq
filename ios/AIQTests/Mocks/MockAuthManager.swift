@@ -84,15 +84,12 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         }
 
         if shouldSucceedRegister {
-            // Note: Generated UserResponse type only has required fields.
-            // Demographic fields (birthYear, educationLevel, country, region) are not available.
             let mockUser = Components.Schemas.UserResponse(
-                createdAt: Date(),
-                email: email,
-                firstName: firstName,
                 id: 1,
-                lastName: lastName,
-                notificationEnabled: false
+                email: email,
+                createdAt: Date(),
+                notificationEnabled: false,
+                isAdmin: false
             )
             isAuthenticated = true
             currentUser = mockUser
@@ -123,12 +120,11 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
 
         if shouldSucceedLogin {
             let mockUser = Components.Schemas.UserResponse(
-                createdAt: Date(),
-                email: email,
-                firstName: "Test",
                 id: 1,
-                lastName: "User",
-                notificationEnabled: true
+                email: email,
+                createdAt: Date(),
+                notificationEnabled: true,
+                isAdmin: false
             )
             isAuthenticated = true
             currentUser = mockUser

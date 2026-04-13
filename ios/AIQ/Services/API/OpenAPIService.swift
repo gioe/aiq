@@ -181,37 +181,19 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         password: String,
         firstName: String,
         lastName: String,
-        birthYear: Int? = nil,
-        educationLevel: EducationLevel? = nil,
-        country: String? = nil,
-        region: String? = nil
+        birthYear _: Int? = nil,
+        educationLevel _: EducationLevel? = nil,
+        country _: String? = nil,
+        region _: String? = nil
     ) async throws -> AuthResponse {
-        // Convert education level to generated payload type
-        // swiftformat:disable all
-        // swiftlint:disable opening_brace
-        let educationPayload: Components.Schemas.UserRegister.EducationLevelPayload?
-        if let level = educationLevel,
-           let schema = Components.Schemas.EducationLevel(rawValue: level.rawValue)
-        {
-            educationPayload = .init(value1: schema)
-        } else {
-            educationPayload = nil
-        }
-        // swiftlint:enable opening_brace
-        // swiftformat:enable all
-
         do {
             let response = try await client.registerUserV1AuthRegisterPost(
                 body: .json(
                     Components.Schemas.UserRegister(
-                        birthYear: birthYear,
-                        country: country,
-                        educationLevel: educationPayload,
                         email: email,
-                        firstName: firstName,
-                        lastName: lastName,
                         password: password,
-                        region: region
+                        firstName: firstName,
+                        lastName: lastName
                     )
                 )
             )
@@ -383,7 +365,6 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         let items = responses.map { response in
             Components.Schemas.ResponseItem(
                 questionId: response.questionId,
-                timeSpentSeconds: response.timeSpentSeconds,
                 userAnswer: response.userAnswer
             )
         }
@@ -392,8 +373,8 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             let response = try await client.submitTestV1TestSubmitPost(
                 body: .json(
                     Components.Schemas.ResponseSubmission(
-                        responses: items,
                         sessionId: sessionId,
+                        responses: items,
                         timeLimitExceeded: timeLimitExceeded
                     )
                 )
@@ -527,23 +508,34 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     }
 
     func getActiveTest() async throws -> Components.Schemas.TestSessionStatusResponse? {
-        do {
-            let response = try await client.getActiveTestSessionV1TestActiveGet()
+        // The swift-openapi-generator cannot produce a body type for anyOf:[schema, null] responses.
+        // Decode the /v1/test/active response manually so we can handle the nullable JSON payload.
+        let url = factory.serverURL.appendingPathComponent("v1/test/active")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token = await factory.authMiddleware.getAccessToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
-            switch response {
-            case let .ok(okResponse):
-                guard case let .json(jsonPayload) = okResponse.body else {
-                    throw APIError.api(.invalidResponse)
-                }
-                // Response can be nil if no active session
-                // The JsonPayload wraps the actual TestSessionStatusResponse in value1
-                guard let payload = jsonPayload else {
+        do {
+            let (data, httpResponse) = try await URLSession.shared.data(for: request)
+            guard let http = httpResponse as? HTTPURLResponse else {
+                throw APIError.api(.invalidResponse)
+            }
+            switch http.statusCode {
+            case 200:
+                let text = String(data: data, encoding: .utf8)
+                if data.count <= 4, text?.trimmingCharacters(in: .whitespaces) == "null" {
                     return nil
                 }
-                return payload.value1
-
-            case let .undocumented(statusCode, payload):
-                throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                return try? decoder.decode(Components.Schemas.TestSessionStatusResponse.self, from: data)
+            case 401:
+                throw APIError.api(.unauthorized(message: "Unauthorized"))
+            default:
+                throw APIError.api(.serverError(statusCode: http.statusCode, message: "Unexpected status"))
             }
         } catch let error as APIError {
             throw error
@@ -577,14 +569,13 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     }
 
     // swiftlint:disable:next line_length
-    func submitAdaptiveResponse(sessionId: Int, questionId: Int, userAnswer: String, timeSpentSeconds: Int?) async throws -> Components.Schemas.AdaptiveNextResponse {
+    func submitAdaptiveResponse(sessionId: Int, questionId: Int, userAnswer: String, timeSpentSeconds _: Int?) async throws -> Components.Schemas.AdaptiveNextResponse {
         do {
             let response = try await client.submitAdaptiveResponseV1TestNextPost(
                 body: .json(
                     Components.Schemas.AdaptiveResponseRequest(
-                        questionId: questionId,
                         sessionId: sessionId,
-                        timeSpentSeconds: timeSpentSeconds,
+                        questionId: questionId,
                         userAnswer: userAnswer
                     )
                 )
@@ -667,7 +658,6 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         let items = responses.map { response in
             Components.Schemas.ResponseItem(
                 questionId: response.questionId,
-                timeSpentSeconds: response.timeSpentSeconds,
                 userAnswer: response.userAnswer
             )
         }
@@ -842,10 +832,10 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             let response = try await client.submitFeedbackV1FeedbackSubmitPost(
                 body: .json(
                     Components.Schemas.FeedbackSubmitRequest(
-                        category: categorySchema,
-                        description: feedback.description,
+                        name: feedback.name,
                         email: feedback.email,
-                        name: feedback.name
+                        category: categorySchema,
+                        description: feedback.description
                     )
                 )
             )

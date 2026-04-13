@@ -13,7 +13,6 @@ final class IQTrendChartTests: XCTestCase {
     private func makeTestResult(
         id: Int = 1,
         iqScore: Int,
-        confidenceInterval: ConfidenceInterval? = nil,
         daysAgo: Int = 0
     ) -> TestResult {
         MockDataFactory.makeTestResult(
@@ -24,8 +23,7 @@ final class IQTrendChartTests: XCTestCase {
             totalQuestions: 20,
             correctAnswers: 14,
             accuracyPercentage: 70.0,
-            completedAt: Date().addingTimeInterval(-Double(daysAgo) * 24 * 60 * 60),
-            confidenceInterval: confidenceInterval.map { .init(value1: $0) }
+            completedAt: Date().addingTimeInterval(-Double(daysAgo) * 24 * 60 * 60)
         )
     }
 
@@ -89,13 +87,11 @@ final class IQTrendChartTests: XCTestCase {
             makeTestResult(
                 id: 1,
                 iqScore: 100,
-                confidenceInterval: makeConfidenceInterval(lower: 90, upper: 110),
                 daysAgo: 10
             ),
             makeTestResult(
                 id: 2,
                 iqScore: 110,
-                confidenceInterval: makeConfidenceInterval(lower: 100, upper: 120),
                 daysAgo: 0
             )
         ]
@@ -117,25 +113,21 @@ final class IQTrendChartTests: XCTestCase {
             makeTestResult(
                 id: 1,
                 iqScore: 100,
-                confidenceInterval: makeConfidenceInterval(lower: 92, upper: 108),
                 daysAgo: 30
             ),
             makeTestResult(
                 id: 2,
                 iqScore: 105,
-                confidenceInterval: nil, // No CI
                 daysAgo: 20
             ),
             makeTestResult(
                 id: 3,
                 iqScore: 115,
-                confidenceInterval: makeConfidenceInterval(lower: 107, upper: 123),
                 daysAgo: 10
             ),
             makeTestResult(
                 id: 4,
                 iqScore: 110,
-                confidenceInterval: nil, // No CI
                 daysAgo: 0
             )
         ]
@@ -239,19 +231,16 @@ final class IQTrendChartTests: XCTestCase {
             makeTestResult(
                 id: 1,
                 iqScore: 100,
-                confidenceInterval: makeConfidenceInterval(lower: 93, upper: 107),
                 daysAgo: 20
             ),
             makeTestResult(
                 id: 2,
                 iqScore: 105,
-                confidenceInterval: makeConfidenceInterval(lower: 98, upper: 112),
                 daysAgo: 10
             ),
             makeTestResult(
                 id: 3,
                 iqScore: 110,
-                confidenceInterval: makeConfidenceInterval(lower: 103, upper: 117),
                 daysAgo: 0
             )
         ]
@@ -270,7 +259,6 @@ final class IQTrendChartTests: XCTestCase {
             makeTestResult(
                 id: 2,
                 iqScore: 105,
-                confidenceInterval: makeConfidenceInterval(lower: 98, upper: 112),
                 daysAgo: 20
             ),
             makeTestResult(id: 3, iqScore: 110, daysAgo: 10),
@@ -288,8 +276,7 @@ final class IQTrendChartTests: XCTestCase {
         // Given - single result with CI
         let historyWithCI = [
             makeTestResult(
-                iqScore: 100,
-                confidenceInterval: makeConfidenceInterval(lower: 93, upper: 107)
+                iqScore: 100
             )
         ]
 
@@ -323,14 +310,12 @@ final class IQTrendChartTests: XCTestCase {
             makeTestResult(
                 id: 2,
                 iqScore: 105,
-                confidenceInterval: makeConfidenceInterval(lower: 98, upper: 112),
                 daysAgo: 30
             ),
             makeTestResult(id: 3, iqScore: 110, daysAgo: 20),
             makeTestResult(
                 id: 4,
                 iqScore: 115,
-                confidenceInterval: makeConfidenceInterval(lower: 108, upper: 122),
                 daysAgo: 10
             ),
             makeTestResult(id: 5, iqScore: 120, daysAgo: 0)
@@ -351,19 +336,16 @@ final class IQTrendChartTests: XCTestCase {
             makeTestResult(
                 id: 1,
                 iqScore: 100,
-                confidenceInterval: makeConfidenceInterval(lower: 93, upper: 107),
                 daysAgo: 20
             ),
             makeTestResult(
                 id: 2,
                 iqScore: 110,
-                confidenceInterval: makeConfidenceInterval(lower: 103, upper: 117),
                 daysAgo: 10
             ),
             makeTestResult(
                 id: 3,
                 iqScore: 120,
-                confidenceInterval: makeConfidenceInterval(lower: 113, upper: 127),
                 daysAgo: 0
             )
         ]
@@ -464,8 +446,7 @@ final class IQTrendChartTests: XCTestCase {
         // Given
         let history = [
             makeTestResult(
-                iqScore: 108,
-                confidenceInterval: makeConfidenceInterval(lower: 101, upper: 115)
+                iqScore: 108
             )
         ]
 
@@ -518,15 +499,7 @@ final class IQTrendChartTests: XCTestCase {
     func testCIExactlyAtBoundaries() {
         // Given - CI exactly at 40-160 bounds
         let history = [
-            makeTestResult(
-                iqScore: 100,
-                confidenceInterval: ConfidenceInterval(
-                    confidenceLevel: 0.95,
-                    lower: 40,
-                    standardError: 30.0,
-                    upper: 160
-                )
-            )
+            makeTestResult(iqScore: 100)
         ]
 
         // When

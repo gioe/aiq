@@ -418,8 +418,8 @@ class TestTakingViewModel: BaseViewModel {
             guestTestsRemaining = response.testsRemaining
             handleTestStartSuccess(
                 response: .init(
-                    questions: response.questions,
                     session: response.session,
+                    questions: response.questions,
                     totalQuestions: response.totalQuestions
                 )
             )
@@ -482,15 +482,16 @@ class TestTakingViewModel: BaseViewModel {
         do {
             let response = try await apiService.getTestSession(sessionId: sessionId)
 
-            // Verify we have questions in the response
-            guard let fetchedQuestions = response.questions, !fetchedQuestions.isEmpty else {
+            // The API no longer returns questions in the session status response.
+            // Questions must come from locally saved navigation state. If we have no
+            // locally cached questions, we cannot resume this session.
+            guard !navigationState.questions.isEmpty else {
                 showNoQuestionsAvailableError()
                 return
             }
 
-            // Set session and questions
+            // Set session from server response; questions remain in navigationState
             testSession = response.session
-            navigationState.questions = fetchedQuestions
 
             // Check for local saved progress and merge if available
             if let savedProgress = loadSavedProgress(), savedProgress.sessionId == sessionId {
@@ -516,7 +517,7 @@ class TestTakingViewModel: BaseViewModel {
             setLoading(false)
 
             #if DebugBuild
-                print("[SUCCESS] Resumed session \(sessionId) with \(fetchedQuestions.count) questions")
+                print("[SUCCESS] Resumed session \(sessionId) with \(navigationState.questions.count) questions")
                 if navigationState.userAnswers.isEmpty {
                     print("   Starting fresh - no saved progress found")
                 } else {
@@ -745,8 +746,8 @@ class TestTakingViewModel: BaseViewModel {
             }
         }
         return TestSubmission(
-            responses: responses,
             sessionId: session.id,
+            responses: responses,
             timeLimitExceeded: timeLimitExceeded
         )
     }
@@ -759,7 +760,7 @@ class TestTakingViewModel: BaseViewModel {
         resetTimeTracking()
 
         // Track analytics
-        let durationSeconds = response.result.completionTimeSeconds ?? 0
+        let durationSeconds = 0
         analyticsManager.trackTestCompleted(
             sessionId: response.session.id,
             iqScore: response.result.iqScore,

@@ -136,19 +136,12 @@ final class DashboardViewModelTests: XCTestCase {
         let mockTestResult = TestResult(
             accuracyPercentage: 75.0,
             completedAt: Date(),
-            completionTimeSeconds: 300,
-            confidenceInterval: nil,
             correctAnswers: 15,
-            domainScores: nil,
             id: 1,
             iqScore: 120,
-            percentileRank: 84.0,
-            responseTimeFlags: nil,
-            strongestDomain: nil,
             testSessionId: 100,
             totalQuestions: 20,
-            userId: 1,
-            weakestDomain: nil
+            userId: 1
         )
         await mockService.setTestHistoryResponse([mockTestResult])
 
@@ -622,19 +615,12 @@ final class DashboardViewModelTests: XCTestCase {
         let mockTestResult = TestResult(
             accuracyPercentage: 75.0,
             completedAt: Date(),
-            completionTimeSeconds: 300,
-            confidenceInterval: nil,
             correctAnswers: 15,
-            domainScores: nil,
             id: 1,
             iqScore: 120,
-            percentileRank: 84.0,
-            responseTimeFlags: nil,
-            strongestDomain: nil,
             testSessionId: 100,
             totalQuestions: 20,
-            userId: 1,
-            weakestDomain: nil
+            userId: 1
         )
 
         // Queue all responses in order: abandon, test history, active session
@@ -747,19 +733,12 @@ final class DashboardViewModelTests: XCTestCase {
         let mockTestResult = TestResult(
             accuracyPercentage: 75.0,
             completedAt: Date(),
-            completionTimeSeconds: 300,
-            confidenceInterval: nil,
             correctAnswers: 15,
-            domainScores: nil,
             id: 1,
             iqScore: 120,
-            percentileRank: 84.0,
-            responseTimeFlags: nil,
-            strongestDomain: nil,
             testSessionId: 100,
             totalQuestions: 20,
-            userId: 1,
-            weakestDomain: nil
+            userId: 1
         )
         await mockService.setTestHistoryResponse([mockTestResult], totalCount: 3)
 

@@ -24,46 +24,17 @@ import Foundation
             totalQuestions: Int,
             correctAnswers: Int,
             accuracyPercentage: Double,
-            completedAt: Date,
-            confidenceInterval: Components.Schemas.TestResultResponse.ConfidenceIntervalPayload? = nil,
-            domainScores: Components.Schemas.TestResultResponse.DomainScoresPayload? = nil
+            completedAt: Date
         ) -> TestResult {
             Components.Schemas.TestResultResponse(
-                accuracyPercentage: accuracyPercentage,
-                completedAt: completedAt,
-                confidenceInterval: confidenceInterval,
-                correctAnswers: correctAnswers,
-                domainScores: domainScores,
                 id: id,
-                iqScore: iqScore,
                 testSessionId: testSessionId,
+                userId: userId,
+                iqScore: iqScore,
                 totalQuestions: totalQuestions,
-                userId: userId
-            )
-        }
-
-        /// Creates a `DomainScoresPayload` from a typed `[String: DomainScore]` dictionary.
-        ///
-        /// Each `DomainScore` is round-tripped through JSON to produce the
-        /// `OpenAPIObjectContainer` values expected by the generated type — mirroring
-        /// the inverse operation in `domainScoresConverted`.
-        static func makeDomainScoresPayload(
-            _ scores: [String: DomainScore]
-        ) -> Components.Schemas.TestResultResponse.DomainScoresPayload {
-            let encoder = JSONEncoder()
-            let decoder = JSONDecoder()
-            var additionalProperties: [String: OpenAPIObjectContainer] = [:]
-            for (key, score) in scores {
-                guard let data = try? encoder.encode(score),
-                      let container = try? decoder.decode(OpenAPIObjectContainer.self, from: data)
-                else {
-                    assertionFailure("makeDomainScoresPayload: failed to encode/decode DomainScore for key '\(key)'")
-                    continue
-                }
-                additionalProperties[key] = container
-            }
-            return Components.Schemas.TestResultResponse.DomainScoresPayload(
-                additionalProperties: additionalProperties
+                correctAnswers: correctAnswers,
+                accuracyPercentage: accuracyPercentage,
+                completedAt: completedAt
             )
         }
 
@@ -75,18 +46,15 @@ import Foundation
             userId: Int,
             status: String,
             startedAt: Date,
-            completedAt: Date? = nil,
+            completedAt _: Date? = nil,
             timeLimitExceeded: Bool = false
         ) -> TestSession {
             Components.Schemas.TestSessionResponse(
-                completedAt: status == "completed"
-                    ? (completedAt ?? startedAt.addingTimeInterval(TimeInterval(Constants.Timing.totalTestTimeSeconds)))
-                    : nil,
                 id: id,
-                startedAt: startedAt,
+                userId: userId,
                 status: status,
-                timeLimitExceeded: timeLimitExceeded,
-                userId: userId
+                startedAt: startedAt,
+                timeLimitExceeded: timeLimitExceeded
             )
         }
 
@@ -125,18 +93,15 @@ import Foundation
             questionText: String,
             questionType: String,
             difficultyLevel: String,
-            answerOptions: [String]? = nil,
-            explanation: String? = nil,
-            stimulus: String? = nil
+            answerOptions _: [String]? = nil,
+            explanation _: String? = nil,
+            stimulus _: String? = nil
         ) -> Question {
             Components.Schemas.QuestionResponse(
-                answerOptions: answerOptions,
-                difficultyLevel: difficultyLevel,
-                explanation: explanation,
                 id: id,
                 questionText: questionText,
                 questionType: questionType,
-                stimulus: stimulus
+                difficultyLevel: difficultyLevel
             )
         }
 
@@ -408,12 +373,12 @@ import Foundation
             domainAccuracy: [Components.Schemas.DomainAccuracySummary]? = nil
         ) -> Components.Schemas.ModelSummary {
             Components.Schemas.ModelSummary(
-                accuracyPct: accuracyPct,
                 displayName: displayName,
-                domainAccuracy: domainAccuracy,
+                vendor: vendor,
                 meanIq: meanIq,
+                accuracyPct: accuracyPct,
                 runs: runs,
-                vendor: vendor
+                domainAccuracy: domainAccuracy
             )
         }
 
@@ -428,10 +393,10 @@ import Foundation
                     accuracyPct: 88.5,
                     runs: 12,
                     domainAccuracy: [
-                        Domain(accuracyPct: 92.0, domain: "logic", totalQuestions: 48),
-                        Domain(accuracyPct: 85.0, domain: "math", totalQuestions: 36),
-                        Domain(accuracyPct: 90.0, domain: "pattern", totalQuestions: 42),
-                        Domain(accuracyPct: 87.0, domain: "memory", totalQuestions: 30)
+                        Domain(domain: "logic", accuracyPct: 92.0, totalQuestions: 48),
+                        Domain(domain: "math", accuracyPct: 85.0, totalQuestions: 36),
+                        Domain(domain: "pattern", accuracyPct: 90.0, totalQuestions: 42),
+                        Domain(domain: "memory", accuracyPct: 87.0, totalQuestions: 30)
                     ]
                 ),
                 makeModelSummary(
@@ -441,10 +406,10 @@ import Foundation
                     accuracyPct: 85.0,
                     runs: 15,
                     domainAccuracy: [
-                        Domain(accuracyPct: 88.0, domain: "logic", totalQuestions: 60),
-                        Domain(accuracyPct: 82.0, domain: "math", totalQuestions: 45),
-                        Domain(accuracyPct: 86.0, domain: "pattern", totalQuestions: 52),
-                        Domain(accuracyPct: 84.0, domain: "memory", totalQuestions: 38)
+                        Domain(domain: "logic", accuracyPct: 88.0, totalQuestions: 60),
+                        Domain(domain: "math", accuracyPct: 82.0, totalQuestions: 45),
+                        Domain(domain: "pattern", accuracyPct: 86.0, totalQuestions: 52),
+                        Domain(domain: "memory", accuracyPct: 84.0, totalQuestions: 38)
                     ]
                 ),
                 makeModelSummary(
@@ -454,10 +419,10 @@ import Foundation
                     accuracyPct: 79.5,
                     runs: 8,
                     domainAccuracy: [
-                        Domain(accuracyPct: 83.0, domain: "logic", totalQuestions: 32),
-                        Domain(accuracyPct: 76.0, domain: "math", totalQuestions: 24),
-                        Domain(accuracyPct: 80.0, domain: "pattern", totalQuestions: 28),
-                        Domain(accuracyPct: 78.0, domain: "memory", totalQuestions: 20)
+                        Domain(domain: "logic", accuracyPct: 83.0, totalQuestions: 32),
+                        Domain(domain: "math", accuracyPct: 76.0, totalQuestions: 24),
+                        Domain(domain: "pattern", accuracyPct: 80.0, totalQuestions: 28),
+                        Domain(domain: "memory", accuracyPct: 78.0, totalQuestions: 20)
                     ]
                 )
             ]

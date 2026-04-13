@@ -32,12 +32,11 @@ final class FeedbackViewModelTests: XCTestCase {
         let mockAuthManager = MockAuthManager()
         let expectedEmail = "authenticated@example.com"
         mockAuthManager.currentUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
-            email: expectedEmail,
-            firstName: "Test",
             id: 1,
-            lastName: "User",
-            notificationEnabled: false
+            email: expectedEmail,
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
 
         // When
@@ -491,12 +490,11 @@ final class FeedbackViewModelTests: XCTestCase {
         let mockAuthManager = MockAuthManager()
         let expectedEmail = "authenticated@example.com"
         mockAuthManager.currentUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
-            email: expectedEmail,
-            firstName: "Test",
             id: 1,
-            lastName: "User",
-            notificationEnabled: false
+            email: expectedEmail,
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
         let viewModel = FeedbackViewModel(apiService: mockService, authManager: mockAuthManager)
 

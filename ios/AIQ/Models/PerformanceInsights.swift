@@ -274,14 +274,8 @@ struct PerformanceInsights: Equatable {
         return []
     }
 
-    private static func completionTimeInsights(tests: [TestResult]) -> [String] {
-        let testsWithTime = tests.filter { $0.completionTimeSeconds != nil }
-        guard testsWithTime.count >= 2 else { return [] }
-
-        let avgTime = testsWithTime.compactMap(\.completionTimeSeconds).reduce(0, +) / testsWithTime.count
-        if avgTime < 600 {
-            return ["You complete tests quickly. Taking more time might improve accuracy."]
-        }
-        return []
+    private static func completionTimeInsights(tests _: [TestResult]) -> [String] {
+        // completionTimeSeconds is no longer available in the API response schema
+        []
     }
 }

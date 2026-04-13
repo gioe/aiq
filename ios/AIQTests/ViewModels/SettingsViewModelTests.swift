@@ -38,12 +38,11 @@ final class SettingsViewModelTests: XCTestCase {
     func testInitialState_WithAuthenticatedUser() {
         // Given - Set up authenticated user on mock
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
-            email: "test@example.com",
-            firstName: "Test",
             id: 1,
-            lastName: "User",
-            notificationEnabled: false
+            email: "test@example.com",
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
         mockAuthManager.currentUser = mockUser
         mockAuthManager.isAuthenticated = true
@@ -130,12 +129,11 @@ final class SettingsViewModelTests: XCTestCase {
         // Given
         mockAuthManager.isAuthenticated = true
         mockAuthManager.currentUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
-            email: "test@example.com",
-            firstName: "Test",
             id: 1,
-            lastName: "User",
-            notificationEnabled: false
+            email: "test@example.com",
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
 
         // When
@@ -344,12 +342,11 @@ final class SettingsViewModelTests: XCTestCase {
 
         // When - AuthManager authenticates
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
-            email: "updated@example.com",
-            firstName: "Updated",
             id: 2,
-            lastName: "User",
-            notificationEnabled: false
+            email: "updated@example.com",
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
         mockAuthManager.currentUser = mockUser
         mockAuthManager.isAuthenticated = true
@@ -368,12 +365,11 @@ final class SettingsViewModelTests: XCTestCase {
         // Given - Authenticated user
         mockAuthManager.isAuthenticated = true
         mockAuthManager.currentUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
-            email: "test@example.com",
-            firstName: "Test",
             id: 1,
-            lastName: "User",
-            notificationEnabled: false
+            email: "test@example.com",
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
         sut = SettingsViewModel(
             authManager: mockAuthManager,
