@@ -757,10 +757,12 @@ class TestTakingViewModel: BaseViewModel {
         testSession = response.session
         clearSavedProgress()
         isTestCompleted = true
+
+        // Capture duration before resetting the tracker.
+        let durationSeconds = timeTracker.totalElapsed
         resetTimeTracking()
 
         // Track analytics
-        let durationSeconds = 0
         analyticsManager.trackTestCompleted(
             sessionId: response.session.id,
             iqScore: response.result.iqScore,

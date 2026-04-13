@@ -53,6 +53,11 @@ class QuestionTimeTracker {
         questionTimeSpent[questionId] ?? 0
     }
 
+    /// Returns the total seconds spent across all tracked questions.
+    var totalElapsed: Int {
+        questionTimeSpent.values.reduce(0, +)
+    }
+
     /// Clears all timing data.
     func reset() {
         questionTimeSpent.removeAll()
