@@ -52,19 +52,23 @@ public struct Client: APIProtocol {
     private var converter: Converter {
         client.converter
     }
-    /// Root
+    /// Health Check
     ///
-    /// Root endpoint.
+    /// Health check endpoint.
+    /// Returns basic health status of the API, including database connectivity.
+    /// Database check is non-fatal: the endpoint always returns 200 but reports
+    /// the database status so outages are immediately visible in the response body.
+    /// Times out after 3 seconds to avoid hanging Railway's health check.
     ///
-    /// - Remark: HTTP `GET /`.
-    /// - Remark: Generated from `#/paths///get(root__get)`.
-    public func rootGet(_ input: Operations.RootGet.Input) async throws -> Operations.RootGet.Output {
+    /// - Remark: HTTP `GET /v1/health`.
+    /// - Remark: Generated from `#/paths//v1/health/get(health_check_v1_health_get)`.
+    public func healthCheckV1HealthGet(_ input: Operations.HealthCheckV1HealthGet.Input) async throws -> Operations.HealthCheckV1HealthGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.RootGet.id,
+            forOperation: Operations.HealthCheckV1HealthGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/",
+                    template: "/v1/health",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -82,7 +86,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.RootGet.Output.Ok.Body
+                    let body: Operations.HealthCheckV1HealthGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -114,40 +118,19 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Factor Analysis
+    /// Ping
     ///
-    /// Perform factor analysis to calculate empirical g-loadings per domain.
+    /// Simple ping endpoint for basic connectivity testing.
     ///
-    /// This endpoint runs a factor analysis on all completed test sessions to
-    /// determine how strongly each cognitive domain correlates with general
-    /// intelligence (g). Results can be used to inform weighted scoring.
-    ///
-    /// **Requirements:**
-    /// - Minimum 500 completed test sessions
-    /// - Questions must have at least min_responses_per_question responses
-    ///
-    /// **Returns:**
-    /// - g_loadings: Correlation of each domain with the g-factor (0-1)
-    /// - variance_explained: How much variance the g-factor explains
-    /// - reliability: Cronbach's alpha for internal consistency
-    /// - recommendations: Actionable insights based on the results
-    ///
-    /// **Interpretation:**
-    /// - Higher g-loadings indicate stronger correlation with general intelligence
-    /// - Variance explained > 40% suggests a strong general factor
-    /// - Cronbach's alpha >= 0.7 indicates acceptable reliability
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// - Remark: HTTP `GET /v1/admin/analytics/factor-analysis`.
-    /// - Remark: Generated from `#/paths//v1/admin/analytics/factor-analysis/get(get_factor_analysis_v1_admin_analytics_factor_analysis_get)`.
-    public func getFactorAnalysisV1AdminAnalyticsFactorAnalysisGet(_ input: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Input) async throws -> Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Output {
+    /// - Remark: HTTP `GET /v1/ping`.
+    /// - Remark: Generated from `#/paths//v1/ping/get(ping_v1_ping_get)`.
+    public func pingV1PingGet(_ input: Operations.PingV1PingGet.Input) async throws -> Operations.PingV1PingGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.id,
+            forOperation: Operations.PingV1PingGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/analytics/factor-analysis",
+                    template: "/v1/ping",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -155,25 +138,6 @@ public struct Client: APIProtocol {
                     method: .get
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "min_responses_per_question",
-                    value: input.query.minResponsesPerQuestion
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "max_responses",
-                    value: input.query.maxResponses
-                )
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
@@ -184,7 +148,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Output.Ok.Body
+                    let body: Operations.PingV1PingGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -194,7 +158,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.FactorAnalysisResponse.self,
+                            OpenAPIRuntime.OpenAPIValueContainer.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -204,52 +168,6 @@ public struct Client: APIProtocol {
                         preconditionFailure("bestContentType chose an invalid content type.")
                     }
                     return .ok(.init(body: body))
-                case 400:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Output.BadRequest.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.InsufficientSampleResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .badRequest(.init(body: body))
-                case 401:
-                    return .unauthorized(.init())
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
                 default:
                     return .undocumented(
                         statusCode: response.status.code,
@@ -262,76 +180,496 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Response Time Analytics
+    /// Register User
     ///
-    /// Get aggregate response time analytics across all completed test sessions.
-    ///
-    /// Returns comprehensive timing statistics including overall test duration,
-    /// breakdown by difficulty level and question type, and a summary of
-    /// timing anomalies (rapid responses, extended times, validity concerns).
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// **Overall Statistics:**
-    /// - Mean and median total test duration in seconds
-    /// - Mean time per question across all responses
-    ///
-    /// **By Difficulty:**
-    /// - Mean and median response time for easy, medium, and hard questions
-    ///
-    /// **By Question Type:**
-    /// - Mean response time for each question type (pattern, logic, spatial, math, verbal, memory)
-    ///
-    /// **Anomaly Summary:**
-    /// - Count of sessions with rapid responses (< 3 seconds per question)
-    /// - Count of sessions with extended response times (> 5 minutes per question)
-    /// - Percentage of sessions flagged with validity concerns
+    /// Register a new user account.
     ///
     /// Args:
+    ///     user_data: User registration data
+    ///     request: FastAPI request object for IP extraction
     ///     db: Database session
-    ///     _: Admin token validation dependency
     ///
     /// Returns:
-    ///     ResponseTimeAnalyticsResponse with aggregate timing statistics
+    ///     Created user information with access and refresh tokens
+    ///
+    /// Raises:
+    ///     HTTPException: 409 if email already exists
+    ///
+    /// - Remark: HTTP `POST /v1/auth/register`.
+    /// - Remark: Generated from `#/paths//v1/auth/register/post(register_user_v1_auth_register_post)`.
+    public func registerUserV1AuthRegisterPost(_ input: Operations.RegisterUserV1AuthRegisterPost.Input) async throws -> Operations.RegisterUserV1AuthRegisterPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.RegisterUserV1AuthRegisterPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/auth/register",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 201:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.RegisterUserV1AuthRegisterPost.Output.Created.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Token.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .created(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.RegisterUserV1AuthRegisterPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Login User
+    ///
+    /// Authenticate user and return access + refresh tokens.
+    ///
+    /// Args:
+    ///     credentials: User login credentials
+    ///     request: FastAPI request object for IP extraction
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Access and refresh JWT tokens with user information
+    ///
+    /// Raises:
+    ///     HTTPException: 401 if credentials are invalid
+    ///
+    /// - Remark: HTTP `POST /v1/auth/login`.
+    /// - Remark: Generated from `#/paths//v1/auth/login/post(login_user_v1_auth_login_post)`.
+    public func loginUserV1AuthLoginPost(_ input: Operations.LoginUserV1AuthLoginPost.Input) async throws -> Operations.LoginUserV1AuthLoginPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.LoginUserV1AuthLoginPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/auth/login",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.LoginUserV1AuthLoginPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Token.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.LoginUserV1AuthLoginPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Refresh Access Token
+    ///
+    /// Refresh access token using refresh token.
+    ///
+    /// Args:
+    ///     current_user: Current authenticated user from refresh token
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     New access and refresh tokens with user information
+    ///
+    /// Raises:
+    ///     HTTPException: 401 if refresh token is invalid
+    ///
+    /// - Remark: HTTP `POST /v1/auth/refresh`.
+    /// - Remark: Generated from `#/paths//v1/auth/refresh/post(refresh_access_token_v1_auth_refresh_post)`.
+    public func refreshAccessTokenV1AuthRefreshPost(_ input: Operations.RefreshAccessTokenV1AuthRefreshPost.Input) async throws -> Operations.RefreshAccessTokenV1AuthRefreshPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.RefreshAccessTokenV1AuthRefreshPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/auth/refresh",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.RefreshAccessTokenV1AuthRefreshPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.TokenRefresh.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Logout User
+    ///
+    /// Logout user by blacklisting their current access token and optionally refresh token.
+    ///
+    /// This immediately revokes the token(s), preventing further use even before expiration.
+    /// The client should also discard tokens locally.
+    ///
+    /// When a refresh_token is provided in the request body, it will also be blacklisted,
+    /// ensuring the user cannot use it to obtain new access tokens.
+    ///
+    /// Args:
+    ///     request: FastAPI request object for IP extraction
+    ///     logout_data: Optional request body with refresh_token to revoke
+    ///     current_user: Current authenticated user
+    ///     credentials: Token credentials for blacklisting
+    ///
+    /// Returns:
+    ///     No content (204)
+    ///
+    /// - Remark: HTTP `POST /v1/auth/logout`.
+    /// - Remark: Generated from `#/paths//v1/auth/logout/post(logout_user_v1_auth_logout_post)`.
+    public func logoutUserV1AuthLogoutPost(_ input: Operations.LogoutUserV1AuthLogoutPost.Input) async throws -> Operations.LogoutUserV1AuthLogoutPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.LogoutUserV1AuthLogoutPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/auth/logout",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case .none:
+                    body = nil
+                case let .json(value):
+                    body = try converter.setOptionalRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 204:
+                    return .noContent(.init())
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.LogoutUserV1AuthLogoutPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Logout All Devices
+    ///
+    /// Logout from all devices by invalidating all existing tokens.
+    ///
+    /// Sets a user-level revocation epoch that invalidates all tokens issued before
+    /// this moment. Also blacklists the current access token for immediate effect.
+    ///
+    /// This is useful when:
+    /// - User suspects their account has been compromised
+    /// - User loses a device
+    /// - User wants to force logout from all active sessions
+    /// - User changes password (optional policy)
+    ///
+    /// Args:
+    ///     request: FastAPI request object for IP extraction
+    ///     current_user: Current authenticated user
+    ///     credentials: Token credentials for blacklisting current token
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     No content (204)
+    ///
+    /// - Remark: HTTP `POST /v1/auth/logout-all`.
+    /// - Remark: Generated from `#/paths//v1/auth/logout-all/post(logout_all_devices_v1_auth_logout_all_post)`.
+    public func logoutAllDevicesV1AuthLogoutAllPost(_ input: Operations.LogoutAllDevicesV1AuthLogoutAllPost.Input) async throws -> Operations.LogoutAllDevicesV1AuthLogoutAllPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.LogoutAllDevicesV1AuthLogoutAllPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/auth/logout-all",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 204:
+                    return .noContent(.init())
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Request Password Reset
+    ///
+    /// Request a password reset for an account.
+    ///
+    /// Sends a password reset email with a time-limited token if the email exists.
+    /// Always returns success (even if email doesn't exist) to prevent email enumeration.
+    ///
+    /// Security considerations:
+    /// - Generic response prevents email enumeration attacks
+    /// - Tokens expire after 30 minutes
+    /// - Previous unused tokens are invalidated when new request is made
+    /// - Rate limited to prevent abuse (configured in middleware)
+    ///
+    /// Args:
+    ///     request_data: Password reset request containing email
+    ///     request: FastAPI request object for IP extraction
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Generic success message regardless of whether email exists
     ///
     /// Example:
-    ///     ```
-    ///     curl "https://api.example.com/v1/admin/analytics/response-times" \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///     ```
+    ///     >>> response = await request_password_reset(
+    ///     ...     PasswordResetRequest(email="user@example.com")
+    ///     ... )
+    ///     >>> print(response.message)
+    ///     "If an account exists with that email, you will receive password reset instructions."
     ///
-    /// - Remark: HTTP `GET /v1/admin/analytics/response-times`.
-    /// - Remark: Generated from `#/paths//v1/admin/analytics/response-times/get(get_response_time_analytics_v1_admin_analytics_response_times_get)`.
-    public func getResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet(_ input: Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.Input) async throws -> Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.Output {
+    /// - Remark: HTTP `POST /v1/auth/request-password-reset`.
+    /// - Remark: Generated from `#/paths//v1/auth/request-password-reset/post(request_password_reset_v1_auth_request_password_reset_post)`.
+    public func requestPasswordResetV1AuthRequestPasswordResetPost(_ input: Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.Input) async throws -> Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.id,
+            forOperation: Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/analytics/response-times",
+                    template: "/v1/auth/request-password-reset",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.Output.Ok.Body
+                    let body: Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -341,7 +679,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.ResponseTimeAnalyticsResponse.self,
+                            Components.Schemas.PasswordResetResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -353,7 +691,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.Output.UnprocessableContent.Body
+                    let body: Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -385,61 +723,70 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Detailed Response Time Analytics
+    /// Reset Password
     ///
-    /// Get detailed response time percentile distributions by question type and difficulty.
+    /// Reset password using a valid reset token.
     ///
-    /// Returns privacy-preserving aggregate statistics (no individual user tracking)
-    /// including median (p50), p90, and p95 percentiles for each combination of
-    /// question type and difficulty level. Use this data to validate whether current
-    /// time limits are appropriate for each question category.
+    /// Validates the token and updates the user's password if valid.
+    /// Tokens are single-use and time-limited (30 minutes).
     ///
-    /// Requires X-Admin-Token header with valid admin token.
+    /// Args:
+    ///     reset_data: Password reset confirmation with token and new password
+    ///     request: FastAPI request object for IP extraction
+    ///     db: Database session
     ///
-    /// **By Type and Difficulty:**
-    /// - Percentile stats for each (question_type, difficulty_level) combination
+    /// Returns:
+    ///     Success message
     ///
-    /// **By Type:**
-    /// - Percentile stats aggregated by question type across all difficulties
+    /// Raises:
+    ///     HTTPException: 400 if token is invalid, expired, or already used
     ///
-    /// **By Difficulty:**
-    /// - Percentile stats aggregated by difficulty level across all types
+    /// Example:
+    ///     >>> response = reset_password(
+    ///     ...     PasswordResetConfirm(
+    ///     ...         token="abc123...",
+    ///     ...         new_password="NewSecureP@ssw0rd!"
+    ///     ...     )
+    ///     ... )
+    ///     >>> print(response.message)
+    ///     "Password has been reset successfully."
     ///
-    /// **Overall:**
-    /// - Percentile stats across all response times
-    ///
-    /// - Remark: HTTP `GET /v1/admin/analytics/response-times/detailed`.
-    /// - Remark: Generated from `#/paths//v1/admin/analytics/response-times/detailed/get(get_detailed_response_time_analytics_v1_admin_analytics_response_times_detailed_get)`.
-    public func getDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet(_ input: Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.Input) async throws -> Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.Output {
+    /// - Remark: HTTP `POST /v1/auth/reset-password`.
+    /// - Remark: Generated from `#/paths//v1/auth/reset-password/post(reset_password_v1_auth_reset_password_post)`.
+    public func resetPasswordV1AuthResetPasswordPost(_ input: Operations.ResetPasswordV1AuthResetPasswordPost.Input) async throws -> Operations.ResetPasswordV1AuthResetPasswordPost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.id,
+            forOperation: Operations.ResetPasswordV1AuthResetPasswordPost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/analytics/response-times/detailed",
+                    template: "/v1/auth/reset-password",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.Output.Ok.Body
+                    let body: Operations.ResetPasswordV1AuthResetPasswordPost.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -449,7 +796,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.DetailedResponseTimeAnalyticsResponse.self,
+                            Components.Schemas.PasswordResetConfirmResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -461,7 +808,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.Output.UnprocessableContent.Body
+                    let body: Operations.ResetPasswordV1AuthResetPasswordPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -493,24 +840,264 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// List Anchor Items
+    /// Get User Profile
     ///
-    /// List all designated anchor items with domain summaries.
+    /// Get current user's profile information.
     ///
-    /// Returns anchor items grouped by domain with summary statistics including
-    /// difficulty distribution and average discrimination per domain.
+    /// Args:
+    ///     current_user: Current authenticated user
     ///
-    /// Requires X-Admin-Token header.
+    /// Returns:
+    ///     User profile information
     ///
-    /// - Remark: HTTP `GET /v1/admin/anchor-items`.
-    /// - Remark: Generated from `#/paths//v1/admin/anchor-items/get(list_anchor_items_v1_admin_anchor_items_get)`.
-    public func listAnchorItemsV1AdminAnchorItemsGet(_ input: Operations.ListAnchorItemsV1AdminAnchorItemsGet.Input) async throws -> Operations.ListAnchorItemsV1AdminAnchorItemsGet.Output {
+    /// - Remark: HTTP `GET /v1/user/profile`.
+    /// - Remark: Generated from `#/paths//v1/user/profile/get(get_user_profile_v1_user_profile_get)`.
+    public func getUserProfileV1UserProfileGet(_ input: Operations.GetUserProfileV1UserProfileGet.Input) async throws -> Operations.GetUserProfileV1UserProfileGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.ListAnchorItemsV1AdminAnchorItemsGet.id,
+            forOperation: Operations.GetUserProfileV1UserProfileGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/anchor-items",
+                    template: "/v1/user/profile",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetUserProfileV1UserProfileGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.UserResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Update User Profile
+    ///
+    /// Update current user's profile information.
+    ///
+    /// Only provided fields will be updated. Fields not included in the
+    /// request body will remain unchanged.
+    ///
+    /// Args:
+    ///     profile_update: Profile fields to update
+    ///     current_user: Current authenticated user
+    ///     db: Async database session
+    ///
+    /// Returns:
+    ///     Updated user profile information
+    ///
+    /// - Remark: HTTP `PUT /v1/user/profile`.
+    /// - Remark: Generated from `#/paths//v1/user/profile/put(update_user_profile_v1_user_profile_put)`.
+    public func updateUserProfileV1UserProfilePut(_ input: Operations.UpdateUserProfileV1UserProfilePut.Input) async throws -> Operations.UpdateUserProfileV1UserProfilePut.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.UpdateUserProfileV1UserProfilePut.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/user/profile",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .put
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UpdateUserProfileV1UserProfilePut.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.UserResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UpdateUserProfileV1UserProfilePut.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Delete User Account
+    ///
+    /// Delete user account and all associated data (GDPR right to erasure).
+    ///
+    /// This endpoint permanently deletes:
+    /// - User profile and credentials
+    /// - All test sessions
+    /// - All test responses
+    /// - All test results
+    /// - All user-question associations
+    ///
+    /// This action is irreversible and complies with GDPR Article 17
+    /// (Right to Erasure).
+    ///
+    /// Args:
+    ///     current_user: Current authenticated user
+    ///     db: Async database session
+    ///
+    /// Returns:
+    ///     No content (204) on successful deletion
+    ///
+    /// Raises:
+    ///     HTTPException: 500 if database error occurs during deletion
+    ///
+    /// - Remark: HTTP `DELETE /v1/user/delete-account`.
+    /// - Remark: Generated from `#/paths//v1/user/delete-account/delete(delete_user_account_v1_user_delete_account_delete)`.
+    public func deleteUserAccountV1UserDeleteAccountDelete(_ input: Operations.DeleteUserAccountV1UserDeleteAccountDelete.Input) async throws -> Operations.DeleteUserAccountV1UserDeleteAccountDelete.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.DeleteUserAccountV1UserDeleteAccountDelete.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/user/delete-account",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .delete
+                )
+                suppressMutabilityWarning(&request)
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 204:
+                    return .noContent(.init())
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Unseen Questions
+    ///
+    /// Get unseen questions for the current user.
+    ///
+    /// This endpoint returns questions that the user has never seen before,
+    /// filtered from the active question pool. Questions are selected to ensure
+    /// no repetition for the user.
+    ///
+    /// Args:
+    ///     count: Number of questions to return (default: 25, max: 100)
+    ///     current_user: Current authenticated user
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     List of unseen questions with metadata
+    ///
+    /// Raises:
+    ///     HTTPException: If insufficient questions are available
+    ///
+    /// - Remark: HTTP `GET /v1/questions/unseen`.
+    /// - Remark: Generated from `#/paths//v1/questions/unseen/get(get_unseen_questions_v1_questions_unseen_get)`.
+    public func getUnseenQuestionsV1QuestionsUnseenGet(_ input: Operations.GetUnseenQuestionsV1QuestionsUnseenGet.Input) async throws -> Operations.GetUnseenQuestionsV1QuestionsUnseenGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetUnseenQuestionsV1QuestionsUnseenGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/questions/unseen",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -522,13 +1109,8 @@ public struct Client: APIProtocol {
                     in: &request,
                     style: .form,
                     explode: true,
-                    name: "domain",
-                    value: input.query.domain
-                )
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
+                    name: "count",
+                    value: input.query.count
                 )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
@@ -540,7 +1122,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ListAnchorItemsV1AdminAnchorItemsGet.Output.Ok.Body
+                    let body: Operations.GetUnseenQuestionsV1QuestionsUnseenGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -550,7 +1132,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.AnchorItemsListResponse.self,
+                            Components.Schemas.UnseenQuestionsResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -562,7 +1144,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ListAnchorItemsV1AdminAnchorItemsGet.Output.UnprocessableContent.Body
+                    let body: Operations.GetUnseenQuestionsV1QuestionsUnseenGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -594,26 +1176,51 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Auto Select Anchors
+    /// Start Test
     ///
-    /// Auto-select anchor items based on discrimination criteria.
+    /// Start a new test session for the current user.
     ///
-    /// Clears existing anchors, then selects the best candidates for each
-    /// domain x difficulty combination. For each slot, eligible questions
-    /// (active, normal quality, discrimination >= threshold) are ordered by
-    /// discrimination DESC and the top candidates are selected.
+    /// Creates a new test session, fetches unseen questions, and marks them
+    /// as seen for the user. Returns the session details and questions.
     ///
-    /// Requires X-Admin-Token header.
+    /// Args:
+    ///     question_count: Number of questions to include in test
+    ///     current_user: Current authenticated user
+    ///     db: Database session
     ///
-    /// - Remark: HTTP `POST /v1/admin/anchor-items/auto-select`.
-    /// - Remark: Generated from `#/paths//v1/admin/anchor-items/auto-select/post(auto_select_anchors_v1_admin_anchor_items_auto_select_post)`.
-    public func autoSelectAnchorsV1AdminAnchorItemsAutoSelectPost(_ input: Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.Input) async throws -> Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.Output {
+    /// Returns:
+    ///     Test session and questions
+    ///
+    /// Raises:
+    ///     HTTPException: If user has active test or insufficient questions
+    ///
+    /// Note:
+    ///     Active Session Prevention Strategy (BCQ-045):
+    ///     This endpoint uses a dual-check pattern to prevent duplicate active sessions:
+    ///
+    ///     1. Application-level check (below): Queries for existing active session BEFORE
+    ///        creating a new one. Returns HTTP 400 with session_id in error message,
+    ///        allowing clients to offer "Resume existing session" functionality.
+    ///
+    ///     2. Database-level check (in db.flush()): The partial unique index
+    ///        ix_test_sessions_user_active catches race conditions when two requests
+    ///        pass the app-level check simultaneously. Returns HTTP 409 without
+    ///        session_id (unavailable due to rollback).
+    ///
+    ///     Both checks are intentionally kept because:
+    ///     - App-level provides better UX (session_id for recovery options)
+    ///     - DB-level is a last-resort safeguard for race conditions
+    ///     - The DB constraint guarantees correctness even if app logic is bypassed
+    ///
+    /// - Remark: HTTP `POST /v1/test/start`.
+    /// - Remark: Generated from `#/paths//v1/test/start/post(start_test_v1_test_start_post)`.
+    public func startTestV1TestStartPost(_ input: Operations.StartTestV1TestStartPost.Input) async throws -> Operations.StartTestV1TestStartPost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.id,
+            forOperation: Operations.StartTestV1TestStartPost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/anchor-items/auto-select",
+                    template: "/v1/test/start",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -625,16 +1232,2188 @@ public struct Client: APIProtocol {
                     in: &request,
                     style: .form,
                     explode: true,
-                    name: "dry_run",
-                    value: input.query.dryRun
+                    name: "question_count",
+                    value: input.query.questionCount
                 )
                 try converter.setQueryItemAsURI(
                     in: &request,
                     style: .form,
                     explode: true,
-                    name: "min_discrimination",
-                    value: input.query.minDiscrimination
+                    name: "adaptive",
+                    value: input.query.adaptive
                 )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.StartTestV1TestStartPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.StartTestResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.StartTestV1TestStartPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Submit Adaptive Response
+    ///
+    /// Submit a single response during an adaptive (CAT) test and get the next question.
+    ///
+    /// Processes the user's answer, updates the ability estimate via EAP,
+    /// checks stopping rules, and either returns the next question or signals
+    /// test completion with final results.
+    ///
+    /// Args:
+    ///     request: Adaptive response with session_id, question_id, user_answer, time_spent_seconds
+    ///     current_user: Current authenticated user
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     AdaptiveNextResponse with next question or final result
+    ///
+    /// Raises:
+    ///     HTTPException: If session validation fails or response is invalid
+    ///
+    /// - Remark: HTTP `POST /v1/test/next`.
+    /// - Remark: Generated from `#/paths//v1/test/next/post(submit_adaptive_response_v1_test_next_post)`.
+    public func submitAdaptiveResponseV1TestNextPost(_ input: Operations.SubmitAdaptiveResponseV1TestNextPost.Input) async throws -> Operations.SubmitAdaptiveResponseV1TestNextPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.SubmitAdaptiveResponseV1TestNextPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/next",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitAdaptiveResponseV1TestNextPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.AdaptiveNextResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitAdaptiveResponseV1TestNextPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Test Session
+    ///
+    /// Get details for a specific test session.
+    ///
+    /// Args:
+    ///     session_id: Test session ID
+    ///     current_user: Current authenticated user
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Test session details with questions (if session is in_progress)
+    ///
+    /// Raises:
+    ///     HTTPException: If session not found or doesn't belong to user
+    ///
+    /// - Remark: HTTP `GET /v1/test/session/{session_id}`.
+    /// - Remark: Generated from `#/paths//v1/test/session/{session_id}/get(get_test_session_v1_test_session__session_id__get)`.
+    public func getTestSessionV1TestSessionSessionIdGet(_ input: Operations.GetTestSessionV1TestSessionSessionIdGet.Input) async throws -> Operations.GetTestSessionV1TestSessionSessionIdGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetTestSessionV1TestSessionSessionIdGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/session/{}",
+                    parameters: [
+                        input.path.sessionId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetTestSessionV1TestSessionSessionIdGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.TestSessionStatusResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetTestSessionV1TestSessionSessionIdGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Active Test Session
+    ///
+    /// Get the user's active (in_progress) test session if any.
+    ///
+    /// Args:
+    ///     current_user: Current authenticated user
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Active test session or None
+    ///
+    /// - Remark: HTTP `GET /v1/test/active`.
+    /// - Remark: Generated from `#/paths//v1/test/active/get(get_active_test_session_v1_test_active_get)`.
+    public func getActiveTestSessionV1TestActiveGet(_ input: Operations.GetActiveTestSessionV1TestActiveGet.Input) async throws -> Operations.GetActiveTestSessionV1TestActiveGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetActiveTestSessionV1TestActiveGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/active",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    return .ok(.init())
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Test Progress
+    ///
+    /// Get progress information for an active adaptive (CAT) test session.
+    ///
+    /// Returns progress metrics including items administered, domain coverage,
+    /// and estimated items remaining. Does NOT expose raw theta to client.
+    ///
+    /// Args:
+    ///     session_id: Test session ID from query parameter
+    ///     current_user: Current authenticated user
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     TestProgressResponse with progress information
+    ///
+    /// Raises:
+    ///     HTTPException: If session not found, not authorized, not in progress,
+    ///                   or not adaptive
+    ///
+    /// - Remark: HTTP `GET /v1/test/progress`.
+    /// - Remark: Generated from `#/paths//v1/test/progress/get(get_test_progress_v1_test_progress_get)`.
+    public func getTestProgressV1TestProgressGet(_ input: Operations.GetTestProgressV1TestProgressGet.Input) async throws -> Operations.GetTestProgressV1TestProgressGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetTestProgressV1TestProgressGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/progress",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "session_id",
+                    value: input.query.sessionId
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetTestProgressV1TestProgressGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.TestProgressResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetTestProgressV1TestProgressGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Abandon Test
+    ///
+    /// Abandon an in-progress test session.
+    ///
+    /// Marks the test session as abandoned without calculating results.
+    /// Any responses saved during the test will be preserved but no
+    /// test result will be created.
+    ///
+    /// Args:
+    ///     session_id: Test session ID to abandon
+    ///     current_user: Current authenticated user
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Abandoned session details with response count
+    ///
+    /// Raises:
+    ///     HTTPException: If session not found, not authorized, or already completed
+    ///
+    /// - Remark: HTTP `POST /v1/test/{session_id}/abandon`.
+    /// - Remark: Generated from `#/paths//v1/test/{session_id}/abandon/post(abandon_test_v1_test__session_id__abandon_post)`.
+    public func abandonTestV1TestSessionIdAbandonPost(_ input: Operations.AbandonTestV1TestSessionIdAbandonPost.Input) async throws -> Operations.AbandonTestV1TestSessionIdAbandonPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.AbandonTestV1TestSessionIdAbandonPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/{}/abandon",
+                    parameters: [
+                        input.path.sessionId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.AbandonTestV1TestSessionIdAbandonPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.TestSessionAbandonResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.AbandonTestV1TestSessionIdAbandonPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Submit Test
+    ///
+    /// Submit responses for a test session.
+    ///
+    /// Validates and stores all user responses, compares them against correct
+    /// answers, and marks the test session as completed.
+    ///
+    /// Args:
+    ///     submission: Response submission with session_id and responses
+    ///     current_user: Current authenticated user
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Submission confirmation with updated session details
+    ///
+    /// Raises:
+    ///     HTTPException: If session not found, not authorized, already completed,
+    ///                   or validation fails
+    ///
+    /// - Remark: HTTP `POST /v1/test/submit`.
+    /// - Remark: Generated from `#/paths//v1/test/submit/post(submit_test_v1_test_submit_post)`.
+    public func submitTestV1TestSubmitPost(_ input: Operations.SubmitTestV1TestSubmitPost.Input) async throws -> Operations.SubmitTestV1TestSubmitPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.SubmitTestV1TestSubmitPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/submit",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitTestV1TestSubmitPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.SubmitTestResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitTestV1TestSubmitPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Test Result
+    ///
+    /// Get a specific test result by ID.
+    ///
+    /// Args:
+    ///     result_id: Test result ID
+    ///     current_user: Current authenticated user
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Test result details with IQ score
+    ///
+    /// Raises:
+    ///     HTTPException: If result not found or doesn't belong to user
+    ///
+    /// - Remark: HTTP `GET /v1/test/results/{result_id}`.
+    /// - Remark: Generated from `#/paths//v1/test/results/{result_id}/get(get_test_result_v1_test_results__result_id__get)`.
+    public func getTestResultV1TestResultsResultIdGet(_ input: Operations.GetTestResultV1TestResultsResultIdGet.Input) async throws -> Operations.GetTestResultV1TestResultsResultIdGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetTestResultV1TestResultsResultIdGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/results/{}",
+                    parameters: [
+                        input.path.resultId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetTestResultV1TestResultsResultIdGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.TestResultResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetTestResultV1TestResultsResultIdGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Test History
+    ///
+    /// Get historical test results for the current user with pagination.
+    ///
+    /// Results are returned in reverse chronological order (most recent first).
+    ///
+    /// Args:
+    ///     limit: Maximum number of results per page (default 50, max 100)
+    ///     offset: Number of results to skip for pagination (default 0)
+    ///     current_user: Current authenticated user
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Paginated test results with total count and pagination metadata
+    ///
+    /// - Remark: HTTP `GET /v1/test/history`.
+    /// - Remark: Generated from `#/paths//v1/test/history/get(get_test_history_v1_test_history_get)`.
+    public func getTestHistoryV1TestHistoryGet(_ input: Operations.GetTestHistoryV1TestHistoryGet.Input) async throws -> Operations.GetTestHistoryV1TestHistoryGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetTestHistoryV1TestHistoryGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/history",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "limit",
+                    value: input.query.limit
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "offset",
+                    value: input.query.offset
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetTestHistoryV1TestHistoryGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.PaginatedTestHistoryResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetTestHistoryV1TestHistoryGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Start Guest Test
+    ///
+    /// Start a new guest test session.
+    ///
+    /// No authentication required. Returns all questions upfront (fixed-form),
+    /// plus a one-time *guest_token* that must be included when submitting answers.
+    ///
+    /// Args:
+    ///     x_device_id: Client-supplied device identifier (from X-Device-Id header).
+    ///     db:          Database session.
+    ///
+    /// Returns:
+    ///     GuestStartTestResponse with questions, guest_token, and tests_remaining.
+    ///
+    /// Raises:
+    ///     HTTPException 400: X-Device-Id header is blank.
+    ///     HTTPException 404: No active questions found.
+    ///     HTTPException 429: Device has reached the guest test limit.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/start`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/start/post(start_guest_test_v1_test_guest_start_post)`.
+    public func startGuestTestV1TestGuestStartPost(_ input: Operations.StartGuestTestV1TestGuestStartPost.Input) async throws -> Operations.StartGuestTestV1TestGuestStartPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.StartGuestTestV1TestGuestStartPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/guest/start",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "X-Device-Id",
+                    value: input.headers.xDeviceId
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.StartGuestTestV1TestGuestStartPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.GuestStartTestResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.StartGuestTestV1TestGuestStartPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Submit Guest Test
+    ///
+    /// Submit answers for a guest test session.
+    ///
+    /// The *guest_token* from the start response is consumed here — a second call
+    /// with the same token returns 400.
+    ///
+    /// Args:
+    ///     submission: Guest submit request with guest_token, responses, and
+    ///                 optional time_limit_exceeded flag.
+    ///     db:         Database session.
+    ///
+    /// Returns:
+    ///     GuestSubmitTestResponse (identical structure to SubmitTestResponse).
+    ///
+    /// Raises:
+    ///     HTTPException 400: Invalid or expired guest token, empty responses,
+    ///                       or invalid question IDs.
+    ///     HTTPException 404: Session or question not found.
+    ///     HTTPException 409: Duplicate response for a question.
+    ///
+    /// - Remark: HTTP `POST /v1/test/guest/submit`.
+    /// - Remark: Generated from `#/paths//v1/test/guest/submit/post(submit_guest_test_v1_test_guest_submit_post)`.
+    public func submitGuestTestV1TestGuestSubmitPost(_ input: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input) async throws -> Operations.SubmitGuestTestV1TestGuestSubmitPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.SubmitGuestTestV1TestGuestSubmitPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/test/guest/submit",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.GuestSubmitTestResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Register Device Token
+    ///
+    /// Register or update the APNs device token for the current user.
+    ///
+    /// This endpoint allows iOS devices to register their APNs device token
+    /// so the backend can send push notifications. The token is stored in
+    /// the user's profile and will be updated if the device token changes.
+    ///
+    /// Args:
+    ///     token_data: Device token registration data
+    ///     current_user: Current authenticated user
+    ///     db: Async database session
+    ///
+    /// Returns:
+    ///     Success response with confirmation message
+    ///
+    /// - Remark: HTTP `POST /v1/notifications/register-device`.
+    /// - Remark: Generated from `#/paths//v1/notifications/register-device/post(register_device_token_v1_notifications_register_device_post)`.
+    public func registerDeviceTokenV1NotificationsRegisterDevicePost(_ input: Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.Input) async throws -> Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/notifications/register-device",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.DeviceTokenResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Unregister Device Token
+    ///
+    /// Unregister the APNs device token for the current user.
+    ///
+    /// This endpoint allows users to remove their device token, typically
+    /// when logging out or when they no longer want to receive notifications.
+    ///
+    /// Args:
+    ///     current_user: Current authenticated user
+    ///     db: Async database session
+    ///
+    /// Returns:
+    ///     Success response with confirmation message
+    ///
+    /// - Remark: HTTP `DELETE /v1/notifications/register-device`.
+    /// - Remark: Generated from `#/paths//v1/notifications/register-device/delete(unregister_device_token_v1_notifications_register_device_delete)`.
+    public func unregisterDeviceTokenV1NotificationsRegisterDeviceDelete(_ input: Operations.UnregisterDeviceTokenV1NotificationsRegisterDeviceDelete.Input) async throws -> Operations.UnregisterDeviceTokenV1NotificationsRegisterDeviceDelete.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.UnregisterDeviceTokenV1NotificationsRegisterDeviceDelete.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/notifications/register-device",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .delete
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UnregisterDeviceTokenV1NotificationsRegisterDeviceDelete.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.DeviceTokenResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Notification Preferences
+    ///
+    /// Get current notification preferences for the user.
+    ///
+    /// Args:
+    ///     current_user: Current authenticated user
+    ///
+    /// Returns:
+    ///     Current notification preferences
+    ///
+    /// - Remark: HTTP `GET /v1/notifications/preferences`.
+    /// - Remark: Generated from `#/paths//v1/notifications/preferences/get(get_notification_preferences_v1_notifications_preferences_get)`.
+    public func getNotificationPreferencesV1NotificationsPreferencesGet(_ input: Operations.GetNotificationPreferencesV1NotificationsPreferencesGet.Input) async throws -> Operations.GetNotificationPreferencesV1NotificationsPreferencesGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetNotificationPreferencesV1NotificationsPreferencesGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/notifications/preferences",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetNotificationPreferencesV1NotificationsPreferencesGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.NotificationPreferencesResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Update Notification Preferences
+    ///
+    /// Update notification preferences for the current user.
+    ///
+    /// This endpoint allows users to enable or disable push notifications
+    /// without removing their device token.
+    ///
+    /// Args:
+    ///     preferences: Notification preferences
+    ///     current_user: Current authenticated user
+    ///     db: Async database session
+    ///
+    /// Returns:
+    ///     Updated notification preferences
+    ///
+    /// - Remark: HTTP `PUT /v1/notifications/preferences`.
+    /// - Remark: Generated from `#/paths//v1/notifications/preferences/put(update_notification_preferences_v1_notifications_preferences_put)`.
+    public func updateNotificationPreferencesV1NotificationsPreferencesPut(_ input: Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.Input) async throws -> Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/notifications/preferences",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .put
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.NotificationPreferencesResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Question Stats
+    ///
+    /// Get performance statistics for a specific question.
+    ///
+    /// Returns empirical difficulty (p-value), discrimination, and response count.
+    ///
+    /// Args:
+    ///     question_id: Question ID
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Dictionary with question statistics:
+    ///     {
+    ///         "question_id": int,
+    ///         "empirical_difficulty": float or None,
+    ///         "discrimination": float or None,
+    ///         "response_count": int,
+    ///         "has_sufficient_data": bool
+    ///     }
+    ///
+    /// Example:
+    ///     GET /api/v1/analytics/questions/42/statistics
+    ///     Response:
+    ///     {
+    ///         "question_id": 42,
+    ///         "empirical_difficulty": 0.72,
+    ///         "discrimination": 0.45,
+    ///         "response_count": 150,
+    ///         "has_sufficient_data": true
+    ///     }
+    ///
+    /// Notes:
+    ///     - empirical_difficulty: proportion correct (0.0 = very hard, 1.0 = very easy)
+    ///     - discrimination: item-total correlation (-1.0 to 1.0, higher = better)
+    ///     - has_sufficient_data: true if response_count >= 30
+    ///
+    /// - Remark: HTTP `GET /v1/analytics/questions/{question_id}/statistics`.
+    /// - Remark: Generated from `#/paths//v1/analytics/questions/{question_id}/statistics/get(get_question_stats_v1_analytics_questions__question_id__statistics_get)`.
+    public func getQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet(_ input: Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.Input) async throws -> Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/analytics/questions/{}/statistics",
+                    parameters: [
+                        input.path.questionId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            OpenAPIRuntime.OpenAPIObjectContainer.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get All Questions Stats
+    ///
+    /// Get performance statistics for all questions.
+    ///
+    /// Returns list of questions with their empirical statistics,
+    /// ordered by response count (most responses first).
+    ///
+    /// Args:
+    ///     min_responses: Minimum response count to include (default: 0 for all)
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     List of question statistics, ordered by response count DESC
+    ///
+    /// Example:
+    ///     GET /api/v1/analytics/questions/statistics?min_responses=30
+    ///     Response:
+    ///     [
+    ///         {
+    ///             "question_id": 42,
+    ///             "question_type": "mathematical",
+    ///             "difficulty_level": "medium",
+    ///             "empirical_difficulty": 0.72,
+    ///             "discrimination": 0.45,
+    ///             "response_count": 150,
+    ///             "has_sufficient_data": true,
+    ///             "is_active": true
+    ///         },
+    ///         ...
+    ///     ]
+    ///
+    /// Use Cases:
+    ///     - Monitor overall question pool quality
+    ///     - Identify which questions have sufficient calibration data
+    ///     - Compare empirical vs assigned difficulty levels
+    ///
+    /// - Remark: HTTP `GET /v1/analytics/questions/statistics`.
+    /// - Remark: Generated from `#/paths//v1/analytics/questions/statistics/get(get_all_questions_stats_v1_analytics_questions_statistics_get)`.
+    public func getAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet(_ input: Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.Input) async throws -> Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/analytics/questions/statistics",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "min_responses",
+                    value: input.query.minResponses
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            [OpenAPIRuntime.OpenAPIObjectContainer].self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Problematic Questions
+    ///
+    /// Identify questions with poor psychometric properties.
+    ///
+    /// Categorizes problematic questions into four groups:
+    /// 1. Too easy: > 95% of users answer correctly
+    /// 2. Too hard: < 5% of users answer correctly
+    /// 3. Poor discrimination: discrimination < 0.2 (doesn't separate ability levels well)
+    /// 4. Negative discrimination: discrimination < 0 (low performers do better)
+    ///
+    /// Args:
+    ///     min_responses: Minimum responses required to flag (default: 30)
+    ///     db: Database session
+    ///
+    /// Returns:
+    ///     Dictionary with categorized problematic questions:
+    ///     {
+    ///         "too_easy": [...],
+    ///         "too_hard": [...],
+    ///         "poor_discrimination": [...],
+    ///         "negative_discrimination": [...]
+    ///     }
+    ///
+    /// Example:
+    ///     GET /api/v1/analytics/questions/problematic?min_responses=50
+    ///     Response:
+    ///     {
+    ///         "too_easy": [
+    ///             {
+    ///                 "question_id": 15,
+    ///                 "question_type": "verbal",
+    ///                 "difficulty_level": "easy",
+    ///                 "empirical_difficulty": 0.97,
+    ///                 "discrimination": 0.15,
+    ///                 "response_count": 82
+    ///             }
+    ///         ],
+    ///         "too_hard": [],
+    ///         "poor_discrimination": [...],
+    ///         "negative_discrimination": []
+    ///     }
+    ///
+    /// Use Cases:
+    ///     - Quality control: identify questions that need review or deactivation
+    ///     - Test improvement: find questions that don't contribute to measurement
+    ///     - LLM evaluation: assess which types of generated questions have issues
+    ///
+    /// Notes:
+    ///     - Negative discrimination indicates a problematic question that should
+    ///       likely be deactivated, as it suggests low-ability users do better
+    ///     - Too easy/hard questions provide little information and should be reviewed
+    ///     - Poor discrimination questions don't help separate high/low performers
+    ///
+    /// - Remark: HTTP `GET /v1/analytics/questions/problematic`.
+    /// - Remark: Generated from `#/paths//v1/analytics/questions/problematic/get(get_problematic_questions_v1_analytics_questions_problematic_get)`.
+    public func getProblematicQuestionsV1AnalyticsQuestionsProblematicGet(_ input: Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Input) async throws -> Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/analytics/questions/problematic",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "min_responses",
+                    value: input.query.minResponses
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Output.Ok.Body.JsonPayload.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Submit Analytics Events
+    ///
+    /// Submit a batch of analytics events from the client.
+    ///
+    /// This endpoint accepts analytics events from iOS and other clients.
+    /// Events are stored for product analytics, debugging, and user
+    /// experience insights.
+    ///
+    /// Authentication is optional - pre-auth events (like app launch)
+    /// can be submitted without a token.
+    ///
+    /// Args:
+    ///     batch: Batch of analytics events to submit
+    ///     current_user: Current authenticated user (optional)
+    ///     db: Async database session
+    ///
+    /// Returns:
+    ///     Response indicating how many events were received
+    ///
+    /// Example:
+    ///     POST /api/v1/analytics/events
+    ///     {
+    ///         "events": [
+    ///             {
+    ///                 "event_name": "user.login",
+    ///                 "timestamp": "2024-01-15T10:30:00Z",
+    ///                 "properties": {"email_domain": "gmail.com"}
+    ///             }
+    ///         ],
+    ///         "client_platform": "ios",
+    ///         "app_version": "1.2.0"
+    ///     }
+    ///
+    /// - Remark: HTTP `POST /v1/analytics/events`.
+    /// - Remark: Generated from `#/paths//v1/analytics/events/post(submit_analytics_events_v1_analytics_events_post)`.
+    public func submitAnalyticsEventsV1AnalyticsEventsPost(_ input: Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.Input) async throws -> Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/analytics/events",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.AnalyticsEventsResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Model Performance
+    ///
+    /// Return per-vendor accuracy breakdown for the authenticated user.
+    ///
+    /// **Historical mode** (no test_session_id): aggregates all responses
+    /// from completed test sessions owned by the user.  The vendor list is
+    /// paginated via `limit` / `offset`.
+    ///
+    /// **Per-test mode** (test_session_id provided): returns all vendor rows
+    /// for that single session; pagination params are echoed back but the
+    /// entire vendor list for one session is always returned.
+    ///
+    /// Questions with `NULL source_llm` are excluded.
+    /// Questions with `NULL source_model` appear as "Unknown Model".
+    ///
+    /// Raises:
+    ///     404: If `test_session_id` is provided but does not exist or does not
+    ///          belong to the authenticated user.
+    ///
+    /// - Remark: HTTP `GET /v1/analytics/model-performance`.
+    /// - Remark: Generated from `#/paths//v1/analytics/model-performance/get(get_model_performance_v1_analytics_model_performance_get)`.
+    public func getModelPerformanceV1AnalyticsModelPerformanceGet(_ input: Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.Input) async throws -> Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/analytics/model-performance",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "limit",
+                    value: input.query.limit
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "offset",
+                    value: input.query.offset
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ModelPerformanceResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Trigger Question Generation
+    ///
+    /// Manually trigger the question generation job.
+    ///
+    /// This endpoint allows administrators to trigger the question generation
+    /// process on-demand instead of waiting for the scheduled cron job.
+    ///
+    /// The job is registered in the process registry for tracking. Use
+    /// GET /v1/admin/background-jobs to list all registered jobs and
+    /// GET /v1/admin/background-jobs/{job_id} to check status.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// Args:
+    ///     request: Question generation parameters
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     TriggerQuestionGenerationResponse with job_id for tracking
+    ///
+    /// Example:
+    ///     ```
+    ///     curl -X POST https://api.example.com/v1/admin/trigger-question-generation           -H "X-Admin-Token: your-admin-token"           -H "Content-Type: application/json"           -d '{"count": 50, "dry_run": false}'
+    ///     ```
+    ///
+    /// - Remark: HTTP `POST /v1/admin/trigger-question-generation`.
+    /// - Remark: Generated from `#/paths//v1/admin/trigger-question-generation/post(trigger_question_generation_v1_admin_trigger_question_generation_post)`.
+    public func triggerQuestionGenerationV1AdminTriggerQuestionGenerationPost(_ input: Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.Input) async throws -> Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/trigger-question-generation",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.TriggerQuestionGenerationResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Question Generation Status
+    ///
+    /// Check the status of a question generation job by job ID.
+    ///
+    /// This endpoint is deprecated. Use GET /v1/admin/background-jobs/{job_id} instead
+    /// for more detailed job information from the process registry.
+    ///
+    /// For legacy compatibility, this endpoint also accepts a PID as job_id
+    /// and will look up the job in the registry by PID.
+    ///
+    /// Args:
+    ///     job_id: Job ID (from registry) or Process ID (legacy)
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     Job status information
+    ///
+    /// - Remark: HTTP `GET /v1/admin/question-generation-status/{job_id}`.
+    /// - Remark: Generated from `#/paths//v1/admin/question-generation-status/{job_id}/get(get_question_generation_status_v1_admin_question_generation_status__job_id__get)`.
+    public func getQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet(_ input: Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.Input) async throws -> Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/question-generation-status/{}",
+                    parameters: [
+                        input.path.jobId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
                     name: "x-admin-token",
@@ -650,7 +3429,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.Output.Ok.Body
+                    let body: Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -660,7 +3439,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.AnchorAutoSelectResponse.self,
+                            OpenAPIRuntime.OpenAPIValueContainer.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -672,7 +3451,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.Output.UnprocessableContent.Body
+                    let body: Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -751,20 +3530,6 @@ public struct Client: APIProtocol {
                     in: &request,
                     style: .form,
                     explode: true,
-                    name: "job_type",
-                    value: input.query.jobType
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "status",
-                    value: input.query.status
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
                     name: "include_finished",
                     value: input.query.includeFinished
                 )
@@ -806,111 +3571,6 @@ public struct Client: APIProtocol {
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
                     let body: Operations.ListBackgroundJobsV1AdminBackgroundJobsGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Cleanup Finished Jobs
-    ///
-    /// Remove finished jobs from the registry.
-    ///
-    /// This endpoint triggers cleanup of all completed, failed, and terminated
-    /// jobs from the registry. This is useful for freeing memory and keeping
-    /// the job list manageable.
-    ///
-    /// Note: Cleanup also happens automatically when the server shuts down.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// Returns:
-    ///     Number of jobs cleaned up
-    ///
-    /// Example:
-    ///     ```
-    ///     curl -X POST "https://api.example.com/v1/admin/background-jobs/cleanup"           -H "X-Admin-Token: your-admin-token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `POST /v1/admin/background-jobs/cleanup`.
-    /// - Remark: Generated from `#/paths//v1/admin/background-jobs/cleanup/post(cleanup_finished_jobs_v1_admin_background_jobs_cleanup_post)`.
-    public func cleanupFinishedJobsV1AdminBackgroundJobsCleanupPost(_ input: Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.Input) async throws -> Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/background-jobs/cleanup",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            OpenAPIRuntime.OpenAPIValueContainer.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -1275,741 +3935,35 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// List Benchmark Sets
+    /// Cleanup Finished Jobs
     ///
-    /// Return all benchmark sets with domain and difficulty distribution summaries.
+    /// Remove finished jobs from the registry.
     ///
-    /// - Remark: HTTP `GET /v1/admin/benchmark-sets`.
-    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/get(list_benchmark_sets_v1_admin_benchmark_sets_get)`.
-    public func listBenchmarkSetsV1AdminBenchmarkSetsGet(_ input: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Input) async throws -> Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/benchmark-sets",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.BenchmarkSetListResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Create Benchmark Set
+    /// This endpoint triggers cleanup of all completed, failed, and terminated
+    /// jobs from the registry. This is useful for freeing memory and keeping
+    /// the job list manageable.
     ///
-    /// Create a new benchmark set.
-    ///
-    /// Validates that all supplied question IDs exist and are active, then
-    /// creates the set with positions matching the order of question_ids.
-    ///
-    /// - Remark: HTTP `POST /v1/admin/benchmark-sets`.
-    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/post(create_benchmark_set_v1_admin_benchmark_sets_post)`.
-    public func createBenchmarkSetV1AdminBenchmarkSetsPost(_ input: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input) async throws -> Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/benchmark-sets",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 201:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.Created.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.BenchmarkSetDetailResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .created(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Benchmark Set
-    ///
-    /// Return a benchmark set by name, including its full ordered question list.
-    ///
-    /// - Remark: HTTP `GET /v1/admin/benchmark-sets/{name}`.
-    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/{name}/get(get_benchmark_set_v1_admin_benchmark_sets__name__get)`.
-    public func getBenchmarkSetV1AdminBenchmarkSetsNameGet(_ input: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input) async throws -> Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/benchmark-sets/{}",
-                    parameters: [
-                        input.path.name
-                    ]
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.BenchmarkSetDetailResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Calibration Status
-    ///
-    /// Get IRT calibration readiness dashboard with comprehensive metrics.
-    ///
-    /// Returns detailed calibration statistics to help monitor progress toward
-    /// IRT parameter estimation. Tracks response counts per item, per-domain
-    /// aggregates, and progress toward the 500-test threshold.
+    /// Note: Cleanup also happens automatically when the server shuts down.
     ///
     /// Requires X-Admin-Token header with valid admin token.
     ///
-    /// **Calibration Requirements:**
-    /// - **Per-item threshold**: >= 50 responses (configurable via query param)
-    /// - **Target tests**: 500 completed test sessions for stable IRT parameters
-    /// - **Domain coverage**: All question types should have sufficient data
-    ///
-    /// **Response Count Buckets:**
-    /// - `0`: Items with no responses yet
-    /// - `1-9`: Very low response count
-    /// - `10-24`: Low response count
-    /// - `25-49`: Approaching threshold
-    /// - `50-99`: Ready for calibration
-    /// - `100+`: Well-calibrated
-    ///
-    /// **Readiness Levels:**
-    /// - `ready`: >= 80% of items ready for calibration
-    /// - `approaching`: >= 40% of items ready for calibration
-    /// - `not_ready`: < 40% of items ready for calibration
-    ///
-    /// Args:
-    ///     min_responses_threshold: Minimum responses per item for calibration readiness
-    ///     db: Database session
-    ///     _: Admin token validation dependency
-    ///
     /// Returns:
-    ///     CalibrationMonitoringResponse with complete calibration dashboard
+    ///     Number of jobs cleaned up
     ///
     /// Example:
     ///     ```
-    ///     curl "https://api.example.com/v1/admin/calibration-status" \\
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///
-    ///     # Use custom threshold
-    ///     curl "https://api.example.com/v1/admin/calibration-status?min_responses_threshold=100" \\
-    ///       -H "X-Admin-Token: your-admin-token"
+    ///     curl -X POST "https://api.example.com/v1/admin/background-jobs/cleanup"           -H "X-Admin-Token: your-admin-token"
     ///     ```
     ///
-    /// - Remark: HTTP `GET /v1/admin/calibration-status`.
-    /// - Remark: Generated from `#/paths//v1/admin/calibration-status/get(get_calibration_status_v1_admin_calibration_status_get)`.
-    public func getCalibrationStatusV1AdminCalibrationStatusGet(_ input: Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.Input) async throws -> Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.Output {
+    /// - Remark: HTTP `POST /v1/admin/background-jobs/cleanup`.
+    /// - Remark: Generated from `#/paths//v1/admin/background-jobs/cleanup/post(cleanup_finished_jobs_v1_admin_background_jobs_cleanup_post)`.
+    public func cleanupFinishedJobsV1AdminBackgroundJobsCleanupPost(_ input: Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.Input) async throws -> Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.id,
+            forOperation: Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/calibration-status",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "min_responses_threshold",
-                    value: input.query.minResponsesThreshold
-                )
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.CalibrationMonitoringResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Trigger Calibration
-    ///
-    /// Trigger an IRT calibration run. Only one can run at a time.
-    ///
-    /// - Remark: HTTP `POST /v1/admin/calibration/run`.
-    /// - Remark: Generated from `#/paths//v1/admin/calibration/run/post(trigger_calibration_v1_admin_calibration_run_post)`.
-    public func triggerCalibrationV1AdminCalibrationRunPost(_ input: Operations.TriggerCalibrationV1AdminCalibrationRunPost.Input) async throws -> Operations.TriggerCalibrationV1AdminCalibrationRunPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.TriggerCalibrationV1AdminCalibrationRunPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/calibration/run",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case .none:
-                    body = nil
-                case let .json(value):
-                    body = try converter.setOptionalRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.TriggerCalibrationV1AdminCalibrationRunPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.TriggerCalibrationResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.TriggerCalibrationV1AdminCalibrationRunPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Calibration Status
-    ///
-    /// Get status of a calibration job.
-    ///
-    /// - Remark: HTTP `GET /v1/admin/calibration/status/{job_id}`.
-    /// - Remark: Generated from `#/paths//v1/admin/calibration/status/{job_id}/get(get_calibration_status_v1_admin_calibration_status__job_id__get)`.
-    public func getCalibrationStatusV1AdminCalibrationStatusJobIdGet(_ input: Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.Input) async throws -> Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/calibration/status/{}",
-                    parameters: [
-                        input.path.jobId
-                    ]
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.CalibrationJobProgress.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Cat Readiness
-    ///
-    /// Get current CAT readiness status from SystemConfig.
-    ///
-    /// Returns the most recently persisted readiness evaluation result.
-    /// This is a cheap read from the system_config table — no computation.
-    ///
-    /// Requires X-Admin-Token header.
-    ///
-    /// Example:
-    ///     ```
-    ///     curl "https://api.example.com/v1/admin/cat-readiness" \
-    ///       -H "X-Admin-Token: token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `GET /v1/admin/cat-readiness`.
-    /// - Remark: Generated from `#/paths//v1/admin/cat-readiness/get(get_cat_readiness_v1_admin_cat_readiness_get)`.
-    public func getCatReadinessV1AdminCatReadinessGet(_ input: Operations.GetCatReadinessV1AdminCatReadinessGet.Input) async throws -> Operations.GetCatReadinessV1AdminCatReadinessGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetCatReadinessV1AdminCatReadinessGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/cat-readiness",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetCatReadinessV1AdminCatReadinessGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.CATReadinessResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetCatReadinessV1AdminCatReadinessGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Evaluate Readiness
-    ///
-    /// Run CAT readiness evaluation and persist result.
-    ///
-    /// Queries the question bank to evaluate IRT calibration readiness across
-    /// all 6 domains. Enables or disables CAT based on whether all domains
-    /// meet thresholds. The result is persisted to SystemConfig.
-    ///
-    /// Requires X-Admin-Token header.
-    ///
-    /// Example:
-    ///     ```
-    ///     curl -X POST "https://api.example.com/v1/admin/cat-readiness/evaluate" \
-    ///       -H "X-Admin-Token: token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `POST /v1/admin/cat-readiness/evaluate`.
-    /// - Remark: Generated from `#/paths//v1/admin/cat-readiness/evaluate/post(evaluate_readiness_v1_admin_cat_readiness_evaluate_post)`.
-    public func evaluateReadinessV1AdminCatReadinessEvaluatePost(_ input: Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.Input) async throws -> Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/cat-readiness/evaluate",
+                    template: "/v1/admin/background-jobs/cleanup",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -2032,7 +3986,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.Output.Ok.Body
+                    let body: Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -2042,7 +3996,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.CATReadinessResponse.self,
+                            OpenAPIRuntime.OpenAPIValueContainer.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -2054,679 +4008,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Domain Weights Config
-    ///
-    /// Get the current domain weights configuration.
-    ///
-    /// Returns the configured domain weights used for weighted scoring calculations.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// Returns:
-    ///     DomainWeightsResponse with weights, or None if not configured
-    ///
-    /// Example:
-    ///     ```
-    ///     curl "https://api.example.com/v1/admin/config/domain-weights" \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `GET /v1/admin/config/domain-weights`.
-    /// - Remark: Generated from `#/paths//v1/admin/config/domain-weights/get(get_domain_weights_config_v1_admin_config_domain_weights_get)`.
-    public func getDomainWeightsConfigV1AdminConfigDomainWeightsGet(_ input: Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.Input) async throws -> Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/config/domain-weights",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.Output.Ok.Body.JsonPayload?.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Set Domain Weights Config
-    ///
-    /// Set the domain weights for weighted scoring.
-    ///
-    /// Domain weights determine how much each cognitive domain contributes to the
-    /// final IQ score. Weights should reflect each domain's g-loading (correlation
-    /// with general intelligence).
-    ///
-    /// The weights should ideally sum to 1.0, but will be normalized during
-    /// scoring calculations if they don't.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// Args:
-    ///     request: DomainWeightsRequest with weights dictionary
-    ///
-    /// Returns:
-    ///     DomainWeightsResponse with confirmation
-    ///
-    /// Example:
-    ///     ```
-    ///     curl -X POST "https://api.example.com/v1/admin/config/domain-weights" \
-    ///       -H "X-Admin-Token: your-admin-token" \
-    ///       -H "Content-Type: application/json" \
-    ///       -d '{"weights": {"pattern": 0.20, "logic": 0.18, "spatial": 0.16, "math": 0.17, "verbal": 0.15, "memory": 0.14}}'
-    ///     ```
-    ///
-    /// - Remark: HTTP `POST /v1/admin/config/domain-weights`.
-    /// - Remark: Generated from `#/paths//v1/admin/config/domain-weights/post(set_domain_weights_config_v1_admin_config_domain_weights_post)`.
-    public func setDomainWeightsConfigV1AdminConfigDomainWeightsPost(_ input: Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.Input) async throws -> Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/config/domain-weights",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.DomainWeightsResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Weighted Scoring Status
-    ///
-    /// Get the current weighted scoring configuration status.
-    ///
-    /// Returns whether weighted scoring is enabled and the current domain weights
-    /// if configured.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// Returns:
-    ///     WeightedScoringStatus with enabled flag and domain weights
-    ///
-    /// Example:
-    ///     ```
-    ///     curl "https://api.example.com/v1/admin/config/weighted-scoring" \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `GET /v1/admin/config/weighted-scoring`.
-    /// - Remark: Generated from `#/paths//v1/admin/config/weighted-scoring/get(get_weighted_scoring_status_v1_admin_config_weighted_scoring_get)`.
-    public func getWeightedScoringStatusV1AdminConfigWeightedScoringGet(_ input: Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.Input) async throws -> Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/config/weighted-scoring",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.WeightedScoringStatus.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Toggle Weighted Scoring
-    ///
-    /// Enable or disable weighted scoring.
-    ///
-    /// When enabled, IQ scores are calculated using domain weights that reflect
-    /// each domain's correlation with general intelligence (g-loading). When
-    /// disabled, all domains are weighted equally.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// Args:
-    ///     request: WeightedScoringToggleRequest with enabled flag
-    ///
-    /// Returns:
-    ///     WeightedScoringToggleResponse with new status and confirmation message
-    ///
-    /// Example:
-    ///     ```
-    ///     curl -X POST "https://api.example.com/v1/admin/config/weighted-scoring" \
-    ///       -H "X-Admin-Token: your-admin-token" \
-    ///       -H "Content-Type: application/json" \
-    ///       -d '{"enabled": true}'
-    ///     ```
-    ///
-    /// - Remark: HTTP `POST /v1/admin/config/weighted-scoring`.
-    /// - Remark: Generated from `#/paths//v1/admin/config/weighted-scoring/post(toggle_weighted_scoring_v1_admin_config_weighted_scoring_post)`.
-    public func toggleWeightedScoringV1AdminConfigWeightedScoringPost(_ input: Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.Input) async throws -> Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/config/weighted-scoring",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.WeightedScoringToggleResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Preview Day 30 Reminders
-    ///
-    /// Preview users who are eligible for Day 30 reminder notifications.
-    ///
-    /// This endpoint returns a list of users who would receive Day 30 reminders
-    /// if the send endpoint were called. Useful for verifying the query logic
-    /// and previewing the notification recipients before sending.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// Args:
-    ///     limit: Maximum number of users to return (1-100, default: 50)
-    ///     db: Database session
-    ///     _: Admin token validation dependency
-    ///
-    /// Returns:
-    ///     Day30ReminderPreviewResponse with list of eligible users
-    ///
-    /// Example:
-    ///     ```
-    ///     curl "https://api.example.com/v1/admin/day-30-reminders/preview?limit=10" \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `GET /v1/admin/day-30-reminders/preview`.
-    /// - Remark: Generated from `#/paths//v1/admin/day-30-reminders/preview/get(preview_day_30_reminders_v1_admin_day_30_reminders_preview_get)`.
-    public func previewDay30RemindersV1AdminDay30RemindersPreviewGet(_ input: Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.Input) async throws -> Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/day-30-reminders/preview",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.Day30ReminderPreviewResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Send Day 30 Reminders
-    ///
-    /// Send Day 30 reminder notifications to eligible users.
-    ///
-    /// This endpoint identifies users who completed their first test approximately
-    /// 30 days ago and sends them a reminder notification. This is part of Phase 2.2
-    /// (Provisional Notifications) to re-engage users early in their journey.
-    ///
-    /// The notification is designed for provisional authorization:
-    /// - No sound (silent delivery)
-    /// - No badge increment
-    /// - Appears only in Notification Center
-    ///
-    /// Users with full notification authorization will also receive this notification,
-    /// but with the same silent characteristics for consistency.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// Returns:
-    ///     Day30ReminderResponse with counts of users found and notifications sent
-    ///
-    /// Example:
-    ///     ```
-    ///     curl -X POST https://api.example.com/v1/admin/day-30-reminders/send \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `POST /v1/admin/day-30-reminders/send`.
-    /// - Remark: Generated from `#/paths//v1/admin/day-30-reminders/send/post(send_day_30_reminders_v1_admin_day_30_reminders_send_post)`.
-    public func sendDay30RemindersV1AdminDay30RemindersSendPost(_ input: Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.Input) async throws -> Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/day-30-reminders/send",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.Day30ReminderResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.Output.UnprocessableContent.Body
+                    let body: Operations.CleanupFinishedJobsV1AdminBackgroundJobsCleanupPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -2817,48 +4099,6 @@ public struct Client: APIProtocol {
                     explode: true,
                     name: "page_size",
                     value: input.query.pageSize
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "status",
-                    value: input.query.status
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "environment",
-                    value: input.query.environment
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "start_date",
-                    value: input.query.startDate
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "end_date",
-                    value: input.query.endDate
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "min_success_rate",
-                    value: input.query.minSuccessRate
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "max_success_rate",
-                    value: input.query.maxSuccessRate
                 )
                 try converter.setQueryItemAsURI(
                     in: &request,
@@ -3145,13 +4385,6 @@ public struct Client: APIProtocol {
                     name: "end_date",
                     value: input.query.endDate
                 )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "environment",
-                    value: input.query.environment
-                )
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
                     name: "x-service-key",
@@ -3345,751 +4578,6 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Inventory Health
-    ///
-    /// Get question inventory health status across all type/difficulty strata.
-    ///
-    /// Returns detailed inventory statistics with health indicators to help
-    /// monitor question pool sufficiency. Useful for identifying which
-    /// question types/difficulties need more generation.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// **Health Status Thresholds:**
-    /// - `healthy`: count >= healthy_min (default: 50)
-    /// - `warning`: warning_min <= count < healthy_min (default: 20-49)
-    /// - `critical`: count < warning_min (default: < 20)
-    ///
-    /// **Query Parameters:**
-    /// - `healthy_min`: Minimum count for healthy status (configurable, default: 50)
-    /// - `warning_min`: Minimum count for warning status (configurable, default: 20)
-    ///
-    /// **Response Structure:**
-    /// - `total_active_questions`: Total count across all strata
-    /// - `strata`: List of all type/difficulty combinations with counts and status
-    /// - `alerts`: List of strata below healthy threshold requiring attention
-    /// - `thresholds`: The threshold values used for this assessment
-    /// - `summary`: Count of strata by status (healthy/warning/critical)
-    ///
-    /// Args:
-    ///     healthy_min: Minimum count for healthy status
-    ///     warning_min: Minimum count for warning status
-    ///     db: Database session
-    ///     _: Admin token validation dependency
-    ///
-    /// Returns:
-    ///     InventoryHealthResponse with complete inventory breakdown
-    ///
-    /// Example:
-    ///     ```
-    ///     # Use default thresholds
-    ///     curl "https://api.example.com/v1/admin/inventory-health"           -H "X-Admin-Token: your-admin-token"
-    ///
-    ///     # Use custom thresholds
-    ///     curl "https://api.example.com/v1/admin/inventory-health?healthy_min=100&warning_min=30"           -H "X-Admin-Token: your-admin-token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `GET /v1/admin/inventory-health`.
-    /// - Remark: Generated from `#/paths//v1/admin/inventory-health/get(get_inventory_health_v1_admin_inventory_health_get)`.
-    public func getInventoryHealthV1AdminInventoryHealthGet(_ input: Operations.GetInventoryHealthV1AdminInventoryHealthGet.Input) async throws -> Operations.GetInventoryHealthV1AdminInventoryHealthGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetInventoryHealthV1AdminInventoryHealthGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/inventory-health",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "healthy_min",
-                    value: input.query.healthyMin
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "warning_min",
-                    value: input.query.warningMin
-                )
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetInventoryHealthV1AdminInventoryHealthGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.InventoryHealthResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetInventoryHealthV1AdminInventoryHealthGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Compare Human Vs Models
-    ///
-    /// Compare human average IQ against all tested LLM models.
-    ///
-    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/compare`.
-    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/compare/get(compare_human_vs_models_v1_admin_llm_benchmark_compare_get)`.
-    public func compareHumanVsModelsV1AdminLlmBenchmarkCompareGet(_ input: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Input) async throws -> Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/llm-benchmark/compare",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.CompareResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Generate Question Set
-    ///
-    /// Generate a balanced set of question IDs across all domains and difficulties.
-    ///
-    /// Selects questions evenly across each (domain, difficulty) cell, preferring
-    /// questions with higher discrimination.  The resulting IDs can be passed to
-    /// the ``POST /run`` endpoint via the ``question_ids`` field or used to create
-    /// a named BenchmarkSet via ``POST /v1/admin/benchmark-sets``.
-    ///
-    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/question-set`.
-    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/question-set/get(generate_question_set_v1_admin_llm_benchmark_question_set_get)`.
-    public func generateQuestionSetV1AdminLlmBenchmarkQuestionSetGet(_ input: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input) async throws -> Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/llm-benchmark/question-set",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "total",
-                    value: input.query.total
-                )
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.GenerateQuestionSetResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// List Benchmark Results
-    ///
-    /// Return a paginated list of benchmark sessions with scores.
-    ///
-    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results`.
-    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/get(list_benchmark_results_v1_admin_llm_benchmark_results_get)`.
-    public func listBenchmarkResultsV1AdminLlmBenchmarkResultsGet(_ input: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input) async throws -> Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/llm-benchmark/results",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "vendor",
-                    value: input.query.vendor
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "model_id",
-                    value: input.query.modelId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "offset",
-                    value: input.query.offset
-                )
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.BenchmarkResultsListResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Benchmark Detail
-    ///
-    /// Return detailed results for a single benchmark session.
-    ///
-    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results/{session_id}`.
-    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/{session_id}/get(get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get)`.
-    public func getBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet(_ input: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input) async throws -> Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/llm-benchmark/results/{}",
-                    parameters: [
-                        input.path.sessionId
-                    ]
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.BenchmarkDetailResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Trigger Benchmark Run
-    ///
-    /// Trigger a new LLM benchmark run.
-    ///
-    /// Runs the benchmark synchronously and returns the session ID on completion.
-    ///
-    /// - Remark: HTTP `POST /v1/admin/llm-benchmark/run`.
-    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/run/post(trigger_benchmark_run_v1_admin_llm_benchmark_run_post)`.
-    public func triggerBenchmarkRunV1AdminLlmBenchmarkRunPost(_ input: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input) async throws -> Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/llm-benchmark/run",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.RunBenchmarkResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Question Generation Status
-    ///
-    /// Check the status of a question generation job by job ID.
-    ///
-    /// This endpoint is deprecated. Use GET /v1/admin/background-jobs/{job_id} instead
-    /// for more detailed job information from the process registry.
-    ///
-    /// For legacy compatibility, this endpoint also accepts a PID as job_id
-    /// and will look up the job in the registry by PID.
-    ///
-    /// Args:
-    ///     job_id: Job ID (from registry) or Process ID (legacy)
-    ///     _: Admin token validation dependency
-    ///
-    /// Returns:
-    ///     Job status information
-    ///
-    /// - Remark: HTTP `GET /v1/admin/question-generation-status/{job_id}`.
-    /// - Remark: Generated from `#/paths//v1/admin/question-generation-status/{job_id}/get(get_question_generation_status_v1_admin_question_generation_status__job_id__get)`.
-    public func getQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet(_ input: Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.Input) async throws -> Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/question-generation-status/{}",
-                    parameters: [
-                        input.path.jobId
-                    ]
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            OpenAPIRuntime.OpenAPIValueContainer.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetQuestionGenerationStatusV1AdminQuestionGenerationStatusJobIdGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
     /// Get Calibration Health
     ///
     /// Get calibration health summary for all questions.
@@ -4192,297 +4680,6 @@ public struct Client: APIProtocol {
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
                     let body: Operations.GetCalibrationHealthV1AdminQuestionsCalibrationHealthGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Discrimination Report Endpoint
-    ///
-    /// Get comprehensive discrimination report for all questions.
-    ///
-    /// Provides an overview of question discrimination quality across the entire
-    /// question pool, useful for monitoring test quality and identifying
-    /// problematic questions that need attention.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// **Quality Tiers:**
-    /// - Excellent: r >= 0.40 (very good discrimination)
-    /// - Good: 0.30 <= r < 0.40 (good discrimination)
-    /// - Acceptable: 0.20 <= r < 0.30 (adequate discrimination)
-    /// - Poor: 0.10 <= r < 0.20 (poor discrimination)
-    /// - Very Poor: 0.00 <= r < 0.10 (very poor discrimination)
-    /// - Negative: r < 0.00 (problematic - high scorers miss more)
-    ///
-    /// **Report Sections:**
-    /// - summary: Count of questions in each quality tier
-    /// - quality_distribution: Percentage breakdown of quality tiers
-    /// - by_difficulty: Mean discrimination and negative count by difficulty level
-    /// - by_type: Mean discrimination and negative count by question type
-    /// - action_needed: Questions requiring immediate_review or monitoring
-    /// - trends: 30-day mean discrimination and new negatives this week
-    ///
-    /// Args:
-    ///     min_responses: Minimum response count for question inclusion (default: 30)
-    ///     action_list_limit: Maximum items per action_needed list (default: 100).
-    ///         Results are ordered by discrimination (worst first) so the most
-    ///         problematic questions appear at the top.
-    ///     db: Database session
-    ///     _: Admin token validation dependency
-    ///
-    /// Returns:
-    ///     DiscriminationReportResponse with comprehensive quality metrics
-    ///
-    /// Example:
-    ///     ```
-    ///     curl "https://api.example.com/v1/admin/questions/discrimination-report?min_responses=50&action_list_limit=25" \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `GET /v1/admin/questions/discrimination-report`.
-    /// - Remark: Generated from `#/paths//v1/admin/questions/discrimination-report/get(get_discrimination_report_endpoint_v1_admin_questions_discrimination_report_get)`.
-    public func getDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet(_ input: Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.Input) async throws -> Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/questions/discrimination-report",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "min_responses",
-                    value: input.query.minResponses
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "action_list_limit",
-                    value: input.query.actionListLimit
-                )
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.DiscriminationReportResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Distractor Summary
-    ///
-    /// Get aggregate distractor analysis statistics across all questions.
-    ///
-    /// Provides a summary of distractor effectiveness across all multiple-choice
-    /// questions with sufficient response data. This helps identify systemic
-    /// issues with question quality and prioritize question improvements.
-    ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// **Summary Statistics:**
-    /// - Total questions analyzed (meeting minimum response threshold)
-    /// - Questions with non-functioning distractors (selected by <2%)
-    /// - Questions with inverted distractors (high scorers prefer wrong answers)
-    ///
-    /// **Breakdown by Non-Functioning Count:**
-    /// - How many questions have 0, 1, 2, or 3+ non-functioning distractors
-    ///
-    /// **Worst Offenders:**
-    /// - Top 10 questions with the most distractor issues, sorted by severity
-    /// - Severity is calculated as: (non_functioning * 2) + inverted
-    ///
-    /// **By Question Type:**
-    /// - Stats grouped by question type (pattern, logic, spatial, etc.)
-    /// - Helps identify if certain question types have more distractor issues
-    ///
-    /// Args:
-    ///     min_responses: Minimum number of responses required for analysis (default: 50)
-    ///     question_type: Optional filter by question type
-    ///     db: Database session
-    ///     _: Admin token validation dependency
-    ///
-    /// Returns:
-    ///     DistractorSummaryResponse with aggregate statistics
-    ///
-    /// Example:
-    ///     ```
-    ///     # Get summary for all questions
-    ///     curl "https://api.example.com/v1/admin/questions/distractor-summary" \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///
-    ///     # Filter by question type
-    ///     curl "https://api.example.com/v1/admin/questions/distractor-summary?question_type=pattern" \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///
-    ///     # Increase minimum response threshold
-    ///     curl "https://api.example.com/v1/admin/questions/distractor-summary?min_responses=100" \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `GET /v1/admin/questions/distractor-summary`.
-    /// - Remark: Generated from `#/paths//v1/admin/questions/distractor-summary/get(get_distractor_summary_v1_admin_questions_distractor_summary_get)`.
-    public func getDistractorSummaryV1AdminQuestionsDistractorSummaryGet(_ input: Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.Input) async throws -> Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/admin/questions/distractor-summary",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "min_responses",
-                    value: input.query.minResponses
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "question_type",
-                    value: input.query.questionType
-                )
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "x-admin-token",
-                    value: input.headers.xAdminToken
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.DistractorSummaryResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -4660,33 +4857,75 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Toggle Anchor
+    /// Get Calibration Status
     ///
-    /// Toggle anchor designation for a single question.
+    /// Get IRT calibration readiness dashboard with comprehensive metrics.
     ///
-    /// Sets or clears the is_anchor flag and updates the anchor_designated_at
-    /// timestamp accordingly.
+    /// Returns detailed calibration statistics to help monitor progress toward
+    /// IRT parameter estimation. Tracks response counts per item, per-domain
+    /// aggregates, and progress toward the 500-test threshold.
     ///
-    /// Requires X-Admin-Token header.
+    /// Requires X-Admin-Token header with valid admin token.
     ///
-    /// - Remark: HTTP `PATCH /v1/admin/questions/{question_id}/anchor`.
-    /// - Remark: Generated from `#/paths//v1/admin/questions/{question_id}/anchor/patch(toggle_anchor_v1_admin_questions__question_id__anchor_patch)`.
-    public func toggleAnchorV1AdminQuestionsQuestionIdAnchorPatch(_ input: Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.Input) async throws -> Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.Output {
+    /// **Calibration Requirements:**
+    /// - **Per-item threshold**: >= 50 responses (configurable via query param)
+    /// - **Target tests**: 500 completed test sessions for stable IRT parameters
+    /// - **Domain coverage**: All question types should have sufficient data
+    ///
+    /// **Response Count Buckets:**
+    /// - `0`: Items with no responses yet
+    /// - `1-9`: Very low response count
+    /// - `10-24`: Low response count
+    /// - `25-49`: Approaching threshold
+    /// - `50-99`: Ready for calibration
+    /// - `100+`: Well-calibrated
+    ///
+    /// **Readiness Levels:**
+    /// - `ready`: >= 80% of items ready for calibration
+    /// - `approaching`: >= 40% of items ready for calibration
+    /// - `not_ready`: < 40% of items ready for calibration
+    ///
+    /// Args:
+    ///     min_responses_threshold: Minimum responses per item for calibration readiness
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     CalibrationMonitoringResponse with complete calibration dashboard
+    ///
+    /// Example:
+    ///     ```
+    ///     curl "https://api.example.com/v1/admin/calibration-status" \\
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///
+    ///     # Use custom threshold
+    ///     curl "https://api.example.com/v1/admin/calibration-status?min_responses_threshold=100" \\
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/calibration-status`.
+    /// - Remark: Generated from `#/paths//v1/admin/calibration-status/get(get_calibration_status_v1_admin_calibration_status_get)`.
+    public func getCalibrationStatusV1AdminCalibrationStatusGet(_ input: Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.Input) async throws -> Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.id,
+            forOperation: Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/questions/{}/anchor",
-                    parameters: [
-                        input.path.questionId
-                    ]
+                    template: "/v1/admin/calibration-status",
+                    parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .patch
+                    method: .get
                 )
                 suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "min_responses_threshold",
+                    value: input.query.minResponsesThreshold
+                )
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
                     name: "x-admin-token",
@@ -4696,22 +4935,13 @@ public struct Client: APIProtocol {
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
+                return (request, nil)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.Output.Ok.Body
+                    let body: Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -4721,7 +4951,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.AnchorToggleResponse.self,
+                            Components.Schemas.CalibrationMonitoringResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -4731,11 +4961,9 @@ public struct Client: APIProtocol {
                         preconditionFailure("bestContentType chose an invalid content type.")
                     }
                     return .ok(.init(body: body))
-                case 404:
-                    return .notFound(.init())
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.Output.UnprocessableContent.Body
+                    let body: Operations.GetCalibrationStatusV1AdminCalibrationStatusGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -4767,55 +4995,54 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Discrimination Detail Endpoint
+    /// Get Response Time Analytics
     ///
-    /// Get detailed discrimination info for a specific question.
+    /// Get aggregate response time analytics across all completed test sessions.
     ///
-    /// Provides in-depth discrimination analysis for a single question, including
-    /// comparison to type and difficulty averages, percentile ranking, and
-    /// quality flag status.
+    /// Returns comprehensive timing statistics including overall test duration,
+    /// breakdown by difficulty level and question type, and a summary of
+    /// timing anomalies (rapid responses, extended times, validity concerns).
     ///
     /// Requires X-Admin-Token header with valid admin token.
     ///
-    /// **Response Fields:**
-    /// - discrimination: Current point-biserial correlation value
-    /// - quality_tier: Classification (excellent, good, acceptable, poor, very_poor, negative)
-    /// - response_count: Number of responses used for calculation
-    /// - compared_to_type_avg: How this question compares to its type average (above, below, at)
-    /// - compared_to_difficulty_avg: How this question compares to its difficulty average
-    /// - percentile_rank: Position among all questions (0-100)
-    /// - quality_flag: Current flag status (normal, under_review, deactivated)
-    /// - history: Historical discrimination values (if available)
+    /// **Overall Statistics:**
+    /// - Mean and median total test duration in seconds
+    /// - Mean time per question across all responses
+    ///
+    /// **By Difficulty:**
+    /// - Mean and median response time for easy, medium, and hard questions
+    ///
+    /// **By Question Type:**
+    /// - Mean response time for each question type (pattern, logic, spatial, math, verbal, memory)
+    ///
+    /// **Anomaly Summary:**
+    /// - Count of sessions with rapid responses (< 3 seconds per question)
+    /// - Count of sessions with extended response times (> 5 minutes per question)
+    /// - Percentage of sessions flagged with validity concerns
     ///
     /// Args:
-    ///     question_id: The unique identifier of the question to analyze
     ///     db: Database session
     ///     _: Admin token validation dependency
     ///
     /// Returns:
-    ///     DiscriminationDetailResponse with detailed question analysis
-    ///
-    /// Raises:
-    ///     HTTPException 404: If the question is not found
+    ///     ResponseTimeAnalyticsResponse with aggregate timing statistics
     ///
     /// Example:
     ///     ```
-    ///     curl "https://api.example.com/v1/admin/questions/123/discrimination-detail" \
+    ///     curl "https://api.example.com/v1/admin/analytics/response-times" \
     ///       -H "X-Admin-Token: your-admin-token"
     ///     ```
     ///
-    /// - Remark: HTTP `GET /v1/admin/questions/{question_id}/discrimination-detail`.
-    /// - Remark: Generated from `#/paths//v1/admin/questions/{question_id}/discrimination-detail/get(get_discrimination_detail_endpoint_v1_admin_questions__question_id__discrimination_detail_get)`.
-    public func getDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet(_ input: Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.Input) async throws -> Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.Output {
+    /// - Remark: HTTP `GET /v1/admin/analytics/response-times`.
+    /// - Remark: Generated from `#/paths//v1/admin/analytics/response-times/get(get_response_time_analytics_v1_admin_analytics_response_times_get)`.
+    public func getResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet(_ input: Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.Input) async throws -> Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.id,
+            forOperation: Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/questions/{}/discrimination-detail",
-                    parameters: [
-                        input.path.questionId
-                    ]
+                    template: "/v1/admin/analytics/response-times",
+                    parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
@@ -4837,7 +5064,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.Output.Ok.Body
+                    let body: Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -4847,7 +5074,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.DiscriminationDetailResponse.self,
+                            Components.Schemas.ResponseTimeAnalyticsResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -4857,11 +5084,265 @@ public struct Client: APIProtocol {
                         preconditionFailure("bestContentType chose an invalid content type.")
                     }
                     return .ok(.init(body: body))
-                case 404:
-                    return .notFound(.init())
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.Output.UnprocessableContent.Body
+                    let body: Operations.GetResponseTimeAnalyticsV1AdminAnalyticsResponseTimesGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Detailed Response Time Analytics
+    ///
+    /// Get detailed response time percentile distributions by question type and difficulty.
+    ///
+    /// Returns privacy-preserving aggregate statistics (no individual user tracking)
+    /// including median (p50), p90, and p95 percentiles for each combination of
+    /// question type and difficulty level. Use this data to validate whether current
+    /// time limits are appropriate for each question category.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// **By Type and Difficulty:**
+    /// - Percentile stats for each (question_type, difficulty_level) combination
+    ///
+    /// **By Type:**
+    /// - Percentile stats aggregated by question type across all difficulties
+    ///
+    /// **By Difficulty:**
+    /// - Percentile stats aggregated by difficulty level across all types
+    ///
+    /// **Overall:**
+    /// - Percentile stats across all response times
+    ///
+    /// - Remark: HTTP `GET /v1/admin/analytics/response-times/detailed`.
+    /// - Remark: Generated from `#/paths//v1/admin/analytics/response-times/detailed/get(get_detailed_response_time_analytics_v1_admin_analytics_response_times_detailed_get)`.
+    public func getDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet(_ input: Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.Input) async throws -> Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/analytics/response-times/detailed",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.DetailedResponseTimeAnalyticsResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDetailedResponseTimeAnalyticsV1AdminAnalyticsResponseTimesDetailedGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Factor Analysis
+    ///
+    /// Perform factor analysis to calculate empirical g-loadings per domain.
+    ///
+    /// This endpoint runs a factor analysis on all completed test sessions to
+    /// determine how strongly each cognitive domain correlates with general
+    /// intelligence (g). Results can be used to inform weighted scoring.
+    ///
+    /// **Requirements:**
+    /// - Minimum 500 completed test sessions
+    /// - Questions must have at least min_responses_per_question responses
+    ///
+    /// **Returns:**
+    /// - g_loadings: Correlation of each domain with the g-factor (0-1)
+    /// - variance_explained: How much variance the g-factor explains
+    /// - reliability: Cronbach's alpha for internal consistency
+    /// - recommendations: Actionable insights based on the results
+    ///
+    /// **Interpretation:**
+    /// - Higher g-loadings indicate stronger correlation with general intelligence
+    /// - Variance explained > 40% suggests a strong general factor
+    /// - Cronbach's alpha >= 0.7 indicates acceptable reliability
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/analytics/factor-analysis`.
+    /// - Remark: Generated from `#/paths//v1/admin/analytics/factor-analysis/get(get_factor_analysis_v1_admin_analytics_factor_analysis_get)`.
+    public func getFactorAnalysisV1AdminAnalyticsFactorAnalysisGet(_ input: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Input) async throws -> Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/analytics/factor-analysis",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "min_responses_per_question",
+                    value: input.query.minResponsesPerQuestion
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "max_responses",
+                    value: input.query.maxResponses
+                )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.FactorAnalysisResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 400:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Output.BadRequest.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.InsufficientSampleResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .badRequest(.init(body: body))
+                case 401:
+                    return .unauthorized(.init())
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetFactorAnalysisV1AdminAnalyticsFactorAnalysisGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -4999,13 +5480,1377 @@ public struct Client: APIProtocol {
                         preconditionFailure("bestContentType chose an invalid content type.")
                     }
                     return .ok(.init(body: body))
+                case 404:
+                    return .notFound(.init())
                 case 400:
                     return .badRequest(.init())
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDistractorAnalysisV1AdminQuestionsQuestionIdDistractorAnalysisGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Distractor Summary
+    ///
+    /// Get aggregate distractor analysis statistics across all questions.
+    ///
+    /// Provides a summary of distractor effectiveness across all multiple-choice
+    /// questions with sufficient response data. This helps identify systemic
+    /// issues with question quality and prioritize question improvements.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// **Summary Statistics:**
+    /// - Total questions analyzed (meeting minimum response threshold)
+    /// - Questions with non-functioning distractors (selected by <2%)
+    /// - Questions with inverted distractors (high scorers prefer wrong answers)
+    ///
+    /// **Breakdown by Non-Functioning Count:**
+    /// - How many questions have 0, 1, 2, or 3+ non-functioning distractors
+    ///
+    /// **Worst Offenders:**
+    /// - Top 10 questions with the most distractor issues, sorted by severity
+    /// - Severity is calculated as: (non_functioning * 2) + inverted
+    ///
+    /// **By Question Type:**
+    /// - Stats grouped by question type (pattern, logic, spatial, etc.)
+    /// - Helps identify if certain question types have more distractor issues
+    ///
+    /// Args:
+    ///     min_responses: Minimum number of responses required for analysis (default: 50)
+    ///     question_type: Optional filter by question type
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     DistractorSummaryResponse with aggregate statistics
+    ///
+    /// Example:
+    ///     ```
+    ///     # Get summary for all questions
+    ///     curl "https://api.example.com/v1/admin/questions/distractor-summary" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///
+    ///     # Filter by question type
+    ///     curl "https://api.example.com/v1/admin/questions/distractor-summary?question_type=pattern" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///
+    ///     # Increase minimum response threshold
+    ///     curl "https://api.example.com/v1/admin/questions/distractor-summary?min_responses=100" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/questions/distractor-summary`.
+    /// - Remark: Generated from `#/paths//v1/admin/questions/distractor-summary/get(get_distractor_summary_v1_admin_questions_distractor_summary_get)`.
+    public func getDistractorSummaryV1AdminQuestionsDistractorSummaryGet(_ input: Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.Input) async throws -> Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/questions/distractor-summary",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "min_responses",
+                    value: input.query.minResponses
+                )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.DistractorSummaryResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDistractorSummaryV1AdminQuestionsDistractorSummaryGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Session Validity
+    ///
+    /// Get detailed validity analysis for a single test session.
+    ///
+    /// Returns the validity assessment for a specific test session, including
+    /// the overall validity status, severity score, confidence level, and
+    /// detailed breakdown of each validity check component.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// **Validity Status:**
+    /// - `valid`: No significant concerns, session is valid
+    /// - `suspect`: Moderate concerns, may need manual review
+    /// - `invalid`: Strong concerns, requires admin review
+    ///
+    /// **Severity Score:**
+    /// Combined score from all validity checks:
+    /// - Aberrant person-fit: +2 points
+    /// - High-severity time flags: +2 points each
+    /// - High Guttman errors: +2 points
+    /// - Elevated Guttman errors: +1 point
+    ///
+    /// **Confidence:**
+    /// Inverse of severity (1.0 = fully confident, decreases by 0.15 per severity point)
+    ///
+    /// **On-Demand Analysis:**
+    /// If the session has not been validity-checked yet (sessions from before CD-007),
+    /// validity analysis will be performed on-demand and the result will be returned
+    /// (but not stored).
+    ///
+    /// Args:
+    ///     session_id: The test session ID to analyze
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     SessionValidityResponse with full validity breakdown
+    ///
+    /// Raises:
+    ///     HTTPException 404: If the test session is not found
+    ///
+    /// Example:
+    ///     ```
+    ///     curl "https://api.example.com/v1/admin/sessions/123/validity" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/sessions/{session_id}/validity`.
+    /// - Remark: Generated from `#/paths//v1/admin/sessions/{session_id}/validity/get(get_session_validity_v1_admin_sessions__session_id__validity_get)`.
+    public func getSessionValidityV1AdminSessionsSessionIdValidityGet(_ input: Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.Input) async throws -> Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/sessions/{}/validity",
+                    parameters: [
+                        input.path.sessionId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.SessionValidityResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
                 case 404:
                     return .notFound(.init())
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetDistractorAnalysisV1AdminQuestionsQuestionIdDistractorAnalysisGet.Output.UnprocessableContent.Body
+                    let body: Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Override Session Validity
+    ///
+    /// Override the validity status of a test session after admin review.
+    ///
+    /// Allows administrators to manually change the validity assessment for a
+    /// session after investigating the flags. This is essential for handling
+    /// false positives (legitimate sessions incorrectly flagged) and false
+    /// negatives (invalid sessions that passed automatic checks).
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// **Important Notes:**
+    /// - A reason must be provided (minimum 10 characters) for audit purposes
+    /// - The previous validity status is preserved for audit trail
+    /// - Override timestamp and admin placeholder are recorded
+    /// - All override actions are logged for security monitoring
+    ///
+    /// **Use Cases:**
+    /// - Clearing a false positive: User was flagged for rapid responses but
+    ///   review confirms they're a fast reader with consistent test history
+    /// - Marking a false negative: Session passed checks but investigation
+    ///   reveals the account was shared or test was taken inappropriately
+    /// - Downgrading after investigation: Session was flagged as "invalid"
+    ///   but evidence suggests only moderate concern ("suspect")
+    ///
+    /// Args:
+    ///     session_id: The test session ID to update
+    ///     request: Override request with new status and reason
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     ValidityOverrideResponse confirming the update
+    ///
+    /// Raises:
+    ///     HTTPException 404: If the test session is not found
+    ///
+    /// Example:
+    ///     ```
+    ///     curl -X PATCH "https://api.example.com/v1/admin/sessions/123/validity" \
+    ///       -H "X-Admin-Token: your-admin-token" \
+    ///       -H "Content-Type: application/json" \
+    ///       -d '{
+    ///         "validity_status": "valid",
+    ///         "override_reason": "Manual review confirmed legitimate pattern. User has consistent test history and rapid responses were on very easy questions."
+    ///       }'
+    ///     ```
+    ///
+    /// - Remark: HTTP `PATCH /v1/admin/sessions/{session_id}/validity`.
+    /// - Remark: Generated from `#/paths//v1/admin/sessions/{session_id}/validity/patch(override_session_validity_v1_admin_sessions__session_id__validity_patch)`.
+    public func overrideSessionValidityV1AdminSessionsSessionIdValidityPatch(_ input: Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.Input) async throws -> Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/sessions/{}/validity",
+                    parameters: [
+                        input.path.sessionId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .patch
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ValidityOverrideResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 404:
+                    return .notFound(.init())
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Validity Report
+    ///
+    /// Get aggregate validity statistics across all test sessions.
+    ///
+    /// Returns a comprehensive summary of validity analysis results including
+    /// status breakdowns, flag type counts, trend comparisons, and a list of
+    /// sessions requiring admin review.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// **Summary Statistics:**
+    /// - Total sessions analyzed in the period
+    /// - Count by validity status (valid, suspect, invalid)
+    ///
+    /// **Flag Type Breakdown:**
+    /// - Count of each flag type detected across sessions
+    /// - Helps identify most common validity concerns
+    ///
+    /// **Trend Analysis:**
+    /// - Compares invalid/suspect rates between last 7 days and full period
+    /// - Trend indicator: "improving", "stable", or "worsening"
+    ///
+    /// **Action Needed:**
+    /// - List of sessions with invalid or suspect status needing review
+    /// - Sorted by severity score (most severe first)
+    /// - Limited to top 50 sessions to keep response manageable
+    ///
+    /// Args:
+    ///     days: Number of days to analyze (default: 30, max: 365)
+    ///     status: Optional filter by validity status
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     ValiditySummaryResponse with aggregate validity statistics
+    ///
+    /// Example:
+    ///     ```
+    ///     # Get 30-day validity report
+    ///     curl "https://api.example.com/v1/admin/validity-report" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///
+    ///     # Get 7-day report for invalid sessions only
+    ///     curl "https://api.example.com/v1/admin/validity-report?days=7&status=invalid" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/validity-report`.
+    /// - Remark: Generated from `#/paths//v1/admin/validity-report/get(get_validity_report_v1_admin_validity_report_get)`.
+    public func getValidityReportV1AdminValidityReportGet(_ input: Operations.GetValidityReportV1AdminValidityReportGet.Input) async throws -> Operations.GetValidityReportV1AdminValidityReportGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetValidityReportV1AdminValidityReportGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/validity-report",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "days",
+                    value: input.query.days
+                )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetValidityReportV1AdminValidityReportGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ValiditySummaryResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetValidityReportV1AdminValidityReportGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Weighted Scoring Status
+    ///
+    /// Get the current weighted scoring configuration status.
+    ///
+    /// Returns whether weighted scoring is enabled and the current domain weights
+    /// if configured.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// Returns:
+    ///     WeightedScoringStatus with enabled flag and domain weights
+    ///
+    /// Example:
+    ///     ```
+    ///     curl "https://api.example.com/v1/admin/config/weighted-scoring" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/config/weighted-scoring`.
+    /// - Remark: Generated from `#/paths//v1/admin/config/weighted-scoring/get(get_weighted_scoring_status_v1_admin_config_weighted_scoring_get)`.
+    public func getWeightedScoringStatusV1AdminConfigWeightedScoringGet(_ input: Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.Input) async throws -> Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/config/weighted-scoring",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.WeightedScoringStatus.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetWeightedScoringStatusV1AdminConfigWeightedScoringGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Toggle Weighted Scoring
+    ///
+    /// Enable or disable weighted scoring.
+    ///
+    /// When enabled, IQ scores are calculated using domain weights that reflect
+    /// each domain's correlation with general intelligence (g-loading). When
+    /// disabled, all domains are weighted equally.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// Args:
+    ///     request: WeightedScoringToggleRequest with enabled flag
+    ///
+    /// Returns:
+    ///     WeightedScoringToggleResponse with new status and confirmation message
+    ///
+    /// Example:
+    ///     ```
+    ///     curl -X POST "https://api.example.com/v1/admin/config/weighted-scoring" \
+    ///       -H "X-Admin-Token: your-admin-token" \
+    ///       -H "Content-Type: application/json" \
+    ///       -d '{"enabled": true}'
+    ///     ```
+    ///
+    /// - Remark: HTTP `POST /v1/admin/config/weighted-scoring`.
+    /// - Remark: Generated from `#/paths//v1/admin/config/weighted-scoring/post(toggle_weighted_scoring_v1_admin_config_weighted_scoring_post)`.
+    public func toggleWeightedScoringV1AdminConfigWeightedScoringPost(_ input: Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.Input) async throws -> Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/config/weighted-scoring",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.WeightedScoringToggleResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.ToggleWeightedScoringV1AdminConfigWeightedScoringPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Domain Weights Config
+    ///
+    /// Get the current domain weights configuration.
+    ///
+    /// Returns the configured domain weights used for weighted scoring calculations.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// Returns:
+    ///     DomainWeightsResponse with weights, or None if not configured
+    ///
+    /// Example:
+    ///     ```
+    ///     curl "https://api.example.com/v1/admin/config/domain-weights" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/config/domain-weights`.
+    /// - Remark: Generated from `#/paths//v1/admin/config/domain-weights/get(get_domain_weights_config_v1_admin_config_domain_weights_get)`.
+    public func getDomainWeightsConfigV1AdminConfigDomainWeightsGet(_ input: Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.Input) async throws -> Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/config/domain-weights",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    return .ok(.init())
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDomainWeightsConfigV1AdminConfigDomainWeightsGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Set Domain Weights Config
+    ///
+    /// Set the domain weights for weighted scoring.
+    ///
+    /// Domain weights determine how much each cognitive domain contributes to the
+    /// final IQ score. Weights should reflect each domain's g-loading (correlation
+    /// with general intelligence).
+    ///
+    /// The weights should ideally sum to 1.0, but will be normalized during
+    /// scoring calculations if they don't.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// Args:
+    ///     request: DomainWeightsRequest with weights dictionary
+    ///
+    /// Returns:
+    ///     DomainWeightsResponse with confirmation
+    ///
+    /// Example:
+    ///     ```
+    ///     curl -X POST "https://api.example.com/v1/admin/config/domain-weights" \
+    ///       -H "X-Admin-Token: your-admin-token" \
+    ///       -H "Content-Type: application/json" \
+    ///       -d '{"weights": {"pattern": 0.20, "logic": 0.18, "spatial": 0.16, "math": 0.17, "verbal": 0.15, "memory": 0.14}}'
+    ///     ```
+    ///
+    /// - Remark: HTTP `POST /v1/admin/config/domain-weights`.
+    /// - Remark: Generated from `#/paths//v1/admin/config/domain-weights/post(set_domain_weights_config_v1_admin_config_domain_weights_post)`.
+    public func setDomainWeightsConfigV1AdminConfigDomainWeightsPost(_ input: Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.Input) async throws -> Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/config/domain-weights",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.DomainWeightsResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SetDomainWeightsConfigV1AdminConfigDomainWeightsPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Compare Scoring Methods
+    ///
+    /// Calculate and compare both equal-weight and weighted IQ scores for a test session.
+    ///
+    /// This endpoint is useful for A/B testing weighted scoring before enabling it.
+    /// It recalculates both scores from the stored domain_scores and allows comparison
+    /// without affecting the stored result.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// Args:
+    ///     session_id: The test session ID to calculate comparison for
+    ///
+    /// Returns:
+    ///     ABComparisonResult with both scores, difference, and details
+    ///
+    /// Example:
+    ///     ```
+    ///     curl "https://api.example.com/v1/admin/scoring/compare/123" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/scoring/compare/{session_id}`.
+    /// - Remark: Generated from `#/paths//v1/admin/scoring/compare/{session_id}/get(compare_scoring_methods_v1_admin_scoring_compare__session_id__get)`.
+    public func compareScoringMethodsV1AdminScoringCompareSessionIdGet(_ input: Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.Input) async throws -> Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/scoring/compare/{}",
+                    parameters: [
+                        input.path.sessionId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ABComparisonResult.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Discrimination Report Endpoint
+    ///
+    /// Get comprehensive discrimination report for all questions.
+    ///
+    /// Provides an overview of question discrimination quality across the entire
+    /// question pool, useful for monitoring test quality and identifying
+    /// problematic questions that need attention.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// **Quality Tiers:**
+    /// - Excellent: r >= 0.40 (very good discrimination)
+    /// - Good: 0.30 <= r < 0.40 (good discrimination)
+    /// - Acceptable: 0.20 <= r < 0.30 (adequate discrimination)
+    /// - Poor: 0.10 <= r < 0.20 (poor discrimination)
+    /// - Very Poor: 0.00 <= r < 0.10 (very poor discrimination)
+    /// - Negative: r < 0.00 (problematic - high scorers miss more)
+    ///
+    /// **Report Sections:**
+    /// - summary: Count of questions in each quality tier
+    /// - quality_distribution: Percentage breakdown of quality tiers
+    /// - by_difficulty: Mean discrimination and negative count by difficulty level
+    /// - by_type: Mean discrimination and negative count by question type
+    /// - action_needed: Questions requiring immediate_review or monitoring
+    /// - trends: 30-day mean discrimination and new negatives this week
+    ///
+    /// Args:
+    ///     min_responses: Minimum response count for question inclusion (default: 30)
+    ///     action_list_limit: Maximum items per action_needed list (default: 100).
+    ///         Results are ordered by discrimination (worst first) so the most
+    ///         problematic questions appear at the top.
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     DiscriminationReportResponse with comprehensive quality metrics
+    ///
+    /// Example:
+    ///     ```
+    ///     curl "https://api.example.com/v1/admin/questions/discrimination-report?min_responses=50&action_list_limit=25" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/questions/discrimination-report`.
+    /// - Remark: Generated from `#/paths//v1/admin/questions/discrimination-report/get(get_discrimination_report_endpoint_v1_admin_questions_discrimination_report_get)`.
+    public func getDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet(_ input: Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.Input) async throws -> Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/questions/discrimination-report",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "min_responses",
+                    value: input.query.minResponses
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "action_list_limit",
+                    value: input.query.actionListLimit
+                )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.DiscriminationReportResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDiscriminationReportEndpointV1AdminQuestionsDiscriminationReportGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Discrimination Detail Endpoint
+    ///
+    /// Get detailed discrimination info for a specific question.
+    ///
+    /// Provides in-depth discrimination analysis for a single question, including
+    /// comparison to type and difficulty averages, percentile ranking, and
+    /// quality flag status.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// **Response Fields:**
+    /// - discrimination: Current point-biserial correlation value
+    /// - quality_tier: Classification (excellent, good, acceptable, poor, very_poor, negative)
+    /// - response_count: Number of responses used for calculation
+    /// - compared_to_type_avg: How this question compares to its type average (above, below, at)
+    /// - compared_to_difficulty_avg: How this question compares to its difficulty average
+    /// - percentile_rank: Position among all questions (0-100)
+    /// - quality_flag: Current flag status (normal, under_review, deactivated)
+    /// - history: Historical discrimination values (if available)
+    ///
+    /// Args:
+    ///     question_id: The unique identifier of the question to analyze
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     DiscriminationDetailResponse with detailed question analysis
+    ///
+    /// Raises:
+    ///     HTTPException 404: If the question is not found
+    ///
+    /// Example:
+    ///     ```
+    ///     curl "https://api.example.com/v1/admin/questions/123/discrimination-detail" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/questions/{question_id}/discrimination-detail`.
+    /// - Remark: Generated from `#/paths//v1/admin/questions/{question_id}/discrimination-detail/get(get_discrimination_detail_endpoint_v1_admin_questions__question_id__discrimination_detail_get)`.
+    public func getDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet(_ input: Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.Input) async throws -> Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/questions/{}/discrimination-detail",
+                    parameters: [
+                        input.path.questionId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.DiscriminationDetailResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 404:
+                    return .notFound(.init())
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetDiscriminationDetailEndpointV1AdminQuestionsQuestionIdDiscriminationDetailGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -5336,13 +7181,6 @@ public struct Client: APIProtocol {
                     in: &request,
                     style: .form,
                     explode: true,
-                    name: "metric_type",
-                    value: input.query.metricType
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
                     name: "days",
                     value: input.query.days
                 )
@@ -5417,44 +7255,47 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Compare Scoring Methods
+    /// Send Day 30 Reminders
     ///
-    /// Calculate and compare both equal-weight and weighted IQ scores for a test session.
+    /// Send Day 30 reminder notifications to eligible users.
     ///
-    /// This endpoint is useful for A/B testing weighted scoring before enabling it.
-    /// It recalculates both scores from the stored domain_scores and allows comparison
-    /// without affecting the stored result.
+    /// This endpoint identifies users who completed their first test approximately
+    /// 30 days ago and sends them a reminder notification. This is part of Phase 2.2
+    /// (Provisional Notifications) to re-engage users early in their journey.
+    ///
+    /// The notification is designed for provisional authorization:
+    /// - No sound (silent delivery)
+    /// - No badge increment
+    /// - Appears only in Notification Center
+    ///
+    /// Users with full notification authorization will also receive this notification,
+    /// but with the same silent characteristics for consistency.
     ///
     /// Requires X-Admin-Token header with valid admin token.
     ///
-    /// Args:
-    ///     session_id: The test session ID to calculate comparison for
-    ///
     /// Returns:
-    ///     ABComparisonResult with both scores, difference, and details
+    ///     Day30ReminderResponse with counts of users found and notifications sent
     ///
     /// Example:
     ///     ```
-    ///     curl "https://api.example.com/v1/admin/scoring/compare/123" \
+    ///     curl -X POST https://api.example.com/v1/admin/day-30-reminders/send \
     ///       -H "X-Admin-Token: your-admin-token"
     ///     ```
     ///
-    /// - Remark: HTTP `GET /v1/admin/scoring/compare/{session_id}`.
-    /// - Remark: Generated from `#/paths//v1/admin/scoring/compare/{session_id}/get(compare_scoring_methods_v1_admin_scoring_compare__session_id__get)`.
-    public func compareScoringMethodsV1AdminScoringCompareSessionIdGet(_ input: Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.Input) async throws -> Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.Output {
+    /// - Remark: HTTP `POST /v1/admin/day-30-reminders/send`.
+    /// - Remark: Generated from `#/paths//v1/admin/day-30-reminders/send/post(send_day_30_reminders_v1_admin_day_30_reminders_send_post)`.
+    public func sendDay30RemindersV1AdminDay30RemindersSendPost(_ input: Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.Input) async throws -> Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.id,
+            forOperation: Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/scoring/compare/{}",
-                    parameters: [
-                        input.path.sessionId
-                    ]
+                    template: "/v1/admin/day-30-reminders/send",
+                    parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
                 try converter.setHeaderFieldAsURI(
@@ -5472,7 +7313,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.Output.Ok.Body
+                    let body: Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -5482,7 +7323,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.ABComparisonResult.self,
+                            Components.Schemas.Day30ReminderResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -5494,7 +7335,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.CompareScoringMethodsV1AdminScoringCompareSessionIdGet.Output.UnprocessableContent.Body
+                    let body: Operations.SendDay30RemindersV1AdminDay30RemindersSendPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -5526,29 +7367,39 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Logout All Events
+    /// Preview Day 30 Reminders
     ///
-    /// Get logout-all event statistics for security monitoring.
+    /// Preview users who are eligible for Day 30 reminder notifications.
     ///
-    /// Returns aggregate statistics and per-user breakdowns of logout-all events,
-    /// including correlation with password reset activity within a 24-hour window.
-    ///
-    /// Supports pagination to access all events beyond the default page size.
-    ///
-    /// Note: Only the most recent logout-all event per user is tracked (the
-    /// ``token_revoked_before`` column is overwritten on each invocation).
+    /// This endpoint returns a list of users who would receive Day 30 reminders
+    /// if the send endpoint were called. Useful for verifying the query logic
+    /// and previewing the notification recipients before sending.
     ///
     /// Requires X-Admin-Token header with valid admin token.
     ///
-    /// - Remark: HTTP `GET /v1/admin/security/logout-all-events`.
-    /// - Remark: Generated from `#/paths//v1/admin/security/logout-all-events/get(get_logout_all_events_v1_admin_security_logout_all_events_get)`.
-    public func getLogoutAllEventsV1AdminSecurityLogoutAllEventsGet(_ input: Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.Input) async throws -> Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.Output {
+    /// Args:
+    ///     limit: Maximum number of users to return (1-100, default: 50)
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     Day30ReminderPreviewResponse with list of eligible users
+    ///
+    /// Example:
+    ///     ```
+    ///     curl "https://api.example.com/v1/admin/day-30-reminders/preview?limit=10" \
+    ///       -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/day-30-reminders/preview`.
+    /// - Remark: Generated from `#/paths//v1/admin/day-30-reminders/preview/get(preview_day_30_reminders_v1_admin_day_30_reminders_preview_get)`.
+    public func previewDay30RemindersV1AdminDay30RemindersPreviewGet(_ input: Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.Input) async throws -> Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.id,
+            forOperation: Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/security/logout-all-events",
+                    template: "/v1/admin/day-30-reminders/preview",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -5560,22 +7411,8 @@ public struct Client: APIProtocol {
                     in: &request,
                     style: .form,
                     explode: true,
-                    name: "time_range",
-                    value: input.query.timeRange
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "page",
-                    value: input.query.page
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "page_size",
-                    value: input.query.pageSize
+                    name: "limit",
+                    value: input.query.limit
                 )
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
@@ -5592,7 +7429,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.Output.Ok.Body
+                    let body: Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -5602,7 +7439,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.LogoutAllStatsResponse.self,
+                            Components.Schemas.Day30ReminderPreviewResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -5614,7 +7451,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.Output.UnprocessableContent.Body
+                    let body: Operations.PreviewDay30RemindersV1AdminDay30RemindersPreviewGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -5646,53 +7483,79 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Delete Session
+    /// Get Inventory Health
     ///
-    /// Hard-delete a test session and all associated data.
+    /// Get question inventory health status across all type/difficulty strata.
     ///
-    /// Cascades automatically to responses, test results, and user questions.
-    /// Returns 204 on success, 404 if session not found.
-    ///
-    /// Use ?dry_run=true to preview what would be deleted without committing.
+    /// Returns detailed inventory statistics with health indicators to help
+    /// monitor question pool sufficiency. Useful for identifying which
+    /// question types/difficulties need more generation.
     ///
     /// Requires X-Admin-Token header with valid admin token.
     ///
+    /// **Health Status Thresholds:**
+    /// - `healthy`: count >= healthy_min (default: 50)
+    /// - `warning`: warning_min <= count < healthy_min (default: 20-49)
+    /// - `critical`: count < warning_min (default: < 20)
+    ///
+    /// **Query Parameters:**
+    /// - `healthy_min`: Minimum count for healthy status (configurable, default: 50)
+    /// - `warning_min`: Minimum count for warning status (configurable, default: 20)
+    ///
+    /// **Response Structure:**
+    /// - `total_active_questions`: Total count across all strata
+    /// - `strata`: List of all type/difficulty combinations with counts and status
+    /// - `alerts`: List of strata below healthy threshold requiring attention
+    /// - `thresholds`: The threshold values used for this assessment
+    /// - `summary`: Count of strata by status (healthy/warning/critical)
+    ///
     /// Args:
-    ///     session_id: ID of the test session to delete
-    ///     dry_run: If True, return a preview without deleting anything
+    ///     healthy_min: Minimum count for healthy status
+    ///     warning_min: Minimum count for warning status
     ///     db: Database session
     ///     _: Admin token validation dependency
     ///
     /// Returns:
-    ///     204 No Content on successful deletion, or SessionDeletionPreview on dry run
+    ///     InventoryHealthResponse with complete inventory breakdown
     ///
-    /// Raises:
-    ///     404: If the session does not exist
+    /// Example:
+    ///     ```
+    ///     # Use default thresholds
+    ///     curl "https://api.example.com/v1/admin/inventory-health"           -H "X-Admin-Token: your-admin-token"
     ///
-    /// - Remark: HTTP `DELETE /v1/admin/sessions/{session_id}`.
-    /// - Remark: Generated from `#/paths//v1/admin/sessions/{session_id}/delete(delete_session_v1_admin_sessions__session_id__delete)`.
-    public func deleteSessionV1AdminSessionsSessionIdDelete(_ input: Operations.DeleteSessionV1AdminSessionsSessionIdDelete.Input) async throws -> Operations.DeleteSessionV1AdminSessionsSessionIdDelete.Output {
+    ///     # Use custom thresholds
+    ///     curl "https://api.example.com/v1/admin/inventory-health?healthy_min=100&warning_min=30"           -H "X-Admin-Token: your-admin-token"
+    ///     ```
+    ///
+    /// - Remark: HTTP `GET /v1/admin/inventory-health`.
+    /// - Remark: Generated from `#/paths//v1/admin/inventory-health/get(get_inventory_health_v1_admin_inventory_health_get)`.
+    public func getInventoryHealthV1AdminInventoryHealthGet(_ input: Operations.GetInventoryHealthV1AdminInventoryHealthGet.Input) async throws -> Operations.GetInventoryHealthV1AdminInventoryHealthGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.DeleteSessionV1AdminSessionsSessionIdDelete.id,
+            forOperation: Operations.GetInventoryHealthV1AdminInventoryHealthGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/sessions/{}",
-                    parameters: [
-                        input.path.sessionId
-                    ]
+                    template: "/v1/admin/inventory-health",
+                    parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .delete
+                    method: .get
                 )
                 suppressMutabilityWarning(&request)
                 try converter.setQueryItemAsURI(
                     in: &request,
                     style: .form,
                     explode: true,
-                    name: "dry_run",
-                    value: input.query.dryRun
+                    name: "healthy_min",
+                    value: input.query.healthyMin
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "warning_min",
+                    value: input.query.warningMin
                 )
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
@@ -5708,14 +7571,30 @@ public struct Client: APIProtocol {
             deserializer: { response, responseBody in
                 switch response.status.code {
                 case 200:
-                    return .ok(.init())
-                case 204:
-                    return .noContent(.init())
-                case 404:
-                    return .notFound(.init())
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetInventoryHealthV1AdminInventoryHealthGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.InventoryHealthResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.DeleteSessionV1AdminSessionsSessionIdDelete.Output.UnprocessableContent.Body
+                    let body: Operations.GetInventoryHealthV1AdminInventoryHealthGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -5747,65 +7626,31 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Session Validity
+    /// Get Cat Readiness
     ///
-    /// Get detailed validity analysis for a single test session.
+    /// Get current CAT readiness status from SystemConfig.
     ///
-    /// Returns the validity assessment for a specific test session, including
-    /// the overall validity status, severity score, confidence level, and
-    /// detailed breakdown of each validity check component.
+    /// Returns the most recently persisted readiness evaluation result.
+    /// This is a cheap read from the system_config table — no computation.
     ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// **Validity Status:**
-    /// - `valid`: No significant concerns, session is valid
-    /// - `suspect`: Moderate concerns, may need manual review
-    /// - `invalid`: Strong concerns, requires admin review
-    ///
-    /// **Severity Score:**
-    /// Combined score from all validity checks:
-    /// - Aberrant person-fit: +2 points
-    /// - High-severity time flags: +2 points each
-    /// - High Guttman errors: +2 points
-    /// - Elevated Guttman errors: +1 point
-    ///
-    /// **Confidence:**
-    /// Inverse of severity (1.0 = fully confident, decreases by 0.15 per severity point)
-    ///
-    /// **On-Demand Analysis:**
-    /// If the session has not been validity-checked yet (sessions from before CD-007),
-    /// validity analysis will be performed on-demand and the result will be returned
-    /// (but not stored).
-    ///
-    /// Args:
-    ///     session_id: The test session ID to analyze
-    ///     db: Database session
-    ///     _: Admin token validation dependency
-    ///
-    /// Returns:
-    ///     SessionValidityResponse with full validity breakdown
-    ///
-    /// Raises:
-    ///     HTTPException 404: If the test session is not found
+    /// Requires X-Admin-Token header.
     ///
     /// Example:
     ///     ```
-    ///     curl "https://api.example.com/v1/admin/sessions/123/validity" \
-    ///       -H "X-Admin-Token: your-admin-token"
+    ///     curl "https://api.example.com/v1/admin/cat-readiness" \
+    ///       -H "X-Admin-Token: token"
     ///     ```
     ///
-    /// - Remark: HTTP `GET /v1/admin/sessions/{session_id}/validity`.
-    /// - Remark: Generated from `#/paths//v1/admin/sessions/{session_id}/validity/get(get_session_validity_v1_admin_sessions__session_id__validity_get)`.
-    public func getSessionValidityV1AdminSessionsSessionIdValidityGet(_ input: Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.Input) async throws -> Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.Output {
+    /// - Remark: HTTP `GET /v1/admin/cat-readiness`.
+    /// - Remark: Generated from `#/paths//v1/admin/cat-readiness/get(get_cat_readiness_v1_admin_cat_readiness_get)`.
+    public func getCatReadinessV1AdminCatReadinessGet(_ input: Operations.GetCatReadinessV1AdminCatReadinessGet.Input) async throws -> Operations.GetCatReadinessV1AdminCatReadinessGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.id,
+            forOperation: Operations.GetCatReadinessV1AdminCatReadinessGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/sessions/{}/validity",
-                    parameters: [
-                        input.path.sessionId
-                    ]
+                    template: "/v1/admin/cat-readiness",
+                    parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
@@ -5827,7 +7672,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.Output.Ok.Body
+                    let body: Operations.GetCatReadinessV1AdminCatReadinessGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -5837,7 +7682,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.SessionValidityResponse.self,
+                            Components.Schemas.CATReadinessResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -5847,11 +7692,9 @@ public struct Client: APIProtocol {
                         preconditionFailure("bestContentType chose an invalid content type.")
                     }
                     return .ok(.init(body: body))
-                case 404:
-                    return .notFound(.init())
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetSessionValidityV1AdminSessionsSessionIdValidityGet.Output.UnprocessableContent.Body
+                    let body: Operations.GetCatReadinessV1AdminCatReadinessGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -5883,65 +7726,221 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Override Session Validity
+    /// Evaluate Readiness
     ///
-    /// Override the validity status of a test session after admin review.
+    /// Run CAT readiness evaluation and persist result.
     ///
-    /// Allows administrators to manually change the validity assessment for a
-    /// session after investigating the flags. This is essential for handling
-    /// false positives (legitimate sessions incorrectly flagged) and false
-    /// negatives (invalid sessions that passed automatic checks).
+    /// Queries the question bank to evaluate IRT calibration readiness across
+    /// all 6 domains. Enables or disables CAT based on whether all domains
+    /// meet thresholds. The result is persisted to SystemConfig.
     ///
-    /// Requires X-Admin-Token header with valid admin token.
-    ///
-    /// **Important Notes:**
-    /// - A reason must be provided (minimum 10 characters) for audit purposes
-    /// - The previous validity status is preserved for audit trail
-    /// - Override timestamp and admin placeholder are recorded
-    /// - All override actions are logged for security monitoring
-    ///
-    /// **Use Cases:**
-    /// - Clearing a false positive: User was flagged for rapid responses but
-    ///   review confirms they're a fast reader with consistent test history
-    /// - Marking a false negative: Session passed checks but investigation
-    ///   reveals the account was shared or test was taken inappropriately
-    /// - Downgrading after investigation: Session was flagged as "invalid"
-    ///   but evidence suggests only moderate concern ("suspect")
-    ///
-    /// Args:
-    ///     session_id: The test session ID to update
-    ///     request: Override request with new status and reason
-    ///     db: Database session
-    ///     _: Admin token validation dependency
-    ///
-    /// Returns:
-    ///     ValidityOverrideResponse confirming the update
-    ///
-    /// Raises:
-    ///     HTTPException 404: If the test session is not found
+    /// Requires X-Admin-Token header.
     ///
     /// Example:
     ///     ```
-    ///     curl -X PATCH "https://api.example.com/v1/admin/sessions/123/validity" \
-    ///       -H "X-Admin-Token: your-admin-token" \
-    ///       -H "Content-Type: application/json" \
-    ///       -d '{
-    ///         "validity_status": "valid",
-    ///         "override_reason": "Manual review confirmed legitimate pattern. User has consistent test history and rapid responses were on very easy questions."
-    ///       }'
+    ///     curl -X POST "https://api.example.com/v1/admin/cat-readiness/evaluate" \
+    ///       -H "X-Admin-Token: token"
     ///     ```
     ///
-    /// - Remark: HTTP `PATCH /v1/admin/sessions/{session_id}/validity`.
-    /// - Remark: Generated from `#/paths//v1/admin/sessions/{session_id}/validity/patch(override_session_validity_v1_admin_sessions__session_id__validity_patch)`.
-    public func overrideSessionValidityV1AdminSessionsSessionIdValidityPatch(_ input: Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.Input) async throws -> Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.Output {
+    /// - Remark: HTTP `POST /v1/admin/cat-readiness/evaluate`.
+    /// - Remark: Generated from `#/paths//v1/admin/cat-readiness/evaluate/post(evaluate_readiness_v1_admin_cat_readiness_evaluate_post)`.
+    public func evaluateReadinessV1AdminCatReadinessEvaluatePost(_ input: Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.Input) async throws -> Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.id,
+            forOperation: Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/sessions/{}/validity",
+                    template: "/v1/admin/cat-readiness/evaluate",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.CATReadinessResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.EvaluateReadinessV1AdminCatReadinessEvaluatePost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// List Anchor Items
+    ///
+    /// List all designated anchor items with domain summaries.
+    ///
+    /// Returns anchor items grouped by domain with summary statistics including
+    /// difficulty distribution and average discrimination per domain.
+    ///
+    /// Requires X-Admin-Token header.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/anchor-items`.
+    /// - Remark: Generated from `#/paths//v1/admin/anchor-items/get(list_anchor_items_v1_admin_anchor_items_get)`.
+    public func listAnchorItemsV1AdminAnchorItemsGet(_ input: Operations.ListAnchorItemsV1AdminAnchorItemsGet.Input) async throws -> Operations.ListAnchorItemsV1AdminAnchorItemsGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.ListAnchorItemsV1AdminAnchorItemsGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/anchor-items",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.ListAnchorItemsV1AdminAnchorItemsGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.AnchorItemsListResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.ListAnchorItemsV1AdminAnchorItemsGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Toggle Anchor
+    ///
+    /// Toggle anchor designation for a single question.
+    ///
+    /// Sets or clears the is_anchor flag and updates the anchor_designated_at
+    /// timestamp accordingly.
+    ///
+    /// Requires X-Admin-Token header.
+    ///
+    /// - Remark: HTTP `PATCH /v1/admin/questions/{question_id}/anchor`.
+    /// - Remark: Generated from `#/paths//v1/admin/questions/{question_id}/anchor/patch(toggle_anchor_v1_admin_questions__question_id__anchor_patch)`.
+    public func toggleAnchorV1AdminQuestionsQuestionIdAnchorPatch(_ input: Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.Input) async throws -> Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/questions/{}/anchor",
                     parameters: [
-                        input.path.sessionId
+                        input.path.questionId
                     ]
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -5973,7 +7972,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.Output.Ok.Body
+                    let body: Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -5983,7 +7982,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.ValidityOverrideResponse.self,
+                            Components.Schemas.AnchorToggleResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -5997,7 +7996,7 @@ public struct Client: APIProtocol {
                     return .notFound(.init())
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.OverrideSessionValidityV1AdminSessionsSessionIdValidityPatch.Output.UnprocessableContent.Body
+                    let body: Operations.ToggleAnchorV1AdminQuestionsQuestionIdAnchorPatch.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -6029,32 +8028,47 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Shadow Cat Analysis
+    /// Auto Select Anchors
     ///
-    /// Comprehensive statistical analysis of shadow CAT vs fixed-form results.
+    /// Auto-select anchor items based on discrimination criteria.
     ///
-    /// Computes mean theta, mean SE, Pearson correlation between shadow IQ and
-    /// CTT IQ, Bland-Altman agreement metrics, stopping reason distribution,
-    /// and domain coverage statistics.
+    /// Clears existing anchors, then selects the best candidates for each
+    /// domain x difficulty combination. For each slot, eligible questions
+    /// (active, normal quality, discrimination >= threshold) are ordered by
+    /// discrimination DESC and the top candidates are selected.
     ///
     /// Requires X-Admin-Token header.
     ///
-    /// - Remark: HTTP `GET /v1/admin/shadow-cat/analysis`.
-    /// - Remark: Generated from `#/paths//v1/admin/shadow-cat/analysis/get(get_shadow_cat_analysis_v1_admin_shadow_cat_analysis_get)`.
-    public func getShadowCatAnalysisV1AdminShadowCatAnalysisGet(_ input: Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.Input) async throws -> Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.Output {
+    /// - Remark: HTTP `POST /v1/admin/anchor-items/auto-select`.
+    /// - Remark: Generated from `#/paths//v1/admin/anchor-items/auto-select/post(auto_select_anchors_v1_admin_anchor_items_auto_select_post)`.
+    public func autoSelectAnchorsV1AdminAnchorItemsAutoSelectPost(_ input: Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.Input) async throws -> Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.id,
+            forOperation: Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/shadow-cat/analysis",
+                    template: "/v1/admin/anchor-items/auto-select",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "dry_run",
+                    value: input.query.dryRun
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "min_discrimination",
+                    value: input.query.minDiscrimination
+                )
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
                     name: "x-admin-token",
@@ -6070,7 +8084,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.Output.Ok.Body
+                    let body: Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -6080,7 +8094,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.ShadowCATAnalysisResponse.self,
+                            Components.Schemas.AnchorAutoSelectResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -6092,7 +8106,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.Output.UnprocessableContent.Body
+                    let body: Operations.AutoSelectAnchorsV1AdminAnchorItemsAutoSelectPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -6124,29 +8138,24 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Collection Progress
+    /// Trigger Calibration
     ///
-    /// Track progress toward the 100-session shadow testing data collection goal.
+    /// Trigger an IRT calibration run. Only one can run at a time.
     ///
-    /// Returns the total number of shadow CAT sessions collected, whether the
-    /// milestone has been reached, and the date range of collected data.
-    ///
-    /// Requires X-Admin-Token header.
-    ///
-    /// - Remark: HTTP `GET /v1/admin/shadow-cat/collection-progress`.
-    /// - Remark: Generated from `#/paths//v1/admin/shadow-cat/collection-progress/get(get_collection_progress_v1_admin_shadow_cat_collection_progress_get)`.
-    public func getCollectionProgressV1AdminShadowCatCollectionProgressGet(_ input: Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.Input) async throws -> Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.Output {
+    /// - Remark: HTTP `POST /v1/admin/calibration/run`.
+    /// - Remark: Generated from `#/paths//v1/admin/calibration/run/post(trigger_calibration_v1_admin_calibration_run_post)`.
+    public func triggerCalibrationV1AdminCalibrationRunPost(_ input: Operations.TriggerCalibrationV1AdminCalibrationRunPost.Input) async throws -> Operations.TriggerCalibrationV1AdminCalibrationRunPost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.id,
+            forOperation: Operations.TriggerCalibrationV1AdminCalibrationRunPost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/shadow-cat/collection-progress",
+                    template: "/v1/admin/calibration/run",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
                 try converter.setHeaderFieldAsURI(
@@ -6164,7 +8173,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.Output.Ok.Body
+                    let body: Operations.TriggerCalibrationV1AdminCalibrationRunPost.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -6174,7 +8183,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.ShadowCATCollectionProgressResponse.self,
+                            Components.Schemas.TriggerCalibrationResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -6186,7 +8195,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.Output.UnprocessableContent.Body
+                    let body: Operations.TriggerCalibrationV1AdminCalibrationRunPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -6218,26 +8227,22 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Shadow Cat Health
+    /// Get Calibration Status
     ///
-    /// Production health monitoring for shadow CAT execution.
+    /// Get status of a calibration job.
     ///
-    /// Reports coverage rate (what fraction of fixed-form sessions got shadow
-    /// results), execution time distribution, and recent 7-day activity.
-    /// Use to verify no adverse effects on production.
-    ///
-    /// Requires X-Admin-Token header.
-    ///
-    /// - Remark: HTTP `GET /v1/admin/shadow-cat/health`.
-    /// - Remark: Generated from `#/paths//v1/admin/shadow-cat/health/get(get_shadow_cat_health_v1_admin_shadow_cat_health_get)`.
-    public func getShadowCatHealthV1AdminShadowCatHealthGet(_ input: Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.Input) async throws -> Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.Output {
+    /// - Remark: HTTP `GET /v1/admin/calibration/status/{job_id}`.
+    /// - Remark: Generated from `#/paths//v1/admin/calibration/status/{job_id}/get(get_calibration_status_v1_admin_calibration_status__job_id__get)`.
+    public func getCalibrationStatusV1AdminCalibrationStatusJobIdGet(_ input: Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.Input) async throws -> Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.id,
+            forOperation: Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/shadow-cat/health",
-                    parameters: []
+                    template: "/v1/admin/calibration/status/{}",
+                    parameters: [
+                        input.path.jobId
+                    ]
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
@@ -6259,7 +8264,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.Output.Ok.Body
+                    let body: Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -6269,7 +8274,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.ShadowCATHealthResponse.self,
+                            Components.Schemas.CalibrationJobProgress.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -6281,7 +8286,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.Output.UnprocessableContent.Body
+                    let body: Operations.GetCalibrationStatusV1AdminCalibrationStatusJobIdGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -6351,20 +8356,6 @@ public struct Client: APIProtocol {
                     explode: true,
                     name: "offset",
                     value: input.query.offset
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "min_delta",
-                    value: input.query.minDelta
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "stopping_reason",
-                    value: input.query.stoppingReason
                 )
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
@@ -6625,6 +8616,290 @@ public struct Client: APIProtocol {
             }
         )
     }
+    /// Get Collection Progress
+    ///
+    /// Track progress toward the 100-session shadow testing data collection goal.
+    ///
+    /// Returns the total number of shadow CAT sessions collected, whether the
+    /// milestone has been reached, and the date range of collected data.
+    ///
+    /// Requires X-Admin-Token header.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/shadow-cat/collection-progress`.
+    /// - Remark: Generated from `#/paths//v1/admin/shadow-cat/collection-progress/get(get_collection_progress_v1_admin_shadow_cat_collection_progress_get)`.
+    public func getCollectionProgressV1AdminShadowCatCollectionProgressGet(_ input: Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.Input) async throws -> Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/shadow-cat/collection-progress",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ShadowCATCollectionProgressResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetCollectionProgressV1AdminShadowCatCollectionProgressGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Shadow Cat Analysis
+    ///
+    /// Comprehensive statistical analysis of shadow CAT vs fixed-form results.
+    ///
+    /// Computes mean theta, mean SE, Pearson correlation between shadow IQ and
+    /// CTT IQ, Bland-Altman agreement metrics, stopping reason distribution,
+    /// and domain coverage statistics.
+    ///
+    /// Requires X-Admin-Token header.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/shadow-cat/analysis`.
+    /// - Remark: Generated from `#/paths//v1/admin/shadow-cat/analysis/get(get_shadow_cat_analysis_v1_admin_shadow_cat_analysis_get)`.
+    public func getShadowCatAnalysisV1AdminShadowCatAnalysisGet(_ input: Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.Input) async throws -> Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/shadow-cat/analysis",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ShadowCATAnalysisResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetShadowCatAnalysisV1AdminShadowCatAnalysisGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Shadow Cat Health
+    ///
+    /// Production health monitoring for shadow CAT execution.
+    ///
+    /// Reports coverage rate (what fraction of fixed-form sessions got shadow
+    /// results), execution time distribution, and recent 7-day activity.
+    /// Use to verify no adverse effects on production.
+    ///
+    /// Requires X-Admin-Token header.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/shadow-cat/health`.
+    /// - Remark: Generated from `#/paths//v1/admin/shadow-cat/health/get(get_shadow_cat_health_v1_admin_shadow_cat_health_get)`.
+    public func getShadowCatHealthV1AdminShadowCatHealthGet(_ input: Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.Input) async throws -> Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/shadow-cat/health",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ShadowCATHealthResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetShadowCatHealthV1AdminShadowCatHealthGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Get Shadow Cat Validation
     ///
     /// Comprehensive validation report for the Phase 4 go/no-go decision.
@@ -6821,47 +9096,57 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Trigger Question Generation
+    /// Get Logout All Events
     ///
-    /// Manually trigger the question generation job.
+    /// Get logout-all event statistics for security monitoring.
     ///
-    /// This endpoint allows administrators to trigger the question generation
-    /// process on-demand instead of waiting for the scheduled cron job.
+    /// Returns aggregate statistics and per-user breakdowns of logout-all events,
+    /// including correlation with password reset activity within a 24-hour window.
     ///
-    /// The job is registered in the process registry for tracking. Use
-    /// GET /v1/admin/background-jobs to list all registered jobs and
-    /// GET /v1/admin/background-jobs/{job_id} to check status.
+    /// Supports pagination to access all events beyond the default page size.
+    ///
+    /// Note: Only the most recent logout-all event per user is tracked (the
+    /// ``token_revoked_before`` column is overwritten on each invocation).
     ///
     /// Requires X-Admin-Token header with valid admin token.
     ///
-    /// Args:
-    ///     request: Question generation parameters
-    ///     _: Admin token validation dependency
-    ///
-    /// Returns:
-    ///     TriggerQuestionGenerationResponse with job_id for tracking
-    ///
-    /// Example:
-    ///     ```
-    ///     curl -X POST https://api.example.com/v1/admin/trigger-question-generation           -H "X-Admin-Token: your-admin-token"           -H "Content-Type: application/json"           -d '{"count": 50, "dry_run": false}'
-    ///     ```
-    ///
-    /// - Remark: HTTP `POST /v1/admin/trigger-question-generation`.
-    /// - Remark: Generated from `#/paths//v1/admin/trigger-question-generation/post(trigger_question_generation_v1_admin_trigger_question_generation_post)`.
-    public func triggerQuestionGenerationV1AdminTriggerQuestionGenerationPost(_ input: Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.Input) async throws -> Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.Output {
+    /// - Remark: HTTP `GET /v1/admin/security/logout-all-events`.
+    /// - Remark: Generated from `#/paths//v1/admin/security/logout-all-events/get(get_logout_all_events_v1_admin_security_logout_all_events_get)`.
+    public func getLogoutAllEventsV1AdminSecurityLogoutAllEventsGet(_ input: Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.Input) async throws -> Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.id,
+            forOperation: Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/trigger-question-generation",
+                    template: "/v1/admin/security/logout-all-events",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .post
+                    method: .get
                 )
                 suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "time_range",
+                    value: input.query.timeRange
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "page",
+                    value: input.query.page
+                )
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "page_size",
+                    value: input.query.pageSize
+                )
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
                     name: "x-admin-token",
@@ -6871,22 +9156,13 @@ public struct Client: APIProtocol {
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
+                return (request, nil)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.Output.Ok.Body
+                    let body: Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -6896,7 +9172,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.TriggerQuestionGenerationResponse.self,
+                            Components.Schemas.LogoutAllStatsResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -6908,7 +9184,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.TriggerQuestionGenerationV1AdminTriggerQuestionGenerationPost.Output.UnprocessableContent.Body
+                    let body: Operations.GetLogoutAllEventsV1AdminSecurityLogoutAllEventsGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -6940,32 +9216,53 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Set Cooldown Bypass By Email
+    /// Delete Session
     ///
-    /// Set or unset cooldown bypass by email. Requires X-Admin-Token header.
+    /// Hard-delete a test session and all associated data.
     ///
-    /// - Remark: HTTP `PATCH /v1/admin/user-flags/by-email/cooldown-bypass`.
-    /// - Remark: Generated from `#/paths//v1/admin/user-flags/by-email/cooldown-bypass/patch(set_cooldown_bypass_by_email_v1_admin_user_flags_by_email_cooldown_bypass_patch)`.
-    public func setCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch(_ input: Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.Input) async throws -> Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.Output {
+    /// Cascades automatically to responses, test results, and user questions.
+    /// Returns 204 on success, 404 if session not found.
+    ///
+    /// Use ?dry_run=true to preview what would be deleted without committing.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// Args:
+    ///     session_id: ID of the test session to delete
+    ///     dry_run: If True, return a preview without deleting anything
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     204 No Content on successful deletion, or SessionDeletionPreview on dry run
+    ///
+    /// Raises:
+    ///     404: If the session does not exist
+    ///
+    /// - Remark: HTTP `DELETE /v1/admin/sessions/{session_id}`.
+    /// - Remark: Generated from `#/paths//v1/admin/sessions/{session_id}/delete(delete_session_v1_admin_sessions__session_id__delete)`.
+    public func deleteSessionV1AdminSessionsSessionIdDelete(_ input: Operations.DeleteSessionV1AdminSessionsSessionIdDelete.Input) async throws -> Operations.DeleteSessionV1AdminSessionsSessionIdDelete.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.id,
+            forOperation: Operations.DeleteSessionV1AdminSessionsSessionIdDelete.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/user-flags/by-email/cooldown-bypass",
-                    parameters: []
+                    template: "/v1/admin/sessions/{}",
+                    parameters: [
+                        input.path.sessionId
+                    ]
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .patch
+                    method: .delete
                 )
                 suppressMutabilityWarning(&request)
                 try converter.setQueryItemAsURI(
                     in: &request,
                     style: .form,
                     explode: true,
-                    name: "email",
-                    value: input.query.email
+                    name: "dry_run",
+                    value: input.query.dryRun
                 )
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
@@ -6976,22 +9273,19 @@ public struct Client: APIProtocol {
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
+                return (request, nil)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
+                case 204:
+                    return .noContent(.init())
+                case 404:
+                    return .notFound(.init())
                 case 200:
+                    return .ok(.init())
+                case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.Output.Ok.Body
+                    let body: Operations.DeleteSessionV1AdminSessionsSessionIdDelete.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7001,7 +9295,90 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.CooldownBypassStatus.self,
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Delete Sessions By Email
+    ///
+    /// Hard-delete test sessions for a user identified by email.
+    ///
+    /// By default operates in dry-run mode (dry_run=true) for safe preview.
+    /// Pass ?dry_run=false to actually delete. Optionally scope to a single
+    /// session with ?session_id=N.
+    ///
+    /// Cascades automatically to responses, test results, and user questions.
+    /// Requires X-Admin-Token header.
+    ///
+    /// - Remark: HTTP `DELETE /v1/admin/sessions/by-email/{email}`.
+    /// - Remark: Generated from `#/paths//v1/admin/sessions/by-email/{email}/delete(delete_sessions_by_email_v1_admin_sessions_by_email__email__delete)`.
+    public func deleteSessionsByEmailV1AdminSessionsByEmailEmailDelete(_ input: Operations.DeleteSessionsByEmailV1AdminSessionsByEmailEmailDelete.Input) async throws -> Operations.DeleteSessionsByEmailV1AdminSessionsByEmailEmailDelete.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.DeleteSessionsByEmailV1AdminSessionsByEmailEmailDelete.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/sessions/by-email/{}",
+                    parameters: [
+                        input.path.email
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .delete
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "dry_run",
+                    value: input.query.dryRun
+                )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.DeleteSessionsByEmailV1AdminSessionsByEmailEmailDelete.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.BulkSessionDeletionPreview.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -7011,9 +9388,11 @@ public struct Client: APIProtocol {
                         preconditionFailure("bestContentType chose an invalid content type.")
                     }
                     return .ok(.init(body: body))
+                case 404:
+                    return .notFound(.init())
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.Output.UnprocessableContent.Body
+                    let body: Operations.DeleteSessionsByEmailV1AdminSessionsByEmailEmailDelete.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7270,62 +9649,353 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Validity Report
+    /// Set Cooldown Bypass By Email
     ///
-    /// Get aggregate validity statistics across all test sessions.
+    /// Set or unset cooldown bypass by email. Requires X-Admin-Token header.
     ///
-    /// Returns a comprehensive summary of validity analysis results including
-    /// status breakdowns, flag type counts, trend comparisons, and a list of
-    /// sessions requiring admin review.
+    /// - Remark: HTTP `PATCH /v1/admin/user-flags/by-email/cooldown-bypass`.
+    /// - Remark: Generated from `#/paths//v1/admin/user-flags/by-email/cooldown-bypass/patch(set_cooldown_bypass_by_email_v1_admin_user_flags_by_email_cooldown_bypass_patch)`.
+    public func setCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch(_ input: Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.Input) async throws -> Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/user-flags/by-email/cooldown-bypass",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .patch
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setQueryItemAsURI(
+                    in: &request,
+                    style: .form,
+                    explode: true,
+                    name: "email",
+                    value: input.query.email
+                )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.CooldownBypassStatus.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SetCooldownBypassByEmailV1AdminUserFlagsByEmailCooldownBypassPatch.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Get Admin Status
+    ///
+    /// Get the admin status for a user.
+    ///
+    /// Returns whether the specified user has admin privileges, which grant
+    /// access to admin-only client features (e.g. screenshot bypass).
     ///
     /// Requires X-Admin-Token header with valid admin token.
     ///
-    /// **Summary Statistics:**
-    /// - Total sessions analyzed in the period
-    /// - Count by validity status (valid, suspect, invalid)
-    ///
-    /// **Flag Type Breakdown:**
-    /// - Count of each flag type detected across sessions
-    /// - Helps identify most common validity concerns
-    ///
-    /// **Trend Analysis:**
-    /// - Compares invalid/suspect rates between last 7 days and full period
-    /// - Trend indicator: "improving", "stable", or "worsening"
-    ///
-    /// **Action Needed:**
-    /// - List of sessions with invalid or suspect status needing review
-    /// - Sorted by severity score (most severe first)
-    /// - Limited to top 50 sessions to keep response manageable
-    ///
     /// Args:
-    ///     days: Number of days to analyze (default: 30, max: 365)
-    ///     status: Optional filter by validity status
+    ///     user_id: ID of the user to query
     ///     db: Database session
     ///     _: Admin token validation dependency
     ///
     /// Returns:
-    ///     ValiditySummaryResponse with aggregate validity statistics
+    ///     AdminStatus with user_id and is_admin flag
     ///
-    /// Example:
-    ///     ```
-    ///     # Get 30-day validity report
-    ///     curl "https://api.example.com/v1/admin/validity-report" \
-    ///       -H "X-Admin-Token: your-admin-token"
+    /// Raises:
+    ///     404: If the user does not exist
     ///
-    ///     # Get 7-day report for invalid sessions only
-    ///     curl "https://api.example.com/v1/admin/validity-report?days=7&status=invalid" \
-    ///       -H "X-Admin-Token: your-admin-token"
-    ///     ```
-    ///
-    /// - Remark: HTTP `GET /v1/admin/validity-report`.
-    /// - Remark: Generated from `#/paths//v1/admin/validity-report/get(get_validity_report_v1_admin_validity_report_get)`.
-    public func getValidityReportV1AdminValidityReportGet(_ input: Operations.GetValidityReportV1AdminValidityReportGet.Input) async throws -> Operations.GetValidityReportV1AdminValidityReportGet.Output {
+    /// - Remark: HTTP `GET /v1/admin/user-flags/{user_id}/admin-status`.
+    /// - Remark: Generated from `#/paths//v1/admin/user-flags/{user_id}/admin-status/get(get_admin_status_v1_admin_user_flags__user_id__admin_status_get)`.
+    public func getAdminStatusV1AdminUserFlagsUserIdAdminStatusGet(_ input: Operations.GetAdminStatusV1AdminUserFlagsUserIdAdminStatusGet.Input) async throws -> Operations.GetAdminStatusV1AdminUserFlagsUserIdAdminStatusGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetValidityReportV1AdminValidityReportGet.id,
+            forOperation: Operations.GetAdminStatusV1AdminUserFlagsUserIdAdminStatusGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/admin/validity-report",
+                    template: "/v1/admin/user-flags/{}/admin-status",
+                    parameters: [
+                        input.path.userId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetAdminStatusV1AdminUserFlagsUserIdAdminStatusGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.AdminStatus.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.GetAdminStatusV1AdminUserFlagsUserIdAdminStatusGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Set Admin Status
+    ///
+    /// Set or unset the admin status for a user.
+    ///
+    /// When is_admin is True, the user gains access to admin-only client features
+    /// such as screenshot bypass. Set to False to revoke admin privileges.
+    ///
+    /// Requires X-Admin-Token header with valid admin token.
+    ///
+    /// Args:
+    ///     user_id: ID of the user to update
+    ///     body: Request body with desired is_admin value
+    ///     db: Database session
+    ///     _: Admin token validation dependency
+    ///
+    /// Returns:
+    ///     AdminStatus with updated flag
+    ///
+    /// Raises:
+    ///     404: If the user does not exist
+    ///
+    /// - Remark: HTTP `PATCH /v1/admin/user-flags/{user_id}/admin-status`.
+    /// - Remark: Generated from `#/paths//v1/admin/user-flags/{user_id}/admin-status/patch(set_admin_status_v1_admin_user_flags__user_id__admin_status_patch)`.
+    public func setAdminStatusV1AdminUserFlagsUserIdAdminStatusPatch(_ input: Operations.SetAdminStatusV1AdminUserFlagsUserIdAdminStatusPatch.Input) async throws -> Operations.SetAdminStatusV1AdminUserFlagsUserIdAdminStatusPatch.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.SetAdminStatusV1AdminUserFlagsUserIdAdminStatusPatch.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/user-flags/{}/admin-status",
+                    parameters: [
+                        input.path.userId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .patch
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SetAdminStatusV1AdminUserFlagsUserIdAdminStatusPatch.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.AdminStatus.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.SetAdminStatusV1AdminUserFlagsUserIdAdminStatusPatch.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Generate Question Set
+    ///
+    /// Generate a balanced set of question IDs across all domains and difficulties.
+    ///
+    /// Selects questions evenly across each (domain, difficulty) cell, preferring
+    /// questions with higher discrimination.  The resulting IDs can be passed to
+    /// the ``POST /run`` endpoint via the ``question_ids`` field or used to create
+    /// a named BenchmarkSet via ``POST /v1/admin/benchmark-sets``.
+    ///
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/question-set`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/question-set/get(generate_question_set_v1_admin_llm_benchmark_question_set_get)`.
+    public func generateQuestionSetV1AdminLlmBenchmarkQuestionSetGet(_ input: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Input) async throws -> Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/admin/llm-benchmark/question-set",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -7337,15 +10007,8 @@ public struct Client: APIProtocol {
                     in: &request,
                     style: .form,
                     explode: true,
-                    name: "days",
-                    value: input.query.days
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "status",
-                    value: input.query.status
+                    name: "total",
+                    value: input.query.total
                 )
                 try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
@@ -7362,7 +10025,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetValidityReportV1AdminValidityReportGet.Output.Ok.Body
+                    let body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7372,7 +10035,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.ValiditySummaryResponse.self,
+                            Components.Schemas.GenerateQuestionSetResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -7384,7 +10047,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetValidityReportV1AdminValidityReportGet.Output.UnprocessableContent.Body
+                    let body: Operations.GenerateQuestionSetV1AdminLlmBenchmarkQuestionSetGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7416,48 +10079,21 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Submit Analytics Events
+    /// Trigger Benchmark Run
     ///
-    /// Submit a batch of analytics events from the client.
+    /// Trigger a new LLM benchmark run.
     ///
-    /// This endpoint accepts analytics events from iOS and other clients.
-    /// Events are stored for product analytics, debugging, and user
-    /// experience insights.
+    /// Runs the benchmark synchronously and returns the session ID on completion.
     ///
-    /// Authentication is optional - pre-auth events (like app launch)
-    /// can be submitted without a token.
-    ///
-    /// Args:
-    ///     batch: Batch of analytics events to submit
-    ///     current_user: Current authenticated user (optional)
-    ///     db: Async database session
-    ///
-    /// Returns:
-    ///     Response indicating how many events were received
-    ///
-    /// Example:
-    ///     POST /api/v1/analytics/events
-    ///     {
-    ///         "events": [
-    ///             {
-    ///                 "event_name": "user.login",
-    ///                 "timestamp": "2024-01-15T10:30:00Z",
-    ///                 "properties": {"email_domain": "gmail.com"}
-    ///             }
-    ///         ],
-    ///         "client_platform": "ios",
-    ///         "app_version": "1.2.0"
-    ///     }
-    ///
-    /// - Remark: HTTP `POST /v1/analytics/events`.
-    /// - Remark: Generated from `#/paths//v1/analytics/events/post(submit_analytics_events_v1_analytics_events_post)`.
-    public func submitAnalyticsEventsV1AnalyticsEventsPost(_ input: Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.Input) async throws -> Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.Output {
+    /// - Remark: HTTP `POST /v1/admin/llm-benchmark/run`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/run/post(trigger_benchmark_run_v1_admin_llm_benchmark_run_post)`.
+    public func triggerBenchmarkRunV1AdminLlmBenchmarkRunPost(_ input: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Input) async throws -> Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.id,
+            forOperation: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/analytics/events",
+                    template: "/v1/admin/llm-benchmark/run",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -7465,6 +10101,11 @@ public struct Client: APIProtocol {
                     method: .post
                 )
                 suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
@@ -7484,7 +10125,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.Output.Ok.Body
+                    let body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7494,7 +10135,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.AnalyticsEventsResponse.self,
+                            Components.Schemas.RunBenchmarkResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -7506,7 +10147,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SubmitAnalyticsEventsV1AnalyticsEventsPost.Output.UnprocessableContent.Body
+                    let body: Operations.TriggerBenchmarkRunV1AdminLlmBenchmarkRunPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7538,34 +10179,19 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Model Performance
+    /// List Benchmark Results
     ///
-    /// Return per-vendor accuracy breakdown for the authenticated user.
+    /// Return a paginated list of benchmark sessions with scores.
     ///
-    /// **Historical mode** (no test_session_id): aggregates all responses
-    /// from completed test sessions owned by the user.  The vendor list is
-    /// paginated via `limit` / `offset`.
-    ///
-    /// **Per-test mode** (test_session_id provided): returns all vendor rows
-    /// for that single session; pagination params are echoed back but the
-    /// entire vendor list for one session is always returned.
-    ///
-    /// Questions with `NULL source_llm` are excluded.
-    /// Questions with `NULL source_model` appear as "Unknown Model".
-    ///
-    /// Raises:
-    ///     404: If `test_session_id` is provided but does not exist or does not
-    ///          belong to the authenticated user.
-    ///
-    /// - Remark: HTTP `GET /v1/analytics/model-performance`.
-    /// - Remark: Generated from `#/paths//v1/analytics/model-performance/get(get_model_performance_v1_analytics_model_performance_get)`.
-    public func getModelPerformanceV1AnalyticsModelPerformanceGet(_ input: Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.Input) async throws -> Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.Output {
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/get(list_benchmark_results_v1_admin_llm_benchmark_results_get)`.
+    public func listBenchmarkResultsV1AdminLlmBenchmarkResultsGet(_ input: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Input) async throws -> Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.id,
+            forOperation: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/analytics/model-performance",
+                    template: "/v1/admin/llm-benchmark/results",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -7573,13 +10199,6 @@ public struct Client: APIProtocol {
                     method: .get
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "test_session_id",
-                    value: input.query.testSessionId
-                )
                 try converter.setQueryItemAsURI(
                     in: &request,
                     style: .form,
@@ -7594,6 +10213,11 @@ public struct Client: APIProtocol {
                     name: "offset",
                     value: input.query.offset
                 )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
@@ -7604,7 +10228,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.Output.Ok.Body
+                    let body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7614,7 +10238,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.ModelPerformanceResponse.self,
+                            Components.Schemas.BenchmarkResultsListResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -7626,7 +10250,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetModelPerformanceV1AnalyticsModelPerformanceGet.Output.UnprocessableContent.Body
+                    let body: Operations.ListBenchmarkResultsV1AdminLlmBenchmarkResultsGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7658,316 +10282,21 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Problematic Questions
+    /// Get Benchmark Detail
     ///
-    /// Identify questions with poor psychometric properties.
+    /// Return detailed results for a single benchmark session.
     ///
-    /// Categorizes problematic questions into four groups:
-    /// 1. Too easy: > 95% of users answer correctly
-    /// 2. Too hard: < 5% of users answer correctly
-    /// 3. Poor discrimination: discrimination < 0.2 (doesn't separate ability levels well)
-    /// 4. Negative discrimination: discrimination < 0 (low performers do better)
-    ///
-    /// Args:
-    ///     min_responses: Minimum responses required to flag (default: 30)
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Dictionary with categorized problematic questions:
-    ///     {
-    ///         "too_easy": [...],
-    ///         "too_hard": [...],
-    ///         "poor_discrimination": [...],
-    ///         "negative_discrimination": [...]
-    ///     }
-    ///
-    /// Example:
-    ///     GET /api/v1/analytics/questions/problematic?min_responses=50
-    ///     Response:
-    ///     {
-    ///         "too_easy": [
-    ///             {
-    ///                 "question_id": 15,
-    ///                 "question_type": "verbal",
-    ///                 "difficulty_level": "easy",
-    ///                 "empirical_difficulty": 0.97,
-    ///                 "discrimination": 0.15,
-    ///                 "response_count": 82
-    ///             }
-    ///         ],
-    ///         "too_hard": [],
-    ///         "poor_discrimination": [...],
-    ///         "negative_discrimination": []
-    ///     }
-    ///
-    /// Use Cases:
-    ///     - Quality control: identify questions that need review or deactivation
-    ///     - Test improvement: find questions that don't contribute to measurement
-    ///     - LLM evaluation: assess which types of generated questions have issues
-    ///
-    /// Notes:
-    ///     - Negative discrimination indicates a problematic question that should
-    ///       likely be deactivated, as it suggests low-ability users do better
-    ///     - Too easy/hard questions provide little information and should be reviewed
-    ///     - Poor discrimination questions don't help separate high/low performers
-    ///
-    /// - Remark: HTTP `GET /v1/analytics/questions/problematic`.
-    /// - Remark: Generated from `#/paths//v1/analytics/questions/problematic/get(get_problematic_questions_v1_analytics_questions_problematic_get)`.
-    public func getProblematicQuestionsV1AnalyticsQuestionsProblematicGet(_ input: Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Input) async throws -> Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Output {
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/results/{session_id}`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/results/{session_id}/get(get_benchmark_detail_v1_admin_llm_benchmark_results__session_id__get)`.
+    public func getBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet(_ input: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Input) async throws -> Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.id,
+            forOperation: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/analytics/questions/problematic",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "min_responses",
-                    value: input.query.minResponses
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Output.Ok.Body.JsonPayload.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetProblematicQuestionsV1AnalyticsQuestionsProblematicGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get All Questions Stats
-    ///
-    /// Get performance statistics for all questions.
-    ///
-    /// Returns list of questions with their empirical statistics,
-    /// ordered by response count (most responses first).
-    ///
-    /// Args:
-    ///     min_responses: Minimum response count to include (default: 0 for all)
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     List of question statistics, ordered by response count DESC
-    ///
-    /// Example:
-    ///     GET /api/v1/analytics/questions/statistics?min_responses=30
-    ///     Response:
-    ///     [
-    ///         {
-    ///             "question_id": 42,
-    ///             "question_type": "mathematical",
-    ///             "difficulty_level": "medium",
-    ///             "empirical_difficulty": 0.72,
-    ///             "discrimination": 0.45,
-    ///             "response_count": 150,
-    ///             "has_sufficient_data": true,
-    ///             "is_active": true
-    ///         },
-    ///         ...
-    ///     ]
-    ///
-    /// Use Cases:
-    ///     - Monitor overall question pool quality
-    ///     - Identify which questions have sufficient calibration data
-    ///     - Compare empirical vs assigned difficulty levels
-    ///
-    /// - Remark: HTTP `GET /v1/analytics/questions/statistics`.
-    /// - Remark: Generated from `#/paths//v1/analytics/questions/statistics/get(get_all_questions_stats_v1_analytics_questions_statistics_get)`.
-    public func getAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet(_ input: Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.Input) async throws -> Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/analytics/questions/statistics",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "min_responses",
-                    value: input.query.minResponses
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            [OpenAPIRuntime.OpenAPIObjectContainer].self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetAllQuestionsStatsV1AnalyticsQuestionsStatisticsGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Question Stats
-    ///
-    /// Get performance statistics for a specific question.
-    ///
-    /// Returns empirical difficulty (p-value), discrimination, and response count.
-    ///
-    /// Args:
-    ///     question_id: Question ID
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Dictionary with question statistics:
-    ///     {
-    ///         "question_id": int,
-    ///         "empirical_difficulty": float or None,
-    ///         "discrimination": float or None,
-    ///         "response_count": int,
-    ///         "has_sufficient_data": bool
-    ///     }
-    ///
-    /// Example:
-    ///     GET /api/v1/analytics/questions/42/statistics
-    ///     Response:
-    ///     {
-    ///         "question_id": 42,
-    ///         "empirical_difficulty": 0.72,
-    ///         "discrimination": 0.45,
-    ///         "response_count": 150,
-    ///         "has_sufficient_data": true
-    ///     }
-    ///
-    /// Notes:
-    ///     - empirical_difficulty: proportion correct (0.0 = very hard, 1.0 = very easy)
-    ///     - discrimination: item-total correlation (-1.0 to 1.0, higher = better)
-    ///     - has_sufficient_data: true if response_count >= 30
-    ///
-    /// - Remark: HTTP `GET /v1/analytics/questions/{question_id}/statistics`.
-    /// - Remark: Generated from `#/paths//v1/analytics/questions/{question_id}/statistics/get(get_question_stats_v1_analytics_questions__question_id__statistics_get)`.
-    public func getQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet(_ input: Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.Input) async throws -> Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/analytics/questions/{}/statistics",
+                    template: "/v1/admin/llm-benchmark/results/{}",
                     parameters: [
-                        input.path.questionId
+                        input.path.sessionId
                     ]
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -7975,6 +10304,11 @@ public struct Client: APIProtocol {
                     method: .get
                 )
                 suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
@@ -7985,7 +10319,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.Output.Ok.Body
+                    let body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -7995,7 +10329,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            OpenAPIRuntime.OpenAPIObjectContainer.self,
+                            Components.Schemas.BenchmarkDetailResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -8007,7 +10341,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetQuestionStatsV1AnalyticsQuestionsQuestionIdStatisticsGet.Output.UnprocessableContent.Body
+                    let body: Operations.GetBenchmarkDetailV1AdminLlmBenchmarkResultsSessionIdGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -8039,57 +10373,42 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Login User
+    /// Compare Human Vs Models
     ///
-    /// Authenticate user and return access + refresh tokens.
+    /// Compare human average IQ against all tested LLM models.
     ///
-    /// Args:
-    ///     credentials: User login credentials
-    ///     request: FastAPI request object for IP extraction
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Access and refresh JWT tokens with user information
-    ///
-    /// Raises:
-    ///     HTTPException: 401 if credentials are invalid
-    ///
-    /// - Remark: HTTP `POST /v1/auth/login`.
-    /// - Remark: Generated from `#/paths//v1/auth/login/post(login_user_v1_auth_login_post)`.
-    public func loginUserV1AuthLoginPost(_ input: Operations.LoginUserV1AuthLoginPost.Input) async throws -> Operations.LoginUserV1AuthLoginPost.Output {
+    /// - Remark: HTTP `GET /v1/admin/llm-benchmark/compare`.
+    /// - Remark: Generated from `#/paths//v1/admin/llm-benchmark/compare/get(compare_human_vs_models_v1_admin_llm_benchmark_compare_get)`.
+    public func compareHumanVsModelsV1AdminLlmBenchmarkCompareGet(_ input: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Input) async throws -> Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.LoginUserV1AuthLoginPost.id,
+            forOperation: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/auth/login",
+                    template: "/v1/admin/llm-benchmark/compare",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .post
+                    method: .get
                 )
                 suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
+                return (request, nil)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.LoginUserV1AuthLoginPost.Output.Ok.Body
+                    let body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -8099,7 +10418,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.Token.self,
+                            Components.Schemas.CompareResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -8111,7 +10430,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.LoginUserV1AuthLoginPost.Output.UnprocessableContent.Body
+                    let body: Operations.CompareHumanVsModelsV1AdminLlmBenchmarkCompareGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -8143,65 +10462,64 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Logout User
+    /// List Benchmark Sets
     ///
-    /// Logout user by blacklisting their current access token and optionally refresh token.
+    /// Return all benchmark sets with domain and difficulty distribution summaries.
     ///
-    /// This immediately revokes the token(s), preventing further use even before expiration.
-    /// The client should also discard tokens locally.
-    ///
-    /// When a refresh_token is provided in the request body, it will also be blacklisted,
-    /// ensuring the user cannot use it to obtain new access tokens.
-    ///
-    /// Args:
-    ///     request: FastAPI request object for IP extraction
-    ///     logout_data: Optional request body with refresh_token to revoke
-    ///     current_user: Current authenticated user
-    ///     credentials: Token credentials for blacklisting
-    ///
-    /// Returns:
-    ///     No content (204)
-    ///
-    /// - Remark: HTTP `POST /v1/auth/logout`.
-    /// - Remark: Generated from `#/paths//v1/auth/logout/post(logout_user_v1_auth_logout_post)`.
-    public func logoutUserV1AuthLogoutPost(_ input: Operations.LogoutUserV1AuthLogoutPost.Input) async throws -> Operations.LogoutUserV1AuthLogoutPost.Output {
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/get(list_benchmark_sets_v1_admin_benchmark_sets_get)`.
+    public func listBenchmarkSetsV1AdminBenchmarkSetsGet(_ input: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Input) async throws -> Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.LogoutUserV1AuthLogoutPost.id,
+            forOperation: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/auth/logout",
+                    template: "/v1/admin/benchmark-sets",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .post
+                    method: .get
                 )
                 suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case .none:
-                    body = nil
-                case let .json(value):
-                    body = try converter.setOptionalRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
+                return (request, nil)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
-                case 204:
-                    return .noContent(.init())
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.BenchmarkSetListResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.LogoutUserV1AuthLogoutPost.Output.UnprocessableContent.Body
+                    let body: Operations.ListBenchmarkSetsV1AdminBenchmarkSetsGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -8233,37 +10551,22 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Logout All Devices
+    /// Create Benchmark Set
     ///
-    /// Logout from all devices by invalidating all existing tokens.
+    /// Create a new benchmark set.
     ///
-    /// Sets a user-level revocation epoch that invalidates all tokens issued before
-    /// this moment. Also blacklists the current access token for immediate effect.
+    /// Validates that all supplied question IDs exist and are active, then
+    /// creates the set with positions matching the order of question_ids.
     ///
-    /// This is useful when:
-    /// - User suspects their account has been compromised
-    /// - User loses a device
-    /// - User wants to force logout from all active sessions
-    /// - User changes password (optional policy)
-    ///
-    /// Args:
-    ///     request: FastAPI request object for IP extraction
-    ///     current_user: Current authenticated user
-    ///     credentials: Token credentials for blacklisting current token
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     No content (204)
-    ///
-    /// - Remark: HTTP `POST /v1/auth/logout-all`.
-    /// - Remark: Generated from `#/paths//v1/auth/logout-all/post(logout_all_devices_v1_auth_logout_all_post)`.
-    public func logoutAllDevicesV1AuthLogoutAllPost(_ input: Operations.LogoutAllDevicesV1AuthLogoutAllPost.Input) async throws -> Operations.LogoutAllDevicesV1AuthLogoutAllPost.Output {
+    /// - Remark: HTTP `POST /v1/admin/benchmark-sets`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/post(create_benchmark_set_v1_admin_benchmark_sets_post)`.
+    public func createBenchmarkSetV1AdminBenchmarkSetsPost(_ input: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Input) async throws -> Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.LogoutAllDevicesV1AuthLogoutAllPost.id,
+            forOperation: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/auth/logout-all",
+                    template: "/v1/admin/benchmark-sets",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -8271,127 +10574,11 @@ public struct Client: APIProtocol {
                     method: .post
                 )
                 suppressMutabilityWarning(&request)
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 204:
-                    return .noContent(.init())
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Refresh Access Token
-    ///
-    /// Refresh access token using refresh token.
-    ///
-    /// Args:
-    ///     current_user: Current authenticated user from refresh token
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     New access and refresh tokens with user information
-    ///
-    /// Raises:
-    ///     HTTPException: 401 if refresh token is invalid
-    ///
-    /// - Remark: HTTP `POST /v1/auth/refresh`.
-    /// - Remark: Generated from `#/paths//v1/auth/refresh/post(refresh_access_token_v1_auth_refresh_post)`.
-    public func refreshAccessTokenV1AuthRefreshPost(_ input: Operations.RefreshAccessTokenV1AuthRefreshPost.Input) async throws -> Operations.RefreshAccessTokenV1AuthRefreshPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.RefreshAccessTokenV1AuthRefreshPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/auth/refresh",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
+                try converter.setHeaderFieldAsURI(
                     in: &request.headerFields,
-                    contentTypes: input.headers.accept
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
                 )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.RefreshAccessTokenV1AuthRefreshPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.TokenRefresh.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Register User
-    ///
-    /// Register a new user account.
-    ///
-    /// Args:
-    ///     user_data: User registration data
-    ///     request: FastAPI request object for IP extraction
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Created user information with access and refresh tokens
-    ///
-    /// Raises:
-    ///     HTTPException: 409 if email already exists
-    ///
-    /// - Remark: HTTP `POST /v1/auth/register`.
-    /// - Remark: Generated from `#/paths//v1/auth/register/post(register_user_v1_auth_register_post)`.
-    public func registerUserV1AuthRegisterPost(_ input: Operations.RegisterUserV1AuthRegisterPost.Input) async throws -> Operations.RegisterUserV1AuthRegisterPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.RegisterUserV1AuthRegisterPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/auth/register",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
@@ -8411,7 +10598,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 201:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.RegisterUserV1AuthRegisterPost.Output.Created.Body
+                    let body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.Created.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -8421,7 +10608,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.Token.self,
+                            Components.Schemas.BenchmarkSetDetailResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -8433,7 +10620,7 @@ public struct Client: APIProtocol {
                     return .created(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.RegisterUserV1AuthRegisterPost.Output.UnprocessableContent.Body
+                    let body: Operations.CreateBenchmarkSetV1AdminBenchmarkSetsPost.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -8465,70 +10652,44 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Request Password Reset
+    /// Get Benchmark Set
     ///
-    /// Request a password reset for an account.
+    /// Return a benchmark set by name, including its full ordered question list.
     ///
-    /// Sends a password reset email with a time-limited token if the email exists.
-    /// Always returns success (even if email doesn't exist) to prevent email enumeration.
-    ///
-    /// Security considerations:
-    /// - Generic response prevents email enumeration attacks
-    /// - Tokens expire after 30 minutes
-    /// - Previous unused tokens are invalidated when new request is made
-    /// - Rate limited to prevent abuse (configured in middleware)
-    ///
-    /// Args:
-    ///     request_data: Password reset request containing email
-    ///     request: FastAPI request object for IP extraction
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Generic success message regardless of whether email exists
-    ///
-    /// Example:
-    ///     >>> response = await request_password_reset(
-    ///     ...     PasswordResetRequest(email="user@example.com")
-    ///     ... )
-    ///     >>> print(response.message)
-    ///     "If an account exists with that email, you will receive password reset instructions."
-    ///
-    /// - Remark: HTTP `POST /v1/auth/request-password-reset`.
-    /// - Remark: Generated from `#/paths//v1/auth/request-password-reset/post(request_password_reset_v1_auth_request_password_reset_post)`.
-    public func requestPasswordResetV1AuthRequestPasswordResetPost(_ input: Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.Input) async throws -> Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.Output {
+    /// - Remark: HTTP `GET /v1/admin/benchmark-sets/{name}`.
+    /// - Remark: Generated from `#/paths//v1/admin/benchmark-sets/{name}/get(get_benchmark_set_v1_admin_benchmark_sets__name__get)`.
+    public func getBenchmarkSetV1AdminBenchmarkSetsNameGet(_ input: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Input) async throws -> Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.id,
+            forOperation: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/auth/request-password-reset",
-                    parameters: []
+                    template: "/v1/admin/benchmark-sets/{}",
+                    parameters: [
+                        input.path.name
+                    ]
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .post
+                    method: .get
                 )
                 suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-admin-token",
+                    value: input.headers.xAdminToken
+                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
+                return (request, nil)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.Output.Ok.Body
+                    let body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -8538,7 +10699,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.PasswordResetResponse.self,
+                            Components.Schemas.BenchmarkSetDetailResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -8550,124 +10711,7 @@ public struct Client: APIProtocol {
                     return .ok(.init(body: body))
                 case 422:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.RequestPasswordResetV1AuthRequestPasswordResetPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Reset Password
-    ///
-    /// Reset password using a valid reset token.
-    ///
-    /// Validates the token and updates the user's password if valid.
-    /// Tokens are single-use and time-limited (30 minutes).
-    ///
-    /// Args:
-    ///     reset_data: Password reset confirmation with token and new password
-    ///     request: FastAPI request object for IP extraction
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Success message
-    ///
-    /// Raises:
-    ///     HTTPException: 400 if token is invalid, expired, or already used
-    ///
-    /// Example:
-    ///     >>> response = reset_password(
-    ///     ...     PasswordResetConfirm(
-    ///     ...         token="abc123...",
-    ///     ...         new_password="NewSecureP@ssw0rd!"
-    ///     ...     )
-    ///     ... )
-    ///     >>> print(response.message)
-    ///     "Password has been reset successfully."
-    ///
-    /// - Remark: HTTP `POST /v1/auth/reset-password`.
-    /// - Remark: Generated from `#/paths//v1/auth/reset-password/post(reset_password_v1_auth_reset_password_post)`.
-    public func resetPasswordV1AuthResetPasswordPost(_ input: Operations.ResetPasswordV1AuthResetPasswordPost.Input) async throws -> Operations.ResetPasswordV1AuthResetPasswordPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.ResetPasswordV1AuthResetPasswordPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/auth/reset-password",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ResetPasswordV1AuthResetPasswordPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.PasswordResetConfirmResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.ResetPasswordV1AuthResetPasswordPost.Output.UnprocessableContent.Body
+                    let body: Operations.GetBenchmarkSetV1AdminBenchmarkSetsNameGet.Output.UnprocessableContent.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -9073,111 +11117,6 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Join Group
-    ///
-    /// Join a group using an invite code.
-    ///
-    /// Accepts either a generated GroupInvite code (with expiry enforcement) or
-    /// the permanent Group.invite_code. Generated invites are checked first; if
-    /// a valid, unexpired invite is found, the acceptor is recorded on it.
-    ///
-    /// Args:
-    ///     body: JoinGroupRequest containing the invite_code.
-    ///     current_user: Authenticated user making the request.
-    ///     db: Async database session.
-    ///
-    /// Returns:
-    ///     GroupResponse for the joined group.
-    ///
-    /// - Remark: HTTP `POST /v1/groups/join`.
-    /// - Remark: Generated from `#/paths//v1/groups/join/post(join_group_v1_groups_join_post)`.
-    public func joinGroupV1GroupsJoinPost(_ input: Operations.JoinGroupV1GroupsJoinPost.Input) async throws -> Operations.JoinGroupV1GroupsJoinPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.JoinGroupV1GroupsJoinPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/groups/join",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.JoinGroupV1GroupsJoinPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.GroupResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.JoinGroupV1GroupsJoinPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
     /// Get Group
     ///
     /// Return full group detail including the member list.
@@ -9447,6 +11386,111 @@ public struct Client: APIProtocol {
             }
         )
     }
+    /// Join Group
+    ///
+    /// Join a group using an invite code.
+    ///
+    /// Accepts either a generated GroupInvite code (with expiry enforcement) or
+    /// the permanent Group.invite_code. Generated invites are checked first; if
+    /// a valid, unexpired invite is found, the acceptor is recorded on it.
+    ///
+    /// Args:
+    ///     body: JoinGroupRequest containing the invite_code.
+    ///     current_user: Authenticated user making the request.
+    ///     db: Async database session.
+    ///
+    /// Returns:
+    ///     GroupResponse for the joined group.
+    ///
+    /// - Remark: HTTP `POST /v1/groups/join`.
+    /// - Remark: Generated from `#/paths//v1/groups/join/post(join_group_v1_groups_join_post)`.
+    public func joinGroupV1GroupsJoinPost(_ input: Operations.JoinGroupV1GroupsJoinPost.Input) async throws -> Operations.JoinGroupV1GroupsJoinPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.JoinGroupV1GroupsJoinPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/groups/join",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.JoinGroupV1GroupsJoinPost.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.GroupResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.JoinGroupV1GroupsJoinPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.HTTPValidationError.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Get Leaderboard
     ///
     /// Return a ranked leaderboard for all group members.
@@ -9454,10 +11498,17 @@ public struct Client: APIProtocol {
     /// Members with no test results appear at the bottom with scores of 0.
     /// Requires the caller to be a member of the group.
     ///
+    /// Supports an optional time-window filter (``days``) that restricts score
+    /// aggregation to results completed within the last *N* days, and optional
+    /// pagination via ``limit`` / ``offset``.
+    ///
     /// Args:
     ///     group_id: Primary key of the group.
     ///     current_user: Authenticated user making the request.
     ///     db: Async database session.
+    ///     days: Optional time window — only aggregate results from the last N days.
+    ///     limit: Optional page size for pagination.
+    ///     offset: Optional offset for pagination (requires limit).
     ///
     /// Returns:
     ///     LeaderboardResponse with ranked entries for every group member.
@@ -9731,23 +11782,19 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Health Check
+    /// Root
     ///
-    /// Health check endpoint.
-    /// Returns basic health status of the API, including database connectivity.
-    /// Database check is non-fatal: the endpoint always returns 200 but reports
-    /// the database status so outages are immediately visible in the response body.
-    /// Times out after 3 seconds to avoid hanging Railway's health check.
+    /// Root endpoint.
     ///
-    /// - Remark: HTTP `GET /v1/health`.
-    /// - Remark: Generated from `#/paths//v1/health/get(health_check_v1_health_get)`.
-    public func healthCheckV1HealthGet(_ input: Operations.HealthCheckV1HealthGet.Input) async throws -> Operations.HealthCheckV1HealthGet.Output {
+    /// - Remark: HTTP `GET /`.
+    /// - Remark: Generated from `#/paths///get(root__get)`.
+    public func rootGet(_ input: Operations.RootGet.Input) async throws -> Operations.RootGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.HealthCheckV1HealthGet.id,
+            forOperation: Operations.RootGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/health",
+                    template: "/",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -9765,7 +11812,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.HealthCheckV1HealthGet.Output.Ok.Body
+                    let body: Operations.RootGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -9797,25 +11844,19 @@ public struct Client: APIProtocol {
             }
         )
     }
-    /// Get Notification Preferences
+    /// Apple App Site Association
     ///
-    /// Get current notification preferences for the user.
+    /// Apple App Site Association file for Universal Links.
     ///
-    /// Args:
-    ///     current_user: Current authenticated user
-    ///
-    /// Returns:
-    ///     Current notification preferences
-    ///
-    /// - Remark: HTTP `GET /v1/notifications/preferences`.
-    /// - Remark: Generated from `#/paths//v1/notifications/preferences/get(get_notification_preferences_v1_notifications_preferences_get)`.
-    public func getNotificationPreferencesV1NotificationsPreferencesGet(_ input: Operations.GetNotificationPreferencesV1NotificationsPreferencesGet.Input) async throws -> Operations.GetNotificationPreferencesV1NotificationsPreferencesGet.Output {
+    /// - Remark: HTTP `GET /.well-known/apple-app-site-association`.
+    /// - Remark: Generated from `#/paths//.well-known/apple-app-site-association/get(apple_app_site_association__well_known_apple_app_site_association_get)`.
+    public func appleAppSiteAssociationWellKnownAppleAppSiteAssociationGet(_ input: Operations.AppleAppSiteAssociationWellKnownAppleAppSiteAssociationGet.Input) async throws -> Operations.AppleAppSiteAssociationWellKnownAppleAppSiteAssociationGet.Output {
         try await client.send(
             input: input,
-            forOperation: Operations.GetNotificationPreferencesV1NotificationsPreferencesGet.id,
+            forOperation: Operations.AppleAppSiteAssociationWellKnownAppleAppSiteAssociationGet.id,
             serializer: { input in
                 let path = try converter.renderedPath(
-                    template: "/v1/notifications/preferences",
+                    template: "/.well-known/apple-app-site-association",
                     parameters: []
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
@@ -9833,350 +11874,7 @@ public struct Client: APIProtocol {
                 switch response.status.code {
                 case 200:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetNotificationPreferencesV1NotificationsPreferencesGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.NotificationPreferencesResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Update Notification Preferences
-    ///
-    /// Update notification preferences for the current user.
-    ///
-    /// This endpoint allows users to enable or disable push notifications
-    /// without removing their device token.
-    ///
-    /// Args:
-    ///     preferences: Notification preferences
-    ///     current_user: Current authenticated user
-    ///     db: Async database session
-    ///
-    /// Returns:
-    ///     Updated notification preferences
-    ///
-    /// - Remark: HTTP `PUT /v1/notifications/preferences`.
-    /// - Remark: Generated from `#/paths//v1/notifications/preferences/put(update_notification_preferences_v1_notifications_preferences_put)`.
-    public func updateNotificationPreferencesV1NotificationsPreferencesPut(_ input: Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.Input) async throws -> Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/notifications/preferences",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .put
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.NotificationPreferencesResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.UpdateNotificationPreferencesV1NotificationsPreferencesPut.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Register Device Token
-    ///
-    /// Register or update the APNs device token for the current user.
-    ///
-    /// This endpoint allows iOS devices to register their APNs device token
-    /// so the backend can send push notifications. The token is stored in
-    /// the user's profile and will be updated if the device token changes.
-    ///
-    /// Args:
-    ///     token_data: Device token registration data
-    ///     current_user: Current authenticated user
-    ///     db: Async database session
-    ///
-    /// Returns:
-    ///     Success response with confirmation message
-    ///
-    /// - Remark: HTTP `POST /v1/notifications/register-device`.
-    /// - Remark: Generated from `#/paths//v1/notifications/register-device/post(register_device_token_v1_notifications_register_device_post)`.
-    public func registerDeviceTokenV1NotificationsRegisterDevicePost(_ input: Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.Input) async throws -> Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/notifications/register-device",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.DeviceTokenResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.RegisterDeviceTokenV1NotificationsRegisterDevicePost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Unregister Device Token
-    ///
-    /// Unregister the APNs device token for the current user.
-    ///
-    /// This endpoint allows users to remove their device token, typically
-    /// when logging out or when they no longer want to receive notifications.
-    ///
-    /// Args:
-    ///     current_user: Current authenticated user
-    ///     db: Async database session
-    ///
-    /// Returns:
-    ///     Success response with confirmation message
-    ///
-    /// - Remark: HTTP `DELETE /v1/notifications/register-device`.
-    /// - Remark: Generated from `#/paths//v1/notifications/register-device/delete(unregister_device_token_v1_notifications_register_device_delete)`.
-    public func unregisterDeviceTokenV1NotificationsRegisterDeviceDelete(_ input: Operations.UnregisterDeviceTokenV1NotificationsRegisterDeviceDelete.Input) async throws -> Operations.UnregisterDeviceTokenV1NotificationsRegisterDeviceDelete.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.UnregisterDeviceTokenV1NotificationsRegisterDeviceDelete.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/notifications/register-device",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .delete
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.UnregisterDeviceTokenV1NotificationsRegisterDeviceDelete.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.DeviceTokenResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Ping
-    ///
-    /// Simple ping endpoint for basic connectivity testing.
-    ///
-    /// - Remark: HTTP `GET /v1/ping`.
-    /// - Remark: Generated from `#/paths//v1/ping/get(ping_v1_ping_get)`.
-    public func pingV1PingGet(_ input: Operations.PingV1PingGet.Input) async throws -> Operations.PingV1PingGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.PingV1PingGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/ping",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.PingV1PingGet.Output.Ok.Body
+                    let body: Operations.AppleAppSiteAssociationWellKnownAppleAppSiteAssociationGet.Output.Ok.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
@@ -10196,1481 +11894,6 @@ public struct Client: APIProtocol {
                         preconditionFailure("bestContentType chose an invalid content type.")
                     }
                     return .ok(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Unseen Questions
-    ///
-    /// Get unseen questions for the current user.
-    ///
-    /// This endpoint returns questions that the user has never seen before,
-    /// filtered from the active question pool. Questions are selected to ensure
-    /// no repetition for the user.
-    ///
-    /// Args:
-    ///     count: Number of questions to return (default: 25, max: 100)
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     List of unseen questions with metadata
-    ///
-    /// Raises:
-    ///     HTTPException: If insufficient questions are available
-    ///
-    /// - Remark: HTTP `GET /v1/questions/unseen`.
-    /// - Remark: Generated from `#/paths//v1/questions/unseen/get(get_unseen_questions_v1_questions_unseen_get)`.
-    public func getUnseenQuestionsV1QuestionsUnseenGet(_ input: Operations.GetUnseenQuestionsV1QuestionsUnseenGet.Input) async throws -> Operations.GetUnseenQuestionsV1QuestionsUnseenGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetUnseenQuestionsV1QuestionsUnseenGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/questions/unseen",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "count",
-                    value: input.query.count
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetUnseenQuestionsV1QuestionsUnseenGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.UnseenQuestionsResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetUnseenQuestionsV1QuestionsUnseenGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Active Test Session
-    ///
-    /// Get the user's active (in_progress) test session if any.
-    ///
-    /// Args:
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Active test session or None
-    ///
-    /// - Remark: HTTP `GET /v1/test/active`.
-    /// - Remark: Generated from `#/paths//v1/test/active/get(get_active_test_session_v1_test_active_get)`.
-    public func getActiveTestSessionV1TestActiveGet(_ input: Operations.GetActiveTestSessionV1TestActiveGet.Input) async throws -> Operations.GetActiveTestSessionV1TestActiveGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetActiveTestSessionV1TestActiveGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/active",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetActiveTestSessionV1TestActiveGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Operations.GetActiveTestSessionV1TestActiveGet.Output.Ok.Body.JsonPayload?.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Start Guest Test
-    ///
-    /// Start a new guest test session.
-    ///
-    /// No authentication required. Returns all questions upfront (fixed-form),
-    /// plus a one-time *guest_token* that must be included when submitting answers.
-    ///
-    /// Args:
-    ///     x_device_id: Client-supplied device identifier (from X-Device-Id header).
-    ///     db:          Database session.
-    ///
-    /// Returns:
-    ///     GuestStartTestResponse with questions, guest_token, and tests_remaining.
-    ///
-    /// Raises:
-    ///     HTTPException 400: X-Device-Id header is blank.
-    ///     HTTPException 404: No active questions found.
-    ///     HTTPException 429: Device has reached the guest test limit.
-    ///
-    /// - Remark: HTTP `POST /v1/test/guest/start`.
-    /// - Remark: Generated from `#/paths//v1/test/guest/start/post(start_guest_test_v1_test_guest_start_post)`.
-    public func startGuestTestV1TestGuestStartPost(_ input: Operations.StartGuestTestV1TestGuestStartPost.Input) async throws -> Operations.StartGuestTestV1TestGuestStartPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.StartGuestTestV1TestGuestStartPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/guest/start",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setHeaderFieldAsURI(
-                    in: &request.headerFields,
-                    name: "X-Device-Id",
-                    value: input.headers.xDeviceId
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.StartGuestTestV1TestGuestStartPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.GuestStartTestResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.StartGuestTestV1TestGuestStartPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Submit Guest Test
-    ///
-    /// Submit answers for a guest test session.
-    ///
-    /// The *guest_token* from the start response is consumed here — a second call
-    /// with the same token returns 400.
-    ///
-    /// Args:
-    ///     submission: Guest submit request with guest_token, responses, and
-    ///                 optional time_limit_exceeded flag.
-    ///     db:         Database session.
-    ///
-    /// Returns:
-    ///     GuestSubmitTestResponse (identical structure to SubmitTestResponse).
-    ///
-    /// Raises:
-    ///     HTTPException 400: Invalid or expired guest token, empty responses,
-    ///                       or invalid question IDs.
-    ///     HTTPException 404: Session or question not found.
-    ///     HTTPException 409: Duplicate response for a question.
-    ///
-    /// - Remark: HTTP `POST /v1/test/guest/submit`.
-    /// - Remark: Generated from `#/paths//v1/test/guest/submit/post(submit_guest_test_v1_test_guest_submit_post)`.
-    public func submitGuestTestV1TestGuestSubmitPost(_ input: Operations.SubmitGuestTestV1TestGuestSubmitPost.Input) async throws -> Operations.SubmitGuestTestV1TestGuestSubmitPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.SubmitGuestTestV1TestGuestSubmitPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/guest/submit",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.GuestSubmitTestResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SubmitGuestTestV1TestGuestSubmitPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Test History
-    ///
-    /// Get historical test results for the current user with pagination.
-    ///
-    /// Results are returned in reverse chronological order (most recent first).
-    ///
-    /// Args:
-    ///     limit: Maximum number of results per page (default 50, max 100)
-    ///     offset: Number of results to skip for pagination (default 0)
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Paginated test results with total count and pagination metadata
-    ///
-    /// - Remark: HTTP `GET /v1/test/history`.
-    /// - Remark: Generated from `#/paths//v1/test/history/get(get_test_history_v1_test_history_get)`.
-    public func getTestHistoryV1TestHistoryGet(_ input: Operations.GetTestHistoryV1TestHistoryGet.Input) async throws -> Operations.GetTestHistoryV1TestHistoryGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetTestHistoryV1TestHistoryGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/history",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "offset",
-                    value: input.query.offset
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetTestHistoryV1TestHistoryGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.PaginatedTestHistoryResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetTestHistoryV1TestHistoryGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Submit Adaptive Response
-    ///
-    /// Submit a single response during an adaptive (CAT) test and get the next question.
-    ///
-    /// Processes the user's answer, updates the ability estimate via EAP,
-    /// checks stopping rules, and either returns the next question or signals
-    /// test completion with final results.
-    ///
-    /// Args:
-    ///     request: Adaptive response with session_id, question_id, user_answer, time_spent_seconds
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     AdaptiveNextResponse with next question or final result
-    ///
-    /// Raises:
-    ///     HTTPException: If session validation fails or response is invalid
-    ///
-    /// - Remark: HTTP `POST /v1/test/next`.
-    /// - Remark: Generated from `#/paths//v1/test/next/post(submit_adaptive_response_v1_test_next_post)`.
-    public func submitAdaptiveResponseV1TestNextPost(_ input: Operations.SubmitAdaptiveResponseV1TestNextPost.Input) async throws -> Operations.SubmitAdaptiveResponseV1TestNextPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.SubmitAdaptiveResponseV1TestNextPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/next",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SubmitAdaptiveResponseV1TestNextPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.AdaptiveNextResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SubmitAdaptiveResponseV1TestNextPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Test Progress
-    ///
-    /// Get progress information for an active adaptive (CAT) test session.
-    ///
-    /// Returns progress metrics including items administered, domain coverage,
-    /// and estimated items remaining. Does NOT expose raw theta to client.
-    ///
-    /// Args:
-    ///     session_id: Test session ID from query parameter
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     TestProgressResponse with progress information
-    ///
-    /// Raises:
-    ///     HTTPException: If session not found, not authorized, not in progress,
-    ///                   or not adaptive
-    ///
-    /// - Remark: HTTP `GET /v1/test/progress`.
-    /// - Remark: Generated from `#/paths//v1/test/progress/get(get_test_progress_v1_test_progress_get)`.
-    public func getTestProgressV1TestProgressGet(_ input: Operations.GetTestProgressV1TestProgressGet.Input) async throws -> Operations.GetTestProgressV1TestProgressGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetTestProgressV1TestProgressGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/progress",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "session_id",
-                    value: input.query.sessionId
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetTestProgressV1TestProgressGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.TestProgressResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetTestProgressV1TestProgressGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Test Result
-    ///
-    /// Get a specific test result by ID.
-    ///
-    /// Args:
-    ///     result_id: Test result ID
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Test result details with IQ score
-    ///
-    /// Raises:
-    ///     HTTPException: If result not found or doesn't belong to user
-    ///
-    /// - Remark: HTTP `GET /v1/test/results/{result_id}`.
-    /// - Remark: Generated from `#/paths//v1/test/results/{result_id}/get(get_test_result_v1_test_results__result_id__get)`.
-    public func getTestResultV1TestResultsResultIdGet(_ input: Operations.GetTestResultV1TestResultsResultIdGet.Input) async throws -> Operations.GetTestResultV1TestResultsResultIdGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetTestResultV1TestResultsResultIdGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/results/{}",
-                    parameters: [
-                        input.path.resultId
-                    ]
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetTestResultV1TestResultsResultIdGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.TestResultResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetTestResultV1TestResultsResultIdGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get Test Session
-    ///
-    /// Get details for a specific test session.
-    ///
-    /// Args:
-    ///     session_id: Test session ID
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Test session details with questions (if session is in_progress)
-    ///
-    /// Raises:
-    ///     HTTPException: If session not found or doesn't belong to user
-    ///
-    /// - Remark: HTTP `GET /v1/test/session/{session_id}`.
-    /// - Remark: Generated from `#/paths//v1/test/session/{session_id}/get(get_test_session_v1_test_session__session_id__get)`.
-    public func getTestSessionV1TestSessionSessionIdGet(_ input: Operations.GetTestSessionV1TestSessionSessionIdGet.Input) async throws -> Operations.GetTestSessionV1TestSessionSessionIdGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetTestSessionV1TestSessionSessionIdGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/session/{}",
-                    parameters: [
-                        input.path.sessionId
-                    ]
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetTestSessionV1TestSessionSessionIdGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.TestSessionStatusResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetTestSessionV1TestSessionSessionIdGet.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Start Test
-    ///
-    /// Start a new test session for the current user.
-    ///
-    /// Creates a new test session, fetches unseen questions, and marks them
-    /// as seen for the user. Returns the session details and questions.
-    ///
-    /// Args:
-    ///     question_count: Number of questions to include in test
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Test session and questions
-    ///
-    /// Raises:
-    ///     HTTPException: If user has active test or insufficient questions
-    ///
-    /// Note:
-    ///     Active Session Prevention Strategy (BCQ-045):
-    ///     This endpoint uses a dual-check pattern to prevent duplicate active sessions:
-    ///
-    ///     1. Application-level check (below): Queries for existing active session BEFORE
-    ///        creating a new one. Returns HTTP 400 with session_id in error message,
-    ///        allowing clients to offer "Resume existing session" functionality.
-    ///
-    ///     2. Database-level check (in db.flush()): The partial unique index
-    ///        ix_test_sessions_user_active catches race conditions when two requests
-    ///        pass the app-level check simultaneously. Returns HTTP 409 without
-    ///        session_id (unavailable due to rollback).
-    ///
-    ///     Both checks are intentionally kept because:
-    ///     - App-level provides better UX (session_id for recovery options)
-    ///     - DB-level is a last-resort safeguard for race conditions
-    ///     - The DB constraint guarantees correctness even if app logic is bypassed
-    ///
-    /// - Remark: HTTP `POST /v1/test/start`.
-    /// - Remark: Generated from `#/paths//v1/test/start/post(start_test_v1_test_start_post)`.
-    public func startTestV1TestStartPost(_ input: Operations.StartTestV1TestStartPost.Input) async throws -> Operations.StartTestV1TestStartPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.StartTestV1TestStartPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/start",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "question_count",
-                    value: input.query.questionCount
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "adaptive",
-                    value: input.query.adaptive
-                )
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.StartTestV1TestStartPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.StartTestResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.StartTestV1TestStartPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Submit Test
-    ///
-    /// Submit responses for a test session.
-    ///
-    /// Validates and stores all user responses, compares them against correct
-    /// answers, and marks the test session as completed.
-    ///
-    /// Args:
-    ///     submission: Response submission with session_id and responses
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Submission confirmation with updated session details
-    ///
-    /// Raises:
-    ///     HTTPException: If session not found, not authorized, already completed,
-    ///                   or validation fails
-    ///
-    /// - Remark: HTTP `POST /v1/test/submit`.
-    /// - Remark: Generated from `#/paths//v1/test/submit/post(submit_test_v1_test_submit_post)`.
-    public func submitTestV1TestSubmitPost(_ input: Operations.SubmitTestV1TestSubmitPost.Input) async throws -> Operations.SubmitTestV1TestSubmitPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.SubmitTestV1TestSubmitPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/submit",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SubmitTestV1TestSubmitPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.SubmitTestResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.SubmitTestV1TestSubmitPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Abandon Test
-    ///
-    /// Abandon an in-progress test session.
-    ///
-    /// Marks the test session as abandoned without calculating results.
-    /// Any responses saved during the test will be preserved but no
-    /// test result will be created.
-    ///
-    /// Args:
-    ///     session_id: Test session ID to abandon
-    ///     current_user: Current authenticated user
-    ///     db: Database session
-    ///
-    /// Returns:
-    ///     Abandoned session details with response count
-    ///
-    /// Raises:
-    ///     HTTPException: If session not found, not authorized, or already completed
-    ///
-    /// - Remark: HTTP `POST /v1/test/{session_id}/abandon`.
-    /// - Remark: Generated from `#/paths//v1/test/{session_id}/abandon/post(abandon_test_v1_test__session_id__abandon_post)`.
-    public func abandonTestV1TestSessionIdAbandonPost(_ input: Operations.AbandonTestV1TestSessionIdAbandonPost.Input) async throws -> Operations.AbandonTestV1TestSessionIdAbandonPost.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.AbandonTestV1TestSessionIdAbandonPost.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/test/{}/abandon",
-                    parameters: [
-                        input.path.sessionId
-                    ]
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .post
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.AbandonTestV1TestSessionIdAbandonPost.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.TestSessionAbandonResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.AbandonTestV1TestSessionIdAbandonPost.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Delete User Account
-    ///
-    /// Delete user account and all associated data (GDPR right to erasure).
-    ///
-    /// This endpoint permanently deletes:
-    /// - User profile and credentials
-    /// - All test sessions
-    /// - All test responses
-    /// - All test results
-    /// - All user-question associations
-    ///
-    /// This action is irreversible and complies with GDPR Article 17
-    /// (Right to Erasure).
-    ///
-    /// Args:
-    ///     current_user: Current authenticated user
-    ///     db: Async database session
-    ///
-    /// Returns:
-    ///     No content (204) on successful deletion
-    ///
-    /// Raises:
-    ///     HTTPException: 500 if database error occurs during deletion
-    ///
-    /// - Remark: HTTP `DELETE /v1/user/delete-account`.
-    /// - Remark: Generated from `#/paths//v1/user/delete-account/delete(delete_user_account_v1_user_delete_account_delete)`.
-    public func deleteUserAccountV1UserDeleteAccountDelete(_ input: Operations.DeleteUserAccountV1UserDeleteAccountDelete.Input) async throws -> Operations.DeleteUserAccountV1UserDeleteAccountDelete.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.DeleteUserAccountV1UserDeleteAccountDelete.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/user/delete-account",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .delete
-                )
-                suppressMutabilityWarning(&request)
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 204:
-                    return .noContent(.init())
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Get User Profile
-    ///
-    /// Get current user's profile information.
-    ///
-    /// Args:
-    ///     current_user: Current authenticated user
-    ///
-    /// Returns:
-    ///     User profile information
-    ///
-    /// - Remark: HTTP `GET /v1/user/profile`.
-    /// - Remark: Generated from `#/paths//v1/user/profile/get(get_user_profile_v1_user_profile_get)`.
-    public func getUserProfileV1UserProfileGet(_ input: Operations.GetUserProfileV1UserProfileGet.Input) async throws -> Operations.GetUserProfileV1UserProfileGet.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.GetUserProfileV1UserProfileGet.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/user/profile",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .get
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                return (request, nil)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.GetUserProfileV1UserProfileGet.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.UserResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                default:
-                    return .undocumented(
-                        statusCode: response.status.code,
-                        .init(
-                            headerFields: response.headerFields,
-                            body: responseBody
-                        )
-                    )
-                }
-            }
-        )
-    }
-    /// Update User Profile
-    ///
-    /// Update current user's profile information.
-    ///
-    /// Only provided fields will be updated. Fields not included in the
-    /// request body will remain unchanged.
-    ///
-    /// Args:
-    ///     profile_update: Profile fields to update
-    ///     current_user: Current authenticated user
-    ///     db: Async database session
-    ///
-    /// Returns:
-    ///     Updated user profile information
-    ///
-    /// - Remark: HTTP `PUT /v1/user/profile`.
-    /// - Remark: Generated from `#/paths//v1/user/profile/put(update_user_profile_v1_user_profile_put)`.
-    public func updateUserProfileV1UserProfilePut(_ input: Operations.UpdateUserProfileV1UserProfilePut.Input) async throws -> Operations.UpdateUserProfileV1UserProfilePut.Output {
-        try await client.send(
-            input: input,
-            forOperation: Operations.UpdateUserProfileV1UserProfilePut.id,
-            serializer: { input in
-                let path = try converter.renderedPath(
-                    template: "/v1/user/profile",
-                    parameters: []
-                )
-                var request: HTTPTypes.HTTPRequest = .init(
-                    soar_path: path,
-                    method: .put
-                )
-                suppressMutabilityWarning(&request)
-                converter.setAcceptHeader(
-                    in: &request.headerFields,
-                    contentTypes: input.headers.accept
-                )
-                let body: OpenAPIRuntime.HTTPBody?
-                switch input.body {
-                case let .json(value):
-                    body = try converter.setRequiredRequestBodyAsJSON(
-                        value,
-                        headerFields: &request.headerFields,
-                        contentType: "application/json; charset=utf-8"
-                    )
-                }
-                return (request, body)
-            },
-            deserializer: { response, responseBody in
-                switch response.status.code {
-                case 200:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.UpdateUserProfileV1UserProfilePut.Output.Ok.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.UserResponse.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .ok(.init(body: body))
-                case 422:
-                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
-                    let body: Operations.UpdateUserProfileV1UserProfilePut.Output.UnprocessableContent.Body
-                    let chosenContentType = try converter.bestContentType(
-                        received: contentType,
-                        options: [
-                            "application/json"
-                        ]
-                    )
-                    switch chosenContentType {
-                    case "application/json":
-                        body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.HTTPValidationError.self,
-                            from: responseBody,
-                            transforming: { value in
-                                .json(value)
-                            }
-                        )
-                    default:
-                        preconditionFailure("bestContentType chose an invalid content type.")
-                    }
-                    return .unprocessableContent(.init(body: body))
                 default:
                     return .undocumented(
                         statusCode: response.status.code,
