@@ -1,0 +1,13 @@
+schemaVersion: 1
+enabledWorkflows:
+  - simulator
+  - ui-automation
+  - debugging
+  - device
+debug: false
+sentryDisabled: false
+sessionDefaults:
+  projectPath: ios/AIQ.xcodeproj
+  scheme: AIQ
+  simulatorName: iPhone 17 Pro
+  simulatorId: 1D9E7E79-04E9-4FFA-83B0-7E3A83E412E4
