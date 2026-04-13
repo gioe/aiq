@@ -102,6 +102,42 @@ final class MockAdaptiveTestCoordinatorDelegate: AdaptiveTestCoordinatorDelegate
         lastHandleErrorContext = context
         lastHandleErrorRetry = retryOperation
     }
+
+    // MARK: - Reset
+
+    func reset() {
+        // State properties
+        testSession = nil
+        currentQuestion = nil
+        userAnswers = [:]
+        isTestCompleted = false
+
+        // Configurable return values
+        timeSpentOnQuestion = 5
+
+        // Call tracking booleans
+        setLoadingCalled = false
+        clearErrorCalled = false
+        appendQuestionAndAdvanceCalled = false
+        setIsTestCompletedCalled = false
+        clearSavedProgressCalled = false
+        recordCurrentQuestionTimeCalled = false
+        startQuestionTimingCalled = false
+        handleStartErrorCalled = false
+        handleErrorCalled = false
+        prepareForAdaptiveStartCalled = false
+
+        // Captured parameters
+        lastSetLoadingValue = nil
+        lastSetIsTestCompletedValue = nil
+        lastAppendedQuestion = nil
+        lastHandleStartError = nil
+        lastHandleError = nil
+        lastHandleErrorContext = nil
+        lastHandleErrorRetry = nil
+        lastPrepareSession = nil
+        lastPrepareQuestions = nil
+    }
 }
 
 // MARK: - AdaptiveTestCoordinatorTests
