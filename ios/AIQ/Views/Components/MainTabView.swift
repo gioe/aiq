@@ -52,6 +52,14 @@ struct MainTabView: View {
                 .tag(TabDestination.history)
                 .accessibilityIdentifier(TabDestination.history.accessibilityIdentifier)
 
+            // Groups Tab
+            GroupsTabNavigationView()
+                .tabItem {
+                    Label("Groups", systemImage: "person.3.fill")
+                }
+                .tag(TabDestination.groups)
+                .accessibilityIdentifier(TabDestination.groups.accessibilityIdentifier)
+
             // Settings Tab
             SettingsTabNavigationView()
                 .tabItem {
@@ -244,10 +252,16 @@ struct MainTabView: View {
             .keyboardShortcut("2", modifiers: .command)
             .hidden()
 
+            Button("Groups") {
+                selectedTab = .groups
+            }
+            .keyboardShortcut("3", modifiers: .command)
+            .hidden()
+
             Button("Settings") {
                 selectedTab = .settings
             }
-            .keyboardShortcut("3", modifiers: .command)
+            .keyboardShortcut("4", modifiers: .command)
             .hidden()
 
             // Action shortcuts
@@ -364,6 +378,48 @@ private struct HistoryTabNavigationView: View {
                         error,
                         context: .unimplementedRoute,
                         additionalInfo: ["tab": "history", "route": String(describing: route)]
+                    )
+                }
+        }
+    }
+}
+
+// MARK: - Groups Tab Navigation
+
+/// Wrapper view for Groups tab with coordinator-based navigation
+private struct GroupsTabNavigationView: View {
+    @EnvironmentObject private var router: AppRouter
+
+    var body: some View {
+        CoordinatedNavigationStack(coordinator: router.groupsCoordinator) { route in
+            destinationView(for: route)
+        } root: {
+            GroupsListView()
+        }
+    }
+
+    @ViewBuilder
+    private func destinationView(for route: Route) -> some View {
+        switch route {
+        case let .groupDetail(groupId):
+            GroupDetailView(groupId: groupId)
+        case .createGroup:
+            CreateGroupView()
+        case .joinGroup:
+            JoinGroupView()
+        default:
+            Text("Route not implemented")
+                .foregroundColor(.secondary)
+                .onAppear {
+                    let error = NSError(
+                        domain: "com.aiq.navigation",
+                        code: 1001,
+                        userInfo: [NSLocalizedDescriptionKey: "Unimplemented route in GroupsTab: \(route)"]
+                    )
+                    CrashlyticsErrorRecorder.recordError(
+                        error,
+                        context: .unimplementedRoute,
+                        additionalInfo: ["tab": "groups", "route": String(describing: route)]
                     )
                 }
         }

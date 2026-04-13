@@ -19,13 +19,15 @@ import SwiftUI
 enum TabDestination: Int, Hashable {
     case dashboard = 0
     case history = 1
-    case settings = 2
+    case groups = 2
+    case settings = 3
 
     /// The string identifier for accessibility purposes
     var accessibilityIdentifier: String {
         switch self {
         case .dashboard: AccessibilityIdentifiers.TabBar.dashboardTab
         case .history: AccessibilityIdentifiers.TabBar.historyTab
+        case .groups: AccessibilityIdentifiers.TabBar.groupsTab
         case .settings: AccessibilityIdentifiers.TabBar.settingsTab
         }
     }
@@ -68,6 +70,17 @@ enum Route: Hashable, Equatable {
     /// Detailed view of a specific test result from history
     case testDetail(result: TestResult, userAverage: Int?)
 
+    // MARK: - Groups Routes
+
+    /// Group detail screen showing leaderboard and members
+    case groupDetail(groupId: Int)
+
+    /// Create a new group screen
+    case createGroup
+
+    /// Join a group via invite code screen
+    case joinGroup
+
     // MARK: - Settings Routes
 
     // Note: The main settings screen is a tab (TabDestination.settings).
@@ -101,6 +114,12 @@ enum Route: Hashable, Equatable {
             lhsResult.id == rhsResult.id && lhsAvg == rhsAvg
         case let (.scoreBreakdown(lhsResult), .scoreBreakdown(rhsResult)):
             lhsResult.id == rhsResult.id
+        case let (.groupDetail(lhsId), .groupDetail(rhsId)):
+            lhsId == rhsId
+        case (.createGroup, .createGroup):
+            true
+        case (.joinGroup, .joinGroup):
+            true
         case (.notificationSettings, .notificationSettings):
             true
         case (.help, .help):
@@ -114,6 +133,7 @@ enum Route: Hashable, Equatable {
 
     // MARK: - Hashable Conformance
 
+    // swiftlint:disable:next cyclomatic_complexity
     func hash(into hasher: inout Hasher) {
         switch self {
         case .welcome:
@@ -136,6 +156,13 @@ enum Route: Hashable, Equatable {
         case let .scoreBreakdown(result):
             hasher.combine("scoreBreakdown")
             hasher.combine(result.id)
+        case let .groupDetail(groupId):
+            hasher.combine("groupDetail")
+            hasher.combine(groupId)
+        case .createGroup:
+            hasher.combine("createGroup")
+        case .joinGroup:
+            hasher.combine("joinGroup")
         case .notificationSettings:
             hasher.combine("notificationSettings")
         case .help:
@@ -170,6 +197,7 @@ final class AppRouter: ObservableObject {
     /// Per-tab navigation coordinators backed by SharedKit's NavigationCoordinator
     let dashboardCoordinator = NavigationCoordinator<Route>(loggerSubsystem: "com.aiq.app")
     let historyCoordinator = NavigationCoordinator<Route>(loggerSubsystem: "com.aiq.app")
+    let groupsCoordinator = NavigationCoordinator<Route>(loggerSubsystem: "com.aiq.app")
     let settingsCoordinator = NavigationCoordinator<Route>(loggerSubsystem: "com.aiq.app")
 
     /// The currently selected tab (set by MainTabView)
@@ -182,6 +210,7 @@ final class AppRouter: ObservableObject {
         switch tab {
         case .dashboard: dashboardCoordinator
         case .history: historyCoordinator
+        case .groups: groupsCoordinator
         case .settings: settingsCoordinator
         }
     }
