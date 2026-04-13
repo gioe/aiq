@@ -14935,10 +14935,22 @@ public enum Components {
             ///
             /// - Remark: Generated from `#/components/schemas/UserResponse/email`.
             public var email: Swift.String
+            /// User first name
+            ///
+            /// - Remark: Generated from `#/components/schemas/UserResponse/first_name`.
+            public var firstName: Swift.String?
+            /// User last name
+            ///
+            /// - Remark: Generated from `#/components/schemas/UserResponse/last_name`.
+            public var lastName: Swift.String?
             /// Account creation timestamp
             ///
             /// - Remark: Generated from `#/components/schemas/UserResponse/created_at`.
             public var createdAt: Foundation.Date
+            /// Last login timestamp
+            ///
+            /// - Remark: Generated from `#/components/schemas/UserResponse/last_login_at`.
+            public var lastLoginAt: Foundation.Date?
             /// Push notification preference
             ///
             /// - Remark: Generated from `#/components/schemas/UserResponse/notification_enabled`.
@@ -14947,33 +14959,77 @@ public enum Components {
             ///
             /// - Remark: Generated from `#/components/schemas/UserResponse/is_admin`.
             public var isAdmin: Swift.Bool
+            /// Year of birth
+            ///
+            /// - Remark: Generated from `#/components/schemas/UserResponse/birth_year`.
+            public var birthYear: Swift.Int?
+            /// Highest education level attained
+            ///
+            /// - Remark: Generated from `#/components/schemas/UserResponse/education_level`.
+            public var educationLevel: Components.Schemas.EducationLevel?
+            /// Country of residence
+            ///
+            /// - Remark: Generated from `#/components/schemas/UserResponse/country`.
+            public var country: Swift.String?
+            /// State/Province/Region
+            ///
+            /// - Remark: Generated from `#/components/schemas/UserResponse/region`.
+            public var region: Swift.String?
             /// Creates a new `UserResponse`.
             ///
             /// - Parameters:
             ///   - id: User ID
             ///   - email: User email address
+            ///   - firstName: User first name
+            ///   - lastName: User last name
             ///   - createdAt: Account creation timestamp
+            ///   - lastLoginAt: Last login timestamp
             ///   - notificationEnabled: Push notification preference
             ///   - isAdmin: Whether the user has admin privileges
+            ///   - birthYear: Year of birth
+            ///   - educationLevel: Highest education level attained
+            ///   - country: Country of residence
+            ///   - region: State/Province/Region
             public init(
                 id: Swift.Int,
                 email: Swift.String,
+                firstName: Swift.String? = nil,
+                lastName: Swift.String? = nil,
                 createdAt: Foundation.Date,
+                lastLoginAt: Foundation.Date? = nil,
                 notificationEnabled: Swift.Bool,
-                isAdmin: Swift.Bool
+                isAdmin: Swift.Bool,
+                birthYear: Swift.Int? = nil,
+                educationLevel: Components.Schemas.EducationLevel? = nil,
+                country: Swift.String? = nil,
+                region: Swift.String? = nil
             ) {
                 self.id = id
                 self.email = email
+                self.firstName = firstName
+                self.lastName = lastName
                 self.createdAt = createdAt
+                self.lastLoginAt = lastLoginAt
                 self.notificationEnabled = notificationEnabled
                 self.isAdmin = isAdmin
+                self.birthYear = birthYear
+                self.educationLevel = educationLevel
+                self.country = country
+                self.region = region
             }
             public enum CodingKeys: String, CodingKey {
                 case id
                 case email
+                case firstName = "first_name"
+                case lastName = "last_name"
                 case createdAt = "created_at"
+                case lastLoginAt = "last_login_at"
                 case notificationEnabled = "notification_enabled"
                 case isAdmin = "is_admin"
+                case birthYear = "birth_year"
+                case educationLevel = "education_level"
+                case country
+                case region
             }
         }
         /// - Remark: Generated from `#/components/schemas/ValidationError`.
