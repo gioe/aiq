@@ -510,37 +510,65 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     func getActiveTest() async throws -> Components.Schemas.TestSessionStatusResponse? {
         // The swift-openapi-generator cannot produce a body type for anyOf:[schema, null] responses.
         // Decode the /v1/test/active response manually so we can handle the nullable JSON payload.
-        let url = factory.serverURL.appendingPathComponent("v1/test/active")
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let token = await factory.authMiddleware.getAccessToken() {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-
+        // The middleware chain isn't available here, so we handle 401 with a single inline token
+        // refresh and retry rather than going through TokenRefreshMiddleware.
         do {
-            let (data, httpResponse) = try await URLSession.shared.data(for: request)
-            guard let http = httpResponse as? HTTPURLResponse else {
-                throw APIError.api(.invalidResponse)
-            }
-            switch http.statusCode {
+            let initialToken = await factory.authMiddleware.getAccessToken()
+            let (statusCode, data) = try await fetchActiveTest(token: initialToken)
+            switch statusCode {
             case 200:
-                let text = String(data: data, encoding: .utf8)
-                if data.count <= 4, text?.trimmingCharacters(in: .whitespaces) == "null" {
-                    return nil
-                }
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
-                return try? decoder.decode(Components.Schemas.TestSessionStatusResponse.self, from: data)
+                return try decodeActiveTestResponse(data)
             case 401:
-                throw APIError.api(.unauthorized(message: "Unauthorized"))
+                _ = try await refreshAccessToken()
+                let freshToken = await factory.authMiddleware.getAccessToken()
+                let (retryStatus, retryData) = try await fetchActiveTest(token: freshToken)
+                return try handleActiveTestStatus(retryStatus, data: retryData)
             default:
-                throw APIError.api(.serverError(statusCode: http.statusCode, message: "Unexpected status"))
+                throw APIError.api(.serverError(statusCode: statusCode, message: "Unexpected status"))
             }
         } catch let error as APIError {
             throw error
         } catch {
             throw try mapToAPIError(error)
+        }
+    }
+
+    private func fetchActiveTest(token: String?) async throws -> (Int, Data) {
+        let url = factory.serverURL.appendingPathComponent("v1/test/active")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, httpResponse) = try await URLSession.shared.data(for: request)
+        guard let http = httpResponse as? HTTPURLResponse else {
+            throw APIError.api(.invalidResponse)
+        }
+        return (http.statusCode, data)
+    }
+
+    private func decodeActiveTestResponse(_ data: Data) throws -> Components.Schemas.TestSessionStatusResponse? {
+        let text = String(data: data, encoding: .utf8)
+        if data.count <= 4, text?.trimmingCharacters(in: .whitespaces) == "null" {
+            return nil
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(Components.Schemas.TestSessionStatusResponse.self, from: data)
+    }
+
+    private func handleActiveTestStatus(
+        _ statusCode: Int,
+        data: Data
+    ) throws -> Components.Schemas.TestSessionStatusResponse? {
+        switch statusCode {
+        case 200:
+            return try decodeActiveTestResponse(data)
+        case 401:
+            throw APIError.api(.unauthorized(message: "Unauthorized"))
+        default:
+            throw APIError.api(.serverError(statusCode: statusCode, message: "Unexpected status"))
         }
     }
 
