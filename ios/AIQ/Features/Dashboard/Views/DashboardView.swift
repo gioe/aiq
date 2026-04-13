@@ -13,11 +13,17 @@ struct DashboardView: View {
     /// Whether user has dismissed the onboarding info card
     @AppStorage("hasDismissedOnboardingInfoCard") private var hasDismissedOnboardingInfoCard: Bool = false
 
+    /// Whether the user has tapped "Don't Show Again" on the pre-test info modal
+    @AppStorage("hasSeenPreTestInfo") private var hasSeenPreTestInfo: Bool = false
+
     /// Controls animation state for info card dismissal
     @State private var showOnboardingInfoCard: Bool = true
 
     /// Controls presentation of the onboarding flow
     @State private var showOnboarding: Bool = false
+
+    /// Controls presentation of the pre-test info bottom sheet
+    @State private var showPreTestInfo: Bool = false
 
     @Environment(\.appTheme) private var theme
 
@@ -77,6 +83,19 @@ struct DashboardView: View {
         }
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingContainerView()
+        }
+        .sheet(isPresented: $showPreTestInfo) {
+            PreTestInfoView(
+                onStartTest: {
+                    performNavigateToTest()
+                },
+                onDontShowAgain: {
+                    hasSeenPreTestInfo = true
+                },
+                onDismiss: {
+                    // No navigation — user returns to dashboard
+                }
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentView)) { _ in
             Task {
@@ -207,9 +226,39 @@ struct DashboardView: View {
 
     // MARK: - Routing Helpers
 
-    /// Determines the correct test route based on active session and feature flags
-    /// - Returns: Resume always routes to fixed-form test; new tests respect adaptive testing flag
+    /// Gate condition for showing the pre-test info bottom sheet.
+    ///
+    /// The sheet is shown when the user has not yet seen it AND meets at least one of:
+    /// - No completed tests (first-time user)
+    /// - Previously skipped onboarding
+    private var shouldShowPreTestInfo: Bool {
+        PreTestInfoGate.shouldShow(
+            testCount: viewModel.testCount,
+            didSkipOnboarding: didSkipOnboarding,
+            hasSeenPreTestInfo: hasSeenPreTestInfo
+        )
+    }
+
+    /// Entry point for "Start Test" taps from the dashboard.
+    ///
+    /// Shows the pre-test info bottom sheet for eligible users before routing.
+    /// Resuming an active test always bypasses the sheet.
     private func navigateToTest() {
+        if viewModel.hasActiveTest {
+            // Resuming — bypass the info sheet
+            performNavigateToTest()
+        } else if shouldShowPreTestInfo {
+            showPreTestInfo = true
+        } else {
+            performNavigateToTest()
+        }
+    }
+
+    /// Performs the actual navigation to the test screen.
+    ///
+    /// Called directly after the pre-test info sheet confirms start, or when the
+    /// sheet gate is not triggered. Determines fixed-form vs. adaptive route.
+    private func performNavigateToTest() {
         if viewModel.hasActiveTest {
             router.push(.testTaking(sessionId: viewModel.activeTestSession?.id))
         } else if Constants.Features.adaptiveTesting {
