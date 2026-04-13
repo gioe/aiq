@@ -214,6 +214,7 @@ enum AccessibilityIdentifiers {
     enum TabBar {
         static let dashboardTab = "tabBar.dashboardTab"
         static let historyTab = "tabBar.historyTab"
+        static let groupsTab = "tabBar.groupsTab"
         static let settingsTab = "tabBar.settingsTab"
     }
 
@@ -304,6 +305,26 @@ enum AccessibilityIdentifiers {
 
     enum AIComparisonCard {
         static let container = "aiComparisonCard.container"
+    }
+
+    // MARK: - Groups View
+
+    enum GroupsView {
+        static let groupsList = "groupsView.groupsList"
+        static let emptyState = "groupsView.emptyState"
+        static let addButton = "groupsView.addButton"
+        static let leaderboard = "groupsView.leaderboard"
+        static let inviteCodeCard = "groupsView.inviteCodeCard"
+        static let shareInviteButton = "groupsView.shareInviteButton"
+        static let groupNameField = "groupsView.groupNameField"
+        static let createButton = "groupsView.createButton"
+        static let inviteCodeField = "groupsView.inviteCodeField"
+        static let joinButton = "groupsView.joinButton"
+
+        /// Generate identifier for a group card by group ID
+        static func groupCard(id: Int) -> String {
+            "groupsView.groupCard.\(id)"
+        }
     }
 
     // MARK: - Adaptive Test View

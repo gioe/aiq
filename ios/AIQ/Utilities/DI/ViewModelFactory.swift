@@ -42,6 +42,7 @@ enum ViewModelFactory {
     /// same instance is returned regardless of how many times the factory is called.
     @MainActor private static var cachedDashboardVM: DashboardViewModel?
     @MainActor private static var cachedHistoryVM: HistoryViewModel?
+    @MainActor private static var cachedGroupsListVM: GroupsListViewModel?
     @MainActor private static var cachedSettingsVM: SettingsViewModel?
 
     /// Reset cached tab-level ViewModels. Call on logout or account deletion
@@ -50,6 +51,7 @@ enum ViewModelFactory {
     static func resetTabViewModels() {
         cachedDashboardVM = nil
         cachedHistoryVM = nil
+        cachedGroupsListVM = nil
         cachedSettingsVM = nil
     }
 
@@ -141,6 +143,38 @@ enum ViewModelFactory {
     static func makeRegistrationViewModel(container: ServiceContainer) -> RegistrationViewModel {
         let authManager: AuthManagerProtocol = container.resolve()
         return RegistrationViewModel(authManager: authManager)
+    }
+
+    // MARK: - Groups
+
+    /// Create or return a cached GroupsListViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured GroupsListViewModel instance
+    @MainActor
+    static func makeGroupsListViewModel(container: ServiceContainer) -> GroupsListViewModel {
+        if let cached = cachedGroupsListVM { return cached }
+        let apiService: OpenAPIServiceProtocol = container.resolve()
+        let vm = GroupsListViewModel(apiService: apiService)
+        cachedGroupsListVM = vm
+        return vm
+    }
+
+    /// Create a CreateGroupViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured CreateGroupViewModel instance
+    @MainActor
+    static func makeCreateGroupViewModel(container: ServiceContainer) -> CreateGroupViewModel {
+        let apiService: OpenAPIServiceProtocol = container.resolve()
+        return CreateGroupViewModel(apiService: apiService)
+    }
+
+    /// Create a JoinGroupViewModel with resolved dependencies
+    /// - Parameter container: ServiceContainer to resolve dependencies from
+    /// - Returns: Configured JoinGroupViewModel instance
+    @MainActor
+    static func makeJoinGroupViewModel(container: ServiceContainer) -> JoinGroupViewModel {
+        let apiService: OpenAPIServiceProtocol = container.resolve()
+        return JoinGroupViewModel(apiService: apiService)
     }
 
     // MARK: - Settings
