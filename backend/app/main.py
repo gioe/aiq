@@ -695,6 +695,30 @@ def create_application() -> FastAPI:
             "docs": f"{settings.API_V1_PREFIX}/docs",
         }
 
+    @app.get("/.well-known/apple-app-site-association")
+    async def apple_app_site_association():
+        """
+        Apple App Site Association file for Universal Links.
+        """
+        return JSONResponse(
+            content={
+                "applinks": {
+                    "apps": [],
+                    "details": [
+                        {
+                            "appIDs": ["4HDNC3V5Q6.com.aiq.app"],
+                            "components": [
+                                {"/": "/groups/join", "?": {"code": "?*"}},
+                                {"/": "/test/start"},
+                                {"/": "/settings/*"},
+                            ],
+                        }
+                    ],
+                }
+            },
+            media_type="application/json",
+        )
+
     return app
 
 
