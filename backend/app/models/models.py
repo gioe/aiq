@@ -150,6 +150,9 @@ class User(Base):
     # Admin bypass flag for cooldown enforcement
     bypass_cooldown: Mapped[bool] = mapped_column(default=False)
 
+    # Admin privilege flag — grants access to admin-only client features
+    is_admin: Mapped[bool] = mapped_column(default=False)
+
     # Demographic data for norming study (P13-001)
     # All fields are optional to ensure privacy and voluntary participation
     birth_year: Mapped[Optional[int]] = mapped_column(
