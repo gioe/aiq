@@ -16,6 +16,7 @@ struct MemoryQuestionView: View {
     var isDisabled: Bool = false
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.isAdmin) private var isAdmin
 
     var body: some View {
         VStack(spacing: 24) {
@@ -58,7 +59,8 @@ struct MemoryQuestionView: View {
                         // into the secure canvas and the inner UIHostingController, creating a
                         // second SwiftUI accessibility context that breaks the parent VStack's
                         // .contain modifier.
-                        .screenshotPrevented(
+                        .screenshotPreventedUnlessAdmin(
+                            isAdmin: isAdmin,
                             accessibilityIdentifier: AccessibilityIdentifiers.MemoryQuestionView.stimulusText
                         )
                 }

@@ -7,6 +7,8 @@ struct QuestionCardView: View {
     /// 1-based question number used to construct the accessibility label for VoiceOver.
     let questionNumber: Int
 
+    @Environment(\.isAdmin) private var isAdmin
+
     var body: some View {
         // The question text uses screenshotPrevented (UIViewRepresentable) to prevent
         // it from appearing in screen captures.  A VStack whose ONLY child is a
@@ -27,7 +29,8 @@ struct QuestionCardView: View {
                 .fontWeight(.medium)
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .screenshotPrevented(
+                .screenshotPreventedUnlessAdmin(
+                    isAdmin: isAdmin,
                     accessibilityIdentifier: AccessibilityIdentifiers.TestTakingView.questionText,
                     accessibilityLabel: question.questionText
                 )

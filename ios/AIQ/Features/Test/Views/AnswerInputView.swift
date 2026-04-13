@@ -8,6 +8,7 @@ struct AnswerInputView: View {
     var isDisabled: Bool = false
     @FocusState private var isTextFieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.isAdmin) private var isAdmin
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -76,7 +77,7 @@ struct AnswerInputView: View {
                 Text(inputHint)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .screenshotPrevented(accessibilityLabel: inputHint)
+                    .screenshotPreventedUnlessAdmin(isAdmin: isAdmin, accessibilityLabel: inputHint)
             }
         }
         .onAppear {
@@ -175,6 +176,8 @@ private struct OptionButton: View {
     var accessibilityId: String?
     let action: () -> Void
 
+    @Environment(\.isAdmin) private var isAdmin
+
     var body: some View {
         Button(action: action) {
             HStack {
@@ -183,7 +186,7 @@ private struct OptionButton: View {
                     .foregroundColor(foregroundColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .multilineTextAlignment(.leading)
-                    .screenshotPrevented()
+                    .screenshotPreventedUnlessAdmin(isAdmin: isAdmin)
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
