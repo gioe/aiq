@@ -132,6 +132,7 @@ struct RootView: View {
                     )
                 }
             }
+            .environment(\.isAdmin, authState.currentUser?.isAdmin ?? false)
             .task {
                 // Restore session on app launch
                 await authState.restoreSession()
