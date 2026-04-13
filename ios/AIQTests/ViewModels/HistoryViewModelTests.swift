@@ -46,14 +46,14 @@ final class HistoryViewModelTests: XCTestCase {
 
     private func createMockTestResult(id: Int, iqScore: Int = 100, completedAt: Date = Date()) -> TestResult {
         TestResult(
-            accuracyPercentage: 50.0,
-            completedAt: completedAt,
-            correctAnswers: 10,
             id: id,
-            iqScore: iqScore,
             testSessionId: id,
+            userId: 1,
+            iqScore: iqScore,
             totalQuestions: 20,
-            userId: 1
+            correctAnswers: 10,
+            accuracyPercentage: 50.0,
+            completedAt: completedAt
         )
     }
 
@@ -119,11 +119,11 @@ final class HistoryViewModelTests: XCTestCase {
             createMockTestResult(id: 4)
         ]
         await mockService.getTestHistoryResponse = PaginatedTestHistoryResponse(
-            hasMore: false,
+            results: page2Results,
+            totalCount: 4,
             limit: 50,
             offset: 2,
-            results: page2Results,
-            totalCount: 4
+            hasMore: false
         )
 
         // When
@@ -181,11 +181,11 @@ final class HistoryViewModelTests: XCTestCase {
 
         let page2Results = [createMockTestResult(id: 3), createMockTestResult(id: 4)]
         await mockService.getTestHistoryResponse = PaginatedTestHistoryResponse(
-            hasMore: false,
+            results: page2Results,
+            totalCount: 4,
             limit: 50,
             offset: 2,
-            results: page2Results,
-            totalCount: 4
+            hasMore: false
         )
         await sut.loadMore()
 
@@ -253,20 +253,20 @@ final class HistoryViewModelTests: XCTestCase {
         // Set up second page
         let page2Results = [createMockTestResult(id: 3)]
         await mockService.getTestHistoryResponse = PaginatedTestHistoryResponse(
-            hasMore: true,
+            results: page2Results,
+            totalCount: 4,
             limit: 50,
             offset: 2,
-            results: page2Results,
-            totalCount: 4
+            hasMore: true
         )
 
         mockService.reset()
         await mockService.getTestHistoryResponse = PaginatedTestHistoryResponse(
-            hasMore: true,
+            results: page2Results,
+            totalCount: 4,
             limit: 50,
             offset: 2,
-            results: page2Results,
-            totalCount: 4
+            hasMore: true
         )
 
         // When

@@ -59,9 +59,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 5,
-            session: mockSession
+            session: mockSession,
+            questionsCount: 5
         )
 
         await mockService.getActiveTestResponse = mockResponse
@@ -134,14 +133,14 @@ final class DashboardViewModelTests: XCTestCase {
     func testFetchDashboardData_ActiveSessionErrorDoesNotBlockDashboard() async {
         // Given - Set up test history to succeed
         let mockTestResult = TestResult(
-            accuracyPercentage: 75.0,
-            completedAt: Date(),
-            correctAnswers: 15,
             id: 1,
-            iqScore: 120,
             testSessionId: 100,
+            userId: 1,
+            iqScore: 120,
             totalQuestions: 20,
-            userId: 1
+            correctAnswers: 15,
+            accuracyPercentage: 75.0,
+            completedAt: Date()
         )
         await mockService.setTestHistoryResponse([mockTestResult])
 
@@ -172,9 +171,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 3,
-            session: mockSession
+            session: mockSession,
+            questionsCount: 3
         )
 
         // When - First call should fetch from API
@@ -214,9 +212,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 7,
-            session: mockSession
+            session: mockSession,
+            questionsCount: 7
         )
         await mockService.getActiveTestResponse = mockResponse
 
@@ -262,9 +259,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 0,
-            session: mockSession
+            session: mockSession,
+            questionsCount: 0
         )
         await mockService.getActiveTestResponse = mockResponse
 
@@ -302,9 +298,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 5,
-            session: mockSession
+            session: mockSession,
+            questionsCount: 5
         )
         await mockService.getActiveTestResponse = mockResponse
 
@@ -333,9 +328,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 2,
-            session: mockSession
+            session: mockSession,
+            questionsCount: 2
         )
         await mockService.getActiveTestResponse = mockResponse
 
@@ -461,9 +455,9 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: mockSession.startedAt
         )
         let mockAbandonResponse = TestAbandonResponse(
+            session: mockAbandonedSession,
             message: "Test abandoned successfully",
-            responsesSaved: 5,
-            session: mockAbandonedSession
+            responsesSaved: 5
         )
 
         await mockService.abandonTestResponse = mockAbandonResponse
@@ -552,9 +546,8 @@ final class DashboardViewModelTests: XCTestCase {
 
         // Set up cache with active session
         let cachedResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 10,
-            session: mockSession
+            session: mockSession,
+            questionsCount: 10
         )
         await AppCache.shared.set(
             cachedResponse,
@@ -568,9 +561,9 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: mockSession.startedAt
         )
         let mockAbandonResponse = TestAbandonResponse(
+            session: mockAbandonedSession,
             message: "Test abandoned successfully",
-            responsesSaved: 10,
-            session: mockAbandonedSession
+            responsesSaved: 10
         )
 
         // Queue all responses in order: abandon, test history, active session
@@ -606,21 +599,21 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: mockSession.startedAt
         )
         let mockAbandonResponse = TestAbandonResponse(
+            session: mockAbandonedSession,
             message: "Test abandoned successfully",
-            responsesSaved: 2,
-            session: mockAbandonedSession
+            responsesSaved: 2
         )
 
         // Mock dashboard data - should be called during refresh
         let mockTestResult = TestResult(
-            accuracyPercentage: 75.0,
-            completedAt: Date(),
-            correctAnswers: 15,
             id: 1,
-            iqScore: 120,
             testSessionId: 100,
+            userId: 1,
+            iqScore: 120,
             totalQuestions: 20,
-            userId: 1
+            correctAnswers: 15,
+            accuracyPercentage: 75.0,
+            completedAt: Date()
         )
 
         // Queue all responses in order: abandon, test history, active session
@@ -731,14 +724,14 @@ final class DashboardViewModelTests: XCTestCase {
     func testRefreshDashboard_UpdatesTestCountAndActiveSession() async {
         // Given
         let mockTestResult = TestResult(
-            accuracyPercentage: 75.0,
-            completedAt: Date(),
-            correctAnswers: 15,
             id: 1,
-            iqScore: 120,
             testSessionId: 100,
+            userId: 1,
+            iqScore: 120,
             totalQuestions: 20,
-            userId: 1
+            correctAnswers: 15,
+            accuracyPercentage: 75.0,
+            completedAt: Date()
         )
         await mockService.setTestHistoryResponse([mockTestResult], totalCount: 3)
 
@@ -749,9 +742,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let mockResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 4,
-            session: mockSession
+            session: mockSession,
+            questionsCount: 4
         )
         await mockService.getActiveTestResponse = mockResponse
 
@@ -772,9 +764,8 @@ final class DashboardViewModelTests: XCTestCase {
             startedAt: Date()
         )
         let staleResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 0,
-            session: staleSession
+            session: staleSession,
+            questionsCount: 0
         )
         await AppCache.shared.set(staleResponse, forKey: .activeTestSession)
 

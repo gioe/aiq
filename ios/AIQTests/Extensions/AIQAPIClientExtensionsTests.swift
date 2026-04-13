@@ -448,14 +448,14 @@ final class APIClientExtensionsTests: XCTestCase {
         // are no longer in the generated schema. Parameters are accepted for test
         // compilation compatibility but are unused.
         Components.Schemas.TestResultResponse(
-            accuracyPercentage: accuracyPercentage,
-            completedAt: completedAt,
-            correctAnswers: correctAnswers,
             id: id,
-            iqScore: iqScore,
             testSessionId: testSessionId,
+            userId: userId,
+            iqScore: iqScore,
             totalQuestions: totalQuestions,
-            userId: userId
+            correctAnswers: correctAnswers,
+            accuracyPercentage: accuracyPercentage,
+            completedAt: completedAt
         )
     }
 
@@ -466,10 +466,10 @@ final class APIClientExtensionsTests: XCTestCase {
         upper: Int = 105
     ) -> AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema {
         AIQAPIClientCore.Components.Schemas.ConfidenceIntervalSchema(
-            confidenceLevel: confidenceLevel,
             lower: lower,
-            standardError: standardError,
-            upper: upper
+            upper: upper,
+            confidenceLevel: confidenceLevel,
+            standardError: standardError
         )
     }
 
@@ -508,10 +508,10 @@ final class APIClientExtensionsTests: XCTestCase {
         questionText: String = "Test question?"
     ) -> Components.Schemas.QuestionResponse {
         Components.Schemas.QuestionResponse(
-            difficultyLevel: difficultyLevel,
             id: id,
             questionText: questionText,
-            questionType: questionType
+            questionType: questionType,
+            difficultyLevel: difficultyLevel
         )
     }
 }

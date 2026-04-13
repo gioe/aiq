@@ -29,7 +29,7 @@ final class IQTrendChartTests: XCTestCase {
 
     /// Creates a ConfidenceInterval with default 95% confidence level
     private func makeConfidenceInterval(lower: Int, upper: Int) -> ConfidenceInterval {
-        ConfidenceInterval(confidenceLevel: 0.95, lower: lower, standardError: 3.5, upper: upper)
+        ConfidenceInterval(lower: lower, upper: upper, confidenceLevel: 0.95, standardError: 3.5)
     }
 
     // MARK: - chartYDomain Tests

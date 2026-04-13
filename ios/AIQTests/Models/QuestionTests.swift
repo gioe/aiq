@@ -102,6 +102,8 @@ final class QuestionTests: XCTestCase {
     // MARK: - Question Decoding Tests
 
     func testQuestionDecodingWithAllFields() throws {
+        // answer_options and explanation are no longer part of the QuestionResponse schema;
+        // extra JSON keys are silently ignored during decoding.
         let json = """
         {
             "id": 1,
@@ -120,8 +122,9 @@ final class QuestionTests: XCTestCase {
         XCTAssertEqual(question.questionText, "What is the next number in the sequence: 2, 4, 8, 16, ?")
         XCTAssertEqual(question.questionType, "pattern")
         XCTAssertEqual(question.difficultyLevel, "medium")
-        XCTAssertEqual(question.answerOptions, ["24", "32", "64", "128"])
-        XCTAssertEqual(question.explanation, "Each number is double the previous number.")
+        // answerOptions and explanation are removed from schema; computed properties always return nil
+        XCTAssertNil(question.answerOptions)
+        XCTAssertNil(question.explanation)
     }
 
     func testQuestionDecodingWithRequiredFieldsOnly() throws {
@@ -166,6 +169,8 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionDecodingCodingKeysMapping() throws {
+        // answer_options and explanation are no longer part of the QuestionResponse schema;
+        // extra JSON keys are silently ignored during decoding.
         let json = """
         {
             "id": 4,
@@ -180,12 +185,13 @@ final class QuestionTests: XCTestCase {
         let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
-        // Verify snake_case fields are properly mapped to camelCase
+        // Verify snake_case fields are properly mapped to camelCase for the current schema fields
         XCTAssertEqual(question.questionText, "Test question")
         XCTAssertEqual(question.questionType, "logic")
         XCTAssertEqual(question.difficultyLevel, "hard")
-        XCTAssertEqual(question.answerOptions, ["A", "B", "C"])
-        XCTAssertEqual(question.explanation, "Test explanation")
+        // answerOptions and explanation are removed from schema; computed properties always return nil
+        XCTAssertNil(question.answerOptions)
+        XCTAssertNil(question.explanation)
     }
 
     func testQuestionDecodingWithAllQuestionTypes() throws {
@@ -239,9 +245,10 @@ final class QuestionTests: XCTestCase {
     // MARK: - Question Computed Properties Tests
 
     func testIsMultipleChoiceWithOptions() throws {
+        // answerOptions is no longer part of the schema; isMultipleChoice always returns false
         let question = try createValidQuestion(answerOptions: ["A", "B", "C", "D"])
 
-        XCTAssertTrue(question.isMultipleChoice)
+        XCTAssertFalse(question.isMultipleChoice)
     }
 
     func testIsMultipleChoiceWithoutOptions() throws {
@@ -257,18 +264,19 @@ final class QuestionTests: XCTestCase {
     }
 
     func testIsMultipleChoiceWithSingleOption() throws {
-        // A question with only one option is not considered "multiple choice"
-        // but it does have options available
+        // answerOptions is no longer part of the schema; both isMultipleChoice and
+        // hasOptions always return false regardless of what was passed to the factory
         let question = try createValidQuestion(answerOptions: ["Only Option"])
 
         XCTAssertFalse(question.isMultipleChoice)
-        XCTAssertTrue(question.hasOptions)
+        XCTAssertFalse(question.hasOptions)
     }
 
     func testHasOptionsWithOptions() throws {
+        // answerOptions is no longer part of the schema; hasOptions always returns false
         let question = try createValidQuestion(answerOptions: ["Option 1", "Option 2"])
 
-        XCTAssertTrue(question.hasOptions)
+        XCTAssertFalse(question.hasOptions)
     }
 
     func testHasOptionsWithoutOptions() throws {
@@ -328,17 +336,21 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionInequalityDifferentAnswerOptions() throws {
+        // answerOptions is no longer part of the schema; both questions are structurally
+        // identical because the factory ignores the answerOptions parameter
         let question1 = try createValidQuestion(answerOptions: ["A", "B"])
         let question2 = try createValidQuestion(answerOptions: ["C", "D"])
 
-        XCTAssertNotEqual(question1, question2)
+        XCTAssertEqual(question1, question2)
     }
 
     func testQuestionInequalityDifferentExplanation() throws {
+        // explanation is no longer part of the schema; both questions are structurally
+        // identical because the factory ignores the explanation parameter
         let question1 = try createValidQuestion(explanation: "Explanation 1")
         let question2 = try createValidQuestion(explanation: "Explanation 2")
 
-        XCTAssertNotEqual(question1, question2)
+        XCTAssertEqual(question1, question2)
     }
 
     // MARK: - Question Encoding Tests
@@ -368,6 +380,8 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionEncodingUsesSnakeCase() throws {
+        // answer_options and explanation are no longer part of the schema so are
+        // not encoded; the remaining schema fields still use snake_case keys.
         let question = try createValidQuestion(
             questionText: "Test",
             answerOptions: ["A"],
@@ -379,11 +393,12 @@ final class QuestionTests: XCTestCase {
         let data = try encoder.encode(question)
         let jsonString = try XCTUnwrap(String(data: data, encoding: .utf8))
 
-        // Verify snake_case keys are used in JSON
+        // Verify snake_case keys are used in JSON for the current schema fields
         XCTAssertTrue(jsonString.contains("question_text"))
         XCTAssertTrue(jsonString.contains("question_type"))
         XCTAssertTrue(jsonString.contains("difficulty_level"))
-        XCTAssertTrue(jsonString.contains("answer_options"))
+        // answer_options was removed from the schema and is no longer encoded
+        XCTAssertFalse(jsonString.contains("answer_options"))
 
         // Verify camelCase keys are NOT in JSON
         XCTAssertFalse(jsonString.contains("questionText"))
@@ -411,7 +426,6 @@ final class QuestionTests: XCTestCase {
 
         XCTAssertEqual(response.questionId, 1)
         XCTAssertEqual(response.userAnswer, "42")
-        XCTAssertEqual(response.timeSpentSeconds, 30)
     }
 
     func testQuestionResponseInitializationWithoutTimeSpent() throws {
@@ -422,10 +436,10 @@ final class QuestionTests: XCTestCase {
 
         XCTAssertEqual(response.questionId, 2)
         XCTAssertEqual(response.userAnswer, "Answer")
-        XCTAssertNil(response.timeSpentSeconds)
     }
 
     func testQuestionResponseDecoding() throws {
+        // time_spent_seconds is no longer part of the ResponseItem schema; extra keys are ignored
         let json = """
         {
             "question_id": 5,
@@ -439,7 +453,6 @@ final class QuestionTests: XCTestCase {
 
         XCTAssertEqual(response.questionId, 5)
         XCTAssertEqual(response.userAnswer, "Paris")
-        XCTAssertEqual(response.timeSpentSeconds, 45)
     }
 
     func testQuestionResponseDecodingWithoutTimeSpent() throws {
@@ -455,10 +468,10 @@ final class QuestionTests: XCTestCase {
 
         XCTAssertEqual(response.questionId, 6)
         XCTAssertEqual(response.userAnswer, "Blue")
-        XCTAssertNil(response.timeSpentSeconds)
     }
 
     func testQuestionResponseDecodingWithNullTimeSpent() throws {
+        // time_spent_seconds is no longer part of the ResponseItem schema; null value is ignored
         let json = """
         {
             "question_id": 7,
@@ -472,15 +485,13 @@ final class QuestionTests: XCTestCase {
 
         XCTAssertEqual(response.questionId, 7)
         XCTAssertEqual(response.userAnswer, "Test answer")
-        XCTAssertNil(response.timeSpentSeconds)
     }
 
     func testQuestionResponseCodingKeysMapping() throws {
         let json = """
         {
             "question_id": 10,
-            "user_answer": "Sample answer",
-            "time_spent_seconds": 120
+            "user_answer": "Sample answer"
         }
         """
 
@@ -490,14 +501,12 @@ final class QuestionTests: XCTestCase {
         // Verify snake_case to camelCase mapping
         XCTAssertEqual(response.questionId, 10)
         XCTAssertEqual(response.userAnswer, "Sample answer")
-        XCTAssertEqual(response.timeSpentSeconds, 120)
     }
 
     func testQuestionResponseEncodingRoundTrip() throws {
         let response = try createValidQuestionResponse(
             questionId: 15,
-            userAnswer: "Round trip test",
-            timeSpentSeconds: 60
+            userAnswer: "Round trip test"
         )
 
         let encoder = JSONEncoder()
@@ -508,14 +517,12 @@ final class QuestionTests: XCTestCase {
 
         XCTAssertEqual(response.questionId, decodedResponse.questionId)
         XCTAssertEqual(response.userAnswer, decodedResponse.userAnswer)
-        XCTAssertEqual(response.timeSpentSeconds, decodedResponse.timeSpentSeconds)
     }
 
     func testQuestionResponseEncodingUsesSnakeCase() throws {
         let response = try createValidQuestionResponse(
             questionId: 20,
-            userAnswer: "Test",
-            timeSpentSeconds: 90
+            userAnswer: "Test"
         )
 
         let encoder = JSONEncoder()
@@ -526,25 +533,22 @@ final class QuestionTests: XCTestCase {
         // Verify snake_case keys are used in JSON
         XCTAssertTrue(jsonString.contains("question_id"))
         XCTAssertTrue(jsonString.contains("user_answer"))
-        XCTAssertTrue(jsonString.contains("time_spent_seconds"))
+        // time_spent_seconds was removed from the ResponseItem schema
 
         // Verify camelCase keys are NOT in JSON
         XCTAssertFalse(jsonString.contains("questionId"))
         XCTAssertFalse(jsonString.contains("userAnswer"))
-        XCTAssertFalse(jsonString.contains("timeSpentSeconds"))
     }
 
     func testQuestionResponseEquality() throws {
         let response1 = try createValidQuestionResponse(
             questionId: 1,
-            userAnswer: "Answer",
-            timeSpentSeconds: 30
+            userAnswer: "Answer"
         )
 
         let response2 = try createValidQuestionResponse(
             questionId: 1,
-            userAnswer: "Answer",
-            timeSpentSeconds: 30
+            userAnswer: "Answer"
         )
 
         XCTAssertEqual(response1, response2)
@@ -553,33 +557,22 @@ final class QuestionTests: XCTestCase {
     func testQuestionResponseInequality() throws {
         let response1 = try createValidQuestionResponse(
             questionId: 1,
-            userAnswer: "Answer",
-            timeSpentSeconds: 30
+            userAnswer: "Answer"
         )
 
         // Different question ID
         let response2 = try createValidQuestionResponse(
             questionId: 2,
-            userAnswer: "Answer",
-            timeSpentSeconds: 30
+            userAnswer: "Answer"
         )
         XCTAssertNotEqual(response1, response2)
 
         // Different user answer
         let response3 = try createValidQuestionResponse(
             questionId: 1,
-            userAnswer: "Different",
-            timeSpentSeconds: 30
+            userAnswer: "Different"
         )
         XCTAssertNotEqual(response1, response3)
-
-        // Different time spent
-        let response4 = try createValidQuestionResponse(
-            questionId: 1,
-            userAnswer: "Answer",
-            timeSpentSeconds: 60
-        )
-        XCTAssertNotEqual(response1, response4)
     }
 
     // MARK: - Edge Cases and Validation Tests
@@ -587,6 +580,7 @@ final class QuestionTests: XCTestCase {
     // MARK: Edge Cases - Empty and Special Characters
 
     func testQuestionDecodingWithEmptyStrings() throws {
+        // explanation is no longer part of the schema; extra JSON keys are silently ignored.
         let json = """
         {
             "id": 1,
@@ -604,10 +598,13 @@ final class QuestionTests: XCTestCase {
 
         XCTAssertEqual(question.id, 1)
         XCTAssertEqual(question.questionText, "")
-        XCTAssertEqual(question.explanation, "")
+        // explanation is removed from schema; computed property always returns nil
+        XCTAssertNil(question.explanation)
     }
 
     func testQuestionDecodingWithSpecialCharacters() throws {
+        // answer_options and explanation are no longer part of the schema; extra JSON
+        // keys are silently ignored during decoding.
         let json = """
         {
             "id": 1,
@@ -623,10 +620,13 @@ final class QuestionTests: XCTestCase {
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertTrue(question.questionText.contains("π"))
-        XCTAssertTrue(question.explanation?.contains("π") ?? false)
+        // explanation is removed from schema; computed property always returns nil
+        XCTAssertNil(question.explanation)
     }
 
     func testQuestionDecodingWithUnicodeCharacters() throws {
+        // answer_options and explanation are no longer part of the schema; extra JSON
+        // keys are silently ignored during decoding.
         let json = """
         {
             "id": 1,
@@ -642,7 +642,8 @@ final class QuestionTests: XCTestCase {
         let question = try JSONDecoder().decode(Question.self, from: data)
 
         XCTAssertTrue(question.questionText.contains("你好"))
-        XCTAssertEqual(question.answerOptions?[0], "París")
+        // answerOptions is removed from schema; computed property always returns nil
+        XCTAssertNil(question.answerOptions)
     }
 
     // MARK: Edge Cases - Boundary Conditions
@@ -665,6 +666,8 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionDecodingWithManyAnswerOptions() throws {
+        // answer_options is no longer part of the schema; extra JSON keys are silently
+        // ignored during decoding and the computed property always returns nil.
         let options = (1 ... 10).map { "Option \($0)" }
         let optionsJSON = options.map { "\"\($0)\"" }.joined(separator: ", ")
 
@@ -681,9 +684,7 @@ final class QuestionTests: XCTestCase {
         let data = try XCTUnwrap(json.data(using: .utf8))
         let question = try JSONDecoder().decode(Question.self, from: data)
 
-        XCTAssertEqual(question.answerOptions?.count, 10)
-        XCTAssertEqual(question.answerOptions?[0], "Option 1")
-        XCTAssertEqual(question.answerOptions?[9], "Option 10")
+        XCTAssertNil(question.answerOptions)
     }
 
     // MARK: Edge Cases - Invalid Data Handling
@@ -826,9 +827,10 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseWithZeroTimeSpent() throws {
+        // timeSpentSeconds is accepted by the validated() factory but not stored in ResponseItem
         let response = try createValidQuestionResponse(userAnswer: "Quick answer", timeSpentSeconds: 0)
 
-        XCTAssertEqual(response.timeSpentSeconds, 0)
+        XCTAssertEqual(response.userAnswer, "Quick answer")
     }
 
     func testQuestionResponseWithNegativeTimeSpent() throws {
@@ -848,9 +850,10 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseWithLargeTimeSpent() throws {
+        // timeSpentSeconds is accepted by the validated() factory but not stored in ResponseItem
         let response = try createValidQuestionResponse(userAnswer: "Answer", timeSpentSeconds: 3600)
 
-        XCTAssertEqual(response.timeSpentSeconds, 3600)
+        XCTAssertEqual(response.userAnswer, "Answer")
     }
 
     // MARK: - Validation Tests
@@ -937,24 +940,28 @@ final class QuestionTests: XCTestCase {
     }
 
     func testQuestionResponseInitializationSucceedsWithZeroTimeSpent() throws {
+        // timeSpentSeconds is accepted by the validated() factory but not stored in ResponseItem
         let response = try createValidQuestionResponse(timeSpentSeconds: 0)
 
-        XCTAssertEqual(response.timeSpentSeconds, 0)
+        XCTAssertEqual(response.questionId, 1)
     }
 
     func testQuestionResponseInitializationSucceedsWithPositiveTimeSpent() throws {
+        // timeSpentSeconds is accepted by the validated() factory but not stored in ResponseItem
         let response = try createValidQuestionResponse(timeSpentSeconds: 100)
 
-        XCTAssertEqual(response.timeSpentSeconds, 100)
+        XCTAssertEqual(response.questionId, 1)
     }
 
     func testQuestionResponseInitializationSucceedsWithNilTimeSpent() throws {
+        // timeSpentSeconds is accepted by the validated() factory but not stored in ResponseItem
         let response = try createValidQuestionResponse(timeSpentSeconds: nil)
 
-        XCTAssertNil(response.timeSpentSeconds)
+        XCTAssertEqual(response.questionId, 1)
     }
 
     func testQuestionResponseDecodingWithNegativeTimeSpent() throws {
+        // time_spent_seconds is no longer part of the ResponseItem schema; the value is ignored
         let json = """
         {
             "question_id": 1,
@@ -964,15 +971,14 @@ final class QuestionTests: XCTestCase {
         """
 
         let data = try XCTUnwrap(json.data(using: .utf8))
-
-        // Generated OpenAPI type does not validate during decoding;
-        // use QuestionResponse.validated(...) for runtime validation
         let response = try JSONDecoder().decode(QuestionResponse.self, from: data)
 
-        XCTAssertEqual(response.timeSpentSeconds, -10)
+        XCTAssertEqual(response.questionId, 1)
+        XCTAssertEqual(response.userAnswer, "Answer")
     }
 
     func testQuestionResponseDecodingSucceedsWithValidTimeSpent() throws {
+        // time_spent_seconds is no longer part of the ResponseItem schema; the value is ignored
         let json = """
         {
             "question_id": 1,
@@ -984,7 +990,8 @@ final class QuestionTests: XCTestCase {
         let data = try XCTUnwrap(json.data(using: .utf8))
         let response = try JSONDecoder().decode(QuestionResponse.self, from: data)
 
-        XCTAssertEqual(response.timeSpentSeconds, 50)
+        XCTAssertEqual(response.questionId, 1)
+        XCTAssertEqual(response.userAnswer, "Answer")
     }
 
     func testQuestionValidationErrorDescription() {

@@ -110,12 +110,13 @@ final class AuthServiceTests: XCTestCase {
         let email = "test@example.com"
         let password = "password123"
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: email,
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "access_token_123",
@@ -211,12 +212,13 @@ final class AuthServiceTests: XCTestCase {
         let email = "test@example.com"
         let password = "password123"
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: email,
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "access_token_123",
@@ -243,12 +245,13 @@ final class AuthServiceTests: XCTestCase {
         let email = "test@example.com"
         let password = "password123"
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: email,
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "access_token_123",
@@ -328,12 +331,13 @@ final class AuthServiceTests: XCTestCase {
         let email = "test@example.com"
         let password = "password123"
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: email,
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "new_access_token",
@@ -397,12 +401,13 @@ final class AuthServiceTests: XCTestCase {
         let email = "test@example.com"
         let password = "password123"
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: email,
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "access_token_123",
@@ -480,12 +485,13 @@ final class AuthServiceTests: XCTestCase {
         let region = "CA"
 
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 2,
             email: email,
             firstName: firstName,
-            id: 2,
             lastName: lastName,
-            notificationEnabled: false
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "new_access_token",
@@ -553,12 +559,13 @@ final class AuthServiceTests: XCTestCase {
         let lastName = "User"
 
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 3,
             email: email,
             firstName: firstName,
-            id: 3,
             lastName: lastName,
-            notificationEnabled: false
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "minimal_access_token",
@@ -641,12 +648,13 @@ final class AuthServiceTests: XCTestCase {
         let firstName = "New"
         let lastName = "User"
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 2,
             email: email,
             firstName: firstName,
-            id: 2,
             lastName: lastName,
-            notificationEnabled: false
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "new_access_token",
@@ -714,12 +722,13 @@ final class AuthServiceTests: XCTestCase {
         let firstName = "New"
         let lastName = "User"
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 2,
             email: email,
             firstName: firstName,
-            id: 2,
             lastName: lastName,
-            notificationEnabled: false
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "new_access_token",
@@ -867,12 +876,13 @@ final class AuthServiceTests: XCTestCase {
 
         // Simulate login to set current user in memory
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "test@example.com",
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "access_token",
@@ -912,12 +922,13 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save(oldRefreshToken, forKey: SecureStorageKey.refreshToken.rawValue)
 
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "test@example.com",
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "new_access_token",
@@ -1013,12 +1024,13 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "test@example.com",
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "refreshed_access_token",
@@ -1094,12 +1106,13 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("1", forKey: SecureStorageKey.userId.rawValue)
 
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "test@example.com",
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "refreshed_access_token",
@@ -1338,12 +1351,13 @@ final class AuthServiceTests: XCTestCase {
         let email = "test@example.com"
         let password = "password123"
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: email,
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "access_token",
@@ -1369,12 +1383,13 @@ final class AuthServiceTests: XCTestCase {
     func testCurrentUser_ClearedAfterLogout() async throws {
         // Given - Setup authenticated state with user
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "test@example.com",
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "access_token",
@@ -1403,12 +1418,13 @@ final class AuthServiceTests: XCTestCase {
     func testMultipleSuccessiveLogins_OverwritesTokens() async throws {
         // Given
         let firstUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "first@example.com",
             firstName: "First",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let firstResponse = AuthResponse(
             accessToken: "first_access_token",
@@ -1418,12 +1434,13 @@ final class AuthServiceTests: XCTestCase {
         )
 
         let secondUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 2,
             email: "second@example.com",
             firstName: "Second",
-            id: 2,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let secondResponse = AuthResponse(
             accessToken: "second_access_token",
@@ -1461,12 +1478,13 @@ final class AuthServiceTests: XCTestCase {
         try mockSecureStorage.save("refresh_token", forKey: SecureStorageKey.refreshToken.rawValue)
 
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "test@example.com",
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "new_access_token",
@@ -1498,12 +1516,13 @@ final class AuthServiceTests: XCTestCase {
             refreshToken: "refresh",
             tokenType: "Bearer",
             user: Components.Schemas.UserResponse(
-                createdAt: Date(),
+                id: 1,
                 email: "",
                 firstName: "Test",
-                id: 1,
                 lastName: "User",
-                notificationEnabled: true
+                createdAt: Date(),
+                notificationEnabled: true,
+                isAdmin: false
             )
         )
 
@@ -1520,12 +1539,13 @@ final class AuthServiceTests: XCTestCase {
     func testConcurrentLogin_ThreadSafety() async throws {
         // Given - Multiple concurrent login attempts (Critical Issue #4)
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "test@example.com",
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "concurrent_access_token",
@@ -1561,12 +1581,13 @@ final class AuthServiceTests: XCTestCase {
     func testConcurrentRegister_ThreadSafety() async throws {
         // Given - Multiple concurrent registration attempts (Critical Issue #4)
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "newuser@example.com",
             firstName: "New",
-            id: 1,
             lastName: "User",
-            notificationEnabled: false
+            createdAt: Date(),
+            notificationEnabled: false,
+            isAdmin: false
         )
         let mockAuthResponse = AuthResponse(
             accessToken: "concurrent_register_token",

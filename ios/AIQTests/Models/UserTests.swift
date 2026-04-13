@@ -235,21 +235,18 @@ final class UserTests: XCTestCase {
     // MARK: - UserProfile Tests
 
     func testUserProfileDecoding() throws {
-        let json = """
-        {
-            "first_name": "Profile",
-            "last_name": "Test",
-            "notification_enabled": true
-        }
-        """
+        // UserProfileUpdate is an empty schema (no fields) — verify it decodes from any JSON object
+        let json = "{}"
 
         let data = try XCTUnwrap(json.data(using: .utf8))
         let profile = try JSONDecoder().decode(UserProfile.self, from: data)
 
-        XCTAssertEqual(profile.firstName, "Profile")
+        // Decoding succeeds and produces an equal value to a default-constructed instance
+        XCTAssertEqual(profile, UserProfile())
     }
 
     func testUserProfileCodingKeys() throws {
+        // UserProfileUpdate has no fields; extra JSON keys are ignored during decoding
         let json = """
         {
             "first_name": "First",
@@ -261,17 +258,12 @@ final class UserTests: XCTestCase {
         let data = try XCTUnwrap(json.data(using: .utf8))
         let profile = try JSONDecoder().decode(UserProfile.self, from: data)
 
-        XCTAssertEqual(profile.firstName, "First")
-        XCTAssertEqual(profile.lastName, "Last")
-        XCTAssertEqual(profile.notificationEnabled, false)
+        // All instances are equal since the struct has no stored properties
+        XCTAssertEqual(profile, UserProfile())
     }
 
     func testUserProfileEncodingRoundTrip() throws {
-        let profile = UserProfile(
-            firstName: "Encode",
-            lastName: "Decode",
-            notificationEnabled: true
-        )
+        let profile = UserProfile()
 
         let encoder = JSONEncoder()
         let data = try encoder.encode(profile)
@@ -283,69 +275,30 @@ final class UserTests: XCTestCase {
     }
 
     func testUserProfileEncodingUsesSnakeCase() throws {
-        let profile = UserProfile(
-            firstName: "Snake",
-            lastName: "Case",
-            notificationEnabled: false
-        )
+        let profile = UserProfile()
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         let data = try encoder.encode(profile)
         let jsonString = try XCTUnwrap(String(data: data, encoding: .utf8))
 
-        XCTAssertTrue(jsonString.contains("first_name"))
-        XCTAssertTrue(jsonString.contains("last_name"))
-        XCTAssertTrue(jsonString.contains("notification_enabled"))
-        XCTAssertFalse(jsonString.contains("firstName"))
-        XCTAssertFalse(jsonString.contains("lastName"))
-        XCTAssertFalse(jsonString.contains("notificationEnabled"))
+        // UserProfileUpdate has no fields; encoded JSON is an empty object
+        XCTAssertEqual(jsonString, "{}")
     }
 
     func testUserProfileEquality() {
-        let profile1 = UserProfile(
-            firstName: "Equal",
-            lastName: "Test",
-            notificationEnabled: true
-        )
-
-        let profile2 = UserProfile(
-            firstName: "Equal",
-            lastName: "Test",
-            notificationEnabled: true
-        )
+        let profile1 = UserProfile()
+        let profile2 = UserProfile()
 
         XCTAssertEqual(profile1, profile2)
     }
 
     func testUserProfileInequality() {
-        let profile1 = UserProfile(
-            firstName: "First",
-            lastName: "Last",
-            notificationEnabled: true
-        )
+        // UserProfileUpdate has no fields; all instances are equal
+        let profile1 = UserProfile()
+        let profile2 = UserProfile()
 
-        let profile2 = UserProfile(
-            firstName: "Different",
-            lastName: "Last",
-            notificationEnabled: true
-        )
-
-        let profile3 = UserProfile(
-            firstName: "First",
-            lastName: "Different",
-            notificationEnabled: true
-        )
-
-        let profile4 = UserProfile(
-            firstName: "First",
-            lastName: "Last",
-            notificationEnabled: false
-        )
-
-        XCTAssertNotEqual(profile1, profile2)
-        XCTAssertNotEqual(profile1, profile3)
-        XCTAssertNotEqual(profile1, profile4)
+        XCTAssertEqual(profile1, profile2)
     }
 
     // MARK: - Edge Cases and Validation Tests

@@ -54,10 +54,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         let sessionId = 5001
         let mockQuestion = makeQuestion(id: 1, text: "First adaptive question?")
         let startResponse = StartTestResponse(
-            currentSe: 1.0,
-            currentTheta: 0.0,
-            questions: [mockQuestion],
             session: makeTestSession(id: sessionId),
+            questions: [mockQuestion],
             totalQuestions: 1
         )
         mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
@@ -94,8 +92,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         // rather than silently retrying
         let activeSession = makeTestSession(id: sessionId, startedAt: Date())
         mockService.getActiveTestResponse = Components.Schemas.TestSessionStatusResponse(
-            questionsCount: 0,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 0
         )
 
         // When
@@ -135,10 +133,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         let sessionId = 5002
         let mockQuestion = makeQuestion(id: 10)
         let startResponse = StartTestResponse(
-            currentSe: 1.0,
-            currentTheta: 0.0,
-            questions: [mockQuestion],
             session: makeTestSession(id: sessionId),
+            questions: [mockQuestion],
             totalQuestions: 1
         )
         mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
@@ -164,10 +160,10 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         // Set up next question response
         let nextQuestion = makeQuestion(id: 2, text: "Second question?")
         let adaptiveResponse = Components.Schemas.AdaptiveNextResponse(
-            currentSe: 0.8,
+            nextQuestion: nextQuestion,
             currentTheta: 0.5,
+            currentSe: 0.8,
             itemsAdministered: 2,
-            nextQuestion: .init(value1: nextQuestion),
             testComplete: false
         )
         mockService.submitAdaptiveResponseResponse = adaptiveResponse
@@ -194,11 +190,12 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
 
         // Set up completion response
         let adaptiveResponse = Components.Schemas.AdaptiveNextResponse(
-            currentSe: 0.25,
+            nextQuestion: nil,
             currentTheta: 1.2,
+            currentSe: 0.25,
             itemsAdministered: 10,
-            stoppingReason: "se_threshold",
-            testComplete: true
+            testComplete: true,
+            stoppingReason: "se_threshold"
         )
         mockService.submitAdaptiveResponseResponse = adaptiveResponse
 
@@ -231,8 +228,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         let sessionId = 5006
         let mockQuestions = [makeQuestion(id: 1)]
         let startResponse = StartTestResponse(
-            questions: mockQuestions,
             session: makeTestSession(id: sessionId),
+            questions: mockQuestions,
             totalQuestions: 1
         )
         mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
@@ -273,10 +270,10 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
 
         let nextQuestion = makeQuestion(id: 43)
         let adaptiveResponse = Components.Schemas.AdaptiveNextResponse(
-            currentSe: 0.9,
+            nextQuestion: nextQuestion,
             currentTheta: 0.1,
+            currentSe: 0.9,
             itemsAdministered: 2,
-            nextQuestion: .init(value1: nextQuestion),
             testComplete: false
         )
         mockService.submitAdaptiveResponseResponse = adaptiveResponse
@@ -349,8 +346,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         let sessionId = 5013
         let mockQuestions = [makeQuestion(id: 1), makeQuestion(id: 2)]
         let startResponse = StartTestResponse(
-            questions: mockQuestions,
             session: makeTestSession(id: sessionId),
+            questions: mockQuestions,
             totalQuestions: 2
         )
         mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
@@ -376,8 +373,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
             makeQuestion(id: 4)
         ]
         let startResponse = StartTestResponse(
-            questions: mockQuestions,
             session: makeTestSession(id: sessionId),
+            questions: mockQuestions,
             totalQuestions: 4
         )
         mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)
@@ -402,10 +399,10 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         sut.currentAnswer = "A"
         let q2 = makeQuestion(id: 2, text: "Q2?")
         mockService.submitAdaptiveResponseResponse = Components.Schemas.AdaptiveNextResponse(
-            currentSe: 0.9,
+            nextQuestion: q2,
             currentTheta: 0.3,
+            currentSe: 0.9,
             itemsAdministered: 2,
-            nextQuestion: .init(value1: q2),
             testComplete: false
         )
         await sut.submitAnswerAndGetNext()
@@ -415,10 +412,10 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         sut.currentAnswer = "B"
         let q3 = makeQuestion(id: 3, text: "Q3?")
         mockService.submitAdaptiveResponseResponse = Components.Schemas.AdaptiveNextResponse(
-            currentSe: 0.7,
+            nextQuestion: q3,
             currentTheta: 0.6,
+            currentSe: 0.7,
             itemsAdministered: 3,
-            nextQuestion: .init(value1: q3),
             testComplete: false
         )
         await sut.submitAnswerAndGetNext()
@@ -439,10 +436,10 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
         sut.currentAnswer = "A"
         let q2 = makeQuestion(id: 2)
         mockService.submitAdaptiveResponseResponse = Components.Schemas.AdaptiveNextResponse(
-            currentSe: 0.9,
+            nextQuestion: q2,
             currentTheta: 0.3,
+            currentSe: 0.9,
             itemsAdministered: 2,
-            nextQuestion: .init(value1: q2),
             testComplete: false
         )
         await sut.submitAnswerAndGetNext()
@@ -457,10 +454,8 @@ final class AdaptiveTestTakingViewModelTests: XCTestCase {
     private func setupAdaptiveTestInProgress(sessionId: Int, questionId: Int) async {
         let mockQuestion = makeQuestion(id: questionId)
         let startResponse = StartTestResponse(
-            currentSe: 1.0,
-            currentTheta: 0.0,
-            questions: [mockQuestion],
             session: makeTestSession(id: sessionId),
+            questions: [mockQuestion],
             totalQuestions: 1
         )
         mockService.setTestHistoryResponse([], totalCount: 0, hasMore: false)

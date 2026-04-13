@@ -400,9 +400,9 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         if let error = getBenchmarkSummaryError { throw error }
         guard let response = getBenchmarkSummaryResponse else {
             return Components.Schemas.BenchmarkSummaryResponse(
-                cacheTtl: 600,
+                models: [],
                 minRuns: 3,
-                models: []
+                cacheTtl: 600
             )
         }
         return response
@@ -526,11 +526,11 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     /// Set test history response with a simple array of results
     func setTestHistoryResponse(_ results: [TestResult], totalCount: Int? = nil, hasMore: Bool = false) {
         getTestHistoryResponse = PaginatedTestHistoryResponse(
-            hasMore: hasMore,
+            results: results,
+            totalCount: totalCount ?? results.count,
             limit: 50,
             offset: 0,
-            results: results,
-            totalCount: totalCount ?? results.count
+            hasMore: hasMore
         )
     }
 

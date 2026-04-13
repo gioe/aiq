@@ -269,7 +269,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testGetNotificationPreferences_Success_Enabled() async throws {
         // Given
-        let mockResponse = Components.Schemas.NotificationPreferencesResponse(message: "Success", notificationEnabled: true)
+        let mockResponse = Components.Schemas.NotificationPreferencesResponse(notificationEnabled: true, message: "Success")
         mockService.getNotificationPreferencesResponse = mockResponse
 
         // When
@@ -283,7 +283,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testGetNotificationPreferences_Success_Disabled() async throws {
         // Given
-        let mockResponse = Components.Schemas.NotificationPreferencesResponse(message: "Success", notificationEnabled: false)
+        let mockResponse = Components.Schemas.NotificationPreferencesResponse(notificationEnabled: false, message: "Success")
         mockService.getNotificationPreferencesResponse = mockResponse
 
         // When
@@ -373,7 +373,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testConcurrentGetPreferences_ThreadSafety() async throws {
         // Given
-        let mockResponse = Components.Schemas.NotificationPreferencesResponse(message: "Success", notificationEnabled: true)
+        let mockResponse = Components.Schemas.NotificationPreferencesResponse(notificationEnabled: true, message: "Success")
         mockService.getNotificationPreferencesResponse = mockResponse
 
         // When - Perform multiple concurrent get operations
@@ -424,7 +424,7 @@ final class NotificationServiceTests: XCTestCase {
 
         // Reset the mock and set response for get
         mockService.reset()
-        let getResponse = Components.Schemas.NotificationPreferencesResponse(message: "Success", notificationEnabled: true)
+        let getResponse = Components.Schemas.NotificationPreferencesResponse(notificationEnabled: true, message: "Success")
         mockService.getNotificationPreferencesResponse = getResponse
 
         // When - Get preferences
@@ -546,7 +546,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testRapidGetPreferencesCalls_Success() async throws {
         // Given
-        let mockResponse = Components.Schemas.NotificationPreferencesResponse(message: "Success", notificationEnabled: true)
+        let mockResponse = Components.Schemas.NotificationPreferencesResponse(notificationEnabled: true, message: "Success")
         mockService.getNotificationPreferencesResponse = mockResponse
 
         // When - Make many rapid sequential get calls
@@ -567,7 +567,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testMixedConcurrentOperations_RegisterAndGetPreferences() async throws {
         // Given
-        let prefsResponse = Components.Schemas.NotificationPreferencesResponse(message: "Success", notificationEnabled: true)
+        let prefsResponse = Components.Schemas.NotificationPreferencesResponse(notificationEnabled: true, message: "Success")
         mockService.getNotificationPreferencesResponse = prefsResponse
 
         // When - Perform register and get preferences concurrently
@@ -584,7 +584,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testMixedConcurrentOperations_AllOperationsAtOnce() async throws {
         // Given
-        let prefsResponse = Components.Schemas.NotificationPreferencesResponse(message: "Success", notificationEnabled: true)
+        let prefsResponse = Components.Schemas.NotificationPreferencesResponse(notificationEnabled: true, message: "Success")
         mockService.getNotificationPreferencesResponse = prefsResponse
 
         // When - Perform all four operations concurrently
@@ -627,7 +627,7 @@ final class NotificationServiceTests: XCTestCase {
 
     func testMixedConcurrentOperations_UpdateAndGetPreferencesRace() async throws {
         // Given - Test potential race condition between update and get
-        let enabledResponse = Components.Schemas.NotificationPreferencesResponse(message: "Success", notificationEnabled: true)
+        let enabledResponse = Components.Schemas.NotificationPreferencesResponse(notificationEnabled: true, message: "Success")
         mockService.getNotificationPreferencesResponse = enabledResponse
 
         // When - Interleave updates and gets

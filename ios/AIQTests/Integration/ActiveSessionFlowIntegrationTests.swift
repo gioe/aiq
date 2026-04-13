@@ -95,9 +95,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date()
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 2,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 2
         )
 
         await mockService.setTestHistoryResponse([])
@@ -123,9 +122,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date().addingTimeInterval(-300) // Started 5 minutes ago
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 5,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 5
         )
 
         await mockService.setTestHistoryResponse([])
@@ -143,11 +141,12 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // When - User resumes test from dashboard
         let mockQuestions = makeQuestions(count: 5)
         let resumeResponse = TestSessionStatusResponse(
-            questions: mockQuestions,
-            questionsCount: 5,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 5
         )
         await mockService.getTestSessionResponse = resumeResponse
+        // The API no longer returns questions in the status response; seed them locally.
+        testTakingViewModel.navigationState.questions = mockQuestions
 
         await testTakingViewModel.resumeActiveSession(sessionId: sessionId)
 
@@ -177,9 +176,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // Dashboard shows active session
         let activeSessionResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 3,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 3
         )
         await mockService.setTestHistoryResponse([])
         await mockService.getActiveTestResponse = activeSessionResponse
@@ -208,12 +206,13 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Reset mock and set up resume response
         mockService.reset()
         let resumeResponse = TestSessionStatusResponse(
-            questions: mockQuestions,
-            questionsCount: 3,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 3
         )
 
         await mockService.getTestSessionResponse = resumeResponse
+        // The API no longer returns questions in the status response; seed them locally.
+        testTakingViewModel.navigationState.questions = mockQuestions
 
         // When - User resumes test
         await testTakingViewModel.resumeActiveSession(sessionId: sessionId)
@@ -239,9 +238,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date().addingTimeInterval(-300) // Started 5 minutes ago
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 10,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 10
         )
 
         // Set endpoint-specific responses for parallel API calls
@@ -267,9 +265,9 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: activeSession.startedAt
         )
         let abandonResponse = TestAbandonResponse(
+            session: abandonedSession,
             message: "Test abandoned successfully",
-            responsesSaved: 10,
-            session: abandonedSession
+            responsesSaved: 10
         )
 
         // Set endpoint-specific responses for abandon operation
@@ -319,14 +317,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // When - Abandon test
         let abandonResponse = TestAbandonResponse(
-            message: "Test abandoned successfully",
-            responsesSaved: 2,
             session: MockDataFactory.makeTestSession(
                 id: sessionId,
                 userId: 1,
                 status: "abandoned",
                 startedAt: activeSession.startedAt
-            )
+            ),
+            message: "Test abandoned successfully",
+            responsesSaved: 2
         )
 
         await mockService.abandonTestResponse = abandonResponse
@@ -365,8 +363,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date()
         )
         await mockService.getActiveTestResponse = TestSessionStatusResponse(
-            questionsCount: 0,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 0
         )
 
         // When - User attempts to start new test
@@ -410,17 +408,18 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // When - User chooses to resume the conflicted session
         let mockQuestions = makeQuestions(count: 4)
         let resumeResponse = TestSessionStatusResponse(
-            questions: mockQuestions,
-            questionsCount: 4,
             session: MockDataFactory.makeTestSession(
                 id: sessionId,
                 userId: 1,
                 status: "in_progress",
                 startedAt: Date()
-            )
+            ),
+            questionsCount: 4
         )
 
         await mockService.getTestSessionResponse = resumeResponse
+        // The API no longer returns questions in the status response; seed them locally.
+        testTakingViewModel.navigationState.questions = mockQuestions
 
         await testTakingViewModel.resumeActiveSession(sessionId: sessionId)
 
@@ -455,14 +454,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
 
         // When - User chooses to abandon and start new
         let abandonResponse = TestAbandonResponse(
-            message: "Test abandoned successfully",
-            responsesSaved: 0,
             session: MockDataFactory.makeTestSession(
                 id: oldSessionId,
                 userId: 1,
                 status: "abandoned",
                 startedAt: Date()
-            )
+            ),
+            message: "Test abandoned successfully",
+            responsesSaved: 0
         )
         let startResponse = makeStartTestResponse(
             sessionId: newSessionId,
@@ -524,9 +523,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date()
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 5,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 5
         )
 
         await mockService.setTestHistoryResponse([])
@@ -544,9 +542,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // When - User answers more questions (simulated by updated count)
         // and dashboard refreshes
         let updatedActiveSessionResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 8, // User answered 3 more questions
-            session: activeSession
+            session: activeSession,
+            questionsCount: 8 // User answered 3 more questions
         )
 
         await mockService.setTestHistoryResponse([])
@@ -573,9 +570,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Dashboard shows active session
         await mockService.setTestHistoryResponse([])
         await mockService.getActiveTestResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 2,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 2
         )
 
         await dashboardViewModel.fetchDashboardData()
@@ -600,14 +596,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Reset and set up submit response
         mockService.reset()
         let testResult = SubmittedTestResult(
-            accuracyPercentage: 100.0,
-            completedAt: Date(),
-            correctAnswers: 2,
             id: 1,
-            iqScore: 125,
             testSessionId: sessionId,
+            userId: 1,
+            iqScore: 125,
             totalQuestions: 2,
-            userId: 1
+            correctAnswers: 2,
+            accuracyPercentage: 100.0,
+            completedAt: Date()
         )
         let completedSession = MockDataFactory.makeTestSession(
             id: sessionId,
@@ -616,10 +612,10 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date()
         )
         let submitResponse = TestSubmitResponse(
-            message: "Test completed successfully",
-            responsesCount: 2,
+            session: completedSession,
             result: testResult,
-            session: completedSession
+            responsesCount: 2,
+            message: "Test completed successfully"
         )
         await mockService.submitTestResponse = submitResponse
         await testTakingViewModel.submitTest()
@@ -634,14 +630,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // When - Dashboard refreshes after completion
         // Convert SubmittedTestResult to TestResult for history fetch
         let historyResult = TestResult(
-            accuracyPercentage: testResult.accuracyPercentage,
-            completedAt: testResult.completedAt,
-            correctAnswers: testResult.correctAnswers,
             id: testResult.id,
-            iqScore: testResult.iqScore,
             testSessionId: testResult.testSessionId,
+            userId: testResult.userId,
+            iqScore: testResult.iqScore,
             totalQuestions: testResult.totalQuestions,
-            userId: testResult.userId
+            correctAnswers: testResult.correctAnswers,
+            accuracyPercentage: testResult.accuracyPercentage,
+            completedAt: testResult.completedAt
         )
         await mockService.setTestHistoryResponse([historyResult])
         await mockService.getActiveTestResponse = nil // No active session after completion
@@ -664,9 +660,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
             startedAt: Date()
         )
         let activeSessionResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 3,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 3
         )
 
         await mockService.setTestHistoryResponse([])
@@ -722,9 +717,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // First refresh - session appears
         await mockService.setTestHistoryResponse([])
         await mockService.getActiveTestResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 5,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 5
         )
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
         XCTAssertTrue(dashboardViewModel.hasActiveTest)
@@ -732,9 +726,8 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Second refresh - session still active
         await mockService.setTestHistoryResponse([])
         await mockService.getActiveTestResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 7,
-            session: activeSession
+            session: activeSession,
+            questionsCount: 7
         )
         await dashboardViewModel.fetchDashboardData(forceRefresh: true)
         XCTAssertTrue(dashboardViewModel.hasActiveTest)
@@ -743,14 +736,14 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         // Third refresh - session completed
         await mockService.setTestHistoryResponse(
             [TestResult(
-                accuracyPercentage: 80.0,
-                completedAt: Date(),
-                correctAnswers: 8,
                 id: 1,
-                iqScore: 120,
                 testSessionId: sessionId,
+                userId: 1,
+                iqScore: 120,
                 totalQuestions: 10,
-                userId: 1
+                correctAnswers: 8,
+                accuracyPercentage: 80.0,
+                completedAt: Date()
             )]
         )
         await mockService.getActiveTestResponse = nil
@@ -770,13 +763,11 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         type: QuestionType = .logic,
         difficulty: DifficultyLevel = .medium
     ) -> Question {
-        try! Question(
-            answerOptions: ["A", "B", "C", "D"],
-            difficultyLevel: difficulty.rawValue,
-            explanation: nil,
+        Question(
             id: id,
             questionText: text,
-            questionType: type.rawValue
+            questionType: type.rawValue,
+            difficultyLevel: difficulty.rawValue
         )
     }
 
@@ -795,13 +786,13 @@ final class ActiveSessionFlowIntegrationTests: XCTestCase {
         totalQuestions: Int? = nil
     ) -> StartTestResponse {
         StartTestResponse(
-            questions: questions,
             session: MockDataFactory.makeTestSession(
                 id: sessionId,
                 userId: 1,
                 status: "in_progress",
                 startedAt: Date()
             ),
+            questions: questions,
             totalQuestions: totalQuestions ?? questions.count
         )
     }

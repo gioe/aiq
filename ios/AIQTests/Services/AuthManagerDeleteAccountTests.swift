@@ -21,12 +21,13 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
     func testDeleteAccount_Success() async throws {
         // Given - user is authenticated (set mock state before creating AuthManager)
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "test@example.com",
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         mockAuthService.isAuthenticated = true
         mockAuthService.currentUser = mockUser
@@ -48,12 +49,13 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
     func testDeleteAccount_Failure() async throws {
         // Given - set mock state before creating AuthManager
         let mockUser = Components.Schemas.UserResponse(
-            createdAt: Date(),
+            id: 1,
             email: "test@example.com",
             firstName: "Test",
-            id: 1,
             lastName: "User",
-            notificationEnabled: true
+            createdAt: Date(),
+            notificationEnabled: true,
+            isAdmin: false
         )
         mockAuthService.isAuthenticated = true
         mockAuthService.currentUser = mockUser

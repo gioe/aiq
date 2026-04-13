@@ -237,6 +237,8 @@ final class TestTakingViewModelTests: XCTestCase {
         )
 
         mockService.getTestSessionResponse = mockResponse
+        // The API no longer returns questions in the status response; seed them locally.
+        sut.navigationState.questions = mockQuestions
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -267,6 +269,8 @@ final class TestTakingViewModelTests: XCTestCase {
             questions: mockQuestions
         )
         mockService.getTestSessionResponse = mockResponse
+        // The API no longer returns questions in the status response; seed them locally.
+        sut.navigationState.questions = mockQuestions
 
         // Set up saved progress with one answer
         let savedProgress = SavedTestProgress(
@@ -302,6 +306,8 @@ final class TestTakingViewModelTests: XCTestCase {
         )
         mockService.getTestSessionResponse = mockResponse
         mockAnswerStorage.mockProgress = nil // No saved progress
+        // The API no longer returns questions in the status response; seed them locally.
+        sut.navigationState.questions = mockQuestions
 
         // When
         await sut.resumeActiveSession(sessionId: sessionId)
@@ -323,9 +329,8 @@ final class TestTakingViewModelTests: XCTestCase {
         )
         // Response with no questions
         let mockResponse = TestSessionStatusResponse(
-            questions: nil,
-            questionsCount: 0,
-            session: mockSession
+            session: mockSession,
+            questionsCount: 0
         )
         mockService.getTestSessionResponse = mockResponse
 
@@ -540,11 +545,12 @@ final class TestTakingViewModelTests: XCTestCase {
             )
         ]
         let mockResponse = TestSessionStatusResponse(
-            questions: mockQuestions,
-            questionsCount: mockQuestions.count,
-            session: mockSession
+            session: mockSession,
+            questionsCount: mockQuestions.count
         )
         mockService.getTestSessionResponse = mockResponse
+        // The API no longer returns questions in the status response; seed them locally.
+        sut.navigationState.questions = mockQuestions
         // Saved progress includes an answer for question 3 (not in session) and question 1 (in session)
         let savedProgress = SavedTestProgress(
             sessionId: sessionId,
@@ -869,9 +875,8 @@ final class TestTakingViewModelTests: XCTestCase {
         startedAt: Date = Date()
     ) -> TestSessionStatusResponse {
         TestSessionStatusResponse(
-            questions: questions,
-            questionsCount: questionsCount ?? questions.count,
-            session: makeTestSession(id: sessionId, startedAt: startedAt)
+            session: makeTestSession(id: sessionId, startedAt: startedAt),
+            questionsCount: questionsCount ?? questions.count
         )
     }
 
@@ -881,8 +886,8 @@ final class TestTakingViewModelTests: XCTestCase {
         totalQuestions: Int? = nil
     ) -> StartTestResponse {
         StartTestResponse(
-            questions: questions,
             session: makeTestSession(id: sessionId),
+            questions: questions,
             totalQuestions: totalQuestions ?? questions.count
         )
     }
@@ -893,9 +898,9 @@ final class TestTakingViewModelTests: XCTestCase {
         message: String = "Test abandoned successfully"
     ) -> TestAbandonResponse {
         TestAbandonResponse(
+            session: makeTestSession(id: sessionId, status: "abandoned"),
             message: message,
-            responsesSaved: responsesSaved,
-            session: makeTestSession(id: sessionId, status: "abandoned")
+            responsesSaved: responsesSaved
         )
     }
 
@@ -929,16 +934,16 @@ final class TestTakingViewModelTests: XCTestCase {
         totalQuestions: Int? = nil
     ) -> Components.Schemas.GuestStartTestResponse {
         Components.Schemas.GuestStartTestResponse(
-            guestToken: guestToken,
-            questions: questions,
             session: Components.Schemas.TestSessionResponse(
                 id: sessionId,
-                startedAt: Date(),
+                userId: 0,
                 status: "in_progress",
-                userId: 0
+                startedAt: Date()
             ),
-            testsRemaining: testsRemaining,
-            totalQuestions: totalQuestions ?? questions.count
+            questions: questions,
+            totalQuestions: totalQuestions ?? questions.count,
+            guestToken: guestToken,
+            testsRemaining: testsRemaining
         )
     }
 
@@ -951,25 +956,24 @@ final class TestTakingViewModelTests: XCTestCase {
         accuracyPercentage: Double = 66.7
     ) -> Components.Schemas.GuestSubmitTestResponse {
         Components.Schemas.GuestSubmitTestResponse(
-            message: "Guest test submitted",
-            responsesCount: responsesCount,
-            result: Components.Schemas.TestResultResponse(
-                accuracyPercentage: accuracyPercentage,
-                completedAt: Date(),
-                correctAnswers: correctAnswers,
-                id: 1,
-                iqScore: iqScore,
-                testSessionId: sessionId,
-                totalQuestions: totalQuestions,
-                userId: 0
-            ),
             session: Components.Schemas.TestSessionResponse(
-                completedAt: Date(),
                 id: sessionId,
-                startedAt: Date(),
+                userId: 0,
                 status: "completed",
-                userId: 0
-            )
+                startedAt: Date()
+            ),
+            result: Components.Schemas.TestResultResponse(
+                id: 1,
+                testSessionId: sessionId,
+                userId: 0,
+                iqScore: iqScore,
+                totalQuestions: totalQuestions,
+                correctAnswers: correctAnswers,
+                accuracyPercentage: accuracyPercentage,
+                completedAt: Date()
+            ),
+            responsesCount: responsesCount,
+            message: "Guest test submitted"
         )
     }
 
@@ -1212,8 +1216,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Set up submit response
         let submitResponse = TestSubmitResponse(
-            message: "Test submitted",
-            responsesCount: 2,
+            session: makeTestSession(id: sessionId, status: "completed"),
             result: makeSubmittedTestResult(
                 id: 1,
                 sessionId: sessionId,
@@ -1221,7 +1224,8 @@ final class TestTakingViewModelTests: XCTestCase {
                 totalQuestions: 2,
                 correctAnswers: 1
             ),
-            session: makeTestSession(id: sessionId, status: "completed")
+            responsesCount: 2,
+            message: "Test submitted"
         )
         mockService.submitTestResponse = submitResponse
 
@@ -1253,8 +1257,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Set up submit response
         let submitResponse = TestSubmitResponse(
-            message: "Test submitted",
-            responsesCount: 1,
+            session: makeTestSession(id: sessionId, status: "completed"),
             result: makeSubmittedTestResult(
                 id: 2,
                 sessionId: sessionId,
@@ -1262,7 +1265,8 @@ final class TestTakingViewModelTests: XCTestCase {
                 totalQuestions: 3,
                 correctAnswers: 1
             ),
-            session: makeTestSession(id: sessionId, status: "completed")
+            responsesCount: 1,
+            message: "Test submitted"
         )
         mockService.submitTestResponse = submitResponse
 
@@ -1310,8 +1314,7 @@ final class TestTakingViewModelTests: XCTestCase {
 
         // Set up submit response
         let submitResponse = TestSubmitResponse(
-            message: "Test submitted",
-            responsesCount: 2,
+            session: makeTestSession(id: sessionId, status: "completed"),
             result: makeSubmittedTestResult(
                 id: 3,
                 sessionId: sessionId,
@@ -1319,7 +1322,8 @@ final class TestTakingViewModelTests: XCTestCase {
                 totalQuestions: 2,
                 correctAnswers: 2
             ),
-            session: makeTestSession(id: sessionId, status: "completed")
+            responsesCount: 2,
+            message: "Test submitted"
         )
         mockService.submitTestResponse = submitResponse
 
@@ -1460,11 +1464,11 @@ final class TestTakingViewModelTests: XCTestCase {
     func testIsFirstTest_IsCalculatedBeforeTestStarts() async {
         // Given - Set up API to return zero test count
         let emptyHistoryResponse = PaginatedTestHistoryResponse(
-            hasMore: false,
+            results: [],
+            totalCount: 0,
             limit: 1,
             offset: 0,
-            results: [],
-            totalCount: 0
+            hasMore: false
         )
         mockService.getTestHistoryResponse = emptyHistoryResponse
 
@@ -1489,11 +1493,11 @@ final class TestTakingViewModelTests: XCTestCase {
     func testIsFirstTest_UsesForceRefreshForAccurateCount() async {
         // Given
         let historyResponse = PaginatedTestHistoryResponse(
-            hasMore: false,
+            results: [],
+            totalCount: 0,
             limit: 1,
             offset: 0,
-            results: [],
-            totalCount: 0
+            hasMore: false
         )
         mockService.getTestHistoryResponse = historyResponse
 
@@ -1601,6 +1605,11 @@ final class TestTakingViewModelTests: XCTestCase {
             questions: mockQuestions
         )
         mockService.getTestSessionResponse = mockResponse
+
+        // Pre-populate navigationState.questions — resumeActiveSession guards on non-empty
+        // questions (they are no longer returned by the session-status API and must come
+        // from locally cached navigation state, e.g. from a prior startTest call).
+        sut.navigationState.questions = mockQuestions
 
         // Saved progress includes stimulusSeen for question 10
         let savedProgress = SavedTestProgress(
@@ -1818,10 +1827,13 @@ final class TestTakingViewModelTests: XCTestCase {
             stimulusSeen: []
         )
         mockAnswerStorage.mockProgress = expiredProgress
+        let expiredQuestions = makeQuestions(count: 2)
         mockService.getTestSessionResponse = makeSessionStatusResponse(
             sessionId: expiredSessionId,
-            questions: makeQuestions(count: 2)
+            questions: expiredQuestions
         )
+        // The API no longer returns questions in the status response; seed them locally.
+        sut.navigationState.questions = expiredQuestions
 
         // When
         await sut.checkResume(sessionId: nil)
@@ -1866,6 +1878,8 @@ final class TestTakingViewModelTests: XCTestCase {
             sessionId: sessionId,
             questions: mockQuestions
         )
+        // The API no longer returns questions in the status response; seed them locally.
+        sut.navigationState.questions = mockQuestions
 
         // When
         await sut.checkResume(sessionId: sessionId)
@@ -1963,10 +1977,10 @@ final class TestTakingViewModelTests: XCTestCase {
         XCTAssertEqual(sut.answeredCount, 1, "One answer given")
 
         mockService.submitTestResponse = TestSubmitResponse(
-            message: "submitted",
-            responsesCount: 1,
+            session: makeTestSession(id: sessionId, status: "completed"),
             result: makeSubmittedTestResult(id: 1, sessionId: sessionId, totalQuestions: 3, correctAnswers: 1),
-            session: makeTestSession(id: sessionId, status: "completed")
+            responsesCount: 1,
+            message: "submitted"
         )
 
         // When

@@ -8,17 +8,18 @@ final class PerformanceInsightsTests: XCTestCase {
     private func createTestResult(
         id: Int,
         iqScore: Int,
-        completedAt: Date
+        completedAt: Date,
+        completionTimeSeconds _: Int? = nil
     ) -> TestResult {
         TestResult(
-            accuracyPercentage: 75.0,
-            completedAt: completedAt,
-            correctAnswers: 15,
             id: id,
-            iqScore: iqScore,
             testSessionId: id,
+            userId: 1,
+            iqScore: iqScore,
             totalQuestions: 20,
-            userId: 1
+            correctAnswers: 15,
+            accuracyPercentage: 75.0,
+            completedAt: completedAt
         )
     }
 
