@@ -67,6 +67,8 @@ from app.data.dedup_runner import run_dedup_phase  # noqa: E402
 from app.generation.runner import GenerationStats, run_generation_phase  # noqa: E402
 from app.evaluation.runner import run_judge_phase  # noqa: E402
 from app.salvage.runner import run_salvage_phase  # noqa: E402
+from app.observability.cost_tracking import get_cost_tracker  # noqa: E402
+from app.observability.pipeline_run import record_pipeline_run  # noqa: E402
 
 # Add repo root to path for libs.observability import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -902,6 +904,21 @@ def main() -> int:
                     logger.info(f"Run reported to backend API (ID: {backend_run_id})")
                 else:
                     logger.warning("Failed to report run to backend API")
+
+            # Persist pipeline run costs locally
+            if db is not None and metrics.start_time and metrics.end_time:
+                record_pipeline_run(
+                    session_factory=db.SessionLocal,
+                    pipeline_type="generation",
+                    started_at=metrics.start_time,
+                    completed_at=metrics.end_time,
+                    cost_tracker=get_cost_tracker(),
+                    result_summary={
+                        "questions_generated": stats["questions_generated"],
+                        "questions_inserted": inserted_count,
+                        "approval_rate": round(approval_rate, 2),
+                    },
+                )
 
             # Post-run answer-leakage audit
             if db is not None:
