@@ -37,6 +37,8 @@ from app.data.database import DatabaseService  # noqa: E402
 from app.data.db_models import QuestionModel  # noqa: E402
 from app.evaluation.judge import QuestionJudge  # noqa: E402
 from app.config.judge_config import JudgeConfigLoader  # noqa: E402
+from app.observability.cost_tracking import track_costs  # noqa: E402
+from app.observability.pipeline_run import record_pipeline_run  # noqa: E402
 from gioe_libs.structured_logging import setup_logging  # noqa: E402
 from app.data.models import (  # noqa: E402
     DifficultyLevel,
@@ -544,6 +546,9 @@ def main() -> int:
         logger.info("RE-EVALUATION PHASE")
         logger.info("=" * 80)
 
+        reeval_start = datetime.now(timezone.utc)
+        cost_tracker = track_costs().__enter__()
+
         results: List[Dict[str, Any]] = []
         errors = 0
 
@@ -726,6 +731,7 @@ def main() -> int:
             logger.info("\n[DRY RUN] No database updates performed")
 
         # Final summary
+        reeval_end = datetime.now(timezone.utc)
         logger.info("\n" + "=" * 80)
         logger.info("FINAL SUMMARY")
         logger.info("=" * 80)
@@ -735,6 +741,25 @@ def main() -> int:
         logger.info(f"Difficulty changes: {len(difficulty_changes)}")
         if args.deactivate_below_threshold:
             logger.info(f"Deactivated: {len(now_below_threshold)}")
+
+        # Persist pipeline run costs
+        record_pipeline_run(
+            session_factory=db.SessionLocal,
+            pipeline_type="reevaluate",
+            started_at=reeval_start,
+            completed_at=reeval_end,
+            cost_tracker=cost_tracker,
+            result_summary={
+                "questions_processed": len(results),
+                "errors": errors,
+                "score_changes": len(score_increases) + len(score_decreases),
+                "difficulty_changes": len(difficulty_changes),
+                "deactivated": (
+                    len(now_below_threshold) if args.deactivate_below_threshold else 0
+                ),
+                "dry_run": args.dry_run,
+            },
+        )
 
         if errors > 0:
             return EXIT_PARTIAL_FAILURE
