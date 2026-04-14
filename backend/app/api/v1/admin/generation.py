@@ -955,6 +955,8 @@ async def get_generation_runs_stats(
             # Min/Max
             func.min(QuestionGenerationRun.min_judge_score).label("min_judge_score"),
             func.max(QuestionGenerationRun.max_judge_score).label("max_judge_score"),
+            # Cost
+            func.sum(QuestionGenerationRun.total_cost_usd).label("total_cost_usd"),
         ).where(*base_filters)
 
         stats_result = await db.execute(stats_stmt)
@@ -983,6 +985,8 @@ async def get_generation_runs_stats(
                 total_api_calls=0,
                 avg_api_calls_per_question=None,
                 total_errors=0,
+                total_cost_usd=None,
+                avg_cost_per_question=None,
                 provider_summary=None,
                 success_rate_trend=None,
                 approval_rate_trend=None,
@@ -1039,6 +1043,18 @@ async def get_generation_runs_stats(
         avg_api_calls_per_question: Optional[float] = (
             round(total_api_calls / total_questions_inserted, 2)
             if total_questions_inserted > 0
+            else None
+        )
+
+        # Cost metrics
+        total_cost_usd: Optional[float] = (
+            round(float(stats.total_cost_usd), 6)
+            if stats.total_cost_usd is not None
+            else None
+        )
+        avg_cost_per_question: Optional[float] = (
+            round(total_cost_usd / total_questions_inserted, 6)
+            if total_cost_usd is not None and total_questions_inserted > 0
             else None
         )
 
@@ -1172,6 +1188,8 @@ async def get_generation_runs_stats(
             total_api_calls=total_api_calls,
             avg_api_calls_per_question=avg_api_calls_per_question,
             total_errors=total_errors,
+            total_cost_usd=total_cost_usd,
+            avg_cost_per_question=avg_cost_per_question,
             provider_summary=provider_summary if provider_summary else None,
             success_rate_trend=success_rate_trend,
             approval_rate_trend=approval_rate_trend,

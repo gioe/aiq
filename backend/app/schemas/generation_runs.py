@@ -564,6 +564,14 @@ class QuestionGenerationRunStats(BaseModel):
     # Error summary
     total_errors: int = Field(..., description="Total errors across all runs")
 
+    # Cost metrics
+    total_cost_usd: Optional[float] = Field(
+        None, description="Total cost in USD across all runs"
+    )
+    avg_cost_per_question: Optional[float] = Field(
+        None, description="Average cost per successfully inserted question"
+    )
+
     # Provider comparison (aggregated from JSONB)
     provider_summary: Optional[Dict[str, Dict[str, Any]]] = Field(
         None,
