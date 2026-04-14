@@ -220,6 +220,69 @@ def run_judge_phase(
                 metric_type="histogram",
             )
 
+        # Phase 2b: Answer verification on approved questions
+        if judge.judge_config.get_answer_verification_enabled() and approved_questions:
+            logger.info(
+                f"\nRunning answer verification on {len(approved_questions)} "
+                f"approved questions..."
+            )
+            verified_approved: list = []
+            verification_failures = 0
+
+            for eq in approved_questions:
+                try:
+                    # Resolve judge provider for this question type
+                    q_type = eq.question.question_type.value
+                    available = list(judge.providers.keys())
+                    j_provider, j_model = judge.judge_config.resolve_judge_provider(
+                        q_type, available
+                    )
+                    effective_model = j_model or judge.providers[j_provider].model
+
+                    verified, details = judge.verify_answer(
+                        question=eq.question,
+                        judge_provider_name=j_provider,
+                        judge_model_name=effective_model,
+                    )
+
+                    eq.evaluation.answer_verified = verified
+                    eq.evaluation.verification_details = details
+
+                    if verified:
+                        verified_approved.append(eq)
+                    else:
+                        verification_failures += 1
+                        rejected_questions.append(eq)
+                        logger.info(
+                            f"  ✗ VERIFICATION FAILED ({details.get('outcome', 'unknown')}) - "
+                            f"{eq.question.question_type.value}/"
+                            f"{eq.question.difficulty_level.value}"
+                        )
+                        observability.record_metric(
+                            "verifier.rejection",
+                            value=1,
+                            labels={
+                                "question_type": eq.question.question_type.value,
+                                "difficulty": eq.question.difficulty_level.value,
+                                "outcome": details.get("outcome", "unknown"),
+                            },
+                            metric_type="counter",
+                        )
+                except Exception as e:
+                    logger.error(f"  ✗ Verification error: {e}")
+                    observability.capture_error(
+                        e,
+                        context={"phase": "answer_verification"},
+                    )
+                    # On error, keep the question approved (fail-open)
+                    verified_approved.append(eq)
+
+            approved_questions = verified_approved
+            logger.info(
+                f"Verification complete: {len(approved_questions)} verified, "
+                f"{verification_failures} failed"
+            )
+
         approval_rate = (
             len(approved_questions) / len(generated_questions) * 100
             if generated_questions
