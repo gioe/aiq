@@ -98,6 +98,7 @@ class RunReporter:
         api = summary.get("api", {})
         error_classification = summary.get("error_classification", {})
         overall = summary.get("overall", {})
+        cost = summary.get("cost", {})
 
         # Determine status based on exit code
         status = self._determine_status(exit_code, overall)
@@ -162,6 +163,11 @@ class RunReporter:
                 if (overall.get("total_errors", 0) > 0 or any(error_summary.values()))
                 else None
             ),
+            # Cost tracking
+            "total_cost_usd": cost.get("total_cost_usd"),
+            "total_input_tokens": cost.get("total_input_tokens"),
+            "total_output_tokens": cost.get("total_output_tokens"),
+            "cost_by_provider": cost.get("by_provider") or None,
             # Configuration used
             "prompt_version": prompt_version,
             "judge_config_version": judge_config_version,
