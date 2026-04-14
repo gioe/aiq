@@ -70,7 +70,7 @@ struct DashboardWelcomeHeader: View {
 
 #Preview {
     VStack(spacing: 24) {
-        DashboardWelcomeHeader(userName: "Alex")
+        DashboardWelcomeHeader(userName: "John")
         DashboardWelcomeHeader(userName: nil)
     }
     .padding()

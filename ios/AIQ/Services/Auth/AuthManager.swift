@@ -332,11 +332,10 @@ extension AuthManager {
         isAuthenticated && currentUser != nil
     }
 
-    /// The user's display name built from first/last name, falling back to email.
+    /// The user's display name from first name, falling back to email.
     var userFullName: String? {
         guard let user = currentUser else { return nil }
-        let parts = [user.firstName, user.lastName].compactMap { $0 }
-        return parts.isEmpty ? user.email : parts.joined(separator: " ")
+        return user.firstName ?? user.email
     }
 
     /// Get the user's email
