@@ -266,6 +266,11 @@ class BaseUITest: XCTestCase {
         relaunchWithScenario("timerExpiredWithAnswers")
     }
 
+    /// Relaunch with timer in warning zone (~4 minutes remaining) — banner appears immediately
+    func relaunchWithTimerNearWarning() {
+        relaunchWithScenario("timerNearWarning")
+    }
+
     // MARK: - Helper Methods
 
     /// Wait for an element to exist with a custom timeout

@@ -69,7 +69,7 @@ import Foundation
             case .loggedInNoHistory, .loggedInWithHistory, .loggedInWithHistoryNilDate, .testInProgress,
                  .startTestNetworkFailure, .startTestFailureThenSuccess, .startTestNonRetryableFailure,
                  .memoryInProgress, .timerExpiredZeroAnswers, .timerExpiredWithAnswers,
-                 .notificationsDisabled:
+                 .notificationsDisabled, .timerNearWarning:
                 isAuthenticated = true
                 currentUser = Self.mockUser
                 shouldSucceedLogin = true

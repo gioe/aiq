@@ -150,6 +150,11 @@ import Foundation
                     session: UITestMockData.nearExpiredSession,
                     questionsCount: 1
                 )
+            case .timerNearWarning:
+                return TestSessionStatusResponse(
+                    session: UITestMockData.warningSession,
+                    questionsCount: 0
+                )
             default:
                 let session = UITestMockData.recentInProgressSession
                 return TestSessionStatusResponse(
@@ -179,7 +184,7 @@ import Foundation
                     hasMore: false
                 )
             case .loggedInWithHistory, .loggedInWithHistoryNilDate, .testInProgress, .loginFailure,
-                 .networkError, .memoryInProgress, .notificationsDisabled:
+                 .networkError, .memoryInProgress, .notificationsDisabled, .timerNearWarning:
                 return PaginatedTestHistoryResponse(
                     results: UITestMockData.sampleTestHistory,
                     totalCount: UITestMockData.sampleTestHistory.count,
@@ -217,6 +222,11 @@ import Foundation
                 // returns no active session. LocalAnswerStorage drives the abandonment cleanup,
                 // so no server-side session is needed for this test path.
                 return nil
+            case .timerNearWarning:
+                return TestSessionStatusResponse(
+                    session: UITestMockData.warningSession,
+                    questionsCount: 0
+                )
             default:
                 return nil
             }
@@ -549,6 +559,17 @@ import Foundation
             userId: 1,
             status: "in_progress",
             startedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds - 20))
+        )
+
+        /// Session with ~4 minutes remaining — within the 5-minute warning threshold.
+        /// Used for `timerNearWarning` scenario to trigger the warning banner immediately on load.
+        /// 240-second buffer keeps the session valid (elapsed < totalTimeSeconds) so
+        /// `DashboardViewModel.hasActiveTest` returns `true` and the Resume button is shown.
+        static let warningSession = MockDataFactory.makeTestSession(
+            id: 96,
+            userId: 1,
+            status: "in_progress",
+            startedAt: Date().addingTimeInterval(-Double(TestTimerManager.totalTimeSeconds - 240))
         )
 
         static let completedSession = MockDataFactory.makeTestSession(

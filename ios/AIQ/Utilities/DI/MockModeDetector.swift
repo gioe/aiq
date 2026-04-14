@@ -157,4 +157,8 @@ enum MockScenario: String, CaseIterable {
 
     /// Notifications disabled — getNotificationPreferences returns false
     case notificationsDisabled
+
+    /// Active test session with ~4 minutes remaining — within the 5-minute warning threshold.
+    /// The banner appears immediately when `TestTakingView` starts the timer.
+    case timerNearWarning
 }
