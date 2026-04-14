@@ -833,6 +833,13 @@ class QuestionGenerationRun(Base):
     # Example: {"by_category": {"rate_limit": 2}, "by_severity": {"high": 1}, "critical_count": 0}
     error_summary: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
 
+    # Cost tracking
+    total_cost_usd: Mapped[Optional[float]] = mapped_column(nullable=True)
+    total_input_tokens: Mapped[Optional[int]] = mapped_column(nullable=True)
+    total_output_tokens: Mapped[Optional[int]] = mapped_column(nullable=True)
+    # Example: {"openai": {"total_cost_usd": 0.80, "total_input_tokens": 5000, ...}, ...}
+    cost_by_provider: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+
     # Configuration used
     prompt_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     judge_config_version: Mapped[Optional[str]] = mapped_column(
