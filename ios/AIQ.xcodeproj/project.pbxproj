@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		01D7569C2D7C3CBCF6026EF5 /* TestProgressHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08A3A24F902D9D469A002D10 /* TestProgressHeader.swift */; };
+		023C7EF51F856FE73058C494 /* TimeWarningBannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366627004D0A43024D7D614F /* TimeWarningBannerUITests.swift */; };
 		03410AB8BC73C0A0F418E03F /* AuthManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571C30F4954F60A94D113E1F /* AuthManagerProtocol.swift */; };
 		059902F264BEAA5E3A8218B2 /* NotificationEngagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C92DFD433134807D93604B68 /* NotificationEngagementTests.swift */; };
 		05B972B5035EF251D9BE7842 /* AIQAPIClient in Frameworks */ = {isa = PBXBuildFile; productRef = 13ECAB6546FFCEF192E7F317 /* AIQAPIClient */; };
@@ -266,6 +267,7 @@
 		CF1450DC01D4A2844B320030 /* DeepLinkNavigationIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4956D5824BBEBCF145738D45 /* DeepLinkNavigationIntegrationTests.swift */; };
 		CF1CC65EAF5C7434E9A41C8A /* MockSecureStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26347A6B9043CA83E741FBB /* MockSecureStorage.swift */; };
 		CF8D0CD438776E479A6030F5 /* FeedbackHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFC40BD7A1DF41D954DF073 /* FeedbackHelper.swift */; };
+		D0C427C0B139C3F933F5734C /* TimeWarningBannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357456A321E05BEEB93FA97C /* TimeWarningBannerTests.swift */; };
 		D116220FF0F3BD5EED6008D1 /* DeepLinkNavigationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 401DD7DDFF93046681F7F97A /* DeepLinkNavigationService.swift */; };
 		D13BEF52570E9BB485D48967 /* MemoryQuestionViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BF66297B81C3976226ED04 /* MemoryQuestionViewTests.swift */; };
 		D151EE8467DD80B701931B22 /* AuthStateObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03A45FDDE6CC8040BF6879D /* AuthStateObserver.swift */; };
@@ -415,7 +417,9 @@
 		3024C5290E1AEBB243A5EDEA /* AppStateStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppStateStorage.swift; sourceTree = "<group>"; };
 		31501D9D65C942EABD4F112C /* BiometricAuthManagerProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricAuthManagerProtocol.swift; sourceTree = "<group>"; };
 		3516CD4A60A499D8C2B07525 /* AIQApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIQApp.swift; sourceTree = "<group>"; };
+		357456A321E05BEEB93FA97C /* TimeWarningBannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeWarningBannerTests.swift; sourceTree = "<group>"; };
 		3619FEA286725DD4DCDFCAD8 /* TestTimerManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestTimerManager.swift; path = Features/Test/ViewModels/TestTimerManager.swift; sourceTree = "<group>"; };
+		366627004D0A43024D7D614F /* TimeWarningBannerUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeWarningBannerUITests.swift; sourceTree = "<group>"; };
 		368F0E931AE3BA9496833C8B /* QuestionNavigationGrid.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = QuestionNavigationGrid.swift; path = Features/Test/Views/QuestionNavigationGrid.swift; sourceTree = "<group>"; };
 		371115D3822A172CFA005D0A /* NotificationPermissionBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationPermissionBanner.swift; sourceTree = "<group>"; };
 		3840D923065164044B435316 /* MainTabViewNotificationTappedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainTabViewNotificationTappedTests.swift; sourceTree = "<group>"; };
@@ -754,6 +758,7 @@
 				DE84663C510A4D6D8578A62A /* LeaderboardRowViewTests.swift */,
 				0CAF139ACF72640B004F689D /* GroupDetailViewLeaderboardTests.swift */,
 				5AEBFC709893846DAD8CA4D1 /* QuestionNavigationGridToggleTests.swift */,
+				357456A321E05BEEB93FA97C /* TimeWarningBannerTests.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -825,6 +830,7 @@
 				41569A8DB49D0ABEF0542DC2 /* DashboardPullToRefreshUITests.swift */,
 				5169502BD744EB44262DF9D5 /* AIComparisonCardUITests.swift */,
 				08F2FA3FDD461021432AFDCD /* QuestionGridToggleUITests.swift */,
+				366627004D0A43024D7D614F /* TimeWarningBannerUITests.swift */,
 			);
 			path = AIQUITests;
 			sourceTree = "<group>";
@@ -1657,6 +1663,7 @@
 				17223A4D42D0C5CFCBE96BA6 /* SnapshotHelper.swift in Sources */,
 				E0AC6258EC827804E036B3DF /* AIComparisonCardUITests.swift in Sources */,
 				18E92C2D6B35FEE06137E3D3 /* QuestionGridToggleUITests.swift in Sources */,
+				023C7EF51F856FE73058C494 /* TimeWarningBannerUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1772,6 +1779,7 @@
 				32AC4001F42AE0754D5D6FD7 /* PreTestInfoGateTests.swift in Sources */,
 				896A23C1AEBE9AAAB6682782 /* AdaptiveTestCoordinatorTests.swift in Sources */,
 				79449F9B9C35D41C343874DA /* QuestionNavigationGridToggleTests.swift in Sources */,
+				D0C427C0B139C3F933F5734C /* TimeWarningBannerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
