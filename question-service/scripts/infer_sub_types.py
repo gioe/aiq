@@ -41,6 +41,12 @@ from openai import AsyncOpenAI  # noqa: E402
 from app.config.config import settings  # noqa: E402
 from app.data.database import DatabaseService  # noqa: E402
 from app.data.db_models import QuestionModel  # noqa: E402
+from app.observability.cost_tracking import (  # noqa: E402
+    TokenUsage,
+    get_cost_tracker,
+    track_costs,
+)
+from app.observability.pipeline_run import record_pipeline_run  # noqa: E402
 from gioe_libs.structured_logging import setup_logging  # noqa: E402
 from app.data.models import QuestionType  # noqa: E402
 from app.generation.prompts import QUESTION_SUBTYPES  # noqa: E402
@@ -210,6 +216,17 @@ async def classify_question(
                     max_tokens=200,
                 )
 
+                # Record cost from OpenAI response
+                if response.usage:
+                    get_cost_tracker().record_usage(
+                        TokenUsage(
+                            input_tokens=response.usage.prompt_tokens or 0,
+                            output_tokens=response.usage.completion_tokens or 0,
+                            model=model,
+                            provider="openai",
+                        )
+                    )
+
                 raw_result = response.choices[0].message.content.strip()
 
                 # Strip numbered prefix (e.g., "3. letter patterns..." -> "letter patterns...")
@@ -376,6 +393,9 @@ def main() -> int:
         logger.info("CLASSIFICATION PHASE")
         logger.info("=" * 80)
 
+        classification_start = datetime.now(timezone.utc)
+        cost_tracker = track_costs().__enter__()
+
         client = AsyncOpenAI(api_key=settings.openai_api_key)
         semaphore = asyncio.Semaphore(args.max_concurrent)
 
@@ -454,12 +474,28 @@ def main() -> int:
             logger.info("\n[DRY RUN] No database updates performed")
 
         # Final summary
+        classification_end = datetime.now(timezone.utc)
         logger.info("\n" + "=" * 80)
         logger.info("FINAL SUMMARY")
         logger.info("=" * 80)
         logger.info(f"Questions processed: {len(results)}")
         logger.info(f"Errors: {errors}")
         logger.info(f"Dry run: {args.dry_run}")
+
+        # Persist pipeline run costs
+        record_pipeline_run(
+            session_factory=db.SessionLocal,
+            pipeline_type="infer_sub_types",
+            started_at=classification_start,
+            completed_at=classification_end,
+            cost_tracker=cost_tracker,
+            result_summary={
+                "questions_processed": len(results),
+                "errors": errors,
+                "dry_run": args.dry_run,
+                "model": args.model,
+            },
+        )
 
         if errors > 0:
             return EXIT_PARTIAL_FAILURE
