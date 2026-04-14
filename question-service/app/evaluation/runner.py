@@ -15,6 +15,9 @@ from app.reporting.run_summary import RunSummary as PipelineRunSummary
 _MAX_DISPLAY_CHARS = 80
 _TRUNCATED_DISPLAY_CHARS = 77  # 80 - len("...")
 
+# Questions at or below this leakage score are auto-rejected (answer visible in question)
+_LEAKAGE_REJECTION_THRESHOLD = 0.1
+
 
 def log_rejection_details(
     evaluated_question: EvaluatedQuestion,
@@ -170,7 +173,24 @@ def run_judge_phase(
                     )
 
         for evaluated_question in all_evaluated:
-            if evaluated_question.evaluation.overall_score >= min_score:
+            leakage = evaluated_question.evaluation.leakage_score
+            if leakage is not None and leakage <= _LEAKAGE_REJECTION_THRESHOLD:
+                rejected_questions.append(evaluated_question)
+                logger.info(
+                    f"  ✗ LEAKAGE REJECTED (leakage_score: {leakage:.2f}) - "
+                    f"{evaluated_question.question.question_type.value}/"
+                    f"{evaluated_question.question.difficulty_level.value}"
+                )
+                observability.record_metric(
+                    "judge.leakage_rejection",
+                    value=1,
+                    labels={
+                        "question_type": evaluated_question.question.question_type.value,
+                        "difficulty": evaluated_question.question.difficulty_level.value,
+                    },
+                    metric_type="counter",
+                )
+            elif evaluated_question.evaluation.overall_score >= min_score:
                 logger.info(
                     f"  ✓ APPROVED (score: {evaluated_question.evaluation.overall_score:.2f})"
                 )
