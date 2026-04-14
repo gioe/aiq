@@ -24,7 +24,12 @@ from app.data.models import (
     GeneratedQuestion,
     GenerationBatch,
 )
-from app.generation.prompts import build_judge_prompt
+from app.generation.prompts import (
+    build_blind_solve_prompt,
+    build_generator_defense_prompt,
+    build_judge_final_ruling_prompt,
+    build_judge_prompt,
+)
 from app.providers.anthropic_provider import AnthropicProvider
 from app.providers.base import BaseLLMProvider
 from app.providers.google_provider import GoogleProvider
@@ -618,6 +623,437 @@ class QuestionJudge:
                         operation="evaluation_async",
                         model=effective_model,
                     )
+                raise
+
+    def verify_answer(
+        self,
+        question: GeneratedQuestion,
+        judge_provider_name: str,
+        judge_model_name: str,
+        temperature: float = 0.1,
+        max_tokens: int = 800,
+    ) -> tuple[bool, dict]:
+        question_type = question.question_type.value
+        answer_options = question.answer_options or [question.correct_answer]
+
+        with observability.start_span(
+            "verifier.verify_answer",
+            attributes={
+                "question_type": question_type,
+                "difficulty": question.difficulty_level.value,
+                "judge_provider": judge_provider_name,
+            },
+        ) as span:
+            try:
+                # Step 1: Blind solve
+                blind_prompt = build_blind_solve_prompt(
+                    question=question.question_text,
+                    answer_options=answer_options,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    stimulus=question.stimulus,
+                )
+
+                judge_provider = self.providers[judge_provider_name]
+                result = judge_provider.generate_structured_completion_with_usage(
+                    prompt=blind_prompt,
+                    response_format={},
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    model_override=judge_model_name,
+                )
+
+                solve_response = result.content
+                judge_chosen = solve_response.get("chosen_answer", "")
+                confidence = float(solve_response.get("confidence", 0.0))
+                judge_reasoning = solve_response.get("reasoning", "")
+
+                observability.record_metric(
+                    "verifier.confidence",
+                    value=confidence,
+                    metric_type="histogram",
+                )
+
+                # Step 2: Compare answers
+                if judge_chosen.strip() == question.correct_answer.strip():
+                    observability.record_metric(
+                        "verifier.pass", value=1, metric_type="counter"
+                    )
+                    span.set_attribute("outcome", "pass")
+                    return (
+                        True,
+                        {
+                            "judge_chosen_answer": judge_chosen,
+                            "confidence": confidence,
+                            "judge_reasoning": judge_reasoning,
+                            "outcome": "pass",
+                        },
+                    )
+
+                # Mismatch — challenge flow
+                observability.record_metric(
+                    "verifier.challenge", value=1, metric_type="counter"
+                )
+                logger.info(
+                    f"Answer verification mismatch: judge chose '{judge_chosen}' "
+                    f"vs marked '{question.correct_answer}'"
+                )
+
+                # Step 3: Check if generator provider is available
+                generator_provider_name = question.source_llm
+                if generator_provider_name not in self.providers:
+                    logger.warning(
+                        f"Generator provider '{generator_provider_name}' not available "
+                        f"for defense, skipping verification"
+                    )
+                    span.set_attribute("outcome", "skipped")
+                    return (
+                        True,
+                        {
+                            "outcome": "skipped",
+                            "reason": "generator_provider_unavailable",
+                        },
+                    )
+
+                # Step 4: Generator defense
+                defense_prompt = build_generator_defense_prompt(
+                    question=question.question_text,
+                    answer_options=answer_options,
+                    marked_correct_answer=question.correct_answer,
+                    judge_chosen_answer=judge_chosen,
+                    judge_reasoning=judge_reasoning,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    stimulus=question.stimulus,
+                )
+
+                gen_provider = self.providers[generator_provider_name]
+                defense_result = gen_provider.generate_structured_completion_with_usage(
+                    prompt=defense_prompt,
+                    response_format={},
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    model_override=question.source_model,
+                )
+
+                defense_response = defense_result.content
+                action = defense_response.get("action", "").lower()
+                defense_reasoning = defense_response.get("reasoning", "")
+
+                if action == "concede":
+                    observability.record_metric(
+                        "verifier.concession", value=1, metric_type="counter"
+                    )
+                    span.set_attribute("outcome", "concession")
+                    return (
+                        False,
+                        {
+                            "judge_chosen_answer": judge_chosen,
+                            "confidence": confidence,
+                            "judge_reasoning": judge_reasoning,
+                            "outcome": "concession",
+                            "generator_defense": defense_reasoning,
+                        },
+                    )
+
+                # Step 5: Final ruling by judge
+                ruling_prompt = build_judge_final_ruling_prompt(
+                    question=question.question_text,
+                    answer_options=answer_options,
+                    marked_correct_answer=question.correct_answer,
+                    judge_original_answer=judge_chosen,
+                    judge_original_reasoning=judge_reasoning,
+                    generator_defense=defense_reasoning,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    stimulus=question.stimulus,
+                )
+
+                ruling_result = (
+                    judge_provider.generate_structured_completion_with_usage(
+                        prompt=ruling_prompt,
+                        response_format={},
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        model_override=judge_model_name,
+                    )
+                )
+
+                ruling_response = ruling_result.content
+                ruling = ruling_response.get("ruling", "").lower()
+                ruling_reasoning = ruling_response.get("reasoning", "")
+
+                if ruling == "accept":
+                    observability.record_metric(
+                        "verifier.defense_accepted", value=1, metric_type="counter"
+                    )
+                    span.set_attribute("outcome", "defense_accepted")
+                    return (
+                        True,
+                        {
+                            "judge_chosen_answer": judge_chosen,
+                            "confidence": confidence,
+                            "judge_reasoning": judge_reasoning,
+                            "outcome": "defense_accepted",
+                            "generator_defense": defense_reasoning,
+                            "final_ruling_reasoning": ruling_reasoning,
+                        },
+                    )
+                else:
+                    observability.record_metric(
+                        "verifier.defense_rejected", value=1, metric_type="counter"
+                    )
+                    span.set_attribute("outcome", "defense_rejected")
+                    return (
+                        False,
+                        {
+                            "judge_chosen_answer": judge_chosen,
+                            "confidence": confidence,
+                            "judge_reasoning": judge_reasoning,
+                            "outcome": "defense_rejected",
+                            "generator_defense": defense_reasoning,
+                            "final_ruling_reasoning": ruling_reasoning,
+                        },
+                    )
+
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(f"Answer verification failed: {e}")
+                _safe_capture_evaluation_error(
+                    e,
+                    provider=judge_provider_name,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    operation="answer_verification",
+                    model=judge_model_name,
+                )
+                raise
+
+    async def verify_answer_async(
+        self,
+        question: GeneratedQuestion,
+        judge_provider_name: str,
+        judge_model_name: str,
+        temperature: float = 0.1,
+        max_tokens: int = 800,
+        timeout: Optional[float] = None,
+    ) -> tuple[bool, dict]:
+        question_type = question.question_type.value
+        answer_options = question.answer_options or [question.correct_answer]
+        effective_timeout = timeout if timeout is not None else self._async_timeout
+
+        with observability.start_span(
+            "verifier.verify_answer_async",
+            attributes={
+                "question_type": question_type,
+                "difficulty": question.difficulty_level.value,
+                "judge_provider": judge_provider_name,
+            },
+        ) as span:
+            try:
+                # Step 1: Blind solve
+                blind_prompt = build_blind_solve_prompt(
+                    question=question.question_text,
+                    answer_options=answer_options,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    stimulus=question.stimulus,
+                )
+
+                judge_provider = self.providers[judge_provider_name]
+
+                async with self._rate_limiter:
+                    result = await asyncio.wait_for(
+                        judge_provider.generate_structured_completion_with_usage_async(
+                            prompt=blind_prompt,
+                            response_format={},
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model_override=judge_model_name,
+                        ),
+                        timeout=effective_timeout,
+                    )
+
+                solve_response = result.content
+                judge_chosen = solve_response.get("chosen_answer", "")
+                confidence = float(solve_response.get("confidence", 0.0))
+                judge_reasoning = solve_response.get("reasoning", "")
+
+                observability.record_metric(
+                    "verifier.confidence",
+                    value=confidence,
+                    metric_type="histogram",
+                )
+
+                # Step 2: Compare answers
+                if judge_chosen.strip() == question.correct_answer.strip():
+                    observability.record_metric(
+                        "verifier.pass", value=1, metric_type="counter"
+                    )
+                    span.set_attribute("outcome", "pass")
+                    return (
+                        True,
+                        {
+                            "judge_chosen_answer": judge_chosen,
+                            "confidence": confidence,
+                            "judge_reasoning": judge_reasoning,
+                            "outcome": "pass",
+                        },
+                    )
+
+                # Mismatch — challenge flow
+                observability.record_metric(
+                    "verifier.challenge", value=1, metric_type="counter"
+                )
+                logger.info(
+                    f"Answer verification mismatch: judge chose '{judge_chosen}' "
+                    f"vs marked '{question.correct_answer}'"
+                )
+
+                # Step 3: Check if generator provider is available
+                generator_provider_name = question.source_llm
+                if generator_provider_name not in self.providers:
+                    logger.warning(
+                        f"Generator provider '{generator_provider_name}' not available "
+                        f"for defense, skipping verification"
+                    )
+                    span.set_attribute("outcome", "skipped")
+                    return (
+                        True,
+                        {
+                            "outcome": "skipped",
+                            "reason": "generator_provider_unavailable",
+                        },
+                    )
+
+                # Step 4: Generator defense
+                defense_prompt = build_generator_defense_prompt(
+                    question=question.question_text,
+                    answer_options=answer_options,
+                    marked_correct_answer=question.correct_answer,
+                    judge_chosen_answer=judge_chosen,
+                    judge_reasoning=judge_reasoning,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    stimulus=question.stimulus,
+                )
+
+                gen_provider = self.providers[generator_provider_name]
+
+                async with self._rate_limiter:
+                    defense_result = await asyncio.wait_for(
+                        gen_provider.generate_structured_completion_with_usage_async(
+                            prompt=defense_prompt,
+                            response_format={},
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model_override=question.source_model,
+                        ),
+                        timeout=effective_timeout,
+                    )
+
+                defense_response = defense_result.content
+                action = defense_response.get("action", "").lower()
+                defense_reasoning = defense_response.get("reasoning", "")
+
+                if action == "concede":
+                    observability.record_metric(
+                        "verifier.concession", value=1, metric_type="counter"
+                    )
+                    span.set_attribute("outcome", "concession")
+                    return (
+                        False,
+                        {
+                            "judge_chosen_answer": judge_chosen,
+                            "confidence": confidence,
+                            "judge_reasoning": judge_reasoning,
+                            "outcome": "concession",
+                            "generator_defense": defense_reasoning,
+                        },
+                    )
+
+                # Step 5: Final ruling by judge
+                ruling_prompt = build_judge_final_ruling_prompt(
+                    question=question.question_text,
+                    answer_options=answer_options,
+                    marked_correct_answer=question.correct_answer,
+                    judge_original_answer=judge_chosen,
+                    judge_original_reasoning=judge_reasoning,
+                    generator_defense=defense_reasoning,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    stimulus=question.stimulus,
+                )
+
+                async with self._rate_limiter:
+                    ruling_result = await asyncio.wait_for(
+                        judge_provider.generate_structured_completion_with_usage_async(
+                            prompt=ruling_prompt,
+                            response_format={},
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model_override=judge_model_name,
+                        ),
+                        timeout=effective_timeout,
+                    )
+
+                ruling_response = ruling_result.content
+                ruling = ruling_response.get("ruling", "").lower()
+                ruling_reasoning = ruling_response.get("reasoning", "")
+
+                if ruling == "accept":
+                    observability.record_metric(
+                        "verifier.defense_accepted", value=1, metric_type="counter"
+                    )
+                    span.set_attribute("outcome", "defense_accepted")
+                    return (
+                        True,
+                        {
+                            "judge_chosen_answer": judge_chosen,
+                            "confidence": confidence,
+                            "judge_reasoning": judge_reasoning,
+                            "outcome": "defense_accepted",
+                            "generator_defense": defense_reasoning,
+                            "final_ruling_reasoning": ruling_reasoning,
+                        },
+                    )
+                else:
+                    observability.record_metric(
+                        "verifier.defense_rejected", value=1, metric_type="counter"
+                    )
+                    span.set_attribute("outcome", "defense_rejected")
+                    return (
+                        False,
+                        {
+                            "judge_chosen_answer": judge_chosen,
+                            "confidence": confidence,
+                            "judge_reasoning": judge_reasoning,
+                            "outcome": "defense_rejected",
+                            "generator_defense": defense_reasoning,
+                            "final_ruling_reasoning": ruling_reasoning,
+                        },
+                    )
+
+            except asyncio.TimeoutError:
+                span.set_attribute("success", False)
+                span.set_status("error", f"Timeout after {effective_timeout}s")
+                logger.error(
+                    f"Answer verification timed out after {effective_timeout}s"
+                )
+                raise
+            except Exception as e:
+                span.set_attribute("success", False)
+                span.set_status("error", str(e))
+                logger.error(f"Answer verification failed (async): {e}")
+                _safe_capture_evaluation_error(
+                    e,
+                    provider=judge_provider_name,
+                    question_type=question_type,
+                    difficulty=question.difficulty_level.value,
+                    operation="answer_verification_async",
+                    model=judge_model_name,
+                )
                 raise
 
     async def evaluate_questions_list_async(
