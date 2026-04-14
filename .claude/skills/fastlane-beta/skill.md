@@ -1,6 +1,6 @@
 ---
 name: fastlane-beta
-description: Build and upload the iOS app to TestFlight with metadata and screenshots. Runs bump_build_number, build, upload_testflight, and upload_metadata.
+description: Build and upload the iOS app to TestFlight with metadata and screenshots. Runs generate_release_notes, bump_build_number, build, upload_testflight, and upload_metadata.
 allowed-tools: Bash, Read
 ---
 
@@ -10,10 +10,11 @@ This skill runs the fastlane `beta` lane to build and upload the AIQ iOS app to 
 
 ## What it does
 
-1. Bumps the build number (fetches latest from App Store Connect + 1)
-2. Builds the IPA with App Store signing
-3. Uploads binary to TestFlight
-4. Uploads metadata and screenshots to App Store Connect
+1. Generates release notes from commits since the last tag (writes `release_notes.txt` and `WhatsNew.json`)
+2. Bumps the build number (fetches latest from App Store Connect + 1)
+3. Builds the IPA with App Store signing
+4. Uploads binary to TestFlight
+5. Uploads metadata and screenshots to App Store Connect
 
 ## Usage
 

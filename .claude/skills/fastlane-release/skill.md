@@ -1,6 +1,6 @@
 ---
 name: fastlane-release
-description: Full App Store release pipeline — captures screenshots, frames them, bumps build, builds IPA, uploads to TestFlight, and submits for App Store review.
+description: Full App Store release pipeline — generates release notes, captures screenshots, frames them, bumps build, builds IPA, uploads to TestFlight, and submits for App Store review.
 allowed-tools: Bash, Read
 ---
 
@@ -10,12 +10,13 @@ This skill runs the fastlane `release` lane for a full App Store submission.
 
 ## What it does
 
-1. Captures App Store screenshots on all devices
-2. Adds device frames and captions to screenshots
-3. Bumps the build number
-4. Builds the IPA with App Store signing
-5. Uploads binary to TestFlight
-6. Submits for App Store review (with metadata and screenshots)
+1. Generates release notes from commits since the last tag (writes `release_notes.txt` and `WhatsNew.json`)
+2. Captures App Store screenshots on all devices
+3. Adds device frames and captions to screenshots
+4. Bumps the build number
+5. Builds the IPA with App Store signing
+6. Uploads binary to TestFlight
+7. Submits for App Store review (with metadata and screenshots)
 
 ## Usage
 
