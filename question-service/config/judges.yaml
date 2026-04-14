@@ -155,6 +155,10 @@ difficulty_placement:
     - "success rate 10"
     - "success rate 5"
 
+# Answer verification configuration
+answer_verification:
+  enabled: true
+
 # Notes:
 # - Model identifiers should match the exact model names used by provider SDKs
 # - Provider names must match: "openai", "anthropic", "google", or "xai"

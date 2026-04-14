@@ -121,6 +121,7 @@ class JudgeConfig(BaseModel):
     difficulty_placement: DifficultyPlacement = Field(
         default_factory=lambda: DifficultyPlacement()
     )
+    answer_verification_enabled: bool = True
 
     @field_validator("judges")
     @classmethod
@@ -150,6 +151,9 @@ class JudgeConfigLoader(BaseConfigLoader[JudgeConfig]):
         return "judge configuration"
 
     def _parse_config(self, raw_config: dict) -> JudgeConfig:
+        # Extract answer_verification.enabled (default True)
+        av = raw_config.pop("answer_verification", {})
+        raw_config["answer_verification_enabled"] = av.get("enabled", True)
         return JudgeConfig(**raw_config)
 
     def _get_assignments_dict(self) -> Dict[str, JudgeModel]:
@@ -247,6 +251,17 @@ class JudgeConfigLoader(BaseConfigLoader[JudgeConfig]):
             RuntimeError: If configuration hasn't been loaded
         """
         return self.config.min_judge_score
+
+    def get_answer_verification_enabled(self) -> bool:
+        """Get whether answer verification is enabled.
+
+        Returns:
+            True if answer verification is enabled
+
+        Raises:
+            RuntimeError: If configuration hasn't been loaded
+        """
+        return self.config.answer_verification_enabled
 
     def get_difficulty_placement(self) -> DifficultyPlacement:
         """Get difficulty placement configuration.
