@@ -356,6 +356,14 @@ Examples:
         "to distribute load and reduce rate-limit pressure.",
     )
 
+    parser.add_argument(
+        "--run-correctness-audit",
+        action="store_true",
+        help="Run answer correctness audit after generation. "
+        "Uses adversarial blind-solve verification to validate active questions "
+        "and deactivates those with incorrect answers.",
+    )
+
     return parser.parse_args()
 
 
@@ -891,6 +899,23 @@ def main() -> int:
                 except Exception as audit_err:
                     logger.warning(
                         "[answer-leakage-audit] Audit skipped due to error: %s",
+                        audit_err,
+                        exc_info=True,
+                    )
+
+            # Post-run answer-correctness audit
+            if db is not None and args.run_correctness_audit:
+                try:
+                    from app.data.answer_correctness_auditor import (
+                        run_answer_correctness_audit,
+                    )  # noqa: PLC0415
+
+                    run_answer_correctness_audit(
+                        db.SessionLocal, judge, judge.judge_config
+                    )
+                except Exception as audit_err:
+                    logger.warning(
+                        "[answer-correctness-audit] Audit skipped due to error: %s",
                         audit_err,
                         exc_info=True,
                     )
