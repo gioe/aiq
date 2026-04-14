@@ -81,6 +81,15 @@ class BaseUITest: XCTestCase {
 
         // Launch the app
         app.launch()
+
+        // Fail fast if the app crashed on launch
+        let state = app.state
+        XCTAssertEqual(
+            state,
+            .runningForeground,
+            "App crashed on launch (state: \(state.rawValue))"
+                + " — check ServiceContainer registrations"
+        )
     }
 
     override func tearDownWithError() throws {
@@ -166,6 +175,15 @@ class BaseUITest: XCTestCase {
         app = XCUIApplication()
         setupLaunchConfiguration()
         app.launch()
+
+        // Fail fast if the app crashed on relaunch
+        let relaunchState = app.state
+        XCTAssertEqual(
+            relaunchState,
+            .runningForeground,
+            "App crashed on launch (state: \(relaunchState.rawValue))"
+                + " — check ServiceContainer registrations"
+        )
     }
 
     /// Relaunch the app in logged-in state with test history
