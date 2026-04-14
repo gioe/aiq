@@ -380,6 +380,7 @@ class TestRunJudgePhase:
         eq.evaluation.validity_score = 0.8
         eq.evaluation.formatting_score = 0.8
         eq.evaluation.creativity_score = 0.8
+        eq.evaluation.leakage_score = 1.0
         eq.evaluation.feedback = None
         eq.judge_model = "test-judge"
         # Stub difficulty placement so apply_difficulty_placement returns eq unchanged
