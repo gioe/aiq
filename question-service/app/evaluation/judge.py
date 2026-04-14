@@ -867,6 +867,16 @@ class QuestionJudge:
             if missing:
                 raise ValueError(f"Missing required fields in evaluation: {missing}")
 
+            # Parse leakage_score if present (judge prompt requests it)
+            leakage_score: Optional[float] = None
+            if "leakage_score" in response:
+                try:
+                    leakage_score = float(response["leakage_score"])
+                    leakage_score = max(0.0, min(1.0, leakage_score))
+                except (TypeError, ValueError):
+                    logger.warning("leakage_score present but not numeric, ignoring")
+                    leakage_score = None
+
             # Create EvaluationScore (overall_score will be calculated separately)
             evaluation = EvaluationScore(
                 clarity_score=float(response["clarity_score"]),
@@ -874,6 +884,7 @@ class QuestionJudge:
                 validity_score=float(response["validity_score"]),
                 formatting_score=float(response["formatting_score"]),
                 creativity_score=float(response["creativity_score"]),
+                leakage_score=leakage_score,
                 overall_score=0.0,  # Will be calculated using weights
                 feedback=response.get("feedback"),
             )

@@ -207,6 +207,7 @@ class EvaluationScore(BaseModel):
         validity_score: Score for validity as IQ test question (0.0 to 1.0)
         formatting_score: Score for proper formatting (0.0 to 1.0)
         creativity_score: Score for novelty and interest (0.0 to 1.0)
+        leakage_score: Score for answer leakage (0.0 to 1.0), optional
         overall_score: Weighted overall score (0.0 to 1.0)
         feedback: Optional textual feedback from judge
     """
@@ -216,6 +217,7 @@ class EvaluationScore(BaseModel):
     validity_score: float = Field(..., ge=0.0, le=1.0)
     formatting_score: float = Field(..., ge=0.0, le=1.0)
     creativity_score: float = Field(..., ge=0.0, le=1.0)
+    leakage_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     overall_score: float = Field(..., ge=0.0, le=1.0)
     feedback: Optional[str] = None
 
