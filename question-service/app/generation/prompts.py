@@ -1099,3 +1099,186 @@ Respond with valid JSON only:
 """
 
     return prompt.strip()
+
+
+def build_blind_solve_prompt(
+    question: str,
+    answer_options: list[str],
+    question_type: str,
+    difficulty: str,
+    stimulus: str | None = None,
+) -> str:
+    """Build a prompt for the judge to independently solve a question without knowing the correct answer.
+
+    Args:
+        question: The question text
+        answer_options: List of answer options (will be shuffled)
+        question_type: Type of question
+        difficulty: Difficulty level
+        stimulus: Content to memorize before answering (for memory questions)
+
+    Returns:
+        Prompt string for blind solving
+    """
+    shuffled_options = list(answer_options)
+    random.shuffle(shuffled_options)
+
+    stimulus_section = ""
+    if stimulus:
+        stimulus_section = f"""
+Stimulus (content that was shown to the test-taker before the question, then hidden):
+{stimulus}
+"""
+
+    return f"""You are an expert problem solver. Solve the following IQ test question step by step.
+
+Type: {question_type}
+Difficulty: {difficulty}
+{stimulus_section}
+Question: {question}
+
+Answer Options:
+{chr(10).join(f"  {i+1}. {opt}" for i, opt in enumerate(shuffled_options))}
+
+INSTRUCTIONS:
+1. Work through the problem step by step
+2. Consider each answer option carefully
+3. Choose the single best answer
+4. Rate your confidence in your answer
+
+Respond with valid JSON matching this exact structure:
+{{
+    "chosen_answer": "<exact text of the option you chose>",
+    "confidence": <float 0.0-1.0>,
+    "reasoning": "<your step-by-step reasoning>"
+}}
+"""
+
+
+def build_generator_defense_prompt(
+    question: str,
+    answer_options: list[str],
+    marked_correct_answer: str,
+    judge_chosen_answer: str,
+    judge_reasoning: str,
+    question_type: str,
+    difficulty: str,
+    stimulus: str | None = None,
+) -> str:
+    """Build a prompt for the generator to defend or concede on a challenged question.
+
+    Args:
+        question: The question text
+        answer_options: List of answer options
+        marked_correct_answer: The answer marked as correct by the generator
+        judge_chosen_answer: The answer chosen by the judge
+        judge_reasoning: The judge's reasoning for their answer
+        question_type: Type of question
+        difficulty: Difficulty level
+        stimulus: Content to memorize before answering (for memory questions)
+
+    Returns:
+        Prompt string for generator defense
+    """
+    stimulus_section = ""
+    if stimulus:
+        stimulus_section = f"""
+Stimulus (content shown before the question):
+{stimulus}
+"""
+
+    return f"""Your question was challenged by an independent reviewer who arrived at a different answer.
+
+Type: {question_type}
+Difficulty: {difficulty}
+{stimulus_section}
+Question: {question}
+
+Answer Options:
+{chr(10).join(f"  {i+1}. {opt}" for i, opt in enumerate(answer_options))}
+
+YOUR MARKED ANSWER: {marked_correct_answer}
+
+REVIEWER'S ANSWER: {judge_chosen_answer}
+REVIEWER'S REASONING: {judge_reasoning}
+
+INSTRUCTIONS:
+Review the question and both answers carefully. You must either:
+- CONCEDE: If the reviewer is correct and your marked answer is wrong, concede and accept their answer.
+- DEFEND: If your marked answer is correct, explain clearly why it is right and why the reviewer's reasoning is flawed.
+
+Be honest and objective. If the reviewer found a genuine error, concede gracefully.
+
+Respond with valid JSON matching this exact structure:
+{{
+    "action": "concede" or "defend",
+    "reasoning": "<your explanation>",
+    "concession_answer": "<the reviewer's answer if conceding, null if defending>"
+}}
+"""
+
+
+def build_judge_final_ruling_prompt(
+    question: str,
+    answer_options: list[str],
+    marked_correct_answer: str,
+    judge_original_answer: str,
+    judge_original_reasoning: str,
+    generator_defense: str,
+    question_type: str,
+    difficulty: str,
+    stimulus: str | None = None,
+) -> str:
+    """Build a prompt for the judge to make a final ruling after the generator's defense.
+
+    Args:
+        question: The question text
+        answer_options: List of answer options
+        marked_correct_answer: The answer marked as correct by the generator
+        judge_original_answer: The judge's original answer
+        judge_original_reasoning: The judge's original reasoning
+        generator_defense: The generator's defense explanation
+        question_type: Type of question
+        difficulty: Difficulty level
+        stimulus: Content to memorize before answering (for memory questions)
+
+    Returns:
+        Prompt string for final ruling
+    """
+    stimulus_section = ""
+    if stimulus:
+        stimulus_section = f"""
+Stimulus (content shown before the question):
+{stimulus}
+"""
+
+    return f"""You are making a final ruling on a disputed IQ test question.
+
+Type: {question_type}
+Difficulty: {difficulty}
+{stimulus_section}
+Question: {question}
+
+Answer Options:
+{chr(10).join(f"  {i+1}. {opt}" for i, opt in enumerate(answer_options))}
+
+GENERATOR'S MARKED ANSWER: {marked_correct_answer}
+
+YOUR ORIGINAL ANSWER: {judge_original_answer}
+YOUR ORIGINAL REASONING: {judge_original_reasoning}
+
+GENERATOR'S DEFENSE: {generator_defense}
+
+INSTRUCTIONS:
+Review all evidence carefully and make a final ruling:
+- ACCEPT: The generator's marked answer is correct. The question is valid.
+- REJECT: The question is flawed (ambiguous, has multiple valid answers, or the marked answer is wrong).
+
+Consider: Is the generator's defense convincing? Does it address your concerns? Is there genuinely only one correct answer?
+
+Respond with valid JSON matching this exact structure:
+{{
+    "ruling": "accept" or "reject",
+    "reasoning": "<your final analysis>"
+}}
+"""
