@@ -7,9 +7,10 @@ costs for different LLM providers.
 import logging
 import threading
 from collections import deque
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Deque, Dict, Optional
+from typing import Any, Deque, Dict, Generator, Optional
 
 from app.config.models_config import get_all_pricing
 
@@ -277,3 +278,22 @@ def reset_cost_tracker() -> None:
             _cost_tracker.reset()
         else:
             _cost_tracker = CostTracker()
+
+
+@contextmanager
+def track_costs() -> Generator[CostTracker, None, None]:
+    """Context manager that resets the cost tracker on entry and yields it.
+
+    On entry, resets the global cost tracker so the scope starts at zero.
+    On exit (normal or exception), the tracker's ``get_summary()`` contains
+    the costs accumulated during the block.
+
+    Usage::
+
+        with track_costs() as tracker:
+            # ... LLM calls automatically record via providers ...
+            pass
+        summary = tracker.get_summary()
+    """
+    reset_cost_tracker()
+    yield get_cost_tracker()
