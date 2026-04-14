@@ -126,6 +126,14 @@ def main() -> int:
             results.get("failed", 0),
             results.get("deactivated", 0),
         )
+        cost = results.get("cost_summary", {})
+        if cost.get("total_cost_usd", 0) > 0:
+            logger.info(
+                "Audit cost: $%.6f (%d input tokens, %d output tokens)",
+                cost["total_cost_usd"],
+                cost.get("total_input_tokens", 0),
+                cost.get("total_output_tokens", 0),
+            )
         return 0
     except Exception as e:
         logger.error("Correctness audit failed: %s", e, exc_info=True)

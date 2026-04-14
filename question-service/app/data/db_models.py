@@ -68,3 +68,28 @@ class QuestionModel(Base):
     last_audited_at = Column(
         DateTime, nullable=True
     )  # Last correctness-audit timestamp
+
+
+class AuditRunModel(Base):
+    """Persists cost and outcome summary for each correctness audit run."""
+
+    __tablename__ = "audit_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    started_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=False)
+    duration_seconds = Column(Float, nullable=True)
+
+    # Audit outcome counters
+    scanned = Column(Integer, nullable=False, default=0)
+    verified_correct = Column(Integer, nullable=False, default=0)
+    failed = Column(Integer, nullable=False, default=0)
+    deactivated = Column(Integer, nullable=False, default=0)
+    skipped = Column(Integer, nullable=False, default=0)
+    errors = Column(Integer, nullable=False, default=0)
+
+    # Cost tracking
+    total_cost_usd = Column(Float, nullable=True)
+    total_input_tokens = Column(Integer, nullable=True)
+    total_output_tokens = Column(Integer, nullable=True)
+    cost_by_provider = Column(JSON, nullable=True)
