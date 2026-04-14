@@ -219,6 +219,8 @@ class EvaluationScore(BaseModel):
     creativity_score: float = Field(..., ge=0.0, le=1.0)
     leakage_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     overall_score: float = Field(..., ge=0.0, le=1.0)
+    answer_verified: Optional[bool] = None
+    verification_details: Optional[Dict[str, Any]] = None
     feedback: Optional[str] = None
 
 
