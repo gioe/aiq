@@ -3,9 +3,9 @@ import SwiftUI
 
 /// Shared navigation controls for the test-taking flow.
 ///
-/// Renders a Previous button on the left and either a Next or Submit button on the right,
-/// depending on whether the current question is the last one. Both `TestTakingView` and
-/// `GuestTestContainerView` use this component.
+/// Renders a Previous button on the left, a Next button (on non-last questions), and a Submit
+/// button (on the last question or whenever all questions are answered). Both `TestTakingView`
+/// and `GuestTestContainerView` use this component.
 struct TestNavigationControls: View {
     /// The view model driving test state.
     @ObservedObject var viewModel: TestTakingViewModel
@@ -31,10 +31,8 @@ struct TestNavigationControls: View {
             .disabled(!viewModel.canGoPrevious)
             .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.previousButton)
 
-            // Next or Submit button
-            if viewModel.isLastQuestion {
-                submitButton
-            } else {
+            // Next and/or Submit button
+            if !viewModel.isLastQuestion {
                 Button {
                     withAnimation(reduceMotion ? nil : .spring(response: 0.3)) {
                         viewModel.goToNext()
@@ -49,6 +47,10 @@ struct TestNavigationControls: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.currentAnswer.isEmpty)
                 .accessibilityIdentifier(AccessibilityIdentifiers.TestTakingView.nextButton)
+            }
+
+            if viewModel.isLastQuestion || viewModel.allQuestionsAnswered {
+                submitButton
             }
         }
     }
