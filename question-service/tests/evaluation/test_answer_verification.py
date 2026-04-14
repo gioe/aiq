@@ -692,8 +692,8 @@ class TestAnswerVerificationConfig:
         )
         assert config.answer_verification_enabled is True
 
-    def test_explicit_enabled(self):
-        """Explicitly set answer_verification_enabled=True."""
+    def test_explicit_disabled(self):
+        """Explicitly set answer_verification_enabled=False."""
         config = JudgeConfig(
             version="1.0.0",
             judges={
@@ -884,8 +884,7 @@ class TestRunnerPhase2bIntegration:
             question=question, evaluation=evaluation, judge_model="gpt-4", approved=True
         )
 
-    @patch("app.evaluation.runner.observability")
-    def test_fail_open_on_error(self, mock_obs):
+    def test_fail_open_on_error(self):
         """When verify_answer raises, the question stays approved (fail-open)."""
         mock_judge = Mock()
         mock_judge.judge_config.get_answer_verification_enabled.return_value = True
@@ -940,8 +939,7 @@ class TestRunnerPhase2bIntegration:
         # answer_verified should NOT have been set (error before assignment)
         assert approved[0].evaluation.answer_verified is None
 
-    @patch("app.evaluation.runner.observability")
-    def test_verification_disabled_skips_phase2b(self, mock_obs):
+    def test_verification_disabled_skips_phase2b(self):
         """When verification is disabled, Phase 2b is skipped entirely."""
         mock_judge = Mock()
         mock_judge.judge_config.get_answer_verification_enabled.return_value = False
@@ -955,8 +953,7 @@ class TestRunnerPhase2bIntegration:
         assert len(approved) == 1
         mock_judge.verify_answer.assert_not_called()
 
-    @patch("app.evaluation.runner.observability")
-    def test_rejected_questions_moved_on_failure(self, mock_obs):
+    def test_rejected_questions_moved_on_failure(self):
         """Failed verification moves question from approved to rejected."""
         mock_judge = Mock()
         mock_judge.judge_config.get_answer_verification_enabled.return_value = True
@@ -1013,8 +1010,7 @@ class TestRunnerPhase2bIntegration:
         assert metrics.questions_approved == 0
         assert metrics.questions_rejected == 1
 
-    @patch("app.evaluation.runner.observability")
-    def test_verified_questions_stay_approved(self, mock_obs):
+    def test_verified_questions_stay_approved(self):
         """Verified questions remain in the approved list."""
         mock_judge = Mock()
         mock_judge.judge_config.get_answer_verification_enabled.return_value = True
