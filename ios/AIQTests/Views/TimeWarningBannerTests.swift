@@ -1,6 +1,5 @@
 @testable import AIQ
 import AIQSharedKit
-import Combine
 import XCTest
 
 /// Unit tests for the TimeWarningBanner dismiss functionality.
@@ -15,18 +14,15 @@ import XCTest
 @MainActor
 final class TimeWarningBannerTests: XCTestCase {
     var timerManager: TestTimerManager!
-    var cancellables: Set<AnyCancellable>!
 
     override func setUp() {
         super.setUp()
         timerManager = TestTimerManager()
-        cancellables = []
     }
 
     override func tearDown() {
         timerManager.stop()
         timerManager = nil
-        cancellables = nil
         super.tearDown()
     }
 
