@@ -253,6 +253,9 @@ def run_judge_phase(
                     else:
                         verification_failures += 1
                         rejected_questions.append(eq)
+                        # Correct the approval count recorded before verification
+                        metrics.questions_approved -= 1
+                        metrics.questions_rejected += 1
                         logger.info(
                             f"  ✗ VERIFICATION FAILED ({details.get('outcome', 'unknown')}) - "
                             f"{eq.question.question_type.value}/"

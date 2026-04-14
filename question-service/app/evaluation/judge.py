@@ -634,7 +634,18 @@ class QuestionJudge:
         max_tokens: int = 800,
     ) -> tuple[bool, dict]:
         question_type = question.question_type.value
-        answer_options = question.answer_options or [question.correct_answer]
+        answer_options = question.answer_options
+
+        # Skip verification if no meaningful answer options (need 2+ for blind-solve)
+        if not answer_options or len(answer_options) < 2:
+            logger.info(
+                f"Skipping verification for {question_type} question: "
+                f"insufficient answer options ({len(answer_options) if answer_options else 0})"
+            )
+            return (
+                True,
+                {"outcome": "skipped", "reason": "insufficient_answer_options"},
+            )
 
         with observability.start_span(
             "verifier.verify_answer",
@@ -675,7 +686,10 @@ class QuestionJudge:
                 )
 
                 # Step 2: Compare answers
-                if judge_chosen.strip() == question.correct_answer.strip():
+                if (
+                    judge_chosen.strip().lower()
+                    == question.correct_answer.strip().lower()
+                ):
                     observability.record_metric(
                         "verifier.pass", value=1, metric_type="counter"
                     )
@@ -705,6 +719,12 @@ class QuestionJudge:
                     logger.warning(
                         f"Generator provider '{generator_provider_name}' not available "
                         f"for defense, skipping verification"
+                    )
+                    observability.record_metric(
+                        "verifier.skipped",
+                        value=1,
+                        labels={"reason": "generator_provider_unavailable"},
+                        metric_type="counter",
                     )
                     span.set_attribute("outcome", "skipped")
                     return (
@@ -840,8 +860,19 @@ class QuestionJudge:
         timeout: Optional[float] = None,
     ) -> tuple[bool, dict]:
         question_type = question.question_type.value
-        answer_options = question.answer_options or [question.correct_answer]
+        answer_options = question.answer_options
         effective_timeout = timeout if timeout is not None else self._async_timeout
+
+        # Skip verification if no meaningful answer options (need 2+ for blind-solve)
+        if not answer_options or len(answer_options) < 2:
+            logger.info(
+                f"Skipping verification for {question_type} question (async): "
+                f"insufficient answer options ({len(answer_options) if answer_options else 0})"
+            )
+            return (
+                True,
+                {"outcome": "skipped", "reason": "insufficient_answer_options"},
+            )
 
         with observability.start_span(
             "verifier.verify_answer_async",
@@ -887,7 +918,10 @@ class QuestionJudge:
                 )
 
                 # Step 2: Compare answers
-                if judge_chosen.strip() == question.correct_answer.strip():
+                if (
+                    judge_chosen.strip().lower()
+                    == question.correct_answer.strip().lower()
+                ):
                     observability.record_metric(
                         "verifier.pass", value=1, metric_type="counter"
                     )
@@ -917,6 +951,12 @@ class QuestionJudge:
                     logger.warning(
                         f"Generator provider '{generator_provider_name}' not available "
                         f"for defense, skipping verification"
+                    )
+                    observability.record_metric(
+                        "verifier.skipped",
+                        value=1,
+                        labels={"reason": "generator_provider_unavailable"},
+                        metric_type="counter",
                     )
                     span.set_attribute("outcome", "skipped")
                     return (
