@@ -70,8 +70,9 @@ import Foundation
             mockLocalAnswerStorage.configureForScenario(scenario)
             container.register(LocalAnswerStorageProtocol.self, instance: mockLocalAnswerStorage)
 
-            let mockHapticManager = UITestMockHapticManager()
-            container.register(HapticManagerProtocol.self, instance: mockHapticManager)
+            container.register(HapticManagerProtocol.self, instance: UITestMockHapticManager())
+            // No-op analytics (no providers). Required: AppDelegate resolves at init.
+            container.register(AnalyticsManagerProtocol.self, instance: AnalyticsManager())
 
             // MARK: - Layer 2: Services depending on Layer 1
 
