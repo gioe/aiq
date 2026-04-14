@@ -65,3 +65,6 @@ class QuestionModel(Base):
     inferred_sub_type = Column(
         String(200), nullable=True
     )  # Inferred sub-type from LLM classification of existing questions
+    last_audited_at = Column(
+        DateTime, nullable=True
+    )  # Last correctness-audit timestamp
