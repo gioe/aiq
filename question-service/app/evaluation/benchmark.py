@@ -32,8 +32,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from app.config.config import settings
-from app.observability.cost_tracking import track_costs
+from app.observability.cost_tracking import get_cost_tracker, track_costs
+from app.observability.pipeline_run import record_pipeline_run
 
 if TYPE_CHECKING:
     from app.observability.cost_tracking import CostTracker
@@ -603,6 +607,7 @@ async def main_async() -> int:
     print("", file=sys.stderr)
 
     # Run benchmarks
+    benchmark_start = datetime.now(timezone.utc)
     try:
         results = await run_benchmarks(
             providers=providers,
@@ -614,9 +619,28 @@ async def main_async() -> int:
         print(f"\nError running benchmarks: {str(e)}", file=sys.stderr)
         logger.exception("Benchmark failed")
         return 1
+    benchmark_end = datetime.now(timezone.utc)
 
     # Generate output
     output = generate_output(providers, args.questions, results, parallel=args.parallel)
+
+    # Persist pipeline run costs
+    if settings.database_url:
+        engine = create_engine(settings.database_url)
+        record_pipeline_run(
+            session_factory=sessionmaker(bind=engine),
+            pipeline_type="benchmark",
+            started_at=benchmark_start,
+            completed_at=benchmark_end,
+            cost_tracker=get_cost_tracker(),
+            result_summary={
+                "providers": providers,
+                "questions_per_provider": args.questions,
+                "parallel": args.parallel,
+                "dry_run": args.dry_run,
+            },
+        )
+        engine.dispose()
 
     # Write to file or stdout
     if args.output:
