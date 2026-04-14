@@ -591,6 +591,10 @@ async def create_generation_run(
             environment=run_data.environment,
             triggered_by=run_data.triggered_by,
             client_run_id=run_data.client_run_id,
+            total_cost_usd=run_data.total_cost_usd,
+            total_input_tokens=run_data.total_input_tokens,
+            total_output_tokens=run_data.total_output_tokens,
+            cost_by_provider=run_data.cost_by_provider,
         )
 
         db.add(db_run)
