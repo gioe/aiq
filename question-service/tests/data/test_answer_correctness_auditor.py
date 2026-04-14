@@ -115,7 +115,8 @@ class TestRunAnswerCorrectnessAudit:
         result = run_answer_correctness_audit(factory, judge, config)
         assert result["failed"] == 1
         assert result["deactivated"] == 1
-        session.commit.assert_called_once()
+        # Two commits: one for audit results, one for persisting audit run
+        assert session.commit.call_count == 2
 
     def test_bucket_safety_prevents_deactivation(self):
         """Should not deactivate if it would breach MIN_ACTIVE_PER_BUCKET."""
@@ -160,7 +161,8 @@ class TestRunAnswerCorrectnessAudit:
         judge = _make_judge()
         config = _make_judge_config()
         run_answer_correctness_audit(factory, judge, config)
-        session.close.assert_called_once()
+        # Two close calls: audit session + persist session
+        assert session.close.call_count == 2
 
     def test_session_rolled_back_on_error(self):
         session = MagicMock()
@@ -241,6 +243,17 @@ class TestRunAnswerCorrectnessAudit:
         query_mock = session.query.return_value
         terminal = query_mock.filter.return_value
         terminal.order_by.return_value.limit.assert_called_once_with(5)
+
+    def test_cost_summary_included_in_result(self):
+        """Audit result should include a cost_summary key from CostTracker."""
+        factory, _ = _build_factory([])
+        judge = _make_judge()
+        config = _make_judge_config()
+        result = run_answer_correctness_audit(factory, judge, config)
+        assert "cost_summary" in result
+        assert "total_cost_usd" in result["cost_summary"]
+        assert "total_input_tokens" in result["cost_summary"]
+        assert "total_output_tokens" in result["cost_summary"]
 
     def test_audit_window_hours_passes_through(self):
         """audit_window_hours should add a filter for recently-audited questions."""
