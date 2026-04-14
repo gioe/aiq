@@ -14,6 +14,7 @@ from app.observability.cost_tracking import (
     get_cost_tracker,
     get_model_pricing,
     reset_cost_tracker,
+    track_costs,
 )
 
 
@@ -603,6 +604,68 @@ class TestNullTokenUsageWarning:
             tracker.record_usage(usage)
 
         assert "Null token counts" not in caplog.text
+
+
+class TestTrackCostsContextManager:
+    """Tests for the track_costs() context manager."""
+
+    def setup_method(self):
+        """Reset global tracker before each test."""
+        reset_cost_tracker()
+
+    def test_resets_tracker_on_entry(self):
+        """track_costs() resets accumulated costs when entering the block."""
+        # Pre-populate the global tracker with some usage
+        tracker = get_cost_tracker()
+        tracker.record_usage(
+            TokenUsage(
+                input_tokens=5000,
+                output_tokens=2000,
+                model="gpt-4",
+                provider="openai",
+            )
+        )
+        assert tracker.get_summary()["total_tokens"] > 0
+
+        # Entering the context manager should reset to zero
+        with track_costs() as t:
+            summary = t.get_summary()
+            assert summary["total_tokens"] == 0
+            assert summary["total_cost_usd"] == pytest.approx(0.0)
+            assert len(summary["by_provider"]) == 0
+
+    def test_yielded_tracker_is_global_singleton(self):
+        """The tracker yielded by track_costs() is the global singleton."""
+        with track_costs() as t:
+            assert t is get_cost_tracker()
+
+    def test_summary_available_after_block(self):
+        """get_summary() returns accumulated costs after the with block exits."""
+        with track_costs() as tracker:
+            tracker.record_usage(
+                TokenUsage(
+                    input_tokens=1000,
+                    output_tokens=500,
+                    model="gpt-4",
+                    provider="openai",
+                )
+            )
+            tracker.record_usage(
+                TokenUsage(
+                    input_tokens=2000,
+                    output_tokens=800,
+                    model="claude-3-5-sonnet-20241022",
+                    provider="anthropic",
+                )
+            )
+
+        # After the block, summary should still reflect what happened inside
+        summary = tracker.get_summary()
+        assert summary["total_input_tokens"] == 3000
+        assert summary["total_output_tokens"] == 1300
+        assert summary["total_cost_usd"] > 0
+        assert "openai" in summary["by_provider"]
+        assert "anthropic" in summary["by_provider"]
 
 
 class TestRealisticCostTrackingIntegration:
