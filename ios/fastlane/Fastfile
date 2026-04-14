@@ -177,12 +177,100 @@ platform :ios do
   desc "Generate release notes from commits since the last tag"
   lane :generate_release_notes do
     tag = last_git_tag
+
     if tag.nil? || tag.empty?
-      UI.important("No previous tag found — using full log")
-      log = changelog_from_git_commits(commits_count: 50, pretty: "- %s")
+      UI.important("No previous tag found — using last 50 commits")
+      raw = changelog_from_git_commits(commits_count: 50, pretty: "%s")
     else
-      log = changelog_from_git_commits(between: [tag, "HEAD"], pretty: "- %s")
+      raw = changelog_from_git_commits(between: [tag, "HEAD"], pretty: "%s")
     end
-    log
+
+    lines = raw.split("\n").map(&:strip).reject(&:empty?)
+
+    # --- Deduplicate by TASK ID, keeping the first (most recent) summary ---
+    task_entries = {}  # TASK-NNN => summary text
+    other_entries = [] # commits without a TASK prefix
+
+    lines.each do |line|
+      match = line.match(/\[TASK-(\d+)\]\s*(.+)/)
+      if match
+        task_id = match[1]
+        summary = match[2].strip
+        task_entries[task_id] ||= summary
+      else
+        other_entries << line unless line.match?(/^Merge |^Co-Authored-By:/i)
+      end
+    end
+
+    # --- Categorize by keyword heuristics ---
+    features = []
+    fixes = []
+    improvements = []
+
+    categorize = lambda do |summary|
+      lower = summary.downcase
+      if lower.match?(/\bfix(es|ed)?\b|\bbug\b|\bcrash\b|\bresolve[sd]?\b|\bpatch\b/)
+        fixes << summary
+      elsif lower.match?(/\badd(s|ed)?\b|\bnew\b|\bcreate[sd]?\b|\bintroduce[sd]?\b|\bimplement[sed]?\b|\bfeature\b/)
+        features << summary
+      else
+        improvements << summary
+      end
+    end
+
+    task_entries.each_value { |s| categorize.call(s) }
+    other_entries.each { |s| categorize.call(s) }
+
+    # --- Build App Store release notes (plain text, max 4000 chars) ---
+    sections = []
+    sections << "New Features\n#{features.map { |f| "• #{f}" }.join("\n")}" unless features.empty?
+    sections << "Bug Fixes\n#{fixes.map { |f| "• #{f}" }.join("\n")}" unless fixes.empty?
+    sections << "Improvements\n#{improvements.map { |f| "• #{f}" }.join("\n")}" unless improvements.empty?
+
+    if sections.empty?
+      notes_text = "• Bug fixes and performance improvements"
+    else
+      notes_text = sections.join("\n\n")
+    end
+
+    # Truncate gracefully at 4000 chars (App Store limit)
+    max_len = 4000
+    if notes_text.length > max_len
+      truncated = notes_text[0...max_len]
+      last_newline = truncated.rindex("\n")
+      notes_text = last_newline ? truncated[0...last_newline] : truncated
+    end
+
+    release_notes_path = File.join(Dir.pwd, "fastlane", "metadata", "en-US", "release_notes.txt")
+    File.write(release_notes_path, notes_text)
+    UI.success("Wrote release_notes.txt (#{notes_text.length} chars)")
+
+    # --- Build WhatsNew.json for in-app display ---
+    version = get_version_number(xcodeproj: "AIQ.xcodeproj", target: "AIQ")
+    build_num = get_build_number(xcodeproj: "AIQ.xcodeproj")
+
+    whats_new = {
+      version: "#{version} (#{build_num})",
+      generated_at: Time.now.utc.iso8601,
+      categories: []
+    }
+
+    unless features.empty?
+      whats_new[:categories] << { name: "New Features", items: features }
+    end
+    unless fixes.empty?
+      whats_new[:categories] << { name: "Bug Fixes", items: fixes }
+    end
+    unless improvements.empty?
+      whats_new[:categories] << { name: "Improvements", items: improvements }
+    end
+
+    resources_dir = File.join(Dir.pwd, "AIQ", "Resources")
+    FileUtils.mkdir_p(resources_dir)
+    whats_new_path = File.join(resources_dir, "WhatsNew.json")
+    File.write(whats_new_path, JSON.pretty_generate(whats_new))
+    UI.success("Wrote WhatsNew.json to #{whats_new_path}")
+
+    notes_text
   end
 end
