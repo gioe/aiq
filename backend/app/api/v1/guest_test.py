@@ -264,9 +264,8 @@ async def start_guest_test(
         )
 
     # 3. Abandon stale IN_PROGRESS guest sessions older than the token TTL.
-    #    All guest sessions share GUEST_USER_ID, and the partial unique index
-    #    ix_test_sessions_user_active allows only one IN_PROGRESS session per user.
-    #    Without this cleanup a second concurrent guest start would hit IntegrityError.
+    #    Housekeeping only — the unique index now excludes GUEST_USER_ID so
+    #    concurrent guest starts no longer conflict.
     ttl_cutoff = utc_now() - timedelta(minutes=settings.GUEST_TOKEN_TTL_MINUTES)
     await db.execute(
         update(TestSession)
@@ -305,21 +304,7 @@ async def start_guest_test(
     )
     db.add(test_session)
 
-    try:
-        await db.flush()  # Obtain session ID without committing
-    except IntegrityError:
-        # Race condition: another concurrent guest start won the unique index.
-        # Mirrors the authenticated flow pattern at test.py:635-647.
-        await db.rollback()
-        logger.warning(
-            "Race condition detected: concurrent guest test start "
-            "(user_id=%d, device_id=%s)",
-            settings.GUEST_USER_ID,
-            device_id,
-        )
-        from app.core.error_responses import raise_conflict
-
-        raise_conflict(ErrorMessages.SESSION_ALREADY_IN_PROGRESS)
+    await db.flush()  # Obtain session ID without committing
 
     # NOTE: We intentionally do NOT create UserQuestion rows for guests.
     # The UserQuestion table has a UNIQUE(user_id, question_id) constraint,
