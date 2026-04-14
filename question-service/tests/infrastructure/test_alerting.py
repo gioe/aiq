@@ -612,7 +612,7 @@ class TestDiscordAlerting:
         manager = self._make_manager()
         captured = {}
 
-        def fake_urlopen(req, timeout):
+        def fake_urlopen(req, timeout, **kwargs):
             captured["data"] = json.loads(req.data)
             ctx = Mock()
             ctx.__enter__ = lambda s: s
