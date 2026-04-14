@@ -139,8 +139,9 @@ platform :ios do
     )
   end
 
-  desc "Full pipeline: screenshots, bump build, build, upload, and submit for review"
+  desc "Full pipeline: release notes, screenshots, bump build, build, upload, and submit for review"
   lane :release do
+    generate_release_notes
     screenshots
     frames
     bump_build_number
@@ -152,6 +153,7 @@ platform :ios do
 
   desc "Build and upload to TestFlight with metadata and screenshots"
   lane :beta do
+    generate_release_notes
     bump_build_number
     build
     upload_testflight
