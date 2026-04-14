@@ -126,15 +126,6 @@ def run_answer_correctness_audit(
                     )
                 elif verified:
                     result["verified_correct"] += 1
-                    result["details"].append(
-                        {
-                            "id": q.id,
-                            "type": q_type,
-                            "difficulty": q_diff,
-                            "outcome": "pass",
-                            "details": details,
-                        }
-                    )
                 else:
                     result["failed"] += 1
                     failed_questions.append(q)
