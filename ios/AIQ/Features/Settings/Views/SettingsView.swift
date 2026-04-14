@@ -188,6 +188,39 @@ struct SettingsView: View {
                     Text("App")
                 }
 
+                // What's New Section
+                if let whatsNew = viewModel.whatsNew, !whatsNew.categories.isEmpty {
+                    Section {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Version \(whatsNew.version)")
+                                .font(theme.typography.bodyMedium)
+                                .foregroundColor(theme.colors.textSecondary)
+
+                            ForEach(whatsNew.categories) { category in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(category.name)
+                                        .font(theme.typography.h4)
+
+                                    ForEach(category.items, id: \.self) { item in
+                                        HStack(alignment: .top, spacing: 6) {
+                                            Text("•")
+                                                .font(theme.typography.bodyMedium)
+                                                .foregroundColor(theme.colors.textSecondary)
+                                            Text(item)
+                                                .font(theme.typography.bodyMedium)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } header: {
+                        Text("What's New")
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.SettingsView.whatsNewSection)
+                }
+
                 // Account Actions Section
                 Section {
                     Button(

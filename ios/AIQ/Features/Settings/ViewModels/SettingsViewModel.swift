@@ -42,6 +42,8 @@ class SettingsViewModel: BaseViewModel {
     @Published var isLoggingOut = false
     @Published var isDeletingAccount = false
     @Published var showOnboarding = false
+    /// What's New content loaded from the bundled WhatsNew.json file
+    @Published var whatsNew: WhatsNew?
 
     // MARK: - Type Aliases
 
@@ -104,6 +106,9 @@ class SettingsViewModel: BaseViewModel {
 
         // Set initial user
         currentUser = authManager.currentUser
+
+        // Load What's New content from bundle
+        whatsNew = WhatsNew.loadFromBundle()
     }
 
     // MARK: - Public Methods

@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-04-14T00:00:00Z",
+  "categories": [
+    {
+      "name": "New Features",
+      "items": [
+        "Track your cognitive capacity over time",
+        "AI-generated IQ-style questions"
+      ]
+    },
+    {
+      "name": "Improvements",
+      "items": [
+        "Optimized test-taking experience"
+      ]
+    }
+  ]
+}
