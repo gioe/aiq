@@ -93,3 +93,24 @@ class AuditRunModel(Base):
     total_input_tokens = Column(Integer, nullable=True)
     total_output_tokens = Column(Integer, nullable=True)
     cost_by_provider = Column(JSON, nullable=True)
+
+
+class PipelineRunModel(Base):
+    """Unified cost and outcome tracking for all question-service pipelines."""
+
+    __tablename__ = "pipeline_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pipeline_type = Column(String(50), nullable=False, index=True)
+    started_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=False)
+    duration_seconds = Column(Float, nullable=True)
+
+    # Cost tracking
+    total_cost_usd = Column(Float, nullable=True)
+    total_input_tokens = Column(Integer, nullable=True)
+    total_output_tokens = Column(Integer, nullable=True)
+    cost_by_provider = Column(JSON, nullable=True)
+
+    # Pipeline-specific outcome data
+    result_summary = Column(JSON, nullable=True)
