@@ -342,13 +342,12 @@ private struct DashboardTabNavigationView: View {
             TestTakingView(sessionId: sessionId)
         case .adaptiveTestTaking:
             AdaptiveTestView()
-        case let .testResults(result, isFirstTest):
+        case let .testResults(result):
             TestResultsView(
                 result: result,
                 onDismiss: {
                     router.popToRoot()
-                },
-                isFirstTest: isFirstTest
+                }
             )
         case let .testDetail(result, userAverage):
             TestDetailView(testResult: result, userAverage: userAverage)

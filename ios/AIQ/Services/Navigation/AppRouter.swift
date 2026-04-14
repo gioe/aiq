@@ -60,7 +60,7 @@ enum Route: Hashable, Equatable {
     case adaptiveTestTaking
 
     /// Test results screen showing the completed test results
-    case testResults(result: SubmittedTestResult, isFirstTest: Bool = false)
+    case testResults(result: SubmittedTestResult)
 
     /// Detailed score breakdown screen
     case scoreBreakdown(result: SubmittedTestResult)
@@ -108,8 +108,8 @@ enum Route: Hashable, Equatable {
             lhsSessionId == rhsSessionId
         case (.adaptiveTestTaking, .adaptiveTestTaking):
             true
-        case let (.testResults(lhsResult, lhsFirst), .testResults(rhsResult, rhsFirst)):
-            lhsResult.id == rhsResult.id && lhsFirst == rhsFirst
+        case let (.testResults(lhsResult), .testResults(rhsResult)):
+            lhsResult.id == rhsResult.id
         case let (.testDetail(lhsResult, lhsAvg), .testDetail(rhsResult, rhsAvg)):
             lhsResult.id == rhsResult.id && lhsAvg == rhsAvg
         case let (.scoreBreakdown(lhsResult), .scoreBreakdown(rhsResult)):
@@ -145,10 +145,9 @@ enum Route: Hashable, Equatable {
             hasher.combine(sessionId)
         case .adaptiveTestTaking:
             hasher.combine("adaptiveTestTaking")
-        case let .testResults(result, isFirstTest):
+        case let .testResults(result):
             hasher.combine("testResults")
             hasher.combine(result.id)
-            hasher.combine(isFirstTest)
         case let .testDetail(result, average):
             hasher.combine("testDetail")
             hasher.combine(result.id)

@@ -5,7 +5,6 @@ import SwiftUI
 struct TestResultsView: View {
     let result: SubmittedTestResult
     let onDismiss: () -> Void
-    let isFirstTest: Bool
 
     @State private var showScore = false
     @State private var showPercentile = false
@@ -159,11 +158,8 @@ struct TestResultsView: View {
     }
 
     /// Determines if the notification soft prompt should be shown
-    /// - Returns: True if this is the first test and permission hasn't been requested
+    /// - Returns: True if permission hasn't been requested and not already granted
     private func shouldShowNotificationPrompt() -> Bool {
-        // Only show on first test
-        guard isFirstTest else { return false }
-
         // Don't show if permission already requested
         guard !notificationManager.hasRequestedNotificationPermission else { return false }
 
@@ -393,8 +389,7 @@ struct TestResultsView: View {
                 accuracyPercentage: 95.0,
                 completedAt: Date()
             ),
-            onDismiss: {},
-            isFirstTest: false
+            onDismiss: {}
         )
     }
 
@@ -410,8 +405,7 @@ struct TestResultsView: View {
                 accuracyPercentage: 70.0,
                 completedAt: Date()
             ),
-            onDismiss: {},
-            isFirstTest: false
+            onDismiss: {}
         )
     }
 
@@ -427,8 +421,7 @@ struct TestResultsView: View {
                 accuracyPercentage: 45.0,
                 completedAt: Date()
             ),
-            onDismiss: {},
-            isFirstTest: false
+            onDismiss: {}
         )
     }
 
@@ -444,8 +437,7 @@ struct TestResultsView: View {
                 accuracyPercentage: 60.0,
                 completedAt: Date()
             ),
-            onDismiss: {},
-            isFirstTest: false
+            onDismiss: {}
         )
     }
 
@@ -461,8 +453,7 @@ struct TestResultsView: View {
                 accuracyPercentage: 80.0,
                 completedAt: Date()
             ),
-            onDismiss: {},
-            isFirstTest: true
+            onDismiss: {}
         )
     }
 #endif

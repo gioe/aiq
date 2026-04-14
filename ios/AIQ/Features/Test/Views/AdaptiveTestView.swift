@@ -37,7 +37,7 @@ struct AdaptiveTestView: View {
                     totalQuestions: Constants.Test.maxAdaptiveItems,
                     onViewResults: {
                         if let result = viewModel.testResult {
-                            router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
+                            router.push(.testResults(result: result))
                         }
                     },
                     onReturnToDashboard: {
@@ -106,7 +106,7 @@ struct AdaptiveTestView: View {
             Button("OK") {
                 // Navigate to results when user dismisses the alert
                 if let result = viewModel.testResult {
-                    router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
+                    router.push(.testResults(result: result))
                 }
             }
         } message: {

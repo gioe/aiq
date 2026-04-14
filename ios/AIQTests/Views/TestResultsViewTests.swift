@@ -16,33 +16,10 @@ final class TestResultsViewTests: XCTestCase {
     // MARK: - shouldShowNotificationPrompt() Logic Tests (BTS-238)
 
     /// Test that shouldShowNotificationPrompt returns true when all conditions are met:
-    /// - isFirstTest = true
     /// - hasRequestedNotificationPermission = false
     /// - authorizationStatus != .authorized
     func testShouldShowNotificationPrompt_ReturnsTrueWhenConditionsMet() {
         // Given
-        let isFirstTest = true
-        mockNotificationManager.hasRequestedNotificationPermission = false
-        mockNotificationManager.authorizationStatus = .notDetermined
-
-        let result = makeTestResult()
-
-        // When - Create view with first test flag
-        let view = TestResultsView(
-            result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
-        )
-
-        // Then - Since shouldShowNotificationPrompt is private, we verify the view initializes correctly
-        // The actual behavior is tested through integration tests
-        XCTAssertNotNil(view, "View should initialize with first test configuration")
-    }
-
-    /// Test that shouldShowNotificationPrompt returns false when isFirstTest is false
-    func testShouldShowNotificationPrompt_ReturnsFalseWhenNotFirstTest() {
-        // Given
-        let isFirstTest = false
         mockNotificationManager.hasRequestedNotificationPermission = false
         mockNotificationManager.authorizationStatus = .notDetermined
 
@@ -51,18 +28,17 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
-        // Then
-        XCTAssertNotNil(view, "View should initialize with non-first test configuration")
+        // Then - Since shouldShowNotificationPrompt is private, we verify the view initializes correctly
+        // The actual behavior is tested through integration tests
+        XCTAssertNotNil(view, "View should initialize correctly")
     }
 
     /// Test that shouldShowNotificationPrompt returns false when permission already requested
     func testShouldShowNotificationPrompt_ReturnsFalseWhenPermissionAlreadyRequested() {
         // Given
-        let isFirstTest = true
         mockNotificationManager.hasRequestedNotificationPermission = true
         mockNotificationManager.authorizationStatus = .notDetermined
 
@@ -71,8 +47,7 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
         // Then
@@ -82,7 +57,6 @@ final class TestResultsViewTests: XCTestCase {
     /// Test that shouldShowNotificationPrompt returns false when permission is authorized
     func testShouldShowNotificationPrompt_ReturnsFalseWhenAlreadyAuthorized() {
         // Given
-        let isFirstTest = true
         mockNotificationManager.hasRequestedNotificationPermission = false
         mockNotificationManager.authorizationStatus = .authorized
 
@@ -91,51 +65,17 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
         // Then
         XCTAssertNotNil(view, "View should initialize when already authorized")
     }
 
-    // MARK: - isFirstTest Parameter Tests
-
-    func testView_AcceptsIsFirstTestTrue() {
-        // Given
-        let result = makeTestResult()
-
-        // When
-        let view = TestResultsView(
-            result: result,
-            onDismiss: {},
-            isFirstTest: true
-        )
-
-        // Then
-        XCTAssertNotNil(view, "View should accept isFirstTest = true")
-    }
-
-    func testView_AcceptsIsFirstTestFalse() {
-        // Given
-        let result = makeTestResult()
-
-        // When
-        let view = TestResultsView(
-            result: result,
-            onDismiss: {},
-            isFirstTest: false
-        )
-
-        // Then
-        XCTAssertNotNil(view, "View should accept isFirstTest = false")
-    }
-
     // MARK: - Conditional Logic Tests (Multiple Conditions)
 
-    func testShouldShowPrompt_FirstTest_NoPermissionRequested_NotDetermined() {
+    func testShouldShowPrompt_NoPermissionRequested_NotDetermined() {
         // Given - All conditions for showing prompt are met
-        let isFirstTest = true
         mockNotificationManager.hasRequestedNotificationPermission = false
         mockNotificationManager.authorizationStatus = .notDetermined
 
@@ -144,17 +84,15 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
         // Then - Verify view initializes (prompt should be shown on dismiss)
         XCTAssertNotNil(view)
     }
 
-    func testShouldNotShowPrompt_FirstTest_NoPermissionRequested_Denied() {
+    func testShouldNotShowPrompt_NoPermissionRequested_Denied() {
         // Given - Permission was denied (user said no before)
-        let isFirstTest = true
         mockNotificationManager.hasRequestedNotificationPermission = false
         mockNotificationManager.authorizationStatus = .denied
 
@@ -163,36 +101,15 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
         // Then - View should still initialize (but won't show prompt)
         XCTAssertNotNil(view)
     }
 
-    func testShouldNotShowPrompt_SecondTest_NoPermissionRequested_NotDetermined() {
-        // Given - Not first test (even though other conditions are met)
-        let isFirstTest = false
-        mockNotificationManager.hasRequestedNotificationPermission = false
-        mockNotificationManager.authorizationStatus = .notDetermined
-
-        let result = makeTestResult()
-
-        // When
-        let view = TestResultsView(
-            result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
-        )
-
-        // Then - View should initialize without prompt
-        XCTAssertNotNil(view)
-    }
-
-    func testShouldNotShowPrompt_FirstTest_PermissionRequested_NotDetermined() {
+    func testShouldNotShowPrompt_PermissionRequested_NotDetermined() {
         // Given - Permission was already requested (user saw dialog before)
-        let isFirstTest = true
         mockNotificationManager.hasRequestedNotificationPermission = true
         mockNotificationManager.authorizationStatus = .notDetermined
 
@@ -201,17 +118,15 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
         // Then - View should initialize without prompt
         XCTAssertNotNil(view)
     }
 
-    func testShouldNotShowPrompt_FirstTest_NoPermissionRequested_Authorized() {
+    func testShouldNotShowPrompt_NoPermissionRequested_Authorized() {
         // Given - Permission already authorized (no need to prompt)
-        let isFirstTest = true
         mockNotificationManager.hasRequestedNotificationPermission = false
         mockNotificationManager.authorizationStatus = .authorized
 
@@ -220,8 +135,7 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
         // Then - View should initialize without prompt
@@ -230,9 +144,8 @@ final class TestResultsViewTests: XCTestCase {
 
     // MARK: - Edge Cases
 
-    func testShouldNotShowPrompt_FirstTest_PermissionRequested_Authorized() {
+    func testShouldNotShowPrompt_PermissionRequested_Authorized() {
         // Given - Both flags set (edge case, shouldn't normally happen)
-        let isFirstTest = true
         mockNotificationManager.hasRequestedNotificationPermission = true
         mockNotificationManager.authorizationStatus = .authorized
 
@@ -241,36 +154,15 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
         // Then - Should not show prompt (both conditions fail)
         XCTAssertNotNil(view)
     }
 
-    func testShouldNotShowPrompt_SecondTest_PermissionRequested_Authorized() {
-        // Given - Not first test, everything else is set
-        let isFirstTest = false
-        mockNotificationManager.hasRequestedNotificationPermission = true
-        mockNotificationManager.authorizationStatus = .authorized
-
-        let result = makeTestResult()
-
-        // When
-        let view = TestResultsView(
-            result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
-        )
-
-        // Then - Should not show prompt (isFirstTest fails)
-        XCTAssertNotNil(view)
-    }
-
-    func testShouldShowPrompt_FirstTest_NoPermissionRequested_Provisional() {
+    func testShouldShowPrompt_NoPermissionRequested_Provisional() {
         // Given - Provisional authorization (iOS feature)
-        let isFirstTest = true
         mockNotificationManager.hasRequestedNotificationPermission = false
         mockNotificationManager.authorizationStatus = .provisional
 
@@ -279,17 +171,15 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
         // Then - View initializes (prompt may or may not show depending on implementation)
         XCTAssertNotNil(view)
     }
 
-    func testShouldShowPrompt_FirstTest_NoPermissionRequested_Ephemeral() {
+    func testShouldShowPrompt_NoPermissionRequested_Ephemeral() {
         // Given - Ephemeral authorization (App Clips)
-        let isFirstTest = true
         mockNotificationManager.hasRequestedNotificationPermission = false
         mockNotificationManager.authorizationStatus = .ephemeral
 
@@ -298,8 +188,7 @@ final class TestResultsViewTests: XCTestCase {
         // When
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: isFirstTest
+            onDismiss: {}
         )
 
         // Then - View initializes
@@ -315,8 +204,7 @@ final class TestResultsViewTests: XCTestCase {
         // When - View should use NotificationManager.shared internally
         let view = TestResultsView(
             result: result,
-            onDismiss: {},
-            isFirstTest: true
+            onDismiss: {}
         )
 
         // Then - View should initialize and observe NotificationManager
@@ -335,34 +223,12 @@ final class TestResultsViewTests: XCTestCase {
             result: result,
             onDismiss: {
                 dismissCalled = true
-            },
-            isFirstTest: true
+            }
         )
 
         // Then
         XCTAssertNotNil(view, "View should initialize with all parameters")
         XCTAssertFalse(dismissCalled, "Dismiss should not be called on initialization")
-    }
-
-    func testView_StoresIsFirstTestParameter() {
-        // Given
-        let result = makeTestResult()
-
-        // When - Create two views with different isFirstTest values
-        let firstTestView = TestResultsView(
-            result: result,
-            onDismiss: {},
-            isFirstTest: true
-        )
-        let notFirstTestView = TestResultsView(
-            result: result,
-            onDismiss: {},
-            isFirstTest: false
-        )
-
-        // Then - Both should initialize correctly
-        XCTAssertNotNil(firstTestView, "First test view should initialize")
-        XCTAssertNotNil(notFirstTestView, "Not first test view should initialize")
     }
 
     // MARK: - Test Factory Methods

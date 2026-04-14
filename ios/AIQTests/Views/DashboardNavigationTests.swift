@@ -346,7 +346,7 @@ final class DashboardNavigationTests: XCTestCase {
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "should have test taking route")
 
         // When - test completes and navigate to results (replacing stack)
-        sut.navigateTo(.testResults(result: mockResult, isFirstTest: false), in: .dashboard)
+        sut.navigateTo(.testResults(result: mockResult), in: .dashboard)
 
         // Then - should have replaced with test results route
         XCTAssertEqual(sut.depth(in: .dashboard), 1, "should have 1 route after replacement")

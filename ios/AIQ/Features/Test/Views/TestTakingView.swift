@@ -50,7 +50,7 @@ struct TestTakingView: View {
                     totalQuestions: viewModel.navigationState.questions.count,
                     onViewResults: {
                         if let result = viewModel.testResult {
-                            router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
+                            router.push(.testResults(result: result))
                         }
                     },
                     onReturnToDashboard: {
@@ -237,7 +237,7 @@ struct TestTakingView: View {
 
             // Navigate to results after submission, or back to dashboard if session was abandoned
             if let result = viewModel.testResult {
-                router.push(.testResults(result: result, isFirstTest: viewModel.isFirstTest))
+                router.push(.testResults(result: result))
             } else if viewModel.wasAbandonedSilently {
                 // Stale expired session with 0 answers — start a fresh test instead of bouncing back
                 isAutoSubmitting = false

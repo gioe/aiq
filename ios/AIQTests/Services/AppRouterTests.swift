@@ -660,9 +660,8 @@ final class AppRouterTests: XCTestCase {
         let testTakingDifferentSession = Route.testTaking(sessionId: 456)
         let adaptiveTestTaking1 = Route.adaptiveTestTaking
         let adaptiveTestTaking2 = Route.adaptiveTestTaking
-        let testResults1 = Route.testResults(result: mockSubmittedResult, isFirstTest: false)
-        let testResults2 = Route.testResults(result: mockSubmittedResult, isFirstTest: false)
-        let testResultsFirstTest = Route.testResults(result: mockSubmittedResult, isFirstTest: true)
+        let testResults1 = Route.testResults(result: mockSubmittedResult)
+        let testResults2 = Route.testResults(result: mockSubmittedResult)
         let testDetail1 = Route.testDetail(result: mockTestResult, userAverage: 110)
         let testDetail2 = Route.testDetail(result: mockTestResult, userAverage: 110)
         let testDetailDifferentAvg = Route.testDetail(result: mockTestResult, userAverage: 105)
@@ -688,7 +687,6 @@ final class AppRouterTests: XCTestCase {
         // Then - Test inequality for different routes of same type
         XCTAssertNotEqual(testTakingNoSession1, testTakingWithSession1, "testTaking with/without sessionId should differ")
         XCTAssertNotEqual(testTakingWithSession1, testTakingDifferentSession, "testTaking with different sessionId should differ")
-        XCTAssertNotEqual(testResults1, testResultsFirstTest, "testResults with different isFirstTest should differ")
         XCTAssertNotEqual(testDetail1, testDetailDifferentAvg, "testDetail with different userAverage should differ")
 
         // Then - Test inequality across different route types (sampling to keep test maintainable)
@@ -714,7 +712,7 @@ final class AppRouterTests: XCTestCase {
             .testTaking(),
             .testTaking(sessionId: 123),
             .adaptiveTestTaking,
-            .testResults(result: mockSubmittedResult, isFirstTest: false),
+            .testResults(result: mockSubmittedResult),
             .testDetail(result: mockTestResult, userAverage: 110),
             .notificationSettings,
             .help,
@@ -755,7 +753,7 @@ final class AppRouterTests: XCTestCase {
             (.testTaking(), "testTaking without sessionId"),
             (.testTaking(sessionId: 999), "testTaking with sessionId"),
             (.adaptiveTestTaking, "adaptiveTestTaking"),
-            (.testResults(result: mockSubmittedResult, isFirstTest: true), "testResults"),
+            (.testResults(result: mockSubmittedResult), "testResults"),
             (.testDetail(result: mockTestResult, userAverage: 100), "testDetail"),
             (.notificationSettings, "notificationSettings"),
             (.help, "help"),
