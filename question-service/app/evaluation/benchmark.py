@@ -30,10 +30,13 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from app.config.config import settings
-from app.observability.cost_tracking import get_cost_tracker, reset_cost_tracker
+from app.observability.cost_tracking import track_costs
+
+if TYPE_CHECKING:
+    from app.observability.cost_tracking import CostTracker
 from app.generation.generator import QuestionGenerator
 from app.data.models import DifficultyLevel, QuestionType
 
@@ -150,7 +153,7 @@ async def benchmark_provider(
     provider_name: str,
     num_questions: int,
     dry_run: bool = False,
-    skip_cost_reset: bool = False,
+    cost_tracker: "CostTracker | None" = None,
 ) -> BenchmarkResult:
     """Benchmark a single provider.
 
@@ -158,8 +161,8 @@ async def benchmark_provider(
         provider_name: Provider to benchmark
         num_questions: Number of questions to generate
         dry_run: If True, simulate without actual API calls
-        skip_cost_reset: If True, skip resetting the cost tracker (used in parallel mode
-            where the tracker is reset once before all providers start)
+        cost_tracker: Pre-initialised cost tracker (parallel mode). When
+            ``None``, a new ``track_costs()`` scope is created automatically.
 
     Returns:
         BenchmarkResult with metrics
@@ -194,11 +197,13 @@ async def benchmark_provider(
         result.questions_failed = num_questions
         return result
 
-    # Reset cost tracker to measure only this provider's costs
-    # Skip reset in parallel mode where the tracker is reset once before all providers start
-    if not skip_cost_reset:
-        reset_cost_tracker()
-    cost_tracker = get_cost_tracker()
+    # Use provided tracker (parallel mode) or create a fresh scope (sequential mode).
+    # track_costs() resets on entry; the context manager has no cleanup logic so
+    # entering it without a ``with`` block is safe for this conditional pattern.
+    if cost_tracker is None:
+        tracker = track_costs().__enter__()
+    else:
+        tracker = cost_tracker
 
     # Generate questions with timing
     question_type = QuestionType.PATTERN  # Use pattern for consistency
@@ -237,7 +242,7 @@ async def benchmark_provider(
 
     # Get cost summary from tracker
     try:
-        cost_summary = cost_tracker.get_summary()
+        cost_summary = tracker.get_summary()
         provider_costs = cost_summary.get("by_provider", {}).get(provider_name, {})
         result.total_input_tokens = provider_costs.get("total_input_tokens", 0)
         result.total_output_tokens = provider_costs.get("total_output_tokens", 0)
@@ -349,64 +354,70 @@ async def run_benchmarks(
         # The CostTracker is safe for concurrent asyncio tasks since asyncio uses
         # cooperative multitasking on a single thread. Each provider records its
         # own costs via by_provider[provider_name] after completion.
-        reset_cost_tracker()
-
-        # Calculate overall timeout: individual timeout * questions * buffer
-        # This ensures we don't hang indefinitely if a provider gets stuck
-        parallel_timeout = (
-            BENCHMARK_TIMEOUT_SECONDS * num_questions * PARALLEL_TIMEOUT_MULTIPLIER
-        )
-
-        print(
-            f"Starting {len(providers)} provider benchmarks concurrently "
-            f"({num_questions} questions each)...",
-            file=sys.stderr,
-        )
-
-        # Run all provider benchmarks concurrently with overall timeout
-        benchmark_tasks = [
-            benchmark_provider(
-                provider, num_questions, dry_run=dry_run, skip_cost_reset=True
+        with track_costs() as shared_tracker:
+            # Calculate overall timeout: individual timeout * questions * buffer
+            # This ensures we don't hang indefinitely if a provider gets stuck
+            parallel_timeout = (
+                BENCHMARK_TIMEOUT_SECONDS * num_questions * PARALLEL_TIMEOUT_MULTIPLIER
             )
-            for provider in providers
-        ]
-        try:
-            benchmark_results = await asyncio.wait_for(
-                asyncio.gather(*benchmark_tasks, return_exceptions=True),
-                timeout=parallel_timeout,
-            )
-        except asyncio.TimeoutError:
-            logger.error(f"Parallel benchmark timed out after {parallel_timeout:.0f}s")
-            # Create failed results for all providers
-            for provider in providers:
-                failed_result = BenchmarkResult(provider)
-                failed_result.questions_failed = num_questions
-                results[provider] = failed_result
-            return results
 
-        # Process results
-        completed_count = 0
-        for provider, benchmark_result in zip(providers, benchmark_results):
-            if isinstance(benchmark_result, BaseException):
-                logger.exception(
-                    f"Benchmark failed for {provider}", exc_info=benchmark_result
+            print(
+                f"Starting {len(providers)} provider benchmarks concurrently "
+                f"({num_questions} questions each)...",
+                file=sys.stderr,
+            )
+
+            # Run all provider benchmarks concurrently with overall timeout
+            benchmark_tasks = [
+                benchmark_provider(
+                    provider,
+                    num_questions,
+                    dry_run=dry_run,
+                    cost_tracker=shared_tracker,
                 )
-                # Create a failed result
-                failed_result = BenchmarkResult(provider)
-                failed_result.questions_failed = num_questions
-                results[provider] = failed_result
-            else:
-                results[provider] = benchmark_result
-                completed_count += 1
+                for provider in providers
+            ]
+            try:
+                benchmark_results = await asyncio.wait_for(
+                    asyncio.gather(*benchmark_tasks, return_exceptions=True),
+                    timeout=parallel_timeout,
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    f"Parallel benchmark timed out after {parallel_timeout:.0f}s"
+                )
+                # Create failed results for all providers
+                for provider in providers:
+                    failed_result = BenchmarkResult(provider)
+                    failed_result.questions_failed = num_questions
+                    results[provider] = failed_result
+                return results
 
-        print(
-            f"Parallel benchmarks complete: {completed_count}/{len(providers)} succeeded",
-            file=sys.stderr,
-        )
+            # Process results
+            completed_count = 0
+            for provider, benchmark_result in zip(providers, benchmark_results):
+                if isinstance(benchmark_result, BaseException):
+                    logger.exception(
+                        f"Benchmark failed for {provider}",
+                        exc_info=benchmark_result,
+                    )
+                    # Create a failed result
+                    failed_result = BenchmarkResult(provider)
+                    failed_result.questions_failed = num_questions
+                    results[provider] = failed_result
+                else:
+                    results[provider] = benchmark_result
+                    completed_count += 1
 
-        # Print all summaries after parallel execution completes
-        for provider in providers:
-            _print_provider_summary(provider, results[provider])
+            print(
+                f"Parallel benchmarks complete: "
+                f"{completed_count}/{len(providers)} succeeded",
+                file=sys.stderr,
+            )
+
+            # Print all summaries after parallel execution completes
+            for provider in providers:
+                _print_provider_summary(provider, results[provider])
     else:
         # Sequential execution (original behavior)
         for provider in providers:

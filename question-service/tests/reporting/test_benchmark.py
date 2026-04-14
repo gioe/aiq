@@ -156,7 +156,7 @@ class TestRunBenchmarks:
             provider: str,
             num: int,
             dry_run: bool = False,
-            skip_cost_reset: bool = False,
+            cost_tracker=None,
         ) -> BenchmarkResult:
             if provider == "anthropic":
                 raise ValueError("Simulated API error")
@@ -192,7 +192,7 @@ class TestRunBenchmarks:
             provider: str,
             num: int,
             dry_run: bool = False,
-            skip_cost_reset: bool = False,
+            cost_tracker=None,
         ) -> BenchmarkResult:
             if provider == "anthropic":
                 # Simulate a hanging provider by waiting longer than the timeout
