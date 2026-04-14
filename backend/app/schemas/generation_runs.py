@@ -140,6 +140,21 @@ class QuestionGenerationRunCreate(BaseModel):
         description='Error breakdown. Example: {"by_category": {"rate_limit": 2}, "critical_count": 0}',
     )
 
+    # Cost tracking
+    total_cost_usd: Optional[float] = Field(
+        None, description="Total cost in USD for the run"
+    )
+    total_input_tokens: Optional[int] = Field(
+        None, description="Total input tokens across all providers"
+    )
+    total_output_tokens: Optional[int] = Field(
+        None, description="Total output tokens across all providers"
+    )
+    cost_by_provider: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None,
+        description='Per-provider cost breakdown. Example: {"openai": {"total_cost_usd": 0.80, "total_input_tokens": 5000}}',
+    )
+
     # Configuration used
     prompt_version: Optional[str] = Field(
         None, max_length=50, description="Prompt version used"
@@ -239,6 +254,20 @@ class QuestionGenerationRunRead(BaseModel):
         None, description="Questions generated per difficulty"
     )
     error_summary: Optional[Dict[str, Any]] = Field(None, description="Error breakdown")
+
+    # Cost tracking
+    total_cost_usd: Optional[float] = Field(
+        None, description="Total cost in USD for the run"
+    )
+    total_input_tokens: Optional[int] = Field(
+        None, description="Total input tokens across all providers"
+    )
+    total_output_tokens: Optional[int] = Field(
+        None, description="Total output tokens across all providers"
+    )
+    cost_by_provider: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None, description="Per-provider cost breakdown"
+    )
 
     # Configuration used
     prompt_version: Optional[str] = Field(None, description="Prompt version used")
@@ -387,6 +416,20 @@ class QuestionGenerationRunDetail(BaseModel):
         None, description="Questions generated per difficulty"
     )
     error_summary: Optional[Dict[str, Any]] = Field(None, description="Error breakdown")
+
+    # Cost tracking
+    total_cost_usd: Optional[float] = Field(
+        None, description="Total cost in USD for the run"
+    )
+    total_input_tokens: Optional[int] = Field(
+        None, description="Total input tokens across all providers"
+    )
+    total_output_tokens: Optional[int] = Field(
+        None, description="Total output tokens across all providers"
+    )
+    cost_by_provider: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None, description="Per-provider cost breakdown"
+    )
 
     # Configuration used
     prompt_version: Optional[str] = Field(None, description="Prompt version used")
