@@ -6,18 +6,21 @@ to record timing, cost, and outcome data.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 from app.data.db_models import PipelineRunModel
 from app.observability.cost_tracking import CostTracker
+
+# Accept any callable that returns a Session (sessionmaker or plain factory).
+SessionFactory = Callable[[], Session]
 
 logger = logging.getLogger(__name__)
 
 
 def record_pipeline_run(
-    session_factory: sessionmaker,
+    session_factory: SessionFactory,
     pipeline_type: str,
     started_at: datetime,
     completed_at: datetime,
@@ -27,7 +30,7 @@ def record_pipeline_run(
     """Persist a pipeline run record with cost and outcome data.
 
     Args:
-        session_factory: SQLAlchemy sessionmaker bound to the question-service DB.
+        session_factory: Callable returning a SQLAlchemy Session.
         pipeline_type: Identifier for the pipeline (e.g. "generation",
             "correctness_audit", "benchmark", "infer_sub_types", "reevaluate").
         started_at: When the pipeline run started.

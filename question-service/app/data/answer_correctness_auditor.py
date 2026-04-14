@@ -21,6 +21,7 @@ from app.data.answer_leakage_auditor import MIN_ACTIVE_PER_BUCKET, _label
 from app.data.db_models import AuditRunModel, QuestionModel
 from app.data.models import GeneratedQuestion
 from app.observability.cost_tracking import track_costs
+from app.observability.pipeline_run import record_pipeline_run
 from aiq_types import QuestionType
 from gioe_libs.domain_types import DifficultyLevel
 from gioe_libs.observability import observability
@@ -361,6 +362,23 @@ def run_answer_correctness_audit(
             )
         finally:
             persist_session.close()
+
+        # Persist unified pipeline run record
+        record_pipeline_run(
+            session_factory=session_factory,
+            pipeline_type="correctness_audit",
+            started_at=audit_start,
+            completed_at=audit_end,
+            cost_tracker=cost_tracker,
+            result_summary={
+                "scanned": result["scanned"],
+                "verified_correct": result["verified_correct"],
+                "failed": result["failed"],
+                "deactivated": result["deactivated"],
+                "skipped": result["skipped"],
+                "errors": result["errors"],
+            },
+        )
 
         logger.info(
             f"[answer-correctness-audit] Complete: "
