@@ -174,7 +174,11 @@ def run_judge_phase(
 
         for evaluated_question in all_evaluated:
             leakage = evaluated_question.evaluation.leakage_score
-            if leakage is not None and leakage <= _LEAKAGE_REJECTION_THRESHOLD:
+            leakage_rejected = (
+                leakage is not None and leakage <= _LEAKAGE_REJECTION_THRESHOLD
+            )
+
+            if leakage_rejected:
                 rejected_questions.append(evaluated_question)
                 logger.info(
                     f"  ✗ LEAKAGE REJECTED (leakage_score: {leakage:.2f}) - "
@@ -201,9 +205,13 @@ def run_judge_phase(
                 rejected_questions.append(evaluated_question)
                 log_rejection_details(evaluated_question, logger)
 
+            approved = (
+                not leakage_rejected
+                and evaluated_question.evaluation.overall_score >= min_score
+            )
             metrics.record_evaluation_success(
                 score=evaluated_question.evaluation.overall_score,
-                approved=evaluated_question.evaluation.overall_score >= min_score,
+                approved=approved,
                 judge_model=evaluated_question.judge_model,
             )
             observability.record_metric(
