@@ -6,11 +6,14 @@ Questions that fail verification are deactivated. Designed to run as a periodic
 maintenance step so incorrectly-keyed questions are caught before they reach users.
 
 Safe to re-run: only targets currently-active questions; a clean pool produces 0 hits.
+Supports incremental mode via ``audit_window_hours`` (skip recently-audited questions)
+and ``max_questions`` (cap per-run scope).
 """
 
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Callable, cast
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 from sqlalchemy.orm import Session
 
@@ -55,6 +58,9 @@ def run_answer_correctness_audit(
     session_factory: Callable[[], Session],
     judge: "QuestionJudge",
     judge_config: "JudgeConfigLoader",
+    *,
+    max_questions: Optional[int] = None,
+    audit_window_hours: Optional[float] = None,
 ) -> dict:
     """Scan the active question pool for answer correctness and deactivate failures.
 
@@ -66,6 +72,10 @@ def run_answer_correctness_audit(
                          (e.g. DatabaseService.SessionLocal).
         judge: An initialised QuestionJudge with at least one provider.
         judge_config: Loaded judge configuration for provider resolution.
+        max_questions: If set, cap the number of questions audited per run.
+        audit_window_hours: If set, skip questions audited within this many
+                            hours. Questions with NULL last_audited_at are
+                            always included (never-audited).
 
     Returns:
         dict with keys: scanned, verified_correct, failed, deactivated, skipped,
@@ -84,9 +94,29 @@ def run_answer_correctness_audit(
 
     session: Session = session_factory()
     try:
-        active = (
-            session.query(QuestionModel).filter(QuestionModel.is_active.is_(True)).all()
-        )
+        query = session.query(QuestionModel).filter(QuestionModel.is_active.is_(True))
+
+        if audit_window_hours is not None:
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=audit_window_hours)
+            query = query.filter(
+                (QuestionModel.last_audited_at.is_(None))
+                | (QuestionModel.last_audited_at < cutoff)
+            )
+            logger.info(
+                f"[answer-correctness-audit] Incremental mode: skipping questions "
+                f"audited after {cutoff.isoformat()}."
+            )
+
+        # Prioritise never-audited questions first, then oldest-audited
+        query = query.order_by(QuestionModel.last_audited_at.asc().nulls_first())
+
+        if max_questions is not None:
+            query = query.limit(max_questions)
+            logger.info(
+                f"[answer-correctness-audit] Capping audit to {max_questions} question(s)."
+            )
+
+        active = query.all()
         result["scanned"] = len(active)
         logger.info(
             f"[answer-correctness-audit] Scanning {len(active)} active question(s)."
@@ -112,6 +142,10 @@ def run_answer_correctness_audit(
                 )
 
                 outcome = details.get("outcome", "")
+
+                # Stamp audit timestamp regardless of outcome
+                q.last_audited_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                session.add(q)
 
                 if outcome == "skipped":
                     result["skipped"] += 1
@@ -183,7 +217,7 @@ def run_answer_correctness_audit(
             for q in to_deactivate:
                 q.is_active = False  # type: ignore[assignment]
                 session.add(q)
-            session.commit()
+
             result["deactivated"] = len(to_deactivate)
 
             if to_deactivate:
@@ -200,6 +234,9 @@ def run_answer_correctness_audit(
                 "[answer-correctness-audit] All questions passed verification. "
                 "Pool is clean."
             )
+
+        # Commit last_audited_at timestamps and any deactivations
+        session.commit()
 
         # --- Pool health check ---
         active_after = (

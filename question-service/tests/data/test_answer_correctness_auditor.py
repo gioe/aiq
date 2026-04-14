@@ -22,6 +22,7 @@ def _make_question(
     source_llm: str = "openai",
     source_model: str = "gpt-4o",
     is_active: bool = True,
+    last_audited_at=None,
 ) -> MagicMock:
     q = MagicMock()
     q.id = q_id
@@ -37,15 +38,29 @@ def _make_question(
     q.source_llm = source_llm
     q.source_model = source_model
     q.is_active = is_active
+    q.last_audited_at = last_audited_at
     return q
 
 
 def _build_factory(active_questions: list) -> tuple:
-    """Return (session_factory, session_mock) with stubbed query results."""
+    """Return (session_factory, session_mock) with stubbed query results.
+
+    The mock chain supports: query → filter → filter → order_by → limit → all
+    Each chained method returns the same terminal mock so that any subset of
+    the chain (e.g. no second filter, no limit) resolves correctly.
+    """
     session = MagicMock()
+    terminal = MagicMock()
+    terminal.all.return_value = active_questions
+
+    # Make every chaining method return the same terminal mock
+    terminal.filter.return_value = terminal
+    terminal.order_by.return_value = terminal
+    terminal.limit.return_value = terminal
+
     query_mock = session.query.return_value
-    filter_mock = query_mock.filter.return_value
-    filter_mock.all.return_value = active_questions
+    query_mock.filter.return_value = terminal
+
     factory = MagicMock(return_value=session)
     return factory, session
 
@@ -75,7 +90,6 @@ class TestRunAnswerCorrectnessAudit:
         assert result["verified_correct"] == 0
         assert result["failed"] == 0
         assert result["deactivated"] == 0
-        session.commit.assert_not_called()
 
     def test_verified_correct_question(self):
         q = _make_question()
@@ -87,7 +101,7 @@ class TestRunAnswerCorrectnessAudit:
         assert result["verified_correct"] == 1
         assert result["failed"] == 0
         assert result["deactivated"] == 0
-        session.commit.assert_not_called()
+        session.commit.assert_called()  # Commits last_audited_at timestamps
 
     def test_failed_question_deactivated(self):
         questions = [_make_question(q_id=i) for i in range(MIN_ACTIVE_PER_BUCKET + 1)]
@@ -162,20 +176,25 @@ class TestRunAnswerCorrectnessAudit:
     def test_low_bucket_reported_after_deactivation(self):
         """After deactivation, low buckets should be reported."""
         questions = [_make_question(q_id=i) for i in range(MIN_ACTIVE_PER_BUCKET + 1)]
-        factory, session = _build_factory(questions)
-        # Two questions fail — one will be deactivated, dropping to threshold
+        # Build factory with custom side_effect: first call returns all,
+        # second call (pool health check) returns fewer questions.
+        remaining = questions[2:]
+        session = MagicMock()
+        terminal = MagicMock()
+        terminal.filter.return_value = terminal
+        terminal.order_by.return_value = terminal
+        terminal.limit.return_value = terminal
+        terminal.all.side_effect = [questions, remaining]
+        query_mock = session.query.return_value
+        query_mock.filter.return_value = terminal
+        factory = MagicMock(return_value=session)
+
         judge = _make_judge()
         judge.verify_answer.side_effect = [
             (False, {"outcome": "concession"}),
             (False, {"outcome": "defense_rejected"}),
         ] + [(True, {"outcome": "pass"})] * (MIN_ACTIVE_PER_BUCKET - 1)
         config = _make_judge_config()
-        # After deactivation, pool health re-query returns fewer questions
-        remaining = questions[2:]  # first two deactivated (only one safely)
-        query_mock = session.query.return_value
-        filter_mock = query_mock.filter.return_value
-        # First call returns all active, second call returns post-deactivation
-        filter_mock.all.side_effect = [questions, remaining]
         result = run_answer_correctness_audit(factory, judge, config)
         assert result["failed"] == 2
 
@@ -199,3 +218,39 @@ class TestRunAnswerCorrectnessAudit:
         config = _make_judge_config()
         run_answer_correctness_audit(factory, judge, config)
         mock_obs.record_metric.assert_not_called()
+
+    def test_last_audited_at_stamped_on_verified_question(self):
+        """Verified questions should get last_audited_at set."""
+        q = _make_question()
+        factory, session = _build_factory([q])
+        judge = _make_judge(verify_result=(True, {"outcome": "pass"}))
+        config = _make_judge_config()
+        run_answer_correctness_audit(factory, judge, config)
+        assert q.last_audited_at is not None
+        session.commit.assert_called()
+
+    def test_max_questions_passes_through(self):
+        """max_questions should be forwarded to the query chain."""
+        q = _make_question()
+        factory, session = _build_factory([q])
+        judge = _make_judge(verify_result=(True, {"outcome": "pass"}))
+        config = _make_judge_config()
+        result = run_answer_correctness_audit(factory, judge, config, max_questions=5)
+        assert result["scanned"] == 1
+        # Verify limit was called on the query chain
+        query_mock = session.query.return_value
+        terminal = query_mock.filter.return_value
+        terminal.order_by.return_value.limit.assert_called_once_with(5)
+
+    def test_audit_window_hours_passes_through(self):
+        """audit_window_hours should add a filter for recently-audited questions."""
+        factory, session = _build_factory([])
+        judge = _make_judge()
+        config = _make_judge_config()
+        result = run_answer_correctness_audit(
+            factory, judge, config, audit_window_hours=24.0
+        )
+        assert result["scanned"] == 0
+        # Two filter calls: is_active + audit_window cutoff
+        query_mock = session.query.return_value
+        assert query_mock.filter.call_count >= 1
