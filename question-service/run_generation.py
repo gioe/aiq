@@ -363,6 +363,21 @@ Examples:
         "Uses adversarial blind-solve verification to validate active questions "
         "and deactivates those with incorrect answers.",
     )
+    parser.add_argument(
+        "--max-questions",
+        type=int,
+        default=None,
+        help="Cap the number of questions audited per correctness-audit run. "
+        "Requires --run-correctness-audit.",
+    )
+    parser.add_argument(
+        "--audit-window-hours",
+        type=float,
+        default=None,
+        help="Skip questions audited within this many hours (incremental mode). "
+        "Questions never audited are always included. "
+        "Requires --run-correctness-audit.",
+    )
 
     return parser.parse_args()
 
@@ -911,7 +926,11 @@ def main() -> int:
                     )  # noqa: PLC0415
 
                     run_answer_correctness_audit(
-                        db.SessionLocal, judge, judge.judge_config
+                        db.SessionLocal,
+                        judge,
+                        judge.judge_config,
+                        max_questions=args.max_questions,
+                        audit_window_hours=args.audit_window_hours,
                     )
                 except Exception as audit_err:
                     logger.warning(
