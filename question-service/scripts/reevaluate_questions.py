@@ -37,7 +37,10 @@ from app.data.database import DatabaseService  # noqa: E402
 from app.data.db_models import QuestionModel  # noqa: E402
 from app.evaluation.judge import QuestionJudge  # noqa: E402
 from app.config.judge_config import JudgeConfigLoader  # noqa: E402
-from app.observability.cost_tracking import track_costs  # noqa: E402
+from app.observability.cost_tracking import (  # noqa: E402
+    get_cost_tracker,
+    reset_cost_tracker,
+)
 from app.observability.pipeline_run import record_pipeline_run  # noqa: E402
 from gioe_libs.structured_logging import setup_logging  # noqa: E402
 from app.data.models import (  # noqa: E402
@@ -547,7 +550,7 @@ def main() -> int:
         logger.info("=" * 80)
 
         reeval_start = datetime.now(timezone.utc)
-        cost_tracker = track_costs().__enter__()
+        reset_cost_tracker()
 
         results: List[Dict[str, Any]] = []
         errors = 0
@@ -748,7 +751,7 @@ def main() -> int:
             pipeline_type="reevaluate",
             started_at=reeval_start,
             completed_at=reeval_end,
-            cost_tracker=cost_tracker,
+            cost_tracker=get_cost_tracker(),
             result_summary={
                 "questions_processed": len(results),
                 "errors": errors,

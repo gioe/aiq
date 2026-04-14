@@ -44,7 +44,7 @@ from app.data.db_models import QuestionModel  # noqa: E402
 from app.observability.cost_tracking import (  # noqa: E402
     TokenUsage,
     get_cost_tracker,
-    track_costs,
+    reset_cost_tracker,
 )
 from app.observability.pipeline_run import record_pipeline_run  # noqa: E402
 from gioe_libs.structured_logging import setup_logging  # noqa: E402
@@ -394,7 +394,7 @@ def main() -> int:
         logger.info("=" * 80)
 
         classification_start = datetime.now(timezone.utc)
-        cost_tracker = track_costs().__enter__()
+        reset_cost_tracker()
 
         client = AsyncOpenAI(api_key=settings.openai_api_key)
         semaphore = asyncio.Semaphore(args.max_concurrent)
@@ -488,7 +488,7 @@ def main() -> int:
             pipeline_type="infer_sub_types",
             started_at=classification_start,
             completed_at=classification_end,
-            cost_tracker=cost_tracker,
+            cost_tracker=get_cost_tracker(),
             result_summary={
                 "questions_processed": len(results),
                 "errors": errors,
