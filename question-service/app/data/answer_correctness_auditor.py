@@ -18,8 +18,9 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 from sqlalchemy.orm import Session
 
 from app.data.answer_leakage_auditor import MIN_ACTIVE_PER_BUCKET, _label
-from app.data.db_models import QuestionModel
+from app.data.db_models import AuditRunModel, QuestionModel
 from app.data.models import GeneratedQuestion
+from app.observability.cost_tracking import get_cost_tracker, reset_cost_tracker
 from aiq_types import QuestionType
 from gioe_libs.domain_types import DifficultyLevel
 from gioe_libs.observability import observability
@@ -81,6 +82,9 @@ def run_answer_correctness_audit(
         dict with keys: scanned, verified_correct, failed, deactivated, skipped,
         errors, low_buckets (list of str), details (list of per-question results).
     """
+    reset_cost_tracker()
+    audit_start = datetime.now(timezone.utc)
+
     result: dict = {
         "scanned": 0,
         "verified_correct": 0,
@@ -291,6 +295,53 @@ def run_answer_correctness_audit(
         raise
     finally:
         session.close()
+
+    # --- Cost tracking ---
+    cost_summary = get_cost_tracker().get_summary()
+    result["cost_summary"] = cost_summary
+    audit_end = datetime.now(timezone.utc)
+
+    logger.info(
+        "[answer-correctness-audit] Cost: total_cost_usd=%.6f, "
+        "input_tokens=%d, output_tokens=%d, providers=%s",
+        cost_summary.get("total_cost_usd", 0),
+        cost_summary.get("total_input_tokens", 0),
+        cost_summary.get("total_output_tokens", 0),
+        list(cost_summary.get("by_provider", {}).keys()),
+    )
+
+    # Persist audit run to database
+    persist_session: Session = session_factory()
+    try:
+        duration = (audit_end - audit_start).total_seconds()
+        audit_run = AuditRunModel(
+            started_at=audit_start,
+            completed_at=audit_end,
+            duration_seconds=round(duration, 2),
+            scanned=result["scanned"],
+            verified_correct=result["verified_correct"],
+            failed=result["failed"],
+            deactivated=result["deactivated"],
+            skipped=result["skipped"],
+            errors=result["errors"],
+            total_cost_usd=cost_summary.get("total_cost_usd"),
+            total_input_tokens=cost_summary.get("total_input_tokens"),
+            total_output_tokens=cost_summary.get("total_output_tokens"),
+            cost_by_provider=cost_summary.get("by_provider"),
+        )
+        persist_session.add(audit_run)
+        persist_session.commit()
+        logger.info(
+            "[answer-correctness-audit] Audit run persisted (id=%s).", audit_run.id
+        )
+    except Exception:
+        persist_session.rollback()
+        logger.exception(
+            "[answer-correctness-audit] Failed to persist audit run; "
+            "cost data available in result dict only."
+        )
+    finally:
+        persist_session.close()
 
     logger.info(
         f"[answer-correctness-audit] Complete: scanned={result['scanned']}, "
