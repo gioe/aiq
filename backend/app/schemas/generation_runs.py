@@ -480,6 +480,9 @@ class QuestionGenerationRunSummary(BaseModel):
     approval_rate: Optional[float] = Field(None, description="Approval rate")
     avg_judge_score: Optional[float] = Field(None, description="Average judge score")
     total_errors: int = Field(..., description="Total errors")
+    total_cost_usd: Optional[float] = Field(
+        None, description="Total cost in USD for the run"
+    )
     environment: Optional[str] = Field(None, description="Environment")
     triggered_by: Optional[str] = Field(None, description="Trigger source")
 
