@@ -646,8 +646,9 @@ async def main_async() -> int:
     if failed:
         return 1
 
-    # Generate output
-    assert results is not None
+    # Generate output — results is guaranteed non-None when failed is False
+    if results is None:
+        raise ValueError("Benchmark completed without failure but produced no results")
     output = generate_output(providers, args.questions, results, parallel=args.parallel)
 
     # Write to file or stdout
