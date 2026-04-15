@@ -608,6 +608,8 @@ async def main_async() -> int:
 
     # Run benchmarks
     benchmark_start = datetime.now(timezone.utc)
+    results: Dict[str, BenchmarkResult] | None = None
+    failed = False
     try:
         results = await run_benchmarks(
             providers=providers,
@@ -618,29 +620,35 @@ async def main_async() -> int:
     except Exception as e:
         print(f"\nError running benchmarks: {str(e)}", file=sys.stderr)
         logger.exception("Benchmark failed")
+        failed = True
+    finally:
+        benchmark_end = datetime.now(timezone.utc)
+
+        # Persist pipeline run costs (including partial costs on failure)
+        if settings.database_url:
+            engine = create_engine(settings.database_url)
+            record_pipeline_run(
+                session_factory=sessionmaker(bind=engine),
+                pipeline_type="benchmark",
+                started_at=benchmark_start,
+                completed_at=benchmark_end,
+                cost_tracker=get_cost_tracker(),
+                result_summary={
+                    "providers": providers,
+                    "questions_per_provider": args.questions,
+                    "parallel": args.parallel,
+                    "dry_run": args.dry_run,
+                    "failed": failed,
+                },
+            )
+            engine.dispose()
+
+    if failed:
         return 1
-    benchmark_end = datetime.now(timezone.utc)
 
     # Generate output
+    assert results is not None
     output = generate_output(providers, args.questions, results, parallel=args.parallel)
-
-    # Persist pipeline run costs
-    if settings.database_url:
-        engine = create_engine(settings.database_url)
-        record_pipeline_run(
-            session_factory=sessionmaker(bind=engine),
-            pipeline_type="benchmark",
-            started_at=benchmark_start,
-            completed_at=benchmark_end,
-            cost_tracker=get_cost_tracker(),
-            result_summary={
-                "providers": providers,
-                "questions_per_provider": args.questions,
-                "parallel": args.parallel,
-                "dry_run": args.dry_run,
-            },
-        )
-        engine.dispose()
 
     # Write to file or stdout
     if args.output:
