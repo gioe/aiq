@@ -20,6 +20,15 @@ depends_on = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.tables " "WHERE table_name = 'audit_runs'"
+        )
+    )
+    if result.fetchone():
+        return
+
     op.create_table(
         "audit_runs",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
