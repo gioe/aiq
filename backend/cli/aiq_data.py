@@ -10,7 +10,11 @@ Usage:
     python cli/aiq_data.py activity [--json] [--days N]
     python cli/aiq_data.py sql "SELECT ..." [--json]
 
-Requires DATABASE_URL in environment (or backend/.env).
+    Pass --prod to query via the production backend API instead of a local
+    database. Requires ADMIN_TOKEN in environment. BACKEND_URL defaults to
+    the Railway production URL if not set.
+
+Requires DATABASE_URL in environment (or backend/.env) for local mode.
 """
 
 import argparse
@@ -20,6 +24,9 @@ import re
 import sys
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
+
+import requests
 
 # Ensure backend/ is on sys.path so app.models imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -30,16 +37,30 @@ load_dotenv(
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
 )
 
-from sqlalchemy import create_engine, text  # noqa: E402
-from sqlalchemy.orm import sessionmaker  # noqa: E402
+# Database imports are deferred until needed (local mode only).
+# This allows --prod mode to work without SQLAlchemy/models installed.
+_db_imports_loaded = False
 
-from app.models.models import (  # noqa: E402
-    Question,
-    QuestionGenerationRun,
-    TestResult,
-    TestSession,
-    User,
-)
+
+def _load_db_imports():
+    global _db_imports_loaded
+    if _db_imports_loaded:
+        return
+    global create_engine, text, sessionmaker, Question, QuestionGenerationRun
+    global TestResult, TestSession, User
+    from sqlalchemy import create_engine, text  # noqa: E402, F811
+    from sqlalchemy.orm import sessionmaker  # noqa: E402, F811
+
+    from app.models.models import (  # noqa: E402, F811
+        Question,
+        QuestionGenerationRun,
+        TestResult,
+        TestSession,
+        User,
+    )
+
+    _db_imports_loaded = True
+
 
 # ---------------------------------------------------------------------------
 # Lightweight engine (pool_size=1) — NOT the pooled engine from base.py
@@ -51,6 +72,7 @@ _Session = None
 @contextmanager
 def _get_session():
     """Context manager yielding a lightweight DB session (created lazily)."""
+    _load_db_imports()
     global _engine, _Session
     if _engine is None:
         db_url = os.getenv("DATABASE_URL", "postgresql://localhost:5432/aiq_dev")
@@ -108,7 +130,146 @@ def _output(headers, rows, as_json):
 
 
 # ---------------------------------------------------------------------------
-# Subcommands
+# Production API helpers
+# ---------------------------------------------------------------------------
+
+_DEFAULT_BACKEND_URL = "https://aiq-backend-production.up.railway.app"
+
+
+def _api_get(path, params=None):
+    """GET a JSON list from the admin API."""
+    base = os.getenv("BACKEND_URL", _DEFAULT_BACKEND_URL).rstrip("/")
+    token = os.getenv("ADMIN_TOKEN")
+    if not token:
+        print("Error: ADMIN_TOKEN is required for --prod mode.", file=sys.stderr)
+        sys.exit(1)
+    url = f"{base}/v1/admin{path}"
+    if params:
+        url += "?" + urlencode({k: v for k, v in params.items() if v is not None})
+    resp = requests.get(url, headers={"X-Admin-Token": token}, timeout=30)
+    if resp.status_code != 200:
+        print(f"Error: API returned {resp.status_code}: {resp.text}", file=sys.stderr)
+        sys.exit(1)
+    return resp.json()
+
+
+def _api_post(path, body):
+    """POST JSON to the admin API and return the response."""
+    base = os.getenv("BACKEND_URL", _DEFAULT_BACKEND_URL).rstrip("/")
+    token = os.getenv("ADMIN_TOKEN")
+    if not token:
+        print("Error: ADMIN_TOKEN is required for --prod mode.", file=sys.stderr)
+        sys.exit(1)
+    url = f"{base}/v1/admin{path}"
+    resp = requests.post(url, json=body, headers={"X-Admin-Token": token}, timeout=30)
+    if resp.status_code != 200:
+        print(f"Error: API returned {resp.status_code}: {resp.text}", file=sys.stderr)
+        sys.exit(1)
+    return resp.json()
+
+
+def _prod_list(path, headers, params, args):
+    """Fetch a list endpoint and output it."""
+    data = _api_get(path, params)
+    rows = [tuple(row.get(h, "") for h in headers) for row in data]
+    _output(headers, rows, args.json)
+
+
+# ---------------------------------------------------------------------------
+# Production subcommands
+# ---------------------------------------------------------------------------
+
+
+def cmd_users_prod(args):
+    _prod_list(
+        "/data/users",
+        ["id", "email", "first_name", "created_at", "last_login_at"],
+        None,
+        args,
+    )
+
+
+def cmd_inventory_prod(args):
+    params = {
+        "type": getattr(args, "type", None),
+        "difficulty": getattr(args, "difficulty", None),
+    }
+    _prod_list(
+        "/data/inventory",
+        ["question_type", "difficulty_level", "is_active", "count"],
+        params,
+        args,
+    )
+
+
+def cmd_sessions_prod(args):
+    params = {"user": getattr(args, "user", None), "limit": args.limit}
+    _prod_list(
+        "/data/sessions",
+        ["id", "user_id", "status", "started_at", "completed_at", "is_adaptive"],
+        params,
+        args,
+    )
+
+
+def cmd_scores_prod(args):
+    params = {"user": getattr(args, "user", None), "limit": args.limit}
+    _prod_list(
+        "/data/scores",
+        [
+            "id",
+            "user_id",
+            "iq_score",
+            "percentile_rank",
+            "total_questions",
+            "correct_answers",
+            "completed_at",
+            "validity_status",
+        ],
+        params,
+        args,
+    )
+
+
+def cmd_generation_prod(args):
+    params = {"limit": args.limit}
+    _prod_list(
+        "/data/generation",
+        [
+            "id",
+            "started_at",
+            "status",
+            "questions_requested",
+            "questions_generated",
+            "questions_approved",
+            "questions_inserted",
+            "avg_judge_score",
+            "duration_seconds",
+        ],
+        params,
+        args,
+    )
+
+
+def cmd_activity_prod(args):
+    params = {"days": args.days}
+    _prod_list(
+        "/data/activity",
+        ["day", "sessions", "unique_users"],
+        params,
+        args,
+    )
+
+
+def cmd_sql_prod(args):
+    data = _api_post("/data/sql", {"query": args.query})
+    headers = data.get("columns", [])
+    rows = [tuple(r) for r in data.get("rows", [])]
+    _output(headers, rows, args.json)
+
+
+# ---------------------------------------------------------------------------
+# Local subcommands
 # ---------------------------------------------------------------------------
 
 
@@ -312,6 +473,11 @@ def main():
         description="Ad-hoc read-only query CLI for the AIQ database.",
     )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
+    parser.add_argument(
+        "--prod",
+        action="store_true",
+        help="Query via the production backend API (requires ADMIN_TOKEN env var)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     # users
@@ -345,15 +511,26 @@ def main():
     sq.add_argument("query", help="SQL SELECT statement")
 
     args = parser.parse_args()
-    dispatch = {
-        "users": cmd_users,
-        "inventory": cmd_inventory,
-        "sessions": cmd_sessions,
-        "scores": cmd_scores,
-        "generation": cmd_generation,
-        "activity": cmd_activity,
-        "sql": cmd_sql,
-    }
+    if args.prod:
+        dispatch = {
+            "users": cmd_users_prod,
+            "inventory": cmd_inventory_prod,
+            "sessions": cmd_sessions_prod,
+            "scores": cmd_scores_prod,
+            "generation": cmd_generation_prod,
+            "activity": cmd_activity_prod,
+            "sql": cmd_sql_prod,
+        }
+    else:
+        dispatch = {
+            "users": cmd_users,
+            "inventory": cmd_inventory,
+            "sessions": cmd_sessions,
+            "scores": cmd_scores,
+            "generation": cmd_generation,
+            "activity": cmd_activity,
+            "sql": cmd_sql,
+        }
     dispatch[args.command](args)
 
 
