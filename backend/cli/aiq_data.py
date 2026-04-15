@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 # Ensure backend/ is on sys.path so app.models imports work
@@ -43,16 +44,29 @@ from app.models.models import (  # noqa: E402
 # ---------------------------------------------------------------------------
 # Lightweight engine (pool_size=1) — NOT the pooled engine from base.py
 # ---------------------------------------------------------------------------
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/aiq_dev")
-engine = create_engine(DATABASE_URL, pool_size=1, max_overflow=0, echo=False)
-Session = sessionmaker(bind=engine)
+_engine = None
+_Session = None
+
+
+@contextmanager
+def _get_session():
+    """Context manager yielding a lightweight DB session (created lazily)."""
+    global _engine, _Session
+    if _engine is None:
+        db_url = os.getenv("DATABASE_URL", "postgresql://localhost:5432/aiq_dev")
+        _engine = create_engine(db_url, pool_size=1, max_overflow=0, echo=False)
+        _Session = sessionmaker(bind=_engine)
+    db = _Session()
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 # ---------------------------------------------------------------------------
-# Write-statement blocklist for the sql subcommand
+# SQL allowlist for the sql subcommand
 # ---------------------------------------------------------------------------
-_WRITE_PATTERN = re.compile(
-    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE)\b", re.IGNORECASE
-)
+_READ_ONLY_PATTERN = re.compile(r"^\s*(SELECT|WITH)\b", re.IGNORECASE)
 
 
 def _serialize(obj):
@@ -100,8 +114,7 @@ def _output(headers, rows, as_json):
 
 def cmd_users(args):
     """List users with basic stats."""
-    db = Session()
-    try:
+    with _get_session() as db:
         users = (
             db.query(
                 User.id,
@@ -116,15 +129,19 @@ def cmd_users(args):
         headers = ["id", "email", "first_name", "created_at", "last_login_at"]
         rows = [tuple(u) for u in users]
         _output(headers, rows, args.json)
-    finally:
-        db.close()
 
 
 def cmd_inventory(args):
     """Show question inventory breakdown."""
-    db = Session()
-    try:
+    from sqlalchemy import func  # noqa: E402
+
+    with _get_session() as db:
         query = db.query(
+            Question.question_type,
+            Question.difficulty_level,
+            Question.is_active,
+            func.count().label("count"),
+        ).group_by(
             Question.question_type,
             Question.difficulty_level,
             Question.is_active,
@@ -134,27 +151,20 @@ def cmd_inventory(args):
         if args.difficulty:
             query = query.filter(Question.difficulty_level == args.difficulty)
 
-        questions = query.all()
-        # Aggregate counts
-        counts = {}
-        for q in questions:
-            key = (q.question_type, str(q.difficulty_level), str(q.is_active))
-            counts[key] = counts.get(key, 0) + 1
-
+        results = query.order_by(
+            Question.question_type, Question.difficulty_level
+        ).all()
         headers = ["question_type", "difficulty_level", "is_active", "count"]
-        rows = sorted(
-            [(k[0], k[1], k[2], v) for k, v in counts.items()],
-            key=lambda r: (r[0], r[1]),
-        )
+        rows = [
+            (r.question_type, str(r.difficulty_level), str(r.is_active), r.count)
+            for r in results
+        ]
         _output(headers, rows, args.json)
-    finally:
-        db.close()
 
 
 def cmd_sessions(args):
     """List test sessions."""
-    db = Session()
-    try:
+    with _get_session() as db:
         query = db.query(
             TestSession.id,
             TestSession.user_id,
@@ -180,14 +190,11 @@ def cmd_sessions(args):
         ]
         rows = [tuple(s) for s in sessions]
         _output(headers, rows, args.json)
-    finally:
-        db.close()
 
 
 def cmd_scores(args):
     """List test results / scores."""
-    db = Session()
-    try:
+    with _get_session() as db:
         query = db.query(
             TestResult.id,
             TestResult.user_id,
@@ -217,14 +224,11 @@ def cmd_scores(args):
         ]
         rows = [tuple(r) for r in results]
         _output(headers, rows, args.json)
-    finally:
-        db.close()
 
 
 def cmd_generation(args):
     """Show question generation run history."""
-    db = Session()
-    try:
+    with _get_session() as db:
         runs = (
             db.query(
                 QuestionGenerationRun.id,
@@ -254,14 +258,11 @@ def cmd_generation(args):
         ]
         rows = [tuple(r) for r in runs]
         _output(headers, rows, args.json)
-    finally:
-        db.close()
 
 
 def cmd_activity(args):
     """Show recent user activity (test sessions started per day)."""
-    db = Session()
-    try:
+    with _get_session() as db:
         since = datetime.now(timezone.utc) - timedelta(days=args.days)
         result = db.execute(
             text(
@@ -278,23 +279,19 @@ def cmd_activity(args):
         headers = ["day", "sessions", "unique_users"]
         rows = [(str(r[0]), r[1], r[2]) for r in rows_raw]
         _output(headers, rows, args.json)
-    finally:
-        db.close()
 
 
 def cmd_sql(args):
     """Run an arbitrary read-only SQL query."""
     query = args.query
-    if _WRITE_PATTERN.search(query):
+    if not _READ_ONLY_PATTERN.match(query):
         print(
-            "Error: write statements (INSERT, UPDATE, DELETE, DROP, ALTER, "
-            "TRUNCATE, CREATE) are not allowed.",
+            "Error: only SELECT and WITH statements are allowed.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    db = Session()
-    try:
+    with _get_session() as db:
         result = db.execute(text(query))
         if result.returns_rows:
             headers = list(result.keys())
@@ -302,8 +299,6 @@ def cmd_sql(args):
             _output(headers, rows, args.json)
         else:
             print("Query executed (no rows returned).")
-    finally:
-        db.close()
 
 
 # ---------------------------------------------------------------------------
