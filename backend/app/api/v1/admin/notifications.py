@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 # day_30_reminder_sent_at database column provides deduplication.
 _day_30_send_lock = threading.Lock()
 
+# In-process lock to prevent concurrent test reminder sends.
+_test_reminder_send_lock = threading.Lock()
+
 router = APIRouter()
 
 
@@ -166,6 +169,107 @@ async def preview_day_30_reminders(
 
     return Day30ReminderPreviewResponse(
         message=f"Found {len(users)} users eligible for Day 30 reminders",
+        users_count=len(users),
+        users=user_previews,
+    )
+
+
+# --- Test Reminder Endpoints ---
+
+
+class TestReminderResponse(BaseModel):
+    """Response model for test reminder trigger."""
+
+    message: str
+    users_found: int
+    notifications_sent: int
+    success: int
+    failed: int
+
+
+class TestReminderPreviewResponse(BaseModel):
+    """Response model for previewing test reminder candidates."""
+
+    message: str
+    users_count: int
+    users: list
+
+
+@router.post(
+    "/test-reminders/send",
+    response_model=TestReminderResponse,
+)
+async def send_test_reminders(
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    """
+    Send test reminder notifications to users who are due for their next test.
+
+    This endpoint identifies users whose test cadence interval has elapsed
+    and sends them a reminder notification. Useful for manual testing and
+    ad-hoc sends without waiting for the cron schedule.
+
+    Requires X-Admin-Token header with valid admin token.
+    """
+    acquired = _test_reminder_send_lock.acquire(blocking=False)
+    if not acquired:
+        logger.warning("Test reminder send already in progress, rejecting request")
+        return TestReminderResponse(
+            message="Test reminder send already in progress",
+            users_found=0,
+            notifications_sent=0,
+            success=0,
+            failed=0,
+        )
+
+    try:
+        scheduler = NotificationScheduler(db)
+        results = await scheduler.send_notifications_to_users()
+
+        return TestReminderResponse(
+            message="Test reminder notifications processed",
+            users_found=results.get("total", 0),
+            notifications_sent=results["total"],
+            success=results["success"],
+            failed=results["failed"],
+        )
+    finally:
+        _test_reminder_send_lock.release()
+
+
+@router.get(
+    "/test-reminders/preview",
+    response_model=TestReminderPreviewResponse,
+)
+async def preview_test_reminders(
+    limit: int = Query(default=50, ge=1, le=100, description="Maximum users to return"),
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+):
+    """
+    Preview users who are eligible for test reminder notifications.
+
+    Returns a list of users who would receive test reminders if the send
+    endpoint were called, without actually sending any notifications.
+
+    Requires X-Admin-Token header with valid admin token.
+    """
+    scheduler = NotificationScheduler(db)
+    users = await scheduler.get_users_to_notify()
+
+    user_previews = [
+        {
+            "user_id": user.id,
+            "first_name": user.first_name,
+            "email": user.email,
+            "has_device_token": bool(user.apns_device_token),
+        }
+        for user in users[:limit]
+    ]
+
+    return TestReminderPreviewResponse(
+        message=f"Found {len(users)} users eligible for test reminders",
         users_count=len(users),
         users=user_previews,
     )
