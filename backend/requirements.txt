@@ -27,7 +27,7 @@ email-validator==2.3.0
 # Authentication (will be used in later phases)
 bcrypt==5.0.0
 python-jose[cryptography]==3.5.0
-python-multipart==0.0.22
+python-multipart==0.0.26
 
 # In-memory TTL cache (used for guest session token store)
 cachetools==5.3.3
