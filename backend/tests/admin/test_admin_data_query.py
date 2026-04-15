@@ -193,3 +193,70 @@ class TestDataSqlEndpoint:
             headers={"X-Admin-Token": "wrong-token"},
         )
         assert response.status_code == 401
+
+    def test_rejects_blocked_table(self, client, admin_headers):
+        """Queries referencing blocked tables are rejected with 400."""
+        response = client.post(
+            "/v1/admin/data/sql",
+            json={"query": "SELECT * FROM password_reset_tokens"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 400
+        assert "password_reset_tokens" in response.json()["detail"]
+
+    def test_rejects_blocked_table_in_join(self, client, admin_headers):
+        """Blocked tables in JOIN clauses are also rejected."""
+        response = client.post(
+            "/v1/admin/data/sql",
+            json={
+                "query": (
+                    "SELECT u.email FROM users u "
+                    "JOIN password_reset_tokens p ON u.id = p.user_id"
+                )
+            },
+            headers=admin_headers,
+        )
+        assert response.status_code == 400
+        assert "password_reset_tokens" in response.json()["detail"]
+
+    def test_strips_blocked_columns(self, client, admin_headers, db_session):
+        """Blocked columns (e.g. password_hash) are stripped from results."""
+        user = User(
+            email="blocklist@example.com",
+            password_hash=hash_password("pw123"),
+        )
+        db_session.add(user)
+        db_session.commit()
+
+        response = client.post(
+            "/v1/admin/data/sql",
+            json={"query": "SELECT email, password_hash FROM users"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "email" in data["columns"]
+        assert "password_hash" not in data["columns"]
+        # Rows should only have the non-blocked column values
+        for row in data["rows"]:
+            assert len(row) == 1
+
+    def test_strips_blocked_column_star_query(self, client, admin_headers, db_session):
+        """SELECT * results also have blocked columns stripped."""
+        user = User(
+            email="starquery@example.com",
+            password_hash=hash_password("pw123"),
+        )
+        db_session.add(user)
+        db_session.commit()
+
+        response = client.post(
+            "/v1/admin/data/sql",
+            json={"query": "SELECT * FROM users"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "password_hash" not in data["columns"]
+        assert "apns_device_token" not in data["columns"]
+        assert "email" in data["columns"]

@@ -90,6 +90,15 @@ def _get_session():
 # ---------------------------------------------------------------------------
 _READ_ONLY_PATTERN = re.compile(r"^\s*(SELECT|WITH)\b", re.IGNORECASE)
 
+# Tables that must never be queried via the sql subcommand.
+_BLOCKED_TABLES = {"password_reset_tokens"}
+
+# Columns that are stripped from query results to prevent accidental exposure.
+_BLOCKED_COLUMNS = {"password_hash", "apns_device_token"}
+
+# Pattern to extract table names from FROM and JOIN clauses.
+_TABLE_REF_PATTERN = re.compile(r"\b(?:FROM|JOIN)\s+(\w+)", re.IGNORECASE)
+
 
 def _serialize(obj):
     """JSON serializer for types json.dumps doesn't handle natively."""
@@ -452,11 +461,35 @@ def cmd_sql(args):
         )
         sys.exit(1)
 
+    referenced_tables = {t.lower() for t in _TABLE_REF_PATTERN.findall(query)}
+    blocked_hits = referenced_tables & _BLOCKED_TABLES
+    if blocked_hits:
+        print(
+            f"Error: access to table(s) {', '.join(sorted(blocked_hits))} "
+            "is not allowed.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     with _get_session() as db:
         result = db.execute(text(query))
         if result.returns_rows:
             headers = list(result.keys())
-            rows = [tuple(r) for r in result.fetchall()]
+            rows = [list(r) for r in result.fetchall()]
+
+            blocked_indices = [
+                i for i, c in enumerate(headers) if c.lower() in _BLOCKED_COLUMNS
+            ]
+            if blocked_indices:
+                headers = [c for i, c in enumerate(headers) if i not in blocked_indices]
+                rows = [
+                    [v for i, v in enumerate(row) if i not in blocked_indices]
+                    for row in rows
+                ]
+                rows = [tuple(r) for r in rows]
+            else:
+                rows = [tuple(r) for r in rows]
+
             _output(headers, rows, args.json)
         else:
             print("Query executed (no rows returned).")

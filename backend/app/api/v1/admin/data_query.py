@@ -34,6 +34,15 @@ router = APIRouter()
 
 _READ_ONLY_PATTERN = re.compile(r"^\s*(SELECT|WITH)\b", re.IGNORECASE)
 
+# Tables that must never be queried via the admin SQL endpoint.
+_BLOCKED_TABLES = {"password_reset_tokens"}
+
+# Columns that are stripped from query results to prevent accidental exposure.
+_BLOCKED_COLUMNS = {"password_hash", "apns_device_token"}
+
+# Pattern to extract table names from FROM and JOIN clauses.
+_TABLE_REF_PATTERN = re.compile(r"\b(?:FROM|JOIN)\s+(\w+)", re.IGNORECASE)
+
 
 # ---------------------------------------------------------------------------
 # Response schemas
@@ -326,9 +335,29 @@ async def data_sql(
     if ";" in body.query.rstrip(";").strip():
         raise_bad_request("Multi-statement queries are not allowed.")
 
+    # Reject queries that reference blocked tables.
+    referenced_tables = {t.lower() for t in _TABLE_REF_PATTERN.findall(body.query)}
+    blocked_hits = referenced_tables & _BLOCKED_TABLES
+    if blocked_hits:
+        raise_bad_request(
+            f"Access to table(s) {', '.join(sorted(blocked_hits))} is not allowed."
+        )
+
     result = await db.execute(text(body.query))
     if result.returns_rows:
         columns = list(result.keys())
         rows = [list(r) for r in result.fetchall()]
+
+        # Strip blocked columns from the result set.
+        blocked_indices = [
+            i for i, c in enumerate(columns) if c.lower() in _BLOCKED_COLUMNS
+        ]
+        if blocked_indices:
+            columns = [c for i, c in enumerate(columns) if i not in blocked_indices]
+            rows = [
+                [v for i, v in enumerate(row) if i not in blocked_indices]
+                for row in rows
+            ]
+
         return SqlResponse(columns=columns, rows=rows)
     return SqlResponse(columns=[], rows=[])
