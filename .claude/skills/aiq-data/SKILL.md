@@ -28,12 +28,23 @@ Query the AIQ database directly without a running server or auth tokens.
 
 All subcommands accept `--json` for JSON output (placed before the subcommand).
 
+Pass `--prod` to query via the production backend API instead of a local database.
+Requires `ADMIN_TOKEN` in environment. `BACKEND_URL` defaults to the Railway production URL.
+
 ## Invocation
+
+### Local mode (default)
 
 Run from the repo root. The skill activates the backend venv and loads `.env` automatically:
 
 ```bash
 cd /Users/mattgioe/Desktop/projects/aiq/backend && source venv/bin/activate && set -a && source .env && set +a && python cli/aiq_data.py <subcommand> [options]
+```
+
+### Production mode
+
+```bash
+cd /Users/mattgioe/Desktop/projects/aiq/backend && source venv/bin/activate && set -a && source .env && set +a && python cli/aiq_data.py --prod <subcommand> [options]
 ```
 
 ## Examples
@@ -61,5 +72,6 @@ python cli/aiq_data.py activity --days 7
 ## Notes
 
 - **Read-only**: The `sql` subcommand rejects write statements (INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, CREATE).
-- **Lightweight**: Uses its own `pool_size=1` engine, not the pooled app engine.
-- Requires `DATABASE_URL` in environment or `backend/.env`.
+- **Lightweight**: Local mode uses its own `pool_size=1` engine, not the pooled app engine.
+- Local mode requires `DATABASE_URL` in environment or `backend/.env`.
+- **`--prod` mode** requires `ADMIN_TOKEN` in environment. `BACKEND_URL` defaults to `https://aiq-backend-production.up.railway.app`.
