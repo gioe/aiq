@@ -13,7 +13,8 @@ backend/
 ├── docs/               # Backend-specific documentation
 ├── config/             # Configuration files (observability)
 ├── infra/              # Infrastructure configs (Grafana dashboards)
-└── requirements.txt    # Python dependencies
+├── requirements.txt    # Python dependencies
+└── cli/                # (new - needs description)
 ```
 
 ## Setup
