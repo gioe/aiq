@@ -102,19 +102,19 @@ def cmd_users(args):
     """List users with basic stats."""
     db = Session()
     try:
-        users = db.query(User).order_by(User.created_at.desc()).all()
-        headers = [
-            "id",
-            "email",
-            "first_name",
-            "created_at",
-            "last_login_at",
-            "is_admin",
-        ]
-        rows = [
-            (u.id, u.email, u.first_name, u.created_at, u.last_login_at, u.is_admin)
-            for u in users
-        ]
+        users = (
+            db.query(
+                User.id,
+                User.email,
+                User.first_name,
+                User.created_at,
+                User.last_login_at,
+            )
+            .order_by(User.created_at.desc())
+            .all()
+        )
+        headers = ["id", "email", "first_name", "created_at", "last_login_at"]
+        rows = [tuple(u) for u in users]
         _output(headers, rows, args.json)
     finally:
         db.close()
@@ -155,9 +155,16 @@ def cmd_sessions(args):
     """List test sessions."""
     db = Session()
     try:
-        query = db.query(TestSession)
+        query = db.query(
+            TestSession.id,
+            TestSession.user_id,
+            TestSession.status,
+            TestSession.started_at,
+            TestSession.completed_at,
+            TestSession.is_adaptive,
+        )
         if args.user:
-            user = db.query(User).filter(User.email == args.user).first()
+            user = db.query(User.id).filter(User.email == args.user).first()
             if not user:
                 print(f"User not found: {args.user}", file=sys.stderr)
                 sys.exit(1)
@@ -171,10 +178,7 @@ def cmd_sessions(args):
             "completed_at",
             "is_adaptive",
         ]
-        rows = [
-            (s.id, s.user_id, s.status, s.started_at, s.completed_at, s.is_adaptive)
-            for s in sessions
-        ]
+        rows = [tuple(s) for s in sessions]
         _output(headers, rows, args.json)
     finally:
         db.close()
@@ -184,9 +188,18 @@ def cmd_scores(args):
     """List test results / scores."""
     db = Session()
     try:
-        query = db.query(TestResult)
+        query = db.query(
+            TestResult.id,
+            TestResult.user_id,
+            TestResult.iq_score,
+            TestResult.percentile_rank,
+            TestResult.total_questions,
+            TestResult.correct_answers,
+            TestResult.completed_at,
+            TestResult.validity_status,
+        )
         if args.user:
-            user = db.query(User).filter(User.email == args.user).first()
+            user = db.query(User.id).filter(User.email == args.user).first()
             if not user:
                 print(f"User not found: {args.user}", file=sys.stderr)
                 sys.exit(1)
@@ -202,19 +215,7 @@ def cmd_scores(args):
             "completed_at",
             "validity_status",
         ]
-        rows = [
-            (
-                r.id,
-                r.user_id,
-                r.iq_score,
-                r.percentile_rank,
-                r.total_questions,
-                r.correct_answers,
-                r.completed_at,
-                r.validity_status,
-            )
-            for r in results
-        ]
+        rows = [tuple(r) for r in results]
         _output(headers, rows, args.json)
     finally:
         db.close()
@@ -225,7 +226,17 @@ def cmd_generation(args):
     db = Session()
     try:
         runs = (
-            db.query(QuestionGenerationRun)
+            db.query(
+                QuestionGenerationRun.id,
+                QuestionGenerationRun.started_at,
+                QuestionGenerationRun.status,
+                QuestionGenerationRun.questions_requested,
+                QuestionGenerationRun.questions_generated,
+                QuestionGenerationRun.questions_approved,
+                QuestionGenerationRun.questions_inserted,
+                QuestionGenerationRun.avg_judge_score,
+                QuestionGenerationRun.duration_seconds,
+            )
             .order_by(QuestionGenerationRun.started_at.desc())
             .limit(args.limit)
             .all()
@@ -241,20 +252,7 @@ def cmd_generation(args):
             "avg_judge_score",
             "duration_seconds",
         ]
-        rows = [
-            (
-                r.id,
-                r.started_at,
-                r.status,
-                r.questions_requested,
-                r.questions_generated,
-                r.questions_approved,
-                r.questions_inserted,
-                r.avg_judge_score,
-                r.duration_seconds,
-            )
-            for r in runs
-        ]
+        rows = [tuple(r) for r in runs]
         _output(headers, rows, args.json)
     finally:
         db.close()
