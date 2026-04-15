@@ -35,6 +35,7 @@ from . import (
     calibration_monitoring,
     cat_readiness,
     config,
+    data_query,
     discrimination,
     distractors,
     generation,
@@ -159,4 +160,9 @@ router.include_router(
 router.include_router(
     benchmark_sets.router,
     tags=["Admin - Benchmark Sets"],
+)
+
+router.include_router(
+    data_query.router,
+    tags=["Admin - Data"],
 )
