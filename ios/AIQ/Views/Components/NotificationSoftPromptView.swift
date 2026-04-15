@@ -63,7 +63,7 @@ struct NotificationSoftPromptView: View {
                 .padding(.bottom, theme.spacing.xxl)
 
             // Title
-            Text("Don't Miss Your Next Test")
+            Text("Consistency Is Key")
                 .font(theme.typography.h1)
                 .foregroundColor(theme.colors.textPrimary)
                 .multilineTextAlignment(.center)
@@ -71,12 +71,16 @@ struct NotificationSoftPromptView: View {
                 .accessibilityAddTraits(.isHeader)
 
             // Body copy
-            Text("You'll test again in 3 months. Get a reminder so you can track your cognitive trends.")
-                .font(theme.typography.bodyLarge)
-                .foregroundColor(theme.colors.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, theme.spacing.xxxl)
-                .padding(.bottom, theme.spacing.xxxl)
+            Text(
+                "AIQ works best when you test regularly. We'll send you a reminder when it's time "
+                    + "for your next assessment — so you can see how your cognitive performance "
+                    + "changes over time."
+            )
+            .font(theme.typography.bodyLarge)
+            .foregroundColor(theme.colors.textSecondary)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, theme.spacing.xxxl)
+            .padding(.bottom, theme.spacing.xxxl)
 
             Spacer()
 

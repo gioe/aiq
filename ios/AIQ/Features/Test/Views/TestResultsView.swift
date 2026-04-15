@@ -11,19 +11,9 @@ struct TestResultsView: View {
     @State private var showMetrics = false
     @State private var showDomains = false
     @State private var showConfidenceIntervalInfo = false
-    @State private var showNotificationSoftPrompt = false
     @State private var hasDismissed = false
     @State private var benchmarkModels: [Components.Schemas.ModelSummary] = []
     @State private var showAIComparison = false
-    @ObservedObject private var notificationManager: NotificationManager = {
-        let resolved: NotificationManagerProtocol = ServiceContainer.shared.resolve()
-        guard let manager = resolved as? NotificationManager else {
-            // In mock/test environments the registered type may not be NotificationManager.
-            // Fall back to a fresh instance that uses whatever services are in the container.
-            return NotificationManager()
-        }
-        return manager
-    }()
 
     @EnvironmentObject private var router: AppRouter
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -119,23 +109,8 @@ struct TestResultsView: View {
         .task {
             await fetchBenchmarks()
         }
-        .sheet(isPresented: $showNotificationSoftPrompt) {
-            NotificationSoftPromptView(
-                onEnableReminders: {
-                    Task {
-                        await notificationManager.requestAuthorization()
-                    }
-                },
-                onDismiss: {
-                    // User declined - just dismiss
-                }
-            )
-        }
-        .onChange(of: showNotificationSoftPrompt) { isShowing in
-            // When the soft prompt is dismissed, call the original onDismiss
-            // Guard against double dismissal
-            if !isShowing && !hasDismissed {
-                hasDismissed = true
+        .onChange(of: hasDismissed) { dismissed in
+            if dismissed {
                 onDismiss()
             }
         }
@@ -143,30 +118,10 @@ struct TestResultsView: View {
 
     // MARK: - Helper Methods
 
-    /// Handles dismissal of the results view, potentially showing the notification soft prompt
+    /// Handles dismissal of the results view
     private func handleDismiss() {
-        // Guard against double dismissal
         guard !hasDismissed else { return }
-
-        // Check if we should show the notification soft prompt
-        if shouldShowNotificationPrompt() {
-            showNotificationSoftPrompt = true
-        } else {
-            hasDismissed = true
-            onDismiss()
-        }
-    }
-
-    /// Determines if the notification soft prompt should be shown
-    /// - Returns: True if permission hasn't been requested and not already granted
-    private func shouldShowNotificationPrompt() -> Bool {
-        // Don't show if permission already requested
-        guard !notificationManager.hasRequestedNotificationPermission else { return false }
-
-        // Don't show if permission already granted
-        guard notificationManager.authorizationStatus != .authorized else { return false }
-
-        return true
+        hasDismissed = true
     }
 
     /// Fetches AI benchmark data; failures are silently ignored since benchmarks are supplemental.

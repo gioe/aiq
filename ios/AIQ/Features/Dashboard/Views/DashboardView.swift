@@ -28,6 +28,17 @@ struct DashboardView: View {
     /// Set to true when the user confirms "I'm Ready" so navigation fires after sheet dismissal
     @State private var pendingTestStart: Bool = false
 
+    /// Controls presentation of the notification soft prompt before test start
+    @State private var showNotificationSoftPrompt: Bool = false
+
+    @ObservedObject private var notificationManager: NotificationManager = {
+        let resolved: NotificationManagerProtocol = ServiceContainer.shared.resolve()
+        guard let manager = resolved as? NotificationManager else {
+            return NotificationManager()
+        }
+        return manager
+    }()
+
     @Environment(\.appTheme) private var theme
 
     /// Creates a DashboardView with the specified service container
@@ -92,7 +103,7 @@ struct DashboardView: View {
             onDismiss: {
                 if pendingTestStart {
                     pendingTestStart = false
-                    performNavigateToTest()
+                    proceedToTestOrShowNotificationPrompt()
                 }
             },
             content: {
@@ -105,6 +116,29 @@ struct DashboardView: View {
                     },
                     onDismiss: {
                         // No navigation — user returns to dashboard
+                    }
+                )
+            }
+        )
+        .sheet(
+            isPresented: $showNotificationSoftPrompt,
+            onDismiss: {
+                // Whether they accepted or declined, proceed to the test
+                performNavigateToTest()
+            },
+            content: {
+                NotificationSoftPromptView(
+                    onEnableReminders: {
+                        Task {
+                            await notificationManager.requestAuthorization()
+                        }
+                    },
+                    onDismiss: {
+                        // User declined full permissions — silently enroll in provisional
+                        // so they still receive quiet notifications in Notification Center
+                        Task {
+                            await notificationManager.requestProvisionalAuthorization()
+                        }
                     }
                 )
             }
@@ -257,19 +291,43 @@ struct DashboardView: View {
     /// Resuming an active test always bypasses the sheet.
     private func navigateToTest() {
         if viewModel.hasActiveTest {
-            // Resuming — bypass the info sheet
+            // Resuming — bypass the info sheet and notification prompt
             performNavigateToTest()
         } else if shouldShowPreTestInfo {
             showPreTestInfo = true
+        } else {
+            proceedToTestOrShowNotificationPrompt()
+        }
+    }
+
+    /// Shows the notification soft prompt if needed, otherwise navigates directly to the test.
+    ///
+    /// Called after the pre-test info sheet confirms start, or when the info sheet gate is
+    /// not triggered. The soft prompt is shown once — if the user has already responded
+    /// (accepted or dismissed), we skip straight to navigation.
+    private func proceedToTestOrShowNotificationPrompt() {
+        if shouldShowNotificationPrompt {
+            showNotificationSoftPrompt = true
         } else {
             performNavigateToTest()
         }
     }
 
+    /// Whether the notification soft prompt should be shown before starting a test.
+    ///
+    /// Returns true when the user has not yet been asked for notification permission
+    /// (neither full nor provisional) and does not already have full authorization.
+    private var shouldShowNotificationPrompt: Bool {
+        guard !notificationManager.hasRequestedNotificationPermission else { return false }
+        guard !notificationManager.hasRequestedProvisionalPermission else { return false }
+        guard notificationManager.authorizationStatus != .authorized else { return false }
+        return true
+    }
+
     /// Performs the actual navigation to the test screen.
     ///
-    /// Called directly after the pre-test info sheet confirms start, or when the
-    /// sheet gate is not triggered. Determines fixed-form vs. adaptive route.
+    /// Called directly after the notification prompt resolves, or when no prompt is needed.
+    /// Determines fixed-form vs. adaptive route.
     private func performNavigateToTest() {
         if viewModel.hasActiveTest {
             router.push(.testTaking(sessionId: viewModel.activeTestSession?.id))
