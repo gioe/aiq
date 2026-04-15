@@ -323,6 +323,9 @@ async def data_sql(
     if not _READ_ONLY_PATTERN.match(body.query):
         raise_bad_request("Only SELECT and WITH statements are allowed.")
 
+    if ";" in body.query.rstrip(";").strip():
+        raise_bad_request("Multi-statement queries are not allowed.")
+
     result = await db.execute(text(body.query))
     if result.returns_rows:
         columns = list(result.keys())
