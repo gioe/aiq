@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     # Local dev only — disables the test cadence check in POST /test/start.
     # MUST NOT be set in Railway production.
     DISABLE_TEST_CADENCE: bool = False
+    ABANDON_COOLDOWN_DAYS: int = 7  # Days to wait after a substantive abandoned attempt
+    ABANDON_ANSWER_THRESHOLD: int = (
+        7  # Min responses for an abandon to be "substantive"
+    )
     NOTIFICATION_ADVANCE_DAYS: int = 0  # Days before test is due to send notification
     NOTIFICATION_REMINDER_DAYS: int = 7  # Days after due date to send reminder
 
