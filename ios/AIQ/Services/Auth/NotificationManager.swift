@@ -243,7 +243,15 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         if status != authorizationStatus {
             authorizationStatus = status
         }
-        guard status == .authorized || status == .provisional else { return }
+        guard status == .authorized || status == .provisional else {
+            logger.info(
+                "Launch-time APNs registration skipped (status=\(String(describing: status), privacy: .public))"
+            )
+            return
+        }
+        logger.info(
+            "Launch-time APNs registration firing (status=\(String(describing: status), privacy: .public))"
+        )
         application.registerForRemoteNotifications()
     }
 
@@ -251,9 +259,20 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// yet been registered with the backend, retry the POST using any cached token. No-ops when
     /// the token is already registered or the user has not granted permission.
     func handleAppDidBecomeActive() async {
-        guard !isDeviceTokenRegistered else { return }
+        guard !isDeviceTokenRegistered else {
+            logger.info("didBecomeActive: token already registered, no retry needed")
+            return
+        }
         let status = await notificationCenter.getAuthorizationStatus()
-        guard status == .authorized || status == .provisional else { return }
+        guard status == .authorized || status == .provisional else {
+            logger.info(
+                "didBecomeActive: skipping retry (status=\(String(describing: status), privacy: .public))"
+            )
+            return
+        }
+        logger.info(
+            "didBecomeActive: retrying token registration (status=\(String(describing: status), privacy: .public))"
+        )
         await retryDeviceTokenRegistration()
     }
 
@@ -261,6 +280,13 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// - Parameter deviceToken: The device token data
     func didReceiveDeviceToken(_ deviceToken: Data) {
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+        let tokenPrefix = String(tokenString.prefix(12))
+        logger.info(
+            """
+            Received APNs device token (prefix=\(tokenPrefix, privacy: .public), \
+            length=\(tokenString.count, privacy: .public))
+            """
+        )
         #if DebugBuild
             print("[NOTIFICATION] Received device token: \(tokenString)")
         #endif
@@ -277,8 +303,14 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// Handle device token registration failure
     /// - Parameter error: The error that occurred
     func didFailToRegisterForRemoteNotifications(error: Error) {
-        let message = error.localizedDescription
-        print("[ERROR] [NotificationManager] Failed to register for remote notifications: \(message)")
+        logger.error(
+            "APNs registration failed at the iOS layer: \(error.localizedDescription, privacy: .public)"
+        )
+        errorRecorder(
+            error,
+            .notificationPermission,
+            ["operation": "didFailToRegisterForRemoteNotifications"]
+        )
 
         // Clear cached token on failure
         clearCachedDeviceToken()
@@ -310,10 +342,11 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// Retry registration with cached device token (useful after failed attempts)
     func retryDeviceTokenRegistration() async {
         guard let token = pendingDeviceToken ?? getCachedDeviceToken() else {
-            print("[INFO] [NotificationManager] No device token available to retry")
+            logger.info("Retry skipped: no cached device token available")
             return
         }
-
+        let tokenPrefix = String(token.prefix(12))
+        logger.info("Retrying token registration (prefix=\(tokenPrefix, privacy: .public))")
         await registerDeviceTokenIfPossible(token)
     }
 
@@ -341,31 +374,53 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     /// Register device token with backend if user is authenticated
     /// - Parameter token: The device token string
     private func registerDeviceTokenIfPossible(_ token: String) async {
+        // swiftlint:disable:previous function_body_length
+        let tokenPrefix = String(token.prefix(12))
+
         // Guard against concurrent registration attempts
         guard !isRegisteringToken else {
-            print("[INFO] [NotificationManager] Registration already in progress")
+            logger.info(
+                """
+                registerDeviceTokenIfPossible skipped: registration in progress \
+                (prefix=\(tokenPrefix, privacy: .public))
+                """
+            )
             return
         }
 
         // Check if user is authenticated
         guard authManager.isAuthenticated else {
-            print("[INFO] [NotificationManager] User not authenticated, caching token for later")
+            logger.warning(
+                """
+                registerDeviceTokenIfPossible skipped: user not authenticated; \
+                caching token for retry (prefix=\(tokenPrefix, privacy: .public))
+                """
+            )
             pendingDeviceToken = token
             return
         }
 
         // Check if already registered
         guard !isDeviceTokenRegistered else {
-            print("[INFO] [NotificationManager] Device token already registered")
+            logger.info(
+                """
+                registerDeviceTokenIfPossible skipped: token already registered \
+                (prefix=\(tokenPrefix, privacy: .public))
+                """
+            )
             return
         }
 
         isRegisteringToken = true
+        logger.info(
+            "POST /v1/notifications/register-device starting (prefix=\(tokenPrefix, privacy: .public))"
+        )
 
         do {
             try await notificationService.registerDeviceToken(token)
-            print("[SUCCESS] [NotificationManager] Device token registered")
-
+            logger.info(
+                "POST /v1/notifications/register-device succeeded (prefix=\(tokenPrefix, privacy: .public))"
+            )
             isDeviceTokenRegistered = true
             pendingDeviceToken = nil
 

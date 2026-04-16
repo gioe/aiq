@@ -55,6 +55,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // failed (e.g., while unauthenticated) gets another chance to sync. No-op when the
         // user has not yet granted permission — we still never prompt at launch.
         Task { @MainActor in
+            Self.logger.info("didFinishLaunching: calling ensureRemoteNotificationRegistrationIfAuthorized()")
             await notificationManager.ensureRemoteNotificationRegistrationIfAuthorized()
         }
 
@@ -67,6 +68,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // When the app foregrounds, retry any device-token POST that did not reach the backend
         // on launch (e.g., the token arrived before the user was authenticated).
         Task { @MainActor in
+            Self.logger.info("didBecomeActive: calling handleAppDidBecomeActive()")
             await notificationManager.handleAppDidBecomeActive()
         }
     }
@@ -159,6 +161,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
+        Self.logger.info(
+            "didRegisterForRemoteNotificationsWithDeviceToken fired (bytes=\(deviceToken.count, privacy: .public))"
+        )
         // Delegate to NotificationManager for proper handling
         Task { @MainActor in
             notificationManager.didReceiveDeviceToken(deviceToken)
@@ -169,6 +174,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
+        Self.logger.error(
+            "didFailToRegisterForRemoteNotificationsWithError fired: \(error.localizedDescription, privacy: .public)"
+        )
         // Delegate to NotificationManager for proper handling
         Task { @MainActor in
             notificationManager.didFailToRegisterForRemoteNotifications(error: error)
