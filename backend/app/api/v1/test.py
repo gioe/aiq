@@ -488,6 +488,39 @@ async def start_test(
                 )
             )
 
+        # Check abandon cooldown: substantive abandoned attempts (>= threshold
+        # answers) trigger a shorter cooldown period
+        abandon_cutoff = utc_now() - timedelta(days=settings.ABANDON_COOLDOWN_DAYS)
+        abandon_stmt = (
+            select(TestSession)
+            .where(
+                TestSession.user_id == user_id,
+                TestSession.status == TestStatus.ABANDONED,
+                TestSession.completed_at > abandon_cutoff,
+            )
+            .order_by(TestSession.completed_at.desc())
+        )
+        abandon_result = await db.execute(abandon_stmt)
+        recent_abandoned_sessions = abandon_result.scalars().all()
+
+        for session in recent_abandoned_sessions:
+            response_count = await count_session_responses(db, session.id)
+            if response_count >= settings.ABANDON_ANSWER_THRESHOLD:
+                abandoned_at = ensure_timezone_aware(session.completed_at)
+                next_eligible = abandoned_at + timedelta(
+                    days=settings.ABANDON_COOLDOWN_DAYS
+                )
+                days_remaining = (next_eligible - utc_now()).days + 1
+
+                raise_bad_request(
+                    ErrorMessages.abandon_cooldown_not_met(
+                        cooldown_days=settings.ABANDON_COOLDOWN_DAYS,
+                        last_abandoned=abandoned_at.strftime("%Y-%m-%d"),
+                        next_eligible=next_eligible.strftime("%Y-%m-%d"),
+                        days_remaining=days_remaining,
+                    )
+                )
+
     # TASK-878: Branch based on adaptive parameter
     if adaptive:
         # Adaptive CAT path: return single question selected via MFI
