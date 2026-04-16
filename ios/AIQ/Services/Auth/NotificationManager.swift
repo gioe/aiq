@@ -8,6 +8,17 @@ import UserNotifications
 /// Manager for coordinating push notification permissions, device tokens, and backend synchronization
 @MainActor
 class NotificationManager: ObservableObject, NotificationManagerProtocol, DeviceTokenManagerProtocol {
+    // MARK: - Types
+
+    /// Closure signature for recording errors to Crashlytics. Declared on the class so tests can
+    /// inject a capturing mock and assert on context/additionalInfo without touching Crashlytics
+    /// itself. Matches the pattern used by `SettingsViewModel.CrashlyticsErrorRecorderClosure`.
+    typealias CrashlyticsErrorRecorderClosure = (
+        Error,
+        CrashlyticsErrorRecorder.ErrorContext,
+        [String: Any]?
+    ) -> Void
+
     // MARK: - Singleton
 
     /// Shared singleton instance
@@ -36,6 +47,7 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
     private let authManager: any AuthManagerProtocol
     private let notificationCenter: any UserNotificationCenterProtocol
     private let application: any ApplicationProtocol
+    private let errorRecorder: CrashlyticsErrorRecorderClosure
     private var cancellables = Set<AnyCancellable>()
     private let logger = Logger(subsystem: "com.aiq.app", category: "NotificationManager")
 
@@ -96,12 +108,16 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         notificationService: any NotificationServiceProtocol = ServiceContainer.shared.resolve(),
         authManager: any AuthManagerProtocol = ServiceContainer.shared.resolve(),
         notificationCenter: any UserNotificationCenterProtocol = UNUserNotificationCenter.current(),
-        application: (any ApplicationProtocol)? = nil
+        application: (any ApplicationProtocol)? = nil,
+        errorRecorder: @escaping CrashlyticsErrorRecorderClosure = { error, context, info in
+            CrashlyticsErrorRecorder.recordError(error, context: context, additionalInfo: info)
+        }
     ) {
         self.notificationService = notificationService
         self.authManager = authManager
         self.notificationCenter = notificationCenter
         self.application = application ?? UIApplication.shared
+        self.errorRecorder = errorRecorder
 
         // Load cached device token synchronously (UserDefaults is fast)
         loadCachedDeviceToken()
@@ -354,7 +370,17 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
             pendingDeviceToken = nil
 
         } catch {
-            print("[ERROR] [NotificationManager] Failed to register device token: \(error.localizedDescription)")
+            logger.error(
+                "Failed to register device token: \(error.localizedDescription, privacy: .public)"
+            )
+            errorRecorder(
+                error,
+                .notificationPermission,
+                [
+                    "operation": "registerDeviceToken",
+                    "isAuthenticated": "\(authManager.isAuthenticated)"
+                ]
+            )
             // Keep token cached for retry
             pendingDeviceToken = token
             isDeviceTokenRegistered = false
