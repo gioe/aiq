@@ -22,14 +22,8 @@ struct DashboardView: View {
     /// Controls presentation of the onboarding flow
     @State private var showOnboarding: Bool = false
 
-    /// Controls presentation of the pre-test info bottom sheet
-    @State private var showPreTestInfo: Bool = false
-
-    /// Set to true when the user confirms "I'm Ready" so navigation fires after sheet dismissal
-    @State private var pendingTestStart: Bool = false
-
-    /// Controls presentation of the notification soft prompt before test start
-    @State private var showNotificationSoftPrompt: Bool = false
+    /// Controls presentation of the pre-test onboarding flow
+    @State private var showPreTestOnboarding: Bool = false
 
     @ObservedObject private var notificationManager: NotificationManager = {
         let resolved: NotificationManagerProtocol = ServiceContainer.shared.resolve()
@@ -98,51 +92,35 @@ struct DashboardView: View {
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingContainerView()
         }
-        .sheet(
-            isPresented: $showPreTestInfo,
-            onDismiss: {
-                if pendingTestStart {
-                    pendingTestStart = false
-                    proceedToTestOrShowNotificationPrompt()
+        .fullScreenCover(isPresented: $showPreTestOnboarding) {
+            PreTestOnboardingContainerView(
+                showNotificationPage: shouldShowNotificationPrompt,
+                onComplete: {
+                    hasSeenPreTestInfo = true
+                    showPreTestOnboarding = false
+                    performNavigateToTest()
+                },
+                onDismiss: {
+                    showPreTestOnboarding = false
+                },
+                onEnableReminders: {
+                    Task {
+                        await notificationManager.requestAuthorization()
+                    }
+                    hasSeenPreTestInfo = true
+                    showPreTestOnboarding = false
+                    performNavigateToTest()
+                },
+                onDeclineReminders: {
+                    Task {
+                        await notificationManager.requestProvisionalAuthorization()
+                    }
+                    hasSeenPreTestInfo = true
+                    showPreTestOnboarding = false
+                    performNavigateToTest()
                 }
-            },
-            content: {
-                PreTestInfoView(
-                    onStartTest: {
-                        pendingTestStart = true
-                    },
-                    onDontShowAgain: {
-                        hasSeenPreTestInfo = true
-                    },
-                    onDismiss: {
-                        // No navigation — user returns to dashboard
-                    }
-                )
-            }
-        )
-        .sheet(
-            isPresented: $showNotificationSoftPrompt,
-            onDismiss: {
-                // Whether they accepted or declined, proceed to the test
-                performNavigateToTest()
-            },
-            content: {
-                NotificationSoftPromptView(
-                    onEnableReminders: {
-                        Task {
-                            await notificationManager.requestAuthorization()
-                        }
-                    },
-                    onDismiss: {
-                        // User declined full permissions — silently enroll in provisional
-                        // so they still receive quiet notifications in Notification Center
-                        Task {
-                            await notificationManager.requestProvisionalAuthorization()
-                        }
-                    }
-                )
-            }
-        )
+            )
+        }
         .onReceive(NotificationCenter.default.publisher(for: .refreshCurrentView)) { _ in
             Task {
                 await viewModel.refreshDashboard()
@@ -272,9 +250,9 @@ struct DashboardView: View {
 
     // MARK: - Routing Helpers
 
-    /// Gate condition for showing the pre-test info bottom sheet.
+    /// Gate condition for showing the pre-test onboarding flow.
     ///
-    /// The sheet is shown when the user has not yet seen it AND meets at least one of:
+    /// The flow is shown when the user has not yet seen it AND meets at least one of:
     /// - No completed tests (first-time user)
     /// - Previously skipped onboarding
     private var shouldShowPreTestInfo: Bool {
@@ -287,27 +265,14 @@ struct DashboardView: View {
 
     /// Entry point for "Start Test" taps from the dashboard.
     ///
-    /// Shows the pre-test info bottom sheet for eligible users before routing.
-    /// Resuming an active test always bypasses the sheet.
+    /// Shows the pre-test onboarding flow for eligible users before routing.
+    /// Resuming an active test always bypasses the flow.
     private func navigateToTest() {
         if viewModel.hasActiveTest {
-            // Resuming — bypass the info sheet and notification prompt
+            // Resuming — bypass the onboarding flow
             performNavigateToTest()
         } else if shouldShowPreTestInfo {
-            showPreTestInfo = true
-        } else {
-            proceedToTestOrShowNotificationPrompt()
-        }
-    }
-
-    /// Shows the notification soft prompt if needed, otherwise navigates directly to the test.
-    ///
-    /// Called after the pre-test info sheet confirms start, or when the info sheet gate is
-    /// not triggered. The soft prompt is shown once — if the user has already responded
-    /// (accepted or dismissed), we skip straight to navigation.
-    private func proceedToTestOrShowNotificationPrompt() {
-        if shouldShowNotificationPrompt {
-            showNotificationSoftPrompt = true
+            showPreTestOnboarding = true
         } else {
             performNavigateToTest()
         }
