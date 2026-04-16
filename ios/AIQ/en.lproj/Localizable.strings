@@ -730,3 +730,34 @@
 "pretest.info.start.button" = "I'm Ready — Start Test";
 "pretest.info.not.now.button" = "Not Now";
 "pretest.info.close.accessibility" = "Close pre-test info";
+
+// MARK: - Pre-Test Onboarding
+"pretest.onboarding.page1.title" = "Your Assessment";
+"pretest.onboarding.page1.subtitle" = "Here's what to expect";
+"pretest.onboarding.page1.questions" = "25 questions across multiple cognitive domains";
+"pretest.onboarding.page1.time" = "35-minute time limit, one sitting";
+"pretest.onboarding.page1.baseline" = "Your score establishes a personal baseline";
+"pretest.onboarding.page2.title" = "Testing Rules";
+"pretest.onboarding.page2.subtitle" = "For the most accurate results";
+"pretest.onboarding.page2.allowed.header" = "Allowed";
+"pretest.onboarding.page2.allowed.pencil" = "Pen and paper for scratch work";
+"pretest.onboarding.page2.allowed.quiet" = "A quiet, focused environment";
+"pretest.onboarding.page2.prohibited.header" = "Not Allowed";
+"pretest.onboarding.page2.prohibited.calculator" = "Calculators or computation tools";
+"pretest.onboarding.page2.prohibited.phone" = "Phone, internet, or search engines";
+"pretest.onboarding.page2.prohibited.help" = "Help from other people";
+"pretest.onboarding.page2.prohibited.reference" = "Reference materials or textbooks";
+"pretest.onboarding.page3.title" = "Honest Effort Matters";
+"pretest.onboarding.page3.subtitle" = "Your results are only as good as your effort";
+"pretest.onboarding.page3.pattern" = "Response patterns are analyzed for consistency";
+"pretest.onboarding.page3.honest" = "Your best honest attempt gives the most accurate score";
+"pretest.onboarding.page3.track" = "Track genuine cognitive changes over time";
+"pretest.onboarding.page4.title" = "Stay on Track";
+"pretest.onboarding.page4.subtitle" = "Regular testing reveals your cognitive trends";
+"pretest.onboarding.page4.body" = "AIQ works best when you test regularly. We'll send you a reminder when it's time for your next assessment — so you can see how your cognitive performance changes over time.";
+"pretest.onboarding.close.accessibility" = "Close pre-test onboarding";
+"pretest.onboarding.continue" = "Continue";
+"pretest.onboarding.begin.test" = "Begin Test";
+"pretest.onboarding.enable.reminders" = "Enable Reminders";
+"pretest.onboarding.not.now" = "Not Now";
+"pretest.onboarding.not.now.hint" = "Double tap to skip reminders and continue";

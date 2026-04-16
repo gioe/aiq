@@ -336,6 +336,21 @@ enum AccessibilityIdentifiers {
         static let dontShowAgainToggle = "preTestInfoView.dontShowAgainToggle"
     }
 
+    // MARK: - Pre-Test Onboarding View
+
+    enum PreTestOnboardingView {
+        static let containerView = "preTestOnboardingView.containerView"
+        static let closeButton = "preTestOnboardingView.closeButton"
+        static let page1 = "preTestOnboardingView.page1"
+        static let page2 = "preTestOnboardingView.page2"
+        static let page3 = "preTestOnboardingView.page3"
+        static let page4 = "preTestOnboardingView.page4"
+        static let continueButton = "preTestOnboardingView.continueButton"
+        static let beginTestButton = "preTestOnboardingView.beginTestButton"
+        static let enableRemindersButton = "preTestOnboardingView.enableRemindersButton"
+        static let notNowButton = "preTestOnboardingView.notNowButton"
+    }
+
     // MARK: - Adaptive Test View
 
     enum AdaptiveTestView {
