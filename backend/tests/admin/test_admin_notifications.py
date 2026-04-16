@@ -340,3 +340,153 @@ class TestDay30DistributedLocking:
             pass
 
         assert not _day_30_send_lock.locked()
+
+
+class TestSendTestPush:
+    """Tests for POST /v1/admin/notifications/send-test endpoint."""
+
+    @pytest.fixture
+    def target_user(self, db_session):
+        """User with a valid device token and notifications enabled."""
+        user = User(
+            email="pushtarget@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="Push",
+            last_name="Target",
+            notification_enabled=True,
+            apns_device_token="abcdef012345abcdef012345abcdef01",  # pragma: allowlist secret
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+
+    @pytest.fixture
+    def user_no_token(self, db_session):
+        """User with notifications enabled but no device token."""
+        user = User(
+            email="notoken@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="No",
+            last_name="Token",
+            notification_enabled=True,
+            apns_device_token=None,
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+
+    @pytest.fixture
+    def user_notifications_disabled(self, db_session):
+        """User with a device token but notifications disabled."""
+        user = User(
+            email="disabled@example.com",
+            password_hash=hash_password("testpassword123"),
+            first_name="Disabled",
+            last_name="Notifications",
+            notification_enabled=False,
+            apns_device_token="ffffffff11111111ffffffff11111111",  # pragma: allowlist secret
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.api.v1.admin.notifications.APNsService")
+    def test_returns_404_for_unknown_email(
+        self, mock_apns_class, client, admin_headers
+    ):
+        """Unknown email resolves to 404 and does not attempt to send."""
+        response = client.post(
+            "/v1/admin/notifications/send-test",
+            headers=admin_headers,
+            json={"email": "nobody@example.com"},
+        )
+
+        assert response.status_code == 404
+        mock_apns_class.assert_not_called()
+
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.api.v1.admin.notifications.APNsService")
+    def test_returns_400_when_no_device_token(
+        self, mock_apns_class, client, admin_headers, user_no_token
+    ):
+        """User without a device token produces 400 and does not attempt to send."""
+        response = client.post(
+            "/v1/admin/notifications/send-test",
+            headers=admin_headers,
+            json={"email": user_no_token.email},
+        )
+
+        assert response.status_code == 400
+        assert "no registered device token" in response.json()["detail"].lower()
+        mock_apns_class.assert_not_called()
+
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.api.v1.admin.notifications.APNsService")
+    def test_returns_400_when_notifications_disabled(
+        self, mock_apns_class, client, admin_headers, user_notifications_disabled
+    ):
+        """User with notifications disabled produces 400 and does not attempt to send."""
+        response = client.post(
+            "/v1/admin/notifications/send-test",
+            headers=admin_headers,
+            json={"email": user_notifications_disabled.email},
+        )
+
+        assert response.status_code == 400
+        assert "notifications disabled" in response.json()["detail"].lower()
+        mock_apns_class.assert_not_called()
+
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.api.v1.admin.notifications.APNsService")
+    def test_sends_successfully(
+        self, mock_apns_class, client, admin_headers, target_user
+    ):
+        """Eligible user triggers a single send_notification call and returns 200."""
+        from app.models.models import NotificationType
+
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock()
+        mock_apns.disconnect = AsyncMock()
+        mock_apns.send_notification = AsyncMock(return_value=True)
+        mock_apns_class.return_value = mock_apns
+
+        response = client.post(
+            "/v1/admin/notifications/send-test",
+            headers=admin_headers,
+            json={"email": target_user.email},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_id"] == target_user.id
+        assert data["sent"] is True
+        assert data["device_token_prefix"] == target_user.apns_device_token[:12]
+
+        mock_apns.connect.assert_awaited_once()
+        mock_apns.disconnect.assert_awaited_once()
+        mock_apns.send_notification.assert_awaited_once()
+        call_kwargs = mock_apns.send_notification.await_args.kwargs
+        assert call_kwargs["notification_type"] == NotificationType.ADMIN_TEST
+        assert call_kwargs["user_id"] == target_user.id
+        assert call_kwargs["device_token"] == target_user.apns_device_token
+
+    def test_requires_admin_token(self, client):
+        """Missing X-Admin-Token returns 422 (FastAPI header validation)."""
+        response = client.post(
+            "/v1/admin/notifications/send-test",
+            json={"email": "anyone@example.com"},
+        )
+        assert response.status_code == 422
+
+    def test_rejects_invalid_token(self, client):
+        """Invalid X-Admin-Token returns 401."""
+        response = client.post(
+            "/v1/admin/notifications/send-test",
+            headers={"X-Admin-Token": "invalid-token"},
+            json={"email": "anyone@example.com"},
+        )
+        assert response.status_code == 401
