@@ -339,6 +339,7 @@ class GoogleProvider(BaseLLMProvider):
                     temperature=temperature,
                     max_output_tokens=effective_max_tokens,
                     thinking_config=types.ThinkingConfig(thinking_budget=-1),
+                    response_mime_type="application/json",
                     **kwargs,
                 )
 
@@ -488,6 +489,7 @@ class GoogleProvider(BaseLLMProvider):
                     temperature=temperature,
                     max_output_tokens=effective_max_tokens,
                     thinking_config=types.ThinkingConfig(thinking_budget=-1),
+                    response_mime_type="application/json",
                     **kwargs,
                 )
 
