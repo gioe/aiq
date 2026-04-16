@@ -1008,6 +1008,17 @@ class TestTakingViewModel: BaseViewModel {
         showExitConfirmation = true
     }
 
+    /// Handles the "Exit" toolbar button tap. If the test is still in progress, shows the
+    /// exit-confirmation modal; if the test is already completed, invokes `close` so the
+    /// call-site can run its dismissal action (router pop, callback, etc.).
+    func requestExitOrClose(close: () -> Void) {
+        if isTestCompleted {
+            close()
+        } else {
+            requestExit()
+        }
+    }
+
     /// Called when the "Exit Test?" alert is dismissed without confirming.
     func cancelExit() {
         showExitConfirmation = false

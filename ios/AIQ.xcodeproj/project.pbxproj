@@ -65,6 +65,7 @@
 		248003712C3A515D545EAA46 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 586A504E0C0CADB555FED995 /* SettingsView.swift */; };
 		24B5CC6B706BC4AC4A48C7FE /* AIComparisonCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86D65C43AD376A9FD7ED5C2E /* AIComparisonCard.swift */; };
 		24BD646379E4121DD1DEFC82 /* ApplicationProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDABCC8F273B8E73C566B74 /* ApplicationProtocol.swift */; };
+		24CD540BE620E27FE947073F /* TestExitConfirmationModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA3EBFAD54671734F720D93 /* TestExitConfirmationModifier.swift */; };
 		24E15231306FC8A7CEBC07C0 /* StringLocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F8C9F55B117C21CD8CDF7 /* StringLocalizationTests.swift */; };
 		257C7FBB9E1A2387485235DD /* GroupDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5C6CE0242A1A95CBDED2E7 /* GroupDetailView.swift */; };
 		25F8149AA5AD3B8B578234D6 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 5F67568DF35617BE6981320E /* FirebaseAnalytics */; };
@@ -497,6 +498,7 @@
 		667D2E4160E9BEB72BC4DD10 /* AdaptiveTestView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdaptiveTestView.swift; path = Features/Test/Views/AdaptiveTestView.swift; sourceTree = "<group>"; };
 		677376DFF372A30AD6B6C7B9 /* GroupsListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GroupsListView.swift; path = Features/Groups/Views/GroupsListView.swift; sourceTree = "<group>"; };
 		6791928D3F0337ED918415D7 /* WelcomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WelcomeView.swift; path = Features/Auth/Views/WelcomeView.swift; sourceTree = "<group>"; };
+		6CA3EBFAD54671734F720D93 /* TestExitConfirmationModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestExitConfirmationModifier.swift; path = Features/Test/Views/TestExitConfirmationModifier.swift; sourceTree = "<group>"; };
 		6CBDF80139B9B27C0EAF901C /* UserNotificationCenterProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UserNotificationCenterProtocol.swift; sourceTree = "<group>"; };
 		6E670DCBD950D08051713258 /* RegistrationViewModelValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelValidationTests.swift; sourceTree = "<group>"; };
 		7008E66E3ADCD8A578B20AB8 /* AdaptiveProgressHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdaptiveProgressHeader.swift; path = Features/Test/Views/AdaptiveProgressHeader.swift; sourceTree = "<group>"; };
@@ -1316,6 +1318,7 @@
 				C5F2D69D41252182215BE56E /* AIComparisonCardLogic.swift */,
 				B35B3AB6FBE05BE04EA3A172 /* TestNavigationControls.swift */,
 				9C10940B665E09D754FD4357 /* TestContentLayout.swift */,
+				6CA3EBFAD54671734F720D93 /* TestExitConfirmationModifier.swift */,
 			);
 			name = Views;
 			sourceTree = "<group>";
@@ -2012,6 +2015,7 @@
 				A97CB81D2AAE9FAB2A688BF9 /* PreTestNotificationsPageView.swift in Sources */,
 				5CEAEDA646779E0EAAE51E42 /* PreTestInfoGate.swift in Sources */,
 				E13F58C7A2FBCB0582A3FD52 /* SwipeBackGestureBlocker.swift in Sources */,
+				24CD540BE620E27FE947073F /* TestExitConfirmationModifier.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
