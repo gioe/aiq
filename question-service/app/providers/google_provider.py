@@ -353,6 +353,13 @@ class GoogleProvider(BaseLLMProvider):
                 raw_content = response.text if response.text else ""
                 if raw_content:
                     content = safe_json_loads(raw_content)
+                else:
+                    logger.warning(
+                        "Google API returned empty response text. "
+                        "candidates=%s, prompt_feedback=%s",
+                        getattr(response, "candidates", None),
+                        getattr(response, "prompt_feedback", None),
+                    )
 
                 token_usage = None
                 if hasattr(response, "usage_metadata") and response.usage_metadata:
@@ -503,6 +510,13 @@ class GoogleProvider(BaseLLMProvider):
                 raw_content = response.text if response.text else ""
                 if raw_content:
                     content = safe_json_loads(raw_content)
+                else:
+                    logger.warning(
+                        "Google API returned empty response text. "
+                        "candidates=%s, prompt_feedback=%s",
+                        getattr(response, "candidates", None),
+                        getattr(response, "prompt_feedback", None),
+                    )
 
                 token_usage = None
                 if hasattr(response, "usage_metadata") and response.usage_metadata:
