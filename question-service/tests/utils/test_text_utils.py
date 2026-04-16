@@ -1,6 +1,10 @@
 """Tests for shared text utility functions."""
 
-from app.utils.text_utils import strip_markdown_code_blocks
+import json
+
+import pytest
+
+from app.utils.text_utils import safe_json_loads, strip_markdown_code_blocks
 
 
 class TestStripMarkdownCodeBlocks:
@@ -45,3 +49,47 @@ class TestStripMarkdownCodeBlocks:
         """Test that partial fences don't match."""
         text = '```json\n{"key": "value"}'
         assert strip_markdown_code_blocks(text) == text
+
+
+class TestSafeJsonLoads:
+    """Tests for safe_json_loads function."""
+
+    def test_single_json_object(self):
+        """Single valid JSON object parses normally."""
+        text = '{"key": "value", "count": 42}'
+        result = safe_json_loads(text)
+        assert result == {"key": "value", "count": 42}
+
+    def test_concatenated_json_objects(self):
+        """Two concatenated JSON objects returns only the first."""
+        text = '{"a": 1}\n{"b": 2}'
+        result = safe_json_loads(text)
+        assert result == {"a": 1}
+
+    def test_concatenated_json_no_newline(self):
+        """Concatenated JSON without newline separator."""
+        text = '{"a": 1}{"b": 2}'
+        result = safe_json_loads(text)
+        assert result == {"a": 1}
+
+    def test_markdown_wrapped_concatenated_json(self):
+        """Markdown-wrapped response with concatenated JSON."""
+        text = '```json\n{"a": 1}\n{"b": 2}\n```'
+        result = safe_json_loads(text)
+        assert result == {"a": 1}
+
+    def test_markdown_wrapped_single_json(self):
+        """Markdown-wrapped single JSON object."""
+        text = '```json\n{"key": "value"}\n```'
+        result = safe_json_loads(text)
+        assert result == {"key": "value"}
+
+    def test_empty_response_raises(self):
+        """Empty string raises JSONDecodeError."""
+        with pytest.raises(json.JSONDecodeError):
+            safe_json_loads("")
+
+    def test_invalid_json_raises(self):
+        """Completely invalid JSON raises JSONDecodeError."""
+        with pytest.raises(json.JSONDecodeError):
+            safe_json_loads("not json at all")
