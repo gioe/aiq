@@ -1437,6 +1437,172 @@ final class NotificationManagerTests: XCTestCase {
         XCTAssertTrue(sut.isDeviceTokenRegistered)
     }
 
+    // MARK: - Launch-Time Re-Registration Tests
+
+    func testEnsureRemoteNotificationRegistrationIfAuthorized_WhenAuthorized_RegistersOnce() async {
+        // Given - OS reports the user has already granted full authorization
+        mockNotificationCenter.authorizationStatus = .authorized
+
+        // When - App launch triggers the hook
+        await sut.ensureRemoteNotificationRegistrationIfAuthorized()
+
+        // Then - Should invoke registerForRemoteNotifications exactly once
+        XCTAssertTrue(
+            mockApplication.registerForRemoteNotificationsCalled,
+            "Launch-time hook should invoke registerForRemoteNotifications when authorized"
+        )
+        XCTAssertEqual(
+            mockApplication.registerForRemoteNotificationsCallCount,
+            1,
+            "Launch-time hook should invoke registerForRemoteNotifications exactly once per call"
+        )
+    }
+
+    func testEnsureRemoteNotificationRegistrationIfAuthorized_WhenProvisional_Registers() async {
+        // Given - User has only provisional (silent) authorization
+        mockNotificationCenter.authorizationStatus = .provisional
+
+        // When - App launch triggers the hook
+        await sut.ensureRemoteNotificationRegistrationIfAuthorized()
+
+        // Then - Should still register; provisional authorization also receives tokens
+        XCTAssertTrue(mockApplication.registerForRemoteNotificationsCalled)
+    }
+
+    func testEnsureRemoteNotificationRegistrationIfAuthorized_WhenDenied_DoesNotRegister() async {
+        // Given - User denied notifications
+        mockNotificationCenter.authorizationStatus = .denied
+
+        // When
+        await sut.ensureRemoteNotificationRegistrationIfAuthorized()
+
+        // Then - No register call; APNs should not be re-engaged when user has declined
+        XCTAssertFalse(
+            mockApplication.registerForRemoteNotificationsCalled,
+            "Should NOT register when user has denied notifications"
+        )
+    }
+
+    func testEnsureRemoteNotificationRegistrationIfAuthorized_WhenNotDetermined_DoesNotRegister() async {
+        // Given - User has not yet responded to a permission prompt
+        mockNotificationCenter.authorizationStatus = .notDetermined
+
+        // When
+        await sut.ensureRemoteNotificationRegistrationIfAuthorized()
+
+        // Then - No register call; we don't prompt on launch and don't speculatively register
+        XCTAssertFalse(mockApplication.registerForRemoteNotificationsCalled)
+    }
+
+    // MARK: - App Became Active Hook Tests
+
+    func testHandleAppDidBecomeActive_WhenAuthorizedAndUnregistered_TriggersRetry() async {
+        // Given - Authorized user with a cached token that never reached the backend
+        mockNotificationCenter.authorizationStatus = .authorized
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("cached_token_abc", forKey: deviceTokenKey)
+        XCTAssertFalse(sut.isDeviceTokenRegistered)
+
+        // When - App foregrounds
+        await sut.handleAppDidBecomeActive()
+
+        // Then - Should have attempted the POST via retry path
+        let called = await mockNotificationService.registerDeviceTokenCalled
+        XCTAssertTrue(
+            called,
+            "Should retry POSTing cached token when app becomes active while authorized"
+        )
+    }
+
+    func testHandleAppDidBecomeActive_WhenAlreadyRegistered_NoOps() async throws {
+        // Given - Drive the real SUT through a successful registration so isDeviceTokenRegistered
+        // becomes true via the public API (there is intentionally no test-only setter).
+        mockNotificationCenter.authorizationStatus = .authorized
+        mockAuthManager.isAuthenticated = true
+        sut.didReceiveDeviceToken(Data([0xDE, 0xAD, 0xBE, 0xEF]))
+        try await waitForCondition(message: "token never registered") {
+            await self.sut.isDeviceTokenRegistered
+        }
+        // Reset the service call-tracking so we only observe what happens after becoming active.
+        await mockNotificationService.resetCallCounts()
+        XCTAssertTrue(sut.isDeviceTokenRegistered)
+
+        // When
+        await sut.handleAppDidBecomeActive()
+
+        // Then - Should NOT hit the network again
+        let calledAgain = await mockNotificationService.registerDeviceTokenCalled
+        XCTAssertFalse(
+            calledAgain,
+            "Should not re-POST a token that is already registered"
+        )
+    }
+
+    func testHandleAppDidBecomeActive_WhenNotAuthorized_NoOps() async {
+        // Given - User has not granted permission
+        mockNotificationCenter.authorizationStatus = .denied
+        mockAuthManager.isAuthenticated = true
+        UserDefaults.standard.set("cached_token_abc", forKey: deviceTokenKey)
+
+        // When
+        await sut.handleAppDidBecomeActive()
+
+        // Then - Do nothing; without permission we shouldn't be POSTing a stale token
+        let called = await mockNotificationService.registerDeviceTokenCalled
+        XCTAssertFalse(called)
+    }
+
+    // MARK: - Crashlytics Recording on POST Failure Tests
+
+    func testRegisterDeviceToken_WhenPOSTFails_RecordsToCrashlytics() async throws {
+        // Given - A NotificationManager with an injected error recorder and a failing service
+        let recorder = CapturingErrorRecorder()
+        let failingService = MockNotificationService()
+        await failingService.setRegisterError(
+            NSError(
+                domain: "NotificationManagerTests",
+                code: 500,
+                userInfo: [NSLocalizedDescriptionKey: "simulated POST failure"]
+            )
+        )
+        let authManager = MockAuthManager()
+        authManager.isAuthenticated = true
+        let failingSut = NotificationManager(
+            notificationService: failingService,
+            authManager: authManager,
+            notificationCenter: MockUserNotificationCenter(),
+            application: MockApplication(),
+            errorRecorder: { error, context, info in
+                recorder.record(error: error, context: context, info: info)
+            }
+        )
+
+        // When - A device token arrives and registration fails
+        failingSut.didReceiveDeviceToken(Data([0xDE, 0xAD, 0xBE, 0xEF]))
+
+        // Wait for the async registration task to complete (didReceiveDeviceToken fires Task { ... })
+        try await waitForCondition(message: "errorRecorder never invoked") {
+            !recorder.captures.isEmpty
+        }
+
+        // Then - The error recorder must have been called with .notificationPermission context
+        XCTAssertEqual(
+            recorder.captures.count,
+            1,
+            "Recorder should be called exactly once on POST failure"
+        )
+        XCTAssertEqual(
+            recorder.captures.first?.context,
+            .notificationPermission,
+            "POST failures must be recorded under the notificationPermission context"
+        )
+        XCTAssertEqual(
+            recorder.captures.first?.info?["operation"] as? String,
+            "registerDeviceToken",
+            "Recorded error should include the operation breadcrumb"
+        )
+    }
+
     // MARK: - Test Helpers
 
     /// Wait for a condition to become true within a timeout
@@ -1453,5 +1619,29 @@ final class NotificationManagerTests: XCTestCase {
             }
             await Task.yield()
         }
+    }
+}
+
+// MARK: - Capturing Error Recorder
+
+/// Test-only recorder that captures invocations of NotificationManager's error recorder closure.
+/// Used to verify the POST failure path routes through Crashlytics with the correct context
+/// without actually hitting Firebase.
+@MainActor
+private final class CapturingErrorRecorder {
+    struct Capture {
+        let error: Error
+        let context: CrashlyticsErrorRecorder.ErrorContext
+        let info: [String: Any]?
+    }
+
+    private(set) var captures: [Capture] = []
+
+    func record(
+        error: Error,
+        context: CrashlyticsErrorRecorder.ErrorContext,
+        info: [String: Any]?
+    ) {
+        captures.append(Capture(error: error, context: context, info: info))
     }
 }
