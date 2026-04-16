@@ -510,7 +510,7 @@ async def start_test(
                 next_eligible = abandoned_at + timedelta(
                     days=settings.ABANDON_COOLDOWN_DAYS
                 )
-                days_remaining = (next_eligible - utc_now()).days + 1
+                days_remaining = (next_eligible - utc_now()).days + 1  # Round up
 
                 raise_bad_request(
                     ErrorMessages.abandon_cooldown_not_met(
