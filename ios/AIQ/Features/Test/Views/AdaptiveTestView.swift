@@ -15,7 +15,6 @@ struct AdaptiveTestView: View {
     @EnvironmentObject var router: AppRouter
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    @State private var showExitConfirmation = false
     @State private var showTimeWarningBanner = false
     @State private var warningBannerDismissed = false
     @State private var showTimeExpiredAlert = false
@@ -86,21 +85,11 @@ struct AdaptiveTestView: View {
             warningBannerDismissed: $warningBannerDismissed,
             onExpire: handleTimerExpiration
         ))
-        .alert("Exit Test?", isPresented: $showExitConfirmation) {
-            Button("Exit", role: .destructive) {
-                Task {
-                    await viewModel.abandonTest()
-                    router.popToRoot()
-                }
+        .overlay {
+            if viewModel.showExitConfirmation {
+                exitConfirmationModal
+                    .transition(.opacity)
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            let count = viewModel.answeredCount
-            let suffix = count == 1 ? "" : "s"
-            Text(
-                "You have completed \(count) question\(suffix). " +
-                    "Exiting will end your test. Are you sure?"
-            )
         }
         .alert("Time's Up!", isPresented: $showTimeExpiredAlert) {
             Button("OK") {
@@ -303,10 +292,48 @@ struct AdaptiveTestView: View {
 
     private func handleExit() {
         if viewModel.answeredCount > 0 && !viewModel.isTestCompleted {
-            showExitConfirmation = true
+            viewModel.requestExit()
         } else {
             router.pop()
         }
+    }
+
+    // MARK: - Exit Confirmation
+
+    private var exitConfirmationMessage: String {
+        let answered = viewModel.answeredCount
+        let total = viewModel.totalQuestionCount
+        if answered >= Constants.Test.abandonAnswerThreshold {
+            return "You've answered \(answered) of \(total) questions. " +
+                "Your answers will not be scored, and this will count as a test attempt. " +
+                "You'll need to wait before you can retake the test."
+        } else {
+            return "You've answered \(answered) of \(total) questions. " +
+                "Your answers will not be scored."
+        }
+    }
+
+    private var exitConfirmationModal: some View {
+        ConfirmationModal(
+            iconName: "exclamationmark.triangle",
+            title: "Exit Test?",
+            message: exitConfirmationMessage,
+            confirmLabel: "Exit",
+            confirmAccessibilityLabel: "Exit test",
+            confirmAccessibilityHint: "Double tap to exit the test without scoring",
+            confirmAccessibilityIdentifier: AccessibilityIdentifiers.AdaptiveTestView.exitConfirmButton,
+            cancelAccessibilityHint: "Double tap to continue the test",
+            cancelAccessibilityIdentifier: AccessibilityIdentifiers.AdaptiveTestView.exitCancelButton,
+            modalAccessibilityIdentifier: AccessibilityIdentifiers.AdaptiveTestView.exitConfirmationModal,
+            onConfirm: {
+                viewModel.cancelExit()
+                Task {
+                    await viewModel.abandonTest()
+                    router.popToRoot()
+                }
+            },
+            onCancel: { viewModel.cancelExit() }
+        )
     }
 }
 
