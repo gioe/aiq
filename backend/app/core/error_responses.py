@@ -186,6 +186,21 @@ class ErrorMessages:
         )
 
     @staticmethod
+    def abandon_cooldown_not_met(
+        cooldown_days: int,
+        last_abandoned: str,
+        next_eligible: str,
+        days_remaining: int,
+    ) -> str:
+        """Message for when user tries to start a test too soon after a substantive abandon."""
+        return (
+            f"You must wait {cooldown_days} days after abandoning a substantive "
+            f"test attempt. Your last attempt was abandoned on {last_abandoned}. "
+            f"You can take your next test on {next_eligible} "
+            f"({days_remaining} days remaining)."
+        )
+
+    @staticmethod
     def insufficient_questions(requested: int, available: int) -> str:
         """Message when fewer questions are available than requested."""
         return (
