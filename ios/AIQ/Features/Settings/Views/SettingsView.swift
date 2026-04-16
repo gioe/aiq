@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.appRouter) private var router
     @Environment(\.appTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel: SettingsViewModel
     @State private var showCrashConfirmation = false
 
@@ -317,12 +318,12 @@ struct SettingsView: View {
 
             if viewModel.showLogoutConfirmation {
                 logoutConfirmationModal
-                    .transition(.opacity)
+                    .transition(modalTransition)
             }
 
             if viewModel.showDeleteAccountConfirmation {
                 deleteAccountConfirmationModal
-                    .transition(.opacity)
+                    .transition(modalTransition)
             }
 
             // Loading overlay
@@ -332,6 +333,20 @@ struct SettingsView: View {
                 LoadingOverlay(message: "Deleting account...")
             }
         }
+        .animation(modalAnimation, value: viewModel.showLogoutConfirmation)
+        .animation(modalAnimation, value: viewModel.showDeleteAccountConfirmation)
+    }
+
+    private var modalTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: 0.96)),
+            removal: .opacity
+        )
+    }
+
+    private var modalAnimation: Animation {
+        reduceMotion ? .linear(duration: 0.2) : theme.animations.quick
     }
 }
 
