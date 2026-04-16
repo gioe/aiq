@@ -10,9 +10,7 @@ from google import genai
 from google.genai import types
 
 from app.observability.cost_tracking import CompletionResult, TokenUsage
-from app.utils.text_utils import (
-    strip_markdown_code_blocks as _strip_markdown_code_blocks,
-)
+from app.utils.text_utils import safe_json_loads
 from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
@@ -353,7 +351,7 @@ class GoogleProvider(BaseLLMProvider):
                 content: Dict[str, Any] = {}
                 raw_content = response.text if response.text else ""
                 if raw_content:
-                    content = json.loads(_strip_markdown_code_blocks(raw_content))
+                    content = safe_json_loads(raw_content)
 
                 token_usage = None
                 if hasattr(response, "usage_metadata") and response.usage_metadata:
@@ -502,7 +500,7 @@ class GoogleProvider(BaseLLMProvider):
                 content: Dict[str, Any] = {}
                 raw_content = response.text if response.text else ""
                 if raw_content:
-                    content = json.loads(_strip_markdown_code_blocks(raw_content))
+                    content = safe_json_loads(raw_content)
 
                 token_usage = None
                 if hasattr(response, "usage_metadata") and response.usage_metadata:

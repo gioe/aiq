@@ -11,9 +11,7 @@ from typing import Any, Dict, Optional
 from openai import AsyncOpenAI, OpenAI
 
 from app.observability.cost_tracking import CompletionResult, TokenUsage
-from app.utils.text_utils import (
-    strip_markdown_code_blocks as _strip_markdown_code_blocks,
-)
+from app.utils.text_utils import safe_json_loads
 from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
@@ -291,9 +289,7 @@ class XAIProvider(BaseLLMProvider):
                 content_str = response.choices[0].message.content or "{}"
                 logger.debug(f"xAI API response content: {content_str[:500]}")
 
-                content_str = _strip_markdown_code_blocks(content_str)
-
-                content = json.loads(content_str)
+                content = safe_json_loads(content_str)
 
                 # Extract actual token usage from response
                 token_usage = None
@@ -419,9 +415,7 @@ class XAIProvider(BaseLLMProvider):
                 content_str = response.choices[0].message.content or "{}"
                 logger.debug(f"xAI API async response content: {content_str[:500]}")
 
-                content_str = _strip_markdown_code_blocks(content_str)
-
-                content = json.loads(content_str)
+                content = safe_json_loads(content_str)
 
                 # Extract actual token usage from response
                 token_usage = None

@@ -8,6 +8,7 @@ import openai
 from openai import AsyncOpenAI, OpenAI
 
 from app.observability.cost_tracking import CompletionResult, TokenUsage
+from app.utils.text_utils import safe_json_loads
 from .base import BaseLLMProvider
 
 
@@ -303,7 +304,7 @@ class OpenAIProvider(BaseLLMProvider):
                 )
 
                 raw_content = self._get_message_content(response) or "{}"
-                content = json.loads(raw_content)
+                content = safe_json_loads(raw_content)
 
                 # Extract actual token usage from response
                 token_usage = None
@@ -423,7 +424,7 @@ class OpenAIProvider(BaseLLMProvider):
                         model_to_use,
                     )
                     raw_content = "{}"
-                content = json.loads(raw_content)
+                content = safe_json_loads(raw_content)
 
                 # Extract actual token usage from response
                 token_usage = None

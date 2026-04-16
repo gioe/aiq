@@ -9,9 +9,7 @@ from anthropic import Anthropic, AsyncAnthropic
 
 from app.config.models_config import get_known_models
 from app.observability.cost_tracking import CompletionResult, TokenUsage
-from app.utils.text_utils import (
-    strip_markdown_code_blocks as _strip_markdown_code_blocks,
-)
+from app.utils.text_utils import safe_json_loads
 from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
@@ -288,9 +286,7 @@ class AnthropicProvider(BaseLLMProvider):
                     raw_content = response.content[0].text
                     logger.debug(f"Anthropic API response content: {raw_content[:500]}")
 
-                    raw_content = _strip_markdown_code_blocks(raw_content)
-
-                    content = json.loads(raw_content)
+                    content = safe_json_loads(raw_content)
                 else:
                     logger.warning("Anthropic API returned empty response")
 
@@ -418,9 +414,7 @@ class AnthropicProvider(BaseLLMProvider):
                         f"Anthropic API async response content: {raw_content[:500]}"
                     )
 
-                    raw_content = _strip_markdown_code_blocks(raw_content)
-
-                    content = json.loads(raw_content)
+                    content = safe_json_loads(raw_content)
                 else:
                     logger.warning("Anthropic API returned empty response")
 
