@@ -466,6 +466,25 @@ RATE_LIMIT_STORAGE=redis
 RATE_LIMIT_REDIS_URL=redis://your-redis-host:6379/0
 ```
 
+**Guest Test Tokens**
+
+Guest test tokens are stored in a shared token store to ensure that the token created during `start_guest_test` (Worker A) can be consumed by `submit_guest_test` (Worker B). Without Redis, tokens are process-local and ~50% of guest submissions fail with "Invalid or expired guest token."
+
+To enable shared guest token storage:
+```bash
+GUEST_TOKEN_REDIS_URL=redis://your-redis-host:6379/0
+```
+
+**Railway Redis Setup**
+
+All three services above share a single Railway Redis addon. In Railway, reference the Redis service's URL variable:
+```bash
+GUEST_TOKEN_REDIS_URL=${{Redis.REDIS_URL}}
+TOKEN_BLACKLIST_REDIS_URL=${{Redis.REDIS_URL}}
+RATE_LIMIT_STORAGE=redis
+RATE_LIMIT_REDIS_URL=${{Redis.REDIS_URL}}
+```
+
 ## Custom Domain (Optional)
 
 1. Railway dashboard → Service → **"Settings"** → **"Domains"**

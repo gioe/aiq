@@ -12,10 +12,11 @@ Design decisions
   GUEST_USER_ID (default -1).  That row must exist in the users table (inserted
   by an Alembic migration) because of the FK constraint on test_sessions.user_id.
 
-* Guest token: A UUID string stored in an in-memory TTLCache keyed by the token.
-  Each token maps to {"session_id": int, "device_id": str, "question_ids": list,
-  "created_at": datetime}.  The token is consumed (deleted) on first successful
-  submit; a second submit with the same token returns 400.
+* Guest token: A UUID string stored in a Redis-backed token store (with in-memory
+  fallback).  Each token maps to {"session_id": int, "device_id": str,
+  "question_ids": list, "created_at": str}.  The token is consumed (deleted) on
+  first successful submit; a second submit with the same token returns 400.
+  Redis storage ensures tokens are shared across gunicorn workers (TASK-463).
 
 * Device limit: Enforced via the guest_device_limits table.  Tests-taken is
   incremented only after a successful submit so that a failed submit doesn't
@@ -30,11 +31,9 @@ Design decisions
 
 import logging
 import uuid
-import threading
 from datetime import timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
-from cachetools import TTLCache
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -52,6 +51,7 @@ from app.core.question_utils import question_to_response
 from app.core.scoring.test_composition import async_select_stratified_questions
 from app.models import Question, TestSession, get_db
 from app.models.models import GuestDeviceLimit, TestResult, TestStatus
+from app.ratelimit.storage import InMemoryStorage, RedisStorage
 from app.schemas.guest_test import (
     GuestStartTestResponse,
     GuestSubmitRequest,
@@ -80,40 +80,94 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# In-memory guest token store
+# Guest token store (Redis-backed with in-memory fallback)
 # ---------------------------------------------------------------------------
 # Keys:   UUID token string
-# Values: {"session_id": int, "device_id": str, "created_at": datetime}
+# Values: {"session_id": int, "device_id": str, "question_ids": list,
+#          "created_at": str (ISO 8601)}
 # TTL:    GUEST_TOKEN_TTL_MINUTES (default 45 minutes)
 #
-# TTLCache is not thread-safe for concurrent writes, so all mutations are
-# protected by _token_cache_lock.  FastAPI runs handlers in an event loop on a
-# single thread for async endpoints, but the lock costs virtually nothing and
-# protects against any future sync-thread interactions.
-
-_token_cache: TTLCache = TTLCache(
-    maxsize=10_000,  # Generous upper bound; each entry is ~200 bytes
-    ttl=settings.GUEST_TOKEN_TTL_MINUTES * 60,
-)
-_token_cache_lock = threading.Lock()
-
-# ---------------------------------------------------------------------------
-# Typed dict for the cached token payload
-# ---------------------------------------------------------------------------
+# Uses Redis when GUEST_TOKEN_REDIS_URL is configured so that tokens are shared
+# across gunicorn workers.  Falls back to in-memory storage for single-worker
+# or development deployments.
 
 GuestTokenPayload = Dict[str, Any]  # session_id, device_id, created_at
+
+# Global store — initialised in init_guest_token_store() called from main.py
+_token_store: Optional[Union[RedisStorage, InMemoryStorage]] = None
+
+
+def init_guest_token_store(
+    redis_url: Optional[str] = None,
+) -> Union[RedisStorage, InMemoryStorage]:
+    """
+    Initialise the global guest-token storage backend.
+
+    Called once during application startup (main.py lifespan).
+
+    Args:
+        redis_url: Optional Redis connection URL.  If empty/None, uses in-memory.
+
+    Returns:
+        The storage instance that was assigned to the module global.
+    """
+    global _token_store
+
+    if redis_url:
+        try:
+            store = RedisStorage(
+                redis_url=redis_url,
+                key_prefix="guest_token:",
+                connection_pool_size=10,
+                socket_timeout=2.0,
+                socket_connect_timeout=2.0,
+            )
+            if store.is_connected():
+                _token_store = store
+                logger.info("Guest token store using Redis storage")
+                return _token_store
+            else:
+                logger.warning(
+                    "Redis not available for guest token store. "
+                    "Falling back to in-memory storage. "
+                    "Tokens will NOT be shared across workers."
+                )
+        except ImportError:
+            logger.warning(
+                "redis-py not installed. Guest token store using in-memory storage."
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialise Redis for guest token store: {e}")
+
+    _token_store = InMemoryStorage(cleanup_interval=60, max_keys=10_000)
+    logger.info("Guest token store using in-memory storage")
+    return _token_store
+
+
+def _get_token_store() -> Union[RedisStorage, InMemoryStorage]:
+    """Return the initialised token store, or lazily create an in-memory one."""
+    global _token_store
+    if _token_store is None:
+        _token_store = InMemoryStorage(cleanup_interval=60, max_keys=10_000)
+        logger.warning(
+            "Guest token store accessed before init_guest_token_store() — "
+            "using in-memory fallback"
+        )
+    return _token_store
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+_TOKEN_TTL_SECONDS = settings.GUEST_TOKEN_TTL_MINUTES * 60
+
 
 def _generate_guest_token(
     session_id: int, device_id: str, question_ids: list[int]
 ) -> str:
     """
-    Generate a UUID token, store it in the TTLCache, and return it.
+    Generate a UUID token, store it in the shared token store, and return it.
 
     Args:
         session_id:   The TestSession.id to associate with this token.
@@ -128,10 +182,9 @@ def _generate_guest_token(
         "session_id": session_id,
         "device_id": device_id,
         "question_ids": question_ids,
-        "created_at": utc_now(),
+        "created_at": utc_now().isoformat(),
     }
-    with _token_cache_lock:
-        _token_cache[token] = payload
+    _get_token_store().set(token, payload, ttl=_TOKEN_TTL_SECONDS)
     logger.debug(
         "Guest token created for session_id=%s device_id=%s",
         session_id,
@@ -142,7 +195,7 @@ def _generate_guest_token(
 
 def _consume_guest_token(token: str) -> Optional[GuestTokenPayload]:
     """
-    Look up and atomically remove a token from the cache (single-use).
+    Look up and atomically remove a token from the store (single-use).
 
     Returns None if the token is missing or has already expired/been consumed.
 
@@ -152,12 +205,14 @@ def _consume_guest_token(token: str) -> Optional[GuestTokenPayload]:
     Returns:
         GuestTokenPayload dict if valid, else None.
     """
-    with _token_cache_lock:
-        payload = _token_cache.pop(token, None)
+    store = _get_token_store()
+    payload = store.get(token)
     if payload is None:
         logger.warning(
             "Guest token lookup failed (expired or already consumed): %s", token
         )
+        return None
+    store.delete(token)
     return payload
 
 

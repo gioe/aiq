@@ -22,19 +22,26 @@ This document describes the technical architecture, component design, data model
 │  - Push Notification Scheduling         │
 │  - Question Analytics                   │
 │  - Admin Operations                     │
-└────────┬────────────────────────────────┘
-         │
-         │ Database Queries
-         │
-┌────────▼────────────┐         ┌──────────────────────┐
-│     Database        │◄────────│  Question Service    │
-│  - Users            │         │  - Multi-LLM Gen     │
-│  - Questions        │         │  - Quality Judge   │
-│  - User-Questions   │         │  - Periodic Runner   │
-│  - Responses        │         │  - Metrics Reporter  │
-│  - Test Results     │         └──────────────────────┘
-│  - Generation Runs  │
-└─────────────────────┘
+└────────┬──────────────┬─────────────────┘
+         │              │
+         │ SQL          │ Redis
+         │              │
+┌────────▼──────────┐   │   ┌──────────────────────┐
+│     Database      │   │   │  Question Service    │
+│  - Users          │   │   │  - Multi-LLM Gen     │
+│  - Questions      │   │   │  - Quality Judge     │
+│  - User-Questions │   │   │  - Periodic Runner   │
+│  - Responses      │◄──┼───│  - Metrics Reporter  │
+│  - Test Results   │   │   └──────────────────────┘
+│  - Generation Runs│   │
+└───────────────────┘   │
+                        │
+┌───────────────────────▼─┐
+│         Redis           │
+│  - Rate Limit Counters  │
+│  - Token Blacklist      │
+│  - Guest Test Tokens    │
+└─────────────────────────┘
 ```
 
 ### API Contract Strategy
@@ -90,6 +97,11 @@ The **OpenAPI specification is the single source of truth** for all API contract
 5. **Backend → iOS**: Push Notifications
    - APNs (Apple Push Notification service)
    - Scheduled test reminders
+
+6. **Backend ↔ Redis**: Cross-worker shared state
+   - Rate limit counters (shared across gunicorn workers)
+   - Token blacklist for JWT revocation
+   - Guest test tokens (ensures start/submit hit the same token store)
 
 ### Data Flow: Taking a Test
 
@@ -625,8 +637,9 @@ ORDER BY completed_at DESC
 ## 5. Deployment
 
 **Current Infrastructure:**
-- **Backend**: Railway (cloud hosting)
+- **Backend**: Railway (cloud hosting, 2 gunicorn workers)
 - **Database**: Railway PostgreSQL
+- **Redis**: Railway Redis (shared state across backend workers)
 - **Question Service**: Railway cron job
 - **iOS App**: App Store distribution
 

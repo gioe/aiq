@@ -28,17 +28,20 @@ AIQ tracks cognitive capacity over time, similar to how fitness apps track physi
 
 #### Railway Service Topology
 
-This is a monorepo with two independent Railway services. Both services install `gioe-libs` from [github.com/gioe/python-libs](https://github.com/gioe/python-libs) via `requirements.txt`.
+This is a monorepo with two independent Railway services plus a shared Redis instance. Both services install `gioe-libs` from [github.com/gioe/python-libs](https://github.com/gioe/python-libs) via `requirements.txt`.
 
-| | Backend | Question Service |
-|---|---|---|
-| **Railway root dir** | `/` | `/` |
-| **railway.json** | `railway.json` (repo root) | `question-service/railway.json` |
-| **Dockerfile** | `backend/Dockerfile` | `question-service/Dockerfile.trigger` |
-| **Healthcheck** | `/v1/health` | None (cron/trigger service) |
-| **Watch paths** | `/backend/**` | `/question-service/**` |
-| **Restart policy** | `ON_FAILURE` (max 10) | `NEVER` |
-| **PYTHONPATH** | `/app/backend` | `/app/question-service` |
+| | Backend | Question Service | Redis |
+|---|---|---|---|
+| **Railway root dir** | `/` | `/` | N/A (managed addon) |
+| **railway.json** | `railway.json` (repo root) | `question-service/railway.json` | N/A |
+| **Dockerfile** | `backend/Dockerfile` | `question-service/Dockerfile.trigger` | N/A |
+| **Healthcheck** | `/v1/health` | None (cron/trigger service) | Built-in |
+| **Watch paths** | `/backend/**` | `/question-service/**` | N/A |
+| **Restart policy** | `ON_FAILURE` (max 10) | `NEVER` | N/A |
+| **PYTHONPATH** | `/app/backend` | `/app/question-service` | N/A |
+| **Internal URL** | — | — | `redis.railway.internal:6379` |
+
+The backend uses Redis for three cross-worker concerns: rate limiting (`RATE_LIMIT_REDIS_URL`), token blacklist (`TOKEN_BLACKLIST_REDIS_URL`), and guest test tokens (`GUEST_TOKEN_REDIS_URL`). All reference `${{Redis.REDIS_URL}}` in Railway.
 
 **Critical rule**: The root `railway.json` belongs to the **backend**, not to the whole repo. Changing it affects the backend only. The question-service has its own `question-service/railway.json`. Never merge these or create conflicting configs.
 

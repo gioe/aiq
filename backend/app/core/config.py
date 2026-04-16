@@ -88,8 +88,11 @@ class Settings(BaseSettings):
     # account creation.
     GUEST_TEST_LIMIT: int = 3
     # How long (in minutes) a one-time guest submission token remains valid before
-    # it is evicted from the TTLCache.
+    # it expires.
     GUEST_TOKEN_TTL_MINUTES: int = 45
+    # Redis connection URL for guest token storage (optional, uses in-memory if not set).
+    # Required for multi-worker deployments to avoid cross-process token loss.
+    GUEST_TOKEN_REDIS_URL: str = ""
 
     # Test Composition (P11-004: Standard IQ Test Structure)
     # Based on IQ_TEST_RESEARCH_FINDINGS.txt, Part 5.4 (Test Construction)

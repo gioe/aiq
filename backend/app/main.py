@@ -198,6 +198,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.token_blacklist = token_blacklist
     logger.info("Token blacklist initialized")
 
+    # Initialize guest token store (Redis-backed for multi-worker support)
+    from app.api.v1.guest_test import init_guest_token_store
+
+    guest_token_redis_url = (
+        settings.GUEST_TOKEN_REDIS_URL if settings.GUEST_TOKEN_REDIS_URL else None
+    )
+    init_guest_token_store(redis_url=guest_token_redis_url)
+    logger.info("Guest token store initialized")
+
     # Setup OpenTelemetry tracing, metrics, and logging
     setup_tracing(app)
 
