@@ -315,6 +315,7 @@ async def send_test_push(
 
     Requires X-Admin-Token header with valid admin token.
     """
+    logger.info("admin send-test push requested for email=%s", payload.email)
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     if user is None:
@@ -324,6 +325,7 @@ async def send_test_push(
     if not user.notification_enabled:
         raise_bad_request("Notifications disabled for user")
 
+    token_prefix = user.apns_device_token[:DEVICE_TOKEN_PREFIX_LENGTH]
     service = APNsService()
     try:
         await service.connect()
@@ -339,9 +341,15 @@ async def send_test_push(
     finally:
         await service.disconnect()
 
+    logger.info(
+        "admin send-test push complete user_id=%s device_token_prefix=%s sent=%s",
+        user.id,
+        token_prefix,
+        sent,
+    )
     return SendTestPushResponse(
         message="Test push attempted",
         user_id=user.id,
-        device_token_prefix=user.apns_device_token[:DEVICE_TOKEN_PREFIX_LENGTH],
+        device_token_prefix=token_prefix,
         sent=sent,
     )

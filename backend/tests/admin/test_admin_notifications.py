@@ -474,6 +474,52 @@ class TestSendTestPush:
         assert call_kwargs["user_id"] == target_user.id
         assert call_kwargs["device_token"] == target_user.apns_device_token
 
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.api.v1.admin.notifications.APNsService")
+    def test_returns_200_with_sent_false_on_apns_failure(
+        self, mock_apns_class, client, admin_headers, target_user
+    ):
+        """Surface APNs rejection as 200 with sent=false, not an HTTP error."""
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock()
+        mock_apns.disconnect = AsyncMock()
+        mock_apns.send_notification = AsyncMock(return_value=False)
+        mock_apns_class.return_value = mock_apns
+
+        response = client.post(
+            "/v1/admin/notifications/send-test",
+            headers=admin_headers,
+            json={"email": target_user.email},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_id"] == target_user.id
+        assert data["sent"] is False
+        assert data["device_token_prefix"] == target_user.apns_device_token[:12]
+
+    @patch("app.core.config.settings.ADMIN_TOKEN", "test-admin-token")
+    @patch("app.api.v1.admin.notifications.APNsService")
+    def test_disconnect_runs_when_send_notification_raises(
+        self, mock_apns_class, client, admin_headers, target_user
+    ):
+        """try/finally guarantees disconnect() is awaited even when send_notification raises."""
+        mock_apns = AsyncMock()
+        mock_apns.connect = AsyncMock()
+        mock_apns.disconnect = AsyncMock()
+        mock_apns.send_notification = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_apns_class.return_value = mock_apns
+
+        with pytest.raises(RuntimeError, match="boom"):
+            client.post(
+                "/v1/admin/notifications/send-test",
+                headers=admin_headers,
+                json={"email": target_user.email},
+            )
+
+        mock_apns.connect.assert_awaited_once()
+        mock_apns.disconnect.assert_awaited_once()
+
     def test_requires_admin_token(self, client):
         """Missing X-Admin-Token returns 422 (FastAPI header validation)."""
         response = client.post(
