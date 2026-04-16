@@ -327,6 +327,245 @@ class TestStartTest:
     pass  # test_concurrent_session_creation_returns_409 moved to standalone async test below
 
 
+class TestAbandonCooldown:
+    """Tests for the abandon cooldown enforcement (TASK-455)."""
+
+    @staticmethod
+    def _create_extra_questions(db_session, count):
+        """Create extra questions to satisfy unique constraint on (session, question)."""
+        from app.models import Question
+        from app.models.models import QuestionType, DifficultyLevel
+
+        questions = []
+        for i in range(count):
+            q = Question(
+                question_text=f"Extra cooldown test question {i}",
+                question_type=QuestionType.PATTERN,
+                difficulty_level=DifficultyLevel.EASY,
+                correct_answer="X",
+                answer_options={"A": "X", "B": "Y"},
+                explanation="Test only",
+                source_llm="test-llm",
+                judge_score=0.90,
+                is_active=True,
+            )
+            db_session.add(q)
+            questions.append(q)
+        db_session.commit()
+        for q in questions:
+            db_session.refresh(q)
+        return questions
+
+    def test_abandon_with_7plus_answers_blocks_within_7_days(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Abandoned session with >= 7 responses within 7 days blocks new test."""
+        from app.models import TestSession, User
+        from app.models.models import Response, TestStatus
+        from datetime import datetime, timedelta
+
+        test_user = (
+            db_session.query(User).filter(User.email == "test@example.com").first()
+        )
+        extra_qs = self._create_extra_questions(db_session, 7)
+
+        # Create an abandoned session from 3 days ago with 7 responses
+        abandoned_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.ABANDONED,
+            started_at=datetime.utcnow() - timedelta(days=3, hours=1),
+            completed_at=datetime.utcnow() - timedelta(days=3),
+        )
+        db_session.add(abandoned_session)
+        db_session.commit()
+        db_session.refresh(abandoned_session)
+
+        for i in range(7):
+            resp = Response(
+                test_session_id=abandoned_session.id,
+                user_id=test_user.id,
+                question_id=extra_qs[i].id,
+                user_answer="A",
+                is_correct=True,
+                answered_at=datetime.utcnow() - timedelta(days=3),
+            )
+            db_session.add(resp)
+        db_session.commit()
+
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+
+        assert response.status_code == 400
+        detail = response.json()["detail"]
+        assert "7 days" in detail
+        assert "abandoning" in detail
+        assert "days remaining" in detail
+
+    def test_abandon_with_fewer_than_7_answers_does_not_block(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Abandoned session with < 7 responses does not block new test."""
+        from app.models import TestSession, User
+        from app.models.models import Response, TestStatus
+        from datetime import datetime, timedelta
+
+        test_user = (
+            db_session.query(User).filter(User.email == "test@example.com").first()
+        )
+
+        # Create an abandoned session from 3 days ago with 5 responses
+        abandoned_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.ABANDONED,
+            started_at=datetime.utcnow() - timedelta(days=3, hours=1),
+            completed_at=datetime.utcnow() - timedelta(days=3),
+        )
+        db_session.add(abandoned_session)
+        db_session.commit()
+        db_session.refresh(abandoned_session)
+
+        for i in range(5):
+            resp = Response(
+                test_session_id=abandoned_session.id,
+                user_id=test_user.id,
+                question_id=test_questions[i % len(test_questions)].id,
+                user_answer="A",
+                is_correct=True,
+                answered_at=datetime.utcnow() - timedelta(days=3),
+            )
+            db_session.add(resp)
+        db_session.commit()
+
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "session" in data
+        assert data["session"]["status"] == "in_progress"
+
+    def test_abandon_with_0_answers_does_not_block(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Abandoned session with 0 responses does not block new test."""
+        from app.models import TestSession, User
+        from app.models.models import TestStatus
+        from datetime import datetime, timedelta
+
+        test_user = (
+            db_session.query(User).filter(User.email == "test@example.com").first()
+        )
+
+        # Create an abandoned session from 3 days ago with NO responses
+        abandoned_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.ABANDONED,
+            started_at=datetime.utcnow() - timedelta(days=3, hours=1),
+            completed_at=datetime.utcnow() - timedelta(days=3),
+        )
+        db_session.add(abandoned_session)
+        db_session.commit()
+
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "session" in data
+        assert data["session"]["status"] == "in_progress"
+
+    def test_abandon_cooldown_expires_after_7_days(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """Abandoned session with 10 responses older than 7 days does not block."""
+        from app.models import TestSession, User
+        from app.models.models import Response, TestStatus
+        from datetime import datetime, timedelta
+
+        test_user = (
+            db_session.query(User).filter(User.email == "test@example.com").first()
+        )
+        extra_qs = self._create_extra_questions(db_session, 10)
+
+        # Create an abandoned session from 8 days ago with 10 responses
+        abandoned_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.ABANDONED,
+            started_at=datetime.utcnow() - timedelta(days=8, hours=1),
+            completed_at=datetime.utcnow() - timedelta(days=8),
+        )
+        db_session.add(abandoned_session)
+        db_session.commit()
+        db_session.refresh(abandoned_session)
+
+        for i in range(10):
+            resp = Response(
+                test_session_id=abandoned_session.id,
+                user_id=test_user.id,
+                question_id=extra_qs[i].id,
+                user_answer="A",
+                is_correct=True,
+                answered_at=datetime.utcnow() - timedelta(days=8),
+            )
+            db_session.add(resp)
+        db_session.commit()
+
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "session" in data
+        assert data["session"]["status"] == "in_progress"
+
+    def test_bypass_cooldown_skips_abandon_check(
+        self, client, auth_headers, test_questions, db_session
+    ):
+        """User with bypass_cooldown=True can start test despite recent substantive abandon."""
+        from app.models import TestSession, User
+        from app.models.models import Response, TestStatus
+        from datetime import datetime, timedelta
+
+        test_user = (
+            db_session.query(User).filter(User.email == "test@example.com").first()
+        )
+        extra_qs = self._create_extra_questions(db_session, 7)
+
+        # Set bypass_cooldown on user
+        test_user.bypass_cooldown = True
+        db_session.commit()
+
+        # Create an abandoned session from 3 days ago with 7 responses
+        abandoned_session = TestSession(
+            user_id=test_user.id,
+            status=TestStatus.ABANDONED,
+            started_at=datetime.utcnow() - timedelta(days=3, hours=1),
+            completed_at=datetime.utcnow() - timedelta(days=3),
+        )
+        db_session.add(abandoned_session)
+        db_session.commit()
+        db_session.refresh(abandoned_session)
+
+        for i in range(7):
+            resp = Response(
+                test_session_id=abandoned_session.id,
+                user_id=test_user.id,
+                question_id=extra_qs[i].id,
+                user_answer="A",
+                is_correct=True,
+                answered_at=datetime.utcnow() - timedelta(days=3),
+            )
+            db_session.add(resp)
+        db_session.commit()
+
+        response = client.post("/v1/test/start?question_count=2", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "session" in data
+        assert data["session"]["status"] == "in_progress"
+
+        # Clean up: reset bypass_cooldown
+        test_user.bypass_cooldown = False
+        db_session.commit()
+
+
 async def test_concurrent_session_creation_returns_409(
     async_client, async_auth_headers, async_db_session, async_test_user
 ):
