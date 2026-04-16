@@ -70,6 +70,10 @@ enum Constants {
         /// Progress validity duration in seconds (24 hours)
         /// Saved test progress is only valid if saved within this time window
         static let progressValidityDuration: TimeInterval = 24 * 60 * 60
+
+        /// Minimum number of answered questions for an abandon to be "substantive"
+        /// Matches the backend's ABANDON_ANSWER_THRESHOLD setting
+        static let abandonAnswerThreshold: Int = 7
     }
 
     // MARK: - Analytics Constants

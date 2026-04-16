@@ -119,6 +119,9 @@ enum AccessibilityIdentifiers {
         static let loadingOverlay = "testTakingView.loadingOverlay"
         static let loadFailureOverlay = "testTakingView.loadFailureOverlay"
         static let submitErrorBanner = "testTakingView.submitErrorBanner"
+        static let exitConfirmButton = "testTakingView.exitConfirmButton"
+        static let exitCancelButton = "testTakingView.exitCancelButton"
+        static let exitConfirmationModal = "testTakingView.exitConfirmationModal"
 
         /// Generate identifier for answer button at specific index
         static func answerButton(at index: Int) -> String {
