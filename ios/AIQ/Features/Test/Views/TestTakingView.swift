@@ -145,21 +145,11 @@ struct TestTakingView: View {
         } message: {
             Text("You have an incomplete test. Would you like to resume where you left off?")
         }
-        .alert("Exit Test?", isPresented: Binding(
-            get: { viewModel.showExitConfirmation },
-            set: { if !$0 { viewModel.cancelExit() } }
-        )) {
-            Button("Exit", role: .destructive) {
-                Task {
-                    await viewModel.abandonTest()
-                    router.popToRoot()
-                }
+        .overlay {
+            if viewModel.showExitConfirmation {
+                exitConfirmationModal
+                    .transition(.opacity)
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            let answered = viewModel.answeredCount
-            let total = viewModel.totalQuestionCount
-            Text("You've answered \(answered) of \(total) questions. Are you sure you want to exit?")
         }
         .alert("Test in Progress", isPresented: .constant(viewModel.isActiveSessionConflict)) {
             if let sessionId = conflictingSessionId {
@@ -310,6 +300,42 @@ struct TestTakingView: View {
             message: "You're next eligible on \(dateString). \(days) day\(days == 1 ? "" : "s") remaining.",
             actionTitle: "Go Back",
             action: { router.pop() }
+        )
+    }
+
+    private var exitConfirmationMessage: String {
+        let answered = viewModel.answeredCount
+        let total = viewModel.totalQuestionCount
+        if answered >= Constants.Test.abandonAnswerThreshold {
+            return "You've answered \(answered) of \(total) questions. " +
+                "Your answers will not be scored, and this will count as a test attempt. " +
+                "You'll need to wait before you can retake the test."
+        } else {
+            return "You've answered \(answered) of \(total) questions. " +
+                "Your answers will not be scored."
+        }
+    }
+
+    private var exitConfirmationModal: some View {
+        ConfirmationModal(
+            iconName: "exclamationmark.triangle",
+            title: "Exit Test?",
+            message: exitConfirmationMessage,
+            confirmLabel: "Exit",
+            confirmAccessibilityLabel: "Exit test",
+            confirmAccessibilityHint: "Double tap to exit the test without scoring",
+            confirmAccessibilityIdentifier: AccessibilityIdentifiers.TestTakingView.exitConfirmButton,
+            cancelAccessibilityHint: "Double tap to continue the test",
+            cancelAccessibilityIdentifier: AccessibilityIdentifiers.TestTakingView.exitCancelButton,
+            modalAccessibilityIdentifier: AccessibilityIdentifiers.TestTakingView.exitConfirmationModal,
+            onConfirm: {
+                viewModel.cancelExit()
+                Task {
+                    await viewModel.abandonTest()
+                    router.popToRoot()
+                }
+            },
+            onCancel: { viewModel.cancelExit() }
         )
     }
 
