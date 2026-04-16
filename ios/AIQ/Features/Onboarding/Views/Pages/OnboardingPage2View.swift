@@ -1,8 +1,8 @@
 import AIQSharedKit
 import SwiftUI
 
-/// Onboarding Page 2: How Tests Work
-/// Explains the test-taking process
+/// Onboarding Page 2: What AIQ Does For You
+/// Explains the app experience and cognitive tracking benefits
 struct OnboardingPage2View: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.appTheme) private var theme
@@ -12,7 +12,7 @@ struct OnboardingPage2View: View {
         ScrollView {
             VStack(spacing: DesignSystem.Spacing.xxxl) {
                 // Header Icon
-                Image(systemName: "puzzlepiece.extension.fill")
+                Image(systemName: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 80))
                     .foregroundColor(theme.colors.statBlue)
                     .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.05 : 1.0))

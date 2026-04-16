@@ -674,13 +674,13 @@
 "onboarding.page1.feature.ai" = "Fresh questions generated daily using AI";
 "onboarding.page1.feature.privacy" = "Private and secure - your data stays yours";
 
-// MARK: - Onboarding Page 2 - How Tests Work
-"onboarding.page2.title" = "How AIQ Tests Work";
-"onboarding.page2.subtitle" = "Each test is designed to comprehensively assess your cognitive abilities across multiple domains.";
-"onboarding.page2.step1" = "Answer 25 unique questions across different cognitive domains";
-"onboarding.page2.step2" = "Complete the test in one sitting (approximately 20-25 minutes)";
-"onboarding.page2.step3" = "Receive your AIQ score and detailed performance breakdown";
-"onboarding.page2.info.note" = "Questions are refreshed daily, so every test is unique.";
+// MARK: - Onboarding Page 2 - What AIQ Does For You
+"onboarding.page2.title" = "Your Cognitive Dashboard";
+"onboarding.page2.subtitle" = "AIQ gives you the tools to understand and track your cognitive performance over time.";
+"onboarding.page2.step1" = "Take periodic assessments with 25 AI-generated questions";
+"onboarding.page2.step2" = "See how your score changes across sessions with detailed breakdowns";
+"onboarding.page2.step3" = "Discover your cognitive strengths and areas for growth";
+"onboarding.page2.info.note" = "Each test is unique — questions are refreshed daily using AI.";
 
 // MARK: - Onboarding Page 3 - Testing Frequency
 "onboarding.page3.title" = "Test Every 3 Months";
