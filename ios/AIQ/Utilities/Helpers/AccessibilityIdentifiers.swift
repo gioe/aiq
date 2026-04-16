@@ -328,14 +328,6 @@ enum AccessibilityIdentifiers {
         }
     }
 
-    // MARK: - Pre-Test Info View
-
-    enum PreTestInfoView {
-        static let startTestButton = "preTestInfoView.startTestButton"
-        static let notNowButton = "preTestInfoView.notNowButton"
-        static let dontShowAgainToggle = "preTestInfoView.dontShowAgainToggle"
-    }
-
     // MARK: - Pre-Test Onboarding View
 
     enum PreTestOnboardingView {

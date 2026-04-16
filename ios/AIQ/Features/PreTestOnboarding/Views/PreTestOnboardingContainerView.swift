@@ -1,11 +1,10 @@
 import AIQSharedKit
 import SwiftUI
 
-/// Full-screen pre-test onboarding flow shown before a first-time user's test.
+/// Multi-page pre-test onboarding experience shown before a first-time user's test.
 ///
-/// Replaces the previous two-sheet approach (PreTestInfoView + NotificationSoftPromptView)
-/// with a single multi-page experience. Pages cover test overview, testing rules, integrity
-/// messaging, and an optional notification permission pitch.
+/// Pages cover test overview, testing rules, integrity messaging, and an optional
+/// notification permission pitch.
 ///
 /// Gate: `PreTestInfoGate.shouldShow()` (unchanged from DashboardView).
 /// Persistence: sets `hasSeenPreTestInfo = true` on completion via the `onComplete` callback.

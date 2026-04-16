@@ -720,17 +720,6 @@
 "toast.type.warning" = "Warning";
 "toast.type.info" = "Information";
 
-// MARK: - Pre-Test Info Modal
-"pretest.info.title" = "Before You Begin";
-"pretest.info.duration" = "~25 minutes, one sitting";
-"pretest.info.baseline" = "Score recorded as your baseline";
-"pretest.info.environment" = "Find a quiet, focused space";
-"pretest.info.retest" = "Retest recommended every 3 months";
-"pretest.info.dont.show.again" = "Don't Show Again";
-"pretest.info.start.button" = "I'm Ready — Start Test";
-"pretest.info.not.now.button" = "Not Now";
-"pretest.info.close.accessibility" = "Close pre-test info";
-
 // MARK: - Pre-Test Onboarding
 "pretest.onboarding.page1.title" = "Your Assessment";
 "pretest.onboarding.page1.subtitle" = "Here's what to expect";
