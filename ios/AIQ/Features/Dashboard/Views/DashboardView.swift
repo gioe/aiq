@@ -252,15 +252,10 @@ struct DashboardView: View {
 
     /// Gate condition for showing the pre-test onboarding flow.
     ///
-    /// The flow is shown when the user has not yet seen it AND meets at least one of:
-    /// - No completed tests (first-time user)
-    /// - Previously skipped onboarding
+    /// Shown once to any user who hasn't yet completed the onboarding flow,
+    /// regardless of test count or prior skip status.
     private var shouldShowPreTestInfo: Bool {
-        PreTestInfoGate.shouldShow(
-            testCount: viewModel.testCount,
-            didSkipOnboarding: didSkipOnboarding,
-            hasSeenPreTestInfo: hasSeenPreTestInfo
-        )
+        PreTestInfoGate.shouldShow(hasSeenPreTestInfo: hasSeenPreTestInfo)
     }
 
     /// Entry point for "Start Test" taps from the dashboard.
