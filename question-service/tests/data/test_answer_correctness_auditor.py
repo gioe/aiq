@@ -115,8 +115,8 @@ class TestRunAnswerCorrectnessAudit:
         result = run_answer_correctness_audit(factory, judge, config)
         assert result["failed"] == 1
         assert result["deactivated"] == 1
-        # Two commits: one for audit results, one for persisting audit run
-        assert session.commit.call_count == 2
+        # Three commits: audit results, record_pipeline_run, persist session
+        assert session.commit.call_count == 3
 
     def test_bucket_safety_prevents_deactivation(self):
         """Should not deactivate if it would breach MIN_ACTIVE_PER_BUCKET."""
@@ -161,8 +161,8 @@ class TestRunAnswerCorrectnessAudit:
         judge = _make_judge()
         config = _make_judge_config()
         run_answer_correctness_audit(factory, judge, config)
-        # Two close calls: audit session + persist session
-        assert session.close.call_count == 2
+        # Three close calls: audit session, record_pipeline_run, persist session
+        assert session.close.call_count == 3
 
     def test_session_rolled_back_on_error(self):
         session = MagicMock()
