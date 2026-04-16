@@ -34,3 +34,4 @@ class NotificationType(str, enum.Enum):
     TEST_REMINDER = "test_reminder"
     DAY_30_REMINDER = "day_30_reminder"
     LOGOUT_ALL = "logout_all"
+    ADMIN_TEST = "admin_test"
