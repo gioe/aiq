@@ -20,12 +20,28 @@ struct TestExitConfirmationModifier: ViewModifier {
     let identifiers: TestExitConfirmationIdentifiers
     let onConfirmExit: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.appTheme) private var theme
+
     func body(content: Content) -> some View {
         content.overlay {
             if viewModel.showExitConfirmation {
-                modal.transition(.opacity)
+                modal.transition(modalTransition)
             }
         }
+        .animation(modalAnimation, value: viewModel.showExitConfirmation)
+    }
+
+    private var modalTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: 0.96)),
+            removal: .opacity
+        )
+    }
+
+    private var modalAnimation: Animation {
+        reduceMotion ? .linear(duration: 0.2) : theme.animations.quick
     }
 
     private var message: String {
