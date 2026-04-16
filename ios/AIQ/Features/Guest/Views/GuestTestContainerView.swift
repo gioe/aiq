@@ -70,7 +70,7 @@ struct GuestTestContainerView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if !viewModel.isTestCompleted {
                         Button("Exit") {
-                            handleExit()
+                            viewModel.requestExitOrClose(close: onExit)
                         }
                         .frame(minWidth: 44, minHeight: 44)
                         .accessibilityLabel("Exit test")
@@ -90,12 +90,15 @@ struct GuestTestContainerView: View {
                 warningBannerDismissed: $warningBannerDismissed,
                 onExpire: handleTimerExpiration
             ))
-            .overlay {
-                if viewModel.showExitConfirmation {
-                    exitConfirmationModal
-                        .transition(.opacity)
-                }
-            }
+            .testExitConfirmation(
+                viewModel: viewModel,
+                identifiers: TestExitConfirmationIdentifiers(
+                    confirmButton: AccessibilityIdentifiers.GuestTestContainerView.exitConfirmButton,
+                    cancelButton: AccessibilityIdentifiers.GuestTestContainerView.exitCancelButton,
+                    modal: AccessibilityIdentifiers.GuestTestContainerView.exitConfirmationModal
+                ),
+                onConfirmExit: onExit
+            )
             .alert("Time's Up!", isPresented: Binding(
                 get: { viewModel.showTimeExpiredAlert },
                 set: { if !$0 { viewModel.dismissTimeExpiredAlert() } }
@@ -312,51 +315,6 @@ struct GuestTestContainerView: View {
                 handleTimerExpiration()
             }
         }
-    }
-
-    private func handleExit() {
-        if !viewModel.isTestCompleted {
-            viewModel.requestExit()
-        } else {
-            onExit()
-        }
-    }
-
-    // MARK: - Exit Confirmation
-
-    private var exitConfirmationMessage: String {
-        let answered = viewModel.answeredCount
-        let total = viewModel.totalQuestionCount
-        if answered == 0 {
-            return "You haven't answered any questions yet. You can come back and take the test anytime."
-        } else if answered >= Constants.Test.abandonAnswerThreshold {
-            return "You've answered \(answered) of \(total) questions. " +
-                "Your answers will not be scored, and this will count as a test attempt. " +
-                "You'll need to wait before you can retake the test."
-        } else {
-            return "You've answered \(answered) of \(total) questions. " +
-                "Your answers will not be scored."
-        }
-    }
-
-    private var exitConfirmationModal: some View {
-        ConfirmationModal(
-            iconName: "exclamationmark.triangle",
-            title: "Exit Test?",
-            message: exitConfirmationMessage,
-            confirmLabel: "Exit",
-            confirmAccessibilityLabel: "Exit test",
-            confirmAccessibilityHint: "Double tap to exit the test without scoring",
-            confirmAccessibilityIdentifier: AccessibilityIdentifiers.GuestTestContainerView.exitConfirmButton,
-            cancelAccessibilityHint: "Double tap to continue the test",
-            cancelAccessibilityIdentifier: AccessibilityIdentifiers.GuestTestContainerView.exitCancelButton,
-            modalAccessibilityIdentifier: AccessibilityIdentifiers.GuestTestContainerView.exitConfirmationModal,
-            onConfirm: {
-                viewModel.cancelExit()
-                onExit()
-            },
-            onCancel: { viewModel.cancelExit() }
-        )
     }
 
     private func handleTimerExpiration() {

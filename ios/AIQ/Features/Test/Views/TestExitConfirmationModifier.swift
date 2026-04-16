@@ -1,3 +1,4 @@
+import AIQSharedKit
 import SwiftUI
 
 /// Accessibility identifier bundle for the per-site exit-confirmation modal.
