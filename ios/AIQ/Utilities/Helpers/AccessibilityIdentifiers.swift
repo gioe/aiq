@@ -357,11 +357,23 @@ enum AccessibilityIdentifiers {
         static let loadingNextQuestion = "adaptiveTestView.loadingNextQuestion"
         static let submitAndContinueButton = "adaptiveTestView.submitAndContinueButton"
         static let exitButton = "adaptiveTestView.exitButton"
+        static let exitConfirmButton = "adaptiveTestView.exitConfirmButton"
+        static let exitCancelButton = "adaptiveTestView.exitCancelButton"
+        static let exitConfirmationModal = "adaptiveTestView.exitConfirmationModal"
         static let loadingOverlay = "adaptiveTestView.loadingOverlay"
 
         /// Generate identifier for domain icon for specific domain
         static func domainIcon(for domain: String) -> String {
             "adaptiveTestView.domainIcon.\(domain)"
         }
+    }
+
+    // MARK: - Guest Test Container View
+
+    enum GuestTestContainerView {
+        static let exitButton = "guestTestContainerView.exitButton"
+        static let exitConfirmButton = "guestTestContainerView.exitConfirmButton"
+        static let exitCancelButton = "guestTestContainerView.exitCancelButton"
+        static let exitConfirmationModal = "guestTestContainerView.exitConfirmationModal"
     }
 }
