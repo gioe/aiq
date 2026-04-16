@@ -10,10 +10,14 @@ import threading
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.error_responses import raise_bad_request, raise_not_found
 from app.models import get_db
+from app.models.models import NotificationType, User
+from app.services.apns_service import DEVICE_TOKEN_PREFIX_LENGTH, APNsService
 from app.services.notification_scheduler import (
     NotificationScheduler,
     get_users_for_day_30_reminder,
@@ -272,4 +276,72 @@ async def preview_test_reminders(
         message=f"Found {len(users)} users eligible for test reminders",
         users_count=len(users),
         users=user_previews,
+    )
+
+
+# --- Ad-Hoc Test Push Endpoint ---
+
+
+class SendTestPushRequest(BaseModel):
+    """Request model for sending an ad-hoc test push to a single user by email."""
+
+    email: EmailStr
+
+
+class SendTestPushResponse(BaseModel):
+    """Response model for the ad-hoc test push endpoint."""
+
+    message: str
+    user_id: int
+    device_token_prefix: str
+    sent: bool
+
+
+@router.post(
+    "/notifications/send-test",
+    response_model=SendTestPushResponse,
+)
+async def send_test_push(
+    payload: SendTestPushRequest,
+    db: AsyncSession = Depends(get_db),
+    _: bool = Depends(verify_admin_token),
+) -> SendTestPushResponse:
+    """
+    Send a single ad-hoc test push to a specific user by email.
+
+    Useful for verifying an individual device's APNs wiring without triggering
+    a cohort send. Uses NotificationType.ADMIN_TEST so admin pings are tracked
+    separately from real reminder analytics.
+
+    Requires X-Admin-Token header with valid admin token.
+    """
+    result = await db.execute(select(User).where(User.email == payload.email))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise_not_found(f"No user with email {payload.email}")
+    if not user.apns_device_token:
+        raise_bad_request("User has no registered device token")
+    if not user.notification_enabled:
+        raise_bad_request("Notifications disabled for user")
+
+    service = APNsService()
+    try:
+        await service.connect()
+        sent = await service.send_notification(
+            device_token=user.apns_device_token,
+            title="AIQ Test Notification",
+            body="This is a test push from the admin tool.",
+            sound="default",
+            data={"type": NotificationType.ADMIN_TEST.value},
+            notification_type=NotificationType.ADMIN_TEST,
+            user_id=user.id,
+        )
+    finally:
+        await service.disconnect()
+
+    return SendTestPushResponse(
+        message="Test push attempted",
+        user_id=user.id,
+        device_token_prefix=user.apns_device_token[:DEVICE_TOKEN_PREFIX_LENGTH],
+        sent=sent,
     )
