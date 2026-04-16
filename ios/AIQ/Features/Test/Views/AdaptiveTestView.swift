@@ -291,7 +291,7 @@ struct AdaptiveTestView: View {
     }
 
     private func handleExit() {
-        if viewModel.answeredCount > 0 && !viewModel.isTestCompleted {
+        if !viewModel.isTestCompleted {
             viewModel.requestExit()
         } else {
             router.pop()
@@ -303,7 +303,9 @@ struct AdaptiveTestView: View {
     private var exitConfirmationMessage: String {
         let answered = viewModel.answeredCount
         let total = viewModel.totalQuestionCount
-        if answered >= Constants.Test.abandonAnswerThreshold {
+        if answered == 0 {
+            return "You haven't answered any questions yet. You can come back and take the test anytime."
+        } else if answered >= Constants.Test.abandonAnswerThreshold {
             return "You've answered \(answered) of \(total) questions. " +
                 "Your answers will not be scored, and this will count as a test attempt. " +
                 "You'll need to wait before you can retake the test."
