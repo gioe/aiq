@@ -292,6 +292,7 @@
 		DE26C7951AAB60EB5CD6CC38 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6EB3193E45966F81982468 /* AuthManager.swift */; };
 		DF74B1F9E96C0CC76B5CBDA5 /* MockAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A16988A601D72DDA897C6605 /* MockAuthManager.swift */; };
 		E0AC6258EC827804E036B3DF /* AIComparisonCardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5169502BD744EB44262DF9D5 /* AIComparisonCardUITests.swift */; };
+		E13F58C7A2FBCB0582A3FD52 /* SwipeBackGestureBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6CBBB92FE40B246B027289D /* SwipeBackGestureBlocker.swift */; };
 		E22045BF2DEC6A933D130442 /* TabNavigationIsolationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 864D0C1119BD772731133D6D /* TabNavigationIsolationTests.swift */; };
 		E311311A5DB43E3067D9F958 /* SettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1060D68A34C714AEE7BAB31E /* SettingsViewModelTests.swift */; };
 		E34BEF93B56C5138914B3397 /* WhatsNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8C9BEA8CAFD519E137F6B8 /* WhatsNew.swift */; };
@@ -562,6 +563,7 @@
 		A527ED0A7F3343E397A3E61E /* WhatsNew.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; name = WhatsNew.json; path = Resources/WhatsNew.json; sourceTree = "<group>"; };
 		A5B06BA013E990ABEEDA78DD /* DifficultyBadgeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DifficultyBadgeTests.swift; sourceTree = "<group>"; };
 		A6C113F55160505AB65C0AA7 /* RegistrationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelTests.swift; sourceTree = "<group>"; };
+		A6CBBB92FE40B246B027289D /* SwipeBackGestureBlocker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SwipeBackGestureBlocker.swift; sourceTree = "<group>"; };
 		A85927AD9092DE898E5DE90E /* UITestMockLocalAnswerStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UITestMockLocalAnswerStorage.swift; sourceTree = "<group>"; };
 		A87A0F40088DF4416039ED00 /* OfflineOperationQueueTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OfflineOperationQueueTests.swift; sourceTree = "<group>"; };
 		A9AB97ECC1B5B3205BADE631 /* HistoryViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HistoryViewModel.swift; path = Features/History/ViewModels/HistoryViewModel.swift; sourceTree = "<group>"; };
@@ -1428,6 +1430,7 @@
 				1ED9E9E00C2A95B6B07A5E45 /* DifficultyBadge.swift */,
 				5263BA09E40CEEF3EA67CFF1 /* ScreenshotBypass.swift */,
 				C1D7EE50432B241025AE5298 /* PreTestInfoGate.swift */,
+				A6CBBB92FE40B246B027289D /* SwipeBackGestureBlocker.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -2008,6 +2011,7 @@
 				84869D8CEAB91EEFEE632F64 /* PreTestIntegrityPageView.swift in Sources */,
 				A97CB81D2AAE9FAB2A688BF9 /* PreTestNotificationsPageView.swift in Sources */,
 				5CEAEDA646779E0EAAE51E42 /* PreTestInfoGate.swift in Sources */,
+				E13F58C7A2FBCB0582A3FD52 /* SwipeBackGestureBlocker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

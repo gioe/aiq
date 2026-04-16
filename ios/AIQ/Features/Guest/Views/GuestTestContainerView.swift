@@ -65,6 +65,7 @@ struct GuestTestContainerView: View {
             .navigationTitle("AIQ Test")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
+            .swipeBackDisabled(!viewModel.isTestCompleted)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if !viewModel.isTestCompleted {

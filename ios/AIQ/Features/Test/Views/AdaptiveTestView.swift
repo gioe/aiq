@@ -64,6 +64,7 @@ struct AdaptiveTestView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .navigationBarBackButtonHidden(true)
+        .swipeBackDisabled(!viewModel.isTestCompleted)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Exit") {
