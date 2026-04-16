@@ -39,6 +39,10 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
     var lastRegistrationError: Error?
     var unregisterDeviceTokenCalled = false
     var retryDeviceTokenRegistrationCalled = false
+    var ensureRemoteNotificationRegistrationIfAuthorizedCalled = false
+    var ensureRemoteNotificationRegistrationIfAuthorizedCallCount = 0
+    var handleAppDidBecomeActiveCalled = false
+    var handleAppDidBecomeActiveCallCount = 0
 
     // MARK: - Mock Configuration
 
@@ -108,6 +112,16 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
         retryDeviceTokenRegistrationCalled = true
     }
 
+    func ensureRemoteNotificationRegistrationIfAuthorized() async {
+        ensureRemoteNotificationRegistrationIfAuthorizedCalled = true
+        ensureRemoteNotificationRegistrationIfAuthorizedCallCount += 1
+    }
+
+    func handleAppDidBecomeActive() async {
+        handleAppDidBecomeActiveCalled = true
+        handleAppDidBecomeActiveCallCount += 1
+    }
+
     // MARK: - Helper Methods
 
     func setAuthorizationStatus(_ status: UNAuthorizationStatus) {
@@ -131,6 +145,10 @@ class MockNotificationManager: ObservableObject, NotificationManagerProtocol {
         lastRegistrationError = nil
         unregisterDeviceTokenCalled = false
         retryDeviceTokenRegistrationCalled = false
+        ensureRemoteNotificationRegistrationIfAuthorizedCalled = false
+        ensureRemoteNotificationRegistrationIfAuthorizedCallCount = 0
+        handleAppDidBecomeActiveCalled = false
+        handleAppDidBecomeActiveCallCount = 0
 
         authorizationStatus = .notDetermined
         isDeviceTokenRegistered = false

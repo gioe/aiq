@@ -215,6 +215,32 @@ class NotificationManager: ObservableObject, NotificationManagerProtocol, Device
         }
     }
 
+    /// Re-register the app with APNs when the user has already granted notification permission.
+    ///
+    /// Apple recommends calling `registerForRemoteNotifications()` every launch so rotated tokens
+    /// reach the backend. This also covers the case where a previous launch received a token but
+    /// the initial POST to `/v1/notifications/register-device` failed silently (e.g. because the
+    /// user was not yet authenticated). Safe to call repeatedly — no-ops when authorization status
+    /// is `.notDetermined` or `.denied`.
+    func ensureRemoteNotificationRegistrationIfAuthorized() async {
+        let status = await notificationCenter.getAuthorizationStatus()
+        if status != authorizationStatus {
+            authorizationStatus = status
+        }
+        guard status == .authorized || status == .provisional else { return }
+        application.registerForRemoteNotifications()
+    }
+
+    /// Handle the app becoming active. If authorization is granted but the device token has not
+    /// yet been registered with the backend, retry the POST using any cached token. No-ops when
+    /// the token is already registered or the user has not granted permission.
+    func handleAppDidBecomeActive() async {
+        guard !isDeviceTokenRegistered else { return }
+        let status = await notificationCenter.getAuthorizationStatus()
+        guard status == .authorized || status == .provisional else { return }
+        await retryDeviceTokenRegistration()
+    }
+
     /// Handle device token received from APNs
     /// - Parameter deviceToken: The device token data
     func didReceiveDeviceToken(_ deviceToken: Data) {

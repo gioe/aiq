@@ -50,11 +50,25 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             backgroundRefreshManager.registerBackgroundTask()
         }
 
-        // Note: We don't request notification permissions at launch anymore
-        // Permissions are requested when user explicitly enables notifications in Settings
-        // This provides better UX and follows Apple's guidelines
+        // Re-register with APNs if the user has already granted notification permission so
+        // rotated device tokens reach the backend and any previous registration POST that
+        // failed (e.g., while unauthenticated) gets another chance to sync. No-op when the
+        // user has not yet granted permission — we still never prompt at launch.
+        Task { @MainActor in
+            await notificationManager.ensureRemoteNotificationRegistrationIfAuthorized()
+        }
 
         return true
+    }
+
+    // MARK: - Lifecycle
+
+    func applicationDidBecomeActive(_: UIApplication) {
+        // When the app foregrounds, retry any device-token POST that did not reach the backend
+        // on launch (e.g., the token arrived before the user was authenticated).
+        Task { @MainActor in
+            await notificationManager.handleAppDidBecomeActive()
+        }
     }
 
     // MARK: - TrustKit Initialization

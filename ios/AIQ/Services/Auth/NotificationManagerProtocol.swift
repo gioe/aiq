@@ -40,6 +40,14 @@ protocol NotificationManagerProtocol: AnyObject {
     /// Check and update current authorization status
     func checkAuthorizationStatus() async
 
+    /// Re-register the app with APNs when the user has already granted notification permission.
+    /// Safe to call every launch — no-ops when status is `.notDetermined` or `.denied`.
+    func ensureRemoteNotificationRegistrationIfAuthorized() async
+
+    /// Retry a pending device-token POST when the app becomes active. No-ops when the user has
+    /// not granted permission, no token is cached, or the token is already registered.
+    func handleAppDidBecomeActive() async
+
     /// Retry registration with cached device token
     func retryDeviceTokenRegistration() async
 

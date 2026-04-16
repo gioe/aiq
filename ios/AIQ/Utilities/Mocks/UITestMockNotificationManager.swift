@@ -57,6 +57,14 @@ import UserNotifications
             isDeviceTokenRegistered = true
         }
 
+        func ensureRemoteNotificationRegistrationIfAuthorized() async {
+            // No-op for UI tests
+        }
+
+        func handleAppDidBecomeActive() async {
+            // No-op for UI tests
+        }
+
         func didReceiveDeviceToken(_: Data) {
             isDeviceTokenRegistered = true
         }
