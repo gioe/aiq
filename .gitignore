@@ -35,6 +35,7 @@ ios/fastlane/screenshots/**/*.png
 ios/fastlane/test_output
 ios/fastlane/README.md
 ios/build/
+ios/build-device/
 *.mobileprovision
 # Xcode user state files
 *.xcuserstate

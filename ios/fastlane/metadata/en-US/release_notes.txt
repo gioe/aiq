@@ -1,3 +1,55 @@
-• Privacy compliance updates
-• Performance improvements
-• Bug fixes
+New Features
+• Add exit modal accessibility identifiers for AdaptiveTestView and GuestTestContainerView
+• Add Round up comment to abandon cooldown days_remaining for consistency
+• Add empty response warning logging to Google provider (sync + async) for diagnostic parity with Anthropic
+• Add unit tests for safe_json_loads covering single, concatenated, markdown-wrapped, and error cases
+• Add accessibility identifiers and localization strings for pre-test onboarding flow
+• Add Railway cron config for daily 9 AM UTC notification service
+• Add POST /v1/admin/test-reminders/send and GET /v1/admin/test-reminders/preview endpoints mirroring Day 30 pattern with threading lock and admin auth
+• Add column/table blocklist to admin SQL query endpoint
+• Add tests for SQL validation rejecting non-SELECT/WITH statements
+• Add semicolon check to SQL endpoint for multi-statement rejection
+• Add unit tests for aiq-data CLI
+• Add migration script to create audit_runs table matching AuditRunModel schema
+• Add dedicated unit tests for track_costs() context manager
+• Add **kwargs to fake_urlopen mock to accept context kwarg from gioe_libs.alerting
+• Add standalone run_correctness_audit.py CLI entry point
+• Add --max-questions and --audit-window-hours CLI flags to run_generation.py
+• Add remote-notification to UIBackgroundModes in Info.plist
+
+Bug Fixes
+• Apply review fixes
+• Apply same fix to GuestTestContainerView for parity
+• Fix guest token multi-worker race condition with Redis-backed token store
+• Fix mock call count assertions to account for record_pipeline_run extra commit/close
+• Update onboarding page 2 copy: fix 20-25 min → accurate timing, reframe as app-level cognitive dashboard overview
+• Apply review fixes: allowlist SQL validation, lazy engine, context manager, GROUP BY for inventory, README description
+• Apply review fixes: replace track_costs().__enter__() with reset_cost_tracker()
+• Apply review fixes: add unit tests and optimize details list
+• Apply review fixes: remove unused patch decorators, fix misleading docstring
+• Apply review fixes: skip verification for single-option questions, case-insensitive answer comparison, fix approval metrics correction, add skipped verification metric
+• Fix metrics to account for leakage rejections in approved flag
+• Fix audit_runs migration to skip if table already exists
+
+Improvements
+• Replace APNs-flow print() with Logger for production diagnosis
+• Apply spring/scale polish to SettingsView confirmation modals
+• Replace opacity-only exit modal transition with spring + scale
+• Migrate TestTakingView to shared TestExitConfirmationModifier
+• Delegate both views to shared testExitConfirmation modifier
+• Update PreTestInfoGate tests for simplified signature
+• Disable NavigationStack swipe-back during active test
+• Replace OS exit alert with ConfirmationModal, branch messaging on substantive threshold
+• Enable Gemini native JSON mode (response_mime_type) in structured completions to prevent missing evaluation fields
+• Delete deprecated PreTestInfoView and extract PreTestInfoGate to own file
+• Migrate run_irt_calibration.py to gioe_libs CronJob harness — replaces manual logging, heartbeat, Sentry, and exit codes with CronJob.run_once() while preserving skip logic, audit trail, and CalibrationError re-raise
+• Migrate run_cat_readiness.py to gioe_libs CronJob harness
+• Document --prod flag in aiq-data skill
+• Remove old duplicate-ID migration file
+• Replace assert guard with explicit ValueError for -O safety
+• Migrate correctness audit pipeline to use track_costs() context manager
+• Set leakage_score=1.0 in _make_evaluated mock so leakage check returns a numeric value above rejection threshold
+• Update auditor tests for cost tracking integration
+• Map cost fields in create_generation_run endpoint so total_cost_usd is persisted
+• Extract summary cost data in reporter _transform_metrics_to_payload
+• Switch aps-environment to match build configuration

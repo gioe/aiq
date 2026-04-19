@@ -36,18 +36,35 @@ platform :ios do
     )
   end
 
-  desc "Increment build number (uses latest from App Store Connect)"
+  desc "Increment build number (latest from ASC) and bump the marketing version's last segment"
   lane :bump_build_number do
     load_asc_api_key
 
     current_build = latest_testflight_build_number(
       app_identifier: "com.aiq.app"
     )
+    new_build = current_build + 1
 
-    increment_build_number(
-      build_number: current_build + 1,
-      xcodeproj: "AIQ.xcodeproj"
+    current_version = get_info_plist_value(
+      path: "AIQ/Info.plist",
+      key: "CFBundleShortVersionString"
     )
+    version_parts = current_version.to_s.split(".")
+    version_parts[-1] = (version_parts[-1].to_i + 1).to_s
+    new_version = version_parts.join(".")
+
+    set_info_plist_value(
+      path: "AIQ/Info.plist",
+      key: "CFBundleVersion",
+      value: new_build.to_s
+    )
+    set_info_plist_value(
+      path: "AIQ/Info.plist",
+      key: "CFBundleShortVersionString",
+      value: new_version
+    )
+
+    UI.success("Bumped version #{current_version} → #{new_version}, build → #{new_build}")
   end
 
   desc "Build the app for App Store distribution"
@@ -122,6 +139,22 @@ platform :ios do
     )
   end
 
+  desc "Upload IPA + metadata + screenshots to ASC in one deliver call (creates the version record)"
+  lane :upload_app_store do
+    load_asc_api_key
+
+    deliver(
+      ipa: "./build/AIQ.ipa",
+      submit_for_review: false,
+      automatic_release: false,
+      force: true,
+      skip_metadata: false,
+      skip_screenshots: false,
+      skip_binary_upload: false,
+      precheck_include_in_app_purchases: false
+    )
+  end
+
   desc "Submit for App Store review (includes metadata + screenshots)"
   lane :submit_review do
     load_asc_api_key
@@ -151,20 +184,19 @@ platform :ios do
     tag_release
   end
 
-  desc "Build and upload to TestFlight with metadata and screenshots"
+  desc "Build and upload to App Store Connect (creates version, uploads metadata + screenshots, pushes to TestFlight)"
   lane :beta do
     generate_release_notes
     bump_build_number
     build
-    upload_testflight
-    upload_metadata
+    upload_app_store
     tag_release
   end
 
   desc "Tag the current commit with v{version}-{build}"
   lane :tag_release do
-    version = get_version_number(xcodeproj: "AIQ.xcodeproj", target: "AIQ")
-    build_num = get_build_number(xcodeproj: "AIQ.xcodeproj")
+    version = get_info_plist_value(path: "AIQ/Info.plist", key: "CFBundleShortVersionString")
+    build_num = get_info_plist_value(path: "AIQ/Info.plist", key: "CFBundleVersion")
     tag = "v#{version}-#{build_num}"
 
     if git_tag_exists(tag: tag)
@@ -243,13 +275,13 @@ platform :ios do
       notes_text = last_newline ? truncated[0...last_newline] : truncated
     end
 
-    release_notes_path = File.join(Dir.pwd, "fastlane", "metadata", "en-US", "release_notes.txt")
+    release_notes_path = File.join(Dir.pwd, "metadata", "en-US", "release_notes.txt")
     File.write(release_notes_path, notes_text)
     UI.success("Wrote release_notes.txt (#{notes_text.length} chars)")
 
     # --- Build WhatsNew.json for in-app display ---
-    version = get_version_number(xcodeproj: "AIQ.xcodeproj", target: "AIQ")
-    build_num = get_build_number(xcodeproj: "AIQ.xcodeproj")
+    version = get_info_plist_value(path: "AIQ/Info.plist", key: "CFBundleShortVersionString")
+    build_num = get_info_plist_value(path: "AIQ/Info.plist", key: "CFBundleVersion")
 
     whats_new = {
       version: "#{version} (#{build_num})",
@@ -267,7 +299,7 @@ platform :ios do
       whats_new[:categories] << { name: "Improvements", items: improvements }
     end
 
-    resources_dir = File.join(Dir.pwd, "AIQ", "Resources")
+    resources_dir = File.join(Dir.pwd, "..", "AIQ", "Resources")
     FileUtils.mkdir_p(resources_dir)
     whats_new_path = File.join(resources_dir, "WhatsNew.json")
     File.write(whats_new_path, JSON.pretty_generate(whats_new))
