@@ -213,10 +213,10 @@ platform :ios do
     tag = last_git_tag
 
     if tag.nil? || tag.empty?
-      UI.important("No previous tag found — using last 50 commits")
-      raw = changelog_from_git_commits(commits_count: 50, pretty: "%s")
+      UI.important("No previous tag found — using last 50 commits that touched ios/")
+      raw = changelog_from_git_commits(commits_count: 50, pretty: "%s", app_path: "ios")
     else
-      raw = changelog_from_git_commits(between: [tag, "HEAD"], pretty: "%s")
+      raw = changelog_from_git_commits(between: [tag, "HEAD"], pretty: "%s", app_path: "ios")
     end
 
     lines = raw.split("\n").map(&:strip).reject(&:empty?)
