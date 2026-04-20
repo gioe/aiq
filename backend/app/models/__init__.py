@@ -12,6 +12,7 @@ from .base import (
 )
 from .models import (
     User,
+    OAuthIdentity,
     Question,
     UserQuestion,
     TestSession,
@@ -55,6 +56,7 @@ __all__ = [
     "async_engine",
     "AsyncSessionLocal",
     "User",
+    "OAuthIdentity",
     "Question",
     "UserQuestion",
     "TestSession",

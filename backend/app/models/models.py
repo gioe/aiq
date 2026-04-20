@@ -181,6 +181,38 @@ class User(Base):
     user_questions: Mapped[List["UserQuestion"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    oauth_identities: Mapped[List["OAuthIdentity"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class OAuthIdentity(Base):
+    """Links a User to an external OAuth/OIDC provider subject.
+
+    One user can have multiple identities (e.g., Apple + Google) so that
+    signing in with any provider resolves to the same AIQ account. The
+    (provider, provider_subject) pair is globally unique.
+    """
+
+    __tablename__ = "oauth_identities"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "provider_subject", name="uq_oauth_provider_subject"
+        ),
+        Index("ix_oauth_identities_user_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    provider_subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+    user: Mapped["User"] = relationship(back_populates="oauth_identities")
 
 
 class Question(Base):
