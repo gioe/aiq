@@ -147,7 +147,7 @@ struct WelcomeView: View {
 
                             SignInWithAppleButton(
                                 onRequest: { request in
-                                    request.requestedScopes = [.fullName, .email]
+                                    request.requestedScopes = [.email]
                                 },
                                 onCompletion: { result in
                                     Task { await handleAppleSignIn(result: result) }
