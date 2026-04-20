@@ -252,10 +252,15 @@ struct WelcomeView: View {
     ///
     /// Cancellation is silently absorbed (user-driven, no error UX). All other failures —
     /// framework errors or a credential missing the identity token — surface through
-    /// `viewModel.error` so the top-of-view `ErrorBanner` becomes visible and no partial
-    /// session state is established.
+    /// `viewModel.error` as a typed `APIError` so the top-of-view `ErrorBanner` renders the
+    /// message and no partial session state is established.
     @MainActor
     private func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
+        // Re-entry guard: SignInWithAppleButton is a UIKit-backed view whose taps may reach the
+        // underlying control even while the SwiftUI container is `.disabled`, so drop any tap
+        // that arrives during an in-flight login to avoid racing two sign-in attempts.
+        guard !viewModel.isLoading else { return }
+
         switch result {
         case let .success(authorization):
             guard
@@ -263,10 +268,8 @@ struct WelcomeView: View {
                 let tokenData = credential.identityToken,
                 let identityToken = String(data: tokenData, encoding: .utf8)
             else {
-                viewModel.error = NSError(
-                    domain: "WelcomeView.SignInWithApple",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "Apple sign-in did not return an identity token."]
+                viewModel.error = APIError.api(
+                    .unknown(message: "Apple sign-in did not return an identity token.")
                 )
                 return
             }
@@ -275,7 +278,7 @@ struct WelcomeView: View {
             if let authError = error as? ASAuthorizationError, authError.code == .canceled {
                 return
             }
-            viewModel.error = error
+            viewModel.error = APIError.api(.unknown(message: error.localizedDescription))
         }
     }
 }
