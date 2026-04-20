@@ -2,6 +2,7 @@ import AIQSharedKit
 import BackgroundTasks
 import FirebaseCore
 import FirebaseCrashlytics
+import GoogleSignIn
 import os
 import TrustKit
 import UIKit
@@ -33,6 +34,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         // Initialize Firebase
         FirebaseApp.configure()
+
+        // Configure Google Sign-In using the client ID from Info.plist (GIDClientID).
+        // If the key is missing or still contains the REPLACE_WITH_ placeholder, skip configuration
+        // so builds without the Info.plist secret don't crash — the Google button will surface a
+        // clear error at tap time instead.
+        configureGoogleSignIn()
 
         #if DebugBuild
             // Skip TrustKit initialization in DEBUG builds to allow development with proxies
@@ -71,6 +78,24 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             Self.logger.info("didBecomeActive: calling handleAppDidBecomeActive()")
             await notificationManager.handleAppDidBecomeActive()
         }
+    }
+
+    // MARK: - Google Sign-In Configuration
+
+    /// Reads the Google OAuth iOS client ID from Info.plist (`GIDClientID`) and configures
+    /// the shared `GIDSignIn` instance. Ships as a placeholder by default — missing or
+    /// placeholder values log a warning and leave the SDK unconfigured; the Google button will
+    /// then surface a clear runtime error instead of crashing.
+    private func configureGoogleSignIn() {
+        guard let clientID = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String,
+              !clientID.isEmpty,
+              !clientID.hasPrefix("REPLACE_WITH_")
+        else {
+            Self.logger.warning("GIDClientID missing or placeholder in Info.plist — Google Sign-In disabled")
+            return
+        }
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+        Self.logger.info("Google Sign-In configured")
     }
 
     // MARK: - TrustKit Initialization
@@ -258,6 +283,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         open url: URL,
         options _: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
+        // Give Google Sign-In first crack at the URL — its OAuth redirect uses the reversed
+        // client ID scheme, not our `aiq://` scheme, so the deep link parser would reject it.
+        if GIDSignIn.sharedInstance.handle(url) {
+            return true
+        }
         Self.logger.info("Received URL scheme deep link: \(url.absoluteString, privacy: .public)")
         return handleDeepLink(url, source: .urlScheme)
     }

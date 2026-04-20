@@ -109,6 +109,8 @@
 		4625596F0C0A9FF356E75176 /* NetworkMonitorObserverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0B3F3BBD693AFDD1B7D9D28 /* NetworkMonitorObserverTests.swift */; };
 		472E5C55E218C72274F6A975 /* NotificationManagerIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E271D9299641787F0F895AD /* NotificationManagerIntegrationTests.swift */; };
 		47412521B43C2DF46D236AAA /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */; };
+		E0C01234567890ABCDEF0004 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = E0C01234567890ABCDEF0002 /* GoogleSignIn */; };
+		E0C01234567890ABCDEF0005 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = E0C01234567890ABCDEF0003 /* GoogleSignInSwift */; };
 		4998FE4CB37794B36C8B44A3 /* GroupDetailViewLeaderboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CAF139ACF72640B004F689D /* GroupDetailViewLeaderboardTests.swift */; };
 		4A62F05D5CF94A2098B3D1F3 /* ScreenshotContainerViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E655241675A745929054AEC9 /* ScreenshotContainerViewTests.swift */; };
 		4AB28B3DD15E2412EC72FB28 /* UITestMockAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228530C772B32AF3828E8D42 /* UITestMockAuthManager.swift */; };
@@ -691,6 +693,8 @@
 				B2313C5B760D0E7C05315E20 /* SwiftUI.framework in Frameworks */,
 				25F8149AA5AD3B8B578234D6 /* FirebaseAnalytics in Frameworks */,
 				47412521B43C2DF46D236AAA /* FirebaseCrashlytics in Frameworks */,
+				E0C01234567890ABCDEF0004 /* GoogleSignIn in Frameworks */,
+				E0C01234567890ABCDEF0005 /* GoogleSignInSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1623,6 +1627,8 @@
 				611BDFC8D2A24A669AF6D722 /* TrustKit */,
 				5F67568DF35617BE6981320E /* FirebaseAnalytics */,
 				F94F979F85CCE0D49F5DA386 /* FirebaseCrashlytics */,
+				E0C01234567890ABCDEF0002 /* GoogleSignIn */,
+				E0C01234567890ABCDEF0003 /* GoogleSignInSwift */,
 			);
 			productName = AIQ;
 			productReference = 43C82CA7CE076639CEF7A3EF /* AIQ.app */;
@@ -1654,6 +1660,7 @@
 				A83559B770E25D87985AB94E /* XCLocalSwiftPackageReference "AIQAPIClient" */,
 				15D01F6D3372844C68745684 /* XCLocalSwiftPackageReference "AIQSharedKit" */,
 				D1E2F3A4B5C6D7E8F9A0B1C2 /* XCRemoteSwiftPackageReference "ios-libs" */,
+				E0C01234567890ABCDEF0001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			productRefGroup = 428258610120552FEA09E4AC /* Products */;
 			projectDirPath = "";
@@ -2420,6 +2427,14 @@
 				minimumVersion = 1.4.0;
 			};
 		};
+		E0C01234567890ABCDEF0001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -2472,6 +2487,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 4E3107CB179DFFAF167B8A01 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseCrashlytics;
+		};
+		E0C01234567890ABCDEF0002 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E0C01234567890ABCDEF0001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		E0C01234567890ABCDEF0003 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E0C01234567890ABCDEF0001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
