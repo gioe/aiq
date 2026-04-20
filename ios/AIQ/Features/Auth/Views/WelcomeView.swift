@@ -1,4 +1,5 @@
 import AIQSharedKit
+import AuthenticationServices
 import SwiftUI
 
 /// Welcome/Login screen with delightful animations and gamification
@@ -30,6 +31,7 @@ struct WelcomeView: View {
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.appTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationStack {
@@ -136,6 +138,22 @@ struct WelcomeView: View {
                             )
                             .padding(.top, DesignSystem.Spacing.sm)
                             .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.0 : 0.95))
+
+                            SignInWithAppleButton(
+                                onRequest: { request in
+                                    request.requestedScopes = [.fullName, .email]
+                                },
+                                onCompletion: { result in
+                                    Task { await handleAppleSignIn(result: result) }
+                                }
+                            )
+                            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                            .frame(height: 50)
+                            .cornerRadius(DesignSystem.CornerRadius.md)
+                            .disabled(viewModel.isLoading)
+                            .accessibilityIdentifier(
+                                AccessibilityIdentifiers.WelcomeView.signInWithAppleButton
+                            )
                         }
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
@@ -227,6 +245,37 @@ struct WelcomeView: View {
             .navigationDestination(isPresented: $viewModel.showRegistration) {
                 RegistrationView()
             }
+        }
+    }
+
+    /// Handles the ASAuthorizationController result from Sign in with Apple.
+    ///
+    /// Cancellation is silently absorbed (user-driven, no error UX). All other failures —
+    /// framework errors or a credential missing the identity token — surface through
+    /// `viewModel.error` so the top-of-view `ErrorBanner` becomes visible and no partial
+    /// session state is established.
+    @MainActor
+    private func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
+        switch result {
+        case let .success(authorization):
+            guard
+                let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                let tokenData = credential.identityToken,
+                let identityToken = String(data: tokenData, encoding: .utf8)
+            else {
+                viewModel.error = NSError(
+                    domain: "WelcomeView.SignInWithApple",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Apple sign-in did not return an identity token."]
+                )
+                return
+            }
+            await viewModel.loginWithApple(identityToken: identityToken)
+        case let .failure(error):
+            if let authError = error as? ASAuthorizationError, authError.code == .canceled {
+                return
+            }
+            viewModel.error = error
         }
     }
 }
