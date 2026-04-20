@@ -11,7 +11,6 @@ aiq/
 ├── ios/                 # SwiftUI iOS application
 ├── backend/             # Backend API server
 ├── question-service/    # AI-powered question generation service
-├── libs/                # Shared Python packages (domain types, observability)
 ├── scripts/             # Pre-commit hooks (float checks, magic numbers)
 ├── docs/                # Project documentation
 ├── deployment/          # AWS Terraform configs (legacy)

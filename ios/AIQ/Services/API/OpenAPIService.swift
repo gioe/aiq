@@ -2,7 +2,8 @@
 import AIQAPIClientCore
 import Foundation
 import HTTPTypes
-import OpenAPIRuntime
+@_spi(Generated) import OpenAPIRuntime
+import OpenAPIURLSession
 
 // MARK: - Protocol
 
@@ -109,40 +110,40 @@ protocol OpenAPIServiceProtocol: Sendable {
 /// The generated Client from swift-openapi-generator uses URLSession internally,
 /// which is thread-safe for concurrent requests.
 final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
+    private struct OAuthIdentityTokenRequest: Encodable {
+        let identityToken: String
+
+        enum CodingKeys: String, CodingKey {
+            case identityToken = "identity_token"
+        }
+    }
+
     private let factory: APIClientFactory
     private let client: Client
+    private let middlewareClient: UniversalClient
 
     /// Initialize with a server URL
     init(serverURL: URL) {
         let factory = APIClientFactory(serverURL: serverURL)
         self.factory = factory
 
-        // Bare client used exclusively for the refresh call — no TokenRefreshMiddleware to
-        // prevent reentrancy. Captured once here so each refresh reuses the same instance.
-        let bareClient = factory.makeClient()
-        let refreshMiddleware = TokenRefreshMiddleware { [bareClient, factory] in
-            let response = try await bareClient.refreshAccessTokenV1AuthRefreshPost()
-            switch response {
-            case let .ok(ok):
-                guard case let .json(tokenRefresh) = ok.body else {
-                    throw APIError.api(.invalidResponse)
-                }
-                await factory.authMiddleware.setTokens(
-                    accessToken: tokenRefresh.accessToken,
-                    refreshToken: tokenRefresh.refreshToken
-                )
-            case let .undocumented(statusCode, _):
-                throw APIError.api(.unauthorized(message: "Refresh failed: HTTP \(statusCode)"))
-            }
-        }
-
+        let refreshMiddleware = Self.makeRefreshMiddleware(factory: factory)
         client = factory.makeClient(tokenRefreshMiddleware: refreshMiddleware)
+        middlewareClient = Self.makeMiddlewareClient(
+            factory: factory,
+            tokenRefreshMiddleware: refreshMiddleware
+        )
     }
 
     /// Initialize with an existing factory (for testing)
     init(factory: APIClientFactory) {
         self.factory = factory
-        client = factory.makeClient()
+        let refreshMiddleware = Self.makeRefreshMiddleware(factory: factory)
+        client = factory.makeClient(tokenRefreshMiddleware: refreshMiddleware)
+        middlewareClient = Self.makeMiddlewareClient(
+            factory: factory,
+            tokenRefreshMiddleware: refreshMiddleware
+        )
     }
 
     // MARK: - Authentication
@@ -275,71 +276,74 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     }
 
     func oauthApple(identityToken: String) async throws -> AuthResponse {
-        try await exchangeOAuthIdentityToken(path: "v1/auth/oauth/apple", identityToken: identityToken)
+        try await exchangeOAuthIdentityToken(
+            path: "/v1/auth/oauth/apple",
+            operationID: "oauth_apple_exchange_v1_auth_oauth_apple_post",
+            identityToken: identityToken
+        )
     }
 
     func oauthGoogle(identityToken: String) async throws -> AuthResponse {
-        try await exchangeOAuthIdentityToken(path: "v1/auth/oauth/google", identityToken: identityToken)
+        try await exchangeOAuthIdentityToken(
+            path: "/v1/auth/oauth/google",
+            operationID: "oauth_google_exchange_v1_auth_oauth_google_post",
+            identityToken: identityToken
+        )
     }
 
     /// Posts an identity token to an OAuth exchange endpoint and returns the AIQ Token response.
     ///
-    /// The Apple/Google token-exchange endpoints are unauthenticated and reachable pre-login, so
-    /// this bypasses the generated client (and its auth middleware) and talks to the server via
-    /// URLSession directly — mirroring the pattern used by `getActiveTest`.
+    /// The checked-in OpenAPI spec does not currently include the OAuth exchange operations, so
+    /// there is no generated `Client` endpoint to call here yet. Route through a `UniversalClient`
+    /// instead so the request still benefits from the standard middleware stack and shared error
+    /// mapping until the spec and generated sources are refreshed.
     private func exchangeOAuthIdentityToken(
         path: String,
+        operationID: String,
         identityToken: String
     ) async throws -> AuthResponse {
-        let url = factory.serverURL.appendingPathComponent(path)
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["identity_token": identityToken])
-
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse else {
-                throw APIError.api(.invalidResponse)
-            }
-            if http.statusCode == 200 {
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
-                let token = try decoder.decode(Components.Schemas.Token.self, from: data)
-                return mapToAuthResponse(token)
-            }
-            throw mapStatusCodeToAPIError(statusCode: http.statusCode, data: data)
+            return try await middlewareClient.send(
+                input: OAuthIdentityTokenRequest(identityToken: identityToken),
+                forOperation: operationID,
+                serializer: { input in
+                    var request = HTTPRequest(soar_path: path, method: .post)
+                    request.headerFields[.accept] = "application/json"
+                    request.headerFields[.contentType] = "application/json; charset=utf-8"
+
+                    let body = try JSONEncoder().encode(input)
+                    return (request, HTTPBody(body))
+                },
+                deserializer: { [weak self] response, responseBody in
+                    guard let self else {
+                        throw APIError.api(.unknown(message: "OpenAPIService deallocated during OAuth exchange"))
+                    }
+
+                    switch response.status.code {
+                    case 200:
+                        guard let responseBody else {
+                            throw APIError.api(.invalidResponse)
+                        }
+
+                        let data = try await Data(collecting: responseBody, upTo: 1024 * 1024)
+                        let decoder = JSONDecoder()
+                        decoder.dateDecodingStrategy = .iso8601
+                        let token = try decoder.decode(Components.Schemas.Token.self, from: data)
+                        return mapToAuthResponse(token)
+
+                    default:
+                        throw await mapUndocumentedError(
+                            statusCode: response.status.code,
+                            payload: .init(headerFields: response.headerFields, body: responseBody)
+                        )
+                    }
+                }
+            )
         } catch let error as APIError {
             throw error
         } catch {
             throw try mapToAPIError(error)
         }
-    }
-
-    private func mapStatusCodeToAPIError(statusCode: Int, data: Data) -> APIError {
-        let detail = decodedDetail(from: data)
-        switch statusCode {
-        case 400:
-            return APIError.parseBadRequest(message: detail)
-        case 401:
-            return .api(.unauthorized(message: detail))
-        case 403:
-            return .api(.forbidden(message: detail))
-        case 422:
-            return .api(.unprocessableEntity(message: detail))
-        case 429:
-            return .api(.rateLimitExceeded(message: detail))
-        case 500 ... 599:
-            return .api(.serverError(statusCode: statusCode, message: detail))
-        default:
-            return .api(.unknown(message: detail ?? "Unexpected status \(statusCode)"))
-        }
-    }
-
-    private func decodedDetail(from data: Data) -> String? {
-        guard !data.isEmpty else { return nil }
-        return try? JSONDecoder().decode(ErrorResponse.self, from: data).detail
     }
 
     func logout() async throws {
@@ -1195,6 +1199,43 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             refreshToken: token.refreshToken,
             tokenType: token.tokenType ?? "Bearer",
             user: token.user
+        )
+    }
+
+    private static func makeRefreshMiddleware(factory: APIClientFactory) -> TokenRefreshMiddleware {
+        // Bare client used exclusively for the refresh call — no TokenRefreshMiddleware to
+        // prevent reentrancy. Captured once here so each refresh reuses the same instance.
+        let bareClient = factory.makeClient()
+        return TokenRefreshMiddleware { [bareClient, factory] in
+            let response = try await bareClient.refreshAccessTokenV1AuthRefreshPost()
+            switch response {
+            case let .ok(ok):
+                guard case let .json(tokenRefresh) = ok.body else {
+                    throw APIError.api(.invalidResponse)
+                }
+                await factory.authMiddleware.setTokens(
+                    accessToken: tokenRefresh.accessToken,
+                    refreshToken: tokenRefresh.refreshToken
+                )
+            case let .undocumented(statusCode, _):
+                throw APIError.api(.unauthorized(message: "Refresh failed: HTTP \(statusCode)"))
+            }
+        }
+    }
+
+    private static func makeMiddlewareClient(
+        factory: APIClientFactory,
+        tokenRefreshMiddleware: TokenRefreshMiddleware
+    ) -> UniversalClient {
+        UniversalClient(
+            serverURL: factory.serverURL,
+            configuration: .init(dateTranscoder: FlexibleISO8601DateTranscoder()),
+            transport: URLSessionTransport(),
+            middlewares: [
+                tokenRefreshMiddleware,
+                factory.authMiddleware,
+                factory.loggingMiddleware
+            ]
         )
     }
 
