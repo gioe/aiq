@@ -120,7 +120,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     private let factory: APIClientFactory
     private let client: Client
-    private let middlewareClient: UniversalClient
+    private let oauthMiddlewareClient: UniversalClient
 
     /// Initialize with a server URL
     init(serverURL: URL) {
@@ -129,10 +129,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
         let refreshMiddleware = Self.makeRefreshMiddleware(factory: factory)
         client = factory.makeClient(tokenRefreshMiddleware: refreshMiddleware)
-        middlewareClient = Self.makeMiddlewareClient(
-            factory: factory,
-            tokenRefreshMiddleware: refreshMiddleware
-        )
+        oauthMiddlewareClient = Self.makeOAuthMiddlewareClient(factory: factory)
     }
 
     /// Initialize with an existing factory (for testing)
@@ -140,10 +137,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         self.factory = factory
         let refreshMiddleware = Self.makeRefreshMiddleware(factory: factory)
         client = factory.makeClient(tokenRefreshMiddleware: refreshMiddleware)
-        middlewareClient = Self.makeMiddlewareClient(
-            factory: factory,
-            tokenRefreshMiddleware: refreshMiddleware
-        )
+        oauthMiddlewareClient = Self.makeOAuthMiddlewareClient(factory: factory)
     }
 
     // MARK: - Authentication
@@ -295,15 +289,15 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     ///
     /// The checked-in OpenAPI spec does not currently include the OAuth exchange operations, so
     /// there is no generated `Client` endpoint to call here yet. Route through a `UniversalClient`
-    /// instead so the request still benefits from the standard middleware stack and shared error
-    /// mapping until the spec and generated sources are refreshed.
+    /// instead so the request still benefits from the standard auth/logging middleware coverage
+    /// and shared error mapping until the spec and generated sources are refreshed.
     private func exchangeOAuthIdentityToken(
         path: String,
         operationID: String,
         identityToken: String
     ) async throws -> AuthResponse {
         do {
-            return try await middlewareClient.send(
+            return try await oauthMiddlewareClient.send(
                 input: OAuthIdentityTokenRequest(identityToken: identityToken),
                 forOperation: operationID,
                 serializer: { input in
@@ -1223,16 +1217,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         }
     }
 
-    private static func makeMiddlewareClient(
-        factory: APIClientFactory,
-        tokenRefreshMiddleware: TokenRefreshMiddleware
-    ) -> UniversalClient {
+    private static func makeOAuthMiddlewareClient(factory: APIClientFactory) -> UniversalClient {
         UniversalClient(
             serverURL: factory.serverURL,
             configuration: .init(dateTranscoder: FlexibleISO8601DateTranscoder()),
             transport: URLSessionTransport(),
             middlewares: [
-                tokenRefreshMiddleware,
                 factory.authMiddleware,
                 factory.loggingMiddleware
             ]
