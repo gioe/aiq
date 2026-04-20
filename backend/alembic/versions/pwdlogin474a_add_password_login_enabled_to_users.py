@@ -17,7 +17,14 @@ via the OAuth-only path in ``auth._resolve_oauth_user`` (which inserts
 both rows in the same flush). Users with a wider gap had OAuth linked
 after the fact, which means they had a real password first — they stay
 True. The heuristic is best-effort; operators who care about perfect
-historical accuracy can reconcile from oauth_identities.
+historical accuracy can reconcile from oauth_identities. A misclassified
+row has no user-facing impact because the login path does not gate on
+this flag — it exists purely for operator visibility.
+
+PostgreSQL-only: the UPDATE uses INTERVAL literal syntax. Production is
+Postgres; the test suite bootstraps via ``Base.metadata.create_all`` and
+skips alembic. Local SQLite runs of ``alembic upgrade head`` will fail
+on the INTERVAL expression.
 """
 
 from typing import Sequence, Union

@@ -157,6 +157,8 @@ class User(Base):
     # password. Flipped to True by the password-reset flow (or any future
     # "set a password" surface). Exposes "which accounts are OAuth-only?"
     # without requiring a left-join to oauth_identities.
+    # Internal/operator signal only — intentionally NOT exposed via
+    # ``UserResponse``; leaking it would disclose account-type information.
     password_login_enabled: Mapped[bool] = mapped_column(default=True)
 
     # Demographic data for norming study (P13-001)
