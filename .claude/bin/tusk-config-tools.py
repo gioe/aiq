@@ -31,7 +31,7 @@ def cmd_validate(config_path: str) -> int:
     errors = []
 
     # ── Check for unknown top-level keys ──
-    KNOWN_KEYS = {'domains', 'task_types', 'statuses', 'priorities', 'closed_reasons', 'complexity', 'blocker_types', 'criterion_types', 'agents', 'dupes', 'review', 'review_categories', 'review_severities', 'merge', 'test_command', 'domain_test_commands', 'project_type', 'project_libs', 'issue_scoring'}
+    KNOWN_KEYS = {'domains', 'task_types', 'statuses', 'priorities', 'closed_reasons', 'complexity', 'blocker_types', 'criterion_types', 'workflows', 'agents', 'dupes', 'review', 'review_categories', 'review_severities', 'merge', 'test_command', 'test_command_timeout_sec', 'domain_test_commands', 'project_type', 'project_libs', 'issue_scoring'}
     known_list = ', '.join(sorted(KNOWN_KEYS))
     unknown = set(cfg.keys()) - KNOWN_KEYS
     if unknown:
@@ -50,6 +50,7 @@ def cmd_validate(config_path: str) -> int:
         'criterion_types':   {'required': False},
         'review_categories': {'required': False},
         'review_severities': {'required': False},
+        'workflows':         {'required': False},
     }
     for field, opts in LIST_FIELDS.items():
         if field not in cfg:
@@ -112,12 +113,19 @@ def cmd_validate(config_path: str) -> int:
         if not isinstance(review, dict):
             errors.append(f'"review" must be an object (got {type(review).__name__}).')
         else:
-            KNOWN_REVIEW_KEYS = {'mode', 'max_passes', 'reviewers'}
+            KNOWN_REVIEW_KEYS = {'mode', 'max_passes', 'reviewer'}
             known_review_list = ', '.join(sorted(KNOWN_REVIEW_KEYS))
             unknown_review = set(review.keys()) - KNOWN_REVIEW_KEYS
             if unknown_review:
                 for k in sorted(unknown_review):
-                    errors.append(f'Unknown key "review.{k}". Valid review keys: {known_review_list}')
+                    if k == 'reviewers':
+                        errors.append(
+                            'Unknown key "review.reviewers". The fan-out reviewer array was removed; '
+                            'use a single "review.reviewer" object instead. Run `tusk migrate` to convert '
+                            'an existing config.'
+                        )
+                    else:
+                        errors.append(f'Unknown key "review.{k}". Valid review keys: {known_review_list}')
 
             if 'mode' in review:
                 VALID_MODES = {'ai_only', 'disabled'}
@@ -134,19 +142,17 @@ def cmd_validate(config_path: str) -> int:
                 elif mp < 1:
                     errors.append(f'"review.max_passes" must be at least 1 (got {mp}).')
 
-            if 'reviewers' in review:
-                rv = review['reviewers']
-                if not isinstance(rv, list):
-                    errors.append(f'"review.reviewers" must be a list (got {type(rv).__name__}).')
+            if 'reviewer' in review:
+                rv = review['reviewer']
+                if rv is None:
+                    pass
+                elif not isinstance(rv, dict):
+                    errors.append(f'"review.reviewer" must be an object with name and description fields (got {type(rv).__name__}: {rv!r}).')
                 else:
-                    for i, item in enumerate(rv):
-                        if not isinstance(item, dict):
-                            errors.append(f'"review.reviewers[{i}]" must be an object with name and description fields (got {type(item).__name__}: {item!r}).')
-                        else:
-                            if not isinstance(item.get('name'), str):
-                                errors.append(f'"review.reviewers[{i}].name" must be a string.')
-                            if not isinstance(item.get('description'), str):
-                                errors.append(f'"review.reviewers[{i}].description" must be a string.')
+                    if not isinstance(rv.get('name'), str):
+                        errors.append('"review.reviewer.name" must be a string.')
+                    if not isinstance(rv.get('description'), str):
+                        errors.append('"review.reviewer.description" must be a string.')
 
     # ── Validate merge (optional object) ──
     if 'merge' in cfg:
@@ -172,6 +178,15 @@ def cmd_validate(config_path: str) -> int:
         tc = cfg['test_command']
         if tc is not None and not isinstance(tc, str):
             errors.append(f'"test_command" must be a string (got {type(tc).__name__}: {tc!r}).')
+
+    # ── Validate test_command_timeout_sec (optional positive integer) ──
+    if 'test_command_timeout_sec' in cfg:
+        tt = cfg['test_command_timeout_sec']
+        if not isinstance(tt, int) or isinstance(tt, bool) or tt <= 0:
+            errors.append(
+                f'"test_command_timeout_sec" must be a positive integer '
+                f'(got {type(tt).__name__}: {tt!r}).'
+            )
 
     # ── Report ──
     if errors:
@@ -226,6 +241,10 @@ BEGIN SELECT RAISE(ABORT, 'Invalid {column}. Must be one of: {label}'); END;
     blocker_types = cfg.get('blocker_types', [])
     if blocker_types:
         print(trigger_sql('blocker_type', blocker_types, 'external_blockers'))
+
+    workflows = cfg.get('workflows', [])
+    if workflows:
+        print(trigger_sql('workflow', workflows))
 
     criterion_types = cfg.get('criterion_types', [])
     if criterion_types:

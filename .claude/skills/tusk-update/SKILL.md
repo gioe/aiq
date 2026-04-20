@@ -115,22 +115,13 @@ After the list, include the configurable fields reference table so the user know
 | `dupes.similar_threshold` | No | Python-side only (0.0–1.0) |
 | `review.mode` | No | `"disabled"` or `"ai_only"`; config-side only |
 | `review.max_passes` | No | Integer; max fix-and-re-review cycles; config-side only |
-| `review.reviewers` | No | Array of `{name, description}` objects; config-side only |
+| `review.reviewer` | No | Single `{name, description}` object (or absent for inline-only review); config-side only |
 | `review_categories` | Yes | Valid comment categories; empty array disables validation |
 | `review_severities` | Yes | Valid severity levels; empty array disables validation |
 | `project_type` | No | String key identifying the project type (e.g. `python_service`, `ios_app`); `null` if unset |
 | `project_libs.*.ref` | No | Pin a project lib's bootstrap ref to a tag or commit SHA; defaults to `"main"` |
 
-**Agents object shape:** Each key is an agent name used for task assignment; each value is a plain string describing what that agent handles. Example:
-
-```json
-{
-  "agents": {
-    "backend": "API, business logic, data layer",
-    "frontend": "UI components, styling, client-side"
-  }
-}
-```
+**Agents object shape:** `{ "<agent_name>": "<description string>" }` — e.g. `{ "backend": "API, business logic, data layer", "frontend": "UI components, styling, client-side" }`.
 
 Then ask a single approval question:
 
@@ -182,47 +173,30 @@ Proposed config:
 
 ## Step 5: Write Updated Config
 
-Read the current config file, apply changes, and write it back:
+Use the Read tool to load `tusk/config.json`, then Edit to update only the fields the user requested — preserve everything else.
 
-Use the Read tool to load `tusk/config.json`, then use the Edit tool to update it with the new values. Preserve all fields — only modify the ones the user requested.
-
-**Convention migration (if approved in Step 2):** For each approved convention bullet, run:
+**Convention migration (if approved in Step 2):** For each approved bullet, strip markdown markers (`**`, `*`, backtick fences) and insert as plain text:
 
 ```bash
-tusk conventions add "<bullet text (with formatting stripped)>"
+tusk conventions add "<bullet text>"
 ```
 
-Strip markdown emphasis markers (`**`, `*`, backtick fences) from the text before inserting — plain text is stored in the DB.
-
-Then replace the conventions section in `CLAUDE.md` with a single pointer line using the Edit tool:
-
-> Replace the "Key Conventions" section body with: `Run \`tusk conventions list\` to see project conventions.`
-
-Leave the section heading in place.
+Then Edit `CLAUDE.md` to replace the "Key Conventions" section body with `Run \`tusk conventions list\` to see project conventions.` (leave the heading in place).
 
 ## Step 5b: Execute Task Reassignment (if approved)
 
-**Only run this step if a domain reassignment was approved in Step 2.**
-
-Execute the reassignment without additional prompting. If the user approved reassigning all unassigned tasks to a new domain:
+**Only if a domain reassignment was approved in Step 2.** Execute without additional prompting:
 
 ```bash
 DOMAIN=$(tusk sql-quote "<new_domain>")
+# All unassigned tasks:
 tusk "UPDATE tasks SET domain = $DOMAIN, updated_at = datetime('now') WHERE status <> 'Done' AND (domain IS NULL OR domain = '')"
-tusk "SELECT changes() AS rows_updated"
-```
-
-If the user approved reassigning specific task IDs (e.g., 12, 15, 18):
-
-```bash
-DOMAIN=$(tusk sql-quote "<new_domain>")
+# Or specific IDs (e.g., 12, 15, 18):
 tusk "UPDATE tasks SET domain = $DOMAIN, updated_at = datetime('now') WHERE id IN (12, 15, 18) AND status <> 'Done'"
 tusk "SELECT changes() AS rows_updated"
 ```
 
-Report the `rows_updated` count and proceed to Step 6.
-
-If multiple domains were added, execute reassignment for each new domain in sequence.
+Report the `rows_updated` count. If multiple domains were added, repeat for each.
 
 ## Step 6: Regenerate Triggers (if needed)
 
@@ -244,61 +218,7 @@ Confirm the changes took effect:
 tusk config
 ```
 
-If trigger-validated fields were changed, run a two-part smoke test for each modified field. Pick the `tasks` column that corresponds to the config key that was changed:
-
-| Config key changed | Column to test |
-|--------------------|----------------|
-| `domains`          | `domain`       |
-| `task_types`       | `task_type`    |
-| `statuses`         | `status`       |
-| `priorities`       | `priority`     |
-| `closed_reasons`   | `closed_reason`|
-
-Replace `<column>` with that column name and `<valid_value>` with a value that was **just added** to the config (prefer a newly-added value over a pre-existing default, to test the trigger against the actual change). Repeat the two-part test for each field that was modified; run cleanup once after all fields are tested.
-
-> **Note:** `review_categories` and `review_severities` apply to the `review_comments` table, which requires a `review_id` foreign key. Skip the INSERT smoke test for those fields — the absence of errors from `tusk regen-triggers` is sufficient confirmation.
-
-**Part A — Invalid value must be rejected** (core trigger check):
-
-```bash
-tusk "INSERT INTO tasks (summary, <column>) VALUES ('__tusk_trigger_smoke_test__', '__invalid__')"
-```
-
-Expected: non-zero exit with a trigger error. If this INSERT **succeeds**, the trigger is not working — report failure.
-
-**Part B — Valid value must be accepted**:
-
-```bash
-tusk "INSERT INTO tasks (summary, <column>) VALUES ('__tusk_trigger_smoke_test__', '<valid_value>')"
-```
-
-Expected: zero exit. If this INSERT **fails**, the trigger is over-blocking valid values — report failure.
-
-**Part C — UPDATE trigger: invalid value must be rejected, valid value must be accepted** (run only if Part B succeeded):
-
-```bash
-tusk "UPDATE tasks SET <column> = '__invalid__' WHERE summary = '__tusk_trigger_smoke_test__'"
-```
-
-Expected: non-zero exit with a trigger error. If this UPDATE **succeeds**, the UPDATE trigger is not working — report failure.
-
-```bash
-tusk "UPDATE tasks SET <column> = '<valid_value>' WHERE summary = '__tusk_trigger_smoke_test__'"
-```
-
-Expected: zero exit. If this UPDATE **fails**, the UPDATE trigger is over-blocking valid values — report failure.
-
-> **Note:** Part C reuses the row inserted in Part B. If Part B failed (no row exists), these UPDATE commands will match 0 rows and succeed silently without firing the trigger — skip reporting Part C results in that case and rely on the Part B failure report.
->
-> **Note (status column only):** When `<column>` is `status`, updating to `'__invalid__'` fires both `validate_status_update` (value validation) and `validate_status_transition` (transition validation). A non-zero exit confirms the trigger stack rejected the value but does not isolate which trigger fired. If `validate_status_update` were missing, the transition trigger would still catch it. This is acceptable — the combined rejection is the meaningful signal.
-
-**Cleanup (always run, even if Part A, Part B, or Part C failed)**:
-
-```bash
-tusk "DELETE FROM tasks WHERE summary = '__tusk_trigger_smoke_test__'"
-```
-
-Report success to the user only if Part A rejected the invalid value, Part B accepted the valid value, and Part C rejected the invalid UPDATE while accepting the valid UPDATE.
+If trigger-validated fields (`domains`, `task_types`, `statuses`, `priorities`, `closed_reasons`) were changed, follow the smoke-test procedure in `SMOKE-TEST.md` to verify the regenerated triggers accept valid values and reject invalid ones. Otherwise skip.
 
 **Never call `tusk init --force`** — this destroys the database. Use `tusk regen-triggers` instead.
 

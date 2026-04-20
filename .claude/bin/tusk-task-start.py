@@ -2,12 +2,18 @@
 """Consolidate task-start setup into a single CLI command.
 
 Called by the tusk wrapper:
-    tusk task-start <task_id> [--force] [--agent <name>]
+    tusk task-start [<task_id>] [--force] [--agent <name>] [--skill <name>]
 
 Arguments received from tusk:
     sys.argv[1] — DB path
     sys.argv[2] — config path
-    sys.argv[3:] — task_id [--force] [--agent <name>]
+    sys.argv[3:] — [task_id] [--force] [--agent <name>] [--skill <name>]
+
+When task_id is omitted, the top WSJF-ranked ready task is picked from
+v_ready_tasks (same ranking logic tusk-task-select uses) and started in a
+single call — this eliminates the select+start round-trip the /tusk no-arg
+path used to pay. If no ready tasks exist, exits 1 with the same stderr
+message tusk-task-select historically emitted.
 
 Performs all setup steps for beginning work on a task:
   1. Fetch the task (validate it exists and is actionable)
@@ -28,10 +34,45 @@ import sqlite3
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import tusk_loader
+import tusk_loader  # loads tusk-db-lib.py, tusk-json-lib.py, tusk-rank-lib.py
 
 _db_lib = tusk_loader.load("tusk-db-lib")
+_json_lib = tusk_loader.load("tusk-json-lib")
+_rank_lib = tusk_loader.load("tusk-rank-lib")
+dumps = _json_lib.dumps
 get_connection = _db_lib.get_connection
+select_top_ready_task = _rank_lib.select_top_ready_task
+empty_backlog_message = _rank_lib.empty_backlog_message
+
+
+def _register_active_project() -> None:
+    """Append the active REPO_ROOT to the active-projects registry.
+
+    Skipped when TUSK_DB is set (explicit DB override is not tied to a repo root)
+    or when the necessary env vars are missing (e.g., running outside the tusk
+    wrapper).
+    """
+    if os.environ.get("TUSK_DB"):
+        return
+    registry = os.environ.get("TUSK_ACTIVE_PROJECTS_FILE")
+    repo_root = os.environ.get("TUSK_REPO_ROOT")
+    if not registry or not repo_root:
+        return
+    try:
+        canon = os.path.realpath(repo_root)
+        if not os.path.isdir(canon):
+            return
+        os.makedirs(os.path.dirname(registry), exist_ok=True)
+        existing: list[str] = []
+        if os.path.exists(registry):
+            with open(registry, encoding="utf-8") as f:
+                existing = [line.rstrip("\n") for line in f if line.strip()]
+        if canon in existing:
+            return
+        with open(registry, "a", encoding="utf-8") as f:
+            f.write(canon + "\n")
+    except OSError:
+        pass
 
 
 def main(argv: list[str]) -> int:
@@ -39,18 +80,42 @@ def main(argv: list[str]) -> int:
     # argv[1] is config_path (unused but kept for dispatch consistency)
     parser = argparse.ArgumentParser(
         prog="tusk task-start",
-        description="Begin work on a task",
+        description="Begin work on a task (or pick the top ready task when no ID is given)",
     )
-    parser.add_argument("task_id", type=int, help="Task ID")
+    parser.add_argument(
+        "task_id",
+        type=int,
+        nargs="?",
+        default=None,
+        help="Task ID. Omit to auto-select the top WSJF-ranked ready task.",
+    )
     parser.add_argument("--force", action="store_true", help="Bypass zero-criteria guard")
     parser.add_argument("--agent", dest="agent_name", metavar="NAME", help="Agent name")
+    parser.add_argument(
+        "--skill",
+        dest="skill_name",
+        metavar="NAME",
+        help="Also open a skill_runs row for cost tracking (saves a follow-up 'skill-run start' call).",
+    )
     args = parser.parse_args(argv[2:])
     task_id = args.task_id
     force = args.force
     agent_name = args.agent_name
+    skill_name = args.skill_name
 
     conn = get_connection(db_path)
     try:
+        # 0. Fused select path: no explicit task_id means "start the top
+        # WSJF-ranked ready task". Mirrors tusk-task-select's exit-1 message
+        # so shell-level callers (and /loop) can treat the two paths
+        # interchangeably.
+        if task_id is None:
+            top = select_top_ready_task(conn)
+            if top is None:
+                print(empty_backlog_message(), file=sys.stderr)
+                return 1
+            task_id = top["id"]
+
         # 1. Fetch the task
         task = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not task:
@@ -205,15 +270,40 @@ def main(argv: list[str]) -> int:
 
         deliverable_check_needed = any(c["is_completed"] for c in criteria_list)
 
+        # Optional fused skill-run start: collapses the common /tusk, /chain,
+        # /review-commits, /retro pattern of calling `tusk skill-run start <name>
+        # --task-id <id>` immediately after task-start into a single CLI round-trip.
+        skill_run_info = None
+        if skill_name is not None:
+            cur = conn.execute(
+                "INSERT INTO skill_runs (skill_name, task_id) VALUES (?, ?)",
+                (skill_name, task_id),
+            )
+            conn.commit()
+            run_id = cur.lastrowid
+            run_row = conn.execute(
+                "SELECT id, skill_name, started_at, task_id FROM skill_runs WHERE id = ?",
+                (run_id,),
+            ).fetchone()
+            skill_run_info = {
+                "run_id": run_row["id"],
+                "skill_name": run_row["skill_name"],
+                "started_at": run_row["started_at"],
+                "task_id": run_row["task_id"],
+            }
+
         result = {
             "task": task_dict,
             "progress": progress_list,
             "criteria": criteria_list,
             "session_id": session_id,
             "deliverable_check_needed": deliverable_check_needed,
+            "skill_run": skill_run_info,
         }
 
-        print(json.dumps(result, indent=2))
+        _register_active_project()
+
+        print(dumps(result))
         return 0
     finally:
         conn.close()
@@ -222,6 +312,6 @@ def main(argv: list[str]) -> int:
 if __name__ == "__main__":
     if len(sys.argv) < 2 or not sys.argv[1].endswith(".db"):
         print("Error: This script must be invoked via the tusk wrapper.", file=sys.stderr)
-        print("Use: tusk task-start <task_id> [--force]", file=sys.stderr)
+        print("Use: tusk task-start [<task_id>] [--force] [--agent NAME] [--skill NAME]", file=sys.stderr)
         sys.exit(1)
     sys.exit(main(sys.argv[1:]))

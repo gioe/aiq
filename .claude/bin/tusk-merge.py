@@ -37,15 +37,28 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import tusk_loader
+import tusk_loader  # loads tusk-db-lib.py and tusk-git-helpers.py
 
 _db_lib = tusk_loader.load("tusk-db-lib")
+_json_lib = tusk_loader.load("tusk-json-lib")
+dumps = _json_lib.dumps
 get_connection = _db_lib.get_connection
 checkpoint_wal = _db_lib.checkpoint_wal
+
+_git_helpers = tusk_loader.load("tusk-git-helpers")
+_is_remote_unreachable = _git_helpers._is_remote_unreachable
+_UNREACHABLE_REMOTE_PATTERNS = _git_helpers._UNREACHABLE_REMOTE_PATTERNS
+_UNREACHABLE_REMOTE_REGEX = _git_helpers._UNREACHABLE_REMOTE_REGEX
 
 
 def run(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(args, capture_output=True, text=True, check=check)
+
+
+def _has_remote(name: str = "origin") -> bool:
+    """Return True if the named git remote exists."""
+    result = run(["git", "remote", "get-url", name], check=False)
+    return result.returncode == 0
 
 
 # Generated lockfiles whose conflicts are always safe to auto-resolve by preferring
@@ -553,11 +566,17 @@ def main(argv: list[str]) -> int:
                 print(f"Error: session-close failed:\n{result.stderr.strip()}", file=sys.stderr)
                 return 2
         # Push the default branch — may already be up to date if merged via PR
-        push = run(["git", "push", "origin", default_branch], check=False)
-        if push.returncode != 0:
+        if _has_remote():
+            push = run(["git", "push", "origin", default_branch], check=False)
+            if push.returncode != 0:
+                print(
+                    f"Warning: git push origin {default_branch} failed — "
+                    f"branch may already be pushed:\n{push.stderr.strip()}",
+                    file=sys.stderr,
+                )
+        else:
             print(
-                f"Warning: git push origin {default_branch} failed — "
-                f"branch may already be pushed:\n{push.stderr.strip()}",
+                "Warning: no git remote 'origin' configured — skipping push.",
                 file=sys.stderr,
             )
         print(f"Closing task {task_id}...", file=sys.stderr)
@@ -583,7 +602,7 @@ def main(argv: list[str]) -> int:
             return 0
         if session_was_closed:
             task_done_result["sessions_closed"] = 1
-        print(json.dumps(task_done_result, indent=2))
+        print(dumps(task_done_result))
         return 0
 
     if err:
@@ -700,15 +719,30 @@ def main(argv: list[str]) -> int:
         for src, dst in moved:
             os.rename(dst, src)
 
-        # Step 4: Pull latest
-        result = run(["git", "-c", "pull.rebase=false", "pull", "origin", default_branch], check=False)
-        if result.returncode != 0:
-            print(f"Error: git pull failed:\n{result.stderr.strip()}", file=sys.stderr)
-            # Restore feature branch so user can investigate
-            run(["git", "checkout", branch_name], check=False)
-            if did_stash:
-                _try_pop_stash(task_id)
-            return 2
+        # Step 4: Pull latest (skip when no remote is configured or unreachable)
+        has_origin = _has_remote()
+        if has_origin:
+            result = run(["git", "-c", "pull.rebase=false", "pull", "origin", default_branch], check=False)
+            if result.returncode != 0:
+                if _is_remote_unreachable(result.stderr):
+                    print(
+                        f"Warning: could not reach origin — skipping pull. "
+                        f"Merging from local '{default_branch}'.\n  {result.stderr.strip()}",
+                        file=sys.stderr,
+                    )
+                else:
+                    print(f"Error: git pull failed:\n{result.stderr.strip()}", file=sys.stderr)
+                    # Restore feature branch so user can investigate
+                    run(["git", "checkout", branch_name], check=False)
+                    if did_stash:
+                        _try_pop_stash(task_id)
+                    return 2
+        else:
+            print(
+                "Warning: no git remote 'origin' configured — skipping pull. "
+                "Merging from local state.",
+                file=sys.stderr,
+            )
 
         # Detect if the task commit was already applied directly on the default branch
         # (e.g. a rebase conflict resolved by re-applying the fix on main). When true,
@@ -853,32 +887,46 @@ def main(argv: list[str]) -> int:
                     _try_pop_stash(task_id)
                 return 2
 
-        # Step 5: Push
-        result = run(["git", "push", "origin", default_branch], check=False)
-        if result.returncode != 0:
-            if task_on_default:
-                print(
-                    f"Error: git push failed:\n{result.stderr.strip()}\n"
-                    f"  Retry: git push origin {default_branch}",
-                    file=sys.stderr,
-                )
-                if did_stash:
-                    _try_pop_stash(task_id)
-            else:
-                print(
-                    f"Error: git push failed:\n{result.stderr.strip()}\n"
-                    f"The branch has been merged locally but not pushed.\n"
-                    f"  Retry: git push origin {default_branch}\n"
-                    f"  Undo:  git reset --hard HEAD~1 && git checkout {branch_name}",
-                    file=sys.stderr,
-                )
-                if did_stash:
-                    # Restore feature branch before popping stash so the user's
-                    # uncommitted changes land back on the feature branch, not on
-                    # the default branch where the unmerged commit lives.
-                    run(["git", "checkout", branch_name], check=False)
-                    _try_pop_stash(task_id)
-            return 2
+        # Step 5: Push (skip when no remote is configured or unreachable)
+        if has_origin:
+            result = run(["git", "push", "origin", default_branch], check=False)
+            if result.returncode != 0:
+                if _is_remote_unreachable(result.stderr):
+                    print(
+                        f"Warning: could not reach origin — skipping push. "
+                        f"The merge is complete locally on '{default_branch}'.\n  {result.stderr.strip()}\n"
+                        f"  Retry later: git push origin {default_branch}",
+                        file=sys.stderr,
+                    )
+                elif task_on_default:
+                    print(
+                        f"Error: git push failed:\n{result.stderr.strip()}\n"
+                        f"  Retry: git push origin {default_branch}",
+                        file=sys.stderr,
+                    )
+                    if did_stash:
+                        _try_pop_stash(task_id)
+                    return 2
+                else:
+                    print(
+                        f"Error: git push failed:\n{result.stderr.strip()}\n"
+                        f"The branch has been merged locally but not pushed.\n"
+                        f"  Retry: git push origin {default_branch}\n"
+                        f"  Undo:  git reset --hard HEAD~1 && git checkout {branch_name}",
+                        file=sys.stderr,
+                    )
+                    if did_stash:
+                        # Restore feature branch before popping stash so the user's
+                        # uncommitted changes land back on the feature branch, not on
+                        # the default branch where the unmerged commit lives.
+                        run(["git", "checkout", branch_name], check=False)
+                        _try_pop_stash(task_id)
+                    return 2
+        else:
+            print(
+                "Warning: no git remote 'origin' configured — skipping push.",
+                file=sys.stderr,
+            )
 
         # Step 6: Delete feature branch
         # Use -D (force) when the branch was not merged via git merge (task_on_default path).
@@ -952,7 +1000,7 @@ def main(argv: list[str]) -> int:
                     "Investigate your git history or task notes to reconstruct them.",
                     file=sys.stderr,
                 )
-            print(json.dumps(synthetic, indent=2))
+            print(dumps(synthetic))
             return 0
         print(f"Error: task-done failed:\n{result.stderr.strip()}", file=sys.stderr)
         return 2
@@ -974,7 +1022,7 @@ def main(argv: list[str]) -> int:
     if session_was_closed:
         task_done_result["sessions_closed"] = 1  # merge always operates on one session
 
-    print(json.dumps(task_done_result, indent=2))
+    print(dumps(task_done_result))
     return 0
 
 

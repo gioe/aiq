@@ -24,11 +24,13 @@ This returns the full config as JSON (domains, agents, task_types, priorities, c
 
 ### Get Next Task (default - no arguments)
 
-Finds the highest-priority task that is ready to work on (no incomplete dependencies) and **automatically begins working on it**.
+Finds the highest-priority task that is ready to work on (no incomplete dependencies), opens a session for it, flips its status to In Progress, opens a skill-run row for cost tracking, and returns the same JSON blob documented under "Begin Work on a Task" below — all in one call.
 
 ```bash
-tusk task-select
+tusk task-start --force --skill tusk
 ```
+
+The `--force` flag ensures the workflow proceeds even if the task has no acceptance criteria (emits a warning rather than hard-failing). The `--skill tusk` flag opens a `skill_runs` row attributed to this task; `run_id` is returned under `skill_run.run_id` in the JSON — capture it for the cancel/finish calls later.
 
 **Empty backlog**: If the command exits with code 1, the backlog has no ready tasks. Check why:
 
@@ -42,37 +44,40 @@ tusk -header -column "SELECT status, COUNT(*) as count FROM tasks GROUP BY statu
 
 Do **not** suggest `/groom-backlog` or `/retro` when there are no ready tasks — those skills require an active backlog or session history to be useful.
 
-**Complexity warning**: If the selected task has complexity **L** or **XL**, display a warning to the user before proceeding:
-
-> **Note: This is a large task (complexity: L/XL) — expect 3+ sessions to complete.**
-
-Then ask the user whether to proceed or request a smaller task. If the user chooses a smaller task, re-run excluding L and XL:
-
-```bash
-tusk task-select --max-complexity M
-```
-
-If no smaller task is available, inform the user and offer to proceed with the original L/XL task.
-
-After the user confirms (or if the task is not L/XL), **immediately proceed to the "Begin Work on a Task" workflow** using the retrieved task ID. Do not wait for additional user confirmation.
+On success, the JSON blob's `task.id` is the task you just started and `skill_run.run_id` is the open skill-run row. **Immediately proceed to step 1b of the "Begin Work on a Task" workflow** — do not wait for additional user confirmation.
 
 ### Begin Work on a Task (with task ID argument)
 
-When called with a task ID (e.g., `/tusk 6`), begin the full development workflow:
+When called with a task ID (e.g., `/tusk 6`), begin the full development workflow. When called with no argument, the "Get Next Task" step above has already run `tusk task-start --force --skill tusk` for you — **skip Step 1 entirely and pick up at Step 1b (Workflow routing)**, using the JSON blob and the `skill_run.run_id` you already captured.
 
 **Follow these steps IN ORDER:**
 
-1. **Start the task** — fetch details, check progress, create/reuse session, and set status in one call:
+1. **Start the task and begin cost tracking** — fetch details, check progress, create/reuse session, set status, and open the skill-run row in one call:
    ```bash
-   tusk task-start <id> --force
+   tusk task-start <id> --force --skill tusk
    ```
-   The `--force` flag ensures the workflow proceeds even if the task has no acceptance criteria (emits a warning rather than hard-failing). This returns a JSON blob with four keys:
+   The `--force` flag ensures the workflow proceeds even if the task has no acceptance criteria (emits a warning rather than hard-failing). The `--skill tusk` flag opens a `skill_runs` row so this session's spend can be attributed to the task. This returns a JSON blob with these keys:
    - `task` — full task row (summary, description, priority, domain, assignee, etc.)
    - `progress` — array of prior progress checkpoints (most recent first). If non-empty, the first entry's `next_steps` tells you exactly where to pick up. Skip steps you've already completed (branch may already exist, some commits may already be made). Use `git log --oneline` on the existing branch to see what's already been done.
    - `criteria` — array of acceptance criteria objects (id, criterion, source, is_completed, criterion_type, verification_spec). These are the implementation checklist. Work through them in order during implementation. Mark each criterion done (`tusk criteria done <cid>`) as you complete it — do not defer this to the end. Non-manual criteria (type: code, test, file) run automated verification on `done`; use `--skip-verify` if needed. If the array is empty, proceed normally using the description as scope.
    - `session_id` — the session ID to use for the duration of the workflow (reuses an open session if one exists, otherwise creates a new one)
+   - `skill_run` — `{run_id, skill_name, started_at, task_id}` for the skill-run row opened by `--skill`. Capture `skill_run.run_id` — it's referenced by every exit path below.
 
    Hold onto `session_id` from the JSON — it will be passed to `tusk merge` in step 12 to close the session. **Do not pass it to `tusk task-done`; use `tusk merge` for the full finalization sequence.**
+
+   > **Early-exit cleanup:** If any step below causes the skill to stop before reaching the final `/retro` invocation in Step 12, first call `tusk skill-run cancel <run_id>` to close the open row, then stop. Otherwise the row lingers as `(open)` in `tusk skill-run list` forever. The explicit cancel calls below cover the known post-start early-exit paths; if you hit an unexpected bail-out, cancel before returning.
+   >
+   > **Pre-start exits don't need cancel.** If `tusk task-start --force --skill tusk` exits 1 (empty backlog — "No ready tasks found") or exits 2 (task not found, already Done, blocked, or missing criteria without `--force`), the skill-run row is never opened, so there is no `run_id` to cancel. Just stop.
+
+1b. **Workflow routing** — If the task's `workflow` field (from the `task` object in step 1) is non-null, the task uses a custom workflow instead of the default development cycle. Look up the corresponding skill:
+   ```
+   Read file: .claude/skills/<workflow>/SKILL.md
+   ```
+   If the file exists, cancel the /tusk skill-run (the handoff skill will open its own run) and **stop following the steps below**, following that skill's instructions instead, passing the task ID and session_id from step 1:
+   ```bash
+   tusk skill-run cancel <run_id>
+   ```
+   If the file does not exist, log a warning ("Workflow '<workflow>' not found — falling back to default development cycle") and continue with step 2 (no cancel — the /tusk run stays open for the rest of the default flow).
 
 2. **Create a new git branch IMMEDIATELY** (skip if resuming and branch already exists):
    ```bash
@@ -104,7 +109,7 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
 
    1. Check the task description and acceptance criteria for specific test commands or test names to run.
    2. If specific tests are named, run them directly. Otherwise, use `tusk test-detect` to find the project's test command, then run the most relevant subset.
-   3. **If tests pass**: the issue may already be fixed or the description may be inaccurate — surface this to the user and stop before investigating further.
+   3. **If tests pass**: the issue may already be fixed or the description may be inaccurate — run `tusk skill-run cancel <run_id>`, surface this to the user, and stop before investigating further.
    4. **If tests fail**: capture the failure output. Use it as the primary diagnostic anchor in step 5 (Explore).
 
 5. **Explore the codebase before implementing** — use a sub-agent to research:
@@ -126,7 +131,11 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
        ```bash
        tusk commit <id> "<message>" "<file1>" ["<file2>" ...] --criteria <cid>
        ```
-       This runs `tusk lint` (advisory — never blocks), stages the listed files, commits with the `[TASK-<id>] <message>` format and Co-Authored-By trailer, and marks the criterion done — all in one call. The criterion is bound to the new commit hash automatically.
+       An alternative `-m` flag form is also supported (useful when file paths come first):
+       ```bash
+       tusk commit <id> "<file1>" ["<file2>" ...] -m "<message>" --criteria <cid>
+       ```
+       This runs `tusk lint` (advisory — never blocks), stages the listed files, commits with the `[TASK-<id>] <message>` format and Co-Authored-By trailer, and marks the criterion done — all in one call. The criterion is bound to the new commit hash automatically. Duplicate `[TASK-N]` prefixes in the message are stripped automatically, and bare `--` separators are silently ignored.
 
        **Always quote file paths** — zsh expands unquoted brackets (`[id]`, `[slug]`) as glob patterns before the shell passes arguments to `tusk commit`. Any path component containing `[`, `]`, `*`, `?`, or spaces must be wrapped in double quotes (e.g., `"apps/api/[id]/route.ts"`).
 
@@ -153,11 +162,13 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
     ```
     Then mark criteria done with `tusk criteria done <cid> --skip-verify` as usual.
 
-    **Exit code 3 also occurs when a formatter (e.g. `black`, `prettier`) modifies a staged file during the pre-commit hook's stash/unstash cycle.** In this case the commit is rejected because the working tree now differs from the staged snapshot after the hook runs. To resolve, stage the reformatted file and retry:
+    **If `tusk commit` fails with `pathspec '…' is beyond a symbolic link`** (exit code 3), the path lives under a symlinked directory that `git add` refuses to traverse. In tusk's own repo this hits any path under `.claude/skills/<name>/`, because each skill is a symlink to `skills/<name>/`. Retry with the real source path:
     ```bash
-    git add "<file>" && tusk commit <task_id> "<message>" "<file>"
+    tusk commit <id> "<message>" "skills/<name>/SKILL.md" --criteria <cid>
     ```
-    If you cannot or do not want to stage the reformatted output, bypass the hook entirely:
+    More generally: if `ls -la` on any parent directory shows it is a symlink, use the link's target path instead.
+
+    **If a pre-commit auto-formatter (e.g. `black`, `ruff --fix`, `prettier`, `gofmt`) rewrites a staged file in-place**, `tusk commit` detects the index/working-tree divergence, re-stages the reformatted content, and retries the commit exactly once — no manual intervention required. If the retry also fails (the formatter produces unstable output on every run), bypass hooks with:
     ```bash
     tusk commit <task_id> "<message>" "<file>" --skip-verify
     ```
@@ -168,29 +179,37 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
     ```
     Then mark criteria done with `tusk criteria done <cid> --skip-verify`.
 
-    **If `tusk commit` exits 4 (advisory lint warnings)** — the commit **succeeded**. Exit code 4 means lint ran and emitted advisory-only warnings, but the commit was made. No fallback or retry is needed. Use `git log --oneline -1` to confirm the commit is present, then continue to the next criterion.
+    **If `tusk commit` exits 6 (blocking lint violation)** — the commit did NOT land. A non-advisory lint rule fired (Rule 1 raw sqlite3, Rule 3 hardcoded DB path, Rule 11 bad SKILL.md frontmatter, Rule 16 DB-backed blocking rules, Rules 18/19 MANIFEST drift, Rule 21 multi-trailing-newlines, etc.). The violating rule's output is printed verbatim — fix it, then retry `tusk commit`. Advisory-only rules (Rule 13 VERSION bump missing, Rule 15 big-bang commits, Rule 17 DB-backed advisory, etc.) still print WARN lines but do NOT exit non-zero and do NOT block. If the violation is a known false positive or pre-existing state you can't resolve in this commit, bypass with `--skip-lint` (lint only) or widen to `--skip-verify` (lint, tests, and pre-commit hooks):
+    ```bash
+    tusk commit <id> "<message>" "<file>" --skip-lint --criteria <cid>
+    ```
+    Lint output during commit is now filtered: only rules with violations print — passing rules are suppressed. If the last lint pass was clean, you won't see any lint output at all.
 
     **If `tusk commit` hard-fails because tests fail** (exit code 2 — `test_command` is set and returned non-zero), **first verify the failure is not pre-existing** before entering the diagnosis loop:
 
-    **Pre-existing failure check** — run the tests against a clean stash:
+    **Pre-existing failure check** — run the tests against HEAD with any local changes safely set aside:
     ```bash
-    git stash && <test_command>; git stash pop
+    tusk test-precheck
     ```
-    Use `tusk test-detect` to retrieve `<test_command>` if you don't already have it.
+    Or pass an explicit command when the config-resolved one isn't what you want to check against:
+    ```bash
+    tusk test-precheck --command "<test_command>"
+    ```
+    `tusk test-precheck` resolves the test command from `--command`, then `config.test_command`, then `tusk test-detect`. When the working tree is dirty it stashes local changes under a *uniquely-named* entry, runs the test against HEAD, and pops *that entry by reference* — never by top-of-stack. When the working tree is clean it runs the test directly without touching `git stash` at all. Output is JSON on stdout: `{pre_existing, exit_code, test_command, stashed}`; the test command's own output is redirected to stderr so programmatic callers can `json.loads(stdout)` directly. Do **not** fall back to the raw `git stash && … ; git stash pop` snippet — when the tree is clean, the empty `git stash` becomes a no-op and `git stash pop` will pop a stale foreign entry and silently trash unrelated state. If precheck exits non-zero, it prints a recovery message on stderr (always including the stash message, when one was created) so you can finish the pop manually; it never silently falls through with changes orphaned in the stash list.
 
-    - **If tests fail on the clean stash** — the failure is pre-existing and unrelated to your changes. **Skip the diagnosis loop entirely.** Do not attempt to fix tests in files you did not modify during this session. Fall back immediately to:
+    - **If `pre_existing` is `true`** — the failure is pre-existing and unrelated to your changes. **Skip the diagnosis loop entirely.** Do not attempt to fix tests in files you did not modify during this session. Fall back immediately to:
       ```bash
       git add <file1> [file2 ...] && git commit -m "[TASK-<id>] <message>" --trailer "Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
       ```
       Then mark criteria done with `tusk criteria done <cid> --skip-verify`.
 
-    - **If tests pass on the clean stash** — your changes introduced the failure. Proceed with the diagnosis loop below. Do **not** modify any code until you've completed steps 1–2:
+    - **If `pre_existing` is `false`** — your changes introduced the failure. Proceed with the diagnosis loop below. Do **not** modify any code until you've completed steps 1–2:
     1. **Read the full test output** — scroll through the entire failure log. Do not make any code changes until you understand what failed and why.
     2. **Trace the root cause** — open the relevant source files and identify the exact lines responsible for the failure.
     3. **Implement a fix** — make the minimal change required to address the root cause.
     4. **Retry `tusk commit`** with the same arguments.
 
-    Repeat up to **3 times**. If tests still fail after 3 attempts, surface the full failure output and a summary of what was tried to the user, then **stop** — do not continue looping.
+    Repeat up to **3 times**. If tests still fail after 3 attempts, run `tusk skill-run cancel <run_id>`, surface the full failure output and a summary of what was tried to the user, then **stop** — do not continue looping.
 
     3. Log a progress checkpoint:
       ```bash
@@ -200,7 +219,7 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
 
     The `next_steps` field is critical — write it as if briefing a new agent who has zero context. Include what's been done, what remains, decisions made, and the branch name.
 
-    **Schema migration reminder:** If the commit includes changes to `bin/tusk` that add or modify a migration (inside `cmd_migrate()`), run `tusk migrate` on the live database immediately after committing.
+    **Schema migration reminder:** If the commit adds or modifies a migration in `bin/tusk-migrate.py` (or bumps `cmd_init`'s fresh-DB `user_version` stamp in `bin/tusk`), run `tusk migrate` on the live database immediately after committing.
 
 8. **Review the code locally** before considering the work complete.
 
@@ -227,7 +246,7 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
       ```
       > **Warning:** Do NOT spawn a `pr-review-toolkit:code-reviewer` agent directly as a shortcut. That agent receives only a manually reconstructed diff — not the real `git diff` output — which causes false-positive review findings. The `/review-commits` skill exists specifically to fetch and pass the real diff verbatim; bypassing it removes that safeguard.
 
-      After `/review-commits` completes with verdict **APPROVED**, proceed to step 12. If verdict is **CHANGES REMAINING**, surface the unresolved items to the user and stop.
+      After `/review-commits` completes with verdict **APPROVED**, proceed to step 12. If verdict is **CHANGES REMAINING**, run `tusk skill-run cancel <run_id>`, surface the unresolved items to the user, and stop.
 
 12. **Finalize — merge, push, and run retro.** Execute as a single uninterrupted sequence — do NOT pause for user confirmation between steps:
     ```bash
@@ -250,6 +269,24 @@ When called with a task ID (e.g., `/tusk 6`), begin the full development workflo
     tusk merge <id> --session $SESSION_ID --pr --pr-number <N>
     ```
     This squash-merges via `gh pr merge` instead of a local fast-forward.
+
+    **No-commit closure (`wont_do` / `duplicate`):** If the task should be closed *without* shipping any code — an evaluation/spike whose answer is "don't do it", or a task that turns out to be a duplicate — use `tusk abandon` instead of `tusk merge`:
+    ```bash
+    tusk abandon <id> --reason wont_do|duplicate --session $SESSION_ID [--note "<rationale>"]
+    ```
+    `tusk abandon` switches off the feature branch, deletes it (force), closes the session, and marks the task Done with the given `closed_reason` in one call. **Refuses** if the feature branch has commits not on the default branch — in that case use `tusk merge` to ship the work, or delete the branch manually if you really want to discard it. The optional `--note` records the decision rationale on `task_progress` so the audit trail survives. After `tusk abandon` exits 0, run `/retro` exactly as you would after `tusk merge`.
+
+    After `tusk merge` (or `tusk abandon`) exits 0, close out the /tusk skill-run so its cost is captured before `/retro` starts its own run:
+    ```bash
+    tusk skill-run finish <run_id>
+    ```
+
+    Then emit the canonical end-of-run summary before handing off to /retro:
+    ```bash
+    tusk task-summary <id> --format markdown
+    ```
+
+    This prints a single markdown block with the task identity, closed reason, total cost, wall/active duration, diff stats (files changed, lines added/removed, commit count), criteria counts, review pass count, and reopen count. Show it verbatim to the user — do not re-render or summarize it. Runs on both the merge and abandon paths; diff stats are filtered to commits that reference `[TASK-<id>]` so shared-branch pollution never appears in the numbers.
 
     Then run `/retro` immediately — do not ask "shall I run retro?". Invoke it to review the session, surface process improvements, and create follow-up tasks.
 

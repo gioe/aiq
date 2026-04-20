@@ -192,31 +192,42 @@ def rule5_done_without_closed_reason(root):
     violations = []
     exempt = {"bin/tusk-lint.py"}
     done_re = re.compile(r"status\s*=\s*'Done'", re.IGNORECASE)
-    # Matches UPDATE or INSERT that would actually *set* the status
-    write_re = re.compile(r"(?<!-)\b(UPDATE|INSERT)\b", re.IGNORECASE)
-    select_re = re.compile(r"\bSELECT\b", re.IGNORECASE)
+    # The nearest preceding DML keyword decides whether the match sits in
+    # a read (SELECT) or a write (UPDATE/INSERT/DELETE/REPLACE) clause.
+    # A flat context window can't distinguish 'INSERT INTO x SELECT ...
+    # WHERE status = ''Done''' (read inside the SELECT half) from a real
+    # write — walking back to the closest keyword does.
+    dml_re = re.compile(r"\b(UPDATE|INSERT|SELECT|DELETE|REPLACE)\b", re.IGNORECASE)
 
     for rel, full in find_files(root, ["skills", "scripts", "bin"], [".md", ".sh", ".py"]):
         if is_self(rel) or rel in exempt:
             continue
         lines = read_lines(full)
         for i, (lineno, line) in enumerate(lines):
-            if not done_re.search(line):
+            m = done_re.search(line)
+            if not m:
                 continue
 
-            # Fast path: if the line itself is a SELECT (no write keywords), skip
-            if select_re.search(line) and not write_re.search(line):
-                continue
-
-            # Check surrounding context (same line + 15 lines before)
-            # to determine the SQL statement type
             context_start = max(0, i - 15)
             context_end = min(len(lines), i + 6)
-            context = "".join(l for _, l in lines[context_start:context_end])
 
-            # Skip if this is a SELECT query (read-only, not setting status)
-            if select_re.search(context) and not write_re.search(context):
+            nearest_dml = None
+            same_line_prefix = line[: m.start()]
+            same_line_matches = list(dml_re.finditer(same_line_prefix))
+            if same_line_matches:
+                nearest_dml = same_line_matches[-1].group(1).upper()
+            else:
+                for j in range(i - 1, context_start - 1, -1):
+                    prev_matches = list(dml_re.finditer(lines[j][1]))
+                    if prev_matches:
+                        nearest_dml = prev_matches[-1].group(1).upper()
+                        break
+
+            # SELECT context is read-only.
+            if nearest_dml == "SELECT":
                 continue
+
+            context = "".join(l for _, l in lines[context_start:context_end])
 
             # Skip CREATE TRIGGER definitions — BEFORE UPDATE in a trigger body
             # is DDL, not an actual data-modifying statement
@@ -228,74 +239,101 @@ def rule5_done_without_closed_reason(root):
     return violations
 
 
+# Rule 6 only flags Done tasks closed within this window. Older tasks are
+# skipped so retroactively-added criteria on long-closed work don't swamp
+# the output — on backlogs with 100+ historical tasks from before criteria
+# enforcement, the unscoped query could produce enough output to hang
+# `tusk commit` in its lint phase for minutes at a time.
+RULE6_RECENT_DAYS = 30
+
+
 def rule6_done_incomplete_criteria(root):
-    """Tasks marked Done with incomplete acceptance criteria."""
-    violations = []
-    tusk_bin = os.path.join(root, "bin", "tusk")
-    if not os.path.isfile(tusk_bin):
-        # Installed projects: tusk is on PATH via .claude/bin/
-        tusk_bin = "tusk"
+    """Done tasks closed in the last 30 days with incomplete acceptance criteria.
+
+    Scoped to recently-closed tasks so retroactive criteria added to historical
+    Done tasks (closed before criteria enforcement) are not reported.  See
+    RULE6_RECENT_DAYS above for rationale.
+
+    Tasks closed with closed_reason IN ('duplicate', 'wont_do') are exempt:
+    a duplicate closure means another task owns the criteria, and wont_do
+    closures are intentional abandonments — neither indicates premature
+    completion, which is what this rule is meant to catch.
+    """
+    db_path = _db_path_from_root(root)
+    if not db_path:
+        return []
+
+    cutoff = f"-{RULE6_RECENT_DAYS} days"
     try:
-        result = subprocess.run(
-            [tusk_bin, "-header", "-column",
-             "SELECT t.id, t.summary, COUNT(ac.id) AS incomplete "
-             "FROM tasks t "
-             "JOIN acceptance_criteria ac ON ac.task_id = t.id "
-             "WHERE t.status = 'Done' AND ac.is_completed = 0 AND ac.is_deferred = 0 "
-             "GROUP BY t.id"],
-            capture_output=True, text=True, timeout=5,
-        )
-        for line in result.stdout.strip().splitlines():
-            line = line.strip()
-            if line and not line.startswith("id") and not line.startswith("--"):
-                violations.append(f"  {line}")
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass  # Skip rule if tusk CLI is unavailable
-    return violations
+        conn = tusk_loader.load("tusk-db-lib").get_connection(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT t.id, t.summary, COUNT(ac.id) AS incomplete "
+                "FROM tasks t "
+                "JOIN acceptance_criteria ac ON ac.task_id = t.id "
+                "WHERE t.status = 'Done' "
+                "  AND COALESCE(t.closed_reason, '') NOT IN ('duplicate', 'wont_do') "
+                "  AND ac.is_completed = 0 AND ac.is_deferred = 0 "
+                "  AND COALESCE(t.closed_at, t.updated_at) >= date('now', ?) "
+                "GROUP BY t.id "
+                "ORDER BY t.id",
+                (cutoff,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        finally:
+            conn.close()
+    except Exception:
+        return []
+
+    return [
+        f"  TASK-{row[0]}  {row[1]}  (incomplete criteria: {row[2]})"
+        for row in rows
+    ]
 
 
 def rule9_deferred_missing_expiry(root):
     """Deferred tasks (is_deferred=1) with no expires_at set."""
-    violations = []
-    tusk_bin = os.path.join(root, "bin", "tusk")
-    if not os.path.isfile(tusk_bin):
-        tusk_bin = "tusk"
+    db_path = _db_path_from_root(root)
+    if not db_path:
+        return []
     try:
-        result = subprocess.run(
-            [tusk_bin, "-header", "-column",
-             "SELECT id, summary FROM tasks "
-             "WHERE is_deferred = 1 AND expires_at IS NULL AND status <> 'Done'"],
-            capture_output=True, text=True, timeout=5,
-        )
-        for line in result.stdout.strip().splitlines():
-            line = line.strip()
-            if line and not line.startswith("id") and not line.startswith("--"):
-                violations.append(f"  {line}")
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass  # Skip rule if tusk CLI is unavailable
-    return violations
+        conn = tusk_loader.load("tusk-db-lib").get_connection(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT id, summary FROM tasks"
+                " WHERE is_deferred = 1 AND expires_at IS NULL AND status <> 'Done'"
+                " ORDER BY id"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        finally:
+            conn.close()
+    except Exception:
+        return []
+    return [f"  TASK-{row[0]}  {row[1]}" for row in rows]
 
 
 def rule10_criteria_type_mismatch(root):
     """acceptance_criteria with verification_spec set but criterion_type='manual'."""
-    violations = []
-    tusk_bin = os.path.join(root, "bin", "tusk")
-    if not os.path.isfile(tusk_bin):
-        tusk_bin = "tusk"
+    db_path = _db_path_from_root(root)
+    if not db_path:
+        return []
     try:
-        result = subprocess.run(
-            [tusk_bin, "-header", "-column",
-             "SELECT ac.id, ac.task_id, ac.criterion FROM acceptance_criteria ac "
-             "WHERE ac.verification_spec IS NOT NULL AND ac.criterion_type = 'manual'"],
-            capture_output=True, text=True, timeout=5,
-        )
-        for line in result.stdout.strip().splitlines():
-            line = line.strip()
-            if line and not line.startswith("id") and not line.startswith("--"):
-                violations.append(f"  {line}")
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass  # Skip rule if tusk CLI is unavailable
-    return violations
+        conn = tusk_loader.load("tusk-db-lib").get_connection(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT ac.id, ac.task_id, ac.criterion FROM acceptance_criteria ac"
+                " WHERE ac.verification_spec IS NOT NULL AND ac.criterion_type = 'manual'"
+                " ORDER BY ac.id"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        finally:
+            conn.close()
+    except Exception:
+        return []
+    return [f"  criterion {row[0]} (task {row[1]}): {row[2]}" for row in rows]
 
 
 def rule8_orphaned_python_scripts(root):
@@ -497,27 +535,26 @@ def rule12_python_syntax(root):
 
 def rule14_deferred_prefix_mismatch(root):
     """Open tasks where is_deferred flag and [Deferred] summary prefix disagree."""
-    violations = []
-    tusk_bin = os.path.join(root, "bin", "tusk")
-    if not os.path.isfile(tusk_bin):
-        tusk_bin = "tusk"
+    db_path = _db_path_from_root(root)
+    if not db_path:
+        return []
     try:
-        result = subprocess.run(
-            [tusk_bin, "-header", "-column",
-             "SELECT id, is_deferred, summary FROM tasks "
-             "WHERE status <> 'Done' AND ("
-             "  (summary LIKE '[Deferred]%' AND is_deferred = 0) OR "
-             "  (summary NOT LIKE '[Deferred]%' AND is_deferred = 1)"
-             ")"],
-            capture_output=True, text=True, timeout=5,
-        )
-        for line in result.stdout.strip().splitlines():
-            line = line.strip()
-            if line and not line.startswith("id") and not line.startswith("--"):
-                violations.append(f"  {line}")
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass  # Skip rule if tusk CLI is unavailable
-    return violations
+        conn = tusk_loader.load("tusk-db-lib").get_connection(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT id, is_deferred, summary FROM tasks "
+                "WHERE status <> 'Done' AND ("
+                "  (summary LIKE '[Deferred]%' AND is_deferred = 0) OR "
+                "  (summary NOT LIKE '[Deferred]%' AND is_deferred = 1)"
+                ") ORDER BY id"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        finally:
+            conn.close()
+    except Exception:
+        return []
+    return [f"  TASK-{row[0]}  is_deferred={row[1]}  {row[2]}" for row in rows]
 
 
 def rule15_big_bang_commits(root):
@@ -527,31 +564,31 @@ def rule15_big_bang_commits(root):
     Partial grouping (some criteria on one hash, others on another) is NOT flagged.
     Tasks with zero or one eligible criterion are NOT flagged.
     """
-    violations = []
-    tusk_bin = os.path.join(root, "bin", "tusk")
-    if not os.path.isfile(tusk_bin):
-        tusk_bin = "tusk"
+    db_path = _db_path_from_root(root)
+    if not db_path:
+        return []
     try:
-        result = subprocess.run(
-            [tusk_bin, "-header", "-column",
-             "SELECT t.id, MIN(t.summary) AS summary, COUNT(ac.id) AS criteria_count "
-             "FROM tasks t "
-             "JOIN acceptance_criteria ac ON ac.task_id = t.id "
-             "WHERE t.status = 'In Progress' "
-             "  AND ac.is_completed = 1 "
-             "  AND ac.is_deferred = 0 "
-             "  AND ac.commit_hash IS NOT NULL "
-             "GROUP BY t.id "
-             "HAVING COUNT(ac.id) > 1 AND COUNT(DISTINCT ac.commit_hash) = 1"],
-            capture_output=True, text=True, timeout=5,
-        )
-        for line in result.stdout.strip().splitlines():
-            line = line.strip()
-            if line and not line.startswith("id") and not line.startswith("--"):
-                violations.append(f"  {line}")
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass  # Skip rule if tusk CLI is unavailable
-    return violations
+        conn = tusk_loader.load("tusk-db-lib").get_connection(db_path)
+        try:
+            rows = conn.execute(
+                "SELECT t.id, MIN(t.summary) AS summary, COUNT(ac.id) AS criteria_count "
+                "FROM tasks t "
+                "JOIN acceptance_criteria ac ON ac.task_id = t.id "
+                "WHERE t.status = 'In Progress' "
+                "  AND ac.is_completed = 1 "
+                "  AND ac.is_deferred = 0 "
+                "  AND ac.commit_hash IS NOT NULL "
+                "GROUP BY t.id "
+                "HAVING COUNT(ac.id) > 1 AND COUNT(DISTINCT ac.commit_hash) = 1 "
+                "ORDER BY t.id"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        finally:
+            conn.close()
+    except Exception:
+        return []
+    return [f"  TASK-{row[0]}  {row[1]}  (criteria on one commit: {row[2]})" for row in rows]
 
 
 def _version_bump_check(root, path_re, label):
@@ -875,6 +912,8 @@ def rule18_manifest_drift(root):
         violations.append(f"  MANIFEST: missing '{path}' (in source tree but not in MANIFEST)")
     for path in sorted(on_disk - expected_set):
         violations.append(f"  MANIFEST: extra '{path}' (in MANIFEST but not in source tree)")
+    if violations:
+        violations.append("  Fix: run `tusk generate-manifest`.")
     return violations
 
 
@@ -910,13 +949,13 @@ def rule19_tusk_manifest_json_sync(root):
     for path in sorted(manifest - tusk_manifest):
         violations.append(
             f"  MANIFEST has '{path}' but .claude/tusk-manifest.json does not"
-            " (run bin/tusk-generate-manifest.py to regenerate both files)"
         )
     for path in sorted(tusk_manifest - manifest):
         violations.append(
             f"  .claude/tusk-manifest.json has '{path}' but MANIFEST does not"
-            " (run bin/tusk-generate-manifest.py to regenerate both files)"
         )
+    if violations:
+        violations.append("  Fix: run `tusk generate-manifest`.")
     return violations
 
 
@@ -987,7 +1026,7 @@ if os.path.isfile(_extra_path):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: tusk-lint.py <repo_root>", file=sys.stderr)
+        print("Usage: tusk-lint.py <repo_root> [--verbose|--quiet]", file=sys.stderr)
         sys.exit(2)
 
     root = sys.argv[1]
@@ -995,32 +1034,63 @@ def main():
         print(f"Error: {root} is not a directory", file=sys.stderr)
         sys.exit(2)
 
+    # Output modes:
+    #   default  — print only rules with violations; on success print a single
+    #              "OK — N rules passed" summary. Good for interactive use.
+    #   --verbose / -v — full per-rule report with PASS lines + header. Useful
+    #                    for CI or when auditing which rules ran.
+    #   --quiet / -q   — print only rules with violations; silent on clean
+    #                    success. Used by `tusk commit` where the caller
+    #                    already prints its own banners.
+    flags = sys.argv[2:]
+    verbose = "--verbose" in flags or "-v" in flags
+    quiet = "--quiet" in flags or "-q" in flags
+    if verbose and quiet:
+        print("Error: --verbose and --quiet are mutually exclusive", file=sys.stderr)
+        sys.exit(2)
+
     total_violations = 0
     rules_with_violations = 0
+    total_advisory_violations = 0
 
-    print("=== Lint Conventions Report ===")
-    print()
+    if verbose:
+        print("=== Lint Conventions Report ===")
+        print()
 
     for name, check_fn, advisory in RULES:
         violations = check_fn(root)
-        print(name)
         if violations:
             if not advisory:
                 total_violations += len(violations)
                 rules_with_violations += 1
+            else:
+                total_advisory_violations += len(violations)
             label = "WARN [ADVISORY]" if advisory else "WARN"
+            print(name)
             print(f"  {label} — {len(violations)} violation{'s' if len(violations) != 1 else ''}")
             for v in violations:
                 print(v)
-        else:
+            print()
+        elif verbose:
+            print(name)
             print("  PASS — no violations")
-        print()
+            print()
 
     if total_violations:
         print(f"=== Summary: {total_violations} violation{'s' if total_violations != 1 else ''} across {rules_with_violations} rule{'s' if rules_with_violations != 1 else ''} ===")
         sys.exit(1)
     else:
-        print("=== Summary: no violations ===")
+        if quiet:
+            if total_advisory_violations:
+                print(f"=== Summary: no blocking violations ({total_advisory_violations} advisory) ===")
+        else:
+            rule_count = len(RULES)
+            if verbose:
+                print("=== Summary: no violations ===")
+            elif total_advisory_violations:
+                print(f"OK — {rule_count} rules passed ({total_advisory_violations} advisory)")
+            else:
+                print(f"OK — {rule_count} rules passed")
         sys.exit(0)
 
 

@@ -44,6 +44,8 @@ import tusk_loader
 TUSK_BIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk")
 
 _db_lib = tusk_loader.load("tusk-db-lib")
+_json_lib = tusk_loader.load("tusk-json-lib")
+dumps = _json_lib.dumps
 get_connection = _db_lib.get_connection
 load_config = _db_lib.load_config
 validate_enum = _db_lib.validate_enum
@@ -64,6 +66,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--task-type", default=None, dest="task_type", help="Update task_type")
     parser.add_argument("--assignee", default=None, help="Update assignee")
     parser.add_argument("--complexity", default=None, help="Update complexity")
+    parser.add_argument("--workflow", default=None, help="Update workflow (empty string clears to NULL)")
     deferred_group = parser.add_mutually_exclusive_group()
     deferred_group.add_argument("--deferred", action="store_true", default=False,
                                 help="Mark task deferred (+60d expiry, [Deferred] prefix)")
@@ -79,6 +82,10 @@ def main(argv: list[str]) -> int:
         val = getattr(args, field)
         if val is not None:
             updates[field] = val
+
+    # --workflow: empty string clears to NULL, non-empty sets the value
+    if args.workflow is not None:
+        updates["workflow"] = None if args.workflow == "" else args.workflow
 
     # Resolve deferred mode: True = --deferred, False = --no-deferred, None = not specified
     if args.deferred:
@@ -122,6 +129,11 @@ def main(argv: list[str]) -> int:
             err = validate_enum(updates["assignee"], valid_agents, "assignee")
             if err:
                 errors.append(err)
+
+    if "workflow" in updates and updates["workflow"] is not None:
+        err = validate_enum(updates["workflow"], config.get("workflows", []), "workflow")
+        if err:
+            errors.append(err)
 
     if errors:
         for e in errors:
@@ -182,7 +194,7 @@ def main(argv: list[str]) -> int:
         updated_task = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         task_dict = {key: updated_task[key] for key in updated_task.keys()}
 
-        print(json.dumps(task_dict, indent=2))
+        print(dumps(task_dict))
         return 0
     finally:
         conn.close()

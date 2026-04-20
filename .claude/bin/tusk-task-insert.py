@@ -33,6 +33,8 @@ import tusk_loader
 TUSK_BIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk")
 
 _db_lib = tusk_loader.load("tusk-db-lib")
+_json_lib = tusk_loader.load("tusk-json-lib")
+dumps = _json_lib.dumps
 get_connection = _db_lib.get_connection
 load_config = _db_lib.load_config
 validate_enum = _db_lib.validate_enum
@@ -87,9 +89,12 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--typed-criteria", action="append", default=[], type=_typed_criterion_type,
                         dest="typed_criteria", metavar="JSON",
                         help='Typed criterion as JSON, e.g. \'{"text":"...","type":"...","spec":"..."}\' (repeatable)')
+    parser.add_argument("--workflow", default=None, help="Workflow (validated against config)")
     parser.add_argument("--deferred", action="store_true", help="Mark task as deferred (+60d expiry)")
     parser.add_argument("--expires-in", type=int, default=None, dest="expires_in_days", metavar="DAYS",
                         help="Set expires_at to +N days")
+    parser.add_argument("--fixes-task-id", type=int, default=None, dest="fixes_task_id", metavar="ID",
+                        help="Link this task as a follow-up/rework of the given task id")
     args = parser.parse_args(argv[2:])
 
     summary = args.summary
@@ -99,10 +104,12 @@ def main(argv: list[str]) -> int:
     task_type = args.task_type
     assignee = args.assignee
     complexity = args.complexity
+    workflow = args.workflow
     criteria: list[str] = args.criteria
     typed_criteria: list[dict] = args.typed_criteria
     deferred = args.deferred
     expires_in_days = args.expires_in_days
+    fixes_task_id = args.fixes_task_id
 
     if not criteria and not typed_criteria:
         parser.error(
@@ -146,6 +153,11 @@ def main(argv: list[str]) -> int:
         if err:
             errors.append(err)
 
+    if workflow is not None:
+        err = validate_enum(workflow, config.get("workflows", []), "workflow")
+        if err:
+            errors.append(err)
+
     # Validate typed criteria
     criterion_types = config.get("criterion_types", [])
     spec_required_types = {"code", "test", "file"}
@@ -171,7 +183,7 @@ def main(argv: list[str]) -> int:
             "matched_summary": dupe.get("summary", ""),
             "similarity": dupe.get("similarity", 0),
         }
-        print(json.dumps(result, indent=2))
+        print(dumps(result))
         return 1
 
     # Compute expires_at
@@ -182,22 +194,35 @@ def main(argv: list[str]) -> int:
     # Insert task + criteria in one transaction
     conn = get_connection(db_path)
     try:
+        if fixes_task_id is not None:
+            row = conn.execute(
+                "SELECT 1 FROM tasks WHERE id = ?", (fixes_task_id,)
+            ).fetchone()
+            if row is None:
+                print(
+                    f"Error: --fixes-task-id {fixes_task_id} does not reference an existing task",
+                    file=sys.stderr,
+                )
+                return 2
+
         if expires_at_expr:
             conn.execute(
                 "INSERT INTO tasks (summary, description, status, priority, domain, "
-                "task_type, assignee, complexity, is_deferred, expires_at, created_at, updated_at) "
-                "VALUES (?, ?, 'To Do', ?, ?, ?, ?, ?, ?, datetime('now', ?), "
+                "task_type, assignee, complexity, is_deferred, workflow, fixes_task_id, "
+                "expires_at, created_at, updated_at) "
+                "VALUES (?, ?, 'To Do', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ?), "
                 "datetime('now'), datetime('now'))",
                 (summary, description, priority, domain, task_type, assignee,
-                 complexity, is_deferred, expires_at_expr),
+                 complexity, is_deferred, workflow, fixes_task_id, expires_at_expr),
             )
         else:
             conn.execute(
                 "INSERT INTO tasks (summary, description, status, priority, domain, "
-                "task_type, assignee, complexity, is_deferred, created_at, updated_at) "
-                "VALUES (?, ?, 'To Do', ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
+                "task_type, assignee, complexity, is_deferred, workflow, fixes_task_id, "
+                "created_at, updated_at) "
+                "VALUES (?, ?, 'To Do', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
                 (summary, description, priority, domain, task_type, assignee,
-                 complexity, is_deferred),
+                 complexity, is_deferred, workflow, fixes_task_id),
             )
 
         task_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -238,7 +263,7 @@ def main(argv: list[str]) -> int:
         "summary": summary,
         "criteria_ids": criteria_ids,
     }
-    print(json.dumps(result, indent=2))
+    print(dumps(result))
     return 0
 
 

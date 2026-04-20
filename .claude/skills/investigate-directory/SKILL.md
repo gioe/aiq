@@ -18,6 +18,8 @@ tusk skill-run start investigate-directory
 
 Capture `run_id` from the output — needed in Step 6.
 
+> **Early-exit cleanup:** If any check below causes the skill to stop before Step 6 (e.g., the user never provides a directory in Step 1, the resolved path does not exist, or `tusk setup` / `tusk pillars list` fails), first call `tusk skill-run cancel <run_id>` to close the open row, then stop. Otherwise the row lingers as `(open)` in `tusk skill-run list` forever.
+
 ## Step 1: Capture the Directory Argument
 
 The user provides a directory path after `/investigate-directory`. It may be:
@@ -28,13 +30,15 @@ If no argument was provided, ask:
 
 > Which directory should I investigate? Provide a path relative to the project root (e.g., `src/auth`) or an absolute path.
 
+If the user does not respond, or declines to provide a path, run `tusk skill-run cancel <run_id>` and stop. This closes the open `skill_runs` row instead of leaving it pending forever.
+
 **Resolve to an absolute path:**
 
 ```bash
 tusk path        # prints the path to tasks.db
 ```
 
-The project root is the parent of the `tusk/` directory returned by `tusk path`. If the argument is relative, prepend the project root. If it is already absolute, use it as-is. Confirm the directory exists before proceeding.
+The project root is the parent of the `tusk/` directory returned by `tusk path`. If the argument is relative, prepend the project root. If it is already absolute, use it as-is. Confirm the directory exists before proceeding — if it does not, run `tusk skill-run cancel <run_id>` and stop with "Directory `<path>` not found."
 
 ## Step 2: Load Project Context
 

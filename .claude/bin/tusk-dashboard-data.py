@@ -396,6 +396,38 @@ def fetch_hourly_cost(conn: sqlite3.Connection, offset_minutes: int = 0) -> list
     return result
 
 
+def fetch_cost_scatter_data(conn: sqlite3.Connection, offset_minutes: int = 0) -> list[dict]:
+    """Fetch per-session scatter data for cost-by-model visualization.
+
+    Returns one row per session with model, cost, tokens, duration, and task
+    metadata (complexity, domain, task_type) for filtering.
+    """
+    log.debug("Querying cost scatter data (offset_minutes=%d)", offset_minutes)
+    sign = "+" if offset_minutes >= 0 else ""
+    offset_mod = f"{sign}{offset_minutes} minutes"
+    rows = conn.execute(
+        f"""SELECT s.id as session_id,
+                  s.task_id,
+                  COALESCE(NULLIF(s.model, ''), 'unknown') as model,
+                  COALESCE(s.cost_dollars, 0) as cost,
+                  COALESCE(s.tokens_in, 0) as tokens_in,
+                  COALESCE(s.tokens_out, 0) as tokens_out,
+                  COALESCE(s.tokens_in, 0) + COALESCE(s.tokens_out, 0) as total_tokens,
+                  COALESCE(s.duration_seconds, 0) as duration,
+                  datetime(s.started_at, '{offset_mod}') as started_at,
+                  t.complexity,
+                  t.domain,
+                  t.task_type
+           FROM task_sessions s
+           LEFT JOIN tasks t ON s.task_id = t.id
+           WHERE s.cost_dollars > 0
+           ORDER BY s.started_at"""
+    ).fetchall()
+    result = [dict(r) for r in rows]
+    log.debug("Fetched %d cost scatter rows", len(result))
+    return result
+
+
 def fetch_dow_hour_heatmap(conn: sqlite3.Connection, offset_minutes: int = 0) -> list[dict]:
     """Fetch day-of-week + hour cost heatmap from task_sessions (local-time buckets).
 
@@ -531,3 +563,203 @@ def fetch_complexity_metrics(conn: sqlite3.Connection) -> list[dict]:
     result = [dict(r) for r in rows]
     log.debug("Fetched %d complexity metric rows", len(result))
     return result
+
+
+def fetch_model_performance(conn: sqlite3.Connection, offset_minutes: int = 0) -> dict:
+    """Fetch per-model rollups for the Models dashboard tab.
+
+    Returns a dict with four keys:
+    - models: per-model rollups with task-session and skill-run sub-aggregates,
+      keyed on the COALESCE(NULLIF(model, ''), 'unknown') value so the Tasks/Skills/Both
+      toggle can recombine them client-side. Sorted by total cost desc.
+    - complexity_matrix: (model, complexity) buckets with avg turns and avg
+      cost-per-session derived from task_sessions only (skill_runs have no
+      task linkage, hence no complexity).
+    - timeseries_tasks / timeseries_skills: daily rollups per model, bucketed
+      in local time via offset_minutes so the line chart on the Models tab
+      lines up with the other time-series panels.
+
+    request_count aggregates (task_request_count, skill_request_count,
+    complexity_matrix.avg_turns, timeseries_*.request_count) are NULL — not
+    0 — when every contributing row has NULL request_count (rows that
+    predate the TASK-73 migration). The client renders '—' for those so
+    'unknown turns' is visually distinguishable from a genuine zero.
+    """
+    log.debug("Querying model performance rollups (offset=%d)", offset_minutes)
+    sign = "+" if offset_minutes >= 0 else ""
+    offset_mod = f"{sign}{offset_minutes} minutes"
+
+    task_rollup_rows = conn.execute(
+        """SELECT COALESCE(NULLIF(s.model, ''), 'unknown') as model,
+                  COUNT(s.id) as task_session_count,
+                  COUNT(DISTINCT s.task_id) as task_count,
+                  SUM(COALESCE(s.cost_dollars, 0)) as task_cost,
+                  SUM(COALESCE(s.tokens_in, 0)) as task_tokens_in,
+                  SUM(COALESCE(s.tokens_out, 0)) as task_tokens_out,
+                  SUM(COALESCE(s.lines_added, 0)) as task_lines_added,
+                  SUM(COALESCE(s.lines_removed, 0)) as task_lines_removed,
+                  SUM(s.request_count) as task_request_count
+           FROM task_sessions s
+           GROUP BY COALESCE(NULLIF(s.model, ''), 'unknown')"""
+    ).fetchall()
+    task_rollup = {r["model"]: dict(r) for r in task_rollup_rows}
+
+    skill_rollup: dict[str, dict] = {}
+    try:
+        skill_rollup_rows = conn.execute(
+            """SELECT COALESCE(NULLIF(model, ''), 'unknown') as model,
+                      COUNT(*) as skill_run_count,
+                      SUM(COALESCE(cost_dollars, 0)) as skill_cost,
+                      SUM(COALESCE(tokens_in, 0)) as skill_tokens_in,
+                      SUM(COALESCE(tokens_out, 0)) as skill_tokens_out,
+                      SUM(request_count) as skill_request_count
+               FROM skill_runs
+               GROUP BY COALESCE(NULLIF(model, ''), 'unknown')"""
+        ).fetchall()
+        skill_rollup = {r["model"]: dict(r) for r in skill_rollup_rows}
+    except sqlite3.OperationalError:
+        log.warning("skill_runs table not found — skipping skill rollups for Models tab")
+
+    all_model_names = set(task_rollup) | set(skill_rollup)
+    models: list[dict] = []
+    for name in all_model_names:
+        t = task_rollup.get(name, {})
+        s = skill_rollup.get(name, {})
+        models.append({
+            "model": name,
+            "task_session_count": t.get("task_session_count") or 0,
+            "task_count": t.get("task_count") or 0,
+            "task_cost": round(t.get("task_cost") or 0, 6),
+            "task_tokens_in": t.get("task_tokens_in") or 0,
+            "task_tokens_out": t.get("task_tokens_out") or 0,
+            "task_lines_added": t.get("task_lines_added") or 0,
+            "task_lines_removed": t.get("task_lines_removed") or 0,
+            "task_request_count": t.get("task_request_count"),
+            "skill_run_count": s.get("skill_run_count") or 0,
+            "skill_cost": round(s.get("skill_cost") or 0, 6),
+            "skill_tokens_in": s.get("skill_tokens_in") or 0,
+            "skill_tokens_out": s.get("skill_tokens_out") or 0,
+            "skill_request_count": s.get("skill_request_count"),
+        })
+    models.sort(key=lambda m: (-(m["task_cost"] + m["skill_cost"]), m["model"]))
+
+    cm_rows = conn.execute(
+        """SELECT COALESCE(NULLIF(s.model, ''), 'unknown') as model,
+                  t.complexity,
+                  COUNT(s.id) as session_count,
+                  ROUND(AVG(s.request_count), 1) as avg_turns,
+                  ROUND(AVG(COALESCE(s.cost_dollars, 0)), 4) as avg_cost
+           FROM task_sessions s
+           LEFT JOIN tasks t ON s.task_id = t.id
+           WHERE t.complexity IS NOT NULL
+           GROUP BY COALESCE(NULLIF(s.model, ''), 'unknown'), t.complexity
+           ORDER BY model, CASE t.complexity
+               WHEN 'XS' THEN 1
+               WHEN 'S' THEN 2
+               WHEN 'M' THEN 3
+               WHEN 'L' THEN 4
+               WHEN 'XL' THEN 5
+               ELSE 6
+           END"""
+    ).fetchall()
+    complexity_matrix = [dict(r) for r in cm_rows]
+
+    ts_task_rows = conn.execute(
+        f"""SELECT date(started_at, '{offset_mod}') as day,
+                   COALESCE(NULLIF(model, ''), 'unknown') as model,
+                   SUM(COALESCE(cost_dollars, 0)) as cost,
+                   SUM(request_count) as request_count,
+                   SUM(COALESCE(lines_added, 0) + COALESCE(lines_removed, 0)) as total_lines,
+                   SUM(COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0)) as total_tokens
+            FROM task_sessions
+            WHERE started_at IS NOT NULL
+            GROUP BY day, model
+            ORDER BY day, model"""
+    ).fetchall()
+    timeseries_tasks = [dict(r) for r in ts_task_rows]
+
+    timeseries_skills: list[dict] = []
+    try:
+        ts_skill_rows = conn.execute(
+            f"""SELECT date(started_at, '{offset_mod}') as day,
+                       COALESCE(NULLIF(model, ''), 'unknown') as model,
+                       SUM(COALESCE(cost_dollars, 0)) as cost,
+                       SUM(request_count) as request_count,
+                       0 as total_lines,
+                       SUM(COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0)) as total_tokens
+                FROM skill_runs
+                WHERE started_at IS NOT NULL
+                GROUP BY day, model
+                ORDER BY day, model"""
+        ).fetchall()
+        timeseries_skills = [dict(r) for r in ts_skill_rows]
+    except sqlite3.OperationalError:
+        log.warning("skill_runs table not found — skipping skill timeseries for Models tab")
+
+    log.debug(
+        "Fetched models=%d, complexity=%d, ts_tasks=%d, ts_skills=%d",
+        len(models), len(complexity_matrix), len(timeseries_tasks), len(timeseries_skills),
+    )
+    return {
+        "models": models,
+        "complexity_matrix": complexity_matrix,
+        "timeseries_tasks": timeseries_tasks,
+        "timeseries_skills": timeseries_skills,
+    }
+
+
+def fetch_rework_rate(conn: sqlite3.Connection, min_sample_size: int = 5) -> list[dict]:
+    """Per-model rework rate: fraction of shipped feature/bug tasks that later had a
+    follow-up task filed against them (via tasks.fixes_task_id).
+
+    The "closer model" is the model of the most recently ended session on the
+    shipped task — i.e. the model that actually landed the work, which may not be
+    the model that started it. `min_sample_size` controls which rows are deemed
+    statistically meaningful: rows are always returned, but each row carries a
+    `meets_threshold` flag so the renderer can suppress the ratio for tiny samples.
+
+    Mirrors the canonical query in docs/DOMAIN.md (closer_sessions CTE +
+    LEFT JOIN tasks.fixes_task_id) and applies the standard
+    COALESCE(NULLIF(model, ''), 'unknown') normalization so NULL and '' model
+    rows bucket together — matching fetch_model_performance / fetch_cost_scatter_data.
+
+    Each row: {model, shipped_tasks, rework_tasks, rework_rate, meets_threshold}.
+    rework_rate is NULL for models with 0 shipped tasks (shouldn't occur given
+    the JOIN, but NULLIF guards against divide-by-zero). Sorted by rework_rate
+    ASC (NULLs last), then model ASC for deterministic output.
+    """
+    log.debug("Querying per-model rework rate (min_sample=%d)", min_sample_size)
+    rows = conn.execute(
+        """WITH closer_sessions AS (
+               SELECT s.task_id,
+                      COALESCE(NULLIF(s.model, ''), 'unknown') AS model,
+                      ROW_NUMBER() OVER (
+                          PARTITION BY s.task_id ORDER BY s.ended_at DESC
+                      ) AS rn
+                 FROM task_sessions s
+                WHERE s.ended_at IS NOT NULL
+           )
+           SELECT cs.model AS model,
+                  COUNT(DISTINCT t.id) AS shipped_tasks,
+                  COUNT(DISTINCT fu.id) AS rework_tasks,
+                  ROUND(
+                      1.0 * COUNT(DISTINCT fu.id)
+                          / NULLIF(COUNT(DISTINCT t.id), 0),
+                      3
+                  ) AS rework_rate
+             FROM tasks t
+             JOIN closer_sessions cs ON cs.task_id = t.id AND cs.rn = 1
+        LEFT JOIN tasks fu ON fu.fixes_task_id = t.id
+            WHERE t.status = 'Done'
+              AND t.closed_reason = 'completed'
+              AND t.task_type IN ('feature', 'bug')
+         GROUP BY cs.model
+         ORDER BY (rework_rate IS NULL), rework_rate ASC, cs.model ASC"""
+    ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["meets_threshold"] = (d["shipped_tasks"] or 0) >= min_sample_size
+        out.append(d)
+    log.debug("Fetched rework_rate rows=%d", len(out))
+    return out

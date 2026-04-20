@@ -366,6 +366,7 @@ def generate_header(now: str, tz_label: str = "", project_name: str = "Tusk") ->
   <button class="tab-btn" data-tab="dag">DAG</button>
   <button class="tab-btn" data-tab="skills">Skills</button>
   <button class="tab-btn" data-tab="cost">Cost</button>
+  <button class="tab-btn" data-tab="models">Models</button>
 </div>"""
 
 
@@ -789,6 +790,479 @@ def generate_hourly_cost_section() -> str:
   }});
 }})();
 </script>"""
+
+
+def generate_cost_scatter_section() -> str:
+    """Generate Cost by Model scatter plot panel with X-axis toggle."""
+    return """\
+<div class="panel" style="margin-bottom: var(--sp-6);">
+  <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Cost by Model</span>
+    <div class="cost-trend-controls">
+      <span class="cost-toggle-label">X-Axis</span>
+      <div class="cost-trend-tabs" id="scatterXTabs">
+        <button class="cost-tab active" data-axis="tokens">Tokens</button>
+        <button class="cost-tab" data-axis="date">Date</button>
+        <button class="cost-tab" data-axis="duration">Duration</button>
+      </div>
+    </div>
+  </div>
+  <div style="padding:0 var(--sp-4) var(--sp-4);">
+    <canvas id="costScatterChart" height="280" style="max-width:100%;width:100%;"></canvas>
+  </div>
+  <p style="padding:0 var(--sp-4) var(--sp-4);font-size:0.7rem;color:var(--text-muted);margin:0;">
+    Each point is a session. Hover for details. Color = model.
+  </p>
+</div>
+<script>
+(function() {
+  var axisBtns = document.querySelectorAll('#scatterXTabs .cost-tab');
+  axisBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      axisBtns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      if (window.__tuskRebuildScatter) {
+        window.__tuskRebuildScatter(btn.getAttribute('data-axis'));
+      }
+    });
+  });
+})();
+</script>"""
+
+
+def generate_models_section(model_performance: dict | None) -> str:
+    """Generate the Models tab body: KPI cards with a Tasks/Skills/Both source toggle."""
+    data = model_performance or {}
+    payload = {
+        "models": data.get("models") or [],
+        "complexity_matrix": data.get("complexity_matrix") or [],
+        "timeseries_tasks": data.get("timeseries_tasks") or [],
+        "timeseries_skills": data.get("timeseries_skills") or [],
+    }
+
+    has_resolved_signal = False
+    for m in payload["models"]:
+        name = (m.get("model") or "").strip()
+        if not name or name == "unknown":
+            continue
+        if (m.get("task_session_count") or 0) or (m.get("skill_run_count") or 0):
+            has_resolved_signal = True
+            break
+    if not has_resolved_signal:
+        return """\
+<div class="panel">
+  <div class="section-header"><span>Models</span></div>
+  <div style="padding: var(--sp-4);">
+    <p class="empty">No model data yet &mdash; close a session to populate.</p>
+  </div>
+</div>
+"""
+
+    payload_json = json.dumps(payload).replace("</", "<\\/")
+
+    panel_html = """\
+<div class="panel" style="margin-bottom: var(--sp-6);">
+  <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Models</span>
+    <div class="cost-trend-controls">
+      <span class="cost-toggle-label">Source</span>
+      <div class="cost-trend-tabs" id="modelsSourceTabs">
+        <button class="cost-tab active" data-source="both">Both</button>
+        <button class="cost-tab" data-source="tasks">Tasks</button>
+        <button class="cost-tab" data-source="skills">Skills</button>
+      </div>
+    </div>
+  </div>
+  <div id="modelsKpiGrid" class="kpi-grid" style="padding: 0 var(--sp-4) var(--sp-4);"></div>
+</div>
+<div class="panel" style="margin-bottom: var(--sp-6);">
+  <div class="section-header"><span>Avg Turns &amp; Cost by Complexity</span></div>
+  <div style="padding: 0 var(--sp-4) var(--sp-4);overflow-x:auto;">
+    <table id="modelsComplexityTable">
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th style="text-align:right">XS</th>
+          <th style="text-align:right">S</th>
+          <th style="text-align:right">M</th>
+          <th style="text-align:right">L</th>
+          <th style="text-align:right">XL</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p style="font-size:0.7rem;color:var(--text-muted);margin:var(--sp-2) 0 0;">
+      Each cell shows <span style="white-space:nowrap">avg&nbsp;turns</span> / <span style="white-space:nowrap">avg&nbsp;cost</span> per session in that complexity bucket. Derived from task sessions only.
+    </p>
+  </div>
+</div>
+<div class="panel" style="margin-bottom: var(--sp-6);">
+  <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Trend</span>
+    <div class="cost-trend-controls">
+      <span class="cost-toggle-label">Y-Axis</span>
+      <div class="cost-trend-tabs" id="modelsMetricTabs">
+        <button class="cost-tab active" data-metric="cost">Cost</button>
+        <button class="cost-tab" data-metric="cost_per_loc">Cost / LOC</button>
+        <button class="cost-tab" data-metric="turns">Turns</button>
+        <button class="cost-tab" data-metric="tokens">Tokens</button>
+      </div>
+    </div>
+  </div>
+  <div style="padding: 0 var(--sp-4) var(--sp-4);">
+    <canvas id="modelsTrendChart" height="280" style="max-width:100%;width:100%;"></canvas>
+  </div>
+  <p style="padding:0 var(--sp-4) var(--sp-4);font-size:0.7rem;color:var(--text-muted);margin:0;">
+    One line per model. Cost/LOC uses task lines added + removed on the same day (skill runs contribute 0 LOC).
+  </p>
+</div>
+"""
+
+    script = """\
+<script>
+(function() {
+  var data = window.__tuskModels || {};
+  var models = data.models || [];
+  var complexityMatrix = data.complexity_matrix || [];
+  var tsTasks = data.timeseries_tasks || [];
+  var tsSkills = data.timeseries_skills || [];
+
+  var source = 'both';
+  var metric = 'cost';
+  var COMPLEXITY_TIERS = ['XS', 'S', 'M', 'L', 'XL'];
+  var PALETTE = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+  var trendChart = null;
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function fmtCost(v) { return '$' + (v || 0).toFixed(2); }
+  function fmtCostFine(v) { return '$' + (v || 0).toFixed(4); }
+  function fmtTokens(n) {
+    n = n || 0;
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return String(n|0);
+  }
+  function fmtInt(n) { return (n || 0).toLocaleString(); }
+
+  function summarize(m) {
+    var cost = 0, tokensIn = 0, tokensOut = 0, reqs = 0, reqsKnown = false, sessions = 0, tasks = 0, linesAdd = 0, linesRem = 0, skillRuns = 0;
+    if (source === 'tasks' || source === 'both') {
+      cost += m.task_cost || 0;
+      tokensIn += m.task_tokens_in || 0;
+      tokensOut += m.task_tokens_out || 0;
+      if (m.task_request_count != null) { reqs += m.task_request_count; reqsKnown = true; }
+      sessions += m.task_session_count || 0;
+      tasks += m.task_count || 0;
+      linesAdd += m.task_lines_added || 0;
+      linesRem += m.task_lines_removed || 0;
+    }
+    if (source === 'skills' || source === 'both') {
+      cost += m.skill_cost || 0;
+      tokensIn += m.skill_tokens_in || 0;
+      tokensOut += m.skill_tokens_out || 0;
+      if (m.skill_request_count != null) { reqs += m.skill_request_count; reqsKnown = true; }
+      skillRuns += m.skill_run_count || 0;
+    }
+    var loc = linesAdd + linesRem;
+    return {
+      model: m.model, cost: cost, tokens_in: tokensIn, tokens_out: tokensOut,
+      requests: reqsKnown ? reqs : null, requests_known: reqsKnown,
+      sessions: sessions, skill_runs: skillRuns, tasks: tasks,
+      loc: loc,
+      cost_per_task: tasks > 0 ? cost / tasks : 0,
+      cost_per_loc: loc > 0 ? cost / loc : 0,
+      cost_per_turn: (reqsKnown && reqs > 0) ? cost / reqs : 0
+    };
+  }
+
+  function renderKpi() {
+    var host = document.getElementById('modelsKpiGrid');
+    if (!host) return;
+    var rows = models.map(summarize).filter(function(s) {
+      return s.cost > 0 || s.sessions > 0 || s.skill_runs > 0 || (s.requests || 0) > 0;
+    });
+    rows.sort(function(a, b) { return b.cost - a.cost; });
+    if (!rows.length) {
+      host.innerHTML = '<p class="empty" style="grid-column:1/-1;">No data for this source.</p>';
+      return;
+    }
+    host.innerHTML = rows.map(function(r) {
+      var srcDetail;
+      if (source === 'tasks') {
+        srcDetail = fmtInt(r.sessions) + ' session' + (r.sessions === 1 ? '' : 's');
+      } else if (source === 'skills') {
+        srcDetail = fmtInt(r.skill_runs) + ' skill run' + (r.skill_runs === 1 ? '' : 's');
+      } else {
+        srcDetail = fmtInt(r.sessions) + ' / ' + fmtInt(r.skill_runs) + ' (sess/skill)';
+      }
+      var costPerLoc = r.loc > 0 ? '<div class="kpi-sub">' + fmtCostFine(r.cost_per_loc) + ' / LOC</div>' : '';
+      var costPerTask = (source !== 'skills' && r.tasks > 0) ? '<div class="kpi-sub">' + fmtCost(r.cost_per_task) + ' / task</div>' : '';
+      var turnsText = r.requests_known ? fmtInt(r.requests) + ' turns' : '\u2014 turns';
+      return (
+        '<div class="kpi-card">' +
+          '<div class="kpi-label">' + escapeHtml(r.model) + '</div>' +
+          '<div class="kpi-value">' + fmtCost(r.cost) + '</div>' +
+          '<div class="kpi-sub">' + srcDetail + '</div>' +
+          '<div class="kpi-sub">' + turnsText + ' \u00b7 ' + fmtTokens(r.tokens_in + r.tokens_out) + ' tok</div>' +
+          costPerTask +
+          costPerLoc +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  function renderComplexityTable() {
+    var table = document.getElementById('modelsComplexityTable');
+    if (!table) return;
+    var tbody = table.querySelector('tbody');
+    tbody.innerHTML = '';
+    if (source === 'skills') {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">Complexity breakdown is task-session only.</td></tr>';
+      return;
+    }
+    var byModel = {};
+    complexityMatrix.forEach(function(row) {
+      if (!byModel[row.model]) byModel[row.model] = {};
+      byModel[row.model][row.complexity] = row;
+    });
+    var modelNames = Object.keys(byModel).sort();
+    if (!modelNames.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No tasks with resolved complexity yet.</td></tr>';
+      return;
+    }
+    var out = '';
+    modelNames.forEach(function(name) {
+      out += '<tr><td>' + escapeHtml(name) + '</td>';
+      COMPLEXITY_TIERS.forEach(function(tier) {
+        var cell = byModel[name][tier];
+        if (!cell) {
+          out += '<td class="text-muted-dash" style="text-align:right">\u2014</td>';
+        } else {
+          var turns = cell.avg_turns == null ? '\u2014' : Number(cell.avg_turns).toFixed(1);
+          out += '<td style="text-align:right">'
+            + turns
+            + ' / ' + fmtCostFine(cell.avg_cost)
+            + '</td>';
+        }
+      });
+      out += '</tr>';
+    });
+    tbody.innerHTML = out;
+  }
+
+  function combinedTimeseries() {
+    if (source === 'tasks') return tsTasks.slice();
+    if (source === 'skills') return tsSkills.slice();
+    var merged = {};
+    function add(arr) {
+      arr.forEach(function(r) {
+        var k = r.day + '|' + r.model;
+        if (!merged[k]) merged[k] = { day: r.day, model: r.model, cost: 0, request_count: null, total_lines: 0, total_tokens: 0 };
+        merged[k].cost += r.cost || 0;
+        if (r.request_count != null) {
+          merged[k].request_count = (merged[k].request_count || 0) + r.request_count;
+        }
+        merged[k].total_lines += r.total_lines || 0;
+        merged[k].total_tokens += r.total_tokens || 0;
+      });
+    }
+    add(tsTasks);
+    add(tsSkills);
+    return Object.keys(merged).map(function(k) { return merged[k]; });
+  }
+
+  function buildTrendConfig() {
+    var src = combinedTimeseries();
+    var daySet = {}, modelSet = {};
+    src.forEach(function(r) { daySet[r.day] = true; modelSet[r.model] = true; });
+    var days = Object.keys(daySet).sort();
+    var modelNames = Object.keys(modelSet).sort();
+    var lookup = {};
+    src.forEach(function(r) { lookup[r.day + '|' + r.model] = r; });
+    var datasets = modelNames.map(function(name, i) {
+      var color = PALETTE[i % PALETTE.length];
+      var points = days.map(function(day) {
+        var r = lookup[day + '|' + name];
+        if (!r) return 0;
+        if (metric === 'cost') return r.cost || 0;
+        if (metric === 'turns') return r.request_count == null ? null : r.request_count;
+        if (metric === 'tokens') return r.total_tokens || 0;
+        if (metric === 'cost_per_loc') return (r.total_lines || 0) > 0 ? (r.cost || 0) / r.total_lines : 0;
+        return 0;
+      });
+      return {
+        label: name,
+        data: points,
+        borderColor: color,
+        backgroundColor: color + '33',
+        tension: 0.25,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        fill: false
+      };
+    });
+    return { labels: days, datasets: datasets };
+  }
+
+  function renderChart() {
+    var canvas = document.getElementById('modelsTrendChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+    var cfg = buildTrendConfig();
+    var style = getComputedStyle(document.documentElement);
+    var textMuted = style.getPropertyValue('--text-muted').trim() || '#94a3b8';
+    var border = style.getPropertyValue('--border').trim() || '#e2e8f0';
+    var yTitle;
+    if (metric === 'cost') yTitle = 'Cost ($)';
+    else if (metric === 'cost_per_loc') yTitle = 'Cost / LOC ($)';
+    else if (metric === 'turns') yTitle = 'Turns';
+    else yTitle = 'Tokens';
+    trendChart = new Chart(canvas, {
+      type: 'line',
+      data: cfg,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: textMuted, usePointStyle: true, padding: 16 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                var v = ctx.parsed.y || 0;
+                if (metric === 'cost') return ctx.dataset.label + ': $' + v.toFixed(4);
+                if (metric === 'cost_per_loc') return ctx.dataset.label + ': $' + v.toFixed(6) + ' / LOC';
+                if (metric === 'turns') return ctx.dataset.label + ': ' + Math.round(v) + ' turns';
+                return ctx.dataset.label + ': ' + v.toLocaleString() + ' tokens';
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: textMuted, font: { size: 11 }, maxTicksLimit: 12 }, grid: { color: border, borderDash: [3,3] } },
+          y: {
+            title: { display: true, text: yTitle, color: textMuted },
+            ticks: {
+              color: textMuted,
+              font: { size: 11 },
+              callback: function(v) {
+                if (metric === 'cost') return '$' + v.toFixed(2);
+                if (metric === 'cost_per_loc') return '$' + v.toFixed(4);
+                if (metric === 'tokens') return v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v >= 1e3 ? (v/1e3).toFixed(0) + 'K' : v;
+                return v;
+              }
+            },
+            grid: { color: border, borderDash: [3,3] },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  function renderAll() {
+    renderKpi();
+    renderComplexityTable();
+    renderChart();
+  }
+
+  var srcBtns = document.querySelectorAll('#modelsSourceTabs .cost-tab');
+  srcBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      srcBtns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      source = btn.getAttribute('data-source');
+      renderAll();
+    });
+  });
+
+  var metricBtns = document.querySelectorAll('#modelsMetricTabs .cost-tab');
+  metricBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      metricBtns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      metric = btn.getAttribute('data-metric');
+      renderChart();
+    });
+  });
+
+  renderAll();
+})();
+</script>
+"""
+
+    return f'<script>window.__tuskModels = {payload_json};</script>\n' + panel_html + script
+
+
+def generate_rework_rate_section(
+    rework_rate: list[dict] | None, min_sample_size: int = 5
+) -> str:
+    """Per-model rework rate panel for the Models tab.
+
+    Renders one row per closer-model with shipped / rework / rate columns.
+    Models with fewer than `min_sample_size` shipped tasks keep their raw
+    counts but show '—' for the rate so an early noisy ratio doesn't dominate.
+    """
+    rows = rework_rate or []
+    if not rows:
+        return """\
+<div class="panel" style="margin-bottom: var(--sp-6);">
+  <div class="section-header"><span>Rework Rate</span></div>
+  <div style="padding: var(--sp-4);">
+    <p class="empty">No shipped feature/bug tasks with closer sessions yet.</p>
+  </div>
+</div>
+"""
+
+    body = ""
+    for r in rows:
+        shipped = r.get("shipped_tasks") or 0
+        rework = r.get("rework_tasks") or 0
+        rate = r.get("rework_rate")
+        meets = bool(r.get("meets_threshold"))
+        if meets and rate is not None:
+            rate_cell = f"{rate * 100:.1f}%"
+        else:
+            rate_cell = '<span class="text-muted-dash">\u2014</span>'
+        body += (
+            "<tr>"
+            f"<td>{esc(r.get('model') or 'unknown')}</td>"
+            f'<td style="text-align:right">{shipped}</td>'
+            f'<td style="text-align:right">{rework}</td>'
+            f'<td style="text-align:right">{rate_cell}</td>'
+            "</tr>"
+        )
+
+    return f"""\
+<div class="panel" style="margin-bottom: var(--sp-6);">
+  <div class="section-header"><span>Rework Rate</span></div>
+  <div style="padding: 0 var(--sp-4) var(--sp-4);overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th style="text-align:right">Shipped</th>
+          <th style="text-align:right">Rework</th>
+          <th style="text-align:right">Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        {body}
+      </tbody>
+    </table>
+    <p style="font-size:0.7rem;color:var(--text-muted);margin:var(--sp-2) 0 0;">
+      Shipped = completed feature/bug tasks attributed to the model of the most
+      recently ended session. Rework = follow-up tasks filed against them via
+      <code>tasks.fixes_task_id</code>. Rate is hidden (&mdash;) until a model has at
+      least {min_sample_size} shipped tasks. Lower is better.
+    </p>
+  </div>
+</div>
+"""
 
 
 def generate_dow_hour_heatmap_section() -> str:

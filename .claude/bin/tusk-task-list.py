@@ -23,6 +23,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tusk_loader
 
 _db_lib = tusk_loader.load("tusk-db-lib")
+_json_lib = tusk_loader.load("tusk-json-lib")
+dumps = _json_lib.dumps
 get_connection = _db_lib.get_connection
 
 
@@ -63,6 +65,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--status", default=None, help="Filter by status")
     parser.add_argument("--domain", default=None, help="Filter by domain")
     parser.add_argument("--assignee", default=None, help="Filter by assignee")
+    parser.add_argument("--workflow", default=None, help="Filter by workflow")
     parser.add_argument("--format", choices=["text", "json"], default="text", dest="fmt")
     parser.add_argument("--all", action="store_true", dest="all_tasks",
                         help="Include Done tasks (default excludes Done)")
@@ -82,7 +85,7 @@ def main(argv: list[str]) -> int:
         print("  --all       Include Done tasks (default: only non-Done tasks); ignored when --status is also set")
         return 0
 
-    conditions: list[str] = []
+    conditions: list[str] = ["bakeoff_shadow = 0"]
     params: list = []
 
     if not args.all_tasks and args.status is None:
@@ -99,6 +102,10 @@ def main(argv: list[str]) -> int:
     if args.assignee is not None:
         conditions.append("assignee = ?")
         params.append(args.assignee)
+
+    if args.workflow is not None:
+        conditions.append("workflow = ?")
+        params.append(args.workflow)
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     sql = f"""
@@ -117,7 +124,7 @@ ORDER BY priority_score DESC, id
     result = [{key: row[key] for key in row.keys()} for row in rows]
 
     if args.fmt == "json":
-        print(json.dumps(result, indent=2))
+        print(dumps(result))
     else:
         print_text_table(result)
 

@@ -20,6 +20,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tusk_loader
 
 _db_lib = tusk_loader.load("tusk-db-lib")
+_json_lib = tusk_loader.load("tusk-json-lib")
+dumps = _json_lib.dumps
 get_connection = _db_lib.get_connection
 
 
@@ -29,17 +31,17 @@ def load_review_config(config_path: str) -> dict:
         with open(config_path) as f:
             config = json.load(f)
         return {
-            "reviewers": config.get("review", {}).get("reviewers", []),
+            "reviewer": config.get("review", {}).get("reviewer"),
             "max_passes": config.get("review", {}).get("max_passes", 2),
             "categories": config.get("review_categories", []),
             "severities": config.get("review_severities", []),
         }
     except (OSError, json.JSONDecodeError):
-        return {"reviewers": [], "max_passes": 2, "categories": [], "severities": []}
+        return {"reviewer": None, "max_passes": 2, "categories": [], "severities": []}
 
 
 def cmd_start(args: argparse.Namespace, db_path: str, config_path: str) -> int:
-    """Create one code_reviews row per enabled reviewer (or a single unassigned row)."""
+    """Create one code_reviews row for the configured reviewer (or unassigned)."""
     conn = get_connection(db_path)
     try:
         task = conn.execute("SELECT id, summary FROM tasks WHERE id = ?", (args.task_id,)).fetchone()
@@ -63,46 +65,30 @@ def cmd_start(args: argparse.Namespace, db_path: str, config_path: str) -> int:
             print(f"Superseded {len(prior_pending)} prior pending review(s): {superseded_ids}")
 
         cfg = load_review_config(config_path)
-        reviewers = cfg["reviewers"]
+        reviewer_item = cfg["reviewer"]
 
-        # If a specific reviewer was passed on the CLI, use only that one
+        # CLI override wins over config
         if args.reviewer:
-            reviewers = [args.reviewer]
+            reviewer_name = args.reviewer
+        elif isinstance(reviewer_item, dict):
+            reviewer_name = reviewer_item.get("name")
+        elif isinstance(reviewer_item, str):
+            reviewer_name = reviewer_item
+        else:
+            reviewer_name = None
 
-        # If no reviewers configured and none specified, create one unassigned review.
-        # Emit a warning so misconfigured setups (e.g. reviewers added to config.default.json
-        # instead of tusk/config.json) are immediately visible rather than silently creating
-        # only one unassigned row. Root cause of issue #390.
-        if not reviewers:
-            print(
-                f"Warning: no reviewers found in {config_path} — creating one unassigned review."
-                " If you expected multiple reviewers, verify that tusk/config.json contains"
-                " 'review.reviewers' entries.",
-                file=sys.stderr,
-            )
-            reviewers = [None]
-
-        created_ids = []
-        for reviewer_item in reviewers:
-            # reviewer_item may be a dict {"name": ..., "description": ...} or a plain string/None
-            if isinstance(reviewer_item, dict):
-                reviewer_name = reviewer_item.get("name")
-            else:
-                reviewer_name = reviewer_item
-            conn.execute(
-                "INSERT INTO code_reviews (task_id, reviewer, status, review_pass, diff_summary, agent_name)"
-                " VALUES (?, ?, 'pending', ?, ?, ?)",
-                (args.task_id, reviewer_name, args.pass_num, args.diff_summary, args.agent),
-            )
-            conn.commit()
-            rid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-            created_ids.append((rid, reviewer_name))
+        conn.execute(
+            "INSERT INTO code_reviews (task_id, reviewer, status, review_pass, diff_summary, agent_name)"
+            " VALUES (?, ?, 'pending', ?, ?, ?)",
+            (args.task_id, reviewer_name, args.pass_num, args.diff_summary, args.agent),
+        )
+        conn.commit()
+        rid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     finally:
         conn.close()
 
-    for rid, reviewer in created_ids:
-        reviewer_str = f" (reviewer: {reviewer})" if reviewer else ""
-        print(f"Started review #{rid} for task #{args.task_id}{reviewer_str}: {task['summary']}")
+    reviewer_str = f" (reviewer: {reviewer_name})" if reviewer_name else ""
+    print(f"Started review #{rid} for task #{args.task_id}{reviewer_str}: {task['summary']}")
 
     return 0
 
@@ -284,18 +270,19 @@ def cmd_approve(args: argparse.Namespace, db_path: str) -> int:
             print(f"Error: Review {args.review_id} not found", file=sys.stderr)
             return 2
 
+        set_clauses = ["status = 'approved'", "review_pass = 1", "updated_at = datetime('now')"]
+        params: list = []
         if args.note:
-            conn.execute(
-                "UPDATE code_reviews SET status = 'approved', review_pass = 1,"
-                " note = ?, updated_at = datetime('now') WHERE id = ?",
-                (args.note, args.review_id),
-            )
-        else:
-            conn.execute(
-                "UPDATE code_reviews SET status = 'approved', review_pass = 1,"
-                " updated_at = datetime('now') WHERE id = ?",
-                (args.review_id,),
-            )
+            set_clauses.append("note = ?")
+            params.append(args.note)
+        if args.model:
+            set_clauses.append("model = ?")
+            params.append(args.model)
+        params.append(args.review_id)
+        conn.execute(
+            f"UPDATE code_reviews SET {', '.join(set_clauses)} WHERE id = ?",
+            params,
+        )
         conn.commit()
     finally:
         conn.close()
@@ -318,10 +305,15 @@ def cmd_request_changes(args: argparse.Namespace, db_path: str) -> int:
             print(f"Error: Review {args.review_id} not found", file=sys.stderr)
             return 2
 
+        set_clauses = ["status = 'changes_requested'", "review_pass = 0", "updated_at = datetime('now')"]
+        params: list = []
+        if args.model:
+            set_clauses.append("model = ?")
+            params.append(args.model)
+        params.append(args.review_id)
         conn.execute(
-            "UPDATE code_reviews SET status = 'changes_requested', review_pass = 0,"
-            " updated_at = datetime('now') WHERE id = ?",
-            (args.review_id,),
+            f"UPDATE code_reviews SET {', '.join(set_clauses)} WHERE id = ?",
+            params,
         )
         conn.commit()
     finally:
@@ -382,7 +374,7 @@ def cmd_status(args: argparse.Namespace, db_path: str) -> int:
         ],
     }
 
-    print(json.dumps(result, indent=2))
+    print(dumps(result))
     return 0
 
 
@@ -580,10 +572,12 @@ def main():
     approve_p = subparsers.add_parser("approve", help="Approve a review")
     approve_p.add_argument("review_id", type=int, help="Review ID")
     approve_p.add_argument("--note", help="Optional reason or note to store with the approval")
+    approve_p.add_argument("--model", help="Reviewer model ID (e.g. claude-opus-4-7)")
 
     # request-changes
     req_changes_p = subparsers.add_parser("request-changes", help="Request changes on a review")
     req_changes_p.add_argument("review_id", type=int, help="Review ID")
+    req_changes_p.add_argument("--model", help="Reviewer model ID (e.g. claude-opus-4-7)")
 
     # status
     status_p = subparsers.add_parser("status", help="Show current review status for a task (JSON)")

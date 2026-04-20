@@ -12,14 +12,40 @@ Reviews the current conversation history to capture process learnings, instructi
 
 ## Step 0: Setup
 
-Fetch config, backlog, then determine retro mode:
+Fetch config, backlog, then determine retro mode. Also capture the most recent Done task's ID so the retro's cost can be attributed to it:
 
 ```bash
-tusk "SELECT complexity FROM tasks WHERE status = 'Done' ORDER BY updated_at DESC LIMIT 1"
+tusk "SELECT id, complexity FROM tasks WHERE status = 'Done' ORDER BY updated_at DESC LIMIT 1"
 tusk setup
 ```
 
 Parse the JSON from `tusk setup`: use `config` for metadata assignment and `backlog` for duplicate comparison.
+
+Store the `id` from the first query as `RETRO_TASK_ID` — it's the single just-closed task this retro is reviewing. Then start cost tracking:
+
+```bash
+tusk skill-run start retro --task-id $RETRO_TASK_ID
+```
+
+This prints `{"run_id": N, "started_at": "...", "task_id": N}`. Capture `run_id` — it's referenced by every exit path below. If the query returned no rows (no Done tasks exist yet), omit `--task-id`:
+
+```bash
+tusk skill-run start retro
+```
+
+> **Early-exit cleanup:** If any step below causes the retro to stop before reaching the final report (LR-3 for lightweight, Step 6 for full), first call `tusk skill-run cancel <run_id>` to close the open row, then stop. Otherwise the row lingers as `(open)` in `tusk skill-run list` forever.
+
+## Step 0b: Cross-retro theme check
+
+Fetch themes recurring 3+ times across approved findings in the last 30 days so this retro can see patterns that any single retrospective misses:
+
+```bash
+tusk retro-themes --window-days 30 --min-recurrence 3
+```
+
+The output is pre-aggregated `{theme, count}` tuples — **do not** issue separate SQL queries against `retro_findings`. All cross-retro aggregation belongs in SQL behind `tusk retro-themes`; `/retro` consumes only the tuple stream.
+
+If `themes` is empty, skip — the current session stands alone. If any tuple is returned, store the list as `$RECURRING_THEMES` and use it in LR-1 (or Step 3 in FULL-RETRO) to flag recurrences: when this session surfaces a finding whose category matches a recurring theme, note the recurrence (e.g. `theme A recurring — seen N times in last 30 days`) next to that finding in the report.
 
 - **XS or S** → follow the **Lightweight Retro** path below
 - **M, L, XL, or NULL** → read the full retro guide:
@@ -47,7 +73,7 @@ Streamlined retro for small tasks. Skips subsumption analysis and dependency pro
 
 Analyze the full conversation context using the resolved categories.
 
-If **all categories are empty**, report "Clean session — no findings" and stop. (Config and backlog were already fetched in Step 0 — no additional work needed.)
+If **all categories are empty**, run `tusk skill-run cancel <run_id>`, report "Clean session — no findings" and stop. (Config and backlog were already fetched in Step 0 — no additional work needed.)
 
 ### LR-1b: Classify Each Finding
 
@@ -192,6 +218,8 @@ Fill in `<pattern>` (grep regex), `<file_glob>` (e.g., `*.md` or `bin/tusk-*.py`
 
 ### LR-3: Report
 
+The /tusk skill already printed the task summary block (`tusk task-summary <id> --format markdown`) immediately before invoking /retro, so the user has already seen the canonical identity/cost/duration/diff/criteria rollup for the just-closed task. Do **not** re-emit that block here — start directly with the retrospective findings so the two sections read as one continuous report.
+
 ```markdown
 ## Retrospective Complete (Lightweight)
 
@@ -207,6 +235,35 @@ Then show the current backlog:
 
 ```bash
 tusk -header -column "SELECT id, summary, priority, domain, task_type, status FROM tasks WHERE status = 'To Do' ORDER BY priority_score DESC, id"
+```
+
+### LR-3a: Record approved findings for cross-retro theme detection
+
+Before closing the skill run, write one `retro_findings` row per **approved** finding (task created, issue filed, lint rule added, convention added, or skill-patched inline). Skipped/duplicate findings are **not** recorded — only actioned ones feed the cross-retro signal. For each approved finding, run:
+
+```bash
+tusk retro-finding add \
+  --skill-run-id <run_id> \
+  --category '<category>' \
+  --summary '<one-line summary>' \
+  [--task-id <RETRO_TASK_ID>] \
+  [--action-taken '<action_taken>']
+```
+
+`<action_taken>` vocabulary (pick whichever fits; omit `--action-taken` if none do):
+- `task:TASK-<id>` — a new task was created via `tusk task-insert`
+- `issue:<url>` — a GitHub issue was filed via `tusk report-issue`
+- `lint:<id>` — a lint rule was added via `tusk lint-rule add`
+- `convention:<id>` — a convention was added via `tusk conventions add`
+- `skill-patch:<file>` — an inline edit was applied to a skill or CLAUDE.md
+- `documented` — recorded without a concrete action (e.g. noted for context)
+
+**Omit** `--task-id` entirely when no `RETRO_TASK_ID` was captured in Step 0 — the wrapper stores a real SQL NULL. Do not pass `--task-id NULL` or `--task-id ""`. Text fields are passed as normal argparse arguments; no `$(tusk sql-quote ...)` is required. The wrapper validates `skill_run_id` (and `task_id` if supplied) as real FKs before the INSERT, so a typo'd id fails fast with exit 1.
+
+Finally, close out the retro skill-run so its cost is captured:
+
+```bash
+tusk skill-run finish <run_id>
 ```
 
 **End of lightweight retro.** Do not continue to FULL-RETRO.md.

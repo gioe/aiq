@@ -23,6 +23,63 @@ Review the entire session, not just the most recent messages.
 
 Use the JSON already fetched via `tusk setup` in Step 0 of the retro skill: `config` for metadata assignment and `backlog` for semantic duplicate comparison in Step 3.
 
+## Step 2b: Fetch Retro Signals
+
+Fetch pre-aggregated retro signals for the just-closed task. `RETRO_TASK_ID` was captured in Step 0 of SKILL.md:
+
+```bash
+tusk retro-signals $RETRO_TASK_ID
+```
+
+Parse the JSON. The fields consumed by the steps below are:
+
+- **`review_themes`** — `(category, severity)` pairs with ≥ 2 occurrences across this task's review passes, plus a short sample comment. Each theme is a candidate Category A (conventions) or Category D (lint rules) finding. Seed Step 3 directly from this list — **do not** re-query `review_comments` with SQL.
+- **`deferred_review_comments`** — individual review comments with `resolution='deferred'`, each with its `deferred_task_id` (may be null). These are open follow-up threads and must be surfaced in the Step 4 report so reviewers can see what was punted forward.
+- **`reopen_count`** — integer count of `to_status='To Do'` transitions on this task. When > 0, render a `**Reopened N times**` line in Step 4's "Rework Context" section so the reviewer pauses on whether the close actually stuck.
+- **`rework_chain`** — `{fixes, fixed_by}`. `fixes` is the upstream task this one was filed to address (via `fixes_task_id`); `fixed_by` is the downstream follow-ups that were filed to fix *this* one. When either list is non-empty, render the entries in Step 4's "Rework Context" section and append the explicit "**Was the root cause addressed?**" prompt — recurring fix chains are the strongest signal that an earlier pass treated symptoms rather than the underlying issue.
+
+Consume `reopen_count` and `rework_chain` from this same `tusk retro-signals` JSON — **do not** issue separate SQL queries against `task_status_transitions` or `tasks.fixes_task_id`. The aggregation already covers both directions.
+
+When `reopen_count == 0` AND both `rework_chain.fixes` and `rework_chain.fixed_by` are empty, omit the "Rework Context" section from Step 4 silently (no heading, no placeholder).
+
+- **`skipped_criteria`** — acceptance criteria with a non-empty `skip_note` (covers both `is_deferred=1` deferrals and `--skip-verify` closures that recorded a rationale). Each entry is a gap the author acknowledged at close time and must be surfaced in Step 4's "Known gaps at close" section so the reviewer can decide whether the skip is acceptable or needs a follow-up task.
+- **`unconsumed_next_steps`** — every non-empty `task_progress.next_steps` handoff note for this task, oldest first. Many of these describe work that was later completed in the same session; some describe work that was quietly dropped. Step 4 runs a heuristic match against the final committed work and surfaces the residue under "Known gaps at close" — ambiguous matches must trigger a user confirmation prompt before being called out.
+
+Consume `skipped_criteria` and `unconsumed_next_steps` from this same `tusk retro-signals` JSON — **do not** issue separate SQL queries against `acceptance_criteria` or `task_progress`. The aggregation already filters empty `skip_note`/`next_steps` rows for you.
+
+- **`tool_call_outliers`** — tools whose `SUM(call_count)` across every session belonging to `RETRO_TASK_ID` met or exceeded a per-complexity threshold. `retro-signals` does the `tool_call_stats` aggregation, the session-grain filter (to avoid double-counting across the `(session, skill_run, criterion)` denormalization), and the threshold cut in SQL; each row is `{tool_name, call_count, total_cost, threshold, complexity}`. Drives Step 4's "Session Shape" section as a **soft warning only** — /retro does not auto-create a task from this signal, it's context for the reviewer to decide whether the shape of the session was healthy.
+
+  The per-complexity thresholds (tunable via `CALL_COUNT_THRESHOLDS` in `bin/tusk-retro-signals.py`) are:
+
+  | Complexity | `call_count` threshold |
+  |------------|------------------------|
+  | XS         | 20                     |
+  | S          | 40                     |
+  | M          | 80                     |
+  | L          | 150                    |
+  | XL         | 300                    |
+  | (unset)    | 80                     |
+
+Consume `tool_call_outliers` from this same `tusk retro-signals` JSON — **do not** issue a separate SQL query against `tool_call_stats`. The aggregation already applies the session-grain filter and the per-complexity threshold for you.
+
+This signal drives the full retro only — the lightweight retro path (XS/S in `SKILL.md`) is intentionally unchanged to keep it lean.
+
+- **`tool_errors`** — tool failures observed during this task's sessions, aggregated per `tool_name`. Data source is the Claude Code transcript (`~/.claude/projects/*.jsonl`), not a DB table — every failing tool_use already lands in the transcript with `is_error: true`, so no PostToolUse hook or sidecar log file is involved. See `docs/retro-error-detection.md` for the evaluation that picked this path over a hook. Each row is `{tool_name, error_count, sample}` where `sample` is the first observed error for that tool (trimmed to ~160 chars; the `<tool_use_error>` wrapper is stripped when present). Rows are already sorted by `error_count` descending, then `tool_name`. Drives Step 4's "Errors encountered" section as a **soft warning only** — /retro does not auto-create a task from this signal, it's context for the reviewer to decide whether the failures were meaningful (a real bug) or benign (a typo that got corrected on the next call).
+
+Consume `tool_errors` from this same `tusk retro-signals` JSON — **do not** open transcripts directly or issue separate `tool_call_stats` queries. The aggregation already resolves the tool_use_id → tool_name mapping, applies the session-window filter, and truncates the sample for you.
+
+This signal drives the full retro only — the lightweight retro path (XS/S in `SKILL.md`) is intentionally unchanged to keep it lean.
+
+If the task has no review activity at all, both `review_themes` and `deferred_review_comments` will be empty arrays. In that case, **omit** the "Review Theme Summary" section from Step 4 silently — do not add a "(none)" placeholder.
+
+## Step 2c: Cross-retro Themes (from Step 0b output)
+
+Step 0b in `SKILL.md` already ran `tusk retro-themes --window-days 30 --min-recurrence 3` and captured the pre-aggregated `{theme, count}` tuples as `$RECURRING_THEMES`. **Do not re-run the query here**, and **do not** issue separate SQL against `retro_findings` — all cross-retro aggregation belongs behind `tusk retro-themes`; `/retro` consumes only the tuple stream.
+
+If `$RECURRING_THEMES` is empty, no recurring pattern has crossed the 3×/30-day bar yet — nothing to flag in Step 3.
+
+If one or more themes are present, carry the list into Step 3: for every finding whose category matches a recurring theme, append an inline recurrence note (`— recurring theme: seen N times in last 30 days`) next to that finding in both the categorization table and the Step 4 report. This tells the reviewer "this isn't the first time we've surfaced something in this bucket" before they approve a new task for it, which raises the bar for duplicate work.
+
 ## Step 3: Categorize Findings
 
 If `<base_directory>/FOCUS.md` was found in Step 1, use those categories.
@@ -36,6 +93,15 @@ Otherwise organize into the default four categories:
 - **E**: Debugging Velocity — only if the session involved fixing a bug or diagnosing unexpected behavior. Reflect on: (1) what information was missing that delayed diagnosis; what tool, log, or trace would have surfaced the root cause immediately; whether a test would have caught this before it became a bug. (2) Did fixing this bug change the conditions under which adjacent issues matter? (e.g., removing noise that was masking a separate signal, raising the quality bar in a way that exposes nearby gaps.) If so, those adjacent issues are in scope for this category even if they predate the session — "predated the session" is not sufficient grounds for dismissal when the fix elevated their relevance. If no bug was present, this category is empty. Findings must be concrete (tasks or skill/CLAUDE.md patches) — not generic advice like "add more logging."
 
 If a category has no findings, note that explicitly — an empty category is a positive signal.
+
+### Seeding from `review_themes`
+
+For each entry in `review_themes` (from Step 2b), add one candidate finding to either Category A or Category D based on the theme's `category`/`severity` signal and its sample comment:
+
+- **Category A (conventions)** — the recurring comment describes a heuristic, preference, or convention the reviewer keeps repeating (e.g. "always pass `encoding='utf-8'` to `subprocess.run`", "prefer `pathlib.Path` over `os.path`"). Rule-like guidance that can be captured via `tusk conventions add` belongs here.
+- **Category D (lint rules)** — the recurring comment points at a concrete grep-detectable anti-pattern (e.g. "don't call `sqlite3` directly", "bare `except:` in *.py files"). Only promote to D if an actual mistake occurred that a grep rule would have caught — general advice stays in A.
+
+Use the `count` and `sample` fields to show the reviewer why this theme crossed the noise floor. Don't invent themes that aren't in `review_themes` — the aggregation already filtered to recurrence ≥ 2.
 
 ### 3a: Classify Each Finding
 
@@ -82,6 +148,48 @@ Show all findings in a structured report:
 ### Summary
 Brief (2-3 sentence) overview of what the session accomplished.
 
+### Rework Context (omit if reopen_count == 0 AND rework_chain.fixes is empty AND rework_chain.fixed_by is empty)
+
+- **Reopened N times** (omit line if reopen_count == 0)
+- **Fixes**: TASK-X "<summary>" (status) (one bullet per `rework_chain.fixes` entry; omit line if empty)
+- **Fixed by**: TASK-Y "<summary>" (status) (one bullet per `rework_chain.fixed_by` entry; omit line if empty)
+
+> **Was the root cause addressed?** (include only when `rework_chain.fixes` or `rework_chain.fixed_by` is non-empty)
+
+### Review Theme Summary (omit if both tables below are empty)
+
+**Recurring themes** (from `review_themes` — omit table if empty)
+| Category | Severity | Count | Sample |
+|----------|----------|-------|--------|
+
+**Deferred review comments** (from `deferred_review_comments` — omit table if empty)
+| # | Category | Severity | File | Deferred Task | Comment |
+|---|----------|----------|------|---------------|---------|
+
+### Known gaps at close (omit if skipped_criteria is empty AND no next_steps survive the heuristic match)
+
+**Skipped criteria** (from `skipped_criteria` — omit table if empty)
+| # | Criterion | Kind | Skip note |
+|---|-----------|------|-----------|
+
+**Unfinished next_steps** (from `unconsumed_next_steps` after heuristic match — omit table if empty)
+| When | Handoff note |
+|------|--------------|
+
+### Session Shape (omit if tool_call_outliers is empty)
+
+> **Soft warning** — these counts are context, not an action item. /retro does not auto-create a task from this section.
+
+| Tool | Calls | Threshold (complexity) | Cost |
+|------|-------|------------------------|------|
+
+### Errors encountered (omit if tool_errors is empty)
+
+> **Soft warning** — these errors are context, not an action item. /retro does not auto-create a task from this section.
+
+| Tool | Errors | Sample |
+|------|-------:|--------|
+
 ### <Category name from Step 3> (N findings)
 1. **<title>** — <description>
    → Proposed: <summary> | <priority> | <task_type> | <domain>
@@ -100,6 +208,40 @@ Brief (2-3 sentence) overview of what the session accomplished.
 | # | Summary | Priority | Domain | Type | Category | Classification |
 |---|---------|----------|--------|------|----------|----------------|
 ```
+
+**Review Theme Summary rendering rules:**
+- If both `review_themes` and `deferred_review_comments` are empty, omit the entire "Review Theme Summary" section silently (no heading, no placeholder).
+- If only one of the two tables has rows, include the section with just that table and omit the empty one.
+- Each `deferred_review_comments` row shows `deferred_task_id` as `TASK-<id>` when non-null; render `—` when null (no follow-up task was linked). This keeps the "what happened to it" link visible even after the comment is closed out.
+- Sample columns are already truncated to 80 chars by `retro-signals`; do not re-quote or pad them.
+
+**Rework Context rendering rules:**
+- If `reopen_count == 0` AND both `rework_chain.fixes` and `rework_chain.fixed_by` are empty, omit the entire "Rework Context" section silently (no heading, no placeholder).
+- The "Reopened N times" line appears only when `reopen_count > 0`.
+- The "Fixes" / "Fixed by" bullets appear only when their respective list is non-empty. Render each entry's `id` as `TASK-<id>` and include the `status`.
+- When either `rework_chain.fixes` or `rework_chain.fixed_by` is non-empty, the "Was the root cause addressed?" prompt is mandatory — it's the entire reason for surfacing the chain.
+
+**Known gaps at close rendering rules:**
+- Before rendering the "Unfinished next_steps" table, classify each `unconsumed_next_steps` entry against the session's actual outcomes (completed criteria, commit messages, final merge state):
+  - **Matched** — the handoff note is clearly reflected in work that shipped. Drop it silently.
+  - **Unmatched** — the handoff note describes work with no corresponding output. Keep it in the table.
+  - **Ambiguous** — partial or indirect match (e.g. the note says "wire X to Y" and commits touched X but not Y). Ask the user `Did you consume this next_steps note? → "<quoted text>"` and wait for a yes/no answer before rendering. Keep the row only if the user says no.
+- Each `skipped_criteria` row renders the `Kind` column as `deferred` when `is_deferred == 1` and `skipped` otherwise. The `Skip note` column is printed verbatim — the aggregation already guarantees it's non-empty.
+- The "When" column for an `unconsumed_next_steps` row is the entry's `created_at` timestamp; the "Handoff note" column is the `next_steps` text verbatim (do not truncate).
+- If `skipped_criteria` is empty AND every `unconsumed_next_steps` entry was either matched or confirmed-consumed via the prompt, omit the entire "Known gaps at close" section silently (no heading, no placeholder).
+- If only one of the two tables has rows, include the section with just that table and omit the empty one.
+
+**Session Shape rendering rules:**
+- If `tool_call_outliers` is empty, omit the entire "Session Shape" section silently (no heading, no placeholder, no "clean session" note). An empty array means no tool crossed the threshold — or that `tool_call_stats` had no rows for any of the task's sessions at all, which is the same outcome from /retro's perspective.
+- Each row renders `tool_name` verbatim, `call_count` as an integer, the `Threshold (complexity)` column as `<threshold> (<complexity>)` using the entry's own fields (e.g. `80 (M)`; render complexity as `unset` when null), and `total_cost` rounded to cents (`$0.42`). Rows are already sorted descending by `call_count` by `retro-signals`; do not re-sort.
+- The "Soft warning" callout is mandatory whenever the section is rendered — it's what flags this as context rather than a proposed action.
+- Never promote a Session Shape row into a Proposed Action, a subsumption, or a lint rule. /retro treats this section as read-only diagnostic output: the reviewer decides whether the shape warrants follow-up, and if it does, they create the task manually via `/create-task`.
+
+**Errors encountered rendering rules:**
+- If `tool_errors` is empty, omit the entire "Errors encountered" section silently (no heading, no placeholder, no "clean session" note). An empty array means no failing `tool_result` landed inside any of the task's session windows — either no errors occurred, no transcripts were found for the project, or `task_sessions` had no rows with a `started_at` to scope against. /retro's behavior is identical in every case.
+- Each row renders `tool_name` verbatim (including `(unknown)` when the originating `tool_use` block is missing from the transcript — typically because the session was split across a compaction or crash), `error_count` as an integer, and `sample` printed verbatim. The aggregation already truncates `sample` to the configured limit; do not re-quote or re-truncate. Rows are already sorted descending by `error_count`, tie-broken by `tool_name`, by `retro-signals`; do not re-sort.
+- The "Soft warning" callout is mandatory whenever the section is rendered — same rule as Session Shape: it's what flags this as context rather than a proposed action.
+- Never promote an Errors-encountered row into a Proposed Action, a subsumption, or a lint rule. One-off tool errors are frequently benign (a typo in a Bash command, a Read against a file that was already stale) — the reviewer is the one who decides whether a pattern warrants follow-up, and if so, they create the task manually via `/create-task`.
 
 Then ask the user to **confirm**, **remove** specific numbers, **edit** a task, **reject subsumption**, **add** a finding, or **skip**. Wait for explicit approval before inserting.
 
@@ -257,6 +399,8 @@ For each approved Category A finding:
 
 ## Step 6: Report Results
 
+The /tusk skill already printed the task summary block (`tusk task-summary <id> --format markdown`) immediately before invoking /retro, so the user has already seen the canonical identity/cost/duration/diff/criteria rollup for the just-closed task. Do **not** re-emit that block here — start directly with the retrospective findings so the two sections read as one continuous report.
+
 ```markdown
 ## Retrospective Complete
 
@@ -276,4 +420,38 @@ Then show the backlog:
 
 ```bash
 tusk -header -column "SELECT id, summary, priority, domain, task_type, status FROM tasks WHERE status = 'To Do' ORDER BY priority_score DESC, id"
+```
+
+### 6a: Record approved findings for cross-retro theme detection
+
+Before closing the skill run, write one `retro_findings` row per **approved** finding — every new task created in 5b, every GitHub issue filed, every lint rule applied in 5d, every convention or skill patch applied in 5e. Subsumptions (5a) are recorded as well, with `action_taken: subsumed:TASK-<id>` so the merge-into target is captured. Duplicates and user-rejected findings are **not** recorded — only approved, actioned findings feed the cross-retro signal.
+
+For each approved finding, run:
+
+```bash
+tusk retro-finding add \
+  --skill-run-id <run_id> \
+  --category '<category>' \
+  --summary '<one-line summary>' \
+  [--task-id <RETRO_TASK_ID>] \
+  [--action-taken '<action_taken>']
+```
+
+`<action_taken>` vocabulary (pick whichever fits; omit `--action-taken` if none do):
+- `task:TASK-<id>` — a new task was created via `tusk task-insert`
+- `issue:<url>` — a GitHub issue was filed via `tusk report-issue`
+- `lint:<id>` — a lint rule was added via `tusk lint-rule add`
+- `convention:<id>` — a convention was added via `tusk conventions add`
+- `skill-patch:<file>` — an inline edit was applied to a skill or CLAUDE.md
+- `subsumed:TASK-<id>` — folded into an existing task via 5a
+- `documented` — recorded without a concrete action (e.g. noted for context)
+
+**Omit** `--task-id` entirely when no `RETRO_TASK_ID` was captured in Step 0 of SKILL.md — the wrapper stores a real SQL NULL. Do not pass `--task-id NULL` or `--task-id ""`. Text fields are passed as normal argparse arguments; no `$(tusk sql-quote ...)` is required. The wrapper validates `skill_run_id` (and `task_id` if supplied) as real FKs before the INSERT, so a typo'd id fails fast with exit 1.
+
+The `--category` value is the theme dimension `tusk retro-themes` groups on, so it must carry the resolved category name from Step 3 (default `A`/`B`/`C`/`D`/`E`, or the FOCUS.md label if customised). Do not write a human-readable category description here; downstream grouping is exact-match on this field.
+
+Finally, close out the retro skill-run so its cost is captured (uses the `run_id` captured in Step 0 of SKILL.md):
+
+```bash
+tusk skill-run finish <run_id>
 ```
