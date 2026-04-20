@@ -188,6 +188,35 @@ import Foundation
             }
         }
 
+        func loginWithApple(identityToken _: String) async throws {
+            print("[UITestMockAuthManager] loginWithApple() called")
+            isLoading = true
+            authError = nil
+
+            try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+
+            if shouldSucceedLogin {
+                isAuthenticated = true
+                currentUser = Components.Schemas.UserResponse(
+                    id: 1,
+                    email: "apple-user@example.com",
+                    createdAt: Date(),
+                    notificationEnabled: true,
+                    isAdmin: false
+                )
+                isLoading = false
+            } else {
+                let error = NSError(
+                    domain: "UITestMockAuthManager",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Invalid Apple identity token"]
+                )
+                authError = error
+                isLoading = false
+                throw error
+            }
+        }
+
         func logout() async {
             isLoading = true
 

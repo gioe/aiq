@@ -268,6 +268,49 @@ final class LoginViewModelTests: XCTestCase {
         XCTAssertNotNil(sut.error, "error should be bound from authManager")
     }
 
+    // MARK: - Sign in with Apple Tests
+
+    func testLoginWithApple_SuccessfulLogin() async {
+        // Given
+        mockAuthManager.shouldSucceedAppleLogin = true
+
+        // When
+        await sut.loginWithApple(identityToken: "apple.identity.token")
+
+        // Then
+        XCTAssertTrue(mockAuthManager.loginWithAppleCalled, "loginWithApple should be called on authManager")
+        XCTAssertEqual(mockAuthManager.lastAppleIdentityToken, "apple.identity.token")
+        XCTAssertTrue(mockAuthManager.isAuthenticated, "user should be authenticated after success")
+        XCTAssertNil(sut.error, "error should be nil after successful Apple login")
+    }
+
+    func testLoginWithApple_FailedExchange_SurfacesError() async {
+        // Given
+        mockAuthManager.shouldSucceedAppleLogin = false
+
+        // When
+        await sut.loginWithApple(identityToken: "bad.token")
+
+        // Then
+        XCTAssertTrue(mockAuthManager.loginWithAppleCalled, "loginWithApple should be called")
+        XCTAssertFalse(mockAuthManager.isAuthenticated, "should not authenticate on failure")
+        XCTAssertNotNil(mockAuthManager.authError, "authError should be set on failure")
+    }
+
+    func testLoginWithApple_DoesNotDependOnForm() async {
+        // Given - form fields left empty (Apple path should not require email/password)
+        sut.email = ""
+        sut.password = ""
+        mockAuthManager.shouldSucceedAppleLogin = true
+
+        // When
+        await sut.loginWithApple(identityToken: "apple.identity.token")
+
+        // Then
+        XCTAssertTrue(mockAuthManager.loginWithAppleCalled, "Apple login should not gate on form validity")
+        XCTAssertFalse(mockAuthManager.loginCalled, "password login should not be called")
+    }
+
     // MARK: - Show Registration Tests
 
     func testShowRegistrationScreen() {

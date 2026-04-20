@@ -30,15 +30,18 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
 
     // Test configuration
     var shouldSucceedLogin: Bool = true
+    var shouldSucceedAppleLogin: Bool = true
     var shouldSucceedRegister: Bool = true
     var shouldSucceedDeleteAccount: Bool = true
     var loginDelay: TimeInterval = 0
+    var loginWithAppleDelay: TimeInterval = 0
     var registerDelay: TimeInterval = 0
     var logoutDelay: TimeInterval = 0
     var deleteAccountDelay: TimeInterval = 0
 
     // Track method calls
     var loginCalled: Bool = false
+    var loginWithAppleCalled: Bool = false
     var registerCalled: Bool = false
     var logoutCalled: Bool = false
     var deleteAccountCalled: Bool = false
@@ -47,6 +50,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     // Stored credentials for verification
     var lastLoginEmail: String?
     var lastLoginPassword: String?
+    var lastAppleIdentityToken: String?
     var lastRegisterEmail: String?
     var lastRegisterPassword: String?
     var lastRegisterFirstName: String?
@@ -141,6 +145,40 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         }
     }
 
+    func loginWithApple(identityToken: String) async throws {
+        loginWithAppleCalled = true
+        lastAppleIdentityToken = identityToken
+
+        isLoading = true
+        authError = nil
+
+        if loginWithAppleDelay > 0 {
+            try await Task.sleep(nanoseconds: UInt64(loginWithAppleDelay * 1_000_000_000))
+        }
+
+        if shouldSucceedAppleLogin {
+            let mockUser = Components.Schemas.UserResponse(
+                id: 1,
+                email: "apple-user@example.com",
+                createdAt: Date(),
+                notificationEnabled: true,
+                isAdmin: false
+            )
+            isAuthenticated = true
+            currentUser = mockUser
+            isLoading = false
+        } else {
+            let error = NSError(
+                domain: "MockAuthManager",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid Apple identity token"]
+            )
+            authError = error
+            isLoading = false
+            throw error
+        }
+    }
+
     func logout() async {
         logoutCalled = true
         isLoading = true
@@ -196,19 +234,23 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         isLoading = false
         authError = nil
         shouldSucceedLogin = true
+        shouldSucceedAppleLogin = true
         shouldSucceedRegister = true
         shouldSucceedDeleteAccount = true
         loginDelay = 0
+        loginWithAppleDelay = 0
         registerDelay = 0
         logoutDelay = 0
         deleteAccountDelay = 0
         loginCalled = false
+        loginWithAppleCalled = false
         registerCalled = false
         logoutCalled = false
         deleteAccountCalled = false
         clearErrorCalled = false
         lastLoginEmail = nil
         lastLoginPassword = nil
+        lastAppleIdentityToken = nil
         lastRegisterEmail = nil
         lastRegisterPassword = nil
         lastRegisterFirstName = nil

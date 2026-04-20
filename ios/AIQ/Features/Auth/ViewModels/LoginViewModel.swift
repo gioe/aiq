@@ -74,6 +74,18 @@ class LoginViewModel: BaseViewModel {
         }
     }
 
+    /// Exchange an Apple identity token for AIQ tokens via the backend.
+    ///
+    /// Errors flow through `authManager.authErrorPublisher` → `viewModel.error` so the
+    /// ErrorBanner on WelcomeView surfaces cancel / network / backend-rejection paths.
+    func loginWithApple(identityToken: String) async {
+        do {
+            try await authManager.loginWithApple(identityToken: identityToken)
+        } catch {
+            CrashlyticsErrorRecorder.recordError(error, context: .login)
+        }
+    }
+
     func showRegistrationScreen() {
         showRegistration = true
     }
