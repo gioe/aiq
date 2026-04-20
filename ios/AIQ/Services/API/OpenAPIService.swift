@@ -34,6 +34,7 @@ protocol OpenAPIServiceProtocol: Sendable {
     ) async throws -> AuthResponse
     func refreshToken() async throws -> AuthResponse
     func logout() async throws
+    func oauthApple(identityToken: String) async throws -> AuthResponse
 
     // MARK: - User Profile
 
@@ -270,6 +271,70 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         } catch {
             throw try mapToAPIError(error)
         }
+    }
+
+    func oauthApple(identityToken: String) async throws -> AuthResponse {
+        try await exchangeOAuthIdentityToken(path: "v1/auth/oauth/apple", identityToken: identityToken)
+    }
+
+    /// Posts an identity token to an OAuth exchange endpoint and returns the AIQ Token response.
+    ///
+    /// The Apple/Google token-exchange endpoints are unauthenticated and reachable pre-login, so
+    /// this bypasses the generated client (and its auth middleware) and talks to the server via
+    /// URLSession directly — mirroring the pattern used by `getActiveTest`.
+    private func exchangeOAuthIdentityToken(
+        path: String,
+        identityToken: String
+    ) async throws -> AuthResponse {
+        let url = factory.serverURL.appendingPathComponent(path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["identity_token": identityToken])
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw APIError.api(.invalidResponse)
+            }
+            if http.statusCode == 200 {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                let token = try decoder.decode(Components.Schemas.Token.self, from: data)
+                return mapToAuthResponse(token)
+            }
+            throw mapStatusCodeToAPIError(statusCode: http.statusCode, data: data)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    private func mapStatusCodeToAPIError(statusCode: Int, data: Data) -> APIError {
+        let detail = decodedDetail(from: data)
+        switch statusCode {
+        case 400:
+            return APIError.parseBadRequest(message: detail)
+        case 401:
+            return .api(.unauthorized(message: detail))
+        case 403:
+            return .api(.forbidden(message: detail))
+        case 422:
+            return .api(.unprocessableEntity(message: detail))
+        case 429:
+            return .api(.rateLimitExceeded(message: detail))
+        case 500 ... 599:
+            return .api(.serverError(statusCode: statusCode, message: detail))
+        default:
+            return .api(.unknown(message: detail ?? "Unexpected status \(statusCode)"))
+        }
+    }
+
+    private func decodedDetail(from data: Data) -> String? {
+        guard !data.isEmpty else { return nil }
+        return try? JSONDecoder().decode(ErrorResponse.self, from: data).detail
     }
 
     func logout() async throws {

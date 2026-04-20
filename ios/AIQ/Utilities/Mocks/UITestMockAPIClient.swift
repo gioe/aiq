@@ -43,6 +43,11 @@ import Foundation
             return UITestMockData.mockAuthResponse
         }
 
+        func oauthApple(identityToken _: String) async throws -> AuthResponse {
+            try throwIfNetworkError()
+            return UITestMockData.mockAuthResponse
+        }
+
         // swiftlint:disable:next function_parameter_count
         func register(
             email _: String,

@@ -11,6 +11,7 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     // MARK: - Call Tracking
 
     private(set) var loginCalled = false
+    private(set) var oauthAppleCalled = false
     private(set) var registerCalled = false
     private(set) var refreshTokenCalled = false
     private(set) var logoutCalled = false
@@ -40,6 +41,7 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     private(set) var lastLoginEmail: String?
     private(set) var lastLoginPassword: String?
+    private(set) var lastOAuthAppleIdentityToken: String?
     private(set) var lastRegisterEmail: String?
     private(set) var lastRegisterPassword: String?
     private(set) var lastRegisterFirstName: String?
@@ -77,6 +79,8 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     var loginResponse: AuthResponse?
     var loginError: Error?
+    var oauthAppleResponse: AuthResponse?
+    var oauthAppleError: Error?
     var registerResponse: AuthResponse?
     var registerError: Error?
     var refreshTokenResponse: AuthResponse?
@@ -133,6 +137,18 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         guard let response = loginResponse else {
             throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
                 NSLocalizedDescriptionKey: "loginResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    func oauthApple(identityToken: String) async throws -> AuthResponse {
+        oauthAppleCalled = true
+        lastOAuthAppleIdentityToken = identityToken
+        if let error = oauthAppleError { throw error }
+        guard let response = oauthAppleResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "oauthAppleResponse not configured"
             ])
         }
         return response
