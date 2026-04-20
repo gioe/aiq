@@ -435,6 +435,17 @@ def create_application() -> FastAPI:
                     "limit": 10,
                     "window": 60,
                 },  # 10 per min
+                # OAuth token-exchange endpoints (TASK-470) — at least as
+                # sensitive as /login: they issue refresh tokens and can
+                # create users on first sign-in.
+                f"{settings.API_V1_PREFIX}/auth/oauth/apple": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min
+                f"{settings.API_V1_PREFIX}/auth/oauth/google": {
+                    "limit": 10,
+                    "window": 60,
+                },  # 10 per min
                 f"{settings.API_V1_PREFIX}/auth/logout-all": {
                     "limit": 3,
                     "window": 300,

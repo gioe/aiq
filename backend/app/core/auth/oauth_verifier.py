@@ -9,6 +9,7 @@ create the matching AIQ user.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass
@@ -29,6 +30,11 @@ APPLE_ISSUER = "https://appleid.apple.com"
 GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
 GOOGLE_ISSUERS = ("https://accounts.google.com", "accounts.google.com")
 
+# Pinned signing algorithms. Apple and Google both publish RS256 keys; we
+# refuse to evaluate anything else so a crafted header (e.g. alg=HS256 or
+# alg=none) cannot downgrade verification to a secret the attacker knows.
+ALLOWED_SIGNING_ALGORITHMS = ("RS256",)
+
 
 class OAuthVerificationError(Exception):
     """Raised when an identity token cannot be verified.
@@ -46,6 +52,13 @@ class OAuthVerificationError(Exception):
 
 @dataclass(frozen=True)
 class OAuthUserInfo:
+    """Verified subset of an OIDC identity token.
+
+    ``email_verified`` reflects the *provider's* own claim after
+    normalization (Apple sometimes sends the string "true"/"false"); a
+    False value means the provider has not itself validated the address.
+    """
+
     provider: str
     subject: str
     email: Optional[str]
@@ -58,34 +71,53 @@ class _JWKSCache:
     A single instance is shared across the process; refreshes happen lazily
     on the request path after the TTL expires. A hard refresh is triggered
     on any token whose `kid` isn't in the cached set, so key rotation is
-    picked up without waiting for the TTL.
+    picked up without waiting for the TTL. A per-URL lock collapses a
+    cache-miss stampede into a single outbound fetch.
     """
 
     def __init__(self) -> None:
         """Initialize with an empty per-URL cache."""
         self._entries: dict[str, tuple[float, dict]] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
 
-    def get(self, url: str, *, force: bool = False) -> dict:
+    def _lock_for(self, url: str) -> asyncio.Lock:
+        lock = self._locks.get(url)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._locks[url] = lock
+        return lock
+
+    async def get(self, url: str, *, force: bool = False) -> dict:
         ttl = settings.OAUTH_JWKS_CACHE_TTL_SECONDS
         now = time.monotonic()
         cached = self._entries.get(url)
         if cached and not force and (now - cached[0]) < ttl:
             return cached[1]
-        try:
-            response = httpx.get(url, timeout=5.0)
-            response.raise_for_status()
-            jwks = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            if cached:
-                logger.warning(
-                    "JWKS fetch failed for %s (%s); serving cached copy", url, exc
-                )
+
+        async with self._lock_for(url):
+            # Re-check under lock: another coroutine may have just refreshed.
+            cached = self._entries.get(url)
+            now = time.monotonic()
+            if cached and not force and (now - cached[0]) < ttl:
                 return cached[1]
-            raise OAuthVerificationError(
-                "jwks_unavailable", f"Unable to fetch JWKS from {url}: {exc}"
-            ) from exc
-        self._entries[url] = (now, jwks)
-        return jwks
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(url)
+                response.raise_for_status()
+                jwks = response.json()
+            except (httpx.HTTPError, ValueError) as exc:
+                if cached:
+                    logger.warning(
+                        "JWKS fetch failed for %s (%s); serving cached copy",
+                        url,
+                        exc,
+                    )
+                    return cached[1]
+                raise OAuthVerificationError(
+                    "jwks_unavailable", f"Unable to fetch JWKS from {url}: {exc}"
+                ) from exc
+            self._entries[url] = (now, jwks)
+            return jwks
 
 
 _jwks_cache = _JWKSCache()
@@ -102,7 +134,7 @@ def _accepted_audiences(raw: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in raw.split(",") if item.strip())
 
 
-def _verify_oidc_token(
+async def _verify_oidc_token(
     token: str,
     *,
     provider: str,
@@ -120,15 +152,23 @@ def _verify_oidc_token(
     except JWTError as exc:
         raise OAuthVerificationError("malformed_token", str(exc)) from exc
 
+    # Refuse any algorithm outside our pinned list before looking up keys —
+    # the JWT "alg" header is attacker-controlled (algorithm-confusion attack).
+    header_alg = unverified_header.get("alg")
+    if header_alg not in ALLOWED_SIGNING_ALGORITHMS:
+        raise OAuthVerificationError(
+            "unsupported_alg", f"alg={header_alg!r} not accepted"
+        )
+
     kid = unverified_header.get("kid")
     if not kid:
         raise OAuthVerificationError("missing_kid", "Identity token missing kid header")
 
-    jwks = _jwks_cache.get(jwks_url)
+    jwks = await _jwks_cache.get(jwks_url)
     key = _select_key(jwks, kid)
     if key is None:
         # Force-refresh the JWKS once — keys rotate without notice.
-        jwks = _jwks_cache.get(jwks_url, force=True)
+        jwks = await _jwks_cache.get(jwks_url, force=True)
         key = _select_key(jwks, kid)
     if key is None:
         raise OAuthVerificationError("unknown_kid", f"kid={kid} not in JWKS")
@@ -141,7 +181,7 @@ def _verify_oidc_token(
                 payload = jwt.decode(
                     token,
                     key,
-                    algorithms=[unverified_header.get("alg", "RS256")],
+                    algorithms=list(ALLOWED_SIGNING_ALGORITHMS),
                     audience=audience,
                     issuer=issuer,
                 )
@@ -176,9 +216,9 @@ def _verify_oidc_token(
     )
 
 
-def verify_apple_identity_token(token: str) -> OAuthUserInfo:
+async def verify_apple_identity_token(token: str) -> OAuthUserInfo:
     audiences = _accepted_audiences(settings.APPLE_OAUTH_CLIENT_IDS)
-    return _verify_oidc_token(
+    return await _verify_oidc_token(
         token,
         provider="apple",
         jwks_url=APPLE_JWKS_URL,
@@ -187,9 +227,9 @@ def verify_apple_identity_token(token: str) -> OAuthUserInfo:
     )
 
 
-def verify_google_identity_token(token: str) -> OAuthUserInfo:
+async def verify_google_identity_token(token: str) -> OAuthUserInfo:
     audiences = _accepted_audiences(settings.GOOGLE_OAUTH_CLIENT_IDS)
-    return _verify_oidc_token(
+    return await _verify_oidc_token(
         token,
         provider="google",
         jwks_url=GOOGLE_JWKS_URL,

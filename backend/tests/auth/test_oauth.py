@@ -6,7 +6,7 @@ Apple's or Google's JWKS endpoints. Verifier-level behavior is covered
 separately in ``test_oauth_verifier.py``.
 """
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy import select
@@ -41,7 +41,10 @@ class TestAppleOAuthExchange:
     async def test_valid_apple_token_returns_aiq_tokens(
         self, async_client, async_db_session
     ):
-        with patch(APPLE_VERIFIER, return_value=_oauth_info(provider="apple")):
+        with patch(
+            APPLE_VERIFIER,
+            new=AsyncMock(return_value=_oauth_info(provider="apple")),
+        ):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
                 json={"identity_token": "stubbed-apple-token"},
@@ -66,7 +69,9 @@ class TestAppleOAuthExchange:
     async def test_invalid_apple_token_returns_401(self, async_client):
         with patch(
             APPLE_VERIFIER,
-            side_effect=OAuthVerificationError("invalid_claims", "bad sig"),
+            new=AsyncMock(
+                side_effect=OAuthVerificationError("invalid_claims", "bad sig")
+            ),
         ):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
@@ -79,7 +84,9 @@ class TestAppleOAuthExchange:
     async def test_expired_apple_token_returns_401(self, async_client):
         with patch(
             APPLE_VERIFIER,
-            side_effect=OAuthVerificationError("token_expired", "exp in past"),
+            new=AsyncMock(
+                side_effect=OAuthVerificationError("token_expired", "exp in past")
+            ),
         ):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
@@ -96,7 +103,7 @@ class TestGoogleOAuthExchange:
         self, async_client, async_db_session
     ):
         info = _oauth_info(provider="google", subject="google-sub-xyz")
-        with patch(GOOGLE_VERIFIER, return_value=info):
+        with patch(GOOGLE_VERIFIER, new=AsyncMock(return_value=info)):
             response = await async_client.post(
                 "/v1/auth/oauth/google",
                 json={"identity_token": "stubbed-google-token"},
@@ -115,7 +122,9 @@ class TestGoogleOAuthExchange:
     async def test_invalid_google_token_returns_401(self, async_client):
         with patch(
             GOOGLE_VERIFIER,
-            side_effect=OAuthVerificationError("invalid_claims", "bad aud"),
+            new=AsyncMock(
+                side_effect=OAuthVerificationError("invalid_claims", "bad aud")
+            ),
         ):
             response = await async_client.post(
                 "/v1/auth/oauth/google",
@@ -148,7 +157,7 @@ class TestAccountLinking:
             email="existing@example.com",
             email_verified=True,
         )
-        with patch(APPLE_VERIFIER, return_value=info):
+        with patch(APPLE_VERIFIER, new=AsyncMock(return_value=info)):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
                 json={"identity_token": "x"},
@@ -195,23 +204,36 @@ class TestAccountLinking:
             email="unverified@example.com",
             email_verified=False,
         )
-        with patch(APPLE_VERIFIER, return_value=info):
+        with patch(APPLE_VERIFIER, new=AsyncMock(return_value=info)):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
                 json={"identity_token": "x"},
             )
 
-        # An unverified email must not collapse the flow onto an existing
-        # account — the insert should fail on the unique email constraint
-        # rather than silently take over the password account.
-        assert response.status_code in (400, 500)
+        # Unverified email on an existing account must be refused explicitly
+        # so a password-account owner can't be silently taken over.
+        assert response.status_code == 409
+        assert "already exists" in response.json()["detail"].lower()
+
+        identities = (
+            (
+                await async_db_session.execute(
+                    select(OAuthIdentity).where(
+                        OAuthIdentity.provider_subject == "unverified-sub"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert identities == []
 
     async def test_repeat_oauth_login_returns_same_user(
         self, async_client, async_db_session
     ):
         info = _oauth_info(provider="google", subject="repeat-sub")
 
-        with patch(GOOGLE_VERIFIER, return_value=info):
+        with patch(GOOGLE_VERIFIER, new=AsyncMock(return_value=info)):
             first = await async_client.post(
                 "/v1/auth/oauth/google",
                 json={"identity_token": "token-a"},
@@ -305,7 +327,7 @@ class TestOAuthVerifierUnit:
         mod._jwks_cache._entries[mod.APPLE_JWKS_URL] = (1e18, jwks)
         with patch.object(mod.settings, "APPLE_OAUTH_CLIENT_IDS", "com.aiq.test"):
             with pytest.raises(OAuthVerificationError) as exc_info:
-                mod.verify_apple_identity_token(token)
+                await mod.verify_apple_identity_token(token)
 
         assert exc_info.value.reason == "token_expired"
 
@@ -373,6 +395,6 @@ class TestOAuthVerifierUnit:
         mod._jwks_cache._entries[mod.GOOGLE_JWKS_URL] = (1e18, jwks)
         with patch.object(mod.settings, "GOOGLE_OAUTH_CLIENT_IDS", "google-client-id"):
             with pytest.raises(OAuthVerificationError) as exc_info:
-                mod.verify_google_identity_token(token)
+                await mod.verify_google_identity_token(token)
 
         assert exc_info.value.reason == "invalid_claims"

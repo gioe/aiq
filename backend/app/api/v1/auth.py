@@ -333,11 +333,22 @@ async def _resolve_oauth_user(
         user = user_result.scalar_one()
         return user, False
 
-    if oauth_info.email and oauth_info.email_verified:
-        email_result = await db.execute(
+    if oauth_info.email:
+        email_lookup = await db.execute(
             select(User).where(User.email == oauth_info.email.lower())
         )
-        user = email_result.scalar_one_or_none()
+        existing_by_email = email_lookup.scalar_one_or_none()
+        if existing_by_email is not None:
+            # Verified-email collision -> link. Unverified -> refuse, because
+            # linking on an unverified address would let an attacker who can
+            # guess an email take over the password account.
+            if oauth_info.email_verified:
+                user = existing_by_email
+            else:
+                raise_conflict(
+                    "An account already exists for this email. "
+                    "Sign in with your password to link this provider."
+                )
 
     created = False
     if user is None:
@@ -440,7 +451,7 @@ async def oauth_apple_exchange(
     client_ip = get_client_ip_from_request(request)
     user_agent = get_user_agent_from_request(request)
     try:
-        oauth_info = verify_apple_identity_token(payload.identity_token)
+        oauth_info = await verify_apple_identity_token(payload.identity_token)
     except OAuthVerificationError as exc:
         logger.warning(f"Apple OAuth verification failed: reason={exc.reason}")
         security_logger.log_auth_attempt(
@@ -470,7 +481,7 @@ async def oauth_google_exchange(
     client_ip = get_client_ip_from_request(request)
     user_agent = get_user_agent_from_request(request)
     try:
-        oauth_info = verify_google_identity_token(payload.identity_token)
+        oauth_info = await verify_google_identity_token(payload.identity_token)
     except OAuthVerificationError as exc:
         logger.warning(f"Google OAuth verification failed: reason={exc.reason}")
         security_logger.log_auth_attempt(
