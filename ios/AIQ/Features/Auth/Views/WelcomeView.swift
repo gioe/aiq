@@ -8,6 +8,10 @@ import SwiftUI
 struct WelcomeView: View {
     @StateObject private var viewModel: LoginViewModel
     @State private var isAnimating = false
+    /// Tracks an in-flight Google sign-in attempt between the button tap and `viewModel.isLoading`
+    /// flipping to true inside `AuthManager.loginWithGoogle`. Closes the race window where a quick
+    /// second tap would otherwise pass the `isLoading` guard and spawn a parallel sign-in sheet.
+    @State private var isGoogleSignInInFlight = false
 
     /// Callback to start a guest test (bypasses authentication)
     var onStartGuestTest: (() -> Void)?
@@ -272,9 +276,13 @@ struct WelcomeView: View {
     /// state is established.
     @MainActor
     private func handleGoogleSignIn() async {
-        // Re-entry guard: the button is `.disabled(viewModel.isLoading)`, but a late tap arriving
-        // during an in-flight sign-in should still be ignored rather than racing a second attempt.
-        guard !viewModel.isLoading else { return }
+        // Re-entry guard: the button is `.disabled(viewModel.isLoading)`, but `isLoading` only
+        // flips to true once `AuthManager.loginWithGoogle` begins executing. Between the tap and
+        // that flip, a second tap could pass the guard and spawn a parallel sign-in sheet — the
+        // view-local flag closes that window.
+        guard !viewModel.isLoading, !isGoogleSignInInFlight else { return }
+        isGoogleSignInInFlight = true
+        defer { isGoogleSignInInFlight = false }
 
         guard GIDSignIn.sharedInstance.configuration != nil else {
             viewModel.error = APIError.api(
@@ -300,7 +308,9 @@ struct WelcomeView: View {
             }
             await viewModel.loginWithGoogle(identityToken: identityToken)
         } catch {
-            if (error as NSError).code == GIDSignInError.canceled.rawValue {
+            // Cast to the GIDSignInError type rather than matching on a raw NSError code so we
+            // don't silently swallow unrelated errors that happen to share the canceled code (-5).
+            if let signInError = error as? GIDSignInError, signInError.code == .canceled {
                 return
             }
             viewModel.error = APIError.api(.unknown(message: error.localizedDescription))
