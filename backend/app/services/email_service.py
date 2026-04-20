@@ -133,6 +133,62 @@ This is an automated notification from AIQ.
 © {year} AIQ. All rights reserved.
 """
 
+OAUTH_LINK_NOTIFICATION_HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign-in method added to your AIQ account</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background-color: #f8f9fa; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
+        <h1 style="color: #1a1a1a; margin-top: 0;">A new sign-in method was added</h1>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            Your AIQ account can now be accessed by signing in with <strong>{provider_display}</strong>
+            in addition to your password.
+        </p>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            This happened because someone signed in with {provider_display} using the verified email
+            address on your account. If that was you, no action is needed.
+        </p>
+        <div style="background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 6px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 15px; color: #856404;">
+                <strong>If this wasn't you</strong>, reset your AIQ password immediately and review your
+                {provider_display} account security. A password reset will revoke the {provider_display}
+                link on next sign-in.
+            </p>
+        </div>
+    </div>
+    <div style="font-size: 12px; color: #999; text-align: center; margin-top: 20px;">
+        <p>This is an automated security notification from AIQ. Please do not reply to this message.</p>
+        <p>© {year} AIQ. All rights reserved.</p>
+    </div>
+</body>
+</html>
+"""
+
+OAUTH_LINK_NOTIFICATION_TEXT_TEMPLATE = """
+A new sign-in method was added to your AIQ account
+
+Your AIQ account can now be accessed by signing in with {provider_display} in addition to your password.
+
+This happened because someone signed in with {provider_display} using the verified email address on your account. If that was you, no action is needed.
+
+If this wasn't you, reset your AIQ password immediately and review your {provider_display} account security. A password reset will revoke the {provider_display} link on next sign-in.
+
+---
+This is an automated security notification from AIQ. Please do not reply to this message.
+© {year} AIQ. All rights reserved.
+"""
+
+# Human-readable provider names used in the OAuth link notification.
+# Unknown providers fall back to a title-cased version of the internal id.
+_PROVIDER_DISPLAY_NAMES = {
+    "google": "Google",
+    "apple": "Apple",
+}
+
 
 def _is_smtp_configured() -> bool:
     """
@@ -329,6 +385,82 @@ def send_feedback_notification_email(
     except Exception as e:
         logger.error(
             f"Unexpected error sending feedback notification: submission_id={submission_id}, error={e}",
+            exc_info=True,
+        )
+        return False
+
+
+def send_oauth_link_notification_email(
+    email: str,
+    provider: str,
+) -> bool:
+    """
+    Notify a user that a new OAuth identity was linked to their existing account.
+
+    Sent when an OAuth sign-in (e.g., Google, Apple) with a verified email
+    matches an existing AIQ account and the provider identity is linked to
+    that account. Gives the account owner a chance to detect unexpected
+    linking (even though the provider confirmed email ownership).
+
+    Returns True on success or on logged-only (SMTP not configured) paths;
+    False on delivery failure. Callers treat failure as non-fatal — the OAuth
+    sign-in still succeeds.
+    """
+    provider_display = _PROVIDER_DISPLAY_NAMES.get(provider, provider.title())
+
+    if not _is_smtp_configured():
+        logger.info(
+            f"SMTP not configured. OAuth link notification skipped for {email} "
+            f"(provider={provider})"
+        )
+        return True
+
+    try:
+        current_year = utc_now().year
+
+        msg = MIMEMultipart("alternative")
+        # Strip newlines from provider to prevent header injection via the subject line.
+        safe_provider = provider_display.replace("\r", "").replace("\n", "")
+        msg["Subject"] = (
+            f"A new sign-in method was added to your AIQ account ({safe_provider})"
+        )
+        msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
+        msg["To"] = formataddr(("", email))
+
+        text_content = OAUTH_LINK_NOTIFICATION_TEXT_TEMPLATE.format(
+            provider_display=provider_display,
+            year=current_year,
+        )
+        html_content = OAUTH_LINK_NOTIFICATION_HTML_TEMPLATE.format(
+            provider_display=html.escape(provider_display),
+            year=current_year,
+        )
+
+        msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
+
+        with smtplib.SMTP(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS
+        ) as server:
+            server.starttls()
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+
+        logger.info(
+            f"OAuth link notification email sent: email={email} provider={provider}"
+        )
+        return True
+
+    except smtplib.SMTPException as e:
+        logger.error(
+            f"SMTP error sending OAuth link notification to {email} "
+            f"(provider={provider}): {e}"
+        )
+        return False
+    except Exception as e:
+        logger.error(
+            f"Unexpected error sending OAuth link notification to {email} "
+            f"(provider={provider}): {e}",
             exc_info=True,
         )
         return False

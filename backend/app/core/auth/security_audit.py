@@ -79,6 +79,9 @@ class SecurityEventType(str, Enum):
     ACCOUNT_CREATED = "security.account_created"
     ACCOUNT_DELETED = "security.account_deleted"
 
+    # OAuth identity linking
+    OAUTH_IDENTITY_LINKED = "security.oauth_identity_linked"
+
 
 def _mask_email(email: str) -> str:
     """
@@ -477,6 +480,41 @@ class SecurityAuditLogger:
             )
         except Exception:
             _fallback_logger.exception("Failed to log account event security event")
+
+    def log_identity_linked(
+        self,
+        user_id: str,
+        provider: str,
+        ip: str,
+    ) -> None:
+        """
+        Log an OAuth identity being linked to an existing account.
+
+        Fires when a verified-email OAuth sign-in matches a pre-existing user
+        and a new provider identity is bound to that user. Repeat logins with
+        an already-linked identity do NOT fire this event.
+
+        Args:
+            user_id: User ID the identity was linked to
+            provider: OAuth provider name (e.g., "google", "apple")
+            ip: Client IP address
+        """
+        try:
+            log_data = {
+                "event_type": SecurityEventType.OAUTH_IDENTITY_LINKED.value,
+                "client_ip": ip,
+                "user_id": user_id,
+                "provider": provider,
+            }
+
+            self._enrich_with_request_id(log_data)
+
+            logger.info(
+                f"OAuth identity linked: provider={provider} user_id={user_id}",
+                extra=log_data,
+            )
+        except Exception:
+            _fallback_logger.exception("Failed to log identity linked security event")
 
 
 def get_client_ip_from_request(request: Request) -> str:

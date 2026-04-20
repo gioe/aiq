@@ -63,7 +63,10 @@ from app.core.auth.security_audit import (
     get_client_ip_from_request,
     get_user_agent_from_request,
 )
-from app.services.email_service import send_password_reset_email
+from app.services.email_service import (
+    send_oauth_link_notification_email,
+    send_password_reset_email,
+)
 from app.observability import metrics
 
 logger = logging.getLogger(__name__)
@@ -309,7 +312,7 @@ async def refresh_access_token(
 
 async def _resolve_oauth_user(
     db: AsyncSession, oauth_info: OAuthUserInfo
-) -> tuple[User, bool]:
+) -> tuple[User, bool, bool]:
     """Return the AIQ user for an OAuth identity, creating or linking as needed.
 
     Resolution order (TASK-470):
@@ -318,7 +321,10 @@ async def _resolve_oauth_user(
         3. Otherwise create a new password-less user and a linked identity.
 
     Returns:
-        Tuple of (user, created) where ``created`` is True only for case 3.
+        Tuple of (user, created, linked). ``created`` is True only for case 3
+        (new user). ``linked`` is True only for case 2 (new provider identity
+        bound to a pre-existing account) — used by the caller to send a
+        security notification to the account owner.
     """
     identity_result = await db.execute(
         select(OAuthIdentity).where(
@@ -328,10 +334,11 @@ async def _resolve_oauth_user(
     )
     identity = identity_result.scalar_one_or_none()
     user: User | None = None
+    linked = False
     if identity is not None:
         user_result = await db.execute(select(User).where(User.id == identity.user_id))
         user = user_result.scalar_one()
-        return user, False
+        return user, False, False
 
     if oauth_info.email:
         email_lookup = await db.execute(
@@ -344,6 +351,7 @@ async def _resolve_oauth_user(
             # guess an email take over the password account.
             if oauth_info.email_verified:
                 user = existing_by_email
+                linked = True
             else:
                 raise_conflict(
                     "An account already exists for this email. "
@@ -374,7 +382,7 @@ async def _resolve_oauth_user(
             provider_subject=oauth_info.subject,
         )
     )
-    return user, created
+    return user, created, linked
 
 
 async def _exchange_oauth_token(
@@ -387,7 +395,7 @@ async def _exchange_oauth_token(
     user_agent = get_user_agent_from_request(request)
 
     try:
-        user, created = await _resolve_oauth_user(db, oauth_info)
+        user, created, linked = await _resolve_oauth_user(db, oauth_info)
         user.last_login_at = utc_now()
         await db.commit()
         await db.refresh(user)
@@ -410,6 +418,27 @@ async def _exchange_oauth_token(
         )
         metrics.record_user_registration()
 
+    if linked:
+        # An OAuth identity was bound to a pre-existing password account.
+        # The account owner didn't explicitly approve this, so notify them
+        # even though the provider verified email ownership. Email delivery
+        # failures are logged but don't fail the sign-in.
+        security_logger.log_identity_linked(
+            user_id=str(user.id),
+            provider=oauth_info.provider,
+            ip=client_ip,
+        )
+        try:
+            send_oauth_link_notification_email(
+                email=user.email,
+                provider=oauth_info.provider,
+            )
+        except Exception:
+            logger.exception(
+                f"Failed to send OAuth link notification: user_id={user.id} "
+                f"provider={oauth_info.provider}"
+            )
+
     security_logger.log_auth_attempt(
         email=user.email,
         success=True,
@@ -424,7 +453,7 @@ async def _exchange_oauth_token(
     metrics.record_login(success=True)
     logger.info(
         f"OAuth login successful: user_id={user.id} provider={oauth_info.provider} "
-        f"created={created}"
+        f"created={created} linked={linked}"
     )
 
     access_token, refresh_token = _create_auth_tokens(user)

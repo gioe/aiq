@@ -271,6 +271,124 @@ class TestAccountLinking:
         assert len(identities) == 1
 
 
+SEND_OAUTH_LINK_EMAIL = "app.api.v1.auth.send_oauth_link_notification_email"
+
+
+class TestAccountLinkingNotification:
+    """TASK-473: notify the account owner when a new OAuth identity is linked."""
+
+    async def test_linking_verified_email_sends_notification(
+        self, async_client, async_db_session
+    ):
+        existing = User(
+            email="owner@example.com",
+            password_hash=hash_password("password12345"),
+        )
+        async_db_session.add(existing)
+        await async_db_session.commit()
+
+        info = _oauth_info(
+            provider="google",
+            subject="link-google-sub",
+            email="owner@example.com",
+            email_verified=True,
+        )
+        with (
+            patch(GOOGLE_VERIFIER, new=AsyncMock(return_value=info)),
+            patch(SEND_OAUTH_LINK_EMAIL, return_value=True) as mock_send,
+        ):
+            response = await async_client.post(
+                "/v1/auth/oauth/google",
+                json={"identity_token": "x"},
+            )
+
+        assert response.status_code == 200
+        # The owner must be told a new sign-in method was added, even though
+        # the provider verified email ownership — users don't always expect
+        # Google login to hand over access to a pre-existing password account.
+        mock_send.assert_called_once_with(
+            email="owner@example.com",
+            provider="google",
+        )
+
+    async def test_repeat_oauth_login_does_not_send_notification(
+        self, async_client, async_db_session
+    ):
+        info = _oauth_info(provider="google", subject="repeat-notify-sub")
+
+        with (
+            patch(GOOGLE_VERIFIER, new=AsyncMock(return_value=info)),
+            patch(SEND_OAUTH_LINK_EMAIL, return_value=True) as mock_send,
+        ):
+            first = await async_client.post(
+                "/v1/auth/oauth/google",
+                json={"identity_token": "a"},
+            )
+            second = await async_client.post(
+                "/v1/auth/oauth/google",
+                json={"identity_token": "b"},
+            )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        # First call created a new OAuth-only user (no pre-existing password
+        # account); second was a repeat login for the already-linked identity.
+        # Neither case is a new link, so no notification should fire.
+        mock_send.assert_not_called()
+
+    async def test_new_oauth_user_does_not_send_notification(
+        self, async_client, async_db_session
+    ):
+        info = _oauth_info(
+            provider="google",
+            subject="new-user-sub",
+            email="fresh@example.com",
+        )
+        with (
+            patch(GOOGLE_VERIFIER, new=AsyncMock(return_value=info)),
+            patch(SEND_OAUTH_LINK_EMAIL, return_value=True) as mock_send,
+        ):
+            response = await async_client.post(
+                "/v1/auth/oauth/google",
+                json={"identity_token": "x"},
+            )
+
+        assert response.status_code == 200
+        # Nobody to notify — the user is being created via OAuth for the
+        # first time, not linked to a pre-existing account.
+        mock_send.assert_not_called()
+
+    async def test_notification_failure_does_not_break_signin(
+        self, async_client, async_db_session
+    ):
+        existing = User(
+            email="robust@example.com",
+            password_hash=hash_password("password12345"),
+        )
+        async_db_session.add(existing)
+        await async_db_session.commit()
+
+        info = _oauth_info(
+            provider="google",
+            subject="robust-sub",
+            email="robust@example.com",
+            email_verified=True,
+        )
+        with (
+            patch(GOOGLE_VERIFIER, new=AsyncMock(return_value=info)),
+            patch(SEND_OAUTH_LINK_EMAIL, side_effect=RuntimeError("SMTP down")),
+        ):
+            response = await async_client.post(
+                "/v1/auth/oauth/google",
+                json={"identity_token": "x"},
+            )
+
+        # Email is a notification, not a gating control. A flaky SMTP
+        # relay shouldn't lock users out of their accounts.
+        assert response.status_code == 200
+        assert response.json()["access_token"]
+
+
 class TestOAuthVerifierUnit:
     """Verifier-level tests: signature, expiration, and issuer/audience checks."""
 
