@@ -1,0 +1,198 @@
+"""Verify OIDC identity tokens from Apple and Google.
+
+Both providers sign their identity tokens with RS256 and publish their
+public keys via a JWKS endpoint. This module fetches and caches those
+keys, verifies the token signature and standard claims (iss, aud, exp),
+and returns the subject + email so the auth endpoints can resolve or
+create the matching AIQ user.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from dataclasses import dataclass
+from typing import Iterable, Optional
+
+import httpx
+from jose import jwt
+from jose.exceptions import ExpiredSignatureError, JWTError
+
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
+APPLE_ISSUER = "https://appleid.apple.com"
+
+GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+GOOGLE_ISSUERS = ("https://accounts.google.com", "accounts.google.com")
+
+
+class OAuthVerificationError(Exception):
+    """Raised when an identity token cannot be verified.
+
+    Carries a short ``reason`` code suitable for structured logging — the
+    user-facing response is always a generic 401 so we don't leak which
+    specific check failed.
+    """
+
+    def __init__(self, reason: str, detail: str = ""):
+        """Store the short reason code and a human-readable detail string."""
+        super().__init__(detail or reason)
+        self.reason = reason
+
+
+@dataclass(frozen=True)
+class OAuthUserInfo:
+    provider: str
+    subject: str
+    email: Optional[str]
+    email_verified: bool
+
+
+class _JWKSCache:
+    """Tiny TTL cache for provider JWKS documents.
+
+    A single instance is shared across the process; refreshes happen lazily
+    on the request path after the TTL expires. A hard refresh is triggered
+    on any token whose `kid` isn't in the cached set, so key rotation is
+    picked up without waiting for the TTL.
+    """
+
+    def __init__(self) -> None:
+        """Initialize with an empty per-URL cache."""
+        self._entries: dict[str, tuple[float, dict]] = {}
+
+    def get(self, url: str, *, force: bool = False) -> dict:
+        ttl = settings.OAUTH_JWKS_CACHE_TTL_SECONDS
+        now = time.monotonic()
+        cached = self._entries.get(url)
+        if cached and not force and (now - cached[0]) < ttl:
+            return cached[1]
+        try:
+            response = httpx.get(url, timeout=5.0)
+            response.raise_for_status()
+            jwks = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            if cached:
+                logger.warning(
+                    "JWKS fetch failed for %s (%s); serving cached copy", url, exc
+                )
+                return cached[1]
+            raise OAuthVerificationError(
+                "jwks_unavailable", f"Unable to fetch JWKS from {url}: {exc}"
+            ) from exc
+        self._entries[url] = (now, jwks)
+        return jwks
+
+
+_jwks_cache = _JWKSCache()
+
+
+def _select_key(jwks: dict, kid: str) -> Optional[dict]:
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            return key
+    return None
+
+
+def _accepted_audiences(raw: str) -> tuple[str, ...]:
+    return tuple(item.strip() for item in raw.split(",") if item.strip())
+
+
+def _verify_oidc_token(
+    token: str,
+    *,
+    provider: str,
+    jwks_url: str,
+    issuers: Iterable[str],
+    audiences: tuple[str, ...],
+) -> OAuthUserInfo:
+    if not audiences:
+        raise OAuthVerificationError(
+            "provider_disabled", f"{provider} sign-in is not configured"
+        )
+
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+    except JWTError as exc:
+        raise OAuthVerificationError("malformed_token", str(exc)) from exc
+
+    kid = unverified_header.get("kid")
+    if not kid:
+        raise OAuthVerificationError("missing_kid", "Identity token missing kid header")
+
+    jwks = _jwks_cache.get(jwks_url)
+    key = _select_key(jwks, kid)
+    if key is None:
+        # Force-refresh the JWKS once — keys rotate without notice.
+        jwks = _jwks_cache.get(jwks_url, force=True)
+        key = _select_key(jwks, kid)
+    if key is None:
+        raise OAuthVerificationError("unknown_kid", f"kid={kid} not in JWKS")
+
+    issuer_list = list(issuers)
+    last_error: Optional[Exception] = None
+    for audience in audiences:
+        for issuer in issuer_list:
+            try:
+                payload = jwt.decode(
+                    token,
+                    key,
+                    algorithms=[unverified_header.get("alg", "RS256")],
+                    audience=audience,
+                    issuer=issuer,
+                )
+                break
+            except ExpiredSignatureError as exc:
+                raise OAuthVerificationError("token_expired", str(exc)) from exc
+            except JWTError as exc:
+                last_error = exc
+                continue
+        else:
+            continue
+        break
+    else:
+        raise OAuthVerificationError(
+            "invalid_claims", str(last_error) if last_error else "claims rejected"
+        )
+
+    subject = payload.get("sub")
+    if not subject:
+        raise OAuthVerificationError("missing_subject", "Identity token missing sub")
+
+    email = payload.get("email")
+    # Apple sends email_verified as either a bool or the string "true"/"false".
+    raw_verified = payload.get("email_verified")
+    email_verified = raw_verified is True or raw_verified == "true"
+
+    return OAuthUserInfo(
+        provider=provider,
+        subject=str(subject),
+        email=str(email) if email else None,
+        email_verified=email_verified,
+    )
+
+
+def verify_apple_identity_token(token: str) -> OAuthUserInfo:
+    audiences = _accepted_audiences(settings.APPLE_OAUTH_CLIENT_IDS)
+    return _verify_oidc_token(
+        token,
+        provider="apple",
+        jwks_url=APPLE_JWKS_URL,
+        issuers=(APPLE_ISSUER,),
+        audiences=audiences,
+    )
+
+
+def verify_google_identity_token(token: str) -> OAuthUserInfo:
+    audiences = _accepted_audiences(settings.GOOGLE_OAUTH_CLIENT_IDS)
+    return _verify_oidc_token(
+        token,
+        provider="google",
+        jwks_url=GOOGLE_JWKS_URL,
+        issuers=GOOGLE_ISSUERS,
+        audiences=audiences,
+    )

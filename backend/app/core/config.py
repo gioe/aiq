@@ -134,6 +134,23 @@ class Settings(BaseSettings):
         description="Percentage of users assigned to adaptive testing (0.0-100.0)",
     )
 
+    # OAuth / Sign in with Apple + Google (TASK-470)
+    # Apple Sign In: client_id is the iOS bundle ID (aud claim in Apple's id_token).
+    # A service ID may also be accepted for the web flow. Values are comma-separated.
+    APPLE_OAUTH_CLIENT_IDS: str = Field(
+        default="",
+        description="Comma-separated list of accepted Apple audiences "
+        "(iOS bundle ID and/or service ID). Leave empty to disable Apple sign-in.",
+    )
+    # Google Sign In: one or more OAuth client IDs (iOS + web are common).
+    GOOGLE_OAUTH_CLIENT_IDS: str = Field(
+        default="",
+        description="Comma-separated list of accepted Google OAuth client IDs "
+        "(iOS, web, etc.). Leave empty to disable Google sign-in.",
+    )
+    # JWKS cache TTL — providers rotate keys, so we re-fetch periodically.
+    OAUTH_JWKS_CACHE_TTL_SECONDS: int = 3600
+
     # Apple Push Notification Service (APNs)
     APNS_KEY_ID: str = ""  # APNs Auth Key ID (10 characters)
     APNS_TEAM_ID: str = ""  # Apple Developer Team ID (10 characters)
