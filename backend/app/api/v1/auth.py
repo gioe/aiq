@@ -40,6 +40,7 @@ from app.core.auth.oauth_verifier import (
     OAuthUserInfo,
     OAuthVerificationError,
     verify_apple_identity_token,
+    verify_google_identity_token,
 )
 from app.core.auth.dependencies import (
     get_current_user,
@@ -448,6 +449,36 @@ async def oauth_apple_exchange(
             ip=client_ip,
             user_agent=user_agent,
             error_reason=f"apple_oauth_{exc.reason}",
+        )
+        metrics.record_login(success=False)
+        raise_unauthorized(ErrorMessages.INVALID_TOKEN)
+
+    return await _exchange_oauth_token(db, request, oauth_info)
+
+
+@router.post("/oauth/google", response_model=Token)
+async def oauth_google_exchange(
+    payload: OAuthTokenExchange,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Exchange a Google ID token for AIQ access + refresh tokens.
+
+    Verifies the token against Google's JWKS using the same helpers as the
+    Apple endpoint; account resolution and linking behavior are identical.
+    """
+    client_ip = get_client_ip_from_request(request)
+    user_agent = get_user_agent_from_request(request)
+    try:
+        oauth_info = verify_google_identity_token(payload.identity_token)
+    except OAuthVerificationError as exc:
+        logger.warning(f"Google OAuth verification failed: reason={exc.reason}")
+        security_logger.log_auth_attempt(
+            email="",
+            success=False,
+            ip=client_ip,
+            user_agent=user_agent,
+            error_reason=f"google_oauth_{exc.reason}",
         )
         metrics.record_login(success=False)
         raise_unauthorized(ErrorMessages.INVALID_TOKEN)
