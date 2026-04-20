@@ -162,6 +162,52 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         }
     }
 
+    /// Exchange a Google identity token for AIQ tokens and establish the session.
+    ///
+    /// Matches the password-login error-handling contract so any failure (verification rejection,
+    /// network error, etc.) wipes loading state and surfaces a `ContextualError.login` — leaving
+    /// the UI on WelcomeView with a clear error and no partial session state.
+    func loginWithGoogle(identityToken: String) async throws {
+        isLoading = true
+        authError = nil
+
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("Auth.LoginWithGoogle", id: signpostID)
+        let startTime = CFAbsoluteTimeGetCurrent()
+
+        do {
+            let response = try await authService.loginWithGoogle(identityToken: identityToken)
+
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Auth.LoginWithGoogle", state)
+            logger.info("Google OAuth login completed in \(elapsed, format: .fixed(precision: 2))s")
+
+            isAuthenticated = true
+            currentUser = response.user
+            isLoading = false
+
+            analyticsManager.trackUserLogin(email: response.user.email)
+        } catch {
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+            signposter.endInterval("Auth.LoginWithGoogle", state)
+            let errorDesc = error.localizedDescription
+            logger.warning(
+                // swiftlint:disable:next line_length
+                "Google OAuth login failed after \(elapsed, format: .fixed(precision: 2))s: \(errorDesc, privacy: .public)"
+            )
+
+            let contextualError = ContextualError(
+                error: error as? APIError ?? .api(.unknown(message: error.localizedDescription)),
+                operation: .login
+            )
+            authError = contextualError
+            isLoading = false
+
+            analyticsManager.trackAuthFailed(reason: error.localizedDescription)
+            throw contextualError
+        }
+    }
+
     /// Exchange an Apple identity token for AIQ tokens and establish the session.
     ///
     /// Matches the password-login error-handling contract so any failure (verification rejection,

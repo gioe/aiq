@@ -311,6 +311,49 @@ final class LoginViewModelTests: XCTestCase {
         XCTAssertFalse(mockAuthManager.loginCalled, "password login should not be called")
     }
 
+    // MARK: - Sign in with Google Tests
+
+    func testLoginWithGoogle_SuccessfulLogin() async {
+        // Given
+        mockAuthManager.shouldSucceedGoogleLogin = true
+
+        // When
+        await sut.loginWithGoogle(identityToken: "google.identity.token")
+
+        // Then
+        XCTAssertTrue(mockAuthManager.loginWithGoogleCalled, "loginWithGoogle should be called on authManager")
+        XCTAssertEqual(mockAuthManager.lastGoogleIdentityToken, "google.identity.token")
+        XCTAssertTrue(mockAuthManager.isAuthenticated, "user should be authenticated after success")
+        XCTAssertNil(sut.error, "error should be nil after successful Google login")
+    }
+
+    func testLoginWithGoogle_FailedExchange_SurfacesError() async {
+        // Given
+        mockAuthManager.shouldSucceedGoogleLogin = false
+
+        // When
+        await sut.loginWithGoogle(identityToken: "bad.token")
+
+        // Then
+        XCTAssertTrue(mockAuthManager.loginWithGoogleCalled, "loginWithGoogle should be called")
+        XCTAssertFalse(mockAuthManager.isAuthenticated, "should not authenticate on failure")
+        XCTAssertNotNil(mockAuthManager.authError, "authError should be set on failure")
+    }
+
+    func testLoginWithGoogle_DoesNotDependOnForm() async {
+        // Given - form fields left empty (Google path should not require email/password)
+        sut.email = ""
+        sut.password = ""
+        mockAuthManager.shouldSucceedGoogleLogin = true
+
+        // When
+        await sut.loginWithGoogle(identityToken: "google.identity.token")
+
+        // Then
+        XCTAssertTrue(mockAuthManager.loginWithGoogleCalled, "Google login should not gate on form validity")
+        XCTAssertFalse(mockAuthManager.loginCalled, "password login should not be called")
+    }
+
     // MARK: - Show Registration Tests
 
     func testShowRegistrationScreen() {

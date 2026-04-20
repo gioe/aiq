@@ -163,6 +163,10 @@ private class MockAuthService: AuthServiceProtocol {
         fatalError("Not implemented for this test")
     }
 
+    func loginWithGoogle(identityToken _: String) async throws -> AuthResponse {
+        fatalError("Not implemented for this test")
+    }
+
     func refreshToken() async throws -> AuthResponse {
         fatalError("Not implemented for this test")
     }

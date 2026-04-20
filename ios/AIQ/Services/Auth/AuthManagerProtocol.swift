@@ -29,6 +29,7 @@ protocol AuthManagerProtocol: AnyObject {
 
     func login(email: String, password: String) async throws
     func loginWithApple(identityToken: String) async throws
+    func loginWithGoogle(identityToken: String) async throws
     func logout() async
     func deleteAccount() async throws
     func clearError()

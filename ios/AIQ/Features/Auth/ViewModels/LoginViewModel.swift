@@ -86,6 +86,18 @@ class LoginViewModel: BaseViewModel {
         }
     }
 
+    /// Exchange a Google identity token for AIQ tokens via the backend.
+    ///
+    /// Errors flow through `authManager.authErrorPublisher` → `viewModel.error` so the
+    /// ErrorBanner on WelcomeView surfaces cancel / network / backend-rejection paths.
+    func loginWithGoogle(identityToken: String) async {
+        do {
+            try await authManager.loginWithGoogle(identityToken: identityToken)
+        } catch {
+            CrashlyticsErrorRecorder.recordError(error, context: .login)
+        }
+    }
+
     func showRegistrationScreen() {
         showRegistration = true
     }

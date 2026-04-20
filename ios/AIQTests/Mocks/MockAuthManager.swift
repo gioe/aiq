@@ -31,10 +31,12 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     // Test configuration
     var shouldSucceedLogin: Bool = true
     var shouldSucceedAppleLogin: Bool = true
+    var shouldSucceedGoogleLogin: Bool = true
     var shouldSucceedRegister: Bool = true
     var shouldSucceedDeleteAccount: Bool = true
     var loginDelay: TimeInterval = 0
     var loginWithAppleDelay: TimeInterval = 0
+    var loginWithGoogleDelay: TimeInterval = 0
     var registerDelay: TimeInterval = 0
     var logoutDelay: TimeInterval = 0
     var deleteAccountDelay: TimeInterval = 0
@@ -42,6 +44,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     // Track method calls
     var loginCalled: Bool = false
     var loginWithAppleCalled: Bool = false
+    var loginWithGoogleCalled: Bool = false
     var registerCalled: Bool = false
     var logoutCalled: Bool = false
     var deleteAccountCalled: Bool = false
@@ -51,6 +54,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     var lastLoginEmail: String?
     var lastLoginPassword: String?
     var lastAppleIdentityToken: String?
+    var lastGoogleIdentityToken: String?
     var lastRegisterEmail: String?
     var lastRegisterPassword: String?
     var lastRegisterFirstName: String?
@@ -179,6 +183,40 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         }
     }
 
+    func loginWithGoogle(identityToken: String) async throws {
+        loginWithGoogleCalled = true
+        lastGoogleIdentityToken = identityToken
+
+        isLoading = true
+        authError = nil
+
+        if loginWithGoogleDelay > 0 {
+            try await Task.sleep(nanoseconds: UInt64(loginWithGoogleDelay * 1_000_000_000))
+        }
+
+        if shouldSucceedGoogleLogin {
+            let mockUser = Components.Schemas.UserResponse(
+                id: 1,
+                email: "google-user@example.com",
+                createdAt: Date(),
+                notificationEnabled: true,
+                isAdmin: false
+            )
+            isAuthenticated = true
+            currentUser = mockUser
+            isLoading = false
+        } else {
+            let error = NSError(
+                domain: "MockAuthManager",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid Google identity token"]
+            )
+            authError = error
+            isLoading = false
+            throw error
+        }
+    }
+
     func logout() async {
         logoutCalled = true
         isLoading = true
@@ -235,15 +273,18 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         authError = nil
         shouldSucceedLogin = true
         shouldSucceedAppleLogin = true
+        shouldSucceedGoogleLogin = true
         shouldSucceedRegister = true
         shouldSucceedDeleteAccount = true
         loginDelay = 0
         loginWithAppleDelay = 0
+        loginWithGoogleDelay = 0
         registerDelay = 0
         logoutDelay = 0
         deleteAccountDelay = 0
         loginCalled = false
         loginWithAppleCalled = false
+        loginWithGoogleCalled = false
         registerCalled = false
         logoutCalled = false
         deleteAccountCalled = false
@@ -251,6 +292,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         lastLoginEmail = nil
         lastLoginPassword = nil
         lastAppleIdentityToken = nil
+        lastGoogleIdentityToken = nil
         lastRegisterEmail = nil
         lastRegisterPassword = nil
         lastRegisterFirstName = nil
