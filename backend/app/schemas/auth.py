@@ -282,6 +282,17 @@ class PasswordResetConfirmResponse(BaseModel):
     )
 
 
+class OAuthTokenExchange(BaseModel):
+    """Schema for exchanging a provider identity token for AIQ tokens (TASK-470)."""
+
+    identity_token: str = Field(
+        ...,
+        min_length=1,
+        max_length=8192,
+        description="Identity token (JWT) returned by the OAuth provider.",
+    )
+
+
 class LogoutRequest(BaseModel):
     """Schema for logout request with optional refresh token revocation (TASK-525)."""
 

@@ -14,7 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.background_tasks import safe_background_task
-from app.models import get_db, User
+from app.models import get_db, User, OAuthIdentity
 from app.models.models import PasswordResetToken
 from app.schemas.auth import (
     UserRegister,
@@ -26,6 +26,7 @@ from app.schemas.auth import (
     PasswordResetResponse,
     PasswordResetConfirmResponse,
     LogoutRequest,
+    OAuthTokenExchange,
 )
 from app.core.auth.security import (
     hash_password,
@@ -34,6 +35,11 @@ from app.core.auth.security import (
     create_refresh_token,
     decode_token,
     verify_token_type,
+)
+from app.core.auth.oauth_verifier import (
+    OAuthUserInfo,
+    OAuthVerificationError,
+    verify_apple_identity_token,
 )
 from app.core.auth.dependencies import (
     get_current_user,
@@ -298,6 +304,155 @@ async def refresh_access_token(
         "token_type": "bearer",
         "user": current_user,
     }
+
+
+async def _resolve_oauth_user(
+    db: AsyncSession, oauth_info: OAuthUserInfo
+) -> tuple[User, bool]:
+    """Return the AIQ user for an OAuth identity, creating or linking as needed.
+
+    Resolution order (TASK-470):
+        1. (provider, provider_subject) already linked -> return that user.
+        2. Verified email matches an existing account -> link the identity.
+        3. Otherwise create a new password-less user and a linked identity.
+
+    Returns:
+        Tuple of (user, created) where ``created`` is True only for case 3.
+    """
+    identity_result = await db.execute(
+        select(OAuthIdentity).where(
+            OAuthIdentity.provider == oauth_info.provider,
+            OAuthIdentity.provider_subject == oauth_info.subject,
+        )
+    )
+    identity = identity_result.scalar_one_or_none()
+    user: User | None = None
+    if identity is not None:
+        user_result = await db.execute(select(User).where(User.id == identity.user_id))
+        user = user_result.scalar_one()
+        return user, False
+
+    if oauth_info.email and oauth_info.email_verified:
+        email_result = await db.execute(
+            select(User).where(User.email == oauth_info.email.lower())
+        )
+        user = email_result.scalar_one_or_none()
+
+    created = False
+    if user is None:
+        if not oauth_info.email:
+            raise_bad_request(
+                "OAuth provider did not return an email; cannot create an account."
+            )
+        # Password-less account — OAuth is the only credential. A random hash
+        # keeps the NOT NULL constraint happy and blocks password login until
+        # the user sets one via the existing reset-password flow.
+        user = User(
+            email=oauth_info.email.lower(),
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+        )
+        db.add(user)
+        await db.flush()
+        created = True
+
+    db.add(
+        OAuthIdentity(
+            user_id=user.id,
+            provider=oauth_info.provider,
+            provider_subject=oauth_info.subject,
+        )
+    )
+    return user, created
+
+
+async def _exchange_oauth_token(
+    db: AsyncSession,
+    request: Request,
+    oauth_info: OAuthUserInfo,
+) -> dict:
+    """Resolve the user for a verified OAuth identity and issue AIQ tokens."""
+    client_ip = get_client_ip_from_request(request)
+    user_agent = get_user_agent_from_request(request)
+
+    try:
+        user, created = await _resolve_oauth_user(db, oauth_info)
+        user.last_login_at = utc_now()
+        await db.commit()
+        await db.refresh(user)
+    except SQLAlchemyError as e:
+        await db.rollback()
+        logger.error(
+            f"Database error during OAuth exchange (provider={oauth_info.provider}): {e}"
+        )
+        raise_server_error(ErrorMessages.LOGIN_FAILED)
+
+    if created:
+        security_logger.log_account_event(
+            user_id=str(user.id),
+            event_type=SecurityEventType.ACCOUNT_CREATED,
+            ip=client_ip,
+        )
+        AnalyticsTracker.track_user_registered(
+            user_id=int(user.id),
+            email=user.email,
+        )
+        metrics.record_user_registration()
+
+    security_logger.log_auth_attempt(
+        email=user.email,
+        success=True,
+        ip=client_ip,
+        user_agent=user_agent,
+        error_reason=None,
+    )
+    AnalyticsTracker.track_user_login(
+        user_id=int(user.id),
+        email=user.email,
+    )
+    metrics.record_login(success=True)
+    logger.info(
+        f"OAuth login successful: user_id={user.id} provider={oauth_info.provider} "
+        f"created={created}"
+    )
+
+    access_token, refresh_token = _create_auth_tokens(user)
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user,
+    }
+
+
+@router.post("/oauth/apple", response_model=Token)
+async def oauth_apple_exchange(
+    payload: OAuthTokenExchange,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Exchange an Apple identity token for AIQ access + refresh tokens.
+
+    Verifies the token against Apple's JWKS, then resolves the AIQ user by
+    (provider, sub), falling back to the verified email address for account
+    linking. A new user is created when no link or email match exists.
+    """
+    client_ip = get_client_ip_from_request(request)
+    user_agent = get_user_agent_from_request(request)
+    try:
+        oauth_info = verify_apple_identity_token(payload.identity_token)
+    except OAuthVerificationError as exc:
+        logger.warning(f"Apple OAuth verification failed: reason={exc.reason}")
+        security_logger.log_auth_attempt(
+            email="",
+            success=False,
+            ip=client_ip,
+            user_agent=user_agent,
+            error_reason=f"apple_oauth_{exc.reason}",
+        )
+        metrics.record_login(success=False)
+        raise_unauthorized(ErrorMessages.INVALID_TOKEN)
+
+    return await _exchange_oauth_token(db, request, oauth_info)
 
 
 def _revoke_token(
