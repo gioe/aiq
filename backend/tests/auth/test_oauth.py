@@ -66,6 +66,15 @@ class TestAppleOAuthExchange:
         identity = result.scalar_one()
         assert identity.user_id == data["user"]["id"]
 
+        # last_login_at is part of the sign-in contract — a refactor that
+        # forgets to stamp it on the OAuth path would go unnoticed otherwise.
+        user_row = (
+            await async_db_session.execute(
+                select(User).where(User.id == data["user"]["id"])
+            )
+        ).scalar_one()
+        assert user_row.last_login_at is not None
+
     async def test_invalid_apple_token_returns_401(self, async_client):
         with patch(
             APPLE_VERIFIER,
@@ -398,3 +407,38 @@ class TestOAuthVerifierUnit:
                 await mod.verify_google_identity_token(token)
 
         assert exc_info.value.reason == "invalid_claims"
+
+    async def test_hs256_token_rejected_as_unsupported_alg(self):
+        """Regression: reject HS256 tokens even when the attacker knows a key.
+
+        The classic JWT alg-confusion attack signs an HS256 token using the
+        provider's RSA public key (or its modulus) as the HMAC secret. With
+        algorithms pinned to RS256 this must fail before any verification.
+        """
+        from datetime import datetime, timedelta, timezone
+
+        from jose import jwt as jose_jwt
+
+        now = datetime.now(timezone.utc)
+        token = jose_jwt.encode(
+            {
+                "iss": "https://appleid.apple.com",
+                "aud": "com.aiq.test",
+                "sub": "hs256-user",
+                "email": "hs256@example.com",
+                "email_verified": True,
+                "iat": int(now.timestamp()),
+                "exp": int((now + timedelta(hours=1)).timestamp()),
+            },
+            "shared-secret",
+            algorithm="HS256",
+            headers={"kid": "any-kid"},
+        )
+
+        from app.core.auth import oauth_verifier as mod
+
+        with patch.object(mod.settings, "APPLE_OAUTH_CLIENT_IDS", "com.aiq.test"):
+            with pytest.raises(OAuthVerificationError) as exc_info:
+                await mod.verify_apple_identity_token(token)
+
+        assert exc_info.value.reason == "unsupported_alg"
