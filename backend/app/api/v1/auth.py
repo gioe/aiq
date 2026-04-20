@@ -421,13 +421,16 @@ async def _exchange_oauth_token(
     if linked:
         # An OAuth identity was bound to a pre-existing password account.
         # The account owner didn't explicitly approve this, so notify them
-        # even though the provider verified email ownership. Email delivery
-        # failures are logged but don't fail the sign-in.
+        # even though the provider verified email ownership.
         security_logger.log_identity_linked(
             user_id=str(user.id),
             provider=oauth_info.provider,
             ip=client_ip,
         )
+        # Defense-in-depth: send_oauth_link_notification_email already catches
+        # SMTPException and Exception internally, but a future bug that lets
+        # something escape (e.g., a module-import-time failure) must not block
+        # sign-in. A notification is not a gating control.
         try:
             send_oauth_link_notification_email(
                 email=user.email,

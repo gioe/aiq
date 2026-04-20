@@ -272,30 +272,77 @@ class TestAccountLinking:
 
 
 SEND_OAUTH_LINK_EMAIL = "app.api.v1.auth.send_oauth_link_notification_email"
+LOG_IDENTITY_LINKED = "app.api.v1.auth.security_logger.log_identity_linked"
 
 
 class TestAccountLinkingNotification:
     """TASK-473: notify the account owner when a new OAuth identity is linked."""
 
+    @pytest.mark.parametrize(
+        "provider,verifier_path,endpoint",
+        [
+            ("google", GOOGLE_VERIFIER, "/v1/auth/oauth/google"),
+            ("apple", APPLE_VERIFIER, "/v1/auth/oauth/apple"),
+        ],
+    )
     async def test_linking_verified_email_sends_notification(
-        self, async_client, async_db_session
+        self, async_client, async_db_session, provider, verifier_path, endpoint
     ):
         existing = User(
-            email="owner@example.com",
+            email=f"owner-{provider}@example.com",
             password_hash=hash_password("password12345"),
         )
         async_db_session.add(existing)
         await async_db_session.commit()
 
         info = _oauth_info(
+            provider=provider,
+            subject=f"link-{provider}-sub",
+            email=f"owner-{provider}@example.com",
+            email_verified=True,
+        )
+        with (
+            patch(verifier_path, new=AsyncMock(return_value=info)),
+            patch(SEND_OAUTH_LINK_EMAIL, return_value=True) as mock_send,
+        ):
+            response = await async_client.post(
+                endpoint,
+                json={"identity_token": "x"},
+            )
+
+        assert response.status_code == 200
+        # The owner must be told a new sign-in method was added, even though
+        # the provider verified email ownership — users don't always expect
+        # OAuth login to hand over access to a pre-existing password account.
+        # Both providers hit the same linking codepath; exercising both guards
+        # against provider-specific regressions (e.g. Apple's email_verified
+        # arriving as the string "true" via oauth_verifier.py).
+        mock_send.assert_called_once_with(
+            email=f"owner-{provider}@example.com",
+            provider=provider,
+        )
+
+    async def test_linking_logs_security_audit_event(
+        self, async_client, async_db_session
+    ):
+        existing = User(
+            email="audit@example.com",
+            password_hash=hash_password("password12345"),
+        )
+        async_db_session.add(existing)
+        await async_db_session.commit()
+        await async_db_session.refresh(existing)
+
+        info = _oauth_info(
             provider="google",
-            subject="link-google-sub",
-            email="owner@example.com",
+            subject="audit-sub",
+            email="audit@example.com",
             email_verified=True,
         )
         with (
             patch(GOOGLE_VERIFIER, new=AsyncMock(return_value=info)),
-            patch(SEND_OAUTH_LINK_EMAIL, return_value=True) as mock_send,
+            patch(SEND_OAUTH_LINK_EMAIL, return_value=True),
+            patch(LOG_IDENTITY_LINKED) as mock_log,
         ):
             response = await async_client.post(
                 "/v1/auth/oauth/google",
@@ -303,13 +350,14 @@ class TestAccountLinkingNotification:
             )
 
         assert response.status_code == 200
-        # The owner must be told a new sign-in method was added, even though
-        # the provider verified email ownership — users don't always expect
-        # Google login to hand over access to a pre-existing password account.
-        mock_send.assert_called_once_with(
-            email="owner@example.com",
-            provider="google",
-        )
+        # The audit log entry is load-bearing for SIEM/forensics — if the
+        # email pathway is compromised or silently drops, the security team
+        # still has a structured record that an identity was linked.
+        mock_log.assert_called_once()
+        call_kwargs = mock_log.call_args.kwargs
+        assert call_kwargs["user_id"] == str(existing.id)
+        assert call_kwargs["provider"] == "google"
+        assert "ip" in call_kwargs
 
     async def test_repeat_oauth_login_does_not_send_notification(
         self, async_client, async_db_session
