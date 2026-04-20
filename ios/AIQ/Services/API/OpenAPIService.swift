@@ -35,6 +35,7 @@ protocol OpenAPIServiceProtocol: Sendable {
     func refreshToken() async throws -> AuthResponse
     func logout() async throws
     func oauthApple(identityToken: String) async throws -> AuthResponse
+    func oauthGoogle(identityToken: String) async throws -> AuthResponse
 
     // MARK: - User Profile
 
@@ -275,6 +276,10 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     func oauthApple(identityToken: String) async throws -> AuthResponse {
         try await exchangeOAuthIdentityToken(path: "v1/auth/oauth/apple", identityToken: identityToken)
+    }
+
+    func oauthGoogle(identityToken: String) async throws -> AuthResponse {
+        try await exchangeOAuthIdentityToken(path: "v1/auth/oauth/google", identityToken: identityToken)
     }
 
     /// Posts an identity token to an OAuth exchange endpoint and returns the AIQ Token response.

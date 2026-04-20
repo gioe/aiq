@@ -170,6 +170,35 @@ class AuthService: AuthServiceProtocol {
         }
     }
 
+    func loginWithGoogle(identityToken: String) async throws -> AuthResponse {
+        #if DebugBuild
+            print("[AUTH] Starting Google OAuth exchange")
+        #endif
+
+        do {
+            let response = try await apiService.oauthGoogle(identityToken: identityToken)
+
+            #if DebugBuild
+                print("[SUCCESS] Google OAuth exchange successful")
+                print("   - Access token length: \(response.accessToken.count)")
+                print("   - User ID: \(response.user.id)")
+                print("   - User email: \(response.user.email)")
+            #endif
+
+            // Save tokens and user — reuses the same Keychain storage path as password/Apple login,
+            // so logout/clearAuthData wipes these tokens automatically and AuthService.init restores
+            // them on next launch.
+            try await saveAuthData(response)
+
+            return response
+        } catch {
+            #if DebugBuild
+                print("[ERROR] Google OAuth exchange failed with error: \(error)")
+            #endif
+            throw error
+        }
+    }
+
     func refreshToken() async throws -> AuthResponse {
         guard try secureStorage.retrieve(forKey: SecureStorageKey.refreshToken.rawValue) != nil else {
             throw AuthError.noRefreshToken

@@ -12,6 +12,7 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
     private(set) var loginCalled = false
     private(set) var oauthAppleCalled = false
+    private(set) var oauthGoogleCalled = false
     private(set) var registerCalled = false
     private(set) var refreshTokenCalled = false
     private(set) var logoutCalled = false
@@ -42,6 +43,7 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private(set) var lastLoginEmail: String?
     private(set) var lastLoginPassword: String?
     private(set) var lastOAuthAppleIdentityToken: String?
+    private(set) var lastOAuthGoogleIdentityToken: String?
     private(set) var lastRegisterEmail: String?
     private(set) var lastRegisterPassword: String?
     private(set) var lastRegisterFirstName: String?
@@ -81,6 +83,8 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     var loginError: Error?
     var oauthAppleResponse: AuthResponse?
     var oauthAppleError: Error?
+    var oauthGoogleResponse: AuthResponse?
+    var oauthGoogleError: Error?
     var registerResponse: AuthResponse?
     var registerError: Error?
     var refreshTokenResponse: AuthResponse?
@@ -149,6 +153,18 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         guard let response = oauthAppleResponse else {
             throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
                 NSLocalizedDescriptionKey: "oauthAppleResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    func oauthGoogle(identityToken: String) async throws -> AuthResponse {
+        oauthGoogleCalled = true
+        lastOAuthGoogleIdentityToken = identityToken
+        if let error = oauthGoogleError { throw error }
+        guard let response = oauthGoogleResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "oauthGoogleResponse not configured"
             ])
         }
         return response

@@ -20,6 +20,9 @@ protocol AuthServiceProtocol: AnyObject {
     /// Exchange an Apple identity token for AIQ tokens and persist the session.
     func loginWithApple(identityToken: String) async throws -> AuthResponse
 
+    /// Exchange a Google identity token for AIQ tokens and persist the session.
+    func loginWithGoogle(identityToken: String) async throws -> AuthResponse
+
     /// Refresh the access token using refresh token
     func refreshToken() async throws -> AuthResponse
 
