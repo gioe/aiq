@@ -1,5 +1,7 @@
 import AIQSharedKit
 import AuthenticationServices
+import GoogleSignIn
+import GoogleSignInSwift
 import SwiftUI
 
 /// Welcome/Login screen with delightful animations and gamification
@@ -154,6 +156,19 @@ struct WelcomeView: View {
                             .accessibilityIdentifier(
                                 AccessibilityIdentifiers.WelcomeView.signInWithAppleButton
                             )
+
+                            GoogleSignInButton(
+                                scheme: colorScheme == .dark ? .dark : .light,
+                                style: .wide,
+                                action: {
+                                    Task { await handleGoogleSignIn() }
+                                }
+                            )
+                            .frame(height: 50)
+                            .disabled(viewModel.isLoading)
+                            .accessibilityIdentifier(
+                                AccessibilityIdentifiers.WelcomeView.signInWithGoogleButton
+                            )
                         }
                         .opacity(isAnimating ? 1.0 : 0.0)
                         .offset(y: reduceMotion ? 0 : (isAnimating ? 0 : 20))
@@ -246,6 +261,64 @@ struct WelcomeView: View {
                 RegistrationView()
             }
         }
+    }
+
+    /// Handles Sign in with Google by presenting the Google sign-in sheet and exchanging the
+    /// returned ID token for AIQ tokens via the backend.
+    ///
+    /// Cancellation is silently absorbed (user-driven). Missing SDK configuration, a credential
+    /// without an ID token, or any framework error surfaces through `viewModel.error` as a typed
+    /// `APIError` so the top-of-view `ErrorBanner` renders the message and no partial session
+    /// state is established.
+    @MainActor
+    private func handleGoogleSignIn() async {
+        // Re-entry guard: the button is `.disabled(viewModel.isLoading)`, but a late tap arriving
+        // during an in-flight sign-in should still be ignored rather than racing a second attempt.
+        guard !viewModel.isLoading else { return }
+
+        guard GIDSignIn.sharedInstance.configuration != nil else {
+            viewModel.error = APIError.api(
+                .unknown(message: "Google sign-in is not configured. Please try another sign-in method.")
+            )
+            return
+        }
+
+        guard let rootViewController = Self.rootPresentingViewController() else {
+            viewModel.error = APIError.api(
+                .unknown(message: "Could not present Google sign-in. Please try again.")
+            )
+            return
+        }
+
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
+            guard let identityToken = result.user.idToken?.tokenString else {
+                viewModel.error = APIError.api(
+                    .unknown(message: "Google sign-in did not return an identity token.")
+                )
+                return
+            }
+            await viewModel.loginWithGoogle(identityToken: identityToken)
+        } catch {
+            if (error as NSError).code == GIDSignInError.canceled.rawValue {
+                return
+            }
+            viewModel.error = APIError.api(.unknown(message: error.localizedDescription))
+        }
+    }
+
+    /// Returns the key window's root view controller for presenting the Google sign-in sheet.
+    ///
+    /// SwiftUI does not expose a presenting view controller directly, so we walk the active scene
+    /// hierarchy. Returns nil only if no foreground active scene has a key window yet — a state
+    /// that only occurs very early in app launch, before WelcomeView is visible.
+    private static func rootPresentingViewController() -> UIViewController? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)?
+            .rootViewController
     }
 
     /// Handles the ASAuthorizationController result from Sign in with Apple.

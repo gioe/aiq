@@ -48,6 +48,7 @@ enum AccessibilityIdentifiers {
         static let passwordTextField = "welcomeView.passwordTextField"
         static let signInButton = "welcomeView.signInButton"
         static let signInWithAppleButton = "welcomeView.signInWithAppleButton"
+        static let signInWithGoogleButton = "welcomeView.signInWithGoogleButton"
         static let createAccountButton = "welcomeView.createAccountButton"
         static let brainIcon = "welcomeView.brainIcon"
         static let errorBanner = "welcomeView.errorBanner"
