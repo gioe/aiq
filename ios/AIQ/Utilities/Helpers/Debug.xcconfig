@@ -3,8 +3,3 @@
 
 #include "GoogleSignInDefaults.xcconfig"
 #include? "Local.xcconfig"
-
-// Release Configuration
-// Uses Railway production backend
-
-API_BASE_URL = https:/$()/aiq-backend-production.up.railway.app/v1

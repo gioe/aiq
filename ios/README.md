@@ -32,6 +32,31 @@ In Xcode:
 3. On first build, approve the OpenAPIGenerator plugin when prompted (click "Trust & Enable")
 4. Build and run (⌘+R)
 
+### Google Sign-In Setup
+
+The app now reads the Google OAuth values from Xcode build settings instead of hard-coded `Info.plist`
+placeholders. The committed defaults intentionally disable Google Sign-In until you supply real values.
+
+For local development:
+1. Copy `AIQ/Utilities/Helpers/Local.xcconfig.example` to `AIQ/Utilities/Helpers/Local.xcconfig`
+2. Replace both placeholder values with the iOS client ID and reversed iOS client ID from Google Cloud
+3. Rebuild the app
+
+`Local.xcconfig` is gitignored, so your local OAuth values stay out of source control.
+
+For CI or release builds, inject the same build settings at build time instead of editing tracked files:
+
+```bash
+xcodebuild \
+  -project AIQ.xcodeproj \
+  -scheme AIQ \
+  GID_CLIENT_ID=your-ios-client-id.apps.googleusercontent.com \
+  GID_REVERSED_CLIENT_ID=com.googleusercontent.apps.your-reversed-ios-client-id
+```
+
+If these values are missing or still use the placeholder defaults, the app skips Google SDK setup and the
+Google sign-in button shows a configuration error instead of crashing.
+
 ### OpenAPI Client Generation
 
 The iOS app uses Apple's [swift-openapi-generator](https://github.com/apple/swift-openapi-generator) to generate type-safe Swift code from the backend's OpenAPI specification. The generated code is located in the `Packages/AIQAPIClient` local Swift Package.

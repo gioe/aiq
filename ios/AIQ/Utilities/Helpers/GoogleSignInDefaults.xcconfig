@@ -1,0 +1,5 @@
+// Shared Google Sign-In defaults for local development and CI.
+// Local.xcconfig or command-line build settings can override these values.
+
+GID_CLIENT_ID = REPLACE_WITH_IOS_CLIENT_ID.apps.googleusercontent.com
+GID_REVERSED_CLIENT_ID = com.googleusercontent.apps.REPLACE_WITH_REVERSED_IOS_CLIENT_ID

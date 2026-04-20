@@ -1,0 +1,5 @@
+// Copy this file to Local.xcconfig and replace the placeholders with your
+// Google OAuth iOS client ID and reversed iOS client ID from Google Cloud.
+
+GID_CLIENT_ID = REPLACE_WITH_IOS_CLIENT_ID.apps.googleusercontent.com
+GID_REVERSED_CLIENT_ID = com.googleusercontent.apps.REPLACE_WITH_REVERSED_IOS_CLIENT_ID

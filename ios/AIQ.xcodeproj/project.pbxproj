@@ -618,6 +618,7 @@
 		CD7CEC33927664BF853D7F93 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		CE8BBE439EDEA46900F6A608 /* TestProgressView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestProgressView.swift; path = Features/Test/Views/TestProgressView.swift; sourceTree = "<group>"; };
 		CF3DD9397AACDA7CDAC43ECE /* TestSessionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSessionStatus.swift; sourceTree = "<group>"; };
+		CF91E8A77D94F0A42F5E1001 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		D02B832A419C5B2C30D4B0A1 /* HapticManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticManagerTests.swift; sourceTree = "<group>"; };
 		D03A45FDDE6CC8040BF6879D /* AuthStateObserver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthStateObserver.swift; sourceTree = "<group>"; };
 		D2D93BDF3F42258903E80CB3 /* RegistrationViewModelBirthYearTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RegistrationViewModelBirthYearTests.swift; sourceTree = "<group>"; };
@@ -1098,6 +1099,7 @@
 			children = (
 				E676AB96E42CF5A5F8F0231C /* AppConfig.swift */,
 				ICG005002B4712FCE75F777B76 /* CrashlyticsErrorRecorder.swift */,
+				CF91E8A77D94F0A42F5E1001 /* Debug.xcconfig */,
 				DF5B8A34B8E1B21F40EBA913 /* Release.xcconfig */,
 				9B7DA3D24FA5595BDFEC7213 /* AccessibilityIdentifiers.swift */,
 				CB7CB297B401BB40A27456F0 /* Constants.swift */,
@@ -2204,6 +2206,7 @@
 		};
 		96774D89EE24872AA0C9A79D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = DF5B8A34B8E1B21F40EBA913 /* Release.xcconfig */;
 			buildSettings = {
 				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -2227,6 +2230,7 @@
 		};
 		A2789A39836CC6C86DF8385D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = CF91E8A77D94F0A42F5E1001 /* Debug.xcconfig */;
 			buildSettings = {
 				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;

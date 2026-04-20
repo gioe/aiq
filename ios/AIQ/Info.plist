@@ -41,12 +41,12 @@
 			<string>com.aiq.google-signin</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.REPLACE_WITH_REVERSED_IOS_CLIENT_ID</string>
+				<string>$(GID_REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
 	</array>
 	<key>GIDClientID</key>
-	<string>REPLACE_WITH_IOS_CLIENT_ID.apps.googleusercontent.com</string>
+	<string>$(GID_CLIENT_ID)</string>
 	<key>CFBundleVersion</key>
 	<string>6</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

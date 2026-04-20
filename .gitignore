@@ -126,5 +126,6 @@ tusk/tasks.db-shm
 ios/*.cer
 ios/*.certSigningRequest
 ios/*.p12
+ios/AIQ/Utilities/Helpers/Local.xcconfig
 ios/fastlane/metadata/review_information/demo_password.txt
 ios/fastlane/metadata/review_information/phone_number.txt
