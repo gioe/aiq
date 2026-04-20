@@ -266,6 +266,9 @@ class TestRegisterUser:
         user = result.scalar_one_or_none()
         assert user.password_hash != "securepassword123"
         assert user.password_hash.startswith("$2b$")  # Bcrypt hash prefix
+        # Password-based registration establishes a real password, so the
+        # OAuth-only invariant must not fire for these accounts (TASK-474).
+        assert user.password_login_enabled is True
 
     async def test_register_user_with_valid_birth_year(
         self, async_client, async_db_session
@@ -987,6 +990,9 @@ class TestPasswordReset:
         )
         user = result.scalar_one_or_none()
         assert verify_password("NewSecureP@ssw0rd!", user.password_hash)
+        # Completing a reset establishes a real password, so the OAuth-only
+        # invariant must be off afterward (TASK-474).
+        assert user.password_login_enabled is True
 
         # Verify token was marked as used
         async_db_session.expire_all()
@@ -995,6 +1001,51 @@ class TestPasswordReset:
         )
         token = result.scalar_one_or_none()
         assert token.used_at is not None
+
+    async def test_reset_password_reenables_login_for_oauth_only_user(
+        self, async_client, async_db_session
+    ):
+        """An OAuth-only user flips password_login_enabled to True on reset."""
+        from app.models.models import PasswordResetToken, User
+        from app.core.auth.security import hash_password
+        from datetime import timedelta
+        from app.core.datetime_utils import utc_now
+        import secrets
+
+        # Start from the OAuth-only shape: random password hash, flag off.
+        # This mirrors what auth._resolve_oauth_user writes for a brand-new
+        # OAuth account.
+        oauth_user = User(
+            email="oauthonly@example.com",
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            password_login_enabled=False,
+        )
+        async_db_session.add(oauth_user)
+        await async_db_session.commit()
+        await async_db_session.refresh(oauth_user)
+        oauth_user_id = oauth_user.id
+
+        reset_token = secrets.token_urlsafe(32)
+        async_db_session.add(
+            PasswordResetToken(
+                user_id=oauth_user_id,
+                token=reset_token,
+                expires_at=utc_now() + timedelta(minutes=30),
+            )
+        )
+        await async_db_session.commit()
+
+        response = await async_client.post(
+            "/v1/auth/reset-password",
+            json={"token": reset_token, "new_password": "NewSecureP@ssw0rd!"},
+        )
+        assert response.status_code == 200
+
+        async_db_session.expire_all()
+        refreshed = (
+            await async_db_session.execute(select(User).where(User.id == oauth_user_id))
+        ).scalar_one()
+        assert refreshed.password_login_enabled is True
 
     async def test_reset_password_with_invalid_token_fails(self, async_client):
         """Test password reset with non-existent token fails."""

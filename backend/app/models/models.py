@@ -153,6 +153,12 @@ class User(Base):
     # Admin privilege flag — grants access to admin-only client features
     is_admin: Mapped[bool] = mapped_column(default=False)
 
+    # False for accounts created via OAuth-only sign-in that never set a real
+    # password. Flipped to True by the password-reset flow (or any future
+    # "set a password" surface). Exposes "which accounts are OAuth-only?"
+    # without requiring a left-join to oauth_identities.
+    password_login_enabled: Mapped[bool] = mapped_column(default=True)
+
     # Demographic data for norming study (P13-001)
     # All fields are optional to ensure privacy and voluntary participation
     birth_year: Mapped[Optional[int]] = mapped_column(

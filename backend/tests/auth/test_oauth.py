@@ -74,6 +74,9 @@ class TestAppleOAuthExchange:
             )
         ).scalar_one()
         assert user_row.last_login_at is not None
+        # OAuth-only accounts must advertise "no real password" on the row
+        # so operator queries don't need to join oauth_identities (TASK-474).
+        assert user_row.password_login_enabled is False
 
     async def test_invalid_apple_token_returns_401(self, async_client):
         with patch(
@@ -198,6 +201,13 @@ class TestAccountLinking:
         assert len(identities) == 1
         assert identities[0].provider == "apple"
         assert identities[0].provider_subject == "link-sub"
+
+        # Linking OAuth onto a pre-existing password account must not flip
+        # password_login_enabled — the user still has a real password.
+        linked_user = (
+            await async_db_session.execute(select(User).where(User.id == existing_id))
+        ).scalar_one()
+        assert linked_user.password_login_enabled is True
 
     async def test_unverified_email_does_not_link(self, async_client, async_db_session):
         existing = User(

@@ -367,9 +367,13 @@ async def _resolve_oauth_user(
         # Password-less account — OAuth is the only credential. A random hash
         # keeps the NOT NULL constraint happy and blocks password login until
         # the user sets one via the existing reset-password flow.
+        # ``password_login_enabled=False`` records this invariant on the row
+        # itself so operators can find OAuth-only accounts without joining
+        # oauth_identities; the reset-password flow flips it back to True.
         user = User(
             email=oauth_info.email.lower(),
             password_hash=hash_password(secrets.token_urlsafe(32)),
+            password_login_enabled=False,
         )
         db.add(user)
         await db.flush()
@@ -987,6 +991,10 @@ async def reset_password(
 
         # Update user's password
         user.password_hash = hash_password(new_password)
+        # Any successful reset establishes a real, user-chosen password —
+        # flip the OAuth-only invariant off so operator queries treat this
+        # account as password-capable going forward.
+        user.password_login_enabled = True
 
         # Mark token as used
         token_record.used_at = utc_now()
