@@ -6,7 +6,7 @@ asyncpg==0.31.0
 aiosqlite==0.21.0
 
 # Configuration
-python-dotenv==1.2.1
+python-dotenv==1.2.2
 
 # Statistical/Mathematical
 scipy==1.16.3
