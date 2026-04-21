@@ -2,6 +2,7 @@
 Authentication endpoints for user registration and login.
 """
 
+import asyncio
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -389,9 +390,22 @@ async def _resolve_oauth_user(
     return user, created, linked
 
 
+async def _send_oauth_link_notification_email_in_background(
+    email: str,
+    provider: str,
+) -> None:
+    """Run blocking SMTP work in a worker thread for async request handlers."""
+    await asyncio.to_thread(
+        send_oauth_link_notification_email,
+        email=email,
+        provider=provider,
+    )
+
+
 async def _exchange_oauth_token(
     db: AsyncSession,
     request: Request,
+    background_tasks: BackgroundTasks,
     oauth_info: OAuthUserInfo,
 ) -> dict:
     """Resolve the user for a verified OAuth identity and issue AIQ tokens."""
@@ -431,20 +445,14 @@ async def _exchange_oauth_token(
             provider=oauth_info.provider,
             ip=client_ip,
         )
-        # Defense-in-depth: send_oauth_link_notification_email already catches
-        # SMTPException and Exception internally, but a future bug that lets
-        # something escape (e.g., a module-import-time failure) must not block
-        # sign-in. A notification is not a gating control.
-        try:
-            send_oauth_link_notification_email(
-                email=user.email,
-                provider=oauth_info.provider,
-            )
-        except Exception:
-            logger.exception(
-                f"Failed to send OAuth link notification: user_id={user.id} "
-                f"provider={oauth_info.provider}"
-            )
+        # The SMTP client is synchronous; run it after the response is sent so
+        # an SMTP outage cannot block the event loop for the sign-in request.
+        background_tasks.add_task(
+            safe_background_task,
+            _send_oauth_link_notification_email_in_background,
+            email=user.email,
+            provider=oauth_info.provider,
+        )
 
     security_logger.log_auth_attempt(
         email=user.email,
@@ -476,6 +484,7 @@ async def _exchange_oauth_token(
 async def oauth_apple_exchange(
     payload: OAuthTokenExchange,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """Exchange an Apple identity token for AIQ access + refresh tokens.
@@ -500,13 +509,14 @@ async def oauth_apple_exchange(
         metrics.record_login(success=False)
         raise_unauthorized(ErrorMessages.INVALID_TOKEN)
 
-    return await _exchange_oauth_token(db, request, oauth_info)
+    return await _exchange_oauth_token(db, request, background_tasks, oauth_info)
 
 
 @router.post("/oauth/google", response_model=Token)
 async def oauth_google_exchange(
     payload: OAuthTokenExchange,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """Exchange a Google ID token for AIQ access + refresh tokens.
@@ -530,7 +540,7 @@ async def oauth_google_exchange(
         metrics.record_login(success=False)
         raise_unauthorized(ErrorMessages.INVALID_TOKEN)
 
-    return await _exchange_oauth_token(db, request, oauth_info)
+    return await _exchange_oauth_token(db, request, background_tasks, oauth_info)
 
 
 def _revoke_token(
