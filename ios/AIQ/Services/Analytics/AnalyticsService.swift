@@ -61,6 +61,12 @@ enum AIQAnalyticsEvent: String {
     case deepLinkNavigationFailed = "deeplink.navigation.failed"
 }
 
+enum SignInProvider: String {
+    case password
+    case apple
+    case google
+}
+
 // MARK: - AnalyticsManagerProtocol Convenience Extensions
 
 extension AnalyticsManagerProtocol {
@@ -77,9 +83,10 @@ extension AnalyticsManagerProtocol {
         ])
     }
 
-    func trackUserLogin(email: String) {
+    func trackUserLogin(email: String, provider: SignInProvider) {
         track(event: .userLogin, properties: [
-            "email_domain": emailDomain(from: email)
+            "email_domain": emailDomain(from: email),
+            "provider": provider.rawValue
         ])
     }
 

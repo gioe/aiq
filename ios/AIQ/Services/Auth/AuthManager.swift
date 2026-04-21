@@ -140,7 +140,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             isLoading = false
 
             // Track analytics
-            analyticsManager.trackUserLogin(email: email)
+            analyticsManager.trackUserLogin(email: email, provider: .password)
         } catch {
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval("Auth.Login", state)
@@ -186,7 +186,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             currentUser = response.user
             isLoading = false
 
-            analyticsManager.trackUserLogin(email: response.user.email)
+            analyticsManager.trackUserLogin(email: response.user.email, provider: .google)
         } catch {
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval("Auth.LoginWithGoogle", state)
@@ -232,7 +232,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             currentUser = response.user
             isLoading = false
 
-            analyticsManager.trackUserLogin(email: response.user.email)
+            analyticsManager.trackUserLogin(email: response.user.email, provider: .apple)
         } catch {
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval("Auth.LoginWithApple", state)

@@ -9,11 +9,60 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
     var sut: AuthManager!
     fileprivate var mockAuthService: MockAuthService!
     fileprivate var mockDeviceTokenManager: MockDeviceTokenManager!
+    fileprivate var mockAnalyticsManager: MockAnalyticsManager!
 
     override func setUp() async throws {
         try await super.setUp()
         mockAuthService = MockAuthService()
         mockDeviceTokenManager = MockDeviceTokenManager()
+        mockAnalyticsManager = MockAnalyticsManager()
+    }
+
+    // MARK: - Login Analytics Tests
+
+    func testLogin_TracksPasswordProvider() async throws {
+        mockAuthService.loginResponseEmail = "password@example.com"
+        sut = AuthManager(
+            authService: mockAuthService,
+            analyticsManager: mockAnalyticsManager,
+            deviceTokenManagerFactory: { self.mockDeviceTokenManager }
+        )
+
+        try await sut.login(
+            email: "password@example.com",
+            password: "test-password" // pragma: allowlist secret
+        )
+
+        XCTAssertEqual(mockAnalyticsManager.lastLoginProvider, SignInProvider.password.rawValue)
+        XCTAssertEqual(mockAnalyticsManager.lastLoginEmailDomain, "example.com")
+    }
+
+    func testLoginWithApple_TracksAppleProvider() async throws {
+        mockAuthService.appleLoginResponseEmail = "apple@example.com"
+        sut = AuthManager(
+            authService: mockAuthService,
+            analyticsManager: mockAnalyticsManager,
+            deviceTokenManagerFactory: { self.mockDeviceTokenManager }
+        )
+
+        try await sut.loginWithApple(identityToken: "apple.identity.token")
+
+        XCTAssertEqual(mockAnalyticsManager.lastLoginProvider, SignInProvider.apple.rawValue)
+        XCTAssertEqual(mockAnalyticsManager.lastLoginEmailDomain, "example.com")
+    }
+
+    func testLoginWithGoogle_TracksGoogleProvider() async throws {
+        mockAuthService.googleLoginResponseEmail = "google@example.com"
+        sut = AuthManager(
+            authService: mockAuthService,
+            analyticsManager: mockAnalyticsManager,
+            deviceTokenManagerFactory: { self.mockDeviceTokenManager }
+        )
+
+        try await sut.loginWithGoogle(identityToken: "google.identity.token")
+
+        XCTAssertEqual(mockAnalyticsManager.lastLoginProvider, SignInProvider.google.rawValue)
+        XCTAssertEqual(mockAnalyticsManager.lastLoginEmailDomain, "example.com")
     }
 
     // MARK: - Delete Account Tests
@@ -135,7 +184,13 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
 // MARK: - Mock Auth Service
 
 private class MockAuthService: AuthServiceProtocol {
+    var shouldSucceedLogin = true
+    var shouldSucceedAppleLogin = true
+    var shouldSucceedGoogleLogin = true
     var shouldSucceedDeleteAccount = true
+    var loginResponseEmail = "test@example.com"
+    var appleLoginResponseEmail = "apple@example.com"
+    var googleLoginResponseEmail = "google@example.com"
     var deleteAccountDelay: TimeInterval = 0
     var deleteAccountCalled = false
 
@@ -156,15 +211,36 @@ private class MockAuthService: AuthServiceProtocol {
     }
 
     func login(email _: String, password _: String) async throws -> AuthResponse {
-        fatalError("Not implemented for this test")
+        guard shouldSucceedLogin else {
+            throw NSError(
+                domain: "MockAuthService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to login"]
+            )
+        }
+        return makeAuthResponse(email: loginResponseEmail)
     }
 
     func loginWithApple(identityToken _: String) async throws -> AuthResponse {
-        fatalError("Not implemented for this test")
+        guard shouldSucceedAppleLogin else {
+            throw NSError(
+                domain: "MockAuthService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed Apple login"]
+            )
+        }
+        return makeAuthResponse(email: appleLoginResponseEmail)
     }
 
     func loginWithGoogle(identityToken _: String) async throws -> AuthResponse {
-        fatalError("Not implemented for this test")
+        guard shouldSucceedGoogleLogin else {
+            throw NSError(
+                domain: "MockAuthService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed Google login"]
+            )
+        }
+        return makeAuthResponse(email: googleLoginResponseEmail)
     }
 
     func refreshToken() async throws -> AuthResponse {
@@ -193,6 +269,24 @@ private class MockAuthService: AuthServiceProtocol {
 
     func getAccessToken() -> String? {
         nil
+    }
+
+    private func makeAuthResponse(email: String) -> AuthResponse {
+        AuthResponse(
+            accessToken: "access-token",
+            refreshToken: "refresh-token",
+            tokenType: "bearer",
+            expiresIn: 3600,
+            user: Components.Schemas.UserResponse(
+                id: 1,
+                email: email,
+                firstName: "Test",
+                lastName: "User",
+                createdAt: Date(),
+                notificationEnabled: true,
+                isAdmin: false
+            )
+        )
     }
 }
 

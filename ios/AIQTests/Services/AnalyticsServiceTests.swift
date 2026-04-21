@@ -46,7 +46,7 @@ final class FirebaseAnalyticsProviderTests: XCTestCase {
     // MARK: - Event Tracking Tests
 
     func testTrackEvent_AddsEventToQueue() {
-        sut.track(event(.userLogin, parameters: ["email_domain": "example.com"]))
+        sut.track(event(.userLogin, parameters: ["email_domain": "example.com", "provider": "password"]))
         XCTAssertEqual(sut.eventQueueCount, 1, "Event should be added to queue")
     }
 
@@ -88,7 +88,7 @@ final class FirebaseAnalyticsProviderTests: XCTestCase {
     // MARK: - Event Persistence Tests
 
     func testPersistEvents_SavesEventsToUserDefaults() {
-        sut.track(event(.userLogin, parameters: ["email_domain": "test.com"]))
+        sut.track(event(.userLogin, parameters: ["email_domain": "test.com", "provider": "google"]))
         sut.track(event(.testStarted, parameters: ["session_id": 123]))
 
         sut.testPersistEvents()
@@ -122,7 +122,7 @@ final class FirebaseAnalyticsProviderTests: XCTestCase {
             AnalyticsEventData(
                 eventName: "user.login",
                 timestamp: Date(),
-                properties: ["email_domain": AnyCodable("test.com")]
+                properties: ["email_domain": AnyCodable("test.com"), "provider": AnyCodable("apple")]
             ),
             AnalyticsEventData(
                 eventName: "test.started",

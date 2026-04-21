@@ -155,4 +155,12 @@ final class MockAnalyticsManager: AnalyticsManagerProtocol {
     var lastDetectedQuestionsAnswered: Int? {
         lastEvent(ofType: .activeSessionDetected)?.parameters?["questions_answered"] as? Int
     }
+
+    var lastLoginProvider: String? {
+        lastEvent(ofType: .userLogin)?.parameters?["provider"] as? String
+    }
+
+    var lastLoginEmailDomain: String? {
+        lastEvent(ofType: .userLogin)?.parameters?["email_domain"] as? String
+    }
 }
