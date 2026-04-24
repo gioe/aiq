@@ -361,8 +361,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
                         }
 
                         let data = try await Data(collecting: responseBody, upTo: 1024 * 1024)
-                        let decoder = JSONDecoder()
-                        decoder.dateDecodingStrategy = .iso8601
+                        let decoder = makeFlexibleDateDecoder()
                         let token = try decoder.decode(Components.Schemas.Token.self, from: data)
                         return mapToAuthResponse(token)
 
@@ -662,15 +661,38 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         if data.count <= 4, text?.trimmingCharacters(in: .whitespaces) == "null" {
             return nil
         }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        let decoder = makeFlexibleDateDecoder()
         return try decoder.decode(Components.Schemas.TestSessionStatusResponse.self, from: data)
     }
 
     private func decodeGuestResponse<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        try makeFlexibleDateDecoder().decode(type, from: data)
+    }
+
+    private func makeFlexibleDateDecoder() -> JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(type, from: data)
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+
+            let fractionalFormatter = ISO8601DateFormatter()
+            fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = fractionalFormatter.date(from: value) {
+                return date
+            }
+
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            if let date = formatter.date(from: value) {
+                return date
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Expected ISO 8601 date string"
+            )
+        }
+        return decoder
     }
 
     private func handleActiveTestStatus(
