@@ -199,6 +199,10 @@ class AuthService: AuthServiceProtocol {
         }
     }
 
+    func claimGuestResult(claimToken: String) async throws -> GuestClaimResponse {
+        try await apiService.claimGuestResult(claimToken: claimToken)
+    }
+
     func refreshToken() async throws -> AuthResponse {
         guard try secureStorage.retrieve(forKey: SecureStorageKey.refreshToken.rawValue) != nil else {
             throw AuthError.noRefreshToken

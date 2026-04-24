@@ -23,6 +23,7 @@ import Foundation
         @Published var currentUser: User?
         @Published var isLoading: Bool = false
         @Published var authError: Error?
+        @Published var guestResultClaimStatus: GuestResultClaimStatus = .idle
 
         var userFullName: String? {
             currentUser?.email
@@ -101,6 +102,10 @@ import Foundation
         }
 
         // MARK: - AuthManagerProtocol
+
+        func prepareGuestResultClaim(token: String?) {
+            guestResultClaimStatus = token?.isEmpty == false ? .pending : .missingToken
+        }
 
         // swiftlint:disable:next function_parameter_count
         func register(

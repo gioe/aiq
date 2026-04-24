@@ -1,6 +1,15 @@
 import Combine
 import Foundation
 
+enum GuestResultClaimStatus: Equatable {
+    case idle
+    case pending
+    case claiming
+    case succeeded
+    case missingToken
+    case failed(String)
+}
+
 /// Protocol defining the public interface of AuthManager
 @MainActor
 protocol AuthManagerProtocol: AnyObject {
@@ -8,6 +17,7 @@ protocol AuthManagerProtocol: AnyObject {
     var currentUser: User? { get }
     var isLoading: Bool { get }
     var authError: Error? { get }
+    var guestResultClaimStatus: GuestResultClaimStatus { get }
 
     var isAuthenticatedPublisher: Published<Bool>.Publisher { get }
     var isLoadingPublisher: Published<Bool>.Publisher { get }
@@ -30,6 +40,7 @@ protocol AuthManagerProtocol: AnyObject {
     func login(email: String, password: String) async throws
     func loginWithApple(identityToken: String) async throws
     func loginWithGoogle(identityToken: String) async throws
+    func prepareGuestResultClaim(token: String?)
     func logout() async
     func deleteAccount() async throws
     func clearError()

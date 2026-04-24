@@ -70,6 +70,9 @@ class TestTakingViewModel: BaseViewModel {
     /// One-time token returned by startGuestTest, consumed on submit
     private var guestToken: String?
 
+    /// Token returned by guest submit, used after account creation to claim the score
+    @Published private(set) var guestClaimToken: String?
+
     /// Number of guest tests remaining for this device after the current test
     @Published private(set) var guestTestsRemaining: Int?
 
@@ -409,6 +412,7 @@ class TestTakingViewModel: BaseViewModel {
     func startGuestTest(deviceId: String) async {
         isGuestMode = true
         wasAbandonedSilently = false
+        guestClaimToken = nil
         setLoading(true)
         clearError()
 
@@ -458,12 +462,13 @@ class TestTakingViewModel: BaseViewModel {
             timeLimitExceeded: timeLimitExceeded
         )
         do {
-            let response = try await apiService.submitGuestTest(
+            let response = try await apiService.submitGuestTestForClaim(
                 guestToken: token,
                 responses: submission.responses,
                 timeLimitExceeded: timeLimitExceeded
             )
             guestToken = nil
+            guestClaimToken = response.claimToken
             testResult = response.result
             testSession = response.session
             isTestCompleted = true

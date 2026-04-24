@@ -17,6 +17,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     @Published private(set) var currentUser: User?
     @Published private(set) var isLoading: Bool = false
     @Published private(set) var authError: Error?
+    @Published private(set) var guestResultClaimStatus: GuestResultClaimStatus = .idle
 
     var isAuthenticatedPublisher: Published<Bool>.Publisher {
         $isAuthenticated
@@ -38,12 +39,15 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     /// to break circular dependency with NotificationManager
     private let deviceTokenManagerFactory: () -> DeviceTokenManagerProtocol
     private let analyticsManager: AnalyticsManagerProtocol
+    private let toastManager: (any ToastManagerProtocol)?
+    private var pendingGuestClaimToken: String?
 
     private lazy var deviceTokenManager: DeviceTokenManagerProtocol = deviceTokenManagerFactory()
 
     init(
         authService: AuthServiceProtocol = ServiceContainer.shared.resolve(),
         analyticsManager: AnalyticsManagerProtocol = ServiceContainer.shared.resolve(),
+        toastManager: (any ToastManagerProtocol)? = nil,
         deviceTokenManagerFactory: @escaping @MainActor () -> DeviceTokenManagerProtocol = {
             let manager: NotificationManagerProtocol = ServiceContainer.shared.resolve()
             guard let tokenManager = manager as? DeviceTokenManagerProtocol else {
@@ -54,6 +58,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     ) {
         self.authService = authService
         self.analyticsManager = analyticsManager
+        self.toastManager = toastManager
         self.deviceTokenManagerFactory = deviceTokenManagerFactory
 
         // Initialize state from existing session
@@ -62,6 +67,18 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     }
 
     // MARK: - Public Methods
+
+    func prepareGuestResultClaim(token: String?) {
+        guard let token = token?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !token.isEmpty else {
+            pendingGuestClaimToken = nil
+            guestResultClaimStatus = .missingToken
+            return
+        }
+
+        pendingGuestClaimToken = token
+        guestResultClaimStatus = .pending
+    }
 
     func register(
         email: String,
@@ -95,6 +112,8 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval("Auth.Register", state)
             logger.info("Registration completed in \(elapsed, format: .fixed(precision: 2))s")
+
+            await claimPendingGuestResultIfNeeded()
 
             isAuthenticated = true
             currentUser = response.user
@@ -182,6 +201,8 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             signposter.endInterval("Auth.LoginWithGoogle", state)
             logger.info("Google OAuth login completed in \(elapsed, format: .fixed(precision: 2))s")
 
+            await claimPendingGuestResultIfNeeded()
+
             isAuthenticated = true
             currentUser = response.user
             isLoading = false
@@ -228,6 +249,8 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             signposter.endInterval("Auth.LoginWithApple", state)
             logger.info("Apple OAuth login completed in \(elapsed, format: .fixed(precision: 2))s")
 
+            await claimPendingGuestResultIfNeeded()
+
             isAuthenticated = true
             currentUser = response.user
             isLoading = false
@@ -251,6 +274,27 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
 
             analyticsManager.trackAuthFailed(reason: error.localizedDescription)
             throw contextualError
+        }
+    }
+
+    private func claimPendingGuestResultIfNeeded() async {
+        guard let claimToken = pendingGuestClaimToken else { return }
+
+        guestResultClaimStatus = .claiming
+        do {
+            _ = try await authService.claimGuestResult(claimToken: claimToken)
+            pendingGuestClaimToken = nil
+            guestResultClaimStatus = .succeeded
+
+            await AppCache.shared.remove(forKey: .testHistory)
+            await AppCache.shared.remove(forKey: .activeTestSession)
+            NotificationCenter.default.post(name: .refreshCurrentView, object: nil)
+            toastManager?.show("Your guest score was saved.", type: .info)
+        } catch {
+            let message = "Your account was created, but we couldn't save your guest score. Please try again later."
+            guestResultClaimStatus = .failed(message)
+            toastManager?.show(message, type: .warning)
+            CrashlyticsErrorRecorder.recordError(error, context: .submitTest)
         }
     }
 

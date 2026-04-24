@@ -64,6 +64,7 @@ enum ServiceConfiguration {
 
     private struct FoundationServices {
         let networkMonitor: NetworkMonitor
+        let toastManager: ToastManager
         let openAPIService: OpenAPIService
         let keychainStorage: KeychainStorage
     }
@@ -103,6 +104,7 @@ enum ServiceConfiguration {
 
         return FoundationServices(
             networkMonitor: networkMonitor,
+            toastManager: toastManager,
             openAPIService: openAPIService,
             keychainStorage: keychainStorage
         )
@@ -138,6 +140,7 @@ enum ServiceConfiguration {
 
         let authManager = AuthManager(
             authService: authService,
+            toastManager: foundation.toastManager,
             deviceTokenManagerFactory: {
                 let manager: NotificationManagerProtocol = container.resolve()
                 guard let tokenManager = manager as? DeviceTokenManagerProtocol else {

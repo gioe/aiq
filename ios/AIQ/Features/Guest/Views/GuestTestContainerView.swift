@@ -1,4 +1,7 @@
 import AIQSharedKit
+import AuthenticationServices
+import GoogleSignIn
+import GoogleSignInSwift
 import SwiftUI
 import UIKit
 
@@ -20,12 +23,15 @@ struct GuestTestContainerView: View {
     @State private var warningBannerDismissed = false
     @State private var isAutoSubmitting = false
     @State private var showRegistration = false
+    @State private var isGoogleSignInInFlight = false
+    @State private var guestClaimMessage: String?
 
     /// Callback to exit guest mode and return to WelcomeView
     let onExit: () -> Void
 
     /// Called when the guest test limit has been reached (testsRemaining == 0)
     let onLimitReached: () -> Void
+    private let authManager: any AuthManagerProtocol
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.appTheme) private var theme
@@ -37,6 +43,7 @@ struct GuestTestContainerView: View {
     ) {
         self.onExit = onExit
         self.onLimitReached = onLimitReached
+        authManager = serviceContainer.resolve((any AuthManagerProtocol).self)
         let vm = ViewModelFactory.makeTestTakingViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
     }
@@ -251,18 +258,49 @@ struct GuestTestContainerView: View {
                 .foregroundStyle(theme.gradients.scoreGradient)
                 .accessibilityHidden(true)
 
-            Text("Save Your Score")
+            Text(guestClaimTitle)
                 .font(theme.typography.h3)
                 .foregroundColor(theme.colors.textPrimary)
 
-            Text("Create a free account to track your cognitive trends over time.")
+            Text(guestClaimDescription)
                 .font(theme.typography.bodyMedium)
                 .foregroundColor(theme.colors.textSecondary)
                 .multilineTextAlignment(.center)
 
+            if let guestClaimMessage {
+                Text(guestClaimMessage)
+                    .font(theme.typography.captionMedium)
+                    .foregroundColor(theme.colors.errorText)
+                    .multilineTextAlignment(.center)
+            }
+
+            SignInWithAppleButton(
+                onRequest: { request in
+                    request.requestedScopes = [.email]
+                },
+                onCompletion: { result in
+                    Task { await handleAppleSignIn(result: result) }
+                }
+            )
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 50)
+            .cornerRadius(DesignSystem.CornerRadius.md)
+            .accessibilityIdentifier(AccessibilityIdentifiers.GuestTestContainerView.signInWithAppleButton)
+
+            GoogleSignInButton(
+                scheme: .light,
+                style: .wide,
+                action: {
+                    Task { await handleGoogleSignIn() }
+                }
+            )
+            .frame(height: 50)
+            .accessibilityIdentifier(AccessibilityIdentifiers.GuestTestContainerView.signInWithGoogleButton)
+
             PrimaryButton(
                 title: "Create Account",
                 action: {
+                    prepareGuestResultClaim()
                     showRegistration = true
                 }
             )
@@ -280,6 +318,18 @@ struct GuestTestContainerView: View {
             shadow: DesignSystem.Shadow.md,
             backgroundColor: theme.colors.background
         )
+    }
+
+    private var guestClaimDescription: String {
+        if viewModel.guestClaimToken == nil {
+            return "Create a free account to track future scores. This score could not be prepared for saving."
+        }
+
+        return "Create a free account to save this score and track your cognitive trends over time."
+    }
+
+    private var guestClaimTitle: String {
+        viewModel.guestClaimToken == nil ? "Create Account" : "Save Your Score"
     }
 
     // MARK: - Actions
@@ -315,6 +365,89 @@ struct GuestTestContainerView: View {
                 handleTimerExpiration()
             }
         }
+    }
+
+    private func prepareGuestResultClaim() {
+        guard let claimToken = viewModel.guestClaimToken else {
+            guestClaimMessage = "This score cannot be saved because the claim token is missing."
+            authManager.prepareGuestResultClaim(token: nil)
+            return
+        }
+
+        guestClaimMessage = nil
+        authManager.prepareGuestResultClaim(token: claimToken)
+    }
+
+    @MainActor
+    private func handleGoogleSignIn() async {
+        guard !isGoogleSignInInFlight else { return }
+        isGoogleSignInInFlight = true
+        defer { isGoogleSignInInFlight = false }
+
+        prepareGuestResultClaim()
+        guard viewModel.guestClaimToken != nil else { return }
+
+        guard GIDSignIn.sharedInstance.configuration != nil else {
+            guestClaimMessage = "Google sign-in is not configured. Please create an account with email."
+            return
+        }
+
+        guard let rootViewController = Self.rootPresentingViewController() else {
+            guestClaimMessage = "Could not present Google sign-in. Please try again."
+            return
+        }
+
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
+            guard let identityToken = result.user.idToken?.tokenString else {
+                guestClaimMessage = "Google sign-in did not return an identity token."
+                return
+            }
+            try await authManager.loginWithGoogle(identityToken: identityToken)
+        } catch {
+            if let signInError = error as? GIDSignInError, signInError.code == .canceled {
+                return
+            }
+            guestClaimMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
+        prepareGuestResultClaim()
+        guard viewModel.guestClaimToken != nil else { return }
+
+        switch result {
+        case let .success(authorization):
+            guard
+                let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                let tokenData = credential.identityToken,
+                let identityToken = String(data: tokenData, encoding: .utf8)
+            else {
+                guestClaimMessage = "Apple sign-in did not return an identity token."
+                return
+            }
+
+            do {
+                try await authManager.loginWithApple(identityToken: identityToken)
+            } catch {
+                guestClaimMessage = error.localizedDescription
+            }
+        case let .failure(error):
+            if let authError = error as? ASAuthorizationError, authError.code == .canceled {
+                return
+            }
+            guestClaimMessage = error.localizedDescription
+        }
+    }
+
+    private static func rootPresentingViewController() -> UIViewController? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)?
+            .rootViewController
     }
 
     private func handleTimerExpiration() {

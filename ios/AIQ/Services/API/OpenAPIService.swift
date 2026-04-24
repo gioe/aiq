@@ -63,6 +63,9 @@ protocol OpenAPIServiceProtocol: Sendable {
     func startGuestTest(deviceId: String) async throws -> Components.Schemas.GuestStartTestResponse
     // swiftlint:disable:next line_length
     func submitGuestTest(guestToken: String, responses: [QuestionResponse], timeLimitExceeded: Bool) async throws -> Components.Schemas.GuestSubmitTestResponse
+    // swiftlint:disable:next line_length
+    func submitGuestTestForClaim(guestToken: String, responses: [QuestionResponse], timeLimitExceeded: Bool) async throws -> GuestSubmitClaimResponse
+    func claimGuestResult(claimToken: String) async throws -> GuestClaimResponse
 
     // MARK: - Notifications
 
@@ -96,6 +99,36 @@ protocol OpenAPIServiceProtocol: Sendable {
     func clearTokens() async
 }
 
+struct GuestSubmitClaimResponse: Decodable, Sendable {
+    let session: Components.Schemas.TestSessionResponse
+    let result: Components.Schemas.TestResultResponse
+    let responsesCount: Int
+    let message: String
+    let claimToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case session
+        case result
+        case responsesCount = "responses_count"
+        case message
+        case claimToken = "claim_token"
+    }
+}
+
+struct GuestClaimResponse: Decodable, Sendable {
+    let session: Components.Schemas.TestSessionResponse
+    let result: Components.Schemas.TestResultResponse
+    let responsesCount: Int
+    let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case session
+        case result
+        case responsesCount = "responses_count"
+        case message
+    }
+}
+
 // MARK: - Implementation
 
 // swiftlint:disable type_body_length
@@ -115,6 +148,14 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
 
         enum CodingKeys: String, CodingKey {
             case identityToken = "identity_token"
+        }
+    }
+
+    private struct GuestClaimTokenRequest: Encodable {
+        let claimToken: String
+
+        enum CodingKeys: String, CodingKey {
+            case claimToken = "claim_token"
         }
     }
 
@@ -626,6 +667,12 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         return try decoder.decode(Components.Schemas.TestSessionStatusResponse.self, from: data)
     }
 
+    private func decodeGuestResponse<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(type, from: data)
+    }
+
     private func handleActiveTestStatus(
         _ statusCode: Int,
         data: Data
@@ -782,6 +829,99 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
             case let .undocumented(statusCode, payload):
                 throw await mapUndocumentedError(statusCode: statusCode, payload: payload)
             }
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    // swiftlint:disable:next line_length
+    func submitGuestTestForClaim(guestToken: String, responses: [QuestionResponse], timeLimitExceeded: Bool) async throws -> GuestSubmitClaimResponse {
+        let items = responses.map { response in
+            Components.Schemas.ResponseItem(
+                questionId: response.questionId,
+                userAnswer: response.userAnswer
+            )
+        }
+        let request = Components.Schemas.GuestSubmitRequest(
+            guestToken: guestToken,
+            responses: items,
+            timeLimitExceeded: timeLimitExceeded
+        )
+
+        do {
+            return try await oauthMiddlewareClient.send(
+                input: request,
+                forOperation: "submit_guest_test_v1_test_guest_submit_post",
+                serializer: { input in
+                    var request = HTTPRequest(soar_path: "/v1/test/guest/submit", method: .post)
+                    request.headerFields[.accept] = "application/json"
+                    request.headerFields[.contentType] = "application/json; charset=utf-8"
+
+                    let body = try JSONEncoder().encode(input)
+                    return (request, HTTPBody(body))
+                },
+                deserializer: { [weak self] response, responseBody in
+                    guard let self else {
+                        throw APIError.api(.unknown(message: "OpenAPIService deallocated during guest submit"))
+                    }
+
+                    switch response.status.code {
+                    case 200:
+                        guard let responseBody else {
+                            throw APIError.api(.invalidResponse)
+                        }
+                        let data = try await Data(collecting: responseBody, upTo: 1024 * 1024)
+                        return try decodeGuestResponse(GuestSubmitClaimResponse.self, from: data)
+                    default:
+                        throw await mapUndocumentedError(
+                            statusCode: response.status.code,
+                            payload: .init(headerFields: response.headerFields, body: responseBody)
+                        )
+                    }
+                }
+            )
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw try mapToAPIError(error)
+        }
+    }
+
+    func claimGuestResult(claimToken: String) async throws -> GuestClaimResponse {
+        do {
+            return try await oauthMiddlewareClient.send(
+                input: GuestClaimTokenRequest(claimToken: claimToken),
+                forOperation: "claim_guest_result_v1_test_guest_claim_post",
+                serializer: { input in
+                    var request = HTTPRequest(soar_path: "/v1/test/guest/claim", method: .post)
+                    request.headerFields[.accept] = "application/json"
+                    request.headerFields[.contentType] = "application/json; charset=utf-8"
+
+                    let body = try JSONEncoder().encode(input)
+                    return (request, HTTPBody(body))
+                },
+                deserializer: { [weak self] response, responseBody in
+                    guard let self else {
+                        throw APIError.api(.unknown(message: "OpenAPIService deallocated during guest claim"))
+                    }
+
+                    switch response.status.code {
+                    case 200:
+                        guard let responseBody else {
+                            throw APIError.api(.invalidResponse)
+                        }
+                        let data = try await Data(collecting: responseBody, upTo: 1024 * 1024)
+                        return try decodeGuestResponse(GuestClaimResponse.self, from: data)
+                    default:
+                        throw await mapUndocumentedError(
+                            statusCode: response.status.code,
+                            payload: .init(headerFields: response.headerFields, body: responseBody)
+                        )
+                    }
+                }
+            )
         } catch let error as APIError {
             throw error
         } catch {
@@ -1220,7 +1360,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private static func makeOAuthMiddlewareClient(factory: APIClientFactory) -> UniversalClient {
         UniversalClient(
             serverURL: factory.serverURL,
-            configuration: .init(dateTranscoder: FlexibleISO8601DateTranscoder()),
+            configuration: .init(),
             transport: URLSessionTransport(),
             middlewares: [
                 factory.authMiddleware,

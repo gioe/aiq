@@ -377,5 +377,7 @@ enum AccessibilityIdentifiers {
         static let exitConfirmButton = "guestTestContainerView.exitConfirmButton"
         static let exitCancelButton = "guestTestContainerView.exitCancelButton"
         static let exitConfirmationModal = "guestTestContainerView.exitConfirmationModal"
+        static let signInWithAppleButton = "guestTestContainerView.signInWithAppleButton"
+        static let signInWithGoogleButton = "guestTestContainerView.signInWithGoogleButton"
     }
 }

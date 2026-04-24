@@ -314,6 +314,31 @@ import Foundation
             )
         }
 
+        func submitGuestTestForClaim(
+            guestToken _: String,
+            responses _: [QuestionResponse],
+            timeLimitExceeded _: Bool
+        ) async throws -> GuestSubmitClaimResponse {
+            try throwIfNetworkError()
+            return GuestSubmitClaimResponse(
+                session: UITestMockData.completedSession,
+                result: UITestMockData.highScoreResult,
+                responsesCount: UITestMockData.sampleQuestions.count,
+                message: "Test submitted successfully",
+                claimToken: "mock-guest-claim-token"
+            )
+        }
+
+        func claimGuestResult(claimToken _: String) async throws -> GuestClaimResponse {
+            try throwIfNetworkError()
+            return GuestClaimResponse(
+                session: UITestMockData.completedSession,
+                result: UITestMockData.highScoreResult,
+                responsesCount: UITestMockData.sampleQuestions.count,
+                message: "Guest result claimed successfully."
+            )
+        }
+
         // MARK: - Notifications
 
         func registerDevice(deviceToken _: String) async throws {

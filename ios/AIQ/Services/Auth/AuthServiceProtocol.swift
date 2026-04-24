@@ -23,6 +23,9 @@ protocol AuthServiceProtocol: AnyObject {
     /// Exchange a Google identity token for AIQ tokens and persist the session.
     func loginWithGoogle(identityToken: String) async throws -> AuthResponse
 
+    /// Attach a completed guest test result to the authenticated account.
+    func claimGuestResult(claimToken: String) async throws -> GuestClaimResponse
+
     /// Refresh the access token using refresh token
     func refreshToken() async throws -> AuthResponse
 
