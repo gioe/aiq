@@ -5,14 +5,13 @@ import pytest
 from app.api.v1 import guest_test as guest_test_module
 from app.core.config import settings
 from app.core.auth.security import create_access_token
+from app.models import models
 from app.models.models import (
     DifficultyLevel,
     Question,
     QuestionType,
-    Response,
-    TestResult as TestResultModel,
-    TestSession as TestSessionModel,
     User,
+    UserQuestion,
 )
 
 
@@ -153,15 +152,25 @@ class TestGuestResultClaim:
         assert data["result"]["user_id"] == test_user.id
 
         db_session.expire_all()
-        session = db_session.query(TestSessionModel).filter_by(id=session_id).one()
-        result = db_session.query(TestResultModel).filter_by(id=result_id).one()
+        session = db_session.query(models.TestSession).filter_by(id=session_id).one()
+        result = db_session.query(models.TestResult).filter_by(id=result_id).one()
         responses = (
-            db_session.query(Response).filter_by(test_session_id=session_id).all()
+            db_session.query(models.Response)
+            .filter_by(test_session_id=session_id)
+            .all()
         )
         assert session.user_id == test_user.id
         assert result.user_id == test_user.id
         assert responses
         assert {response.user_id for response in responses} == {test_user.id}
+        seen_question_ids = {
+            row.question_id
+            for row in db_session.query(UserQuestion).filter_by(
+                user_id=test_user.id, test_session_id=session_id
+            )
+        }
+        response_question_ids = {response.question_id for response in responses}
+        assert seen_question_ids == response_question_ids
 
         history_response = client.get("/v1/test/history", headers=auth_headers)
         assert history_response.status_code == 200, history_response.json()

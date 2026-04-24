@@ -35,7 +35,7 @@ from datetime import timedelta
 from typing import Any, Dict, Optional, Union
 
 from fastapi import APIRouter, Depends, Header
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,7 +50,7 @@ from app.core.error_responses import (
 from app.core.graceful_failure import graceful_failure
 from app.core.question_utils import question_to_response
 from app.core.scoring.test_composition import async_select_stratified_questions
-from app.models import Question, TestSession, User, get_db
+from app.models import Question, TestSession, User, UserQuestion, get_db
 from app.models.models import GuestDeviceLimit, Response, TestResult, TestStatus
 from app.ratelimit.storage import InMemoryStorage, RedisStorage
 from app.schemas.guest_test import (
@@ -723,7 +723,7 @@ async def claim_guest_result(
     ):
         raise_conflict(ErrorMessages.GUEST_RESULT_ALREADY_CLAIMED)
 
-    await db.execute(
+    session_update = await db.execute(
         update(TestSession)
         .where(
             TestSession.id == session_id,
@@ -731,7 +731,7 @@ async def claim_guest_result(
         )
         .values(user_id=current_user.id)
     )
-    await db.execute(
+    result_update = await db.execute(
         update(TestResult)
         .where(
             TestResult.id == result_id,
@@ -739,7 +739,7 @@ async def claim_guest_result(
         )
         .values(user_id=current_user.id)
     )
-    await db.execute(
+    response_update = await db.execute(
         update(Response)
         .where(
             Response.test_session_id == session_id,
@@ -747,17 +747,58 @@ async def claim_guest_result(
         )
         .values(user_id=current_user.id)
     )
+
+    if (
+        session_update.rowcount != 1
+        or result_update.rowcount != 1
+        or response_update.rowcount == 0
+    ):
+        await db.rollback()
+        raise_conflict(ErrorMessages.GUEST_RESULT_ALREADY_CLAIMED)
+
+    response_question_result = await db.execute(
+        select(Response.question_id).where(Response.test_session_id == session_id)
+    )
+    response_question_ids = list(response_question_result.scalars().all())
+    existing_seen_result = await db.execute(
+        select(UserQuestion.question_id).where(
+            UserQuestion.user_id == current_user.id,
+            UserQuestion.question_id.in_(response_question_ids),
+        )
+    )
+    existing_seen_ids = set(existing_seen_result.scalars().all())
+    db.add_all(
+        UserQuestion(
+            user_id=current_user.id,
+            question_id=question_id,
+            test_session_id=session_id,
+        )
+        for question_id in response_question_ids
+        if question_id not in existing_seen_ids
+    )
     await db.commit()
 
-    refreshed_session = await get_test_session_or_404(db, session_id)
+    refreshed_session_result = await db.execute(
+        select(TestSession).where(
+            TestSession.id == session_id,
+            TestSession.user_id == current_user.id,
+        )
+    )
+    refreshed_session = refreshed_session_result.scalar_one()
     refreshed_result_result = await db.execute(
-        select(TestResult).where(TestResult.id == result_id)
+        select(TestResult).where(
+            TestResult.id == result_id,
+            TestResult.user_id == current_user.id,
+        )
     )
     refreshed_result = refreshed_result_result.scalar_one()
     response_count_result = await db.execute(
-        select(Response.id).where(Response.test_session_id == session_id)
+        select(func.count(Response.id)).where(
+            Response.test_session_id == session_id,
+            Response.user_id == current_user.id,
+        )
     )
-    responses_count = len(response_count_result.scalars().all())
+    responses_count = response_count_result.scalar_one()
 
     invalidate_user_cache(current_user.id)
 
