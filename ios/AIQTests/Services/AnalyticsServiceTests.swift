@@ -62,6 +62,36 @@ final class FirebaseAnalyticsProviderTests: XCTestCase {
         XCTAssertEqual(sut.eventQueueCount, 3)
     }
 
+    func testGuestConversionEvents_UseExpectedNamesAndSafeProperties() {
+        let analytics = MockAnalyticsManager()
+
+        analytics.trackGuestResultViewed(sessionId: 123, hasClaimToken: true)
+        analytics.trackGuestConversionStarted(path: .apple)
+        analytics.trackGuestConversionAuthSucceeded(path: .google)
+        analytics.trackGuestConversionAuthFailed(path: .email, error: NSError(domain: "Auth", code: 1))
+        analytics.trackGuestConversionClaimSucceeded(path: .email)
+        analytics.trackGuestConversionClaimFailed(path: .apple, error: NSError(domain: "Claim", code: 2))
+        analytics.trackGuestConversionMaybeLaterDismissed()
+
+        XCTAssertTrue(analytics.wasTracked(.guestResultViewed))
+        XCTAssertTrue(analytics.wasTracked(.guestConversionStarted))
+        XCTAssertTrue(analytics.wasTracked(.guestConversionAuthSucceeded))
+        XCTAssertTrue(analytics.wasTracked(.guestConversionAuthFailed))
+        XCTAssertTrue(analytics.wasTracked(.guestConversionClaimSucceeded))
+        XCTAssertTrue(analytics.wasTracked(.guestConversionClaimFailed))
+        XCTAssertTrue(analytics.wasTracked(.guestConversionMaybeLaterDismissed))
+
+        let start = analytics.lastEvent(ofType: .guestConversionStarted)
+        XCTAssertEqual(start?.parameters?["path"] as? String, GuestConversionPath.apple.rawValue)
+
+        let failure = analytics.lastEvent(ofType: .guestConversionAuthFailed)
+        XCTAssertEqual(failure?.parameters?["path"] as? String, GuestConversionPath.email.rawValue)
+        XCTAssertEqual(failure?.parameters?["error_type"] as? String, "NSError")
+        XCTAssertNil(failure?.parameters?["error_message"])
+        XCTAssertNil(failure?.parameters?["claim_token"])
+        XCTAssertNil(failure?.parameters?["answers"])
+    }
+
     func testTrackEvent_EnforcesMaxQueueSize() {
         let maxQueueSize = sut.maxQueueSize
         mockNetworkMonitor.isConnected = false

@@ -81,6 +81,16 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         XCTAssertEqual(mockAuthService.lastClaimGuestToken, "claim-token")
         XCTAssertEqual(sut.guestResultClaimStatus, .succeeded)
         XCTAssertTrue(sut.isAuthenticated)
+        XCTAssertEqual(
+            mockAnalyticsManager.lastEvent(ofType: .guestConversionAuthSucceeded)?
+                .parameters?["path"] as? String,
+            GuestConversionPath.apple.rawValue
+        )
+        XCTAssertEqual(
+            mockAnalyticsManager.lastEvent(ofType: .guestConversionClaimSucceeded)?
+                .parameters?["path"] as? String,
+            GuestConversionPath.apple.rawValue
+        )
     }
 
     func testLoginWithGoogle_WithPendingGuestClaim_ClaimsAfterOAuthSuccess() async throws {
@@ -97,6 +107,16 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         XCTAssertEqual(mockAuthService.lastClaimGuestToken, "google-claim-token")
         XCTAssertEqual(sut.guestResultClaimStatus, .succeeded)
         XCTAssertTrue(sut.isAuthenticated)
+        XCTAssertEqual(
+            mockAnalyticsManager.lastEvent(ofType: .guestConversionAuthSucceeded)?
+                .parameters?["path"] as? String,
+            GuestConversionPath.google.rawValue
+        )
+        XCTAssertEqual(
+            mockAnalyticsManager.lastEvent(ofType: .guestConversionClaimSucceeded)?
+                .parameters?["path"] as? String,
+            GuestConversionPath.google.rawValue
+        )
     }
 
     func testRegister_WithPendingGuestClaim_ClaimsAfterRegistrationSuccess() async throws {
@@ -122,6 +142,16 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         XCTAssertEqual(mockAuthService.lastClaimGuestToken, "email-claim-token")
         XCTAssertEqual(sut.guestResultClaimStatus, .succeeded)
         XCTAssertTrue(sut.isAuthenticated)
+        XCTAssertEqual(
+            mockAnalyticsManager.lastEvent(ofType: .guestConversionAuthSucceeded)?
+                .parameters?["path"] as? String,
+            GuestConversionPath.email.rawValue
+        )
+        XCTAssertEqual(
+            mockAnalyticsManager.lastEvent(ofType: .guestConversionClaimSucceeded)?
+                .parameters?["path"] as? String,
+            GuestConversionPath.email.rawValue
+        )
     }
 
     func testRegister_WithClaimFailure_AuthenticatesAndSurfacesRecoverableClaimFailure() async throws {
@@ -154,6 +184,38 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
             XCTAssertTrue(message.contains("couldn't save your guest score"))
         } else {
             XCTFail("Expected failed guest claim status")
+        }
+        XCTAssertEqual(
+            mockAnalyticsManager.lastEvent(ofType: .guestConversionClaimFailed)?
+                .parameters?["path"] as? String,
+            GuestConversionPath.email.rawValue
+        )
+        XCTAssertNil(
+            mockAnalyticsManager.lastEvent(ofType: .guestConversionClaimFailed)?
+                .parameters?["claim_token"]
+        )
+    }
+
+    func testLoginWithGoogle_WithPendingGuestClaim_TracksGuestAuthFailureWithoutSensitiveValues() async {
+        mockAuthService.shouldSucceedGoogleLogin = false
+        sut = AuthManager(
+            authService: mockAuthService,
+            analyticsManager: mockAnalyticsManager,
+            deviceTokenManagerFactory: { self.mockDeviceTokenManager }
+        )
+
+        sut.prepareGuestResultClaim(token: "sensitive-claim-token")
+
+        do {
+            try await sut.loginWithGoogle(identityToken: "sensitive.identity.token")
+            XCTFail("Expected Google login to fail")
+        } catch {
+            let event = mockAnalyticsManager.lastEvent(ofType: .guestConversionAuthFailed)
+            XCTAssertEqual(event?.parameters?["path"] as? String, GuestConversionPath.google.rawValue)
+            XCTAssertEqual(event?.parameters?["error_type"] as? String, "ContextualError")
+            XCTAssertNil(event?.parameters?["claim_token"])
+            XCTAssertNil(event?.parameters?["identity_token"])
+            XCTAssertNil(event?.parameters?["error_message"])
         }
     }
 
