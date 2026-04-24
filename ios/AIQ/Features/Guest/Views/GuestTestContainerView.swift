@@ -405,11 +405,13 @@ struct GuestTestContainerView: View {
         guard viewModel.guestClaimToken != nil else { return }
 
         guard GIDSignIn.sharedInstance.configuration != nil else {
+            trackGuestConversionAuthFailure(path: .google, reason: "google_sign_in_not_configured")
             guestClaimMessage = "Google sign-in is not configured. Please create an account with email."
             return
         }
 
         guard let rootViewController = Self.rootPresentingViewController() else {
+            trackGuestConversionAuthFailure(path: .google, reason: "presenting_view_controller_unavailable")
             guestClaimMessage = "Could not present Google sign-in. Please try again."
             return
         }
@@ -417,6 +419,7 @@ struct GuestTestContainerView: View {
         do {
             let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
             guard let identityToken = result.user.idToken?.tokenString else {
+                trackGuestConversionAuthFailure(path: .google, reason: "identity_token_missing")
                 guestClaimMessage = "Google sign-in did not return an identity token."
                 return
             }
@@ -425,6 +428,7 @@ struct GuestTestContainerView: View {
             if let signInError = error as? GIDSignInError, signInError.code == .canceled {
                 return
             }
+            analyticsManager.trackGuestConversionAuthFailed(path: .google, error: error)
             guestClaimMessage = error.localizedDescription
         }
     }
@@ -441,6 +445,7 @@ struct GuestTestContainerView: View {
                 let tokenData = credential.identityToken,
                 let identityToken = String(data: tokenData, encoding: .utf8)
             else {
+                trackGuestConversionAuthFailure(path: .apple, reason: "identity_token_missing")
                 guestClaimMessage = "Apple sign-in did not return an identity token."
                 return
             }
@@ -454,8 +459,20 @@ struct GuestTestContainerView: View {
             if let authError = error as? ASAuthorizationError, authError.code == .canceled {
                 return
             }
+            analyticsManager.trackGuestConversionAuthFailed(path: .apple, error: error)
             guestClaimMessage = error.localizedDescription
         }
+    }
+
+    private func trackGuestConversionAuthFailure(path: GuestConversionPath, reason: String) {
+        analyticsManager.trackGuestConversionAuthFailed(
+            path: path,
+            error: NSError(
+                domain: "GuestConversion",
+                code: 0,
+                userInfo: ["reason": reason]
+            )
+        )
     }
 
     private static func rootPresentingViewController() -> UIViewController? {
