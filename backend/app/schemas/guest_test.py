@@ -13,6 +13,7 @@ from typing import List
 from app.schemas.questions import QuestionResponse
 from app.schemas.responses import (
     ResponseItem,
+    TestResultResponse,
     SubmitTestResponse,
 )  # noqa: F401 — re-exported
 from app.schemas.test_sessions import TestSessionResponse
@@ -86,12 +87,46 @@ class GuestSubmitTestResponse(SubmitTestResponse):
     """
     Response returned by POST /v1/test/guest/submit.
 
-    Identical to SubmitTestResponse — re-exposed under a guest-specific name
-    so the OpenAPI spec tags it correctly and the iOS client can generate a
-    type-safe model for this endpoint independently.
+    Extends SubmitTestResponse with a short-lived claim token that can be
+    exchanged by an authenticated user to attach this completed guest result
+    to their account.
     """
 
-    pass
+    claim_token: str = Field(
+        ...,
+        description=(
+            "Short-lived token that an authenticated user can exchange at "
+            "POST /v1/test/guest/claim to attach this guest result."
+        ),
+    )
+
+
+class GuestClaimRequest(BaseModel):
+    """Request body for POST /v1/test/guest/claim."""
+
+    claim_token: str = Field(
+        ...,
+        min_length=1,
+        description="Claim token returned by POST /v1/test/guest/submit.",
+    )
+
+    @field_validator("claim_token")
+    @classmethod
+    def validate_claim_token(cls, v: str) -> str:
+        """Strip surrounding whitespace; reject empty values after stripping."""
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("claim_token cannot be blank.")
+        return stripped
+
+
+class GuestClaimResponse(BaseModel):
+    """Response returned after a completed guest result is claimed."""
+
+    session: TestSessionResponse = Field(..., description="Claimed test session")
+    result: TestResultResponse = Field(..., description="Claimed test result")
+    responses_count: int = Field(..., description="Number of claimed responses")
+    message: str = Field(..., description="Confirmation message")
 
 
 class GuestStartRequest(BaseModel):

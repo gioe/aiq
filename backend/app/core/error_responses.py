@@ -98,6 +98,10 @@ class ErrorMessages:
     GUEST_TOKEN_INVALID = (
         "Invalid or expired guest token. " "Please start a new guest test session."
     )
+    GUEST_CLAIM_TOKEN_INVALID = (
+        "Invalid or expired guest claim token. Please submit a guest test again."
+    )
+    GUEST_RESULT_ALREADY_CLAIMED = "This guest result is already claimed by an account."
 
     # ==========================================================================
     # Bad Request Errors (400)

@@ -44,21 +44,26 @@ from app.core.datetime_utils import utc_now
 from app.core.error_responses import (
     ErrorMessages,
     raise_bad_request,
+    raise_conflict,
     raise_not_found,
 )
 from app.core.graceful_failure import graceful_failure
 from app.core.question_utils import question_to_response
 from app.core.scoring.test_composition import async_select_stratified_questions
-from app.models import Question, TestSession, get_db
-from app.models.models import GuestDeviceLimit, TestResult, TestStatus
+from app.models import Question, TestSession, User, get_db
+from app.models.models import GuestDeviceLimit, Response, TestResult, TestStatus
 from app.ratelimit.storage import InMemoryStorage, RedisStorage
 from app.schemas.guest_test import (
+    GuestClaimRequest,
+    GuestClaimResponse,
     GuestStartTestResponse,
     GuestSubmitRequest,
     GuestSubmitTestResponse,
 )
 from app.schemas.responses import SubmitTestResponse
 from app.schemas.test_sessions import TestSessionResponse
+from app.core.auth.dependencies import get_current_user
+from app.core.cache import invalidate_user_cache
 
 # Import the submit-pipeline helpers from the authenticated test module.
 # These are pure module-level functions — no class ownership — so they can be
@@ -83,8 +88,8 @@ logger = logging.getLogger(__name__)
 # Guest token store (Redis-backed with in-memory fallback)
 # ---------------------------------------------------------------------------
 # Keys:   UUID token string
-# Values: {"session_id": int, "device_id": str, "question_ids": list,
-#          "created_at": str (ISO 8601)}
+# Values: {"token_type": str, "session_id": int, "device_id": str,
+#          "question_ids": list, "result_id": int, "created_at": str (ISO 8601)}
 # TTL:    GUEST_TOKEN_TTL_MINUTES (default 45 minutes)
 #
 # Uses Redis when GUEST_TOKEN_REDIS_URL is configured so that tokens are shared
@@ -182,6 +187,7 @@ def _generate_guest_token(
         "session_id": session_id,
         "device_id": device_id,
         "question_ids": question_ids,
+        "token_type": "submit",
         "created_at": utc_now().isoformat(),
     }
     _get_token_store().set(token, payload, ttl=_TOKEN_TTL_SECONDS)
@@ -207,12 +213,45 @@ def _consume_guest_token(token: str) -> Optional[GuestTokenPayload]:
     """
     store = _get_token_store()
     payload = store.get(token)
-    if payload is None:
+    if payload is None or payload.get("token_type", "submit") != "submit":
         logger.warning(
             "Guest token lookup failed (expired or already consumed): %s", token
         )
         return None
     store.delete(token)
+    return payload
+
+
+def _generate_guest_claim_token(session_id: int, result_id: int) -> str:
+    """
+    Generate a short-lived token for claiming a completed guest result.
+
+    Claim tokens are not consumed on successful claim. Keeping them in the
+    store until TTL expiry lets repeated attempts return a clear already-claimed
+    response instead of collapsing into an indistinguishable invalid-token error.
+    """
+    token = str(uuid.uuid4())
+    payload: GuestTokenPayload = {
+        "token_type": "claim",
+        "session_id": session_id,
+        "result_id": result_id,
+        "created_at": utc_now().isoformat(),
+    }
+    _get_token_store().set(token, payload, ttl=_TOKEN_TTL_SECONDS)
+    logger.debug(
+        "Guest claim token created for session_id=%s result_id=%s",
+        session_id,
+        result_id,
+    )
+    return token
+
+
+def _get_guest_claim_token(token: str) -> Optional[GuestTokenPayload]:
+    """Look up a guest claim token without consuming it."""
+    payload = _get_token_store().get(token)
+    if payload is None or payload.get("token_type") != "claim":
+        logger.warning("Guest claim token lookup failed: %s", token)
+        return None
     return payload
 
 
@@ -621,6 +660,10 @@ async def submit_guest_test(
 
     # 17. Build and return response
     result_response = await build_test_result_response(test_result, db=db)
+    claim_token = _generate_guest_claim_token(
+        session_id=test_session.id,
+        result_id=test_result.id,
+    )
 
     logger.info(
         "Guest test completed: session_id=%d device_id=%s iq_score=%d",
@@ -634,4 +677,100 @@ async def submit_guest_test(
         result=result_response,
         responses_count=response_count,
         message=f"Test completed! IQ Score: {score_result.iq_score}",
+        claim_token=claim_token,
+    )
+
+
+@router.post("/claim", response_model=GuestClaimResponse)
+async def claim_guest_result(
+    request: GuestClaimRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> GuestClaimResponse:
+    """
+    Attach a completed guest test result to the authenticated user's account.
+
+    The claim token is returned by POST /v1/test/guest/submit. The token must
+    point to a completed, still-unclaimed guest session and result.
+    """
+    token_payload = _get_guest_claim_token(request.claim_token)
+    if token_payload is None:
+        raise_bad_request(ErrorMessages.GUEST_CLAIM_TOKEN_INVALID)
+
+    session_id: int = token_payload["session_id"]
+    result_id: int = token_payload["result_id"]
+
+    session_result = await db.execute(
+        select(TestSession).where(TestSession.id == session_id)
+    )
+    test_session = session_result.scalar_one_or_none()
+    if test_session is None:
+        raise_bad_request(ErrorMessages.GUEST_CLAIM_TOKEN_INVALID)
+
+    result_result = await db.execute(
+        select(TestResult).where(
+            TestResult.id == result_id,
+            TestResult.test_session_id == session_id,
+        )
+    )
+    test_result = result_result.scalar_one_or_none()
+    if test_result is None or test_session.status != TestStatus.COMPLETED:
+        raise_bad_request(ErrorMessages.GUEST_CLAIM_TOKEN_INVALID)
+
+    if (
+        test_session.user_id != settings.GUEST_USER_ID
+        or test_result.user_id != settings.GUEST_USER_ID
+    ):
+        raise_conflict(ErrorMessages.GUEST_RESULT_ALREADY_CLAIMED)
+
+    await db.execute(
+        update(TestSession)
+        .where(
+            TestSession.id == session_id,
+            TestSession.user_id == settings.GUEST_USER_ID,
+        )
+        .values(user_id=current_user.id)
+    )
+    await db.execute(
+        update(TestResult)
+        .where(
+            TestResult.id == result_id,
+            TestResult.user_id == settings.GUEST_USER_ID,
+        )
+        .values(user_id=current_user.id)
+    )
+    await db.execute(
+        update(Response)
+        .where(
+            Response.test_session_id == session_id,
+            Response.user_id == settings.GUEST_USER_ID,
+        )
+        .values(user_id=current_user.id)
+    )
+    await db.commit()
+
+    refreshed_session = await get_test_session_or_404(db, session_id)
+    refreshed_result_result = await db.execute(
+        select(TestResult).where(TestResult.id == result_id)
+    )
+    refreshed_result = refreshed_result_result.scalar_one()
+    response_count_result = await db.execute(
+        select(Response.id).where(Response.test_session_id == session_id)
+    )
+    responses_count = len(response_count_result.scalars().all())
+
+    invalidate_user_cache(current_user.id)
+
+    logger.info(
+        "Guest result claimed: session_id=%d result_id=%d user_id=%d",
+        session_id,
+        result_id,
+        current_user.id,
+    )
+
+    return GuestClaimResponse(
+        session=TestSessionResponse.model_validate(refreshed_session),
+        result=await build_test_result_response(refreshed_result, db=db),
+        responses_count=responses_count,
+        message="Guest result claimed successfully.",
     )
