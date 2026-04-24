@@ -212,8 +212,13 @@ async def login_user(
 
     # Verify password
     if not verify_password(credentials.password, user.password_hash):
+        error_reason = (
+            "oauth_only_account"
+            if not user.password_login_enabled
+            else "invalid_password"
+        )
         logger.warning(
-            f"Login attempt failed: invalid password for email={credentials.email}"
+            f"Login attempt failed: {error_reason} for email={credentials.email}"
         )
         # Log failed login attempt
         security_logger.log_auth_attempt(
@@ -221,7 +226,7 @@ async def login_user(
             success=False,
             ip=client_ip,
             user_agent=user_agent,
-            error_reason="invalid_password",
+            error_reason=error_reason,
         )
         metrics.record_login(success=False)
         raise_unauthorized(ErrorMessages.INVALID_CREDENTIALS)

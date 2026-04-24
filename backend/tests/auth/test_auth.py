@@ -401,6 +401,37 @@ class TestLoginUser:
         assert response.status_code == 401
         assert "Invalid email or password" in response.json()["detail"]
 
+    async def test_login_oauth_only_wrong_password_logs_oauth_only_reason(
+        self, async_client, async_db_session
+    ):
+        """OAuth-only password failures keep the public response generic."""
+        from app.core.auth.security import hash_password
+        from app.models.models import User
+
+        oauth_user = User(
+            email="oauth-only-login@example.com",
+            password_hash=hash_password("unusable-random-password"),
+            password_login_enabled=False,
+        )
+        async_db_session.add(oauth_user)
+        await async_db_session.commit()
+
+        credentials = {
+            "email": "oauth-only-login@example.com",
+            "password": "wrongpassword",
+        }
+
+        with patch("app.api.v1.auth.security_logger") as mock_security_logger:
+            response = await async_client.post("/v1/auth/login", json=credentials)
+
+        assert response.status_code == 401
+        assert "Invalid email or password" in response.json()["detail"]
+        mock_security_logger.log_auth_attempt.assert_called_once()
+        assert (
+            mock_security_logger.log_auth_attempt.call_args.kwargs["error_reason"]
+            == "oauth_only_account"
+        )
+
     async def test_login_user_updates_last_login(
         self, async_client, async_test_user, async_db_session
     ):
