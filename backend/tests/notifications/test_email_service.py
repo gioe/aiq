@@ -5,7 +5,11 @@ Tests for the email service — send_feedback_notification_email.
 import smtplib
 from unittest.mock import MagicMock, patch
 
-from app.services.email_service import send_feedback_notification_email
+from app.services.email_service import (
+    send_feedback_notification_email,
+    send_oauth_link_notification_email,
+    send_password_reset_email,
+)
 
 
 SMTP_SETTINGS = {
@@ -203,3 +207,116 @@ class TestSendFeedbackNotificationEmail:
             )
 
         assert result is False
+
+
+class TestSendPasswordResetEmail:
+    """Unit tests for send_password_reset_email."""
+
+    def test_returns_true_on_successful_send(self):
+        """Returns True when SMTP send succeeds."""
+        mock_settings = _make_mock_settings()
+        mock_smtp_instance = MagicMock()
+
+        with (
+            patch("app.services.email_service.settings", mock_settings),
+            patch("app.services.email_service.smtplib.SMTP") as mock_smtp_cls,
+        ):
+            mock_smtp_cls.return_value.__enter__ = lambda s: mock_smtp_instance
+            mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = send_password_reset_email(
+                email="alice@example.com",
+                reset_token="reset-token",
+                reset_url_base="https://app.example.com",
+            )
+
+        assert result is True
+        mock_smtp_instance.starttls.assert_called_once()
+        mock_smtp_instance.login.assert_called_once_with(
+            mock_settings.SMTP_USERNAME, mock_settings.SMTP_PASSWORD
+        )
+        mock_smtp_instance.send_message.assert_called_once()
+
+    def test_message_addressed_to_user_email(self):
+        """The To header is set to the reset requester."""
+        mock_settings = _make_mock_settings()
+        captured = {}
+
+        def capture_send(msg):
+            captured["msg"] = msg
+
+        mock_smtp_instance = MagicMock()
+        mock_smtp_instance.send_message.side_effect = capture_send
+
+        with (
+            patch("app.services.email_service.settings", mock_settings),
+            patch("app.services.email_service.smtplib.SMTP") as mock_smtp_cls,
+        ):
+            mock_smtp_cls.return_value.__enter__ = lambda s: mock_smtp_instance
+            mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+            send_password_reset_email(
+                email="alice@example.com",
+                reset_token="reset-token",
+                reset_url_base="https://app.example.com",
+            )
+
+        assert "alice@example.com" in captured["msg"]["To"]
+        assert captured["msg"]["Subject"] == "Reset Your AIQ Password"
+
+
+class TestSendOAuthLinkNotificationEmail:
+    """Unit tests for send_oauth_link_notification_email."""
+
+    def test_returns_true_on_successful_send(self):
+        """Returns True when SMTP send succeeds."""
+        mock_settings = _make_mock_settings()
+        mock_smtp_instance = MagicMock()
+
+        with (
+            patch("app.services.email_service.settings", mock_settings),
+            patch("app.services.email_service.smtplib.SMTP") as mock_smtp_cls,
+        ):
+            mock_smtp_cls.return_value.__enter__ = lambda s: mock_smtp_instance
+            mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = send_oauth_link_notification_email(
+                email="alice@example.com",
+                provider="google",
+            )
+
+        assert result is True
+        mock_smtp_instance.starttls.assert_called_once()
+        mock_smtp_instance.login.assert_called_once_with(
+            mock_settings.SMTP_USERNAME, mock_settings.SMTP_PASSWORD
+        )
+        mock_smtp_instance.send_message.assert_called_once()
+
+    def test_message_addressed_to_user_email(self):
+        """The To header is set to the account owner."""
+        mock_settings = _make_mock_settings()
+        captured = {}
+
+        def capture_send(msg):
+            captured["msg"] = msg
+
+        mock_smtp_instance = MagicMock()
+        mock_smtp_instance.send_message.side_effect = capture_send
+
+        with (
+            patch("app.services.email_service.settings", mock_settings),
+            patch("app.services.email_service.smtplib.SMTP") as mock_smtp_cls,
+        ):
+            mock_smtp_cls.return_value.__enter__ = lambda s: mock_smtp_instance
+            mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+            send_oauth_link_notification_email(
+                email="alice@example.com",
+                provider="google",
+            )
+
+        assert "alice@example.com" in captured["msg"]["To"]
+        assert (
+            captured["msg"]["Subject"]
+            == "A new sign-in method was added to your AIQ account (Google)"
+        )

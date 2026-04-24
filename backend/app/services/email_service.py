@@ -208,6 +208,49 @@ def _is_smtp_configured() -> bool:
     )
 
 
+def _sanitize_header_value(value: str) -> str:
+    """Strip CR/LF characters from email header values."""
+    return value.replace("\r", "").replace("\n", "")
+
+
+def _send_email(
+    *,
+    subject: str,
+    to_email: str,
+    text_content: str,
+    html_content: str,
+    success_message: str,
+    smtp_error_prefix: str,
+    unexpected_error_prefix: str,
+) -> bool:
+    """Build and send a multipart text/html email through the configured SMTP server."""
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = _sanitize_header_value(subject)
+        msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
+        msg["To"] = formataddr(("", to_email))
+
+        msg.attach(MIMEText(text_content, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
+
+        with smtplib.SMTP(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS
+        ) as server:
+            server.starttls()
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+
+        logger.info(success_message)
+        return True
+
+    except smtplib.SMTPException as e:
+        logger.error(f"{smtp_error_prefix}{e}")
+        return False
+    except Exception as e:
+        logger.error(f"{unexpected_error_prefix}{e}", exc_info=True)
+        return False
+
+
 def send_password_reset_email(
     email: str,
     reset_token: str,
@@ -253,54 +296,28 @@ def send_password_reset_email(
         logger.info(f"Reset URL (for testing): {reset_url}")
         return True
 
-    try:
-        # Prepare email content - use UTC for consistency
-        current_year = utc_now().year
+    # Prepare email content - use UTC for consistency
+    current_year = utc_now().year
+    text_content = PASSWORD_RESET_TEXT_TEMPLATE.format(
+        reset_url=reset_url,
+        year=current_year,
+    )
+    html_content = PASSWORD_RESET_HTML_TEMPLATE.format(
+        reset_url=reset_url,
+        year=current_year,
+    )
 
-        # Create message with properly encoded headers
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Reset Your AIQ Password"
-        msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
-        msg["To"] = formataddr(
-            ("", email)
-        )  # Properly encode email to prevent header injection
-
-        # Create plain text and HTML versions
-        text_content = PASSWORD_RESET_TEXT_TEMPLATE.format(
-            reset_url=reset_url,
-            year=current_year,
-        )
-        html_content = PASSWORD_RESET_HTML_TEMPLATE.format(
-            reset_url=reset_url,
-            year=current_year,
-        )
-
-        # Attach parts
-        part_text = MIMEText(text_content, "plain")
-        part_html = MIMEText(html_content, "html")
-        msg.attach(part_text)
-        msg.attach(part_html)
-
-        # Send email via SMTP with timeout to prevent hanging
-        with smtplib.SMTP(
-            settings.SMTP_HOST, settings.SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS
-        ) as server:
-            server.starttls()  # Upgrade to secure connection
-            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-
-        logger.info(f"Password reset email sent successfully to {email}")
-        return True
-
-    except smtplib.SMTPException as e:
-        logger.error(f"SMTP error sending password reset email to {email}: {e}")
-        return False
-    except Exception as e:
-        logger.error(
-            f"Unexpected error sending password reset email to {email}: {e}",
-            exc_info=True,
-        )
-        return False
+    return _send_email(
+        subject="Reset Your AIQ Password",
+        to_email=email,
+        text_content=text_content,
+        html_content=html_content,
+        success_message=f"Password reset email sent successfully to {email}",
+        smtp_error_prefix=f"SMTP error sending password reset email to {email}: ",
+        unexpected_error_prefix=(
+            f"Unexpected error sending password reset email to {email}: "
+        ),
+    )
 
 
 def send_feedback_notification_email(
@@ -334,60 +351,41 @@ def send_feedback_notification_email(
         )
         return True
 
-    try:
-        current_year = utc_now().year
+    current_year = utc_now().year
 
-        # Strip newline/CR from header values to prevent header injection
-        safe_category = category.replace("\r", "").replace("\n", "")
-        safe_name = name.replace("\r", "").replace("\n", "")
+    text_content = FEEDBACK_NOTIFICATION_TEXT_TEMPLATE.format(
+        name=name,
+        email=email,
+        category=category,
+        description=description,
+        submission_id=submission_id,
+        year=current_year,
+    )
+    # HTML-escape all user-supplied values to prevent HTML injection in admin email
+    html_content = FEEDBACK_NOTIFICATION_HTML_TEMPLATE.format(
+        name=html.escape(name),
+        email=html.escape(email),
+        category=html.escape(category),
+        description=html.escape(description),
+        submission_id=submission_id,
+        year=current_year,
+    )
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"[AIQ Feedback] New {safe_category} from {safe_name}"
-        msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
-        msg["To"] = formataddr(("", settings.ADMIN_EMAIL))
-
-        text_content = FEEDBACK_NOTIFICATION_TEXT_TEMPLATE.format(
-            name=name,
-            email=email,
-            category=category,
-            description=description,
-            submission_id=submission_id,
-            year=current_year,
-        )
-        # HTML-escape all user-supplied values to prevent HTML injection in admin email
-        html_content = FEEDBACK_NOTIFICATION_HTML_TEMPLATE.format(
-            name=html.escape(name),
-            email=html.escape(email),
-            category=html.escape(category),
-            description=html.escape(description),
-            submission_id=submission_id,
-            year=current_year,
-        )
-
-        msg.attach(MIMEText(text_content, "plain"))
-        msg.attach(MIMEText(html_content, "html"))
-
-        with smtplib.SMTP(
-            settings.SMTP_HOST, settings.SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS
-        ) as server:
-            server.starttls()
-            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-
-        logger.info(f"Feedback notification email sent: submission_id={submission_id}")
-        return True
-
-    except smtplib.SMTPException as e:
-        logger.error(
-            f"SMTP error sending feedback notification: submission_id={submission_id}, error={e}"
-        )
-        return False
-    except Exception as e:
-        logger.error(
-            f"Unexpected error sending feedback notification: submission_id={submission_id}, error={e}",
-            exc_info=True,
-        )
-        return False
+    return _send_email(
+        subject=f"[AIQ Feedback] New {category} from {name}",
+        to_email=settings.ADMIN_EMAIL,
+        text_content=text_content,
+        html_content=html_content,
+        success_message=f"Feedback notification email sent: submission_id={submission_id}",
+        smtp_error_prefix=(
+            f"SMTP error sending feedback notification: "
+            f"submission_id={submission_id}, error="
+        ),
+        unexpected_error_prefix=(
+            f"Unexpected error sending feedback notification: "
+            f"submission_id={submission_id}, error="
+        ),
+    )
 
 
 def send_oauth_link_notification_email(
@@ -415,52 +413,29 @@ def send_oauth_link_notification_email(
         )
         return True
 
-    try:
-        current_year = utc_now().year
+    current_year = utc_now().year
 
-        msg = MIMEMultipart("alternative")
-        # Strip newlines from provider to prevent header injection via the subject line.
-        safe_provider = provider_display.replace("\r", "").replace("\n", "")
-        msg["Subject"] = (
-            f"A new sign-in method was added to your AIQ account ({safe_provider})"
-        )
-        msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
-        msg["To"] = formataddr(("", email))
+    text_content = OAUTH_LINK_NOTIFICATION_TEXT_TEMPLATE.format(
+        provider_display=provider_display,
+        year=current_year,
+    )
+    html_content = OAUTH_LINK_NOTIFICATION_HTML_TEMPLATE.format(
+        provider_display=html.escape(provider_display),
+        year=current_year,
+    )
 
-        text_content = OAUTH_LINK_NOTIFICATION_TEXT_TEMPLATE.format(
-            provider_display=provider_display,
-            year=current_year,
-        )
-        html_content = OAUTH_LINK_NOTIFICATION_HTML_TEMPLATE.format(
-            provider_display=html.escape(provider_display),
-            year=current_year,
-        )
-
-        msg.attach(MIMEText(text_content, "plain"))
-        msg.attach(MIMEText(html_content, "html"))
-
-        with smtplib.SMTP(
-            settings.SMTP_HOST, settings.SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS
-        ) as server:
-            server.starttls()
-            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-
-        logger.info(
-            f"OAuth link notification email sent: email={email} provider={provider}"
-        )
-        return True
-
-    except smtplib.SMTPException as e:
-        logger.error(
+    return _send_email(
+        subject=f"A new sign-in method was added to your AIQ account ({provider_display})",
+        to_email=email,
+        text_content=text_content,
+        html_content=html_content,
+        success_message=f"OAuth link notification email sent: email={email} provider={provider}",
+        smtp_error_prefix=(
             f"SMTP error sending OAuth link notification to {email} "
-            f"(provider={provider}): {e}"
-        )
-        return False
-    except Exception as e:
-        logger.error(
+            f"(provider={provider}): "
+        ),
+        unexpected_error_prefix=(
             f"Unexpected error sending OAuth link notification to {email} "
-            f"(provider={provider}): {e}",
-            exc_info=True,
-        )
-        return False
+            f"(provider={provider}): "
+        ),
+    )
