@@ -112,11 +112,46 @@ def _git_ignored(paths: list[Path]) -> set[str]:
         return set()
 
 
-def get_dir_contents(target: Path) -> tuple[list[str], list[str]]:
+def _git_index_paths(repo_root: Path) -> set[Path] | None:
+    """Return repo-relative paths tracked in Git's index."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "ls-files", "--cached", "-z"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+
+    return {
+        Path(path)
+        for path in result.stdout.split("\0")
+        if path and not Path(path).is_absolute()
+    }
+
+
+def _indexed_dirs(indexed_paths: set[Path]) -> set[Path]:
+    """Return repo-relative directories containing indexed files."""
+    dirs: set[Path] = {Path(".")}
+    for path in indexed_paths:
+        for parent in path.parents:
+            if str(parent) == ".":
+                break
+            dirs.add(parent)
+    return dirs
+
+
+def get_dir_contents(
+    target: Path,
+    repo_root: Path | None = None,
+    indexed_paths: set[Path] | None = None,
+) -> tuple[list[str], list[str]]:
     """Return (directories, files) in target, excluding noise."""
     dirs = []
     files = []
     candidates: list[Path] = []
+    indexed_dir_set = _indexed_dirs(indexed_paths) if indexed_paths else None
     for entry in sorted(target.iterdir()):
         name = entry.name
         if name in EXCLUDED:
@@ -134,6 +169,19 @@ def get_dir_contents(target: Path) -> tuple[list[str], list[str]]:
     for entry in candidates:
         if entry.name in ignored:
             continue
+        if indexed_paths is not None:
+            if repo_root is None:
+                continue
+            try:
+                rel_path = entry.relative_to(repo_root)
+            except ValueError:
+                continue
+            if entry.is_dir():
+                if indexed_dir_set is None or rel_path not in indexed_dir_set:
+                    continue
+            elif entry.is_file():
+                if rel_path not in indexed_paths:
+                    continue
         if entry.is_dir():
             dirs.append(entry.name + "/")
         elif entry.is_file() and not entry.name.startswith("."):
@@ -204,7 +252,12 @@ def validate_links(content: str, base: Path) -> list[str]:
     return issues
 
 
-def check_directory(target: Path, fix: bool = False) -> int:
+def check_directory(
+    target: Path,
+    fix: bool = False,
+    repo_root: Path | None = None,
+    indexed_paths: set[Path] | None = None,
+) -> int:
     """Check a single directory's README tree block against disk.
 
     Returns 0 if in sync, 1 if drift was found (and optionally fixed).
@@ -232,7 +285,9 @@ def check_directory(target: Path, fix: bool = False) -> int:
         existing_entries = parse_tree_entries(current_tree)
         readme_entry_order = list(existing_entries.keys())
 
-        actual_dirs, actual_files = get_dir_contents(target)
+        actual_dirs, actual_files = get_dir_contents(
+            target, repo_root=repo_root, indexed_paths=indexed_paths
+        )
 
         # Only check files that are already listed in the tree. New files
         # are not auto-discovered (too noisy). New directories ARE flagged.
@@ -313,6 +368,7 @@ def run_pre_commit(repo_root: Path) -> int:
     Returns 0 if everything is in sync, 1 if any READMEs were modified.
     """
     fixed: list[str] = []
+    indexed_paths = _git_index_paths(repo_root)
 
     # Check all README.md files that contain tree blocks.
     for readme in sorted(repo_root.rglob("README.md")):
@@ -333,7 +389,12 @@ def run_pre_commit(repo_root: Path) -> int:
 
         # Run the check with fix enabled.
         print(f"Checking {rel}/...")
-        check_directory(target, fix=True)
+        check_directory(
+            target,
+            fix=True,
+            repo_root=repo_root,
+            indexed_paths=indexed_paths,
+        )
 
         # Detect if the file was actually modified.
         if readme.read_text() != content_before:
