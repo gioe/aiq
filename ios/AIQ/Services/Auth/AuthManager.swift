@@ -113,7 +113,10 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             signposter.endInterval("Auth.Register", state)
             logger.info("Registration completed in \(elapsed, format: .fixed(precision: 2))s")
 
-            await claimPendingGuestResultIfNeeded()
+            if pendingGuestClaimToken != nil {
+                analyticsManager.trackGuestConversionAuthSucceeded(path: .email)
+            }
+            await claimPendingGuestResultIfNeeded(path: .email)
 
             isAuthenticated = true
             currentUser = response.user
@@ -135,6 +138,9 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             )
             authError = contextualError
             isLoading = false
+            if pendingGuestClaimToken != nil {
+                analyticsManager.trackGuestConversionAuthFailed(path: .email, error: contextualError)
+            }
             throw contextualError
         }
     }
@@ -201,7 +207,10 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             signposter.endInterval("Auth.LoginWithGoogle", state)
             logger.info("Google OAuth login completed in \(elapsed, format: .fixed(precision: 2))s")
 
-            await claimPendingGuestResultIfNeeded()
+            if pendingGuestClaimToken != nil {
+                analyticsManager.trackGuestConversionAuthSucceeded(path: .google)
+            }
+            await claimPendingGuestResultIfNeeded(path: .google)
 
             isAuthenticated = true
             currentUser = response.user
@@ -225,6 +234,9 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             isLoading = false
 
             analyticsManager.trackAuthFailed(reason: error.localizedDescription)
+            if pendingGuestClaimToken != nil {
+                analyticsManager.trackGuestConversionAuthFailed(path: .google, error: contextualError)
+            }
             throw contextualError
         }
     }
@@ -249,7 +261,10 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             signposter.endInterval("Auth.LoginWithApple", state)
             logger.info("Apple OAuth login completed in \(elapsed, format: .fixed(precision: 2))s")
 
-            await claimPendingGuestResultIfNeeded()
+            if pendingGuestClaimToken != nil {
+                analyticsManager.trackGuestConversionAuthSucceeded(path: .apple)
+            }
+            await claimPendingGuestResultIfNeeded(path: .apple)
 
             isAuthenticated = true
             currentUser = response.user
@@ -273,11 +288,14 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             isLoading = false
 
             analyticsManager.trackAuthFailed(reason: error.localizedDescription)
+            if pendingGuestClaimToken != nil {
+                analyticsManager.trackGuestConversionAuthFailed(path: .apple, error: contextualError)
+            }
             throw contextualError
         }
     }
 
-    private func claimPendingGuestResultIfNeeded() async {
+    private func claimPendingGuestResultIfNeeded(path: GuestConversionPath) async {
         guard let claimToken = pendingGuestClaimToken else { return }
 
         guestResultClaimStatus = .claiming
@@ -285,6 +303,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             _ = try await authService.claimGuestResult(claimToken: claimToken)
             pendingGuestClaimToken = nil
             guestResultClaimStatus = .succeeded
+            analyticsManager.trackGuestConversionClaimSucceeded(path: path)
 
             await AppCache.shared.remove(forKey: .testHistory)
             await AppCache.shared.remove(forKey: .activeTestSession)
@@ -295,6 +314,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
             guestResultClaimStatus = .failed(message)
             toastManager?.show(message, type: .warning)
             CrashlyticsErrorRecorder.recordError(error, context: .submitTest)
+            analyticsManager.trackGuestConversionClaimFailed(path: path, error: error)
         }
     }
 

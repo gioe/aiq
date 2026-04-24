@@ -25,6 +25,7 @@ struct GuestTestContainerView: View {
     @State private var showRegistration = false
     @State private var isGoogleSignInInFlight = false
     @State private var guestClaimMessage: String?
+    @State private var trackedGuestResultSessionIds: Set<Int> = []
 
     /// Callback to exit guest mode and return to WelcomeView
     let onExit: () -> Void
@@ -32,6 +33,7 @@ struct GuestTestContainerView: View {
     /// Called when the guest test limit has been reached (testsRemaining == 0)
     let onLimitReached: () -> Void
     private let authManager: any AuthManagerProtocol
+    private let analyticsManager: AnalyticsManagerProtocol
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.appTheme) private var theme
@@ -44,6 +46,7 @@ struct GuestTestContainerView: View {
         self.onExit = onExit
         self.onLimitReached = onLimitReached
         authManager = serviceContainer.resolve((any AuthManagerProtocol).self)
+        analyticsManager = serviceContainer.resolve(AnalyticsManagerProtocol.self)
         let vm = ViewModelFactory.makeTestTakingViewModel(container: serviceContainer)
         _viewModel = StateObject(wrappedValue: vm)
     }
@@ -200,6 +203,7 @@ struct GuestTestContainerView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .onAppear {
+            trackGuestResultViewedIfNeeded(result: result)
             ServiceContainer.shared.resolve(HapticManagerProtocol.self).trigger(.success)
         }
     }
@@ -276,6 +280,7 @@ struct GuestTestContainerView: View {
 
             SignInWithAppleButton(
                 onRequest: { request in
+                    analyticsManager.trackGuestConversionStarted(path: .apple)
                     request.requestedScopes = [.email]
                 },
                 onCompletion: { result in
@@ -291,6 +296,7 @@ struct GuestTestContainerView: View {
                 scheme: .light,
                 style: .wide,
                 action: {
+                    analyticsManager.trackGuestConversionStarted(path: .google)
                     Task { await handleGoogleSignIn() }
                 }
             )
@@ -300,12 +306,14 @@ struct GuestTestContainerView: View {
             PrimaryButton(
                 title: "Create Account",
                 action: {
+                    analyticsManager.trackGuestConversionStarted(path: .email)
                     prepareGuestResultClaim()
                     showRegistration = true
                 }
             )
 
             Button("Maybe Later") {
+                analyticsManager.trackGuestConversionMaybeLaterDismissed()
                 onExit()
             }
             .font(theme.typography.button)
@@ -376,6 +384,15 @@ struct GuestTestContainerView: View {
 
         guestClaimMessage = nil
         authManager.prepareGuestResultClaim(token: claimToken)
+    }
+
+    private func trackGuestResultViewedIfNeeded(result: SubmittedTestResult) {
+        guard !trackedGuestResultSessionIds.contains(result.testSessionId) else { return }
+        trackedGuestResultSessionIds.insert(result.testSessionId)
+        analyticsManager.trackGuestResultViewed(
+            sessionId: result.testSessionId,
+            hasClaimToken: viewModel.guestClaimToken != nil
+        )
     }
 
     @MainActor

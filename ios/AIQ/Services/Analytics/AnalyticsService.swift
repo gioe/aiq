@@ -59,12 +59,27 @@ enum AIQAnalyticsEvent: String {
     // Deep link events
     case deepLinkNavigationSuccess = "deeplink.navigation.success"
     case deepLinkNavigationFailed = "deeplink.navigation.failed"
+
+    // Guest conversion events
+    case guestResultViewed = "guest_conversion.result_viewed"
+    case guestConversionStarted = "guest_conversion.started"
+    case guestConversionAuthSucceeded = "guest_conversion.auth_succeeded"
+    case guestConversionAuthFailed = "guest_conversion.auth_failed"
+    case guestConversionClaimSucceeded = "guest_conversion.claim_succeeded"
+    case guestConversionClaimFailed = "guest_conversion.claim_failed"
+    case guestConversionMaybeLaterDismissed = "guest_conversion.maybe_later_dismissed"
 }
 
 enum SignInProvider: String {
     case password
     case apple
     case google
+}
+
+enum GuestConversionPath: String {
+    case apple
+    case google
+    case email
 }
 
 // MARK: - AnalyticsManagerProtocol Convenience Extensions
@@ -179,6 +194,51 @@ extension AnalyticsManagerProtocol {
         track(event: .authFailed, properties: ["reason": reason])
     }
 
+    // MARK: - Guest Conversion
+
+    func trackGuestResultViewed(sessionId: Int, hasClaimToken: Bool) {
+        track(event: .guestResultViewed, properties: [
+            "session_id": sessionId,
+            "has_claim_token": hasClaimToken
+        ])
+    }
+
+    func trackGuestConversionStarted(path: GuestConversionPath) {
+        track(event: .guestConversionStarted, properties: [
+            "path": path.rawValue
+        ])
+    }
+
+    func trackGuestConversionAuthSucceeded(path: GuestConversionPath) {
+        track(event: .guestConversionAuthSucceeded, properties: [
+            "path": path.rawValue
+        ])
+    }
+
+    func trackGuestConversionAuthFailed(path: GuestConversionPath, error: Error) {
+        track(event: .guestConversionAuthFailed, properties: guestConversionFailureProperties(
+            path: path,
+            error: error
+        ))
+    }
+
+    func trackGuestConversionClaimSucceeded(path: GuestConversionPath) {
+        track(event: .guestConversionClaimSucceeded, properties: [
+            "path": path.rawValue
+        ])
+    }
+
+    func trackGuestConversionClaimFailed(path: GuestConversionPath, error: Error) {
+        track(event: .guestConversionClaimFailed, properties: guestConversionFailureProperties(
+            path: path,
+            error: error
+        ))
+    }
+
+    func trackGuestConversionMaybeLaterDismissed() {
+        track(event: .guestConversionMaybeLaterDismissed)
+    }
+
     // MARK: - Security
 
     func trackCertificatePinningInitialized(domain: String, pinCount: Int) {
@@ -289,5 +349,15 @@ extension AnalyticsManagerProtocol {
     private func extractScheme(from urlString: String) -> String {
         guard let url = URL(string: urlString) else { return "unknown" }
         return url.scheme ?? "unknown"
+    }
+
+    private func guestConversionFailureProperties(
+        path: GuestConversionPath,
+        error: Error
+    ) -> [String: Any] {
+        [
+            "path": path.rawValue,
+            "error_type": String(describing: type(of: error))
+        ]
     }
 }
