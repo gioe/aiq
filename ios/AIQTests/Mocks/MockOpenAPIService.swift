@@ -37,6 +37,8 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private(set) var clearTokensCalled = false
     private(set) var startGuestTestCalled = false
     private(set) var submitGuestTestCalled = false
+    private(set) var submitGuestTestForClaimCalled = false
+    private(set) var claimGuestResultCalled = false
 
     // MARK: - Parameter Capture
 
@@ -70,6 +72,7 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private(set) var lastSubmitGuestTestToken: String?
     private(set) var lastSubmitGuestTestResponses: [QuestionResponse]?
     private(set) var lastSubmitGuestTestTimeLimitExceeded: Bool?
+    private(set) var lastClaimGuestResultToken: String?
 
     // MARK: - Call Counts
 
@@ -126,6 +129,10 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     var startGuestTestError: Error?
     var submitGuestTestResponse: Components.Schemas.GuestSubmitTestResponse?
     var submitGuestTestError: Error?
+    var submitGuestTestForClaimResponse: GuestSubmitClaimResponse?
+    var submitGuestTestForClaimError: Error?
+    var claimGuestResultResponse: GuestClaimResponse?
+    var claimGuestResultError: Error?
 
     // MARK: - Initialization
 
@@ -391,6 +398,36 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         return response
     }
 
+    func submitGuestTestForClaim(
+        guestToken: String,
+        responses: [QuestionResponse],
+        timeLimitExceeded: Bool
+    ) async throws -> GuestSubmitClaimResponse {
+        submitGuestTestForClaimCalled = true
+        lastSubmitGuestTestToken = guestToken
+        lastSubmitGuestTestResponses = responses
+        lastSubmitGuestTestTimeLimitExceeded = timeLimitExceeded
+        if let error = submitGuestTestForClaimError { throw error }
+        guard let response = submitGuestTestForClaimResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "submitGuestTestForClaimResponse not configured"
+            ])
+        }
+        return response
+    }
+
+    func claimGuestResult(claimToken: String) async throws -> GuestClaimResponse {
+        claimGuestResultCalled = true
+        lastClaimGuestResultToken = claimToken
+        if let error = claimGuestResultError { throw error }
+        guard let response = claimGuestResultResponse else {
+            throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "claimGuestResultResponse not configured"
+            ])
+        }
+        return response
+    }
+
     // MARK: - Notifications
 
     func registerDevice(deviceToken: String) async throws {
@@ -593,9 +630,13 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         clearTokensCalled = false
         startGuestTestCalled = false
         submitGuestTestCalled = false
+        submitGuestTestForClaimCalled = false
+        claimGuestResultCalled = false
 
         lastLoginEmail = nil
         lastLoginPassword = nil
+        lastOAuthAppleIdentityToken = nil
+        lastOAuthGoogleIdentityToken = nil
         lastRegisterEmail = nil
         lastRegisterPassword = nil
         lastRegisterFirstName = nil
@@ -622,6 +663,7 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         lastSubmitGuestTestToken = nil
         lastSubmitGuestTestResponses = nil
         lastSubmitGuestTestTimeLimitExceeded = nil
+        lastClaimGuestResultToken = nil
 
         getTestHistoryCallCount = 0
         abandonTestCallCount = 0
@@ -668,5 +710,9 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         startGuestTestError = nil
         submitGuestTestResponse = nil
         submitGuestTestError = nil
+        submitGuestTestForClaimResponse = nil
+        submitGuestTestForClaimError = nil
+        claimGuestResultResponse = nil
+        claimGuestResultError = nil
     }
 }

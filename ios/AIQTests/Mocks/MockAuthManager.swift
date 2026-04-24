@@ -11,6 +11,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     @Published var currentUser: User?
     @Published var isLoading: Bool = false
     @Published var authError: Error?
+    @Published var guestResultClaimStatus: GuestResultClaimStatus = .idle
 
     var userFullName: String? {
         currentUser?.fullName
@@ -49,6 +50,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     var logoutCalled: Bool = false
     var deleteAccountCalled: Bool = false
     var clearErrorCalled: Bool = false
+    var prepareGuestResultClaimCalled: Bool = false
 
     // Stored credentials for verification
     var lastLoginEmail: String?
@@ -63,6 +65,13 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     var lastRegisterEducationLevel: EducationLevel?
     var lastRegisterCountry: String?
     var lastRegisterRegion: String?
+    var lastPreparedGuestClaimToken: String?
+
+    func prepareGuestResultClaim(token: String?) {
+        prepareGuestResultClaimCalled = true
+        lastPreparedGuestClaimToken = token
+        guestResultClaimStatus = token?.isEmpty == false ? .pending : .missingToken
+    }
 
     func register(
         email: String,
@@ -229,6 +238,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         currentUser = nil
         isLoading = false
         authError = nil
+        guestResultClaimStatus = .idle
     }
 
     func deleteAccount() async throws {
@@ -289,6 +299,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         logoutCalled = false
         deleteAccountCalled = false
         clearErrorCalled = false
+        prepareGuestResultClaimCalled = false
         lastLoginEmail = nil
         lastLoginPassword = nil
         lastAppleIdentityToken = nil
@@ -301,5 +312,6 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         lastRegisterEducationLevel = nil
         lastRegisterCountry = nil
         lastRegisterRegion = nil
+        lastPreparedGuestClaimToken = nil
     }
 }

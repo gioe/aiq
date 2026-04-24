@@ -703,13 +703,13 @@ final class TestTakingViewModelTests: XCTestCase {
             sut.navigationState.userAnswers[question.id] = "A"
         }
 
-        mockService.submitGuestTestResponse = makeGuestSubmitResponse(sessionId: sessionId)
+        mockService.submitGuestTestForClaimResponse = makeGuestSubmitResponse(sessionId: sessionId)
 
         // When
         await sut.submitTest()
 
         // Then
-        XCTAssertTrue(mockService.submitGuestTestCalled, "submitGuestTest should be called on the mock service")
+        XCTAssertTrue(mockService.submitGuestTestForClaimCalled, "submitGuestTestForClaim should be called")
         XCTAssertEqual(mockService.lastSubmitGuestTestToken, "submit-test-token", "Guest token should be passed through")
         XCTAssertEqual(mockService.lastSubmitGuestTestTimeLimitExceeded, false, "timeLimitExceeded should be false for manual submit")
         XCTAssertFalse(mockService.submitTestCalled, "The authenticated submitTest should NOT be called in guest mode")
@@ -730,7 +730,7 @@ final class TestTakingViewModelTests: XCTestCase {
         }
 
         let submitResponse = makeGuestSubmitResponse(sessionId: sessionId, iqScore: 112)
-        mockService.submitGuestTestResponse = submitResponse
+        mockService.submitGuestTestForClaimResponse = submitResponse
 
         // When
         await sut.submitTest()
@@ -738,6 +738,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then
         XCTAssertTrue(sut.isTestCompleted, "isTestCompleted should be true after successful guest submit")
         XCTAssertNotNil(sut.testResult, "testResult should be set after successful guest submit")
+        XCTAssertEqual(sut.guestClaimToken, "test-claim-token", "Claim token should be stored after guest submit")
         XCTAssertNil(sut.error, "No error should be set on success")
     }
 
@@ -756,7 +757,7 @@ final class TestTakingViewModelTests: XCTestCase {
         }
 
         let submitError = APIError.api(.serverError(statusCode: 500, message: "Internal server error"))
-        mockService.submitGuestTestError = submitError
+        mockService.submitGuestTestForClaimError = submitError
 
         // When
         await sut.submitTest()
@@ -784,7 +785,7 @@ final class TestTakingViewModelTests: XCTestCase {
         // Then
         XCTAssertTrue(sut.wasAbandonedSilently, "wasAbandonedSilently should be true for zero-answer guest timeout")
         XCTAssertNil(sut.testSession, "testSession should be cleared on silent guest abandonment")
-        XCTAssertFalse(mockService.submitGuestTestCalled, "submitGuestTest should NOT be called when zero answers")
+        XCTAssertFalse(mockService.submitGuestTestForClaimCalled, "submitGuestTestForClaim should NOT be called when zero answers")
         XCTAssertFalse(mockService.abandonTestCalled, "abandonTest should NOT be called for guest mode (no auth)")
     }
 
@@ -803,13 +804,13 @@ final class TestTakingViewModelTests: XCTestCase {
         sut.navigationState.userAnswers[questions[1].id] = "B"
         XCTAssertEqual(sut.answeredCount, 2, "Precondition: two answers given")
 
-        mockService.submitGuestTestResponse = makeGuestSubmitResponse(sessionId: sessionId)
+        mockService.submitGuestTestForClaimResponse = makeGuestSubmitResponse(sessionId: sessionId)
 
         // When
         await sut.submitTestForTimeout()
 
         // Then
-        XCTAssertTrue(mockService.submitGuestTestCalled, "submitGuestTest should be called when answers exist")
+        XCTAssertTrue(mockService.submitGuestTestForClaimCalled, "submitGuestTestForClaim should be called when answers exist")
         XCTAssertEqual(mockService.lastSubmitGuestTestTimeLimitExceeded, true, "timeLimitExceeded should be true for timeout submit")
         XCTAssertFalse(mockService.submitTestCalled, "Authenticated submitTest should NOT be called in guest mode")
     }
@@ -953,9 +954,10 @@ final class TestTakingViewModelTests: XCTestCase {
         iqScore: Int = 105,
         correctAnswers: Int = 2,
         totalQuestions: Int = 3,
-        accuracyPercentage: Double = 66.7
-    ) -> Components.Schemas.GuestSubmitTestResponse {
-        Components.Schemas.GuestSubmitTestResponse(
+        accuracyPercentage: Double = 66.7,
+        claimToken: String = "test-claim-token"
+    ) -> GuestSubmitClaimResponse {
+        GuestSubmitClaimResponse(
             session: Components.Schemas.TestSessionResponse(
                 id: sessionId,
                 userId: 0,
@@ -973,7 +975,8 @@ final class TestTakingViewModelTests: XCTestCase {
                 completedAt: Date()
             ),
             responsesCount: responsesCount,
-            message: "Guest test submitted"
+            message: "Guest test submitted",
+            claimToken: claimToken
         )
     }
 
