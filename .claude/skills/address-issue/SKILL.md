@@ -73,7 +73,7 @@ Scan the issue body for a `## Failing Test` section. If present:
 
    **a. Display the spec and request approval:**
 
-   > The issue body's `## Failing Test` section contains this spec. If approved, it will be executed in a sandbox to check whether it demonstrates a real regression.
+   > The issue body's `## Failing Test` section contains this spec. If approved, it runs in an isolated sandbox (`env -i`, `PATH=/usr/bin:/bin`, no `.git` parent) — project tools like `tusk`, `pytest`, and any project-installed binary are off PATH and will exit 127, which Step 4.1 treats as a command error and discards the spec. Step 4.1 only checks that the spec is a *runnable, shell-safe command*; the authoritative "does it actually fail on the current code" check happens later via `tusk criteria done`.
    > ```
    > <test_spec>
    > ```
@@ -136,7 +136,7 @@ Treat any non-`yes` response as skip. On **yes**:
 
 **Run this step only when `task_type = bug`.** Skip for all other task types.
 
-Before presenting the proposal, quickly scan the codebase to confirm the bug is still present. Use at most 3 tool calls (Grep, Read, or Bash read-only). If you find clear evidence the bug is already fixed (e.g., the code path described in the issue no longer exists or has been corrected), surface this before proceeding:
+Before presenting the proposal, quickly scan the codebase to confirm the bug is still present. Use at most 3 tool calls (Grep, Read, or Bash read-only). **Prefer invoking the affected code path directly** (e.g. running the actual command with a known input) over grepping for static markers — a live invocation surfaces regex bugs, off-by-one errors, and silent failures that grep-and-read miss. If you find clear evidence the bug is already fixed (e.g., the code path described in the issue no longer exists or has been corrected), surface this before proceeding:
 
 > **Reproducibility note:** The issue may already be fixed — [brief explanation]. Do you still want to create a task?
 
@@ -340,6 +340,20 @@ gh issue close <number> --repo <owner/repo> --comment "Resolved in <commit_sha> 
 Use the `commit_sha` from Step 8 (include the PR URL if available, else the branch name). On failure, apply **Shared gh Failure Handling** from Step 5 — the already-closed retry posts the resolution note as a standalone comment and continues to Step 10.
 
 ### Step 10: Retro
+
+After `tusk merge` exits 0, close out the `/tusk` skill-run opened in Step 7 (its `run_id` came from `tusk task-start` inside the `/tusk` Step 1 invocation — you captured it as `skill_run.run_id` in the returned JSON) so its cost is captured before `/retro` starts its own run:
+
+```bash
+tusk skill-run finish <run_id>
+```
+
+Then emit the canonical end-of-run summary so the user sees the identity/cost/duration/diff/criteria rollup before the retro findings:
+
+```bash
+tusk task-summary <task_id> --format markdown
+```
+
+Show it verbatim — do not re-render or summarize. `/retro` Step LR-3 assumes this block has already been printed and intentionally does not re-emit it.
 
 Invoke `/retro` immediately — do not ask "shall I run retro?". Read and follow:
 

@@ -45,6 +45,56 @@ GITHUB_REPO = "gioe/tusk"
 API_TIMEOUT = 15   # seconds for GitHub API calls
 DL_TIMEOUT = 60    # seconds for tarball download
 
+# Supported install modes and their canonical directory layouts. The marker
+# file <script_dir>/install-mode is stamped by install.sh; absent → claude
+# (legacy installs predate Codex support).
+INSTALL_MODES = {
+    "claude": {
+        "bin_prefix": ".claude/bin/",
+        "manifest_rel": ".claude/tusk-manifest.json",
+    },
+    "codex": {
+        "bin_prefix": "tusk/bin/",
+        "manifest_rel": "tusk/tusk-manifest.json",
+    },
+}
+
+
+def detect_install_mode(script_dir: str) -> str:
+    """Return install mode from the <script_dir>/install-mode marker.
+
+    Absent or malformed → 'claude' (legacy pre-Codex installs and dev envs).
+    """
+    marker = os.path.join(script_dir, "install-mode")
+    if os.path.isfile(marker):
+        try:
+            value = Path(marker).read_text().strip()
+        except OSError:
+            return "claude"
+        if value in INSTALL_MODES:
+            return value
+    return "claude"
+
+
+def translate_manifest_for_mode(files, mode: str) -> list:
+    """Rewrite tarball MANIFEST entries (claude-shaped) for the local install mode.
+
+    Claude mode is a pass-through. Codex mode rewrites .claude/bin/ → tusk/bin/
+    and drops .claude/skills/ and .claude/hooks/ entries (no Codex equivalents).
+    """
+    if mode == "claude":
+        return list(files)
+    bin_prefix = INSTALL_MODES[mode]["bin_prefix"]
+    out = []
+    for f in files:
+        if f.startswith(".claude/bin/"):
+            out.append(bin_prefix + f[len(".claude/bin/"):])
+        elif f.startswith(".claude/skills/") or f.startswith(".claude/hooks/"):
+            continue
+        else:
+            out.append(f)
+    return out
+
 # Verbosity flag. Defaults to True so tests and direct imports keep the legacy
 # loud output; main() sets it to args.verbose so routine CLI upgrades are quiet.
 _verbose = True
@@ -506,6 +556,103 @@ def fix_trailing_newlines(script_dir: str, repo_root: str) -> int:
     return fixed
 
 
+def _run_upgrade_steps(src: str, repo_root: str, script_dir: str, tmpdir: str) -> dict:
+    """Apply an extracted tarball to an existing install.
+
+    Factored out of main() so integration tests can drive the full orchestration
+    (mode detection, manifest translation, claude-only step gating, orphan
+    removal, manifest write, VERSION stamp) against a fake src tree without
+    hitting GitHub. The tarball download and rexec handoff stay in main().
+
+    Returns a summary dict consumed by main() to render the final report.
+    """
+    install_mode = detect_install_mode(script_dir)
+    if install_mode != "claude":
+        _vprint(f"  Install mode: {install_mode}")
+    manifest_rel = INSTALL_MODES[install_mode]["manifest_rel"]
+    old_manifest = os.path.join(repo_root, manifest_rel)
+    new_manifest = os.path.join(src, "MANIFEST")
+
+    # In non-claude modes, the tarball's MANIFEST is claude-shaped; translate
+    # to the local install layout before comparing so orphan detection doesn't
+    # treat every file as {orphan, new}.
+    translated_new_manifest = new_manifest
+    if install_mode != "claude" and os.path.isfile(new_manifest):
+        with open(new_manifest) as _f:
+            _raw_files = json.load(_f)
+        translated_files = translate_manifest_for_mode(_raw_files, install_mode)
+        translated_new_manifest = os.path.join(tmpdir, "MANIFEST.translated")
+        with open(translated_new_manifest, "w") as _f:
+            json.dump(translated_files, _f, indent=2)
+            _f.write("\n")
+
+    orphan_count = 0
+    if os.path.isfile(old_manifest) and os.path.isfile(translated_new_manifest):
+        orphan_count = remove_orphans(old_manifest, translated_new_manifest, repo_root)
+    elif not os.path.isfile(old_manifest):
+        print("  No prior manifest found; skipping orphan removal (first upgrade with manifest support)")
+    else:
+        print("  Warning: new release has no MANIFEST file; skipping orphan removal")
+
+    copy_bin_files(src, script_dir)
+    # Skills, hooks, setup-path, settings.json merge, and review-commits
+    # permissions are Claude-only concepts. Codex has no equivalents, so
+    # skip them to avoid writing into a non-existent .claude/ layout.
+    if install_mode == "claude":
+        skill_count = copy_skills(src, repo_root)
+        hook_count = copy_hooks(src, repo_root)
+        override_setup_path(repo_root)
+        hook_summary = merge_hook_registrations(src, repo_root)
+        added_perms = ensure_review_commits_permissions(repo_root)
+        for entry in added_perms:
+            _vprint(f"  Added required permission: {entry}")
+    else:
+        skill_count = 0
+        hook_count = 0
+        hook_summary = {"registered": 0, "dedup_removed": 0, "permissions_added": 0}
+        added_perms = []
+    script_count = copy_scripts(src, repo_root)
+    backfilled_keys = merge_config_defaults(src, repo_root, script_dir)
+
+    # Run migrations using the newly installed binary. In quiet mode, capture
+    # stdout so only the single-line schema summary is surfaced below.
+    migrate_cmd = [os.path.join(script_dir, "tusk"), "migrate"]
+    if _verbose:
+        subprocess.run(migrate_cmd, check=True)
+        migrate_summary = "ran"
+    else:
+        result = subprocess.run(migrate_cmd, check=True, capture_output=True, text=True)
+        migrate_summary = (result.stdout or "ran").strip().splitlines()[-1]
+
+    deprecated_count = remove_deprecated_files(repo_root)
+    update_gitignore(script_dir)
+
+    if os.path.isfile(translated_new_manifest):
+        os.makedirs(os.path.dirname(old_manifest), exist_ok=True)
+        shutil.copy2(translated_new_manifest, old_manifest)
+        _vprint(f"  Updated {manifest_rel}")
+
+    newline_fixes = fix_trailing_newlines(script_dir, repo_root)
+
+    # Stamp VERSION last — ensures interrupted upgrades re-run next time
+    shutil.copy2(os.path.join(src, "VERSION"), os.path.join(script_dir, "VERSION"))
+
+    return {
+        "install_mode": install_mode,
+        "manifest_rel": manifest_rel,
+        "orphan_count": orphan_count,
+        "skill_count": skill_count,
+        "hook_count": hook_count,
+        "hook_summary": hook_summary,
+        "added_perms": added_perms,
+        "script_count": script_count,
+        "backfilled_keys": backfilled_keys,
+        "migrate_summary": migrate_summary,
+        "deprecated_count": deprecated_count,
+        "newline_fixes": newline_fixes,
+    }
+
+
 def stage_and_commit(repo_root: str, manifest_path: str, remote_version: int) -> None:
     with open(manifest_path) as f:
         files = json.load(f)
@@ -638,72 +785,34 @@ def main() -> None:
                 # and will rmtree it inside its own finally block.
                 os.execv(sys.executable, argv)
 
-        old_manifest = os.path.join(repo_root, ".claude", "tusk-manifest.json")
-        new_manifest = os.path.join(src, "MANIFEST")
-
-        orphan_count = 0
-        if os.path.isfile(old_manifest) and os.path.isfile(new_manifest):
-            orphan_count = remove_orphans(old_manifest, new_manifest, repo_root)
-        elif not os.path.isfile(old_manifest):
-            print("  No prior manifest found; skipping orphan removal (first upgrade with manifest support)")
-        else:
-            print("  Warning: new release has no MANIFEST file; skipping orphan removal")
-
-        copy_bin_files(src, script_dir)
-        skill_count = copy_skills(src, repo_root)
-        script_count = copy_scripts(src, repo_root)
-        hook_count = copy_hooks(src, repo_root)
-        override_setup_path(repo_root)
-        hook_summary = merge_hook_registrations(src, repo_root)
-        added_perms = ensure_review_commits_permissions(repo_root)
-        for entry in added_perms:
-            _vprint(f"  Added required permission: {entry}")
-        backfilled_keys = merge_config_defaults(src, repo_root, script_dir)
-
-        # Run migrations using the newly installed binary. In quiet mode, capture
-        # stdout so only the single-line schema summary is surfaced below.
-        migrate_cmd = [os.path.join(script_dir, "tusk"), "migrate"]
-        if _verbose:
-            subprocess.run(migrate_cmd, check=True)
-            migrate_summary = "ran"
-        else:
-            result = subprocess.run(migrate_cmd, check=True, capture_output=True, text=True)
-            migrate_summary = (result.stdout or "ran").strip().splitlines()[-1]
-
-        deprecated_count = remove_deprecated_files(repo_root)
-        update_gitignore(script_dir)
-
-        if os.path.isfile(new_manifest):
-            shutil.copy2(new_manifest, old_manifest)
-            _vprint("  Updated .claude/tusk-manifest.json")
-
-        newline_fixes = fix_trailing_newlines(script_dir, repo_root)
-
-        # Stamp VERSION last — ensures interrupted upgrades re-run next time
-        shutil.copy2(os.path.join(src, "VERSION"), os.path.join(script_dir, "VERSION"))
+        summary = _run_upgrade_steps(src, repo_root, script_dir, tmpdir)
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
+    install_mode = summary["install_mode"]
+    manifest_rel = summary["manifest_rel"]
+
     if not _verbose:
-        print(f"  Skills       {skill_count} updated")
-        print(f"  Hooks        {hook_count} updated"
+        hook_summary = summary["hook_summary"]
+        print(f"  Skills       {summary['skill_count']} updated")
+        print(f"  Hooks        {summary['hook_count']} updated"
               + (f", {hook_summary['registered']} registered" if hook_summary["registered"] else "")
               + (f", {hook_summary['dedup_removed']} dedup'd" if hook_summary["dedup_removed"] else ""))
-        if script_count:
-            print(f"  Scripts      {script_count} updated")
-        perms_total = hook_summary["permissions_added"] + len(added_perms)
+        if summary["script_count"]:
+            print(f"  Scripts      {summary['script_count']} updated")
+        perms_total = hook_summary["permissions_added"] + len(summary["added_perms"])
         if perms_total:
             print(f"  Permissions  {perms_total} added")
-        if backfilled_keys:
-            print(f"  Config       {len(backfilled_keys)} key(s) backfilled: {', '.join(backfilled_keys)}")
-        print(f"  Migrations   {migrate_summary}")
+        if summary["backfilled_keys"]:
+            print(f"  Config       {len(summary['backfilled_keys'])} key(s) backfilled: {', '.join(summary['backfilled_keys'])}")
+        print(f"  Migrations   {summary['migrate_summary']}")
         cleanup_bits = []
-        if orphan_count:
-            cleanup_bits.append(f"{orphan_count} orphan(s)")
-        if deprecated_count:
-            cleanup_bits.append(f"{deprecated_count} deprecated file(s)")
-        if newline_fixes:
-            cleanup_bits.append(f"{newline_fixes} newline fix(es)")
+        if summary["orphan_count"]:
+            cleanup_bits.append(f"{summary['orphan_count']} orphan(s)")
+        if summary["deprecated_count"]:
+            cleanup_bits.append(f"{summary['deprecated_count']} deprecated file(s)")
+        if summary["newline_fixes"]:
+            cleanup_bits.append(f"{summary['newline_fixes']} newline fix(es)")
         if cleanup_bits:
             print(f"  Cleanup      {', '.join(cleanup_bits)}")
 
@@ -713,17 +822,19 @@ def main() -> None:
     # Safety net: ensure_review_commits_permissions should have added any missing
     # entries during the upgrade. If anything is still missing here, the write
     # likely failed (e.g. read-only filesystem) — surface a warning rather than
-    # silently letting /review-commits break.
-    missing = check_review_commits_permissions(repo_root)
-    if missing:
-        print()
-        print("  Warning: The following permissions.allow entries are still missing from")
-        print("  .claude/settings.json and are required for /review-commits to work:")
-        print()
-        for entry in missing:
-            print(f'    "{entry}"')
-        print()
-        print("  Add these entries to the permissions.allow array in .claude/settings.json.")
+    # silently letting /review-commits break. Codex installs have no settings.json
+    # (nor a /review-commits skill), so skip the check.
+    if install_mode == "claude":
+        missing = check_review_commits_permissions(repo_root)
+        if missing:
+            print()
+            print("  Warning: The following permissions.allow entries are still missing from")
+            print("  .claude/settings.json and are required for /review-commits to work:")
+            print()
+            for entry in missing:
+                print(f'    "{entry}"')
+            print()
+            print("  Add these entries to the permissions.allow array in .claude/settings.json.")
 
     # Auto-commit
     if args.no_commit:
@@ -742,9 +853,9 @@ def main() -> None:
         print("  Warning: git not found — skipping auto-commit.")
         return
 
-    manifest_path = os.path.join(repo_root, ".claude", "tusk-manifest.json")
+    manifest_path = os.path.join(repo_root, manifest_rel)
     if not os.path.isfile(manifest_path):
-        print("  Warning: .claude/tusk-manifest.json not found — skipping auto-commit.")
+        print(f"  Warning: {manifest_rel} not found — skipping auto-commit.")
         return
 
     stage_and_commit(repo_root, manifest_path, remote_version)

@@ -49,6 +49,7 @@ Exit codes:
         Fix the violations, or bypass with --skip-lint / --skip-verify.
 """
 
+import fnmatch
 import json
 import os
 import re
@@ -183,16 +184,84 @@ def load_task_domain(tusk_bin: str, task_id: int) -> str:
         return ""
 
 
-def load_test_command(config_path: str, domain: str = "") -> str:
+def _normalize_path_for_match(path: str, repo_root: str = "") -> str:
+    """Return ``path`` as a forward-slash, repo-root-relative string.
+
+    Patterns in path_test_commands are authored as repo-root-relative globs
+    (``apps/scraper/*``), but callers sometimes pass absolute paths to
+    ``tusk commit`` — the commit path-resolution branch at lines 473-479
+    stores those absolute paths in ``resolved_files`` unchanged.  Without
+    this normalization an input like ``/Users/.../repo/apps/scraper/foo.py``
+    would never match ``apps/scraper/*`` and path_test_commands would
+    silently fall through to domain_test_commands / test_command.
+    """
+    p = path.replace(os.sep, "/")
+    if repo_root and os.path.isabs(path):
+        root = repo_root.replace(os.sep, "/").rstrip("/") + "/"
+        if sys.platform == "darwin":
+            if p.lower().startswith(root.lower()):
+                p = p[len(root):]
+        else:
+            if p.startswith(root):
+                p = p[len(root):]
+    return p
+
+
+def match_path_test_command(patterns: dict, paths, repo_root: str = "") -> str:
+    """Return the first path_test_commands entry whose pattern matches every path.
+
+    Iterates patterns in insertion order (Python dicts preserve this since 3.7)
+    and picks the first key whose fnmatch pattern matches *every* repo-root-
+    relative path in ``paths``.  Absolute paths are converted to repo-root-
+    relative form using ``repo_root`` before matching so callers can pass
+    whatever ``resolved_files`` yielded (mix of absolute + relative entries).
+    When staged changes span multiple subtrees and no single pattern covers
+    them all, returns "" so the caller falls through to domain_test_commands
+    / test_command.  Users encode a catch-all with
+    ``"*": "<project-wide command>"`` at the end of the map.
+
+    An empty-string command value disables that pattern — resolution falls
+    through to the next entry as if the pattern were absent.  (This is the
+    same idiom supported for domain_test_commands.)
+
+    fnmatch's ``*`` matches across path separators, so ``apps/scraper/**`` and
+    ``apps/scraper/*`` both match ``apps/scraper/foo/bar.py``.
+    """
+    if not patterns or not paths:
+        return ""
+    normalized = [_normalize_path_for_match(p, repo_root) for p in paths]
+    for pattern, cmd in patterns.items():
+        if not cmd or not isinstance(cmd, str):
+            continue
+        if all(fnmatch.fnmatchcase(p, pattern) for p in normalized):
+            return cmd
+    return ""
+
+
+def load_test_command(config_path: str, domain: str = "", paths=None,
+                      repo_root: str = "") -> str:
     """Load the effective test command from config.
 
-    Prefers domain_test_commands[domain] when the task has a domain and a
-    matching entry exists.  Falls back to the global test_command otherwise.
+    Resolution order:
+      1. path_test_commands — first pattern where *every* path in ``paths``
+         matches (see match_path_test_command for semantics).  ``repo_root``
+         lets the matcher normalize absolute paths to repo-root-relative
+         form before matching.
+      2. domain_test_commands[domain] — when the task has a domain and a
+         matching entry exists.
+      3. Global test_command.
+
     Returns an empty string when no command is configured.
     """
     try:
         with open(config_path) as f:
             config = json.load(f)
+        if paths:
+            cmd = match_path_test_command(
+                config.get("path_test_commands", {}) or {}, paths, repo_root,
+            )
+            if cmd:
+                return cmd
         if domain:
             cmd = config.get("domain_test_commands", {}).get(domain)
             if cmd:
@@ -236,6 +305,80 @@ def load_test_command_timeout(config_path: str) -> tuple[int, str]:
     except (OSError, ValueError, json.JSONDecodeError):
         pass
     return DEFAULT_TEST_COMMAND_TIMEOUT_SEC, "default"
+
+
+def is_linked_worktree(repo_root: str) -> bool:
+    """Return True when repo_root is a linked git worktree checkout.
+
+    In the primary checkout, `git rev-parse --git-dir` and
+    `--git-common-dir` resolve to the same path. In a linked worktree they
+    diverge: .git points at the per-worktree admin dir while common-dir points
+    at the shared repository metadata.
+    """
+    try:
+        git_dir = run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-dir"],
+            check=False,
+            cwd=repo_root,
+        )
+        common_dir = run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            check=False,
+            cwd=repo_root,
+        )
+    except Exception:
+        return False
+
+    if git_dir.returncode != 0 or common_dir.returncode != 0:
+        return False
+    git_dir_path = git_dir.stdout.strip()
+    common_dir_path = common_dir.stdout.strip()
+    return bool(git_dir_path and common_dir_path and git_dir_path != common_dir_path)
+
+
+def _test_command_unavailable(result: subprocess.CompletedProcess) -> bool:
+    """Return True when the shell could not execute the configured command."""
+    stderr = (result.stderr or "").lower()
+    return (
+        result.returncode in (126, 127)
+        or "command not found" in stderr
+        or "no such file or directory" in stderr
+        or "not found" in stderr
+    )
+
+
+def _print_test_command_failure(
+    result: subprocess.CompletedProcess,
+    test_cmd: str,
+    elapsed: float,
+    repo_root: str,
+) -> None:
+    """Emit the most actionable failure message for the test_command gate."""
+    if _test_command_unavailable(result) and is_linked_worktree(repo_root):
+        print(
+            "\nError: configured test_command is unavailable in this linked worktree "
+            f"(exit {result.returncode}, {elapsed:.1f}s)",
+            file=sys.stderr,
+        )
+        print(f"  Command: {test_cmd}", file=sys.stderr)
+        print(
+            "  This usually means the global test_command references tools or paths "
+            "that are not present in this worktree checkout.",
+            file=sys.stderr,
+        )
+        print(
+            "  Next steps: configure a narrower path_test_commands entry "
+            "matching the staged paths, or a domain_test_commands entry for "
+            "this task's domain; or rerun with --skip-verify if you already "
+            "ran the relevant targeted verification intentionally.",
+            file=sys.stderr,
+        )
+        return
+
+    print(
+        f"\nError: test_command failed (exit {result.returncode}, {elapsed:.1f}s) — aborting commit",
+        file=sys.stderr,
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -560,6 +703,9 @@ def _run_commit(argv: list[str], state: dict) -> int:
     # ── Step 2: Run test_command gate (hard-blocks on failure) ───────
     # Only query the task's domain when domain_test_commands is configured —
     # avoids a DB round-trip for the common case where domain routing is unused.
+    # resolved_files is passed through so path_test_commands (insertion-order
+    # glob → command) can take precedence over domain/global when a single
+    # pattern covers every staged path.
     task_domain = ""
     try:
         with open(config_path) as _f:
@@ -568,7 +714,9 @@ def _run_commit(argv: list[str], state: dict) -> int:
             task_domain = load_task_domain(tusk_bin, task_id)
     except Exception:
         pass
-    test_cmd = load_test_command(config_path, task_domain)
+    test_cmd = load_test_command(
+        config_path, task_domain, resolved_files, repo_root=real_repo_root,
+    )
     if test_cmd and not skip_verify:
         timeout_sec, timeout_source = load_test_command_timeout(config_path)
         # Only announce the command up-front in verbose mode.  In quiet mode
@@ -626,10 +774,7 @@ def _run_commit(argv: list[str], state: dict) -> int:
                 if test.stderr:
                     sys.stderr.write(test.stderr)
                     sys.stderr.flush()
-            print(
-                f"\nError: test_command failed (exit {test.returncode}, {elapsed:.1f}s) — aborting commit",
-                file=sys.stderr,
-            )
+            _print_test_command_failure(test, test_cmd, elapsed, repo_root)
             return 2
         print(f"tests passed ({elapsed:.1f}s)")
         sys.stdout.flush()
