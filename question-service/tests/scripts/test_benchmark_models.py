@@ -63,3 +63,40 @@ def test_auth_check_fails_on_invalid_admin_token() -> None:
             "https://example.test",
             "stale-token",
         )
+
+
+def test_select_models_returns_explicit_vendor_model_pairs() -> None:
+    configured_models = [
+        ("openai", "gpt-5.5"),
+        ("anthropic", "claude-opus-4-7"),
+        ("google", "gemini-2.5-pro"),
+    ]
+
+    assert benchmark_models.select_models(
+        configured_models,
+        ["openai/gpt-5.5", "google/gemini-2.5-pro"],
+    ) == [
+        ("openai", "gpt-5.5"),
+        ("google", "gemini-2.5-pro"),
+    ]
+
+
+def test_select_models_returns_configured_models_without_targets() -> None:
+    configured_models = [
+        ("openai", "gpt-5.5"),
+        ("anthropic", "claude-opus-4-7"),
+    ]
+
+    assert benchmark_models.select_models(configured_models, []) == configured_models
+
+
+def test_select_models_rejects_malformed_target() -> None:
+    with pytest.raises(ValueError, match="expected vendor/model"):
+        benchmark_models.select_models([("openai", "gpt-5.5")], ["openai:gpt-5.5"])
+
+
+def test_select_models_rejects_unknown_target() -> None:
+    with pytest.raises(ValueError, match="not found in configured models"):
+        benchmark_models.select_models(
+            [("openai", "gpt-5.5")], ["google/gemini-2.5-pro"]
+        )
