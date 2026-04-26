@@ -241,7 +241,7 @@ class TestGuestResultClaim:
 
         other_user = User(
             email="other@example.com",
-            password_hash="hashed",
+            password_hash="hashed",  # pragma: allowlist secret
             first_name="Other",
             last_name="User",
         )

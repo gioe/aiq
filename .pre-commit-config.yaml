@@ -154,7 +154,7 @@ repos:
     hooks:
       - id: swiftlint
         name: SwiftLint
-        entry: swiftlint lint --strict --config ios/.swiftlint.yml
+        entry: swiftlint lint --strict --no-cache --config ios/.swiftlint.yml
         language: system
         files: ^ios/.*\.swift$
         exclude: GeneratedSources/
@@ -165,7 +165,7 @@ repos:
     hooks:
       - id: swiftformat
         name: SwiftFormat
-        entry: swiftformat --config ios/.swiftformat
+        entry: swiftformat --config ios/.swiftformat --lint --cache ignore
         language: system
         files: ^ios/.*\.swift$
         exclude: GeneratedSources/

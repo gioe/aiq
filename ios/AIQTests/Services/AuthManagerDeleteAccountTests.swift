@@ -129,7 +129,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         sut.prepareGuestResultClaim(token: "email-claim-token")
         try await sut.register(
             email: "new@example.com",
-            password: "test-password",
+            password: "test-password", // pragma: allowlist secret
             firstName: "New",
             lastName: "User",
             birthYear: nil,
@@ -169,7 +169,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         sut.prepareGuestResultClaim(token: "failing-claim-token")
         try await sut.register(
             email: "new@example.com",
-            password: "test-password",
+            password: "test-password", // pragma: allowlist secret
             firstName: "New",
             lastName: "User",
             birthYear: nil,
@@ -180,7 +180,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
 
         XCTAssertTrue(mockAuthService.claimGuestResultCalled)
         XCTAssertTrue(sut.isAuthenticated)
-        if case .failed(let message) = sut.guestResultClaimStatus {
+        if case let .failed(message) = sut.guestResultClaimStatus {
             XCTAssertTrue(message.contains("couldn't save your guest score"))
         } else {
             XCTFail("Expected failed guest claim status")
