@@ -5,6 +5,11 @@ judging, fallback, pricing, and backend benchmark paths.
 
 **Last reviewed:** 2026-04-26
 
+The current production models, judge assignments, provider audit, and pricing
+sections below are the authoritative April 2026 audit. Historical benchmark
+tables later in this document are retained as external evidence, not as current
+production routing.
+
 ## Current Production Models
 
 | Area | Provider | Model ID | Notes |
