@@ -323,14 +323,16 @@ backend runner with production database credentials and provider API keys.
 |----------------|---------------|---------------|----------|-------|----------------|-------|
 | 2026-04-26 | Stratified production set, 25 questions per run | 96, 97, 98 | OpenAI | `gpt-5.5` | 3 zero-error runs; mean IQ 113.67; 71/75 correct (94.7%); latest run 24/25, IQ 114. | Runner omits `temperature` for GPT-5.5 because the API only accepts the model default. Earlier compatibility-failure sessions 93 and 94 had 25 provider errors each and are excluded. |
 | 2026-04-26 | Stratified production set, 25 questions per run | 102, 103, 104 | Anthropic | `claude-opus-4-7` | 3 zero-error runs; mean IQ 115.00; 75/75 correct (100.0%); all runs IQ 115. | Runner omits `temperature` for Claude Opus 4.7 because the API marks it deprecated. Earlier compatibility-failure sessions 99-101 had 25 provider errors each and are excluded. |
+| 2026-04-26 | Stratified production set, 25 questions per run | 106 | Google | `gemini-2.5-pro` | 1 zero-error run; 24/25 correct (96.0%); IQ 114. | Clean production rerun after the benchmark runner fix. Earlier partial Google sessions remain excluded from clean coverage metrics. |
+| 2026-04-26 | Stratified production set, 25 questions per run | 107 | Google | `gemini-3.1-pro-preview` | 1 zero-error run; 24/25 correct (96.0%); IQ 114. | Clean production rerun after the benchmark runner fix. Earlier partial Google sessions remain excluded from clean coverage metrics. |
 
 Current active-model coverage checked during the same pass:
 
 | Checked Date (UTC) | Provider | Model | Existing Coverage | Result Summary | Notes |
 |--------------------|----------|-------|-------------------|----------------|-------|
 | 2026-04-26 | Anthropic | `claude-sonnet-4-5-20250929` | 9 completed runs through 2026-04-09; 8 zero-error runs. | Zero-error mean IQ 113.38; 173/186 correct (93.0%). | Coverage exists and is visible in production benchmark tables. |
-| 2026-04-26 | Google | `gemini-2.5-pro` | 10 completed runs through 2026-04-09. | Latest runs score IQ 107-109 on 30-question runs, with 22-24 correct. | Existing coverage is present but every checked run has provider response errors (typically 2-6 per session), so treat metrics as partial coverage. |
-| 2026-04-26 | Google | `gemini-3.1-pro-preview` | 8 completed runs through 2026-04-09. | Latest runs score IQ 110 on 30-question runs, with 25/30 correct. | Existing coverage is present but every checked run has provider response errors (typically 1-3 per session), so treat metrics as partial coverage. |
+| 2026-04-26 | Google | `gemini-2.5-pro` | Clean production session 106, plus earlier partial sessions through 2026-04-09. | Clean run scored IQ 114 with 24/25 correct (96.0%). | The clean rerun persisted with zero provider errors after the benchmark runner fix; earlier partial sessions are retained historically but excluded from clean coverage metrics. |
+| 2026-04-26 | Google | `gemini-3.1-pro-preview` | Clean production session 107, plus earlier partial sessions through 2026-04-09. | Clean run scored IQ 114 with 24/25 correct (96.0%). | The clean rerun persisted with zero provider errors after the benchmark runner fix; earlier partial sessions are retained historically but excluded from clean coverage metrics. |
 
 April 26 follow-up investigation found the Google errors were not caused by
 prompt format, JSON MIME mode, safety filtering, model availability, or quota.
@@ -338,9 +340,8 @@ Stored failures were either transient Google 503 high-demand responses or
 benchmark-runner read timeouts on reasoning-heavy prompts. The local patched
 runner reproduced the slow `gemini-2.5-pro` and `gemini-3.1-pro-preview` cases
 without provider errors by using a longer Google timeout, transient retries,
-and low Gemini 3 thinking. The production coverage rows above remain partial
-until the patched runner is deployed and clean production benchmark sessions are
-recorded.
+and low Gemini 3 thinking. After deployment, production sessions 106 and 107
+confirmed clean persisted Google coverage with zero provider errors.
 
 ## Follow-Up Benchmarking
 
