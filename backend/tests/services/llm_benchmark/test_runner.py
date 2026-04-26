@@ -388,6 +388,75 @@ class TestRunLlmBenchmark:
 
     @pytest.mark.asyncio
     @patch("app.services.llm_benchmark.runner.async_select_stratified_questions")
+    async def test_all_provider_errors_mark_session_failed_without_iq_score(
+        self, mock_select
+    ):
+        """All provider-error responses should not persist as a quality score."""
+        questions = [self._make_question(i, correct_answer="X") for i in range(3)]
+        mock_select.return_value = (questions, {})
+
+        mock_provider = AsyncMock(
+            return_value=ProviderResponse(
+                answer="",
+                input_tokens=0,
+                output_tokens=0,
+                model="test-model",
+                error="Provider payload rejected",
+            )
+        )
+
+        db = AsyncMock()
+        db.flush = AsyncMock()
+        db.commit = AsyncMock()
+
+        added_objects = []
+
+        def capture_add(obj):
+            added_objects.append(obj)
+            from app.models.llm_benchmark import LLMTestSession
+
+            if isinstance(obj, LLMTestSession):
+                obj.id = 91
+
+        db.add = MagicMock(side_effect=capture_add)
+
+        with (
+            patch(
+                "app.services.llm_benchmark.runner._PROVIDER_DISPATCH",
+                {"openai": mock_provider},
+            ),
+            patch("app.services.llm_benchmark.runner.settings") as mock_settings,
+            patch("app.services.llm_benchmark.runner.calculate_iq_score") as mock_iq,
+            patch("app.services.llm_benchmark.runner.iq_to_percentile") as mock_pctile,
+            patch(
+                "app.services.llm_benchmark.runner.calculate_domain_scores",
+                return_value={},
+            ),
+        ):
+            mock_settings.LLM_BENCHMARK_COST_CAP_USD = 5.0
+            mock_settings.TEST_TOTAL_QUESTIONS = 25
+
+            await run_llm_benchmark(db, "openai", "test-model", total_questions=3)
+
+        from app.models.llm_benchmark import LLMTestResult, LLMTestSession
+
+        session_obj = next(
+            obj for obj in added_objects if isinstance(obj, LLMTestSession)
+        )
+        result_obj = next(
+            obj for obj in added_objects if isinstance(obj, LLMTestResult)
+        )
+
+        assert session_obj.status == "failed"
+        assert result_obj.iq_score is None
+        assert result_obj.percentile_rank is None
+        assert result_obj.total_questions == 3
+        assert result_obj.correct_answers == 0
+        mock_iq.assert_not_called()
+        mock_pctile.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("app.services.llm_benchmark.runner.async_select_stratified_questions")
     async def test_unknown_vendor_raises(self, mock_select):
         db = AsyncMock()
         with pytest.raises(ValueError, match="Unknown vendor"):
@@ -467,7 +536,10 @@ class TestRunLlmBenchmark:
         db.flush = AsyncMock()
         db.commit = AsyncMock()
 
+        added_objects = []
+
         def capture_add(obj):
+            added_objects.append(obj)
             from app.models.llm_benchmark import LLMTestSession
 
             if isinstance(obj, LLMTestSession):
@@ -499,8 +571,19 @@ class TestRunLlmBenchmark:
             )
 
         assert session_id == 77
-        # Should complete without raising; 0 correct out of 1 answered
-        mock_iq.assert_called_once_with(0, 1)
+        # Should complete without raising, but no IQ score is recorded because
+        # every provider call failed.
+        from app.models.llm_benchmark import LLMTestResult, LLMTestSession
+
+        session_obj = next(
+            obj for obj in added_objects if isinstance(obj, LLMTestSession)
+        )
+        result_obj = next(
+            obj for obj in added_objects if isinstance(obj, LLMTestResult)
+        )
+        assert session_obj.status == "failed"
+        assert result_obj.iq_score is None
+        mock_iq.assert_not_called()
         db.commit.assert_awaited_once()
 
     @pytest.mark.asyncio

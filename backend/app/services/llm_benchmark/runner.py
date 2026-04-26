@@ -340,9 +340,14 @@ async def run_llm_benchmark(
 
     # --- 7. Aggregate scores -------------------------------------------------
     answered_count = len(llm_responses)
+    error_count = sum(1 for response in llm_responses if response.error)
+    all_provider_calls_failed = answered_count > 0 and error_count == answered_count
+    if all_provider_calls_failed:
+        final_status = "failed"
+
     score = (
         calculate_iq_score(correct_count, answered_count)
-        if answered_count > 0
+        if answered_count > 0 and not all_provider_calls_failed
         else None
     )
     percentile = iq_to_percentile(score.iq_score) if score is not None else None
