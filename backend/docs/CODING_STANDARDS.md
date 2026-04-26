@@ -630,6 +630,13 @@ If `detect-secrets` flags a legitimate value (not an actual secret):
 2. Or update the baseline: `detect-secrets scan --baseline .secrets.baseline`
 3. Verify the flagged value is truly not a secret before allowlisting
 
+When `pre-commit run --all-files` rewrites `.secrets.baseline`, treat that file as generated reviewable output:
+1. Inspect the `.secrets.baseline` diff and confirm it only tracks intentional non-secret fixtures or line-number changes from files you edited.
+2. Stage `.secrets.baseline` together with the related source change.
+3. Rerun `pre-commit run --all-files` (or `backend/venv/bin/python -m pre_commit run --all-files` if `pre-commit` is not on `PATH`).
+
+After the generated baseline is staged, repeated all-file pre-commit runs should pass without additional `.secrets.baseline` churn. If they keep rewriting the file on a clean tree, stop and investigate the newly reported diff before committing.
+
 ### Git Safety Rules
 
 **NEVER:**

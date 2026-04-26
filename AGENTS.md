@@ -69,6 +69,8 @@ The backend uses Redis for three cross-worker concerns: rate limiting (`RATE_LIM
 
 Before committing, run pre-commit hooks locally (`pre-commit run --all-files`) and fix any linting (e.g., E402 import order), mypy type errors, or float comparison issues. If `pre-commit` is not on `PATH`, use `backend/venv/bin/python -m pre_commit run --all-files` from the repo root. Do not assume pre-commit will pass — verify first.
 
+If the `detect-secrets` hook updates `.secrets.baseline`, inspect the diff to confirm it only reflects intentional test fixture or allowlist changes, then stage `.secrets.baseline` with the source changes and rerun the same all-file pre-commit command. A clean tree should allow repeated all-file runs to pass without further `.secrets.baseline` changes.
+
 ## Task Queue
 
 The project task database is the SQLite DB at the project root (`tasks.db`), not Codex's internal task list. Always use the project's SQLite database when working with the task queue.
