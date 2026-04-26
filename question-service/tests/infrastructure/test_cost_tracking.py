@@ -122,7 +122,10 @@ class TestModelPricing:
     def test_model_pricing_contains_major_providers(self):
         """Test that pricing contains models from major providers."""
         # OpenAI GPT-5 series
+        assert "gpt-5.5" in MODEL_PRICING
+        assert "gpt-5.5-pro" in MODEL_PRICING
         assert "gpt-5.2" in MODEL_PRICING
+        assert "gpt-5.2-pro" in MODEL_PRICING
         assert "gpt-5.1" in MODEL_PRICING
         assert "gpt-5" in MODEL_PRICING
 
@@ -139,6 +142,7 @@ class TestModelPricing:
         assert "gpt-3.5-turbo" in MODEL_PRICING
 
         # Anthropic
+        assert "claude-opus-4-7" in MODEL_PRICING
         assert "claude-3-5-sonnet-20241022" in MODEL_PRICING
         assert "claude-3-opus-20240229" in MODEL_PRICING
 

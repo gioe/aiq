@@ -569,13 +569,13 @@ class TestGeneratorConfigModelOverride:
         loader = GeneratorConfigLoader("config/generators.yaml")
         loader.load()
 
-        # Pattern has openai with gpt-5.2 model explicitly specified in the config
+        # Pattern has openai with gpt-5.5 model explicitly specified in the config
         provider, model = loader.get_provider_and_model_for_question_type(
             "pattern", ["openai", "anthropic", "xai"]
         )
 
         assert provider == "openai"
-        assert model == "gpt-5.2"
+        assert model == "gpt-5.5"
 
     def test_fallback_uses_fallback_model_not_primary_model(self):
         """Test that fallback provider uses fallback_model, not the primary model."""
@@ -586,13 +586,13 @@ class TestGeneratorConfigModelOverride:
 
         # Logic has anthropic with claude-sonnet-4-5-20250929, but if anthropic
         # is unavailable, the fallback provider (openai) should use fallback_model
-        # (gpt-5.2), NOT the primary model (claude-sonnet-4-5-20250929)
+        # (gpt-5.5), NOT the primary model (claude-sonnet-4-5-20250929)
         provider, model = loader.get_provider_and_model_for_question_type(
             "logic", ["openai"]  # anthropic not available
         )
 
         assert provider == "openai"
-        assert model == "gpt-5.2"  # fallback_model, not primary model
+        assert model == "gpt-5.5"  # fallback_model, not primary model
 
 
 class TestQuestionGeneratorIntegration:

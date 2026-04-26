@@ -37,6 +37,7 @@ _CACHE_KEY = "benchmark_summary"
 
 _MODEL_DISPLAY_NAMES: dict[str, str] = {
     # Anthropic
+    "claude-opus-4-7": "Claude Opus 4.7",
     "claude-opus-4-6": "Claude Opus 4.6",
     "claude-sonnet-4-5-20250929": "Claude Sonnet 4.5",
     "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
@@ -46,7 +47,10 @@ _MODEL_DISPLAY_NAMES: dict[str, str] = {
     "claude-3-7-sonnet-20250219": "Claude 3.7 Sonnet",
     "claude-3-haiku-20240307": "Claude 3 Haiku",
     # OpenAI
+    "gpt-5.5": "GPT-5.5",
+    "gpt-5.5-pro": "GPT-5.5 Pro",
     "gpt-5.2": "GPT-5.2",
+    "gpt-5.2-pro": "GPT-5.2 Pro",
     "gpt-5.1": "GPT-5.1",
     "gpt-5": "GPT-5",
     "o4-mini": "o4-mini",

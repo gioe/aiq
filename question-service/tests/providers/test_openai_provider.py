@@ -370,7 +370,10 @@ class TestOpenAIProvider:
         assert isinstance(models, list)
         assert len(models) > 0
         # GPT-5 series
+        assert "gpt-5.5" in models
+        assert "gpt-5.5-pro" in models
         assert "gpt-5.2" in models
+        assert "gpt-5.2-pro" in models
         assert "gpt-5.1" in models
         assert "gpt-5" in models
         # Reasoning models (o-series)
@@ -386,6 +389,7 @@ class TestOpenAIProvider:
         # GPT-3.5 series (legacy)
         assert "gpt-3.5-turbo" in models
         # Verify ordering: GPT-5 -> o-series -> GPT-4 -> GPT-3.5
+        assert models.index("gpt-5.5") < models.index("gpt-5.2")
         assert models.index("gpt-5.2") < models.index("o4-mini")
         assert models.index("o4-mini") < models.index("gpt-4o")
         assert models.index("gpt-4o") < models.index("gpt-3.5-turbo")

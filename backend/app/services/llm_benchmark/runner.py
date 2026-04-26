@@ -55,6 +55,7 @@ _PROVIDER_DISPATCH: dict[str, Callable[..., Awaitable[ProviderResponse]]] = {
 # Source: question-service/config/models.yaml
 _MODEL_COST_PER_M_TOKENS: dict[str, tuple[float, float]] = {
     # Anthropic
+    "claude-opus-4-7": (5.00, 25.00),
     "claude-opus-4-6": (15.00, 75.00),
     "claude-sonnet-4-5-20250929": (3.00, 15.00),
     "claude-haiku-4-5-20251001": (1.00, 5.00),
@@ -64,11 +65,14 @@ _MODEL_COST_PER_M_TOKENS: dict[str, tuple[float, float]] = {
     "claude-3-7-sonnet-20250219": (3.00, 15.00),
     "claude-3-haiku-20240307": (0.25, 1.25),
     # OpenAI
-    "gpt-5.2": (5.00, 15.00),
-    "gpt-5.1": (5.00, 15.00),
-    "gpt-5": (5.00, 15.00),
+    "gpt-5.5": (5.00, 30.00),
+    "gpt-5.5-pro": (30.00, 180.00),
+    "gpt-5.2": (1.75, 14.00),
+    "gpt-5.2-pro": (21.00, 168.00),
+    "gpt-5.1": (1.25, 10.00),
+    "gpt-5": (1.25, 10.00),
     "o4-mini": (1.10, 4.40),
-    "o3": (10.00, 40.00),
+    "o3": (2.00, 8.00),
     "o3-mini": (1.10, 4.40),
     "o1": (15.00, 60.00),
     "gpt-4o": (2.50, 10.00),

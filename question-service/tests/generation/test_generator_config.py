@@ -932,7 +932,7 @@ class TestProductionGeneratorsYaml:
         config = loader.load()
 
         assert config.generators["pattern"].provider == "openai"
-        assert config.generators["pattern"].model == "gpt-5.2"
+        assert config.generators["pattern"].model == "gpt-5.5"
 
     def test_generators_yaml_spatial_uses_openai(self, production_config_path):
         """Test that spatial questions use OpenAI provider."""
@@ -940,7 +940,7 @@ class TestProductionGeneratorsYaml:
         config = loader.load()
 
         assert config.generators["spatial"].provider == "openai"
-        assert config.generators["spatial"].model == "gpt-5.2"
+        assert config.generators["spatial"].model == "gpt-5.5"
 
     def test_generators_yaml_math_uses_anthropic(self, production_config_path):
         """Test that math questions use Anthropic provider (switched from OpenAI in Mar 2026; claude-sonnet-4-5 composite 91.71 vs gpt-5.2 81.79)."""
@@ -981,7 +981,7 @@ class TestProductionGeneratorsYaml:
 
         assert config.default_generator is not None
         assert config.default_generator.provider == "openai"
-        assert config.default_generator.model == "gpt-4-turbo"
+        assert config.default_generator.model == "gpt-5.5"
 
     def test_generators_yaml_specialist_routing_enabled(self, production_config_path):
         """Test that specialist routing is enabled in production config."""

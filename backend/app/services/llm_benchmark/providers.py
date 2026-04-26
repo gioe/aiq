@@ -45,7 +45,7 @@ def _error_response(model: str, error: str) -> LLMResponse:
 # ---------------------------------------------------------------------------
 
 _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-_OPENAI_MODEL = "gpt-5.2"
+_OPENAI_MODEL = "gpt-5.5"
 
 
 async def complete_openai(prompt: str, *, model: str = _OPENAI_MODEL) -> LLMResponse:
@@ -97,7 +97,11 @@ _ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 _ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929"
 
 # Models that do not support assistant-message prefill (e.g. Opus).
-_NO_PREFILL_MODELS = {"claude-opus-4-6", "claude-opus-4-20250514"}
+_NO_PREFILL_MODELS = {
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-opus-4-20250514",
+}
 
 
 async def complete_anthropic(

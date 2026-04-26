@@ -168,9 +168,9 @@ class TestEstimateCost:
         assert cost == pytest.approx(0.75)
 
     def test_opus_cost(self):
-        # 1M input @ $15.00 + 1M output @ $75.00 = $90.00
-        cost = _estimate_cost("claude-opus-4-6", 1_000_000, 1_000_000)
-        assert cost == pytest.approx(90.0)
+        # 1M input @ $5.00 + 1M output @ $25.00 = $30.00
+        cost = _estimate_cost("claude-opus-4-7", 1_000_000, 1_000_000)
+        assert cost == pytest.approx(30.0)
 
     def test_sonnet_cost(self):
         # 1M input @ $3.00 + 1M output @ $15.00 = $18.00

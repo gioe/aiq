@@ -16,9 +16,9 @@
 #
 # IMPORTANT - Model Naming Convention:
 #   Model identifiers MUST match the exact strings used by each provider's API:
-#   - Anthropic: claude-opus-4-6, claude-sonnet-4-5-20250929, etc.
+#   - Anthropic: claude-opus-4-7, claude-sonnet-4-5-20250929, etc.
 #   - Google: gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-pro, etc.
-#   - OpenAI: gpt-5.2, gpt-4-turbo, o4-mini, etc.
+#   - OpenAI: gpt-5.5, gpt-5.2, o4-mini, etc.
 #   - xAI: grok-4, grok-3
 #   See each provider's get_available_models() for the full list.
 #
@@ -35,31 +35,31 @@ generators:
     provider: "anthropic"
     model: "claude-sonnet-4-5-20250929"
     max_batch_size: 10
-    rationale: "Composite 91.71 leads all models on AIME 2025 (87.0%) and GSM8K (98.0%) with null-redistributed weights (FrontierMath data unavailable; 30% weight redistributed — true composite may be lower). Delta +9.92 over prior gpt-5.2 assignment (81.79). Fallback: openai/gpt-5.2 (composite 81.79, full benchmark coverage). Updated Mar 2026 via /refresh-providers."
+    rationale: "Composite 91.71 leads all models on AIME 2025 (87.0%) and GSM8K (98.0%) with null-redistributed weights (FrontierMath data unavailable; 30% weight redistributed — true composite may be lower). Fallback upgraded to openai/gpt-5.5 after OpenAI's 2026-04-24 API availability update; GPT-5.5 improves GPT-5.4 on FrontierMath and coding/agentic benchmarks, but no full IQ-domain bakeoff has run yet. Reviewed Apr 2026."
     fallback: "openai"
-    fallback_model: "gpt-5.2"
+    fallback_model: "gpt-5.5"
 
   logic:
     provider: "anthropic"
     model: "claude-sonnet-4-5-20250929"
     max_batch_size: 10
-    rationale: "Claude Sonnet 4.5 (Jan 2026): SWE-bench verified 77-82%, GPQA Diamond 83.4%, HumanEval >95%. Major upgrade from Claude 3.5 Sonnet (49% SWE-bench) for logic and reasoning tasks."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): SWE-bench verified 77-82%, GPQA Diamond 83.4%, HumanEval >95%. Major upgrade from Claude 3.5 Sonnet (49% SWE-bench) for logic and reasoning tasks. Fallback upgraded to openai/gpt-5.5 after OpenAI's 2026-04-24 API availability update. Reviewed Apr 2026."
     fallback: "openai"
-    fallback_model: "gpt-5.2"
+    fallback_model: "gpt-5.5"
 
   pattern:
     provider: "openai"
-    model: "gpt-5.2"
+    model: "gpt-5.5"
     max_batch_size: 10
-    rationale: "ARC-AGI-2: 52.9% (Thinking), MMMU-Pro: 86.5%. Leads all models on abstract pattern reasoning. Updated Jan 2026."
+    rationale: "Upgraded from gpt-5.2 to gpt-5.5 after OpenAI's 2026-04-24 API availability update. GPT-5.5 improves GPT-5.4 across agentic coding, FrontierMath, and knowledge-work benchmarks; prior GPT-5.2 assignment led available pattern/spatial benchmarks (ARC-AGI-2 52.9%, MMMU-Pro 86.5%). Retain OpenAI primary pending a focused AIQ bakeoff. Reviewed Apr 2026."
     fallback: "anthropic"
-    fallback_model: "claude-opus-4-6"
+    fallback_model: "claude-opus-4-7"
 
   spatial:
     provider: "openai"
-    model: "gpt-5.2"
+    model: "gpt-5.5"
     max_batch_size: 10
-    rationale: "ARC-AGI-2: 52.9%, MMMU-Pro: 86.5%, Video-MMMU: 90.5%. Composite 75.9 leads all models. Updated Jan 2026."
+    rationale: "Upgraded from gpt-5.2 to gpt-5.5 after OpenAI's 2026-04-24 API availability update. GPT-5.5 improves GPT-5.4 on broad reasoning and knowledge-work benchmarks; prior GPT-5.2 assignment led spatial proxy benchmarks (ARC-AGI-2 52.9%, MMMU-Pro 86.5%, Video-MMMU 90.5%). Retain OpenAI primary pending a focused AIQ bakeoff. Reviewed Apr 2026."
     fallback: "google"
     fallback_model: "gemini-2.5-pro"
 
@@ -67,7 +67,7 @@ generators:
     provider: "anthropic"
     model: "claude-sonnet-4-5-20250929"
     max_batch_size: 10
-    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89%, HellaSwag ~95%. Enhanced language understanding and generation with superior NLP performance. Fallback: google/gemini-3.1-pro-preview (composite 91.01, Δ+5.34 vs prior gpt-5.2 fallback). Updated Mar 2026 via /refresh-providers."
+    rationale: "Claude Sonnet 4.5 (Jan 2026): MMLU 89%, HellaSwag ~95%. Enhanced language understanding and generation with superior NLP performance. Fallback remains google/gemini-3.1-pro-preview; Google IDs were not changed in Apr 2026 because no live availability validation was run for a replacement."
     fallback: "google"
     fallback_model: "gemini-3.1-pro-preview"
 
@@ -75,15 +75,15 @@ generators:
     provider: "google"
     model: "gemini-3.1-pro-preview"
     max_batch_size: 10
-    rationale: "Composite 72.3 leads all models. MMLU 91.8% with 1M token context window (norm 50.0). Strong knowledge + largest context for memory tasks. gemini-3-pro-preview shut down 2026-03-09; migrated to gemini-3.1-pro-preview (direct replacement). Updated Mar 2026."
+    rationale: "Composite 72.3 leads all models. MMLU 91.8% with 1M token context window (norm 50.0). Strong knowledge + largest context for memory tasks. gemini-3-pro-preview shut down 2026-03-09; migrated to gemini-3.1-pro-preview (direct replacement). OpenAI fallback upgraded to gpt-5.5 in Apr 2026; Google primary unchanged pending live replacement validation."
     fallback: "openai"
-    fallback_model: "gpt-5.2"
+    fallback_model: "gpt-5.5"
 
 # Default generator (fallback for unknown question types)
 default_generator:
   provider: "openai"
-  model: "gpt-4-turbo"
-  rationale: "General-purpose fallback generator"
+  model: "gpt-5.5"
+  rationale: "General-purpose fallback generator upgraded from legacy gpt-4-turbo after OpenAI's 2026-04-24 API availability update for gpt-5.5."
   fallback: "anthropic"
   fallback_model: "claude-sonnet-4-5-20250929"
 
