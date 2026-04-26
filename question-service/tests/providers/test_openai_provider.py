@@ -1,7 +1,7 @@
 """Tests for OpenAI provider integration."""
 
 import json
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from openai import OpenAIError
@@ -170,6 +170,127 @@ class TestOpenAIProvider:
         # Verify the call included JSON mode
         call_args = mock_client.chat.completions.create.call_args
         assert call_args.kwargs["response_format"] == {"type": "json_object"}
+        messages = call_args.kwargs["messages"]
+        assert "valid JSON" in messages[0]["content"]
+        assert json.dumps(sample_json_schema) in messages[0]["content"]
+
+    @patch("app.providers.openai_provider.OpenAI")
+    def test_generate_structured_completion_empty_format_keeps_prompt_unchanged(
+        self,
+        mock_openai_class,
+        mock_openai_api_key,
+        sample_prompt,
+        mock_json_response,
+    ):
+        """Test empty response_format preserves JSON mode but leaves prompt unchanged."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_message = Mock()
+        mock_message.content = json.dumps(mock_json_response)
+
+        mock_choice = Mock()
+        mock_choice.message = mock_message
+
+        mock_response = Mock()
+        mock_response.choices = [mock_choice]
+
+        mock_client.chat.completions.create.return_value = mock_response
+
+        provider = OpenAIProvider(api_key=mock_openai_api_key)
+        result = provider.generate_structured_completion(
+            sample_prompt, {}, temperature=0.7, max_tokens=1000
+        )
+
+        assert result == mock_json_response
+        call_args = mock_client.chat.completions.create.call_args
+        assert call_args.kwargs["response_format"] == {"type": "json_object"}
+        assert call_args.kwargs["messages"] == [
+            {"role": "user", "content": sample_prompt}
+        ]
+
+    @pytest.mark.asyncio
+    @patch("app.providers.openai_provider.AsyncOpenAI")
+    @patch("app.providers.openai_provider.OpenAI")
+    async def test_generate_structured_completion_async_empty_format_keeps_prompt_unchanged(
+        self,
+        mock_openai_class,
+        mock_async_openai_class,
+        mock_openai_api_key,
+        sample_prompt,
+        mock_json_response,
+    ):
+        """Test async empty response_format preserves JSON mode and prompt."""
+        mock_openai_class.return_value = MagicMock()
+        mock_async_client = MagicMock()
+        mock_async_openai_class.return_value = mock_async_client
+
+        mock_message = Mock()
+        mock_message.content = json.dumps(mock_json_response)
+
+        mock_choice = Mock()
+        mock_choice.message = mock_message
+
+        mock_response = Mock()
+        mock_response.choices = [mock_choice]
+
+        mock_async_client.chat.completions.create = AsyncMock(
+            return_value=mock_response
+        )
+
+        provider = OpenAIProvider(api_key=mock_openai_api_key)
+        result = await provider.generate_structured_completion_async(
+            sample_prompt, {}, temperature=0.7, max_tokens=1000
+        )
+
+        assert result == mock_json_response
+        call_args = mock_async_client.chat.completions.create.call_args
+        assert call_args.kwargs["response_format"] == {"type": "json_object"}
+        assert call_args.kwargs["messages"] == [
+            {"role": "user", "content": sample_prompt}
+        ]
+
+    @pytest.mark.asyncio
+    @patch("app.providers.openai_provider.AsyncOpenAI")
+    @patch("app.providers.openai_provider.OpenAI")
+    async def test_generate_structured_completion_async_non_empty_format_includes_schema(
+        self,
+        mock_openai_class,
+        mock_async_openai_class,
+        mock_openai_api_key,
+        sample_prompt,
+        sample_json_schema,
+        mock_json_response,
+    ):
+        """Test async non-empty response_format appends schema and keeps JSON mode."""
+        mock_openai_class.return_value = MagicMock()
+        mock_async_client = MagicMock()
+        mock_async_openai_class.return_value = mock_async_client
+
+        mock_message = Mock()
+        mock_message.content = json.dumps(mock_json_response)
+
+        mock_choice = Mock()
+        mock_choice.message = mock_message
+
+        mock_response = Mock()
+        mock_response.choices = [mock_choice]
+
+        mock_async_client.chat.completions.create = AsyncMock(
+            return_value=mock_response
+        )
+
+        provider = OpenAIProvider(api_key=mock_openai_api_key)
+        result = await provider.generate_structured_completion_async(
+            sample_prompt, sample_json_schema, temperature=0.7, max_tokens=1000
+        )
+
+        assert result == mock_json_response
+        call_args = mock_async_client.chat.completions.create.call_args
+        assert call_args.kwargs["response_format"] == {"type": "json_object"}
+        messages = call_args.kwargs["messages"]
+        assert "valid JSON" in messages[0]["content"]
+        assert json.dumps(sample_json_schema) in messages[0]["content"]
 
     @patch("app.providers.openai_provider.OpenAI")
     def test_generate_structured_completion_json_error(

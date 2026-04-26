@@ -1,7 +1,7 @@
 """Tests for Anthropic provider integration."""
 
 import json
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from anthropic import AnthropicError
@@ -152,6 +152,104 @@ class TestAnthropicProvider:
         # Check that the prompt includes JSON instructions
         messages = call_args.kwargs["messages"]
         assert "valid JSON" in messages[0]["content"]
+        assert json.dumps(sample_json_schema) in messages[0]["content"]
+
+    @patch("app.providers.anthropic_provider.Anthropic")
+    def test_generate_structured_completion_empty_format_keeps_prompt_unchanged(
+        self,
+        mock_anthropic_class,
+        mock_anthropic_api_key,
+        sample_prompt,
+        mock_json_response,
+    ):
+        """Test empty response_format does not append generic schema instructions."""
+        mock_client = MagicMock()
+        mock_anthropic_class.return_value = mock_client
+
+        mock_content_block = Mock()
+        mock_content_block.text = json.dumps(mock_json_response)
+
+        mock_response = Mock()
+        mock_response.content = [mock_content_block]
+
+        mock_client.messages.create.return_value = mock_response
+
+        provider = AnthropicProvider(api_key=mock_anthropic_api_key)
+        result = provider.generate_structured_completion(
+            sample_prompt, {}, temperature=0.7, max_tokens=1000
+        )
+
+        assert result == mock_json_response
+        messages = mock_client.messages.create.call_args.kwargs["messages"]
+        assert messages == [{"role": "user", "content": sample_prompt}]
+
+    @pytest.mark.asyncio
+    @patch("app.providers.anthropic_provider.AsyncAnthropic")
+    @patch("app.providers.anthropic_provider.Anthropic")
+    async def test_generate_structured_completion_async_empty_format_keeps_prompt_unchanged(
+        self,
+        mock_anthropic_class,
+        mock_async_anthropic_class,
+        mock_anthropic_api_key,
+        sample_prompt,
+        mock_json_response,
+    ):
+        """Test async empty response_format does not append schema instructions."""
+        mock_anthropic_class.return_value = MagicMock()
+        mock_async_client = MagicMock()
+        mock_async_anthropic_class.return_value = mock_async_client
+
+        mock_content_block = Mock()
+        mock_content_block.text = json.dumps(mock_json_response)
+
+        mock_response = Mock()
+        mock_response.content = [mock_content_block]
+
+        mock_async_client.messages.create = AsyncMock(return_value=mock_response)
+
+        provider = AnthropicProvider(api_key=mock_anthropic_api_key)
+        result = await provider.generate_structured_completion_async(
+            sample_prompt, {}, temperature=0.7, max_tokens=1000
+        )
+
+        assert result == mock_json_response
+        messages = mock_async_client.messages.create.call_args.kwargs["messages"]
+        assert messages == [{"role": "user", "content": sample_prompt}]
+
+    @pytest.mark.asyncio
+    @patch("app.providers.anthropic_provider.AsyncAnthropic")
+    @patch("app.providers.anthropic_provider.Anthropic")
+    async def test_generate_structured_completion_async_non_empty_format_includes_schema(
+        self,
+        mock_anthropic_class,
+        mock_async_anthropic_class,
+        mock_anthropic_api_key,
+        sample_prompt,
+        sample_json_schema,
+        mock_json_response,
+    ):
+        """Test async non-empty response_format appends schema instructions."""
+        mock_anthropic_class.return_value = MagicMock()
+        mock_async_client = MagicMock()
+        mock_async_anthropic_class.return_value = mock_async_client
+
+        mock_content_block = Mock()
+        mock_content_block.text = json.dumps(mock_json_response)
+
+        mock_response = Mock()
+        mock_response.content = [mock_content_block]
+
+        mock_async_client.messages.create = AsyncMock(return_value=mock_response)
+
+        provider = AnthropicProvider(api_key=mock_anthropic_api_key)
+        result = await provider.generate_structured_completion_async(
+            sample_prompt, sample_json_schema, temperature=0.7, max_tokens=1000
+        )
+
+        assert result == mock_json_response
+        messages = mock_async_client.messages.create.call_args.kwargs["messages"]
+        assert "valid JSON" in messages[0]["content"]
+        assert json.dumps(sample_json_schema) in messages[0]["content"]
 
     @patch("app.providers.anthropic_provider.Anthropic")
     def test_generate_structured_completion_json_error(
