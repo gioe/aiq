@@ -10,6 +10,9 @@ Usage:
 
 Options:
     --runs N            Number of benchmark runs per model (default: 3)
+    --model VENDOR/MODEL
+                        Benchmark only this configured vendor/model pair;
+                        repeat to target multiple models
     --question-ids ID   Comma-separated list of question IDs for fixed sets
     --dry-run           Preview which models would be benchmarked
     --api-url URL       Backend API URL (default: $BACKEND_API_URL or production)
@@ -97,6 +100,45 @@ def load_models_from_configs(
                 _add(dj["fallback"], dj["fallback_model"])
 
     return models
+
+
+def select_models(
+    configured_models: List[Tuple[str, str]],
+    targets: List[str],
+) -> List[Tuple[str, str]]:
+    """Return configured models filtered by explicit vendor/model targets."""
+    if not targets:
+        return configured_models
+
+    available = set(configured_models)
+    selected: List[Tuple[str, str]] = []
+    seen: Set[Tuple[str, str]] = set()
+
+    for target in targets:
+        if target.count("/") != 1:
+            raise ValueError(
+                f"Invalid --model '{target}': expected vendor/model "
+                "(for example openai/gpt-5.5)"
+            )
+        vendor, model = (part.strip() for part in target.split("/", 1))
+        if not vendor or not model:
+            raise ValueError(
+                f"Invalid --model '{target}': expected vendor/model "
+                "(for example openai/gpt-5.5)"
+            )
+
+        pair = (vendor, model)
+        if pair not in available:
+            available_text = ", ".join(f"{v}/{m}" for v, m in configured_models)
+            raise ValueError(
+                f"Targeted model '{target}' not found in configured models. "
+                f"Available models: {available_text}"
+            )
+        if pair not in seen:
+            seen.add(pair)
+            selected.append(pair)
+
+    return selected
 
 
 def print_model_table(models: List[Tuple[str, str]], runs: int) -> None:
@@ -191,6 +233,16 @@ def main() -> None:
         help="Number of benchmark runs per model (default: 3)",
     )
     parser.add_argument(
+        "--model",
+        action="append",
+        default=[],
+        metavar="VENDOR/MODEL",
+        help=(
+            "Benchmark only this configured vendor/model pair; repeat to target "
+            "multiple models"
+        ),
+    )
+    parser.add_argument(
         "--question-ids",
         type=str,
         default=None,
@@ -263,12 +315,22 @@ def main() -> None:
         print("Authentication check succeeded.")
         sys.exit(0)
 
-    models = load_models_from_configs(include_fallbacks=args.include_fallbacks)
-    if not models:
+    configured_models = load_models_from_configs(
+        include_fallbacks=args.include_fallbacks
+    )
+    if not configured_models:
         print("Error: no models found in config files", file=sys.stderr)
         sys.exit(2)
+    try:
+        models = select_models(configured_models, args.model)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(2)
 
-    print(f"Models extracted from config ({len(models)} unique):\n")
+    if args.model:
+        print(f"Targeted models selected ({len(models)} unique):\n")
+    else:
+        print(f"Models extracted from config ({len(models)} unique):\n")
     print_model_table(models, args.runs)
 
     if args.dry_run:
