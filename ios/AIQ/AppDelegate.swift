@@ -44,7 +44,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         #if DebugBuild
             // Skip TrustKit initialization in DEBUG builds to allow development with proxies
             Self.logger.info("DEBUG build: Certificate pinning disabled for development")
-            Self.logger.info("API URL: \(AppConfig.apiBaseURL)")
+            if MockModeDetector.isMockMode {
+                Self.logger.info("API mode: offline mock services")
+            } else {
+                Self.logger.info("API URL: \(AppConfig.apiBaseURL)")
+            }
         #else
             initializeTrustKit()
         #endif
