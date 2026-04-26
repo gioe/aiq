@@ -35,6 +35,7 @@ import yaml
 CONFIG_DIR = Path(__file__).parent.parent / "config"
 DEFAULT_API_URL = "https://aiq-backend-production.up.railway.app"
 BENCHMARK_ENDPOINT = "/v1/admin/llm-benchmark/run"
+AUTH_CHECK_VENDOR = "__auth_check__"
 
 
 def load_models_from_configs(
@@ -133,6 +134,23 @@ def run_benchmark(
     return resp.json()
 
 
+def check_benchmark_auth(
+    client: httpx.Client,
+    api_url: str,
+    admin_token: str,
+) -> None:
+    """Verify admin-token authentication without running a real benchmark."""
+    resp = client.post(
+        f"{api_url.rstrip('/')}{BENCHMARK_ENDPOINT}",
+        json={"vendor": AUTH_CHECK_VENDOR, "model_id": AUTH_CHECK_VENDOR},
+        headers={"X-Admin-Token": admin_token},
+        timeout=30.0,
+    )
+    if resp.status_code == 400 and AUTH_CHECK_VENDOR in resp.text:
+        return
+    resp.raise_for_status()
+
+
 def print_summary(results: List[Dict]) -> None:
     """Print a summary table of all triggered runs."""
     header = (
@@ -189,6 +207,11 @@ def main() -> None:
         help="Preview which models would be benchmarked without triggering runs",
     )
     parser.add_argument(
+        "--auth-check",
+        action="store_true",
+        help="Verify production admin authentication without triggering benchmark runs",
+    )
+    parser.add_argument(
         "--api-url",
         type=str,
         default=os.environ.get("BACKEND_API_URL", DEFAULT_API_URL),
@@ -213,6 +236,32 @@ def main() -> None:
                 file=sys.stderr,
             )
             sys.exit(2)
+
+    if args.auth_check:
+        if not args.admin_token:
+            print(
+                "Error: --admin-token or $ADMIN_TOKEN required for auth check",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        with httpx.Client() as client:
+            try:
+                check_benchmark_auth(client, args.api_url, args.admin_token)
+            except httpx.HTTPStatusError as exc:
+                print(
+                    f"Authentication check failed ({exc.response.status_code}): "
+                    f"{exc.response.text}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            except httpx.RequestError as exc:
+                print(
+                    f"Authentication check failed ({type(exc).__name__}): {exc}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        print("Authentication check succeeded.")
+        sys.exit(0)
 
     models = load_models_from_configs(include_fallbacks=args.include_fallbacks)
     if not models:
