@@ -125,6 +125,55 @@ def _submit_completed_guest_test(client):
     return submit_response.json()
 
 
+class AtomicGuestTokenStore:
+    def __init__(self, payload):
+        """Initialize the fake store with a single consumable payload."""
+        self.payload = payload
+        self.get_and_delete_calls = 0
+
+    def get_and_delete(self, token):
+        self.get_and_delete_calls += 1
+        payload = self.payload
+        self.payload = None
+        return payload
+
+    def get(self, token):
+        raise AssertionError("submit token consumption must use atomic get-and-delete")
+
+    def delete(self, token):
+        raise AssertionError("submit token consumption must use atomic get-and-delete")
+
+
+class TestGuestTokenConsumption:
+    def test_submit_token_consumption_uses_atomic_store_operation(self):
+        payload = {
+            "token_type": "submit",
+            "session_id": 123,
+            "device_id": "device-123",
+            "question_ids": [1, 2, 3],
+        }
+        store = AtomicGuestTokenStore(payload)
+        guest_test_module._token_store = store
+
+        assert guest_test_module._consume_guest_token("token-123") == payload
+        assert guest_test_module._consume_guest_token("token-123") is None
+        assert store.get_and_delete_calls == 2
+
+    def test_submit_token_consumption_rejects_non_submit_token_after_consume(self):
+        store = AtomicGuestTokenStore(
+            {
+                "token_type": "claim",
+                "session_id": 123,
+                "device_id": "device-123",
+                "question_ids": [1, 2, 3],
+            }
+        )
+        guest_test_module._token_store = store
+
+        assert guest_test_module._consume_guest_token("token-123") is None
+        assert guest_test_module._consume_guest_token("token-123") is None
+
+
 class TestGuestResultClaim:
     def test_guest_submit_returns_claim_token(self, client, guest_user, many_questions):
         submit_data = _submit_completed_guest_test(client)

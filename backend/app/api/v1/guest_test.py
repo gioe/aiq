@@ -211,14 +211,12 @@ def _consume_guest_token(token: str) -> Optional[GuestTokenPayload]:
     Returns:
         GuestTokenPayload dict if valid, else None.
     """
-    store = _get_token_store()
-    payload = store.get(token)
+    payload = _get_token_store().get_and_delete(token)
     if payload is None or payload.get("token_type", "submit") != "submit":
         logger.warning(
             "Guest token lookup failed (expired or already consumed): %s", token
         )
         return None
-    store.delete(token)
     return payload
 
 

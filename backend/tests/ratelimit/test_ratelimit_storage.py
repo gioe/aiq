@@ -57,6 +57,22 @@ class TestInMemoryStorage:
         self.storage.delete("key1")
         assert self.storage.get("key1") is None
 
+    def test_get_and_delete_consumes_value_once(self):
+        """Test atomically retrieving and deleting an in-memory value."""
+        self.storage.set("key1", {"count": 5})
+
+        assert self.storage.get_and_delete("key1") == {"count": 5}
+        assert self.storage.get_and_delete("key1") is None
+        assert self.storage.get("key1") is None
+
+    def test_get_and_delete_returns_none_for_expired_value(self):
+        """Test get-and-delete treats expired in-memory values as missing."""
+        self.storage.set("key1", "value1", ttl=0.1)
+        time.sleep(0.2)
+
+        assert self.storage.get_and_delete("key1") is None
+        assert self.storage.get("key1") is None
+
     def test_delete_nonexistent(self):
         """Test deleting a nonexistent key doesn't error."""
         self.storage.delete("nonexistent")  # Should not raise
@@ -594,6 +610,32 @@ class TestRedisStorage:
         storage.delete("key1")
 
         mock_redis["client"].delete.assert_called_once_with("ratelimit:key1")
+
+    def test_get_and_delete_uses_single_getdel_command(self, mock_redis):
+        """Test atomic consume uses Redis GETDEL in one Redis operation."""
+        storage = self.RedisStorage()
+        mock_redis["client"].execute_command.return_value = b'{"count": 5}'
+
+        result = storage.get_and_delete("key1")
+
+        mock_redis["client"].execute_command.assert_called_once_with(
+            "GETDEL", "ratelimit:key1"
+        )
+        mock_redis["client"].get.assert_not_called()
+        mock_redis["client"].delete.assert_not_called()
+        assert result == {"count": 5}
+
+    def test_get_and_delete_returns_none_for_missing_redis_key(self, mock_redis):
+        """Test Redis get-and-delete returns None when GETDEL misses."""
+        storage = self.RedisStorage()
+        mock_redis["client"].execute_command.return_value = None
+
+        result = storage.get_and_delete("missing")
+
+        mock_redis["client"].execute_command.assert_called_once_with(
+            "GETDEL", "ratelimit:missing"
+        )
+        assert result is None
 
     def test_delete_handles_redis_error(self, mock_redis):
         """Test delete handles Redis errors gracefully."""

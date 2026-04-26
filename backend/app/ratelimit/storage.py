@@ -56,6 +56,19 @@ class RateLimiterStorage(ABC):
         pass
 
     @abstractmethod
+    def get_and_delete(self, key: str) -> Optional[Any]:
+        """
+        Atomically retrieve a value and delete its key.
+
+        Args:
+            key: Storage key
+
+        Returns:
+            Stored value or None if not found
+        """
+        pass
+
+    @abstractmethod
     def clear(self) -> None:
         """Clear all stored data."""
         pass
@@ -140,6 +153,22 @@ class InMemoryStorage(RateLimiterStorage):
         """Delete a key."""
         with self._lock:
             self._remove_key(key)
+
+    def get_and_delete(self, key: str) -> Optional[Any]:
+        """Atomically get and remove a value, returning None if missing or expired."""
+        with self._lock:
+            self._maybe_cleanup()
+
+            if key not in self._data:
+                return None
+
+            if key in self._expiry and time.time() > self._expiry[key]:
+                self._remove_key(key)
+                return None
+
+            value = self._data[key]
+            self._remove_key(key)
+            return value
 
     def clear(self) -> None:
         """Clear all stored data."""
@@ -336,15 +365,21 @@ class RedisStorage(RateLimiterStorage):
         """
         try:
             value = self._redis.get(self._make_key(key))
-            if value is None:
-                return None
-            # redis-py returns bytes for sync client
-            return self._json.loads(value.decode("utf-8"))  # type: ignore[union-attr]
+            return self._decode_value(key, value, "get")
         except self._redis_module.RedisError as e:
             self._logger.error(f"Redis error during get({key}): {e}")
             return None
+
+    def _decode_value(self, key: str, value: Any, operation: str) -> Optional[Any]:
+        """Decode a Redis JSON payload returned by get-like operations."""
+        if value is None:
+            return None
+
+        try:
+            # redis-py returns bytes for sync client
+            return self._json.loads(value.decode("utf-8"))  # type: ignore[union-attr]
         except (ValueError, self._json.JSONDecodeError) as e:
-            self._logger.error(f"JSON decode error during get({key}): {e}")
+            self._logger.error(f"JSON decode error during {operation}({key}): {e}")
             return None
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
@@ -380,6 +415,19 @@ class RedisStorage(RateLimiterStorage):
             self._redis.delete(self._make_key(key))
         except self._redis_module.RedisError as e:
             self._logger.error(f"Redis error during delete({key}): {e}")
+
+    def get_and_delete(self, key: str) -> Optional[Any]:
+        """
+        Atomically get and delete a key from Redis using GETDEL.
+
+        Returns None if the key is missing or the Redis operation fails.
+        """
+        try:
+            value = self._redis.execute_command("GETDEL", self._make_key(key))
+            return self._decode_value(key, value, "get_and_delete")
+        except self._redis_module.RedisError as e:
+            self._logger.error(f"Redis error during get_and_delete({key}): {e}")
+            return None
 
     def clear(self) -> None:
         """
