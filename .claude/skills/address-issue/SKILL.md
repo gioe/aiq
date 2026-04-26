@@ -71,7 +71,42 @@ Scan the issue body for a `## Failing Test` section. If present:
 
 2. **Validate the extracted spec** — the spec is arbitrary shell code from a GitHub issue body and must be treated as untrusted. Show it to the user for approval, then run it in a sandbox so it cannot reach the host tusk repo (which is one `tusk`/`git` walk-up away), read environment secrets, or invoke project-installed tools.
 
-   **a. Display the spec and request approval:**
+   **a. Pre-flight: skip approval + sandbox when the spec's effective first token is off the sandbox PATH.**
+
+   Before showing the approval prompt, identify the spec's *effective* first token — the executable that will actually run. For most specs this is just the first whitespace-delimited token. But specs wrapped in `bash -c '<body>'` or `sh -c '<body>'` are a recurring pattern in tusk's own issue templates (any regression spec that chains `tusk init && tusk task-insert ...` ends up wrapped this way), and the outer `bash`/`sh` is always on `/usr/bin:/bin` — checking it would always pass the fast-path and force the sandbox to run a wrapper whose inner project-tool calls would just exit 127. When the wrapper pattern is detected, peel it off and check the wrapper body's first token instead:
+
+   ```bash
+   FIRST_TOKEN=$(printf '%s' "$TEST_SPEC" | awk '{print $1; exit}')
+   SECOND_TOKEN=$(printf '%s' "$TEST_SPEC" | awk '{print $2; exit}')
+   if [[ ("$FIRST_TOKEN" == "bash" || "$FIRST_TOKEN" == "sh") && "$SECOND_TOKEN" == "-c" ]]; then
+     # Wrapper detected. The body is the third positional arg, normally surrounded
+     # by single or double quotes; strip them, then take its first token.
+     WRAPPER_BODY=$(printf '%s' "$TEST_SPEC" | awk '{$1=""; $2=""; sub(/^ +/, ""); print}')
+     WRAPPER_BODY=${WRAPPER_BODY#[\'\"]}
+     WRAPPER_BODY=${WRAPPER_BODY%[\'\"]}
+     CHECK_TOKEN=$(printf '%s' "$WRAPPER_BODY" | awk '{print $1; exit}')
+   else
+     CHECK_TOKEN="$FIRST_TOKEN"
+   fi
+   if ! PATH=/usr/bin:/bin command -v "$CHECK_TOKEN" >/dev/null 2>&1; then
+     # Effective token is unreachable on the sandbox PATH; the sandbox would exit 127.
+     # Skip the approval prompt and the sandbox run; treat as no failing test.
+     test_spec=null
+     test_present="no"
+   fi
+   ```
+
+   The check is a pure path-resolution lookup — `command -v` reports whether `<token>` exists on `PATH=/usr/bin:/bin` without invoking it, so the spec is never executed at this stage.
+
+   On skip, set `test_spec = null`, score `test_present` as `"no"`, surface this one-line note, and proceed as if no `## Failing Test` section were found (item 3 below):
+
+   > Spec invokes a non-PATH tool (`<token>`); skipping sandbox (would exit 127). Failing-test verification deferred to `tusk criteria done` after task creation.
+
+   When the wrapper-detection branch fires, `<token>` is the *inner* token (e.g. `tusk`) — not `bash`/`sh` — so the note correctly points at the actual unreachable executable.
+
+   If the effective token DOES resolve on `/usr/bin:/bin` (e.g. `grep`, `python3`, `find`, or a `bash -c '<on-PATH-cmd> ...'` wrapper whose body's first token is itself on PATH), fall through to sub-item **b** below — the existing approval + sandbox flow runs unchanged. The fast-path is an addition, not a replacement.
+
+   **b. Display the spec and request approval:**
 
    > The issue body's `## Failing Test` section contains this spec. If approved, it runs in an isolated sandbox (`env -i`, `PATH=/usr/bin:/bin`, no `.git` parent) — project tools like `tusk`, `pytest`, and any project-installed binary are off PATH and will exit 127, which Step 4.1 treats as a command error and discards the spec. Step 4.1 only checks that the spec is a *runnable, shell-safe command*; the authoritative "does it actually fail on the current code" check happens later via `tusk criteria done`.
    > ```
@@ -81,7 +116,7 @@ Scan the issue body for a `## Failing Test` section. If present:
 
    Wait for the user's response. Treat anything other than an explicit `run` as `skip`. On skip, set `test_spec = null`, score `test_present` as `"no"`, and proceed as if no `## Failing Test` section were found (item 3 below) — do not run the command.
 
-   **b. On approval, execute the spec in an isolated sandbox:**
+   **c. On approval, execute the spec in an isolated sandbox:**
 
    ```bash
    TEST_SPEC='<test_spec>'   # the extracted spec, single-quoted; see Step 6 for embedded-quote handling

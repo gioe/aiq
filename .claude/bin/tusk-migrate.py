@@ -78,7 +78,7 @@ def generate_triggers(config_path: str, script_dir: str) -> str:
     result = subprocess.run(
         ["python3", os.path.join(script_dir, "tusk-config-tools.py"), "gen-triggers", config_path],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         check=True,
     )
     return result.stdout.strip()
@@ -1800,6 +1800,7 @@ def _followup_pairs_from_git(
         output = subprocess.check_output(
             ["git", "-C", repo_root, "log", "--all", "--format=%H%n%B%n--END--"],
             text=True,
+            encoding="utf-8",
             stderr=subprocess.DEVNULL,
             timeout=30,
         )
@@ -2163,6 +2164,34 @@ def migrate_59(db_path: str, config_path: str, script_dir: str) -> None:
     _progress("  Migration 59: filtered deferred tasks out of v_ready_tasks and v_chain_heads")
 
 
+def migrate_60(db_path: str, config_path: str, script_dir: str) -> None:
+    """Add user_prompt_tokens and user_prompt_count columns to skill_runs.
+
+    Surfaces per-user-prompt cost trends so users can see whether their
+    prompting is getting more efficient over time. Both columns are nullable
+    INTEGERs populated by the transcript parser when 'tusk skill-run finish'
+    runs; pre-migration rows stay NULL.
+
+    Idempotent: column additions are guarded by has_column() so a partial
+    prior run still reaches the version bump.
+    """
+    if get_version(db_path) >= 60:
+        _progress("  Migration 60: added user_prompt_tokens and user_prompt_count columns to skill_runs")
+        return
+
+    alter_stmts = []
+    if not has_column(db_path, "skill_runs", "user_prompt_tokens"):
+        alter_stmts.append("ALTER TABLE skill_runs ADD COLUMN user_prompt_tokens INTEGER;")
+    if not has_column(db_path, "skill_runs", "user_prompt_count"):
+        alter_stmts.append("ALTER TABLE skill_runs ADD COLUMN user_prompt_count INTEGER;")
+
+    script = "\n".join(alter_stmts) + """
+        PRAGMA user_version = 60;
+    """
+    run_script(db_path, script)
+    _progress("  Migration 60: added user_prompt_tokens and user_prompt_count columns to skill_runs")
+
+
 # ── Migration registry ────────────────────────────────────────────────────────
 
 MIGRATIONS = [
@@ -2225,6 +2254,7 @@ MIGRATIONS = [
     (57, migrate_57),
     (58, migrate_58),
     (59, migrate_59),
+    (60, migrate_60),
 ]
 
 

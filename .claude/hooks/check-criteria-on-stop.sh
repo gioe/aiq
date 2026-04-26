@@ -2,8 +2,13 @@
 # Stop hook: warns about in-progress tasks with incomplete acceptance criteria.
 # Advisory only — always exits 0 so it never blocks Claude from stopping.
 
+# Resolve repo root and tusk binary. Stop hooks fire after Claude finishes,
+# when setup-path.sh's PATH exports may already be gone — bare 'tusk' would
+# silently no-op via the 2>/dev/null swallow below.
+source "$(dirname "$0")/hook-common.sh"
+
 # Query for in-progress tasks that have at least one incomplete criterion
-result=$(tusk -json "
+result=$("$TUSK" -json "
 SELECT t.id, t.summary,
        COUNT(ac.id) AS total_criteria,
        SUM(CASE WHEN ac.is_completed = 0 THEN 1 ELSE 0 END) AS incomplete

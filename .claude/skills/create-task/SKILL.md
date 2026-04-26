@@ -49,13 +49,32 @@ Break the input into discrete, actionable tasks. For each task, determine:
 
 | Field | How to Determine |
 |-------|-----------------|
-| **summary** | Clear, imperative sentence describing the deliverable (e.g., "Add login endpoint with JWT authentication"). Max ~100 chars. |
-| **description** | Expanded context from the input — acceptance criteria, technical notes, relevant quotes from the source text. |
+| **summary** | Clear, imperative sentence describing the deliverable (e.g., "Add login endpoint with JWT authentication"). Aim for ~100 chars; hard cap **150 chars** (enforced in Step 3.7). |
+| **description** | Expanded context from the input — motivation, constraints, links to source material. Hard cap **1200 chars** (enforced in Step 3.7) — move acceptance criteria and step-by-step details out into the criteria list. |
 | **priority** | Infer from language cues: "critical"/"urgent"/"blocking" → `Highest`/`High`; "nice to have"/"eventually" → `Low`/`Lowest`; default to `Medium`. Must be one of the configured priorities. |
 | **domain** | Match to a configured domain based on the task's subject area. Leave NULL if no domains are configured or none fit. |
 | **task_type** | Categorize as one of the configured task types (bug, feature, refactor, test, docs, infrastructure). Default to `feature` for new work, `bug` for fixes. For `test` and `docs`: use as `task_type` only when writing tests or docs **is the primary deliverable** — otherwise use acceptance criteria. See **Task Type Decision Guide** below. |
 | **assignee** | Match to a configured agent if the task clearly falls in their area. Leave NULL if unsure. |
 | **complexity** | Estimate effort: `XS` = partial session, `S` = 1 session, `M` = 2-3 sessions, `L` = 3-5 sessions, `XL` = 5+. Default to `M` if unclear. Must be one of the configured complexity values. |
+
+### Description shape
+
+Each task carries three text fields with distinct intents — keep them sharp. Blurring them produces brittle tasks that rot the moment any code edit lands:
+
+| Field | Intent | Contains |
+|-------|--------|----------|
+| **summary** | **WHAT** — the deliverable in one imperative sentence | "Add JWT login endpoint", "Fix race in session-close" |
+| **description** | **WHY** — motivation, constraints, links to source material | The user complaint, the audit finding, the design decision; links to RFCs, retros, PRs |
+| **criteria** | **HOW** — testable conditions that prove the WHAT was delivered | "POST /auth/login returns 401 on bad password", "tests/integration/test_login.py passes" |
+
+**Forbidden in descriptions:** file-and-line references (e.g. `bin/tusk:1234`, `skills/foo/SKILL.md:88`) and step-by-step implementation plans. Line numbers rot the moment any edit lands above them, and step-by-step plans over-anchor `/tusk` to a stale approach when the implementer should re-derive from current code. The description should explain *why* the work matters, not encode *how* a single past reading of the codebase suggested doing it.
+
+**Encouraged:** stable identifiers as anchors — function and class names, config keys, table and column names, environment variables, constant names, and file paths *without* line numbers. These survive refactors and let the implementer use grep/LSP to locate current call sites:
+
+- **Good:** "The `cmd_init` function in `bin/tusk` stamps `PRAGMA user_version` on fresh installs"
+- **Avoid:** "bin/tusk:1456 sets the user_version pragma"
+- **Good:** "Migration 55 added `tasks.fixes_task_id`; views need to be recreated to pick it up"
+- **Avoid:** "See line 88 of bin/tusk-migrate.py for the migration logic"
 
 ### Task Type Decision Guide
 
@@ -135,6 +154,29 @@ Apply the user's answer to that task's `fixes_task_id` and continue.
 
 **Borderline phrasing** — mere mentions like "see TASK-N" or "related to TASK-N" (without `fixes`, `follow-up from`, or `retro follow-up from`) do **not** qualify. Leave `fixes_task_id` unset in those cases.
 
+## Step 3.7: Validate Length Limits
+
+Before presenting the task list, verify every proposed task complies with the hard length caps:
+
+- **summary** — at most **150 characters**
+- **description** — at most **1200 characters**
+
+These caps prevent bloated text from being re-sent on every `tusk task-list` and `tusk task-get` call. An audit found tasks where the entire description had been pasted verbatim into the summary field, producing 600+ char summaries that polluted every subsequent listing.
+
+For each proposed task, count `len(summary)` and `len(description)`. If **either** exceeds its cap, refuse to insert that task — surface the violation and prompt the user before continuing:
+
+> **Length violation in task #<i>** ("<short title>"):
+> - summary: <S> chars (max 150) — over by <S - 150>
+> - description: <D> chars (max 1200) — over by <D - 1200>
+>
+> How would you like to fix this? You can:
+> - **Trim** — propose a shorter version (suggest one if useful)
+> - **Split** — break the task into multiple smaller tasks (helpful when the description is long because it covers multiple deliverables)
+> - **Move** detail from description into acceptance criteria (the criteria list has no length cap and is the right home for HOW-style content)
+> - **Cancel** this task
+
+Apply the user's chosen fix, recount lengths against the same caps (150 / 1200), and only proceed to Step 4 once **every** task is within both limits. Do not skip this validation — a task that exceeds either cap must not reach `tusk task-insert`.
+
 ## Step 4: Present Task List for Review
 
 ### Single-task fast path
@@ -195,7 +237,46 @@ Wait for explicit user approval before proceeding. Do NOT insert anything until 
 
 ## Step 5: Deduplicate, Insert, and Generate Criteria
 
-For each approved task, generate **3–7 acceptance criteria** — concrete, testable conditions that define "done." Derive them from the description: each distinct requirement or expected behavior maps to a criterion. For **bug** tasks, include a criterion that the failure case is resolved. For **feature** tasks, include the happy path and at least one edge case. For any task that creates a new database table (or is in a schema-related domain), always include the criterion: "DOMAIN.md updated with schema entry for `<table_name>`".
+For each approved task, generate **2–5 acceptance criteria** — concrete, testable conditions that define "done." **Prefer typed criteria** over manual ones whenever the check is mechanical. Typed criteria auto-verify on `tusk criteria done`, removing reasoning cost from /tusk's output tokens; fewer-but-sharper typed criteria beat long manual checklists.
+
+### Type-inference rubric (apply this first)
+
+For each criterion you draft, ask: *can this be checked mechanically?* If yes, give it a `type` and a `spec`. Default to `manual` only when none of the rules below fit.
+
+| Signal in the criterion text | Type | `spec` is | How verification runs |
+|---|---|---|---|
+| Mentions a **test command, test file, or test name** (e.g. "tests/integration/test_foo.py passes", "the auth pytest suite passes") | `test` | The exact shell command that runs the test | Runs `spec`; pass = exit 0; 300s timeout |
+| Mentions a **file path that should exist** (e.g. "CHANGELOG.md has an entry", "migration file in bin/ exists") | `file` | A glob pattern matching the expected path | Pass if **any** file matches |
+| Mentions a **code symbol, string, or pattern that must (or must not) appear** (e.g. "`PRAGMA user_version = 56` stamped in cmd_init", "no raw `sqlite3` call in skills/") | `code` | A shell command (typically `grep -q …` or `! grep -q …`) whose exit code answers the question | Runs `spec`; pass = exit 0; 120s timeout |
+| Anything else — visual review, design judgment, prose correctness, behavior in a UI | `manual` | — | None; /tusk asserts it during work |
+
+### Worked `--typed-criteria` examples
+
+One per non-manual type. These are valid arguments to `tusk task-insert` — copy the shape:
+
+```bash
+# test type — auto-runs the named test on `tusk criteria done`
+--typed-criteria '{"text":"Migration test passes","type":"test","spec":"python3 -m pytest tests/integration/test_migrate_56.py -q"}'
+
+# file type — auto-checks the glob matches at least one path
+--typed-criteria '{"text":"Migration test file present","type":"file","spec":"tests/integration/test_migrate_*.py"}'
+
+# code type — auto-greps for presence (or absence) of a symbol or pattern
+--typed-criteria '{"text":"cmd_init stamps user_version 56","type":"code","spec":"grep -q \"PRAGMA user_version = 56\" bin/tusk"}'
+--typed-criteria '{"text":"Skills do not call raw sqlite3","type":"code","spec":"! grep -rE \"(^|[|;&])\\s*sqlite3\\b\" .claude/skills/"}'
+```
+
+For `test` and `code`, `spec` is a shell command — exit 0 = pass; use `! …` to invert. For `file`, `spec` is a glob (recursive `**` works).
+
+### Manual fallback
+
+Use plain `--criteria` for things that genuinely need human judgment — visual review, design correctness, prose quality:
+
+```bash
+--criteria "DOMAIN.md updated with schema entry for <table_name>"
+```
+
+For **bug** tasks, include a criterion that the failure case is resolved (often expressible as a typed `test` criterion — the failing test now passes). For **feature** tasks, include the happy path and at least one edge case. For any task that creates a new database table (or is in a schema-related domain), always include the manual criterion: "DOMAIN.md updated with schema entry for `<table_name>`".
 
 ### Dangerous Criterion Guard
 
@@ -259,16 +340,7 @@ tusk task-insert "<summary>" "<description>" \
   --deferred
 ```
 
-For typed criteria with automated verification, use `--typed-criteria` with a JSON object:
-
-```bash
-tusk task-insert "<summary>" "<description>" \
-  --criteria "Manual criterion" \
-  --typed-criteria '{"text":"Tests pass","type":"test","spec":"pytest tests/"}' \
-  --typed-criteria '{"text":"Config exists","type":"file","spec":"config/*.json"}'
-```
-
-Valid types: `manual` (default), `code`, `test`, `file`. Non-manual types require a `spec` field.
+Mix `--criteria` (manual) and `--typed-criteria` (test/file/code) freely in the same call — one flag per criterion. `--typed-criteria` takes a JSON object `{"text": "...", "type": "test|file|code|manual", "spec": "..."}`; non-manual types require `spec`. Pick the type using the rubric in this step: `test` → spec is the test-runner command (exit 0 = pass); `file` → spec is a glob (passes if any file matches); `code` → spec is a `grep -q` (or `! grep -q`) command (exit 0 = pass).
 
 Omit `--domain` or `--assignee` entirely if the value is NULL/empty — do not pass empty strings.
 

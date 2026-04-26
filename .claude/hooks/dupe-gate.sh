@@ -2,6 +2,11 @@
 # PreToolUse hook: blocks INSERT INTO tasks when a duplicate summary exists.
 # Extracts the summary from the SQL, runs tusk dupes check, exits 2 on match.
 
+# Resolve repo root and tusk binary. PreToolUse hooks can fire before
+# setup-path.sh has populated PATH for the session — bare 'tusk' would
+# silently no-op via the 2>&1 swallow below and let the duplicate slip in.
+source "$(dirname "$0")/hook-common.sh"
+
 # Read JSON from stdin
 input=$(cat)
 
@@ -101,7 +106,7 @@ if [ "$py_rc" -ne 0 ] || [ -z "$summary" ]; then
 fi
 
 # Run duplicate check
-dupe_output=$(tusk dupes check "$summary" --json 2>&1)
+dupe_output=$("$TUSK" dupes check "$summary" --json 2>&1)
 dupe_rc=$?
 
 # Exit code 1 from tusk dupes = duplicates found

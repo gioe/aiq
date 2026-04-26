@@ -60,30 +60,63 @@ INSTALL_MODES = {
 }
 
 
+INSTALL_ROLES = ("source", "consumer")
+
+
+def _read_marker(script_dir: str) -> str:
+    """Return the raw install-mode marker text, or '' on absence/error."""
+    marker = os.path.join(script_dir, "install-mode")
+    if not os.path.isfile(marker):
+        return ""
+    try:
+        return Path(marker).read_text().strip()
+    except OSError:
+        return ""
+
+
 def detect_install_mode(script_dir: str) -> str:
     """Return install mode from the <script_dir>/install-mode marker.
 
+    Accepts both the legacy plain form ('claude' / 'codex') and the compound
+    '<mode>-<role>' form written by install.sh once role detection landed.
     Absent or malformed → 'claude' (legacy pre-Codex installs and dev envs).
     """
-    marker = os.path.join(script_dir, "install-mode")
-    if os.path.isfile(marker):
-        try:
-            value = Path(marker).read_text().strip()
-        except OSError:
-            return "claude"
-        if value in INSTALL_MODES:
-            return value
+    value = _read_marker(script_dir)
+    if not value:
+        return "claude"
+    mode = value.split("-", 1)[0]
+    if mode in INSTALL_MODES:
+        return mode
     return "claude"
 
 
-def translate_manifest_for_mode(files, mode: str) -> list:
-    """Rewrite tarball MANIFEST entries (claude-shaped) for the local install mode.
+def detect_install_role(script_dir: str) -> str:
+    """Return install role ('source' | 'consumer') from the install-mode marker.
 
-    Claude mode is a pass-through. Codex mode rewrites .claude/bin/ → tusk/bin/
-    and drops .claude/skills/ and .claude/hooks/ entries (no Codex equivalents).
+    The role is the suffix in the compound marker '<mode>-<role>'. Legacy
+    markers without a suffix predate role detection and are treated as 'source'
+    so existing tusk-source installs continue to upgrade unchanged.
+    """
+    value = _read_marker(script_dir)
+    if not value or "-" not in value:
+        return "source"
+    role = value.split("-", 1)[1]
+    if role in INSTALL_ROLES:
+        return role
+    return "source"
+
+
+def translate_manifest_for_mode(files, mode: str) -> list:
+    """Rewrite tarball MANIFEST entries (mode-shaped) for the local install mode.
+
+    The tarball MANIFEST may contain both .claude/* (claude-only) and .codex/* (codex-only)
+    paths since a single tarball ships both. Translation:
+    - Claude mode: keep .claude/* and pass-through; drop .codex/* (no Claude equivalents).
+    - Codex mode: rewrite .claude/bin/ → tusk/bin/, drop .claude/skills/ and .claude/hooks/
+      (no Codex equivalents), keep .codex/* unchanged.
     """
     if mode == "claude":
-        return list(files)
+        return [f for f in files if not f.startswith(".codex/")]
     bin_prefix = INSTALL_MODES[mode]["bin_prefix"]
     out = []
     for f in files:
@@ -103,6 +136,52 @@ _verbose = True
 def _vprint(*args, **kwargs) -> None:
     if _verbose:
         print(*args, **kwargs)
+
+
+def is_source_repo(repo_root: str) -> bool:
+    """Return True when repo_root looks like the tusk source repo.
+
+    Three markers (all must hold):
+    - skills/ is a real directory (not a symlink) with at least one subdir
+      containing a SKILL.md file
+    - install.sh is a regular file at repo root
+    - .claude/skills/ exists and every entry in it is a symlink
+
+    In installed projects, .claude/skills/ contains real directories (copied
+    from the tarball) and there is no skills/ sibling — so the combined test
+    distinguishes source from target without relying on a path name.
+    """
+    skills_dir = os.path.join(repo_root, "skills")
+    if os.path.islink(skills_dir) or not os.path.isdir(skills_dir):
+        return False
+    try:
+        skills_entries = os.listdir(skills_dir)
+    except OSError:
+        return False
+    has_skill_md = any(
+        os.path.isfile(os.path.join(skills_dir, name, "SKILL.md"))
+        for name in skills_entries
+        if os.path.isdir(os.path.join(skills_dir, name))
+    )
+    if not has_skill_md:
+        return False
+
+    if not os.path.isfile(os.path.join(repo_root, "install.sh")):
+        return False
+
+    claude_skills = os.path.join(repo_root, ".claude", "skills")
+    if not os.path.isdir(claude_skills):
+        return False
+    try:
+        claude_entries = [e for e in os.listdir(claude_skills) if not e.startswith(".")]
+    except OSError:
+        return False
+    if not claude_entries:
+        return False
+    return all(
+        os.path.islink(os.path.join(claude_skills, e))
+        for e in claude_entries
+    )
 
 
 def _should_rexec(src: str, script_dir: str) -> bool:
@@ -235,6 +314,24 @@ def copy_skills(src: str, repo_root: str) -> int:
                 shutil.copy2(src_file, dest_dir)
         count += 1
         _vprint(f"  Updated skill: {skill_name}")
+    return count
+
+
+def copy_prompts(src: str, repo_root: str) -> int:
+    prompts_src = os.path.join(src, "codex-prompts")
+    if not os.path.isdir(prompts_src):
+        return 0
+    dest_dir = os.path.join(repo_root, ".codex", "prompts")
+    os.makedirs(dest_dir, exist_ok=True)
+    count = 0
+    for fname in os.listdir(prompts_src):
+        if not fname.endswith(".md"):
+            continue
+        src_file = os.path.join(prompts_src, fname)
+        if os.path.isfile(src_file):
+            shutil.copy2(src_file, dest_dir)
+            count += 1
+            _vprint(f"  Updated codex prompt: {fname}")
     return count
 
 
@@ -606,11 +703,13 @@ def _run_upgrade_steps(src: str, repo_root: str, script_dir: str, tmpdir: str) -
         added_perms = ensure_review_commits_permissions(repo_root)
         for entry in added_perms:
             _vprint(f"  Added required permission: {entry}")
+        prompt_count = 0
     else:
         skill_count = 0
         hook_count = 0
         hook_summary = {"registered": 0, "dedup_removed": 0, "permissions_added": 0}
         added_perms = []
+        prompt_count = copy_prompts(src, repo_root)
     script_count = copy_scripts(src, repo_root)
     backfilled_keys = merge_config_defaults(src, repo_root, script_dir)
 
@@ -621,7 +720,7 @@ def _run_upgrade_steps(src: str, repo_root: str, script_dir: str, tmpdir: str) -
         subprocess.run(migrate_cmd, check=True)
         migrate_summary = "ran"
     else:
-        result = subprocess.run(migrate_cmd, check=True, capture_output=True, text=True)
+        result = subprocess.run(migrate_cmd, check=True, capture_output=True, text=True, encoding="utf-8")
         migrate_summary = (result.stdout or "ran").strip().splitlines()[-1]
 
     deprecated_count = remove_deprecated_files(repo_root)
@@ -645,6 +744,7 @@ def _run_upgrade_steps(src: str, repo_root: str, script_dir: str, tmpdir: str) -
         "hook_count": hook_count,
         "hook_summary": hook_summary,
         "added_perms": added_perms,
+        "prompt_count": prompt_count,
         "script_count": script_count,
         "backfilled_keys": backfilled_keys,
         "migrate_summary": migrate_summary,
@@ -698,6 +798,15 @@ def main() -> None:
 
     repo_root = args.repo_root
     script_dir = args.script_dir
+
+    # Refuse to run inside the tusk source repo. stage_and_commit does
+    # `git add --force` on MANIFEST paths, several of which (.claude/skills/*)
+    # are symlinks here and crash with "pathspec is beyond a symbolic link".
+    # The upgrade is also a no-op — VERSION tracks HEAD and source files are
+    # byte-identical to their own targets. git pull is the right tool.
+    if is_source_repo(repo_root):
+        print("This is the tusk source repo; use git pull to update.")
+        return
 
     # Guard the hidden --_rexec-src flag: the tempdir we'd rmtree in finally is
     # derived from this path, so require it to live under the system tempdir.

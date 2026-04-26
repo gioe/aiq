@@ -14,6 +14,7 @@ import argparse
 import glob as globmod
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -377,7 +378,8 @@ def cmd_list(args: argparse.Namespace, db_path: str, config: dict) -> int:
 
 def _done_single(conn: sqlite3.Connection, criterion_id: int, skip_verify: bool,
                   suppress_shared_commit: bool, commit_hash: Optional[str],
-                  committed_at: Optional[str], note: Optional[str] = None) -> int:
+                  committed_at: Optional[str], note: Optional[str] = None,
+                  head_task_id: Optional[int] = None) -> int:
     """Mark a single criterion as done. Returns 0 on success, 1 on verification failure, 2 on not-found."""
     row = conn.execute(
         "SELECT id, task_id, criterion, is_completed, criterion_type, verification_spec "
@@ -391,6 +393,14 @@ def _done_single(conn: sqlite3.Connection, criterion_id: int, skip_verify: bool,
     if row["is_completed"]:
         print(f"Criterion #{criterion_id} is already completed")
         return 0
+
+    # Cross-task HEAD guard (issue #573): if HEAD's commit message references a
+    # different task (or no task at all), do not stamp HEAD's hash onto this
+    # criterion. Without this, sequential tasks on a shared branch leak prior
+    # tasks' commits into the current task's audit trail.
+    if commit_hash is not None and head_task_id != row["task_id"]:
+        commit_hash = None
+        committed_at = None
 
     criterion_type = row["criterion_type"] or "manual"
     spec = row["verification_spec"]
@@ -470,6 +480,67 @@ def _done_single(conn: sqlite3.Connection, criterion_id: int, skip_verify: bool,
     return 0
 
 
+def _head_task_id() -> Optional[int]:
+    """Parse ``[TASK-<n>]`` from HEAD's commit message; return ``n`` or None.
+
+    Used to suppress stamping HEAD's commit_hash onto criteria whose task is
+    different from the task referenced by HEAD (issue #573). When HEAD's commit
+    belongs to TASK-A and the criterion belongs to TASK-B, stamping leaks an
+    unrelated commit into TASK-B's audit trail. Returns None when HEAD has no
+    ``[TASK-<n>]`` prefix or when git is unavailable.
+    """
+    try:
+        msg = subprocess.check_output(
+            ["git", "log", "-1", "--format=%B", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            encoding="utf-8",
+        )
+    except Exception:
+        return None
+    m = re.match(r"\[TASK-(\d+)\]", msg)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except (TypeError, ValueError):
+        return None
+
+
+def _has_new_commits_over_default() -> bool:
+    """True iff HEAD has commits not reachable from the default branch.
+
+    Used to suppress stamping ``commit_hash`` on criteria when the current branch
+    has no exclusive commits over default — otherwise HEAD's inherited tip leaks
+    into ``acceptance_criteria.commit_hash`` and the shared-commit warning fires
+    against unrelated criteria. Fails open: any error returns True so existing
+    behavior is preserved when detection is impossible.
+    """
+    try:
+        tusk_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tusk")
+        default_proc = subprocess.run(
+            [tusk_bin, "git-default-branch"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+        default = default_proc.stdout.strip() if default_proc.returncode == 0 else ""
+        if not default:
+            return True
+        count_proc = subprocess.run(
+            ["git", "rev-list", "--count", f"{default}..HEAD"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+        if count_proc.returncode != 0:
+            return True
+        return int(count_proc.stdout.strip() or "0") > 0
+    except Exception:
+        return True
+
+
 def cmd_done(args: argparse.Namespace, db_path: str, config: dict) -> int:
     conn = get_connection(db_path)
     try:
@@ -480,14 +551,29 @@ def cmd_done(args: argparse.Namespace, db_path: str, config: dict) -> int:
             commit_hash = subprocess.check_output(
                 ["git", "rev-parse", "--short", "HEAD"],
                 stderr=subprocess.DEVNULL,
-            ).decode().strip() or None
+                encoding="utf-8",
+            ).strip() or None
             if commit_hash:
                 committed_at = subprocess.check_output(
                     ["git", "log", "-1", "--format=%cI", "HEAD"],
                     stderr=subprocess.DEVNULL,
-                ).decode().strip() or None
+                    encoding="utf-8",
+                ).strip() or None
         except Exception:
             pass  # Non-git environment — leave as NULL
+
+        # If the current branch has zero exclusive commits over default, HEAD is the
+        # inherited default-branch tip — not a commit produced by this task. Stamping
+        # criteria with that hash leaks an unrelated commit into the audit trail and
+        # triggers spurious "shares commit" warnings between unrelated criteria.
+        if commit_hash is not None and not _has_new_commits_over_default():
+            commit_hash = None
+            committed_at = None
+
+        # Cross-task guard (issue #573): capture HEAD's [TASK-<n>] reference once
+        # so _done_single can suppress stamping per-criterion when HEAD's task
+        # differs from the criterion's task.
+        head_task_id = _head_task_id() if commit_hash is not None else None
 
         criterion_ids = args.criterion_ids
         allow_shared = getattr(args, "allow_shared_commit", False)
@@ -498,7 +584,11 @@ def cmd_done(args: argparse.Namespace, db_path: str, config: dict) -> int:
         for i, cid in enumerate(criterion_ids):
             # For bulk mode (multiple IDs), imply --batch for 2nd+ criterion
             suppress = allow_shared or batch or (i > 0 and len(criterion_ids) > 1)
-            rc = _done_single(conn, cid, args.skip_verify, suppress, commit_hash, committed_at, note=note)
+            rc = _done_single(
+                conn, cid, args.skip_verify, suppress,
+                commit_hash, committed_at, note=note,
+                head_task_id=head_task_id,
+            )
             if rc > worst_exit:
                 worst_exit = rc
         return worst_exit

@@ -73,10 +73,12 @@ DIFF_RANGE_JSON=$(tusk review-diff-range $TASK_ID)
 On success the helper prints a single JSON object with four keys (`range`, `diff_lines`, `summary`, `recovered_from_task_commits`) and exits 0. Capture:
 
 ```bash
-DIFF_RANGE=$(echo "$DIFF_RANGE_JSON" | jq -r .range)
-DIFF_LINES=$(echo "$DIFF_RANGE_JSON" | jq -r .diff_lines)
-DIFF_SUMMARY=$(echo "$DIFF_RANGE_JSON" | jq -r .summary)
+DIFF_RANGE=$(printf '%s' "$DIFF_RANGE_JSON" | jq -r .range)
+DIFF_LINES=$(printf '%s' "$DIFF_RANGE_JSON" | jq -r .diff_lines)
+DIFF_SUMMARY=$(printf '%s' "$DIFF_RANGE_JSON" | jq -r .summary)
 ```
+
+> Use `printf '%s'` rather than `echo "$VAR"`. In zsh — and in bash with `xpg_echo` enabled — `echo` interprets the literal `\n` escape sequences inside the captured JSON as real newlines, breaking jq with `Invalid string: control characters from U+0000 through U+001F must be escaped` and silently leaving `$DIFF_SUMMARY` empty.
 
 If the helper exits non-zero, it means no diff is recoverable — either no `[TASK-<id>]` commits were found in recent history, or the recovered range is still empty. The helper's stderr message is the same one Step 3 used to print inline. Run `tusk skill-run cancel <run_id>` and stop, surfacing the helper's stderr verbatim.
 
@@ -168,46 +170,52 @@ After spawning, record the agent task ID.
 
 ## Step 6: Monitor Reviewer Completion
 
-Wait for the reviewer agent to finish.
+Wait for the reviewer agent to finish. The agent was spawned with `run_in_background: true` in Step 5, so the runtime emits an automatic completion notification when the agent exits. **Do not chain `sleep 30 && tusk review status <task_id>`** — the runtime blocks long leading sleeps and emits a tool error every time, even though the run still completes via the auto-notification.
 
-**Setup before entering the loop:**
+**Primary path: wait for the auto-completion notification.**
 
+No active polling required — the runtime delivers a notification when the background agent exits. When it arrives, fall through to the **Resolve the verdict** sub-step below.
+
+**Stall detection (no notification within ~2.5 min):**
+
+If you have been waiting for the agent without a completion notification for ~2.5 minutes (matching the previous `STALL_THRESHOLD = 5 × 30s` semantics), the agent may be looping or running a long-running command. Use a short-sleep until-loop — the runtime sleep guard allows `sleep 2` inside an `until` body — that exits as soon as `tusk review status` returns a terminal verdict OR the wall-clock deadline elapses:
+
+```bash
+DEADLINE=$(($(date +%s) + 150))
+until [ "$(tusk review status <task_id> | jq -r .status)" != "pending" ] || [ "$(date +%s)" -ge "$DEADLINE" ]; do
+  sleep 2
+done
 ```
-stall_count = 0
-STALL_THRESHOLD = 5   # iterations (~2.5 min at 30 s/iter)
+
+After the loop exits, fall through to the **Resolve the verdict** sub-step.
+
+**Resolve the verdict:**
+
+Re-read the review status and decide how to proceed:
+
+```bash
+tusk review status <task_id>
 ```
 
-**Monitoring loop:**
+Parse the JSON.
 
-1. Wait 30 seconds:
-   ```bash
-   sleep 30
-   ```
+- **`status` is `"approved"` or `"changes_requested"`** → proceed to Step 7.
 
-2. Check whether the review is still pending:
-   ```bash
-   tusk review status <task_id>
-   ```
-   Parse the JSON. If the review's `status` is `"approved"` or `"changes_requested"`, exit the loop.
+- **`status` is still `"pending"`** → check whether the agent has finished using `TaskOutput` with `block: false` and the agent task ID:
 
-3. If still pending, check whether the agent has finished using `TaskOutput` with `block: false` and the agent task ID:
+  **Agent has completed** (TaskOutput shows the agent is done) but the review is still `"pending"`:
+  - The agent finished without calling `tusk review approve` or `tusk review request-changes`. Log a warning and auto-approve with a note. Pass `--model <your_model_id>` (the orchestrator's own ID from its system prompt) since the orchestrator, not the silent agent, is closing this review:
+    ```bash
+    tusk review approve <review_id> --model <your_model_id> --note "Auto-approved (no verdict): reviewer agent completed without posting a decision. Most likely cause: Bash tool not permitted in agent sandbox. Required permissions.allow entries: Bash(git diff:*), Bash(git remote:*), Bash(git symbolic-ref:*), Bash(git branch:*), Bash(tusk review:*)"
+    ```
+    The most common cause is missing Bash tool permissions (the agent could not run `git diff` or `tusk review`). Run `tusk upgrade` to propagate the required `permissions.allow` entries if they are missing from `.claude/settings.json`. Continue as if the review returned no findings.
 
-   **Agent still running:**
-   - Increment `stall_count` by 1.
-   - If `stall_count >= STALL_THRESHOLD`, the agent has been running for too long without posting a verdict. Auto-approve immediately with a stall warning note and exit the loop. Pass `--model <your_model_id>` (the orchestrator's own ID from its system prompt) since the orchestrator, not the stalled agent, is closing this review:
-     ```bash
-     tusk review approve <review_id> --model <your_model_id> --note "Auto-approved (stall): reviewer agent has been running for ≥5 monitoring iterations (~2.5 min) without posting a verdict. The agent may be looping or running a long-running command such as a full test suite. Check REVIEWER-PROMPT.md Step 2.6 constraints. To prevent stalls, ensure the agent sandbox has the required permissions.allow entries: Bash(git diff:*), Bash(git remote:*), Bash(git symbolic-ref:*), Bash(git branch:*), Bash(tusk review:*)"
-     ```
-     Continue as if the review returned no findings.
-
-   **Agent has completed** (TaskOutput shows the agent is done) but the review is still `"pending"`:
-   - The agent finished without calling `tusk review approve` or `tusk review request-changes`. Log a warning and auto-approve with a note. Pass `--model <your_model_id>` (the orchestrator's own ID) since the orchestrator, not the silent agent, is closing this review:
-     ```bash
-     tusk review approve <review_id> --model <your_model_id> --note "Auto-approved (no verdict): reviewer agent completed without posting a decision. Most likely cause: Bash tool not permitted in agent sandbox. Required permissions.allow entries: Bash(git diff:*), Bash(git remote:*), Bash(git symbolic-ref:*), Bash(git branch:*), Bash(tusk review:*)"
-     ```
-     The most common cause is missing Bash tool permissions (the agent could not run `git diff` or `tusk review`). Run `tusk upgrade` to propagate the required `permissions.allow` entries if they are missing from `.claude/settings.json`. Continue as if the review returned no findings.
-
-4. If the agent is still running and has not been stall-auto-approved, go back to step 1.
+  **Agent is still running** after the stall deadline elapsed:
+  - Auto-approve with a stall warning note. Pass `--model <your_model_id>` (the orchestrator's own ID) since the orchestrator, not the stalled agent, is closing this review:
+    ```bash
+    tusk review approve <review_id> --model <your_model_id> --note "Auto-approved (stall): reviewer agent has been running for ≥2.5 min without posting a verdict. The agent may be looping or running a long-running command such as a full test suite. Check REVIEWER-PROMPT.md Step 2.6 constraints. To prevent stalls, ensure the agent sandbox has the required permissions.allow entries: Bash(git diff:*), Bash(git remote:*), Bash(git symbolic-ref:*), Bash(git branch:*), Bash(tusk review:*)"
+    ```
+    Continue as if the review returned no findings.
 
 ## Step 7: Process Findings
 
@@ -389,8 +397,10 @@ Once the list is reconciled, stage, commit, and push in a single pass:
 ```bash
 git add -- "${REVIEW_FIX_FILES[@]}"
 git commit -m "[TASK-<task_id>] Apply review fixes"
-git push
+git push --set-upstream origin HEAD
 ```
+
+`--set-upstream origin HEAD` is required on the **first** push of a brand-new feature branch when `push.autoSetupRemote` is not set in the user's git config — bare `git push` aborts with "no upstream branch". The flag is idempotent on subsequent pushes (just re-binds the existing tracking ref), so it is safe to use unconditionally.
 
 ## Step 10: Final Summary
 

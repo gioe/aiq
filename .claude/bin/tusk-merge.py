@@ -49,10 +49,11 @@ _git_helpers = tusk_loader.load("tusk-git-helpers")
 _is_remote_unreachable = _git_helpers._is_remote_unreachable
 _UNREACHABLE_REMOTE_PATTERNS = _git_helpers._UNREACHABLE_REMOTE_PATTERNS
 _UNREACHABLE_REMOTE_REGEX = _git_helpers._UNREACHABLE_REMOTE_REGEX
+task_grep_arg = _git_helpers.task_grep_arg
 
 
 def run(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(args, capture_output=True, text=True, check=check)
+    return subprocess.run(args, capture_output=True, text=True, encoding="utf-8", check=check)
 
 
 def _has_remote(name: str = "origin") -> bool:
@@ -580,20 +581,20 @@ def main(argv: list[str]) -> int:
                 file=sys.stderr,
             )
         print(f"Closing task {task_id}...", file=sys.stderr)
+        # Auto-complete path implicitly grants --force: the feature branch was
+        # previously merged so the criteria-without-commit-hash check, run
+        # without --force, would print a misleading "Error:" before the call
+        # site retried with --force. Pass --force up front so task-done emits
+        # "Warning:" instead — diagnostic preserved, no contradiction.
         result = run(
-            [tusk_bin, "task-done", str(task_id), "--reason", "completed"],
+            [tusk_bin, "task-done", str(task_id), "--reason", "completed", "--force"],
             check=False,
         )
-        if result.returncode == 3:
-            if result.stderr.strip():
-                print(result.stderr.strip(), file=sys.stderr)
-            result = run(
-                [tusk_bin, "task-done", str(task_id), "--reason", "completed", "--force"],
-                check=False,
-            )
         if result.returncode != 0:
             print(f"Error: task-done failed:\n{result.stderr.strip()}", file=sys.stderr)
             return 2
+        if result.stderr.strip():
+            print(result.stderr.strip(), file=sys.stderr)
         try:
             task_done_result = json.loads(result.stdout)
         except json.JSONDecodeError:
@@ -744,31 +745,52 @@ def main(argv: list[str]) -> int:
                 file=sys.stderr,
             )
 
-        # Detect if the task commit was already applied directly on the default branch
-        # (e.g. a rebase conflict resolved by re-applying the fix on main). When true,
-        # the feature branch is diverged and cannot be fast-forwarded — skip the
-        # rebase/ff-merge steps and proceed directly to push + cleanup.
-        #
-        # Scoped to commits reachable from the feature branch but NOT from the default
-        # branch (<branch> --not <default>). This prevents false-positives when task IDs
-        # are recycled after a DB reset: an old [TASK-N] commit on the default branch
-        # would be matched by a naïve `git log <default> --grep` but is irrelevant to the
-        # current feature branch. If the feature branch has no exclusive [TASK-N] commits
-        # (empty result), the task's changes must already be on the default branch.
-        _log_check = run(
-            ["git", "log", branch_name, "--not", default_branch, "--oneline",
-             f"--grep=\\[TASK-{task_id}\\]"],
+        # Detect zero-new-commits case first: feature branch has no exclusive commits
+        # over the default branch. Legitimate for triage-only tasks whose deliverable
+        # was a follow-up task creation (or any task that closed without code changes).
+        # Without this check, the branch falls into the task_on_default path below with
+        # a misleading "feature branch is diverged" message — the branch isn't diverged,
+        # it's identical to default.
+        _count_check = run(
+            ["git", "rev-list", "--count", f"{default_branch}..{branch_name}"],
             check=False,
         )
-        task_on_default = (
-            _log_check.returncode == 0 and not bool(_log_check.stdout.strip())
+        no_new_commits = (
+            _count_check.returncode == 0 and _count_check.stdout.strip() == "0"
         )
-        if task_on_default:
+        if no_new_commits:
             print(
-                f"Note: TASK-{task_id} commit already on {default_branch} — "
-                "feature branch is diverged. Skipping ff-only merge.",
+                f"Note: TASK-{task_id} has no new commits on the feature branch — "
+                "closing without merge.",
                 file=sys.stderr,
             )
+            task_on_default = True
+        else:
+            # Detect if the task commit was already applied directly on the default branch
+            # (e.g. a rebase conflict resolved by re-applying the fix on main). When true,
+            # the feature branch is diverged and cannot be fast-forwarded — skip the
+            # rebase/ff-merge steps and proceed directly to push + cleanup.
+            #
+            # Scoped to commits reachable from the feature branch but NOT from the default
+            # branch (<branch> --not <default>). This prevents false-positives when task IDs
+            # are recycled after a DB reset: an old [TASK-N] commit on the default branch
+            # would be matched by a naïve `git log <default> --grep` but is irrelevant to the
+            # current feature branch. If the feature branch has no exclusive [TASK-N] commits
+            # (empty result), the task's changes must already be on the default branch.
+            _log_check = run(
+                ["git", "log", branch_name, "--not", default_branch, "--oneline",
+                 task_grep_arg(task_id)],
+                check=False,
+            )
+            task_on_default = (
+                _log_check.returncode == 0 and not bool(_log_check.stdout.strip())
+            )
+            if task_on_default:
+                print(
+                    f"Note: TASK-{task_id} commit already on {default_branch} — "
+                    "feature branch is diverged. Skipping ff-only merge.",
+                    file=sys.stderr,
+                )
 
         # Secondary check: use git cherry to detect commits that were cherry-picked
         # onto the default branch (same patch content, different hash). The log-scoped
@@ -942,21 +964,18 @@ def main(argv: list[str]) -> int:
         if did_stash:
             _try_pop_stash(task_id)
 
-    # Step 7: Close the task — run without --force first to surface any warnings
+    # Step 7: Close the task — pass --force up front so task-done emits
+    # "Warning:" (not "Error:") for criteria that legitimately lack a commit
+    # hash (e.g. completed via `tusk criteria done --skip-verify` for non-git-
+    # trackable side effects). The user has explicitly chosen to ship the
+    # merge, so implicit --force on close is consistent with that decision.
+    # Diagnostic preserved, no contradiction (issue #582; mirrors the
+    # auto-complete path's TASK-200 fix).
     print(f"Closing task {task_id}...", file=sys.stderr)
     result = run(
-        [tusk_bin, "task-done", str(task_id), "--reason", "completed"],
+        [tusk_bin, "task-done", str(task_id), "--reason", "completed", "--force"],
         check=False,
     )
-    if result.returncode == 3:
-        # task-done has warnings (uncompleted criteria or missing commit hashes);
-        # print them so the user is aware, then close with --force
-        if result.stderr.strip():
-            print(result.stderr.strip(), file=sys.stderr)
-        result = run(
-            [tusk_bin, "task-done", str(task_id), "--reason", "completed", "--force"],
-            check=False,
-        )
     if result.returncode != 0:
         if result.returncode == 2 and f"task {task_id} not found" in result.stderr.lower():
             # Task row missing — likely lost to a WAL revert that the checkpoint
@@ -1004,6 +1023,12 @@ def main(argv: list[str]) -> int:
             return 0
         print(f"Error: task-done failed:\n{result.stderr.strip()}", file=sys.stderr)
         return 2
+
+    # Surface task-done's "Warning:" diagnostic (e.g. listing criteria that
+    # were force-closed without a backing commit) so the audit trail still
+    # reaches the user. Mirrors the auto-complete path's pattern.
+    if result.stderr.strip():
+        print(result.stderr.strip(), file=sys.stderr)
 
     # Step 8: Forward the task-done JSON to stdout
     try:

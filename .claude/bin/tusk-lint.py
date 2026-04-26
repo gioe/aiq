@@ -2,12 +2,17 @@
 """
 tusk-lint — run tusk convention checks non-interactively.
 
-Usage: tusk-lint.py <repo_root>
+Usage: tusk-lint.py <repo_root> [--verbose|--quiet] [--task <task_id>]
 
 Checks the tusk codebase against Key Conventions from CLAUDE.md.
 Prints results grouped by rule and exits with status 1 if any violations found.
+
+The optional ``--task <task_id>`` flag narrows DB-backed rules that support
+scoping (currently Rule 6) to a single task ID. Used by ``tusk commit`` so
+unrelated historical task state cannot block the active commit (Issue #568).
 """
 
+import ast
 import json
 import os
 import re
@@ -246,39 +251,69 @@ def rule5_done_without_closed_reason(root):
 # `tusk commit` in its lint phase for minutes at a time.
 RULE6_RECENT_DAYS = 30
 
+# When non-None, Rule 6 narrows its query to a single task ID instead of
+# scanning every recently-closed task. Set by main() from the --task CLI
+# flag and consumed by rule6_done_incomplete_criteria. `tusk commit` passes
+# the active task ID so a commit cannot be blocked by unrelated historical
+# Done-task state (Issue #568); standalone `tusk lint` invocations leave it
+# at None and retain the global health-check behavior.
+_TASK_SCOPE = None
+
 
 def rule6_done_incomplete_criteria(root):
-    """Done tasks closed in the last 30 days with incomplete acceptance criteria.
+    """Done tasks with incomplete acceptance criteria.
 
-    Scoped to recently-closed tasks so retroactive criteria added to historical
-    Done tasks (closed before criteria enforcement) are not reported.  See
-    RULE6_RECENT_DAYS above for rationale.
+    Two invocation modes:
 
-    Tasks closed with closed_reason IN ('duplicate', 'wont_do') are exempt:
-    a duplicate closure means another task owns the criteria, and wont_do
-    closures are intentional abandonments — neither indicates premature
-    completion, which is what this rule is meant to catch.
+    - **Global** (default, used by standalone `tusk lint`): scans every Done
+      task closed within the last RULE6_RECENT_DAYS days. Acts as a backlog
+      health check — surfaces tasks that were closed prematurely without
+      finishing their criteria.
+    - **Scoped** (used by `tusk commit` via the `--task <id>` flag, which
+      sets the module-level `_TASK_SCOPE`): narrows the query to the single
+      task being committed. The 30-day recency window is dropped because the
+      caller already knows which task it cares about. This prevents a commit
+      on TASK-A from being blocked by unrelated TASK-B's incomplete criteria
+      (Issue #568).
+
+    Tasks closed with closed_reason IN ('duplicate', 'wont_do') are exempt
+    in both modes: a duplicate closure means another task owns the criteria,
+    and wont_do closures are intentional abandonments — neither indicates
+    premature completion, which is what this rule is meant to catch.
     """
     db_path = _db_path_from_root(root)
     if not db_path:
         return []
 
-    cutoff = f"-{RULE6_RECENT_DAYS} days"
     try:
         conn = tusk_loader.load("tusk-db-lib").get_connection(db_path)
         try:
-            rows = conn.execute(
-                "SELECT t.id, t.summary, COUNT(ac.id) AS incomplete "
-                "FROM tasks t "
-                "JOIN acceptance_criteria ac ON ac.task_id = t.id "
-                "WHERE t.status = 'Done' "
-                "  AND COALESCE(t.closed_reason, '') NOT IN ('duplicate', 'wont_do') "
-                "  AND ac.is_completed = 0 AND ac.is_deferred = 0 "
-                "  AND COALESCE(t.closed_at, t.updated_at) >= date('now', ?) "
-                "GROUP BY t.id "
-                "ORDER BY t.id",
-                (cutoff,),
-            ).fetchall()
+            if _TASK_SCOPE is not None:
+                rows = conn.execute(
+                    "SELECT t.id, t.summary, COUNT(ac.id) AS incomplete "
+                    "FROM tasks t "
+                    "JOIN acceptance_criteria ac ON ac.task_id = t.id "
+                    "WHERE t.id = ? "
+                    "  AND t.status = 'Done' "
+                    "  AND COALESCE(t.closed_reason, '') NOT IN ('duplicate', 'wont_do') "
+                    "  AND ac.is_completed = 0 AND ac.is_deferred = 0 "
+                    "GROUP BY t.id",
+                    (_TASK_SCOPE,),
+                ).fetchall()
+            else:
+                cutoff = f"-{RULE6_RECENT_DAYS} days"
+                rows = conn.execute(
+                    "SELECT t.id, t.summary, COUNT(ac.id) AS incomplete "
+                    "FROM tasks t "
+                    "JOIN acceptance_criteria ac ON ac.task_id = t.id "
+                    "WHERE t.status = 'Done' "
+                    "  AND COALESCE(t.closed_reason, '') NOT IN ('duplicate', 'wont_do') "
+                    "  AND ac.is_completed = 0 AND ac.is_deferred = 0 "
+                    "  AND COALESCE(t.closed_at, t.updated_at) >= date('now', ?) "
+                    "GROUP BY t.id "
+                    "ORDER BY t.id",
+                    (cutoff,),
+                ).fetchall()
         except sqlite3.OperationalError:
             return []
         finally:
@@ -517,7 +552,7 @@ def rule12_python_syntax(root):
         try:
             result = subprocess.run(
                 ["python3", "-m", "py_compile", full],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True, text=True, encoding="utf-8", timeout=5,
             )
             if result.returncode != 0:
                 err = result.stderr.strip()
@@ -605,7 +640,7 @@ def _version_bump_check(root, path_re, label):
     try:
         r = subprocess.run(
             ["git", "rev-parse", "--git-dir"],
-            capture_output=True, text=True, timeout=5, cwd=root,
+            capture_output=True, text=True, encoding="utf-8", timeout=5, cwd=root,
         )
         if r.returncode != 0:
             return []
@@ -625,7 +660,7 @@ def _version_bump_check(root, path_re, label):
     try:
         r = subprocess.run(
             ["git", "status", "--porcelain"],
-            capture_output=True, text=True, timeout=5, cwd=root,
+            capture_output=True, text=True, encoding="utf-8", timeout=5, cwd=root,
         )
         if r.returncode == 0:
             for line in r.stdout.splitlines():
@@ -655,13 +690,13 @@ def _version_bump_check(root, path_re, label):
         try:
             r = subprocess.run(
                 ["git", "log", "-1", "--format=%H", "--", "VERSION"],
-                capture_output=True, text=True, timeout=5, cwd=root,
+                capture_output=True, text=True, encoding="utf-8", timeout=5, cwd=root,
             )
             last_ver_commit = r.stdout.strip() if r.returncode == 0 else ""
             if last_ver_commit:
                 r2 = subprocess.run(
                     ["git", "diff", "--name-only", f"{last_ver_commit}..HEAD"],
-                    capture_output=True, text=True, timeout=5, cwd=root,
+                    capture_output=True, text=True, encoding="utf-8", timeout=5, cwd=root,
                 )
                 if r2.returncode == 0:
                     changed = r2.stdout.splitlines()
@@ -773,7 +808,7 @@ def _db_path_from_root(root):
     if not os.path.isfile(tusk_bin):
         tusk_bin = "tusk"
     try:
-        r = subprocess.run([tusk_bin, "path"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run([tusk_bin, "path"], capture_output=True, text=True, encoding="utf-8", timeout=5)
         if r.returncode == 0:
             p = r.stdout.strip()
             if p and os.path.isfile(p):
@@ -806,7 +841,12 @@ def _load_lint_rules(root, is_blocking):
 
 
 def _run_lint_rules(root, rules):
-    """Run a list of DB rule dicts as grep checks. Returns a list of violation strings."""
+    """Run a list of DB rule dicts as grep checks. Returns a list of violation strings.
+
+    file_glob may be a single glob (e.g. ``skills/**/*.md``) or a
+    comma-separated list of globs (e.g. ``skills/**/*.md,codex-prompts/**/*.md``).
+    Whitespace around each entry is stripped; empty entries are ignored.
+    """
     import glob as _glob
     violations = []
     for rule in rules:
@@ -814,17 +854,25 @@ def _run_lint_rules(root, rules):
         pattern = rule["grep_pattern"]
         file_glob = rule["file_glob"]
         message = rule["message"]
-        try:
-            matching = _glob.glob(os.path.join(root, file_glob), recursive=True)
-        except Exception:
-            continue
+        globs = [g.strip() for g in file_glob.split(",") if g.strip()]
+        matching = []
+        seen = set()
+        for g in globs:
+            try:
+                expanded = _glob.glob(os.path.join(root, g), recursive=True)
+            except Exception:
+                continue
+            for f in expanded:
+                if f not in seen:
+                    seen.add(f)
+                    matching.append(f)
         for filepath in sorted(matching):
             if not os.path.isfile(filepath):
                 continue
             try:
                 result = subprocess.run(
                     ["grep", "-nE", pattern, filepath],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True, text=True, encoding="utf-8", timeout=5,
                 )
                 if result.returncode == 0:
                     rel = os.path.relpath(filepath, root)
@@ -906,6 +954,20 @@ def rule18_manifest_drift(root):
             if os.path.isfile(full):
                 expected.append(".claude/hooks/" + fname)
 
+    git_hooks_src = os.path.join(root, "hooks", "git")
+    if os.path.isdir(git_hooks_src):
+        for fname in sorted(os.listdir(git_hooks_src)):
+            full = os.path.join(git_hooks_src, fname)
+            if os.path.isfile(full):
+                expected.append(".claude/bin/hooks/git/" + fname)
+
+    prompts_src = os.path.join(root, "codex-prompts")
+    if os.path.isdir(prompts_src):
+        for fname in sorted(os.listdir(prompts_src)):
+            full = os.path.join(prompts_src, fname)
+            if os.path.isfile(full) and fname.endswith(".md"):
+                expected.append(".codex/prompts/" + fname)
+
     expected_set = set(expected)
     violations = []
     for path in sorted(expected_set - on_disk):
@@ -978,6 +1040,75 @@ def rule23_claude_md_size(root):
     ]
 
 
+def rule24_subprocess_encoding(root):
+    """subprocess.run/check_output/Popen/check_call/call with text=True (or
+    universal_newlines=True) must also pass encoding='utf-8'.
+
+    Convention 25 — omitting encoding falls back to locale.getpreferredencoding(),
+    which raises UnicodeDecodeError on non-UTF-8 systems when output contains
+    non-ASCII bytes (e.g. emoji in git commit messages).
+
+    Source-repo guard: only scans bin/tusk-*.py inside the tusk source repo.
+    """
+    if not os.path.isfile(os.path.join(root, "bin", "tusk")):
+        return []
+
+    bin_dir = os.path.join(root, "bin")
+    if not os.path.isdir(bin_dir):
+        return []
+
+    try:
+        scripts = sorted(
+            f for f in os.listdir(bin_dir)
+            if re.match(r"^tusk-.+\.py$", f)
+        )
+    except OSError:
+        return []
+
+    violations = []
+    for script in scripts:
+        full = os.path.join(bin_dir, script)
+        rel = os.path.relpath(full, root)
+        try:
+            with open(full, encoding="utf-8") as f:
+                source = f.read()
+            tree = ast.parse(source, filename=full)
+        except (OSError, SyntaxError):
+            continue
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not (isinstance(func, ast.Attribute)
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id == "subprocess"
+                    and func.attr in ("run", "check_output", "Popen", "check_call", "call")):
+                continue
+            kwargs = {kw.arg: kw for kw in node.keywords if kw.arg}
+            text_kw = kwargs.get("text")
+            un_kw = kwargs.get("universal_newlines")
+            trigger_kw = None
+            trigger_name = None
+            if text_kw is not None and isinstance(text_kw.value, ast.Constant) and text_kw.value.value is True:
+                trigger_kw = text_kw
+                trigger_name = "text=True"
+            elif un_kw is not None and isinstance(un_kw.value, ast.Constant) and un_kw.value.value is True:
+                trigger_kw = un_kw
+                trigger_name = "universal_newlines=True"
+            if trigger_kw is None:
+                continue
+            if "encoding" in kwargs:
+                continue
+            lineno = trigger_kw.value.lineno
+            violations.append(
+                f"  {rel}:{lineno}: subprocess.{func.attr}({trigger_name}) without encoding='utf-8' "
+                f"(Convention 25)"
+            )
+
+    return violations
+
+
 # Each entry: (display_name, check_function, advisory)
 # advisory=True  → violations are printed but do NOT count toward exit code
 # advisory=False → violations count toward the non-zero exit code
@@ -1005,6 +1136,7 @@ RULES = [
     ("Rule 21: Skill files with multiple trailing newlines", rule21_skills_trailing_newlines, False),
     ("Rule 22: Issue tasks missing a test-type criterion (advisory)", rule22_issue_tasks_missing_test_criterion, True),
     ("Rule 23: CLAUDE.md exceeds line limit (advisory)", rule23_claude_md_size, True),
+    ("Rule 24: subprocess.run/check_output/Popen text=True without encoding", rule24_subprocess_encoding, False),
 ]
 
 # Load project-specific rules from tusk-lint-extra.py if it exists alongside this script.
@@ -1026,7 +1158,10 @@ if os.path.isfile(_extra_path):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: tusk-lint.py <repo_root> [--verbose|--quiet]", file=sys.stderr)
+        print(
+            "Usage: tusk-lint.py <repo_root> [--verbose|--quiet] [--task <task_id>]",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     root = sys.argv[1]
@@ -1042,7 +1177,35 @@ def main():
     #   --quiet / -q   — print only rules with violations; silent on clean
     #                    success. Used by `tusk commit` where the caller
     #                    already prints its own banners.
-    flags = sys.argv[2:]
+    #
+    # `--task <task_id>` narrows DB-backed rules that opt into scoping
+    # (currently Rule 6) to a single task ID — see _TASK_SCOPE comment above.
+    raw_flags = sys.argv[2:]
+    flags = []
+    task_scope = None
+    i = 0
+    while i < len(raw_flags):
+        arg = raw_flags[i]
+        if arg == "--task":
+            if i + 1 >= len(raw_flags):
+                print("Error: --task requires a task ID", file=sys.stderr)
+                sys.exit(2)
+            try:
+                task_scope = int(raw_flags[i + 1])
+            except ValueError:
+                print(
+                    f"Error: --task expects an integer task ID, got {raw_flags[i + 1]!r}",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
+            i += 2
+            continue
+        flags.append(arg)
+        i += 1
+
+    global _TASK_SCOPE
+    _TASK_SCOPE = task_scope
+
     verbose = "--verbose" in flags or "-v" in flags
     quiet = "--quiet" in flags or "-q" in flags
     if verbose and quiet:

@@ -132,16 +132,27 @@ def run(args: list[str], check: bool = True, cwd: str | None = None) -> subproce
 
 
 def _get_staged_deletions(repo_root: str) -> set[str]:
-    """Return repo-root-relative paths currently staged as deletions.
+    """Return repo-root-relative paths absent from disk but staged for the next commit.
 
     Uses ``git diff --cached --name-status -z`` so paths with embedded
-    special characters survive the parse. Renames and copies carry two
-    path tokens (old + new) and are skipped — neither is a pure deletion
-    of the user-supplied path.
+    special characters survive the parse. Includes:
+
+    * ``D`` entries — pure staged deletions (e.g. ``git rm`` or ``rm`` + auto-stage).
+    * ``R`` source paths — after ``git mv old new``, ``old`` is absent from
+      the working tree and its deletion is staged at the index level. Callers
+      treat the source the same as a ``D`` entry: it is a legitimate input that
+      doesn't exist on disk, and it must not be passed to ``git add`` (Issue #554).
+
+    Excludes:
+
+    * ``C`` source paths — for a copy, the source remains in the working tree
+      and the index, so it is neither absent from disk nor staged for removal.
 
     Paths returned here must be excluded from ``git add`` in Step 3
     (TASK-67): the gitignore-retry branch force-adds with ``-f``, which
-    would silently re-add the deleted file and defeat the deletion.
+    would silently re-add the deleted file and defeat the deletion. For
+    ``R`` sources the same exclusion is required for a different reason:
+    ``git add <absent-path>`` exits non-zero with ``pathspec did not match``.
     """
     result = run(
         ["git", "diff", "--cached", "--name-status", "-z"],
@@ -157,7 +168,12 @@ def _get_staged_deletions(repo_root: str) -> set[str]:
         if not status:
             i += 1
             continue
-        if status[:1] in ("R", "C"):
+        if status[:1] == "R":
+            if i + 1 < len(tokens):
+                deletions.add(tokens[i + 1])
+            i += 3
+            continue
+        if status[:1] == "C":
             i += 3
             continue
         if status.startswith("D") and i + 1 < len(tokens):
@@ -177,7 +193,7 @@ def load_task_domain(tusk_bin: str, task_id: int) -> str:
     try:
         result = subprocess.run(
             [tusk_bin, "shell", f"SELECT COALESCE(domain, '') FROM tasks WHERE id = {task_id}"],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, encoding="utf-8", check=False,
         )
         return result.stdout.strip() if result.returncode == 0 else ""
     except Exception:
@@ -271,7 +287,7 @@ def load_test_command(config_path: str, domain: str = "", paths=None,
         return ""
 
 
-DEFAULT_TEST_COMMAND_TIMEOUT_SEC = 120
+DEFAULT_TEST_COMMAND_TIMEOUT_SEC = 240
 
 
 def load_test_command_timeout(config_path: str) -> tuple[int, str]:
@@ -280,7 +296,7 @@ def load_test_command_timeout(config_path: str) -> tuple[int, str]:
     Resolution order:
       1. TUSK_TEST_COMMAND_TIMEOUT env var (must parse as a positive int)
       2. config["test_command_timeout_sec"] (must parse as a positive int)
-      3. DEFAULT_TEST_COMMAND_TIMEOUT_SEC (120)
+      3. DEFAULT_TEST_COMMAND_TIMEOUT_SEC (240)
 
     source is one of: "env", "config", "default".  Invalid values at any layer
     fall through to the next layer — the timeout is advisory infrastructure,
@@ -688,7 +704,13 @@ def _run_commit(argv: list[str], state: dict) -> int:
         if announce_status:
             print("=== Running tusk lint ===")
             sys.stdout.flush()
-        lint = subprocess.run([tusk_bin, "lint", "--quiet"], capture_output=False)
+        # `--task <task_id>` narrows Rule 6 (Done with incomplete acceptance
+        # criteria) to the current task so unrelated historical state cannot
+        # block this commit (Issue #568). All other rules ignore the flag.
+        lint = subprocess.run(
+            [tusk_bin, "lint", "--quiet", "--task", str(task_id)],
+            capture_output=False,
+        )
         if lint.returncode != 0:
             _print_error(
                 "\nError: tusk lint reported non-advisory violations — aborting commit.\n"
@@ -732,21 +754,28 @@ def _run_commit(argv: list[str], state: dict) -> int:
                 test_cmd,
                 shell=True,
                 capture_output=not verbose,
-                text=True,
+                text=True, encoding="utf-8",
                 cwd=repo_root,
                 timeout=timeout_sec,
             )
         except subprocess.TimeoutExpired as exc:
             # When capture_output=True, TimeoutExpired carries whatever was
             # collected on stdout/stderr before the child was killed — dump it
-            # first so the user can see which test hung.  text=True above means
-            # exc.stdout/exc.stderr are already str (or None).
+            # first so the user can see which test hung.  Even with text=True,
+            # the buffered payload can come back as raw bytes when the timeout
+            # fires before subprocess decodes it, so handle both shapes.
             if not verbose:
                 if exc.stdout:
-                    sys.stdout.write(exc.stdout)
+                    out = exc.stdout
+                    if isinstance(out, bytes):
+                        out = out.decode("utf-8", errors="replace")
+                    sys.stdout.write(out)
                     sys.stdout.flush()
                 if exc.stderr:
-                    sys.stderr.write(exc.stderr)
+                    err = exc.stderr
+                    if isinstance(err, bytes):
+                        err = err.decode("utf-8", errors="replace")
+                    sys.stderr.write(err)
                     sys.stderr.flush()
             source_hint = {
                 "env": "TUSK_TEST_COMMAND_TIMEOUT env var",
